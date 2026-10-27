@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
+import type { EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { draftScribeFromFacts, findScribeFactsFromText, getScribeConsentState, recordScribeConsent, revokeScribeConsent } from "@/lib/scribe/actions";
 import type { ScribeFact } from "@/lib/scribe/facts";
 import { FactsReviewPanel } from "./facts-review-panel";
@@ -51,6 +52,11 @@ export interface ScribeDraftResult {
   modelId: string;
   promptVersion: string;
   source: "stt" | "typed";
+  /**
+   * Browser-side edit-rate figures for this review (S89), held with the draft so they are not dropped on the way to the note form.
+   * Nothing persists them yet: `record_scribe_review` has no argument for them (OQ-S89-01).
+   */
+  editTelemetry?: EditTelemetry;
 }
 
 interface ScribePanelProps {
@@ -259,7 +265,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           draft={state.draft}
           patientSummary={state.patientSummary}
           warnings={state.warnings}
-          onUse={(draft, patientSummary) => {
+          onUse={(draft, patientSummary, editTelemetry) => {
             onUseDraft({
               draft,
               patientSummary,
@@ -269,6 +275,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
               modelId: state.modelId,
               promptVersion: state.promptVersion,
               source: "typed",
+              editTelemetry,
             });
             setText("");
             setState({ step: "used" });

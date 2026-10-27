@@ -12,7 +12,7 @@ export function usePreVisitConsultations(patientId: string) {
     queryFn: async () => {
       const { data, error } = await createClient()
         .from("video_consultations")
-        .select("id, status, scheduled_at, ended_at")
+        .select("id, status, scheduled_at, ended_at, context")
         .eq("patient_id", patientId)
         .order("scheduled_at", { ascending: false, nullsFirst: false })
         .limit(10);

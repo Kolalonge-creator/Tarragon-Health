@@ -1,12 +1,13 @@
 "use client";
 
 import { getProposedConfig } from "@tarragon/shared";
-import { checkOmissions, type OmissionInput, type OmissionRules, type OmissionResult } from "@tarragon/clinical/omission-check";
+import type { OmissionRules, OmissionResult } from "@tarragon/clinical/omission-check";
+import { runOmissionCheck } from "@/lib/copilot/run-omission-check";
 import { useAllergies } from "@/lib/queries/allergies";
 import { useMedications } from "@/lib/queries/medications";
 import { useCarePlans } from "@/lib/queries/care-plans";
 import { usePatientCareGaps } from "@/lib/queries/patient-care-gaps";
-import { NO_SENSITIVE_ACCESS, sensitiveCategoryOf, type BriefRules, type SensitiveCategory } from "@/lib/previsit/brief";
+import { NO_SENSITIVE_ACCESS, type BriefRules, type SensitiveCategory } from "@/lib/previsit/brief";
 
 const KIND_LABEL = { medication: "Medicine", result: "Result", allergy: "Allergy", condition: "Condition" } as const;
 
@@ -68,20 +69,19 @@ export function OmissionPanel({ patientId, draftText, access = NO_SENSITIVE_ACCE
 
   const rulesEntry = getProposedConfig("copilot.omission_rules");
   const briefRules = getProposedConfig("copilot.previsit_brief_rules").value as unknown as BriefRules;
-  const allowed = (text: string): boolean => {
-    const c = sensitiveCategoryOf(text, briefRules.sensitiveTerms);
-    return c === null || access[c] === true;
-  };
-
-  const input: OmissionInput = {
+  // The check runs on the whole record; only what is shown is limited to what the viewer may see (see runOmissionCheck).
+  const result = runOmissionCheck({
     draftText,
-    allergies: allergies.data.filter((a) => allowed(a.allergen)).map((a) => ({ id: a.id, allergen: a.allergen })),
-    medications: medications.data.filter((m) => allowed(m.drug_name)).map((m) => ({ id: m.id, name: m.drug_name })),
-    conditions: carePlans.data.filter((p) => allowed(p.condition)).map((p) => ({ id: p.id, name: p.condition.replace(/_/g, " ") })),
-    awaitingResults: gaps.data
-      .filter((g) => g.gap_type === "unactioned_abnormal" && g.condition_or_type && allowed(g.condition_or_type))
-      .map((g) => ({ id: `${g.gap_type}:${g.condition_or_type}:${g.opened_at ?? ""}`, label: g.condition_or_type as string })),
-  };
-  const result = checkOmissions(input, rulesEntry.value as unknown as OmissionRules, { version: rulesEntry.version, status: rulesEntry.status });
+    record: {
+      allergies: allergies.data.map((a) => ({ id: a.id, allergen: a.allergen })),
+      medications: medications.data.map((m) => ({ id: m.id, drug_name: m.drug_name, indication: m.indication, care_plan_condition: m.care_plan?.condition ?? null })),
+      carePlans: carePlans.data.map((p) => ({ id: p.id, condition: p.condition })),
+      gaps: gaps.data,
+    },
+    access,
+    briefRules,
+    omissionRules: rulesEntry.value as unknown as OmissionRules,
+    meta: { version: rulesEntry.version, status: rulesEntry.status },
+  });
   return <OmissionResultView result={result} />;
 }

@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { DraftReviewPanel } from "./draft-review-panel";
 
 const draft = { history: "Headache for two days.", examination: "", assessment: "Likely tension headache.", plan: "Rest and fluids.", followUp: "Call if worse." };
@@ -80,5 +81,22 @@ describe("DraftReviewPanel review step", () => {
     fireEvent.click(useButton());
     expect(onUse.mock.calls[0]![2]).toMatchObject({ leftUnedited: false });
     expect(onUse.mock.calls[0]![2].editRate).toBeGreaterThan(0);
+  });
+
+  it("S89: every section state is a word, not only a colour, and each box is labelled by its section name", () => {
+    render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={jest.fn()} onDiscard={jest.fn()} />);
+    const states = () => Array.from(document.querySelectorAll("[data-section-state]")).map((e) => e.textContent);
+    expect(states()).toEqual(["AI text, not reviewed", "Empty, not yet confirmed", "AI text, not reviewed", "AI text, not reviewed", "AI text, not reviewed", "AI text, not reviewed"]);
+    expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    for (const box of screen.getAllByRole("textbox")) expect((box as HTMLTextAreaElement).labels?.length).toBe(1);
+    fireEvent.change(screen.getAllByRole("textbox")[3], { target: { value: "Rest only." } });
+    expect(states()[3]).toBe("Edited, not yet confirmed");
+    fireEvent.click(boxes()[0]!);
+    expect(states()[0]).toBe("Confirmed");
+  });
+
+  it("S89: has no axe violations", async () => {
+    const { container } = render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={jest.fn()} onDiscard={jest.fn()} />);
+    expect((await axe(container)).violations).toEqual([]);
   });
 });

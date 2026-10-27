@@ -16,7 +16,8 @@
     "./activity-gate": "./src/activity-gate.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
     "./workout-plans": "./src/workout-plans.ts",
-    "./omission-check": "./src/omission-check.ts"
+    "./omission-check": "./src/omission-check.ts",
+    "./text-match": "./src/text-match.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

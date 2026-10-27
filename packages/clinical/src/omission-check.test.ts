@@ -7,6 +7,7 @@ import { checkOmissions, hasFollowUpInterval, mentions, type OmissionInput, type
 const RULES: OmissionRules = {
   allergyClasses: { penicillin: ["penicillin", "amoxicillin", "augmentin"], nsaid: ["nsaid", "ibuprofen", "diclofenac"] },
   followUpRequiredConditions: ["hypertension", "diabetes"],
+  followUpContextTerms: ["review*", "follow up", "followup", "recheck*", "see you", "return*", "come back", "appointment*", "repeat*"],
 };
 const META = { version: 1, status: "proposed" } as const;
 
@@ -88,7 +89,7 @@ describe("follow-up interval", () => {
   });
 
   it("is satisfied by a stated interval", () => {
-    for (const text of ["Review in 2 weeks.", "See again next month.", "Follow up in two weeks", "Recheck in a week", "Return tomorrow"]) {
+    for (const text of ["Review in 2 weeks.", "Review next month.", "Follow up in two weeks", "Recheck in a week", "Return tomorrow"]) {
       expect(kinds(run({ draftText: text, conditions: [{ id: "c1", name: "Hypertension" }] }))).not.toContain("no_follow_up_interval");
     }
   });
@@ -97,9 +98,35 @@ describe("follow-up interval", () => {
     expect(kinds(run({ draftText: "Rest.", conditions: [{ id: "c1", name: "Seasonal rhinitis" }] }))).not.toContain("no_follow_up_interval");
   });
 
+  const CTX = RULES.followUpContextTerms ?? [];
+
   it("recognises intervals in text but not unrelated numbers", () => {
-    expect(hasFollowUpInterval("BP 150/90")).toBe(false);
-    expect(hasFollowUpInterval("in 3 months")).toBe(true);
+    expect(hasFollowUpInterval("BP 150/90", CTX)).toBe(false);
+    expect(hasFollowUpInterval("Review in 3 months", CTX)).toBe(true);
+  });
+
+  it("dosing frequency and symptom duration are not follow-up intervals (S89 review item 5)", () => {
+    const flagged = (draftText: string) => kinds(run({ draftText, conditions: [{ id: "c1", name: "Hypertension" }] })).includes("no_follow_up_interval");
+    expect(flagged("Metformin 500 mg twice a day. Cough for 3 days.")).toBe(true);
+    expect(flagged("Take one tablet a day.")).toBe(true);
+    expect(flagged("Amlodipine 5 mg once a day, review if dizzy.")).toBe(true);
+    expect(flagged("Cough for 3 days, review if worse.")).toBe(true);
+    expect(flagged("Fever since 2 days; will return if worse.")).toBe(true);
+    expect(flagged("Paracetamol 3 times a day for 5 days.")).toBe(true);
+  });
+
+  it("an interval counts only in the same clause as a follow-up word", () => {
+    expect(hasFollowUpInterval("Metformin 500 mg twice a day. Review in 2 weeks.", CTX)).toBe(true);
+    expect(hasFollowUpInterval("Cough for 3 days, review in 2 weeks", CTX)).toBe(true);
+    expect(hasFollowUpInterval("Review. Pain for 2 weeks.", CTX)).toBe(false);
+    expect(hasFollowUpInterval("Seen 2 weeks ago", CTX)).toBe(false);
+    expect(hasFollowUpInterval("Review in 2.5 weeks", CTX)).toBe(true);
+    // sabotage: with no context terms configured nothing qualifies, so the flag shows rather than hiding
+    expect(hasFollowUpInterval("Review in 2 weeks", [])).toBe(false);
+  });
+
+  it("'see you tomorrow', 'come back next week' and 'appointment in a month' count", () => {
+    for (const t of ["See you tomorrow.", "Come back next week.", "Appointment in a month.", "Repeat BP in 3 days."]) expect(hasFollowUpInterval(t, CTX)).toBe(true);
   });
 });
 
@@ -108,6 +135,77 @@ describe("medication in the record not mentioned", () => {
     const r = run({ draftText: "Continue amlodipine.", medications: [{ id: "m1", name: "Amlodipine" }, { id: "m2", name: "Metformin" }] });
     expect(r.flags.filter((f) => f.kind === "medication_not_mentioned").map((f) => f.sourceId)).toEqual(["m2"]);
     expect(r.sourceItemsNotUsed.filter((s) => s.kind === "medication").map((s) => s.id)).toEqual(["m2"]);
+  });
+});
+
+describe("allergy matching (S89 review item 6)", () => {
+  const FULL_RULES: OmissionRules = {
+    ...RULES,
+    allergyClasses: {
+      penicillin: ["penicillin", "amoxicillin", "augmentin", "clavulin", "amoxil", "co-amoxiclav"],
+      sulfonamide: ["sulfa", "sulfonamide", "co-trimoxazole", "cotrimoxazole", "bactrim", "septrin"],
+    },
+    drugSynonyms: [["paracetamol", "acetaminophen", "panadol"]],
+    nonDrugAllergens: ["peanut", "latex", "nkda"],
+    allergenNoiseWords: ["allergy", "allergic", "rash", "to"],
+    spellingAliases: { sulpha: "sulfa", sulphonamide: "sulfonamide" },
+  };
+  const go = (draftText: string, allergen: string) => checkOmissions({ ...base, draftText, allergies: [{ id: "a1", allergen }] }, FULL_RULES, META);
+  const clash = (draftText: string, allergen: string) => go(draftText, allergen).flags.some((f) => f.kind === "drug_vs_allergy");
+
+  it("understands case, diacritics and British or Nigerian spellings: sulpha is sulfa", () => {
+    expect(clash("Start Septrin.", "Sulpha drugs")).toBe(true);
+    expect(clash("Start co-trimoxazole.", "SULFA")).toBe(true);
+    expect(clash("Start Bactrim.", "Sulphonamides")).toBe(true);
+    expect(clash("Start AMOXICILLIN.", "penicillín")).toBe(true);
+  });
+
+  it("matches brand names to the generic allergen in both directions", () => {
+    expect(clash("Give Augmentin 625.", "Amoxicillin")).toBe(true);
+    expect(clash("Give Clavulin.", "Penicillin allergy")).toBe(true);
+    expect(clash("Give Amoxil.", "Augmentin")).toBe(true);
+    expect(clash("Give Panadol.", "Acetaminophen")).toBe(true);
+  });
+
+  it("tolerates one typo in a word of six letters or more, and no more", () => {
+    expect(clash("Give amoxicilin.", "Penicillin")).toBe(true);
+    expect(clash("Give amoxicillin.", "Penicilin")).toBe(true);
+    expect(clash("Give amoxxcilin.", "Penicillin")).toBe(false);
+    // short words must match exactly: 'sulfo' is not 'sulfa'
+    expect(clash("Give sulfo.", "Sulfa")).toBe(false);
+  });
+
+  it("matches on word boundaries: a word that merely contains a drug name does not match", () => {
+    expect(clash("Review penicillinase result.", "Penicillin")).toBe(false);
+    expect(clash("Review the bactrimate note.", "Sulfa")).toBe(false);
+  });
+
+  it("an allergen the lists cannot place produces an 'allergy not checked' flag rather than silence", () => {
+    const r = go("Start tazocin.", "Piperacillin rash");
+    const f = r.flags.find((x) => x.kind === "allergy_not_checked");
+    expect(f?.sourceId).toBe("a1");
+    expect(f?.message).toMatch(/unrecognised allergen/);
+    expect(f?.severity).toBe("info");
+  });
+
+  it("an unplaced allergen is still checked by its own words in the draft", () => {
+    expect(clash("Start piperacillin.", "Allergic to piperacillin")).toBe(true);
+    expect(clash("Allergy to be discussed.", "Allergic to piperacillin")).toBe(false);
+  });
+
+  it("allergens placed in a class or known to be non-drug do not raise 'not checked'", () => {
+    const has = (allergen: string) => go("Rest.", allergen).flags.some((f) => f.kind === "allergy_not_checked");
+    expect(has("Penicillin")).toBe(false);
+    expect(has("Peanuts")).toBe(false);
+    expect(has("Latex")).toBe(false);
+    expect(has("NKDA")).toBe(false);
+    expect(has("Tenofovir")).toBe(true);
+  });
+
+  it("sabotage: without the spelling alias, 'sulpha' is no longer placed (the alias is what makes it work)", () => {
+    const r = checkOmissions({ ...base, draftText: "Start Septrin.", allergies: [{ id: "a1", allergen: "Sulpha" }] }, { ...FULL_RULES, spellingAliases: {} }, META);
+    expect(r.flags.some((f) => f.kind === "drug_vs_allergy")).toBe(false);
+    expect(r.flags.some((f) => f.kind === "allergy_not_checked")).toBe(true);
   });
 });
 
@@ -133,6 +231,22 @@ describe("the real PROPOSED config drives the checker, and the code holds no cli
     const emptied: OmissionRules = { ...(cfg.value as unknown as OmissionRules), allergyClasses: {} };
     const r = checkOmissions({ ...base, draftText: "Amoxicillin 500 mg", allergies: [{ id: "a1", allergen: "Penicillin" }] }, emptied, META);
     expect(kinds(r)).not.toContain("drug_vs_allergy");
+  });
+
+  it("the real lists carry the brands the review named and stay unsigned", () => {
+    const r = cfg.value as unknown as OmissionRules;
+    const all = Object.values(r.allergyClasses).flat();
+    for (const brand of ["co-trimoxazole", "bactrim", "septrin", "amoxil", "augmentin", "clavulin"]) expect(all).toContain(brand);
+    expect(cfg.status).toBe("proposed");
+  });
+
+  it("real config: 'Metformin 500 mg twice a day. Cough for 3 days.' states no follow-up interval", () => {
+    const r = checkOmissions(
+      { ...base, draftText: "Metformin 500 mg twice a day. Cough for 3 days.", conditions: [{ id: "c1", name: "Diabetes" }] },
+      cfg.value as unknown as OmissionRules,
+      { version: cfg.version, status: cfg.status },
+    );
+    expect(kinds(r)).toContain("no_follow_up_interval");
   });
 
   it("the source holds no drug class list of its own", () => {

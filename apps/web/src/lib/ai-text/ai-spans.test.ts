@@ -1,4 +1,8 @@
 import {
+  attestationHolds,
+  formatEditRate,
+  liveSpans,
+  spansFingerprint,
   acceptSpan,
   allReviewed,
   assembleText,
@@ -84,8 +88,14 @@ describe("edit-rate telemetry", () => {
     expect(t.editRate).toBeCloseTo(3 / 9);
   });
 
-  it("is zero, not NaN, with no AI text, and is capped at 1", () => {
-    expect(editTelemetryFromPairs([{ original: "", final: "all mine" }])).toMatchObject({ editRate: 0, leftUnedited: false });
+  it("is n/a (null), not 0 and not NaN, when the model returned nothing; 0 stays 0 when words were kept", () => {
+    expect(formatEditRate(editTelemetryFromPairs([]))).toBe("n/a");
+    expect(formatEditRate(editTelemetryFromPairs([{ original: "a b", final: "a b" }]))).toBe("0%");
+    expect(formatEditRate(editTelemetryFromPairs([{ original: "a b c d", final: "a b c x" }]))).toBe("50%");
+  });
+
+  it("is null, not NaN, with no AI text, and is capped at 1", () => {
+    expect(editTelemetryFromPairs([{ original: "", final: "all mine" }])).toMatchObject({ editRate: null, leftUnedited: false });
     expect(editTelemetryFromPairs([{ original: "a", final: "x y z w" }]).editRate).toBe(1);
   });
 
@@ -96,5 +106,78 @@ describe("edit-rate telemetry", () => {
     ]);
     expect(t.changedWords).toBe(3);
     expect(t.leftUnedited).toBe(false);
+  });
+});
+
+describe("sign gate and attestation (S89 review item 8)", () => {
+  it("cannot sign when every span has been removed: an emptied draft has nothing to sign (sabotage: one live span lets it through)", () => {
+    let spans = splitIntoSpans(TEXT);
+    for (const id of [0, 1, 2]) spans = editSpan(spans, id, "");
+    expect(allReviewed(spans)).toBe(true);
+    expect(liveSpans(spans)).toEqual([]);
+    expect(canSign(spans, true)).toBe(false);
+    spans = editSpan(spans, 1, "No fever.");
+    expect(canSign(spans, true)).toBe(true);
+  });
+
+  it("the attestation holds only for the exact spans it was given for", () => {
+    const spans = [0, 1, 2].reduce(acceptSpan, splitIntoSpans(TEXT));
+    const attested = spansFingerprint(spans);
+    expect(attestationHolds(attested, spans)).toBe(true);
+    expect(attestationHolds(null, spans)).toBe(false);
+    // any later edit, removal or added span makes it lapse
+    expect(attestationHolds(attested, editSpan(spans, 0, "Headache for three days."))).toBe(false);
+    expect(attestationHolds(attested, editSpan(spans, 2, ""))).toBe(false);
+    const added = [...spans, { id: 3, original: "New.", text: "New.", status: "unreviewed" as const, sep: " " }];
+    expect(attestationHolds(attested, added)).toBe(false);
+  });
+});
+
+describe("line breaks and list structure survive (S89 review item 8)", () => {
+  const NOTE = "Plan:\n1. Rest and fluids.\n2. Review in 2 weeks.\n\nAdvice given. Call if worse.";
+
+  it("keeps lines, numbered items and paragraph breaks when reassembled, whatever is accepted", () => {
+    const spans = splitIntoSpans(NOTE).map((s) => ({ ...s, status: "accepted" as const }));
+    expect(assembleText(spans)).toBe(NOTE);
+  });
+
+  it("splits per line and keeps '1.' with its item", () => {
+    expect(splitIntoSpans(NOTE).map((s) => s.text)).toEqual(["Plan:", "1. Rest and fluids.", "2. Review in 2 weeks.", "Advice given.", "Call if worse."]);
+  });
+
+  it("handles CRLF and bullet lists", () => {
+    const t = "- Rest.\r\n- Fluids.";
+    expect(assembleText(splitIntoSpans(t).map((s) => ({ ...s, status: "accepted" as const })))).toBe("- Rest.\n- Fluids.");
+  });
+
+  it("removing a span keeps the paragraph break that came before it", () => {
+    let spans = splitIntoSpans("First point.\n\nSecond point. Third point.");
+    spans = editSpan(spans, 1, "");
+    spans = [0, 2].reduce(acceptSpan, spans);
+    expect(assembleText(spans)).toBe("First point.\n\nThird point.");
+  });
+
+  it("removing the first span leaves no leading break", () => {
+    let spans = splitIntoSpans("One.\nTwo.");
+    spans = editSpan(spans, 0, "");
+    expect(assembleText(acceptSpan(spans, 1))).toBe("Two.");
+  });
+});
+
+describe("sentence splitter (S89 review item 8)", () => {
+  const texts = (t: string) => splitIntoSpans(t).map((s) => s.text);
+
+  it("does not break 'Dr. Smith', 'approx. 5 mg' or initials", () => {
+    expect(texts("Seen by Dr. Smith today. Give approx. 5 mg daily.")).toEqual(["Seen by Dr. Smith today.", "Give approx. 5 mg daily."]);
+    expect(texts("Reviewed by J. Okafor. Stable.")).toEqual(["Reviewed by J. Okafor.", "Stable."]);
+  });
+
+  it("does not break at a decimal or before a lowercase word, but does break at ! and ?", () => {
+    expect(texts("BP 150.5 over 90. Stable e.g. on treatment.")).toEqual(["BP 150.5 over 90.", "Stable e.g. on treatment."]);
+    expect(texts("Any pain? None. Good!")).toEqual(["Any pain?", "None.", "Good!"]);
+  });
+
+  it("sabotage: a plain sentence break still splits", () => {
+    expect(texts("Headache. Nausea.")).toEqual(["Headache.", "Nausea."]);
   });
 });

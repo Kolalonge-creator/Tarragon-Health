@@ -10,11 +10,26 @@
  * say plainly when the lists are not yet signed.
  */
 
+import { applyAliases, textMatchesAny, textMatchesTerm, tokenise, tokensMatchTerm, type MatchOptions } from "./text-match";
+
 export interface OmissionRules {
-  /** class name -> words. A class is active for a patient when an allergy entry contains any of its words. */
+  /**
+   * class name -> words (generic names and brands). A class is active for a patient when an allergy entry names any of its words
+   * (whole words, with one typo allowed in words of six letters or more). Every member is then checked against the draft.
+   */
   allergyClasses: Record<string, readonly string[]>;
+  /** Groups of words for the same drug (generic and brand names) that sit outside any class. Same matching as a class. */
+  drugSynonyms?: readonly (readonly string[])[];
+  /** Allergens positively known not to be drugs (food, latex, "none"). Anything else the lists cannot place raises "allergy not checked". */
+  nonDrugAllergens?: readonly string[];
+  /** Words that carry no allergen meaning on their own ("allergy", "rash"), skipped when an unplaced allergen is checked word by word. */
+  allergenNoiseWords?: readonly string[];
+  /** Spelling variants mapped to one spelling, applied to both the allergy and the draft (for example sulpha to sulfa). */
+  spellingAliases?: Readonly<Record<string, string>>;
   /** A patient with one of these conditions on file should have a follow-up interval stated in the draft. */
   followUpRequiredConditions: readonly string[];
+  /** Words that show a clause is about a follow-up ("review", "see you", "appointment"). An interval counts only inside such a clause. */
+  followUpContextTerms?: readonly string[];
 }
 
 export interface OmissionRulesMeta {
@@ -44,6 +59,8 @@ export interface OmissionInput {
 
 export type OmissionFlagKind =
   | "drug_vs_allergy"
+  | "allergy_not_checked"
+  | "restricted_item"
   | "result_not_mentioned"
   | "no_follow_up_interval"
   | "medication_not_mentioned";
@@ -73,32 +90,34 @@ export interface OmissionResult {
   rulesStatus: OmissionRulesMeta["status"];
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function norm(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-/** Whole-word, case-insensitive containment. Empty terms never match. */
+/** Whole-word, case-insensitive containment (no typo tolerance). Empty terms never match. */
 export function mentions(text: string, term: string): boolean {
-  const t = norm(term);
-  if (t === "") return false;
-  return new RegExp(`(^|[^a-z0-9])${escapeRegExp(t)}([^a-z0-9]|$)`).test(norm(text));
+  return textMatchesTerm(text, term);
 }
 
-const mentionsAny = (text: string, terms: readonly string[]): boolean => terms.some((t) => mentions(text, t));
+const mentionsAny = (text: string, terms: readonly string[]): boolean => textMatchesAny(text, terms);
 
 /** A stated interval: "in 2 weeks", "review after 3 months", "next week", "in a month", "follow up in two weeks". */
-const INTERVAL = /\b((\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|an)\s+(day|days|week|weeks|month|months)|next\s+(week|month)|tomorrow)\b/i;
+const INTERVAL =
+  /(?<!\b(?:for|since|over|past|last|previous)\s+)\b(?:(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|a|an)\s+(?:day|days|week|weeks|month|months)|next\s+(?:week|month)|tomorrow)\b/i;
 
-export function hasFollowUpInterval(text: string): boolean {
-  return INTERVAL.test(text);
-}
+/** Dosing frequency ("twice a day", "3 times a week", "every day"), which is not a follow-up interval. */
+const DOSING_FREQUENCY =
+  /\b(?:(?:once|twice|thrice|daily|times|(?:\d+|one|two|three|four|five|six)\s+times)\s+(?:a|per|each|every)\s+(?:day|week|month)|(?:per|each|every)\s+(?:day|week|month))\b/gi;
 
-function containsPhrase(haystack: string, needle: string): boolean {
-  return norm(haystack).includes(norm(needle));
+/** A clause ends at a sentence stop (not a decimal point), a semicolon, a comma or a line break. */
+const CLAUSE_BREAK = /[;,\n!?]+|\.(?!\d)|(?<!\d)\./;
+
+/**
+ * True when some clause both states an interval and is about a follow-up. A bare "a day" in a dose, or "for 3 days" describing a
+ * symptom, is not a follow-up interval. With no context terms configured nothing qualifies, so the flag errs on the side of showing.
+ */
+export function hasFollowUpInterval(text: string, contextTerms: readonly string[] = []): boolean {
+  if (contextTerms.length === 0) return false;
+  return text.split(CLAUSE_BREAK).some((clause) => {
+    const withoutDosing = clause.replace(DOSING_FREQUENCY, " ");
+    return INTERVAL.test(withoutDosing) && textMatchesAny(withoutDosing, contextTerms);
+  });
 }
 
 export function checkOmissions(input: OmissionInput, rules: OmissionRules, meta: OmissionRulesMeta): OmissionResult {
@@ -106,24 +125,49 @@ export function checkOmissions(input: OmissionInput, rules: OmissionRules, meta:
   const flags: OmissionFlag[] = [];
   const unused: UnusedSourceItem[] = [];
 
-  // 1. A drug named in the draft versus the allergy list.
+  // 1. A drug named in the draft versus the allergy list. Whole-word matching with spelling aliases and one typo allowed in longer words,
+  //    so "sulpha", "Septrin" and "penicilin" are all understood. An allergen the lists cannot place is flagged, never skipped silently.
+  const aliases = rules.spellingAliases ?? {};
+  const matchOptions: MatchOptions = { aliases, fuzzy: true };
+  const draftTokens = applyAliases(tokenise(draft), aliases);
+  const drugGroups: string[][] = [
+    ...Object.entries(rules.allergyClasses).map(([name, words]) => [name, ...words]),
+    ...(rules.drugSynonyms ?? []).map((g) => [...g]),
+  ];
+  const noise = new Set((rules.allergenNoiseWords ?? []).map((w) => tokenise(w).join(" ")));
   for (const allergy of input.allergies) {
-    const allergen = norm(allergy.allergen);
-    if (allergen === "") continue;
-    const named = new Set<string>();
-    if (mentions(draft, allergen)) named.add(allergen);
-    for (const words of Object.values(rules.allergyClasses)) {
-      const classActive = words.some((w) => containsPhrase(allergen, w) || allergen === norm(w));
-      if (!classActive) continue;
-      for (const w of words) if (mentions(draft, w)) named.add(norm(w));
+    const allergenTokens = applyAliases(tokenise(allergy.allergen), aliases);
+    if (allergenTokens.length === 0) continue;
+    const terms = new Set<string>([allergenTokens.join(" ")]);
+    let placed = false;
+    for (const group of drugGroups) {
+      if (!group.some((w) => tokensMatchTerm(allergenTokens, w, matchOptions))) continue;
+      placed = true;
+      for (const w of group) terms.add(tokenise(w).join(" "));
     }
-    for (const drug of named) {
+    if (!placed && (rules.nonDrugAllergens ?? []).some((t) => tokensMatchTerm(allergenTokens, t, matchOptions))) placed = true;
+    if (!placed) {
+      // Unplaced: the allergen's own words (minus filler like "allergy") are the only thing the draft can be checked for.
+      for (const t of allergenTokens) if (t.length >= 4 && !noise.has(t)) terms.add(t);
+    }
+    terms.delete("");
+    for (const drug of terms) {
+      if (!tokensMatchTerm(draftTokens, drug, matchOptions)) continue;
       flags.push({
         kind: "drug_vs_allergy",
         severity: "info",
         sourceId: allergy.id,
         detail: `${drug} (allergy on file: ${allergy.allergen})`,
         message: `The draft names ${drug}. The record lists an allergy to ${allergy.allergen}. Check this is intended.`,
+      });
+    }
+    if (!placed) {
+      flags.push({
+        kind: "allergy_not_checked",
+        severity: "info",
+        sourceId: allergy.id,
+        detail: allergy.allergen,
+        message: `Allergy not checked: unrecognised allergen (${allergy.allergen}). The draft was only checked for the allergen's own words, not for related drugs. Check it by hand.`,
       });
     }
   }
@@ -144,8 +188,9 @@ export function checkOmissions(input: OmissionInput, rules: OmissionRules, meta:
   }
 
   // 3. No follow-up interval where a rule requires one.
-  const required = input.conditions.filter((c) => mentionsAny(c.name, rules.followUpRequiredConditions) || rules.followUpRequiredConditions.some((r) => containsPhrase(c.name, r)));
-  if (required.length > 0 && !hasFollowUpInterval(draft)) {
+  const required = input.conditions.filter((c) => mentionsAny(c.name, rules.followUpRequiredConditions));
+  const followUpStated = hasFollowUpInterval(draft, rules.followUpContextTerms ?? []);
+  if (required.length > 0 && !followUpStated) {
     const first = required[0];
     if (first) {
       flags.push({
@@ -158,7 +203,7 @@ export function checkOmissions(input: OmissionInput, rules: OmissionRules, meta:
     }
   }
   for (const c of required) {
-    if (!hasFollowUpInterval(draft)) unused.push({ kind: "condition", id: c.id, label: c.name });
+    if (!followUpStated) unused.push({ kind: "condition", id: c.id, label: c.name });
   }
 
   // 4. A medication in the record not mentioned in the draft.

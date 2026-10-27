@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { AiDraftBlock } from "./ai-draft-block";
 
 const TEXT = "Headache for two days. Advised rest.";
 const signButton = () => screen.getByRole("button", { name: "Sign" }) as HTMLButtonElement;
-const accepts = () => screen.getAllByRole("button", { name: "Accept" });
+const accepts = () => screen.getAllByRole("button", { name: /^Accept sentence/ });
 
 describe("AiDraftBlock", () => {
   it("carries the AI label and marks every span as unreviewed", () => {
@@ -45,9 +46,9 @@ describe("AiDraftBlock", () => {
     render(<AiDraftBlock initialText={TEXT} onSign={onSign} onTelemetry={onTelemetry} />);
     fireEvent.click(accepts()[1]!);
     fireEvent.click(screen.getByLabelText(/I reviewed this draft against the record/));
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]!);
-    fireEvent.change(screen.getByLabelText("Edit this sentence"), { target: { value: "Headache for three days." } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /^Edit sentence/ })[0]!);
+    fireEvent.change(screen.getByLabelText("Edit sentence 1"), { target: { value: "Headache for three days." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save sentence 1" }));
     expect((screen.getByLabelText(/I reviewed this draft against the record/) as HTMLInputElement).checked).toBe(false);
     expect(signButton().disabled).toBe(true);
     const last = onTelemetry.mock.calls.at(-1)![0];
@@ -59,5 +60,70 @@ describe("AiDraftBlock", () => {
     render(<AiDraftBlock initialText={TEXT} />);
     expect(screen.queryByRole("button", { name: "Sign" })).toBeNull();
     expect(screen.queryByLabelText(/I reviewed this draft/)).toBeNull();
+  });
+
+  it("every sentence has a text state word, not only a colour", () => {
+    render(<AiDraftBlock initialText={TEXT} />);
+    const words = () => Array.from(document.querySelectorAll("[data-span-state]")).map((e) => e.textContent);
+    expect(words()).toEqual(["Not reviewed", "Not reviewed"]);
+    fireEvent.click(accepts()[0]!);
+    expect(words()).toEqual(["Accepted", "Not reviewed"]);
+    fireEvent.click(screen.getAllByRole("button", { name: /^Edit sentence/ })[1]!);
+    fireEvent.change(screen.getByLabelText("Edit sentence 2"), { target: { value: "Advised rest and fluids." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save sentence 2" }));
+    expect(words()).toEqual(["Accepted", "Edited"]);
+  });
+
+  it("per-sentence accessible names say which sentence", () => {
+    render(<AiDraftBlock initialText={"One. Two. Three."} />);
+    expect(screen.getByRole("button", { name: "Accept sentence 3" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit sentence 2" })).toBeTruthy();
+  });
+
+  it("controls and state words are not selectable and sit outside the text, so copied text carries no button labels", () => {
+    render(<AiDraftBlock initialText={TEXT} />);
+    const texts = Array.from(document.querySelectorAll("[data-ai-text]")).map((e) => e.textContent);
+    expect(texts).toEqual(["Headache for two days.", "Advised rest."]);
+    for (const c of Array.from(document.querySelectorAll("[data-ai-controls]"))) expect(c.className).toContain("select-none");
+  });
+
+  it("Sign stays disabled when every sentence has been removed", () => {
+    render(<AiDraftBlock initialText={"Only one sentence."} onSign={jest.fn()} />);
+    fireEvent.click(screen.getByLabelText(/I reviewed this draft against the record/));
+    fireEvent.click(screen.getByRole("button", { name: "Edit sentence 1" }));
+    fireEvent.change(screen.getByLabelText("Edit sentence 1"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save sentence 1" }));
+    expect(signButton().disabled).toBe(true);
+    expect(screen.getByText(/nothing to sign/)).toBeTruthy();
+  });
+
+  it("an attestation given before an edit or an accept lapses: the box clears and Sign is disabled until it is ticked again", () => {
+    render(<AiDraftBlock initialText={TEXT} onSign={jest.fn()} />);
+    fireEvent.click(accepts()[0]!);
+    fireEvent.click(accepts()[0]!);
+    const box = () => screen.getByLabelText(/I reviewed this draft against the record/) as HTMLInputElement;
+    fireEvent.click(box());
+    expect(signButton().disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Edit sentence 2" }));
+    fireEvent.change(screen.getByLabelText("Edit sentence 2"), { target: { value: "Advised rest and fluids." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save sentence 2" }));
+    expect(box().checked).toBe(false);
+    expect(signButton().disabled).toBe(true);
+    fireEvent.click(box());
+    expect(signButton().disabled).toBe(false);
+  });
+
+  it("signed text keeps its line breaks", () => {
+    const onSign = jest.fn();
+    render(<AiDraftBlock initialText={"Plan:\n1. Rest.\n2. Fluids."} onSign={onSign} />);
+    for (let i = 0; i < 3; i++) fireEvent.click(accepts()[0]!);
+    fireEvent.click(screen.getByLabelText(/I reviewed this draft against the record/));
+    fireEvent.click(signButton());
+    expect(onSign).toHaveBeenCalledWith(expect.objectContaining({ text: "Plan:\n1. Rest.\n2. Fluids." }));
+  });
+
+  it("has no axe violations", async () => {
+    const { container } = render(<AiDraftBlock initialText={TEXT} onSign={jest.fn()} />);
+    expect((await axe(container)).violations).toEqual([]);
   });
 });

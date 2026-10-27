@@ -56,6 +56,13 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
   const remaining = unconfirmed(confirmed).length;
   const original = { ...draft, patientSummary };
 
+  /** Not reviewed: still exactly the model's text and not confirmed. Edited: changed from the model's text. Confirmed: ticked as read. */
+  function sectionState(key: keyof typeof fields): "not_reviewed" | "edited" | "confirmed" | "empty" {
+    if (isEmptySection(fields[key]) && !confirmed[key]) return "empty";
+    if (confirmed[key]) return "confirmed";
+    return fields[key] === original[key] ? "not_reviewed" : "edited";
+  }
+
   const sections: Array<{ key: keyof typeof fields; label: string }> = [
     { key: "history", label: t("scribe.draft.history", "en") },
     { key: "examination", label: t("scribe.draft.examination", "en") },
@@ -89,8 +96,15 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
       <CardContent className="space-y-4">
         {sections.map(({ key, label }) => (
           <div key={key}>
-            <Label>{label}</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor={`scribe-section-${key}`}>{label}</Label>
+              {/* The state is a word as well as a colour, so it never depends on colour to be understood. */}
+              <span className="text-xs text-charcoal-ink/70" data-section-state={sectionState(key)}>
+                {sectionStateWord(sectionState(key))}
+              </span>
+            </div>
             <Textarea
+              id={`scribe-section-${key}`}
               value={fields[key]}
               onChange={(e) => {
                 setFields((prev) => ({ ...prev, [key]: e.target.value }));
@@ -99,7 +113,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
                 setAttested(false);
               }}
               // Text still exactly as the model wrote it and not yet confirmed: marked as AI-inserted and unreviewed.
-              className={fields[key] === original[key] && !confirmed[key] && !isEmptySection(fields[key]) ? "ring-1 ring-amber-300 bg-amber-50/50" : undefined}
+              className={sectionState(key) === "not_reviewed" ? "ring-1 ring-amber-300 bg-amber-50/50" : undefined}
               rows={key === "patientSummary" ? 4 : 3}
             />
             <EntityCheck text={fields[key]} />
@@ -162,6 +176,10 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
       </CardContent>
     </Card>
   );
+}
+
+function sectionStateWord(state: "not_reviewed" | "edited" | "confirmed" | "empty"): string {
+  return { not_reviewed: "AI text, not reviewed", edited: "Edited, not yet confirmed", confirmed: "Confirmed", empty: "Empty, not yet confirmed" }[state];
 }
 
 /**
