@@ -19,8 +19,8 @@
 --     That covers renewal and expiry reminders, referral prompts, nudges and any future sender, with no list of templates to maintain.
 --   * private.queue_sponsor_monthly_reports (live body, read 2026-10-27) skips a beneficiary who is deceased.
 --
--- NOT built here (reported): a reversal path for a mistaken record (deliberately none in-app: it needs a founder-approved support
--- procedure); email for the sponsor message (in-app only, template edit follows); any change to a payer-facing report beyond the
+-- NOT built here (reported): a reversal path for a mistaken record (built separately, support-only and two-person, in
+-- 20261027195946_w21_death_record_reversal.sql); email for the sponsor message (in-app only, template edit follows); any change to a payer-facing report beyond the
 -- monthly queue (sponsor_person_quiet, sponsor_care_reviewed carry the beneficiary only in their payload, so they are not matched).
 --
 -- Column names on the new tables use beneficiary_profile_id, not patient_id, so the under-18 dependant scope guard (S04b-1e)
