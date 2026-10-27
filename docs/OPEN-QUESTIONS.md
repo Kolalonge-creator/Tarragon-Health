@@ -6083,3 +6083,60 @@ The request status function and the PDF routes now hide sensitive requests from 
 - Mitigation in place: the recipient type is restricted to five kinds, ethics approval and a data-sharing agreement are required, the CMO and data protection officer both approve, and every release is audited and listed publicly in the ledger.
 - Options: (a) accept, the human approvals are the real control; (b) add a required "ultimate owner" field the officer must check; (c) have counsel review each recipient.
 - Recommendation: (b) at the first real protocol.
+
+## Open founder decisions from the innovation build-gap (recorded 2026-10-27 by W-61)
+
+Source: `INNOVATION-BUILD-GAP.md` section 5. Each has a recommendation in that document; none is decided. Ask them one at a time.
+
+### OQ-GAP-D04 Employer seat price per tier and the one-active-row limit (D-04)
+- Options: (a) Plus-only seats at NGN 110,000 with a per-code floor of 10,000,000 kobo; (b) keep the default NGN 100,000 with a 5,000,000 kobo floor; (c) add a Membership-only seat.
+- Recommendation: (a) through multi-row limits (W-48). No Membership-only seat until doctor minutes are measured (W-01) and the CMO signs.
+- Blocks: W-48.
+
+### OQ-GAP-D06 Retire `sponsor_care_report` level `full` (D-06)
+- Options: (a) retire and merge into the Circle; (b) keep `full`.
+- Recommendation: (a). `full` promises a report the plan forbids, and two sponsor surfaces break "one sponsor note". Re-consent parents on `activity` first.
+- Blocks: W-12.
+
+### OQ-GAP-D07 ParentCare marketing page (D-07)
+- Options: (a) retire the slug and redirect to `/gift`; (b) rename it to a next-of-kin access page.
+- Recommendation: (a). ParentCare was already removed as a product.
+- Blocks: W-56.
+
+### OQ-GAP-D10 Refund after the panel is already delivered (D-10)
+- Options: (a) full 21-day refund regardless; (b) refund less the panel cost; (c) no refund once delivered. Also: an upgrade refund returns the person to Membership for the rest of the term (proposed).
+- Recommendation: decide with counsel. Until then the copy says only what TT-6 says.
+- Blocks: W-45, W-52.
+
+### OQ-GAP-D11 Per-member release to an HMO or employer (D-11)
+- Options: (a) amend I9 to cover a patient's own release; (b) leave closed.
+- Recommendation: (b) for year 1; build nothing before a signed counterparty. W-42 stays P2.
+
+### OQ-GAP-D12 `/gift` "you both get a reward" (D-12)
+- Options: (a) recognition only ("We will say thank you."); (b) keep the reward.
+- Recommendation: (a). Blocks: C-22.
+
+### OQ-GAP-D13 USSD wording on `/gift` (D-13)
+- Options: (a) remove; (b) keep only if Paystack USSD is live-verified.
+- Recommendation: (a). Blocks: C-20.
+
+### OQ-GAP-D15 Crypto-shredding versus "never erase real data" and 8-year retention (D-15)
+- Options: (a) shredding only for categories a patient asks to erase where the law permits, through a DPO-approved RPC; (b) do not build.
+- Recommendation: (a), P2, after PITR and containment, with counsel and the DPO first. Blocks: W-43.
+
+### OQ-GAP-D17 Free-user duty of care at the point of reading (D-17)
+- Options: (a) the point-of-reading disclosure in N-01 is enough; (b) a stronger notice.
+- Recommendation: ask Nigerian counsel; ship (a) only after counsel and the CMO confirm. Blocks: W-27, W-05.
+
+### OQ-GAP-D18 Price review cadence for FX (D-18)
+- Options: (a) semiannual review of Plus and the step; (b) fixed.
+- Recommendation: (a), once Synlab states the panel currency (break-even about 1,840 NGN/USD fully dollar-indexed, about 2,180 if half). Blocks: W-52.
+
+### OQ-GAP-NAME1 Public name of the single product while the ladder is OFF (raised by W-46)
+- Finding: `commerce.membership_prices` shows the Plus price (129,000 naira) on the single-product `/pricing` page, the homepage FAQ and the receipts. After the rename that product is called "Membership Plus", which is honest, but it shows the Plus name publicly before the ladder is switched on.
+- Options: (a) accept "Membership Plus" on the single-product pages until the ladder is switched on; (b) switch the ladder on; (c) hide the price until then.
+- Recommendation: (a) or (b). Never show 129,000 under the name "Membership".
+
+### Closed as stale on 2026-10-27
+- OQ-171 and OQ-488 (Paying for someone else is not open yet): the S29 pay-for-a-loved-one flow shipped; see the supersession notes in DECISIONS.md.
+- D-16 (independent CMO): decided in DECISIONS.md, 2026-10-27 (no independent CMO).
