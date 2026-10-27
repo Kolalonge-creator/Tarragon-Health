@@ -115,3 +115,14 @@ describe("care circle follow-up (S29c)", () => {
     expect(parsePreviewView(null)).toBeNull();
   });
 });
+
+describe("W-11 weekly average below the minimum", () => {
+  it("still parses a week whose averages are null and keeps the reading count", () => {
+    const v = parseSupporterView({
+      patient_id: "p", name: "N", relationship: "r", permissions: ["weekly_bp_trend"], shared_until: "2026-12-01",
+      bp_trend: { weeks: [{ week_start: "2026-10-19", systolic: null, diastolic: null, readings: 1 }], direction: null },
+    });
+    expect(v?.bp_trend?.weeks[0]?.readings).toBe(1);
+    expect(v?.bp_trend?.weeks[0]?.systolic).toBeNull();
+  });
+});
