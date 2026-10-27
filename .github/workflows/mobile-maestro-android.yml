@@ -1,0 +1,71 @@
+name: Mobile Maestro (Android emulator)
+
+# Runs the Maestro flows in apps/mobile/.maestro/flows on an Android emulator against a test build you point it at.
+# STATUS: written, NOT yet run. It is manual only (workflow_dispatch), is not a required check, and cannot block a merge.
+# Why manual: apps/mobile/android is not committed, so there is no APK to build in CI. Build one with EAS
+# (eas build --profile preview --platform android), then pass its download URL here. Use a test backend and a test account (is_test = true);
+# never point this at production data.
+# Network profile: the emulator is set to a slow, lossy link (gsm speed, gprs delay) for the throttled flow, which refuses to run unless told
+# the link is throttled (THROTTLE_CONFIRMED=yes), so an unthrottled run cannot report a pass.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: "HTTPS URL of an Android test build (.apk)"
+        required: true
+        type: string
+      flow:
+        description: "Flow file under apps/mobile/.maestro/flows (for example throttled-2g-sync.yaml), or 'all'"
+        required: true
+        default: "throttled-2g-sync.yaml"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  maestro-android:
+    name: Maestro on Android emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Fetch the build
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+        run: |
+          case "$APK_URL" in https://*) ;; *) echo "apk_url must be https"; exit 1;; esac
+          curl -fsSL "$APK_URL" -o "$RUNNER_TEMP/app.apk"
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the flows on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MOBILE_E2E_EMAIL: ${{ secrets.MOBILE_E2E_EMAIL }}
+          MOBILE_E2E_PASSWORD: ${{ secrets.MOBILE_E2E_PASSWORD }}
+          FLOW: ${{ inputs.flow }}
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash apps/mobile/.maestro/run-android-ci.sh "$RUNNER_TEMP/app.apk"
+      - name: Keep the Maestro report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-report
+          path: ~/.maestro/tests
+          if-no-files-found: ignore
