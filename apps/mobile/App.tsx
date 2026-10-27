@@ -1,9 +1,11 @@
-import { flushOutbox, getPendingCount } from "@/lib/outbox";
+import { flushOutbox } from "@/lib/outbox";
 import { runDeviceCheckThrottled } from "@/lib/device-lease";
 import { startReconnectWatcher } from "@/lib/reachability";
+import { getAllWaitingCount, reconnectFlush } from "@/lib/reconnect-flush";
 import { syncReminders } from "@/lib/reminder-notifications";
 import { refreshPackIfEnabled } from "@/lib/learning-pack";
 import { clearLocalMirror } from "@/lib/offline-store";
+import { clearPassportCache } from "@/lib/passport-cache";
 import { purgeAllDownloads } from "@/lib/offline-downloads";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
 import { ToastProvider } from "@/ui/kit";
@@ -114,6 +116,8 @@ function AppContent() {
         // shared phone does not keep it readable. The outbox is NOT cleared:
         // unsent logs must survive sign-out and go out when their owner is back.
         void clearLocalMirror().catch(() => {});
+        // The Passport read screens keep a last good copy in the same encrypted store (S43m): it goes with the mirror.
+        void clearPassportCache().catch(() => {});
         // Drafts are NOT cleared (S06x, decision D2): they stay in the encrypted store, tied to their account,
         // and come back when that account signs in again. Another account cannot read them.
         // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
@@ -167,8 +171,8 @@ function AppContent() {
     // Honest reconnect trigger (S06x): when the radio says it is back and entries wait, one tiny HEAD proves the
     // server is reachable before the flush. The foreground flush and the one-minute loop below stay as the fallback.
     const stopWatcher = startReconnectWatcher({
-      rowsWaiting: getPendingCount,
-      onReachable: () => flushOutbox().then(() => runDeviceCheckThrottled()),
+      rowsWaiting: getAllWaitingCount,
+      onReachable: () => reconnectFlush().then(() => runDeviceCheckThrottled()),
     });
     // Reminders are a rolling window of notifications, so they are topped up whenever the app
     // opens or returns to the foreground (and never ask for permission here: only the patient's

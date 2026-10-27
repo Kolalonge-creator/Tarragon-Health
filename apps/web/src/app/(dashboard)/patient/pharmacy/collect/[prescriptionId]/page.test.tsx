@@ -1,7 +1,6 @@
 const loaders = {
   loadCollection: jest.fn(),
   loadPharmacies: jest.fn(),
-  loadPriceCompare: jest.fn(),
   loadSuggestion: jest.fn(),
   loadHasControlledItem: jest.fn(),
   loadOverview: jest.fn(),
@@ -23,6 +22,9 @@ const OTHER = "22222222-2222-4222-8222-222222222222";
 const P = "33333333-3333-4333-8333-333333333333";
 const L = "44444444-4444-4444-8444-444444444444";
 const V = "55555555-5555-4555-8555-555555555555";
+// Stock answers are only shown as available while newer than the versioned limit (medicines.runway_and_stock_freshness, 48 hours).
+const FRESH = new Date(Date.now() - 3_600_000).toISOString();
+const STALE = new Date(Date.now() - 100 * 3_600_000).toISOString();
 const collection = (state: string, over: Record<string, unknown> = {}) => ({
   state, pharmacy_name: "A Pharmacy", location_name: "Lekki", address: "1 Test Road", code: state === "sent" ? "ABCD2345" : null, code_expires_at: "2026-11-01T00:00:00Z",
   locked: false, expired: false, collected: false, can_repeat: false, other_pharmacy_needed: false, ...over,
@@ -37,7 +39,6 @@ const render = async (query: { n?: string; for?: string } = {}) =>
 beforeEach(() => {
   Object.values(loaders).forEach((m) => m.mockReset());
   loaders.loadPharmacies.mockResolvedValue({ ok: true, data: [{ partner_id: P, partner_name: "A Pharmacy", location_id: L, location_name: "Lekki", state: "Lagos", address: "1 Test Road" }] });
-  loaders.loadPriceCompare.mockResolvedValue({ ok: true, data: [] });
   loaders.loadSuggestion.mockResolvedValue({ ok: true, data: null });
   loaders.loadHasControlledItem.mockResolvedValue(false);
 });
@@ -57,6 +58,14 @@ describe("patient collect page (S28e)", () => {
     expect(html).toMatch(/<form[^>]*><button type="submit" disabled=""[^>]*class="hidden"/);
     expect(html).toContain("Losartan");
   });
+  it("shows no price, price comparison or stock level while she chooses (OQ-714, Part C.2, OQ-283), and still says she can take it anywhere", async () => {
+    loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("signed") });
+    loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX)] });
+    const html = await render();
+    expect(html).not.toMatch(/compare prices|₦|in stock|running low|prices last updated/i);
+    expect(html).toContain("take it to any pharmacy you like");
+    expect(html).toContain(`value="${P}:${L}"`);
+  });
   it("with no other medicine waiting there are no tick boxes", async () => {
     loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("signed") });
     loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX)] });
@@ -71,11 +80,11 @@ describe("patient collect page (S28e)", () => {
   });
   it("a sent medicine shows the pharmacy's plain yes (or that it has not said), and the medicines that share the code", async () => {
     loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("sent") });
-    loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX, { state: "sent", visit_id: V, code: "ABCD2345", stock_confirmed_at: "2026-10-16T10:00:00Z" })] });
+    loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX, { state: "sent", visit_id: V, code: "ABCD2345", stock_confirmed_at: FRESH })] });
     loaders.loadVisit.mockResolvedValue({
       ok: true,
       data: [
-        { prescription_id: RX, medicine: "Amlodipine", state: "sent", collected: false, stock_confirmed_at: "2026-10-16T10:00:00Z", other_pharmacy_needed: false },
+        { prescription_id: RX, medicine: "Amlodipine", state: "sent", collected: false, stock_confirmed_at: FRESH, other_pharmacy_needed: false },
         { prescription_id: OTHER, medicine: "Losartan", state: "sent", collected: false, stock_confirmed_at: null, other_pharmacy_needed: false },
       ],
     });
@@ -85,6 +94,14 @@ describe("patient collect page (S28e)", () => {
     expect(html).toContain("The pharmacy has not said yet whether it has this");
     expect(html).toContain("Get a new code for all of them");
     expect(html).not.toMatch(/₦|naira/i);
+  });
+  it("a stock answer older than the limit is never shown as available: it says to ask the pharmacy to confirm", async () => {
+    loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("sent") });
+    loaders.loadOverview.mockResolvedValue({ ok: true, data: [item(RX, { state: "sent", visit_id: null, code: "ABCD2345", stock_confirmed_at: STALE })] });
+    const html = await render();
+    expect(html).toContain("Ask the pharmacy to confirm");
+    expect(html).not.toContain("The pharmacy says it has this");
+    expect(html).not.toMatch(/₦|naira|price/i);
   });
   it("a failed read of the visit is said out loud, never shown as only this medicine", async () => {
     loaders.loadCollection.mockResolvedValue({ ok: true, data: collection("sent") });

@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasAnyPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { EmployerDetailManager } from "./employer-detail-manager";
+import { SeatPilotPanel } from "./seat-pilot-panel";
 
 export const metadata = { title: "Employer details" };
 
@@ -41,12 +42,15 @@ export default async function AdminEmployerDetailPage({
   if (!org) notFound();
 
   return (
-    <EmployerDetailManager
-      organisationId={organisationId}
-      organisationName={org.name}
-      account={account}
-      contract={contract}
-      rosterCount={rosterCount ?? 0}
-    />
+    <div className="space-y-6">
+      <EmployerDetailManager
+        organisationId={organisationId}
+        organisationName={org.name}
+        account={account}
+        contract={contract}
+        rosterCount={rosterCount ?? 0}
+      />
+      <SeatPilotPanel organisationId={organisationId} />
+    </div>
   );
 }

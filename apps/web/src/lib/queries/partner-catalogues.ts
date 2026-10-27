@@ -773,6 +773,7 @@ export function useCreateLabProviderLocation() {
       labProviderId: string;
       name: string;
       state: string;
+      town: string;
       address: string;
       contactPhone: string | null;
     }) => {
@@ -781,6 +782,7 @@ export function useCreateLabProviderLocation() {
         lab_provider_id: input.labProviderId,
         name: input.name,
         state: input.state,
+        town: input.town,
         address: input.address,
         contact_phone: input.contactPhone,
       });

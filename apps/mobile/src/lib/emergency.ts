@@ -1,6 +1,8 @@
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
+import { coverageInputSchema, toEmergencyCoverage, type EmergencyCoverage } from "@tarragon/shared";
+import { API_BASE_URL } from "./api";
 
 export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)/i;
 export const EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|risperidone|olanzapine|quetiapine)/i;
@@ -27,6 +29,8 @@ export interface EmergencyFacts {
   /** S47d: how many reproductive or mental health medicines were left off because that switch is off. A count only, never a name. */
   medicinesNotShown?: number;
   emergencyContact: EmergencyContact | null;
+  /** S09y: HMO / NHIA cover the person typed in. Absent unless they filled it; patient entered, never checked. Not part of the lock-screen payload. */
+  coverage?: EmergencyCoverage | null;
   /** Details the person chose not to put on the card (S43). Shown as "not shared", never as "none". Absent in an older cache. */
   hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact" | "reproductive" | "mental_health")[];
   cachedAt: string;
@@ -34,11 +38,15 @@ export interface EmergencyFacts {
 
 const CACHE_KEY = "emergency-card-cache-v1";
 
+/** Bumped by every load and every narrowing. A load only writes the saved copy if no newer one started since, so an older read never lands last. */
+let cacheEpoch = 0;
+
 /** Mirrors loadEmergencyDatasetForPatient in
  * apps/web/src/lib/emergency/dataset.ts (the printed/offline-card query, not
  * the anon share-link RPC) — every table here already has RLS admitting the
  * patient's own row, so this is a plain client read. */
 export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFacts> {
+  const epoch = ++cacheEpoch;
   const results = await Promise.all([
       supabase
         .from("profiles")
@@ -69,13 +77,15 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
         .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health")
         .eq("patient_id", patientId)
         .maybeSingle(),
+      // S09y: cover the person typed in. Own-row read; shown only when filled.
+      supabase.from("emergency_card_coverage").select("scheme, member_number, plan_name").eq("patient_id", patientId).maybeSingle(),
     ]);
   // Any failed query means this is not the person's card: an empty answer from a dropped connection must never replace the
   // saved copy (or be stamped as freshly updated), and a failed choices query must not fall back to defaults that could show
   // what the person chose to hide. Throw so the screen shows the saved copy, labelled with when it was really saved.
   const failed = results.find((r) => (r as { error?: { message?: string } | null }).error);
   if (failed) throw new Error((failed as { error: { message?: string } }).error.message ?? "Could not load the emergency card");
-  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }] = results;
+  const [{ data: profile }, { data: allergies }, { data: carePlans }, { data: blood }, { data: meds }, { data: choices }, { data: coverage }] = results;
 
   const facts: EmergencyFacts = {
     fullName: profile?.full_name ?? null,
@@ -95,6 +105,8 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
           relationship: profile.emergency_contact_relationship,
         }
       : null,
+    // (a failed cover read throws above with every other failed read, so null here really means none saved)
+    coverage: toEmergencyCoverage(coverage),
     cachedAt: new Date().toISOString(),
   };
 
@@ -103,7 +115,7 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
   // Best-effort cache for offline use — this is the one screen in the app
   // that must render with zero signal, per docs/MOBILE_APP_SPEC.md §6.
   // The cache holds what the person chose to show, never more: a hidden field must not sit on the phone either.
-  SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(chosen)).catch(() => {});
+  if (epoch === cacheEpoch) SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(chosen)).catch(() => {});
   return chosen;
 }
 
@@ -164,6 +176,46 @@ export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: Emerge
   };
 }
 
+/**
+ * After the person hides something: take it out of the saved copy straight away, before any reload. The copy only ever loses details here (it cannot
+ * learn a newly shown one without a read), so even if the reload that follows fails the card on the phone no longer carries what they hid.
+ */
+export async function narrowCachedEmergencyFacts(chosen: EmergencyFieldChoicesRow): Promise<void> {
+  try {
+    cacheEpoch += 1; // any load already in flight (built from the old choices) no longer writes the saved copy
+    const cached = await loadCachedEmergencyFacts();
+    if (!cached) return;
+    const narrowed = applyEmergencyFieldChoices(cached, chosen);
+    const withheld = (cached.medicinesNotShown ?? 0) + (narrowed.medicinesNotShown ?? 0);
+    // A detail that was hidden stays marked "not shared" until a real read brings it back: the copy holds nothing for it, and "none on file" would be false.
+    const hidden = [...new Set([...(cached.hidden ?? []), ...(narrowed.hidden ?? [])])];
+    await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify({ ...narrowed, hidden, medicinesNotShown: chosen.show_medications && withheld > 0 ? withheld : undefined }));
+  } catch {
+    // Best effort: the reload that follows rewrites the copy from the database.
+  }
+}
+
+export type SaveCoverageResult = { ok: true; removed: boolean } | { ok: false; field: "member_number" | "plan_name" | "scheme" | "save" };
+
+/**
+ * Saves (or, with both fields blank, removes) the person's own HMO / NHIA cover through the one database function (S09y). Validated here with the
+ * same rules as the function so a bad value never leaves the phone; the function refuses it again regardless.
+ */
+export async function saveEmergencyCoverage(input: { scheme: string; memberNumber: string; planName: string }): Promise<SaveCoverageResult> {
+  const parsed = coverageInputSchema.safeParse({ scheme: input.scheme, member_number: input.memberNumber, plan_name: input.planName });
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0];
+    return { ok: false, field: field === "member_number" || field === "plan_name" ? field : "scheme" };
+  }
+  const { error } = await supabase.rpc("set_emergency_card_coverage", {
+    p_scheme: parsed.data.scheme,
+    p_member_number: parsed.data.member_number,
+    p_plan_name: parsed.data.plan_name,
+  });
+  if (error) return { ok: false, field: "save" };
+  return { ok: true, removed: parsed.data.member_number === "" && parsed.data.plan_name === "" };
+}
+
 export async function loadCachedEmergencyFacts(): Promise<EmergencyFacts | null> {
   try {
     const raw = await SecureStore.getItemAsync(CACHE_KEY);
@@ -197,4 +249,31 @@ export async function loadActiveShareLink(patientId: string): Promise<ShareLink 
 export async function createShareLink(): Promise<{ error?: string }> {
   const { error } = await supabase.rpc("create_emergency_card");
   return error ? { error: error.message } : {};
+}
+
+/**
+ * LSI-1: is the person's lock-screen picture option on (off by default)? Read live and never cached: a failed read counts as off, so the picture
+ * controls are never shown on a guess.
+ */
+export async function loadLockScreenOptIn(patientId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from("emergency_card_fields").select("lock_screen_opt_in").eq("patient_id", patientId).maybeSingle();
+    return !error && data?.lock_screen_opt_in === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The lock-screen picture, opened in the in-app browser (the same bearer-token query pattern as the verified-document PDF), where the person
+ * presses and holds it to save. No new native module or permission. Both options default to the safe side. The server checks the person's own
+ * switch and audits the picture; `confirm=1` is added only here, after the person ticked the shared-phone warning.
+ */
+export async function getLockScreenImageUrl(opts: { minimum: boolean; qr: boolean }): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { ok: false, error: "Not signed in" };
+  const q = `confirm=1&minimum=${opts.minimum ? "1" : "0"}&qr=${opts.qr ? "1" : "0"}&token=${encodeURIComponent(session.access_token)}`;
+  return { ok: true, url: `${API_BASE_URL}/api/mobile/emergency-card/lock-screen-image?${q}` };
 }

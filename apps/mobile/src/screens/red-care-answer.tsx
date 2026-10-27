@@ -4,6 +4,7 @@ import { t } from "@tarragon/i18n";
 import { colors } from "@/ui/theme";
 import { SecondaryButton } from "@/ui/components";
 import { supabase } from "@/lib/supabase";
+import { resolveSubjectId } from "@/lib/acting";
 import { answerRedCare, type RedCareAnswer as Answer, type RedCareOutcome } from "@/lib/red-care";
 
 /**
@@ -24,7 +25,8 @@ export function RedCareAnswer() {
     try {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
-      if (uid) outcome = await answerRedCare(uid, answer);
+      // Whose red alert this is: the person's own, or the person the caller has open as a helper (the database re-checks the grant).
+      if (uid) outcome = await answerRedCare(await resolveSubjectId(uid), answer);
     } catch {
       outcome = "failed";
     }

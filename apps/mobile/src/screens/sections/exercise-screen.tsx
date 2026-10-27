@@ -17,8 +17,12 @@ import {
   type ExerciseEnrollment,
   type ReadinessAnswers,
 } from "@/lib/exercise";
-import { en } from "@tarragon/i18n";
-import { activityGateMessageKey, intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
+import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
+import { usePatientAge } from "@/lib/use-patient-age";
+import { ActivityGateCard } from "@/screens/sections/movement-extras";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
@@ -63,6 +67,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   // null until the gate has answered; nothing is offered before then. An unreadable answer is the fail-closed one, never a permissive guess.
   const [gate, setGate] = useState<{ gate: ActivityGateResult; unavailable: boolean } | null>(null);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+  const age = usePatientAge(patientId, Date.now());
 
   const [screenOpen, setScreenOpen] = useState(false);
   const [answers, setAnswers] = useState<ReadinessAnswers>(EMPTY_ANSWERS);
@@ -133,15 +138,12 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   }
 
   const resting = gate?.gate.decision === "rest";
+  const displayCfg = getProposedConfig("activity.workout_plans").value as unknown as WorkoutPlanDisplayConfig;
+  const orderedPlans = orderPlans(plans, age, displayCfg);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-      {gate && gate.gate.decision !== "allow" ? (
-        <Card style={{ gap: 8 }}>
-          <Badge tone={resting ? "brand" : "neutral"}>{resting ? "Rest" : "Gentle only"}</Badge>
-          <MutedText>{gate.unavailable ? en["activity.gate.unavailable"] : en[activityGateMessageKey(gate.gate)]}</MutedText>
-        </Card>
-      ) : null}
+      <ActivityGateCard gate={gate} />
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>
@@ -232,14 +234,14 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
 
       {plans.length > 0 && !resting ? (
         <Card style={{ gap: 10 }}>
-          <SectionLabel>Home workouts</SectionLabel>
-          {plans.map((plan) => (
+          <SectionLabel>{t("activity.plans.title")}</SectionLabel>
+          {orderedPlans.map((plan) => (
             <View key={plan.code} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 6 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.title}</Text>
-              <Badge tone="neutral">{plan.format === "chair_class" ? "Chair-based" : "At home"}</Badge>
+              <Badge tone="neutral">{plan.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
               {plan.sessions.map((s, i) => (
                 <View key={i} style={{ gap: 2 }}>
-                  <MutedText>{s.minutes} minutes</MutedText>
+                  <MutedText>{`${s.minutes} ${t("activity.plans.minutes")}`}</MutedText>
                   {s.steps.map((step, j) => (
                     <Text key={j} style={{ fontSize: 13.5, color: colors.ink }}>{`${j + 1}. ${step}`}</Text>
                   ))}

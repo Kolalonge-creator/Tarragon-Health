@@ -4,8 +4,9 @@
 -- public.clinician_folio_for_document returns a clinician's MDCN folio only for an entitled document flow.
 -- Contract: entitled = row (null folio if no staff row); exists but not entitled = 42501; missing = zero rows.
 -- Also proves a forged service_role JWT claim from an authenticated session gets nothing.
--- Proves, with simulated sessions: the owning patient gets the folio for a referral, prescription, lab request,
--- lab interpretation, verified document and vaccination certificate; another patient gets zero rows for every
+-- Proves, with simulated sessions: the owning patient gets the folio for a referral, prescription, lab request and
+-- vaccination certificate (and, after OQ-358b, a NULL folio but the name for a lab interpretation and a verified
+-- document: the folio prints on letters and prescriptions only); another patient gets zero rows for every
 -- kind; a colleague never gets a referral folio and for prescriptions/vaccinations agrees exactly with
 -- private.staff_may_read; service role gets the lab request folio; an unknown kind is refused; an empty id list
 -- returns nothing; anon cannot execute it; a patient cannot read clinical_staff. Does NOT assert anything about
@@ -94,7 +95,7 @@ begin
   if v_n <> 0 then raise exception 'FAIL: a patient read % clinical_staff rows', v_n; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_docA, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select credential_number into v_f from public.clinical_staff where profile_id = v_docA;
+  select credential_number into v_f from public.clinical_staff_folio(array[(select id from public.clinical_staff where profile_id = v_docA)]::uuid[]);
   execute 'reset role';
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: the clinician could not read their own folio (%)', v_f; end if;
 
@@ -115,10 +116,11 @@ begin
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the prescription folio (%)', v_f; end if;
   select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_request', array[v_lab]);
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the lab request folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_result_interpretation', array[v_lrd]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the lab interpretation folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('verified_document', array[v_vd]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the verified document folio (%)', v_f; end if;
+  -- OQ-358b: the folio prints on letters and prescriptions only; a lab result or verified document still names the doctor but carries no folio
+  select string_agg(coalesce(credential_number, '<null>') || '/' || coalesce(full_name, '<noname>'), ',') into v_f from public.clinician_folio_for_document('lab_result_interpretation', array[v_lrd]);
+  if v_f is distinct from '<null>/Folio Doctor A' then raise exception 'FAIL: lab interpretation must return a null folio and the name (%)', v_f; end if;
+  select string_agg(coalesce(credential_number, '<null>') || '/' || coalesce(full_name, '<noname>'), ',') into v_f from public.clinician_folio_for_document('verified_document', array[v_vd]);
+  if v_f is distinct from '<null>/Folio Doctor A' then raise exception 'FAIL: verified document must return a null folio and the name (%)', v_f; end if;
   select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('vaccination_certificate', array[v_vr]);
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the vaccination certificate folio (%)', v_f; end if;
   select count(*) into v_n from public.clinician_folio_for_document('prescription', array[]::uuid[]);

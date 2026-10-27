@@ -1,6 +1,7 @@
 "use server";
 
-import { HELD_READING_COPY } from "@tarragon/shared";
+import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
+import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { readDeviceFlags } from "@/lib/devices/flags";
 import { randomUUID } from "crypto";
 import * as Sentry from "@sentry/nextjs";
@@ -22,6 +23,7 @@ import { medicationAccessBarrierSchema } from "@/lib/validation/medication-acces
 import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { heightSchema } from "@/lib/validation/height";
+import { assistedRefusalResponse } from "@/lib/vitals/assisted-refusal";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
   paediatricDangerReportSchema,
@@ -66,7 +68,7 @@ import { ageFromDateOfBirth, mgDlToMmolL, type BpAckLevel, type Json } from "@ta
  * `bpAckLevel` is set only for a saved blood pressure reading: the display band (never an escalation, the trigger does that) the form uses to pick
  * the signed wording beside "Received by TarragonHealth." (docs/design/BP-immediate-acknowledgement.md).
  */
-export type LogVitalActionState = { error?: string; success?: boolean; bpAckLevel?: BpAckLevel } | undefined;
+export type LogVitalActionState = { error?: string; success?: boolean; bpAckLevel?: BpAckLevel; /** S07y: said beside a saved reading when its pharmacy label could not be kept (the label's guard was closed). */ notice?: string } | undefined;
 
 export async function logVital(
   _prevState: LogVitalActionState,
@@ -166,23 +168,44 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
       ketone_urine: reading.ketone_urine,
       note: reading.note,
     };
+  } else if (reading.vital_type === "blood_pressure" && !reading.entry_origin && reading.place_label !== undefined) {
+    // S07y: a place only means something with the pharmacy label; without it the database would refuse the row
+    row = { ...reading, place_label: undefined };
   } else {
     row = reading;
   }
 
-  const insertQuery = supabase.from("vitals_readings").insert({
-    ...row,
-    taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
-    patient_id: subjectId,
-    organisation_id: profile.organisation_id,
-  });
+  // (narrowed into its own const: the closure below would lose the null check above)
+  const organisationId = profile.organisation_id;
+  const insertRow = (r: typeof row) =>
+    supabase.from("vitals_readings").insert({
+      ...r,
+      taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
+      patient_id: subjectId,
+      organisation_id: organisationId,
+    });
   // S70a (18.9): with the plausibility hold on, the database can accept a typed value without storing it (a number that cannot be real is
   // held for the person to check). That must never be reported as saved, so the rows come back and an empty answer is looked into.
   // Off (today): exactly the old insert.
   const holdFlags = await readDeviceFlags(supabase);
   const watching = holdFlags.device_plausibility_hold || holdFlags.device_cross_source_dedupe;
-  const { error, data: storedRows } = watching ? await insertQuery.select("id") : await insertQuery.then((r) => ({ ...r, data: null }));
+  const runInsert = async (r: typeof row) => {
+    const query = insertRow(r);
+    return watching ? await query.select("id") : await query.then((res) => ({ ...res, data: null }));
+  };
+  let { error, data: storedRows } = await runInsert(row);
+  // S07y: 55000 on a labelled reading is the label's guard being closed for this person (the form hides the box then, so this is a stale page). A dangerous value
+  // must never be lost to a go-live switch, so the reading is saved as an ORDINARY one, exactly as it would have been before the label existed, with the setting
+  // kept in its note so the care team can still see it, and the person is told.
+  let labelDropped = false;
+  if (isLabelGuardRefusal(error) && row.vital_type === "blood_pressure" && row.entry_origin) {
+    ({ error, data: storedRows } = await runInsert(withoutPharmacyLabel(row, t("pharm.note_prefix", DEFAULT_LOCALE)) as typeof row));
+    labelDropped = error === null;
+  }
   if (error) {
+    // A reading a helper entered for the person, refused by the assisted-entry guard: plain words, never the database text.
+    const refused = assistedRefusalResponse(error);
+    if (refused) return { error: refused.message };
     return { error: error.message };
   }
   if (watching && Array.isArray(storedRows) && storedRows.length === 0 && holdFlags.device_plausibility_hold) {
@@ -295,15 +318,17 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
         ? "unknown"
         : classifyBpLevel(row.systolic, row.diastolic)
       : undefined;
+  const notice = labelDropped ? t("pharm.label_dropped", DEFAULT_LOCALE) : undefined;
   if (safetyAssessmentFailed) {
     return {
       success: true,
+      ...(notice ? { notice } : {}),
       ...(bpAckLevel ? { bpAckLevel } : {}),
       error:
         "Your reading was saved, but we could not finish checking it against your care protocols. If this reading concerns you, contact your care team or log it again.",
     };
   }
-  return { success: true, ...(bpAckLevel ? { bpAckLevel } : {}) };
+  return { success: true, ...(notice ? { notice } : {}), ...(bpAckLevel ? { bpAckLevel } : {}) };
 }
 
 export type UpdateLocationActionState = { error?: string; success?: boolean } | undefined;

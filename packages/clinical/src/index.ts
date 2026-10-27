@@ -10,6 +10,7 @@ export { effectiveRange, type SexRange, type LabSex } from "./lab-release";
 export { classifyLabResult, explanationAllowed, LabEntryError, QUALITATIVE_VALUES, type LabPanelDefinition, type LabAnalyteDefinition, type LabItemInput, type LabClassification, type LabFlag, type LabReleaseState } from "./lab-release";
 export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQuestionScreen } from "./written-question-screen";
 export { screenAssistantMessage, isSelfHarmScreen, ASSISTANT_EXTRA_DANGER_PHRASES, ASSISTANT_DANGER_PAIRS, type AssistantDangerScreen } from "./assistant-danger-screen";
+export { parseVignetteSet, runTriageFloor, triageFloorFailures, formatTriageFloorReport, VignetteSetFormatError, type Vignette, type VignetteKind, type VignetteSet, type TriageFloorLimits, type TriageFloorReport } from "./triage-floor-eval";
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
@@ -23,19 +24,33 @@ export {
   assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,
   type HomeBand, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment, type HomeCheckInput, type PatternInput, type PatternKind, type PersonalTarget, type ScheduledSession, type SessionPart, type SessionProgress, type TargetStatus,
 } from "./home-bp";
+export { cuffSizeKey, isPlausibleArmCm, parseCuffSizingConfig, type CuffSizeBand, type CuffSizeKey, type CuffSizingConfig } from "./cuff-size";
 export { planSession, type SessionInput, type SessionStep } from "./home-bp-session";
 export {
   classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,
   type BpValue, type CuffCheckConfig, type CuffCheckResult, type CuffFlagKind, type PairClass, type PairDifference, type TimedBp,
 } from "./cuff-check";
-export { GLUCOSE_CARE_V1 } from "./rules";
+export { GLUCOSE_CARE_V1, VITALS_CARE_V1 } from "./rules";
 export {
   gradeGlucose, validateGlucoseInput, validateGlucoseRuleSet, buildGlucoseContext, GLUCOSE_RULE_SET_CODE, GLUCOSE_CONTEXTS, GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, GLUCOSE_CONTEXT_FIELDS,
   type GlucoseInput, type GlucoseRuleSet, type GlucoseObservationTrigger, type GlucoseContextCode, type GlucoseSymptomCode, type GlucoseDiabetesType, type KetoneUrine,
 } from "./glucose-engine";
 export { GLUCOSE_SIGN_SYMPTOM_TYPE, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseSignSymptomType } from "./glucose-signs";
 export {
+  gradeVitals, validateVitalsInput, validateVitalsRuleSet, buildVitalsContext, VITALS_RULE_SET_CODE, VITALS_METRICS, VITALS_CONTEXT_FIELDS,
+  type VitalsInput, type VitalsRuleSet, type VitalsObservationTrigger, type VitalsMetric,
+} from "./vitals-engine";
+export {
+  applyBpOverride, applyGlucoseOverride, validateOverrideParams, OVERRIDE_LIMITS,
+  type ActiveOverride, type BpOverrideParams, type GlucoseOverrideParams, type OverrideDomain, type OverrideOutcome, type IgnoredReason,
+} from "./threshold-override";
+export {
   activityGate, activityGateMessageKey, parseActivityGate, unavailableActivityGate, conditionPresent, intensityAllowed, kindAllowed, lowerIntensity, INTENSITY_ORDER,
   type ActivityConditionRecord, type ActivityGateDecision, type ActivityGateInput, type ActivityGateReason, type ActivityGateResult, type ActivityIntensity,
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
+export {
+  assessReadiness, readinessMessageKeys,
+  type LoadLevel, type ReadinessBand, type ReadinessBandsConfig, type ReadinessLevel, type ReadinessMetric, type ReadinessResult, type WearableReadingPoint,
+} from "./activity-readiness";
+export { orderPlans, planHasAudioSlot, sessionsWithinRange, type WorkoutPlanDisplayConfig, type WorkoutPlanLike } from "./workout-plans";

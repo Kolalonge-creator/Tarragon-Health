@@ -13,9 +13,11 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
+import { AgpCard } from "@/components/agp-card";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
+import { SharedSummaries } from "@/components/mental-health/shared-summaries";
 import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
@@ -48,6 +50,8 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
+import { ThresholdOverrideCard } from "./threshold-override-card";
+import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
 import { CuffCheckPanel } from "./cuff-check-panel";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
@@ -155,6 +159,7 @@ export default async function ClinicianPatientPage({
 
   const callerStaff = await getCurrentClinicalStaff();
   const canPrescribe = hasPrescribingAuthority(callerStaff);
+  const thresholdOverrides = canPrescribe ? await readPatientOverrides(supabase, patient.id) : { rows: [], failed: false };
   const currentUser = await getCurrentUser();
   // Pregnancy context for the drug-safety advisory (§20.2).
   const { data: pregnancy } = await supabase
@@ -364,6 +369,8 @@ export default async function ClinicianPatientPage({
                 <BpLadderPanel patientId={patient.id} />
                 <HealthTrendsCard patientId={patient.id} audience="clinician" />
                 <VitalsTrendChart patientId={patient.id} />
+                {/* Renders nothing until the patient has sensor glucose; display only, raises no task. */}
+                <AgpCard patientId={patient.id} audience="clinician" />
                 <LipidProfileCard patientId={patient.id} />
                 <CardiovascularRiskPanel
                   patientId={patient.id}
@@ -378,6 +385,7 @@ export default async function ClinicianPatientPage({
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
+                {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
                 {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
@@ -402,6 +410,7 @@ export default async function ClinicianPatientPage({
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
                 <MentalHealthSummary patientId={patient.id} showScores />
+                <SharedSummaries patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />

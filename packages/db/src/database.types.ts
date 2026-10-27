@@ -28089,6 +28089,81 @@ export type Database = {
           },
         ]
       }
+      milestone_definitions: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          params: Json
+          status: string
+          trigger_event: string
+          version: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          params?: Json
+          status?: string
+          trigger_event: string
+          version: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          params?: Json
+          status?: string
+          trigger_event?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      milestones_achieved: {
+        Row: {
+          achieved_at: string
+          dismissed_at: string | null
+          event_id: string
+          id: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at: string | null
+        }
+        Insert: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id: string
+          id?: string
+          milestone_code: string
+          milestone_version: number
+          organisation_id: string
+          patient_id: string
+          seen_at?: string | null
+        }
+        Update: {
+          achieved_at?: string
+          dismissed_at?: string | null
+          event_id?: string
+          id?: string
+          milestone_code?: string
+          milestone_version?: number
+          organisation_id?: string
+          patient_id?: string
+          seen_at?: string | null
+        }
+        Relationships: []
+      }
       points_award_decisions: {
         Row: {
           decided_at: string
@@ -37110,6 +37185,186 @@ export type Database = {
           },
         ]
       }
+      visit_summaries: {
+        Row: {
+          amendment_count_at_approval: number | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_staff: string | null
+          assembled_at: string
+          assembled_by: string | null
+          clinical_encounter_id: string | null
+          created_at: string
+          draft_source: Json
+          edited_at: string | null
+          id: string
+          is_test: boolean
+          note_id: string
+          organisation_id: string
+          patient_id: string
+          revision: number
+          state: string
+          summary_text: string
+          updated_at: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          amendment_count_at_approval?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_staff?: string | null
+          assembled_at?: string
+          assembled_by?: string | null
+          clinical_encounter_id?: string | null
+          created_at?: string
+          draft_source?: Json
+          edited_at?: string | null
+          id?: string
+          is_test?: boolean
+          note_id: string
+          organisation_id: string
+          patient_id: string
+          revision?: number
+          state?: string
+          summary_text?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          amendment_count_at_approval?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_staff?: string | null
+          assembled_at?: string
+          assembled_by?: string | null
+          clinical_encounter_id?: string | null
+          created_at?: string
+          draft_source?: Json
+          edited_at?: string | null
+          id?: string
+          is_test?: boolean
+          note_id?: string
+          organisation_id?: string
+          patient_id?: string
+          revision?: number
+          state?: string
+          summary_text?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: []
+      }
+      visit_summary_item_progress: {
+        Row: {
+          done_at: string | null
+          item_id: string
+          patient_id: string
+          summary_id: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          done_at?: string | null
+          item_id: string
+          patient_id: string
+          summary_id: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          done_at?: string | null
+          item_id?: string
+          patient_id?: string
+          summary_id?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      visit_summary_items: {
+        Row: {
+          created_at: string
+          custom_text: string | null
+          due_on: string | null
+          id: string
+          kind: string
+          params: Json
+          position: number
+          source_ref: string | null
+          source_table: string | null
+          summary_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_text?: string | null
+          due_on?: string | null
+          id?: string
+          kind: string
+          params?: Json
+          position?: number
+          source_ref?: string | null
+          source_table?: string | null
+          summary_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_text?: string | null
+          due_on?: string | null
+          id?: string
+          kind?: string
+          params?: Json
+          position?: number
+          source_ref?: string | null
+          source_table?: string | null
+          summary_id?: string
+        }
+        Relationships: []
+      }
+      visit_summary_revisions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          items_snapshot: Json
+          patient_id: string
+          revision: number
+          state_at_reset: string
+          summary_id: string
+          summary_text: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          patient_id: string
+          revision: number
+          state_at_reset: string
+          summary_id: string
+          summary_text: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          patient_id?: string
+          revision?: number
+          state_at_reset?: string
+          summary_id?: string
+          summary_text?: string
+        }
+        Relationships: []
+      }
       vitals_readings: {
         Row: {
           arm: string | null
@@ -37121,6 +37376,8 @@ export type Database = {
           correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           device_id: string | null
+          entry_origin: string | null
+          place_label: string | null
           diastolic: number | null
           external_reading_id: string | null
           glucose_events: string[]
@@ -37129,6 +37386,8 @@ export type Database = {
           id: string
           ketone_urine: string | null
           ketones_mmol_l: number | null
+          assisted_entry: boolean
+          assisted_rate_exceeded: boolean
           logged_by_profile_id: string | null
           note: string | null
           organisation_id: string
@@ -37166,6 +37425,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -37176,6 +37437,8 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id: string
@@ -37213,6 +37476,8 @@ export type Database = {
           correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
+          entry_origin?: string | null
+          place_label?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
           glucose_events?: string[]
@@ -37223,6 +37488,8 @@ export type Database = {
           id?: string
           ketone_urine?: string | null
           ketones_mmol_l?: number | null
+          assisted_entry?: boolean
+          assisted_rate_exceeded?: boolean
           logged_by_profile_id?: string | null
           note?: string | null
           organisation_id?: string
@@ -39128,10 +39395,18 @@ export type Database = {
       }
     }
     Functions: {
+      add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
+      approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
+      assemble_visit_summary: { Args: { p_note: string }; Returns: string }
       clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
       confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      my_visit_summaries: { Args: { p_patient?: string }; Returns: Json }
+      read_visit_summary_for_review: { Args: { p_note: string }; Returns: Json }
+      record_visit_summary_opened: { Args: { p_summary: string }; Returns: undefined }
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      set_visit_summary_item_done: { Args: { p_done: boolean; p_item: string }; Returns: undefined }
+      update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       correct_clinical_value: {
         Args: {
@@ -39640,10 +39915,6 @@ export type Database = {
       }
       analytics_business_summary: { Args: never; Returns: Json }
       analytics_clinical_outcomes: { Args: never; Returns: Json }
-      analytics_clinical_rule_performance: {
-        Args: { p_from?: string; p_to?: string }
-        Returns: Json
-      }
       analytics_complaints_summary: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -41804,6 +42075,18 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      my_points_pending: {
+        Args: never
+        Returns: Json
+      }
+      my_pending_milestone: {
+        Args: never
+        Returns: Json
+      }
+      dismiss_milestone: {
+        Args: { p_id: string }
+        Returns: boolean
+      }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -43402,6 +43685,7 @@ export type Database = {
         Returns: string
       }
       symptom_review_stated_time: { Args: Record<PropertyKey, never>; Returns: Json }
+      withdraw_visit_summary: { Args: { p_reason: string; p_summary: string }; Returns: undefined }
     }
     Enums: {
       correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
@@ -43674,6 +43958,7 @@ export type Database = {
         | "communicate_with_care_team"
         | "manage_payments"
         | "receive_alerts"
+        | "log_readings"
       care_engagement_level:
         | "highly_engaged"
         | "engaged"
@@ -45817,6 +46102,7 @@ export const Constants = {
         "communicate_with_care_team",
         "manage_payments",
         "receive_alerts",
+        "log_readings",
       ],
       care_engagement_level: [
         "highly_engaged",

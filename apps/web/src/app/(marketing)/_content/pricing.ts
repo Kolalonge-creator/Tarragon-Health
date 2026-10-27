@@ -46,7 +46,9 @@
  *    and the admin diaspora-pricing screen are gone too, not repaired. Do not
  *    reintroduce a currency picker or USD price anywhere until Stripe is
  *    actually configured (`isStripeConfigured()` returns true).
- * 2. Do not describe anything as recurring, auto-renewing or cancellable.
+ * 2. Do not describe anything as recurring, auto-renewing or cancellable, EXCEPT Membership's automatic renewal, and only through
+ *    `renewalCopy` in lib/marketing/membership.ts, which follows the real switch (public.membership_auto_renew_enabled). Never type a
+ *    renewal sentence into a page.
  *    Nothing on this platform charges a card twice. When something runs out you
  *    buy it again, or you don't.
  * 3. Do not promise a feature as free while a gate still blocks it. This page
@@ -57,6 +59,8 @@
  * The platform has two plans: Free and Membership. No other price is shown on the public site (decision 2026-10-13); the one
  * Membership price is read from versioned config by the pricing page.
  */
+import { renewalCopy } from "@/lib/marketing/membership";
+
 export type PricingLabel =
   | "FREE"
   | "YOU PAY THE LAB"
@@ -135,14 +139,17 @@ export const NAIRA_ONLY_STATEMENT =
   "Every price is in Naira, and only Naira. There is no dollar version, no exchange-rate conversion, and no different price depending on where in the world you are paying from.";
 
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
-export const PRICING_PROMISES: string[] = [
+export const pricingPromises = (autoRenews: boolean): string[] => [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
   "There are two plans: Free, and Membership. Membership is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
-  "Nothing auto-renews. Membership lasts a year and then simply ends, and we remind you before it does. There is no card kept on file and no cancellation to remember.",
+  renewalCopy(autoRenews, 0).promise,
   "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
   "The Membership price is reviewed once a year at most, and we will tell you at least 30 days before any change. A Membership you have already paid for is honoured until it ends.",
   NAIRA_ONLY_STATEMENT,
 ];
+
+/** The promises as they read while automatic renewal is OFF (the state every page starts in). */
+export const PRICING_PROMISES: string[] = pricingPromises(false);
 
 export type FreeFeatureGroup = {
   id: string;
@@ -310,11 +317,13 @@ export const FREE_TRIALS: { title: string; body: string }[] = [
   },
 ];
 
-export const FREE_TRIAL_TERMS: string[] = [
+export const freeTrialTerms = (autoRenews: boolean): string[] => [
   "The free app has no time limit, and it stays free unless you choose to join Membership.",
   "You will always see the exact price and confirm it before anything is taken from your card.",
-  "Nothing renews automatically. When your Membership ends you join again only if you want to.",
+  renewalCopy(autoRenews, 0).trialTerm,
 ];
+
+export const FREE_TRIAL_TERMS: string[] = freeTrialTerms(false);
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {

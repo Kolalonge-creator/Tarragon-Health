@@ -24,3 +24,24 @@ export interface ContractionSessionPayload {
   config_version: number;
   organisation_id: string;
 }
+
+/** The birth plan as the outbox sends it (S67, one row per pregnancy). Money is a plan note in integer kobo, never a balance (INV-09). */
+export interface BirthPlanFields {
+  place_of_birth: string | null;
+  transport_plan: string | null;
+  money_plan_kobo: number | null;
+  money_plan_note: string | null;
+  blood_donor_name: string | null;
+  blood_donor_phone: string | null;
+  escort_name: string | null;
+  escort_phone: string | null;
+  long_journey: boolean;
+  previous_fast_labour: boolean;
+  previous_births: number;
+}
+
+export interface BirthPlanPayload {
+  pregnancy_id: string;
+  organisation_id: string;
+  plan: BirthPlanFields;
+}

@@ -236,12 +236,13 @@ begin
      or has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
     raise exception 'FAIL H1: correct_clinical_value must be executable by authenticated (S05b-d grant) and never by anon';
   end if;
+  -- (stamp_manual_vitals_timestamp, S07y: on a CORRECTION of a labelled reading it reads the superseded original BY ID for its time; the current view would hide it)
   for r in
     select n.nspname || '.' || p.proname as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosecdef
-       and p.proname not in ('correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
-                             'clear_vitals_validation_flag', 'record_triage_result', 'record_glucose_triage_result', 'record_poc_measurements',
+       and p.proname not in ('correct_clinical_value', 'stamp_manual_vitals_timestamp', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
+                             'clear_vitals_validation_flag', 'record_triage_result', 'record_glucose_triage_result', 'record_vitals_triage_result', 'record_poc_measurements',
                              'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation')
        and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M'
   loop

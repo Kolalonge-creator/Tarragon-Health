@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import {
+  countHeldForWifi,
   discardRejectedRow,
   flushOutbox,
+  flushOutboxIncludingHeld,
   getOutboxSummary,
   listOutbox,
   retryRow,
@@ -13,8 +15,13 @@ import {
 import { useUiLanguage } from "@/lib/ui-language";
 import { dismissStoreNotice, listStoreNotices, noticesFor, type StoreNotice } from "@/lib/store-notices";
 import { supabase } from "@/lib/supabase";
-import { formatBytes, getMonthlyDataUsage } from "@/lib/data-usage";
+import { getUsageFigures } from "@/lib/data-usage";
+import { buildDataCostView, type DataCostView } from "@/lib/data-cost-view";
+import { loadDataCostConfig } from "@/lib/data-cost-config";
 import { loadOfflineTrustConfig } from "@/lib/offline-trust-config";
+import { getHealthSamplesQueueCount } from "@/lib/offline-queue";
+import { currentBulkDeferral } from "@/lib/reconnect-flush";
+import type { DeferReason } from "@/lib/power-rules";
 import { space } from "@/ui/design";
 import { AppText, Button, Card, Icon } from "@/ui/kit";
 
@@ -32,7 +39,11 @@ export function SyncBanner() {
   const [summary, setSummary] = useState<OutboxSummary | null>(null);
   const [rejected, setRejected] = useState<OutboxItem[]>([]);
   const [notices, setNotices] = useState<StoreNotice[]>([]);
-  const [usage, setUsage] = useState(0);
+  const [cost, setCost] = useState<DataCostView | null>(null);
+  const [heldForWifi, setHeldForWifi] = useState(0);
+  const [holdHours, setHoldHours] = useState(0);
+  // S06y: bulk uploads waiting for power or Wi-Fi. Said plainly; the entries themselves are already saved.
+  const [deferral, setDeferral] = useState<DeferReason | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -41,11 +52,17 @@ export function SyncBanner() {
       setRejected(items.filter((i) => i.state === "rejected"));
       const { data: auth } = await supabase.auth.getSession();
       setNotices(noticesFor(await listStoreNotices(), auth.session?.user.id ?? null));
-      setUsage(await getMonthlyDataUsage());
+      const config = loadDataCostConfig();
+      setCost(buildDataCostView(await getUsageFigures(), config, locale));
+      setHoldHours(Math.round(config.maxHoldMs / 3_600_000));
+      // What Wi-Fi only is holding right now, by the same rule the flush uses, so the banner says why entries wait.
+      setHeldForWifi(await countHeldForWifi(items));
+      // Only the bulk health-sample pages ever wait; worked out from the phone as it is now, not remembered.
+      setDeferral((await getHealthSamplesQueueCount()) > 0 ? await currentBulkDeferral() : null);
     } catch {
       // A failed read of the local queue must not blank the screen.
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void refresh();
@@ -53,11 +70,12 @@ export function SyncBanner() {
     return () => clearInterval(timer);
   }, [refresh]);
 
-  if (!summary && notices.length === 0) return null;
+  if (!summary && notices.length === 0 && !deferral) return null;
   const stuckWaiting = summary ? Math.max(0, summary.stuck - summary.rejected) : 0;
-  const quietlyWaiting = summary ? Math.max(0, summary.waiting - stuckWaiting) : 0;
+  // A row can be both held and old enough to count as stuck only if the server shortens the stuck notice below the hold cap; count it once.
+  const quietlyWaiting = summary ? Math.max(0, summary.waiting - Math.max(stuckWaiting, heldForWifi)) : 0;
   const nothingHeld = !summary || summary.waiting + summary.rejected + summary.heldForOtherAccount === 0;
-  if (nothingHeld && notices.length === 0) return null;
+  if (nothingHeld && notices.length === 0 && !deferral) return null;
 
   async function retryOne(item: OutboxItem) {
     await retryRow(item.clientId);
@@ -102,12 +120,31 @@ export function SyncBanner() {
           <Button title={t("store.dismiss", locale)} variant="ghost" onPress={() => void dismissStoreNotice(n.id).then(refresh)} />
         </Card>
       ))}
+      {deferral ? (
+        <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Icon name="sending" size={18} tone="textMuted" />
+          <AppText variant="caption" tone="textMuted" style={{ flex: 1 }}>
+            {t(deferral === "low_power" ? "outbox.saved_later_power" : "outbox.saved_later_data", locale)}
+          </AppText>
+        </Card>
+      ) : null}
       {summary && quietlyWaiting > 0 ? (
         <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Icon name="sending" size={18} tone="textMuted" />
           <AppText variant="caption" tone="textMuted" style={{ flex: 1 }}>
             {t("outbox.waiting", locale, { count: quietlyWaiting })}
           </AppText>
+        </Card>
+      ) : null}
+      {heldForWifi > 0 ? (
+        <Card level={0} style={{ gap: space.sm }}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <Icon name="sending" size={18} tone="textMuted" />
+            <AppText variant="body" tone="textMuted" style={{ flex: 1 }}>
+              {t("datacost.wifi_only.waiting", locale, { count: heldForWifi, hours: holdHours })}
+            </AppText>
+          </View>
+          <Button title={t("datacost.send_now", locale)} variant="secondary" onPress={() => void flushOutboxIncludingHeld().then(refresh, refresh)} />
         </Card>
       ) : null}
       {stuckWaiting > 0 ? (
@@ -141,9 +178,9 @@ export function SyncBanner() {
           </AppText>
         </Card>
       ) : null}
-      {usage > 0 && !nothingHeld ? (
+      {cost?.hasUsage && !nothingHeld ? (
         <AppText variant="caption" tone="textMuted">
-          {t("usage.month", locale, { amount: formatBytes(usage) })}
+          {cost.monthLine} ({t("datacost.estimate", locale)})
         </AppText>
       ) : null}
     </View>

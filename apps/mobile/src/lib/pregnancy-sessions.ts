@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   evaluateContractions,
   evaluateKickSession,
@@ -12,6 +11,7 @@ import {
   type KickEvaluation,
 } from "@tarragon/clinical";
 import { loadMaternalConfig } from "./maternal-config";
+import { localGet, localSet } from "./pregnancy-local";
 import { readPregnancyWeek } from "./obstetric-status";
 import { enqueue } from "./outbox";
 import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
@@ -23,12 +23,22 @@ import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-
  * queued as DANGER, so a session that has not reached the server raises the same "not yet reached your care team" notice a red
  * reading does. No language model is called anywhere here (INV-01), and nothing here ever tells anyone to wait.
  */
-const HISTORY_KEY = (subjectId: string) => `@tarragon/kick-history/v1:${subjectId}`;
+// The history is in the encrypted store (pregnancy-local); the old plain AsyncStorage key is read once and moved across.
+const LEGACY_HISTORY_KEY = (subjectId: string) => `@tarragon/kick-history/v1:${subjectId}`;
+const HISTORY_KEY = (subjectId: string) => `kick-history:${subjectId}`;
+
+/**
+ * The week the screen is showing. When a caller passes it, it is used instead of the copy cached with the obstetric status, so the screen
+ * and the cards can never disagree about the week. `undefined` means "not passed": fall back to the cache.
+ */
+async function weekFor(subjectId: string, nowMs: number, passed: number | null | undefined): Promise<number | null> {
+  return passed !== undefined ? passed : readPregnancyWeek(subjectId, nowMs);
+}
 const MAX_HISTORY = 12;
 
 async function readKickHistory(subjectId: string): Promise<FinishedKickSession[]> {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY(subjectId));
+    const raw = await localGet(HISTORY_KEY(subjectId), LEGACY_HISTORY_KEY(subjectId));
     const v = raw ? (JSON.parse(raw) as unknown) : [];
     if (!Array.isArray(v)) return [];
     return v
@@ -41,7 +51,7 @@ async function readKickHistory(subjectId: string): Promise<FinishedKickSession[]
 
 async function writeKickHistory(subjectId: string, history: readonly FinishedKickSession[]): Promise<void> {
   const compact = history.slice(-MAX_HISTORY).map((h) => ({ m: h.minutesToTarget }));
-  await AsyncStorage.setItem(HISTORY_KEY(subjectId), JSON.stringify(compact)).catch(() => {});
+  await localSet(HISTORY_KEY(subjectId), JSON.stringify(compact)).catch(() => {});
 }
 
 export interface KickSessionInput {
@@ -52,6 +62,8 @@ export interface KickSessionInput {
   movementMs: readonly number[];
   reportedLess?: boolean;
   nowMs: number;
+  /** The week the screen shows (null when unknown). Omit to use the cached one. */
+  week?: number | null;
 }
 
 /** What a screen needs while counting: the live evaluation, with her personal normal if she has one. Pure over the cached history. */
@@ -66,9 +78,14 @@ export async function evaluateKickNow(input: Omit<KickSessionInput, "organisatio
   );
 }
 
-export async function kickCounterOffered(subjectId: string, nowMs: number): Promise<boolean> {
+/**
+ * Whether the counter is offered. A week the screen passes as unknown (null) is offered: the counter and its contact-today card must
+ * never be hidden behind "not yet" because the dating is missing. With no week passed at all, the cached week decides, as before.
+ */
+export async function kickCounterOffered(subjectId: string, nowMs: number, week?: number | null): Promise<boolean> {
   const { config } = loadMaternalConfig();
-  return kickCounterAvailable(await readPregnancyWeek(subjectId, nowMs), config);
+  if (week === null) return true;
+  return kickCounterAvailable(await weekFor(subjectId, nowMs, week), config);
 }
 
 /** Ends a counting session: evaluates it once more, writes it to the outbox and remembers how long it took. */
@@ -81,7 +98,7 @@ export async function finishKickSession(input: KickSessionInput): Promise<KickEv
     personalNormalMinutes(history, config),
     config,
   );
-  const week = await readPregnancyWeek(input.subjectId, input.nowMs);
+  const week = await weekFor(input.subjectId, input.nowMs, input.week);
   const result: KickSessionPayload["result"] = evaluation.state === "counting" ? "stopped" : evaluation.state;
   const payload: KickSessionPayload = {
     started_at: new Date(input.startedAtMs).toISOString(),
@@ -115,19 +132,26 @@ export interface ContractionSessionInput {
   signs: readonly InstantGoSign[];
   flags: BirthPlanFlags | null;
   nowMs: number;
+  /** The week the screen shows (null when unknown). Omit to use the cached one. */
+  week?: number | null;
+  /**
+   * A "go now" answer the screen already showed and kept. Saved as it is instead of being worked out again: once the next contraction
+   * starts the live rule no longer counts the run, and a later save must not turn a shown go-now card into "keep timing".
+   */
+  known?: ContractionEvaluation;
 }
 
 export async function evaluateContractionsNow(input: Omit<ContractionSessionInput, "organisationId" | "startedAtMs">): Promise<ContractionEvaluation> {
   const { config } = loadMaternalConfig();
-  const week = await readPregnancyWeek(input.subjectId, input.nowMs);
+  const week = await weekFor(input.subjectId, input.nowMs, input.week);
   return evaluateContractions(input.contractions, { week, signs: input.signs, flags: input.flags }, input.nowMs, config);
 }
 
 /** Ends a timing session and queues it. A go-now result is queued as danger. */
 export async function finishContractionSession(input: ContractionSessionInput): Promise<ContractionEvaluation> {
   const { config, version } = loadMaternalConfig();
-  const week = await readPregnancyWeek(input.subjectId, input.nowMs);
-  const evaluation = evaluateContractions(input.contractions, { week, signs: input.signs, flags: input.flags }, input.nowMs, config);
+  const week = await weekFor(input.subjectId, input.nowMs, input.week);
+  const evaluation = input.known ?? evaluateContractions(input.contractions, { week, signs: input.signs, flags: input.flags }, input.nowMs, config);
   const payload: ContractionSessionPayload = {
     started_at: new Date(input.startedAtMs).toISOString(),
     timings: input.contractions

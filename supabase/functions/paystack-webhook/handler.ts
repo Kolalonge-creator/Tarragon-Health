@@ -37,6 +37,7 @@
 //     carry the subscription_code, matched against `provider_ref` (set by
 //     the subscription.create enrichment above).
 
+import { readCappedBody } from "../_shared/integrations/webhook-body.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { handleOrderCharge, isOrderCharge, type DepsFactory } from "./order-branch.ts";
 import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
@@ -418,7 +419,9 @@ export async function handleWebhookRequest(
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const rawBody = await req.text();
+  const capped = await readCappedBody(req);
+  if (!capped.ok) return new Response("Payload too large", { status: 413 });
+  const rawBody = capped.body;
   const signatureHeader = req.headers.get("x-paystack-signature");
   const signatureValid = await verifySignature(
     rawBody,

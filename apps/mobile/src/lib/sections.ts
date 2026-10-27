@@ -21,6 +21,11 @@ export type SectionId =
   | "healthSummary"
   | "timeline"
   | "myHealth"
+  | "documents"
+  | "dataExchange"
+  | "biomarkers"
+  | "healthHistory"
+  | "symptomJournal"
   | "shareRecords"
   | "myPhones"
   | "womensHealth"
@@ -28,6 +33,7 @@ export type SectionId =
   | "wellbeing"
   | "healthCheck"
   | "findASpecialist"
+  | "directory"
   | "healthyAgeing"
   | "lifestyle"
   | "weightManagement"
@@ -42,6 +48,7 @@ export type SectionId =
   | "appointments"
   | "screeningDays"
   | "testingDays"
+  | "recordsRequests"
   | "passport"
   | "financialProfile"
   | "services"
@@ -133,9 +140,39 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
   {
+    id: "healthHistory",
+    label: "Health history",
+    icon: "clipboard-outline",
+    group: "Your health",
+  },
+  {
+    id: "symptomJournal",
+    label: "Symptom journal",
+    icon: "pulse-outline",
+    group: "Your health",
+  },
+  {
     id: "shareRecords",
     label: "Share records",
     icon: "share-outline",
+    group: "Your health",
+  },
+  {
+    id: "biomarkers",
+    label: "Results over time",
+    icon: "stats-chart-outline",
+    group: "Your health",
+  },
+  {
+    id: "documents",
+    label: "Photos of documents",
+    icon: "camera-outline",
+    group: "Your health",
+  },
+  {
+    id: "dataExchange",
+    label: "Records from other places",
+    icon: "swap-horizontal-outline",
     group: "Your health",
   },
   {
@@ -202,6 +239,12 @@ export const SECTIONS: SectionDef[] = [
     id: "findASpecialist",
     label: "Find a specialist",
     icon: "search-outline",
+    group: "Your health",
+  },
+  {
+    id: "directory",
+    label: "Find care near you",
+    icon: "location-outline",
     group: "Your health",
   },
   {
@@ -306,6 +349,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "testingDays", label: "Testing days", icon: "calendar-outline", group: "Support" },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
+  { id: "recordsRequests", label: "Ask for your records", icon: "document-text-outline", group: "Your account" },
   {
     id: "financialProfile",
     label: "Your finances",

@@ -62,8 +62,11 @@ jobs:
       - name: Test (packages and console)
         run: pnpm test:ci
 
-      - name: Speech evaluation harness (node:test, synthetic data only)
-        run: node --test scripts/asr-eval/score.test.mjs
+      - name: Speech evaluation harness and pass-mark gate (node:test, synthetic data only)
+        run: node --test scripts/asr-eval/score.test.mjs scripts/asr-eval/gate.test.mjs
+
+      - name: Provider sandbox check and audio fallback report (node:test, fake vendors, no credentials)
+        run: node --test scripts/provider-sandbox-check/checks.test.mjs scripts/audio-fallback-measure/report.test.mjs
 
       - name: Build
         run: pnpm build
@@ -345,9 +348,20 @@ jobs:
         with:
           version: latest
 
+      # The images come from public.ecr.aws, which throttles unauthenticated pulls from shared runners
+      # ("toomanyrequests: Rate exceeded" / "Data limit exceeded"). That is intermittent, so retry with
+      # backoff; images already pulled stay cached between attempts. This job keeps the full stack (mail and
+      # the rest may be used by the browser tests).
       - name: Start local Supabase stack
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
-        run: supabase start
+        run: |
+          for attempt in 1 2 3 4; do
+            if supabase start; then exit 0; fi
+            echo "supabase start failed (attempt ${attempt}); retrying after a pause (registry throttling is the usual cause)"
+            supabase stop --no-backup || true
+            sleep $((attempt * 45))
+          done
+          exit 1
 
       - name: Replay all migrations + seed
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
@@ -584,8 +598,20 @@ jobs:
         with:
           version: latest
 
+      # The replay job only runs `supabase db reset` and the SQL proofs (psql), so it starts a trimmed stack:
+      # no Studio, mail, edge runtime, logs, vector, postgres-meta or pooler. That is fewer images and far
+      # less data pulled from public.ecr.aws, which throttles shared runners ("toomanyrequests: Rate exceeded"
+      # / "Data limit exceeded"). Auth and storage stay: their own migrations create the auth and storage
+      # schemas that ours depend on. Retry with backoff covers the throttling that remains.
       - name: Start local Supabase stack
-        run: supabase start
+        run: |
+          for attempt in 1 2 3 4; do
+            if supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,postgres-meta,supavisor; then exit 0; fi
+            echo "supabase start failed (attempt ${attempt}); retrying after a pause (registry throttling is the usual cause)"
+            supabase stop --no-backup || true
+            sleep $((attempt * 45))
+          done
+          exit 1
 
       - name: Replay all migrations + seed
         run: supabase db reset

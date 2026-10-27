@@ -1491,6 +1491,22 @@ export const TEMPLATE_MAP: Record<
       text: "Someone has joined your Care Circle.\n\nYou can change what they see, or remove them, at any time in Tarragon Health.\n\nTarragon Health",
     },
   }),
+  // CGJ: a Care Circle member was invited by the patient to join one call. Neutral by design (INV-07): no name, no time, no reason.
+  // The invite itself is on the person's own supporter page; nothing depends on this message being sent.
+  circle_consultation_invite: () => ({
+    smsText: "You have been invited to join a call. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "You have been invited to join a call",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has invited you to join a call.</p>` +
+        `<p>Open Tarragon Health to see the invite and answer it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has invited you to join a call.\n\nOpen Tarragon Health to see the invite and answer it.\n\nTarragon Health",
+    },
+  }),
   circle_left: () => ({
     smsText: "Someone has left your Care Circle. Tarragon Health",
     pushUrl: "/patient",
@@ -2087,6 +2103,56 @@ export const TEMPLATE_MAP: Record<
   consult_join_ready: (payload) => ({
     smsText: "Your consultation room is open. Open the app to join. Tarragon Health",
     pushUrl: `/patient/consultation/${String(payload.encounter_id ?? "")}`,
+  }),
+  // PCC: neutral by design (INV-07). Nothing names a visit, a reason or a person; the questions are in the app after sign-in.
+  consult_checkin_due: (payload) => ({
+    smsText: "Your care team has a quick check-in for you. Open the app to answer. Tarragon Health",
+    pushUrl: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}`,
+    email: {
+      subject: "A quick check-in from your care team",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team has a quick check-in for you. Open the Tarragon Health app to answer.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your care team has a quick check-in for you. Open the Tarragon Health app to answer.",
+    },
+  }),
+  consult_checkin_nudge: (payload) => ({
+    smsText: "Your quick check-in is still waiting whenever you are ready. Tarragon Health",
+    pushUrl: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}`,
+    email: {
+      subject: "Your quick check-in is still waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your quick check-in is still waiting in the Tarragon Health app, whenever you are ready.",
+    },
+  }),
+  // S59c: neutral by design (INV-07). Nothing names a symptom, a result or a person; the follow-up questions are in the app after sign-in.
+  symptom_checkback_due: (payload) => ({
+    smsText: "Your care team would like to know how you are getting on. Open the app to answer. Tarragon Health",
+    pushUrl: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}`,
+    email: {
+      subject: "How are you getting on?",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your care team would like to know how you are getting on. Open the Tarragon Health app to answer.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your care team would like to know how you are getting on. Open the Tarragon Health app to answer.",
+    },
+  }),
+  symptom_checkback_nudge: (payload) => ({
+    smsText: "Your quick follow-up is still waiting whenever you are ready. Tarragon Health",
+    pushUrl: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}`,
+    email: {
+      subject: "Your quick follow-up is still waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your quick follow-up is still waiting in the Tarragon Health app, whenever you are ready.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p></div>`,
+      text: "Your quick follow-up is still waiting in the Tarragon Health app, whenever you are ready.",
+    },
   }),
   consult_missed: (payload) => ({
     smsText:

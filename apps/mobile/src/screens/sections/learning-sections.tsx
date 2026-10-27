@@ -31,6 +31,8 @@ import {
   type StoredLesson,
 } from "@/lib/learning-pack";
 import { markContentProgress, parseKnowledgeCheck, scoreKnowledgeCheck, statusFromCheck } from "@/lib/health-education";
+import { isPortionGuideBody, portionAudienceFor } from "@tarragon/shared";
+import { GlossaryTextNative, PortionGuideNative, TeachbackQuizNative } from "@/screens/sections/learning-quality-sections";
 import { radii, space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, InlineAlert, PressableScale } from "@/ui/kit";
 
@@ -107,6 +109,7 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
     evidenceSource: trust?.evidence_source,
     clinicalAuthorName: trust?.clinical_author_name,
     creatorName: trust?.creator_name ?? fallback?.creatorName,
+    reviewChangeNote: trust?.review_change_note,
   });
   const selfCare = trust?.self_care_action ?? fallback?.selfCareAction;
   const audioClip = trust?.audio_clip_id ?? fallback?.audioClipId ?? null;
@@ -134,6 +137,7 @@ export function LessonFooter({ code, title, fallback }: { code: string; title: s
         {line.author ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.author", { name: line.author })}</AppText> : null}
         {line.reviewedBy ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.reviewed_by", { name: line.reviewedBy })}</AppText> : null}
         {line.reviewedOn ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.reviewed_on", { date: line.reviewedOn })}</AppText> : null}
+        {line.changeNote ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.changed", { note: line.changeNote })}</AppText> : null}
         {line.nextReview ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.next_review", { date: line.nextReview })}</AppText> : null}
         {line.sources ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.sources", { sources: line.sources })}</AppText> : null}
         {line.incomplete ? <AppText variant="caption" tone="textMuted">{tr("learn.trust.pending")}</AppText> : null}
@@ -404,18 +408,18 @@ export function DownloadsCard({ userId, onOpen }: { userId: string; onOpen: (cod
 /** A lesson opened from search or downloads: from the server when reachable, from the downloads otherwise. Never an expired one. */
 export function LessonViewer({ code, userId, onClose }: { code: string; userId: string; onClose: () => void }) {
   const tr = useTr();
-  const [view, setView] = useState<{ title: string; body: string; fallback: StoredLesson | null } | null | "gone">(null);
+  const [view, setView] = useState<{ title: string; body: string; category: string | null; condition: string | null; fallback: StoredLesson | null } | null | "gone">(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const d = await loadLessonDetail(code);
-        if (alive) setView(d ? { title: d.title, body: d.body, fallback: null } : "gone");
+        if (alive) setView(d ? { title: d.title, body: d.body, category: d.category, condition: d.condition, fallback: null } : "gone");
       } catch {
         await bindPackToUser(userId);
         const saved = (await readOffline(sqlitePackStore)).find((l) => l.code === code);
-        if (alive) setView(saved ? { title: saved.title, body: saved.body, fallback: saved } : "gone");
+        if (alive) setView(saved ? { title: saved.title, body: saved.body, category: saved.category, condition: null, fallback: saved } : "gone");
       }
     })();
     return () => {
@@ -432,7 +436,16 @@ export function LessonViewer({ code, userId, onClose }: { code: string; userId: 
       ) : (
         <>
           <AppText variant="title" heading>{view.title}</AppText>
-          {view.body ? <AppText>{view.body}</AppText> : null}
+          {view.body ? (
+            isPortionGuideBody(view.body) ? (
+              <PortionGuideNative body={view.body} audience={portionAudienceFor(view.category, view.condition)} />
+            ) : view.fallback ? (
+              <AppText>{view.body}</AppText>
+            ) : (
+              <GlossaryTextNative text={view.body} />
+            )
+          ) : null}
+          {view.fallback ? null : <TeachbackQuizNative code={code} />}
           <LessonFooter code={code} title={view.title} fallback={view.fallback} />
         </>
       )}

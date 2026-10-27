@@ -11,6 +11,7 @@ import {
   type MembershipActionState,
 } from "@/app/(dashboard)/admin/memberships/actions";
 import type { MembersBasePath } from "@/lib/memberships/members";
+import { usePlusCollectionStates } from "@/lib/queries/service-regions";
 
 function Feedback({ state }: { state: MembershipActionState }) {
   return (
@@ -27,11 +28,29 @@ function Feedback({ state }: { state: MembershipActionState }) {
 
 export function GrantMembershipForm({ patientId, base }: { patientId: string; base: MembersBasePath }) {
   const [state, action, pending] = useActionState<MembershipActionState, FormData>(grantMembership, undefined);
+  const plusStates = usePlusCollectionStates();
   return (
     <form action={action} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
       <input type="hidden" name="patient_id" value={patientId} />
       <input type="hidden" name="base" value={base} />
       <p className="text-sm font-medium text-charcoal-ink">Grant membership</p>
+      <div>
+        <Label htmlFor={`grant-tier-${patientId}`}>Plan</Label>
+        <select id={`grant-tier-${patientId}`} name="tier" defaultValue="plus" className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2">
+          <option value="plus">Membership Plus (with the yearly blood panel)</option>
+          <option value="evergreen">Membership (without the yearly blood panel)</option>
+        </select>
+      </div>
+      <div>
+        <Label htmlFor={`grant-state-${patientId}`}>Collection state (Membership Plus only)</Label>
+        <select id={`grant-state-${patientId}`} name="collection_state" defaultValue="" className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2">
+          <option value="">Choose a state</option>
+          {(plusStates.data ?? []).map((s) => (
+            <option key={s.state} value={s.state}>{s.display_name}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-charcoal-ink/60">Required for Membership Plus while Plus is limited by state. The person&apos;s blood tests are collected here and it stays fixed. Ignored for Membership.</p>
+      </div>
       <div>
         <Label htmlFor={`grant-end-${patientId}`}>Ends on (optional, leave empty for no end date)</Label>
         <Input id={`grant-end-${patientId}`} name="ends_on" type="date" />

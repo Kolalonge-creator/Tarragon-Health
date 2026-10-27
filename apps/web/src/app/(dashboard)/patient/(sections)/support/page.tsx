@@ -7,6 +7,7 @@ import { TicketList } from "./ticket-list";
 import { ComplaintList } from "./complaint-list";
 import { FileComplaintForm } from "./file-complaint-form";
 import { FaqAccordion } from "./faq-accordion";
+import { t } from "@tarragon/i18n";
 
 /**
  * Patient Support & Service Centre (spec §24), narrowed to technical
@@ -19,8 +20,15 @@ import { FaqAccordion } from "./faq-accordion";
  * surface, distinct from Messages (talking with your care team) and from
  * Care & support (the clinical record).
  */
-export default async function PatientSupportPage() {
+export default async function PatientSupportPage({ searchParams }: { searchParams: Promise<{ topic?: string | string[] }> }) {
   const { subjectId } = await getPatientDashboardContext();
+  // S58b: the points screen links here with ?topic=points so a credit that has not appeared can be raised in two taps. Only this one known
+  // topic pre-fills the form; any other value is ignored, and nothing from the address is ever put into the ticket text.
+  const { topic } = await searchParams;
+  const prefill =
+    topic === "points"
+      ? { subject: t("points.pending.ask_prefill_subject"), description: t("points.pending.ask_prefill_body") }
+      : undefined;
 
   return (
     <DashboardSection
@@ -33,7 +41,7 @@ export default async function PatientSupportPage() {
         <div className="space-y-4">
           <Card>
             <CardContent className="pt-6">
-              <CreateTicketForm patientId={subjectId} />
+              <CreateTicketForm patientId={subjectId} {...(prefill ? { prefill } : {})} />
             </CardContent>
           </Card>
 
