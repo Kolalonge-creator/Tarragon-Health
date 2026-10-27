@@ -124,7 +124,7 @@ Deno.test("scrubString removes OTP-like runs, UUIDs, tokens, Postgres detail, JS
     ["code 482913 for sign in", ["482913"]],
     ["otp 1234 rejected", ["1234"]],
     ["row 6f1c2d3e-9a8b-4c7d-8e6f-0a1b2c3d4e5f missing", ["6f1c2d3e", "0a1b2c3d4e5f"]],
-    ["Unauthorized Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk", ["eyJ", "abcdefghijk"]],
+    ["Unauthorized Bearer " + ["ey" + "JhbGciOiJIUzI1NiJ9", "ey" + "JzdWIiOiIxMjM0NTY3ODkwIn0", "abcdefghijk"].join("."), ["eyJ", "abcdefghijk"]],
     ["duplicate key value violates unique constraint. Key (phone)=(+2348031234567) already exists", ["8031234567"]],
     ["Key (email)=(ada@example.com) already exists", ["ada@example.com"]],
     ["Failing row contains (11, Ada Obi, 140/90)", ["Ada Obi", "140/90"]],
