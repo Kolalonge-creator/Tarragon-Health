@@ -97,7 +97,13 @@ create function private.after_support_ticket_insert_scan() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform private.scan_support_text(new.organisation_id, new.patient_id, new.id, null, new.channel, new.subject || E'\n' || new.description);
+  -- the scan must never stop a patient from reaching support: a failure is paged to operations, the ticket is still saved
+  begin
+    perform private.scan_support_text(new.organisation_id, new.patient_id, new.id, null, new.channel, new.subject || E'\n' || new.description);
+  exception when others then
+    perform private.page_incident(new.organisation_id, 'support_ticket_scan_failed:' || new.id, 'A support ticket safety scan failed',
+      'The safety scan could not run for a new support ticket (see the database log). The ticket is saved. Open it and read it in full.');
+  end;
   return null;
 end $$;
 revoke all on function private.after_support_ticket_insert_scan() from public, anon, authenticated;
@@ -113,7 +119,12 @@ begin
   if new.author_role <> 'patient' then return null; end if;
   select * into t from public.support_tickets where id = new.ticket_id;
   if not found then return null; end if;
-  perform private.scan_support_text(t.organisation_id, t.patient_id, t.id, new.id, t.channel, new.body);
+  begin
+    perform private.scan_support_text(t.organisation_id, t.patient_id, t.id, new.id, t.channel, new.body);
+  exception when others then
+    perform private.page_incident(t.organisation_id, 'support_reply_scan_failed:' || new.id, 'A support reply safety scan failed',
+      'The safety scan could not run for a patient reply on a support ticket (see the database log). The reply is saved. Open the ticket and read it in full.');
+  end;
   return null;
 end $$;
 revoke all on function private.after_support_comment_insert_scan() from public, anon, authenticated;
