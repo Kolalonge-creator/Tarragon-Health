@@ -6048,3 +6048,18 @@ The request status function and the PDF routes now hide sensitive requests from 
 - Built: a prompt on the after-visit summary for 7 days (`visit.follow_up_prompt`, PROPOSED) linking to Messages. It creates no entitlement, changes no price and promises no reply time; the test blocks words such as free, hours and guarantee.
 - If the founder wants a real commercial promise (a follow-up that returns a spent written-message allowance, or a response time), that is a pricing decision, not a copy change.
 
+
+### OQ-736 Research governance: who is the "second person" while the data protection officer and the admin route are one human (raised by the research-governance hardening)
+- Gap: an export now needs a request by the Chief Medical Officer and an authorisation by a different signed-in admin (`authorise_research_export`; the database refuses the requester). Today the data protection officer is the founder's admin account, so in practice the second person is one named human. If the CMO and the admin account are ever the same person, nobody can authorise and every export stays blocked (safe, but stuck).
+- Options: (a) leave it: blocked is the right failure; (b) name a second admin (an independent reviewer) before the first export; (c) let the research ethics committee's secretary hold an admin login for authorising only.
+- Recommendation: (b) before the guard `research_export_enabled` is switched on. This is a people decision, not code.
+
+### OQ-737 Research governance: a successor and insolvency clause for research data is drafted but not reviewed by counsel (raised by the research-governance hardening)
+- Gap: the platform now bars insurers, HMOs, employers, pharma, advertisers and data brokers by name, but nothing says what happens to research data if Tarragon is sold, merged or wound up. A draft clause is at `docs/legal/research-data-successor-clause.md`, marked DRAFT.
+- Needed from a person: Nigerian counsel to confirm the wording and where it sits (data-sharing agreements, privacy notice, terms). Until then do not tell members a successor rule exists.
+
+### OQ-738 Research governance: the recipient bar is a name list, so a renamed or front company passes it (raised by the research-governance hardening)
+- Gap: `private.research_recipient_barred` matches word starts of a seeded term list (`research_barred_recipient_terms`). It stops the obvious cases (an insurer, an HMO named in CLAUDE.md, pharma, a data broker) and nothing more. A research partner that is a subsidiary of an insurer under a neutral name would pass.
+- Mitigation in place: the recipient type is restricted to five kinds, ethics approval and a data-sharing agreement are required, the CMO and data protection officer both approve, and every release is audited and listed publicly in the ledger.
+- Options: (a) accept, the human approvals are the real control; (b) add a required "ultimate owner" field the officer must check; (c) have counsel review each recipient.
+- Recommendation: (b) at the first real protocol.
