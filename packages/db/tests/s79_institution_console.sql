@@ -230,7 +230,7 @@ begin
   update public.profiles set phone = '+2348090000001' where id = pts[1];   -- a roster row needs a contact route
   insert into public.employer_roster_members (organisation_id, phone, full_name, status, claimed_profile_id, claimed_at) select v_sp, phone, 'Claimed One', 'claimed', id, now() from public.profiles where id = pts[1] returning id into v_ro1;
   update public.profiles set organisation_id = v_sp where id = pts[1];
-  insert into public.vitals_readings (patient_id, systolic) values (pts[1], 128);
+  insert into public.vitals_readings (patient_id, vital_type, weight_kg) values (pts[1], 'weight', 70);
   insert into public.employer_roster_members (organisation_id, phone, full_name, status) values (v_sp, '+2348090000002', 'Pending Two', 'pending') returning id into v_ro2;
   insert into public.employer_roster_members (organisation_id, phone, full_name, status) values (v_sp, '+2348090000003', 'Pending Three', 'pending') returning id into v_ro3;
   select phone into v_txt from public.profiles where id = pts[1];
