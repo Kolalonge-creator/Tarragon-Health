@@ -1604,8 +1604,8 @@ export const en = {
   // S22: written questions and clinical notes.
   // The red-flag text is safety wording and needs CMO sign-off (OQ-74 pattern).
   "wq.title": "Ask your care team",
-  "wq.intro": "Send your care team a written message. They reply in the app within {hours} hours. A written reply gives guidance, never a diagnosis. If your care team needs to make a diagnosis, they will call you.",
-  "wq.window": "Reply within {hours} hours",
+  "wq.intro": "Send your care team a written message. They reply in the app. A written reply gives guidance, never a diagnosis. If your care team needs to make a diagnosis, they will call you.",
+  "wq.window": "Your care team replies in the app",
   "wq.promise": "We aim to reply as quickly as we can. If we are running slower than usual, we will tell you here.",
   "wq.emergency": "If this is urgent, or you feel very unwell, do not wait for a message. Go to your nearest emergency department or call emergency services now.",
   "wq.allowance.left": "{left} of {total} written messages left this month",
@@ -2427,6 +2427,11 @@ export const en = {
   "scribe.review.all_done": "All sections confirmed. You can use the draft in the note.",
   "scribe.review.edited": "You changed this section, so please confirm it again.",
   "queue.overdue": "Overdue",
+  "queue.reason.escalated": "Why now: this task was escalated, so it comes ahead of ordinary work.",
+  "queue.reason.overdue": "Why now: it is past its due time, so it moves ahead of newer work.",
+  "queue.reason.class1": "Why now: it is in the highest priority class, which is always taken first.",
+  "queue.reason.due_soon": "Why now: it is close to its due time.",
+  "queue.reason.ordered": "Why now: it is next by priority class, then by due time.",
   "queue.due_in": "Due in {minutes} minutes",
   "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
   "scribe.review.check_these": "Drug names and numbers in this section. Check each one against what was said:",
