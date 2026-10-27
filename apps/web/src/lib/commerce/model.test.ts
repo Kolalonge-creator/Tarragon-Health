@@ -102,18 +102,25 @@ describe("S71 additions", () => {
 
 describe("W-19 gift_state for the payer", () => {
   const order = { order_id: "o1", state: "paid", amount_kobo: 500_000, fee_kobo: 150, total_kobo: 500_150, code: "x_item", name_key: "k", created_at: "2026-10-06T10:00:00Z", paid_at: "2026-10-06T10:01:00Z" };
-  it("keeps the three payer states and defaults to null", () => {
+  const states = ["waiting", "accepted", "declined", "not_answered", "not_accepted"] as const;
+  it("keeps the five payer states and defaults to null", () => {
     expect(parseOrders([order])[0]?.gift_state).toBeNull();
-    for (const s of ["waiting", "accepted", "declined"] as const) expect(parseOrders([{ ...order, gift_state: s }])[0]?.gift_state).toBe(s);
+    for (const s of states) expect(parseOrders([{ ...order, gift_state: s }])[0]?.gift_state).toBe(s);
   });
-  it("drops an order carrying an unknown gift state rather than inventing one", () => {
-    expect(parseOrders([{ ...order, gift_state: "refused_by_mum" }])).toHaveLength(0);
+  it("turns an unknown gift state into null and keeps the order", () => {
+    const rows = parseOrders([{ ...order, gift_state: "refused_by_mum" }, { ...order, order_id: "o2", gift_state: 7 }]);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.gift_state === null)).toBe(true);
   });
-  it("has copy for each state, with no dash and no reason given", () => {
-    for (const s of ["waiting", "accepted", "declined"]) {
+  it("has copy for each state, with no dash, no reason, and no promise of timing or an amount", () => {
+    for (const s of states) {
       const text = en[`order.gift_state.${s}` as keyof typeof en] as string;
       expect(text.length).toBeGreaterThan(0);
-      expect(text).not.toMatch(/[—–]|because|why/i);
+      expect(text).not.toMatch(/[\u2014\u2013]|because|why|in full|days|\u20A6/i);
     }
+  });
+  it("tells an unanswered gift apart from a refusal", () => {
+    expect(en["order.gift_state.not_answered"]).not.toBe(en["order.gift_state.declined"]);
+    expect(en["order.gift_state.not_answered"]).toMatch(/not answered/);
   });
 });
