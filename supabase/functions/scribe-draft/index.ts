@@ -26,6 +26,14 @@ import {
   type Citations,
   type ScribeFact,
 } from "../_shared/scribe/facts.ts";
+import {
+  DOCUMENT_KINDS,
+  DOCUMENT_PROMPT_VERSION,
+  DOCUMENT_SCHEMAS,
+  buildDocumentUserMessage,
+  validateDocument,
+  type DocumentKind,
+} from "../_shared/scribe/documents.ts";
 
 interface TranscriptSegment {
   readonly index: number;
@@ -40,7 +48,10 @@ interface RequestBody {
   readonly encounterNoteId: string;
   // "draft" (default): the original one-step draft from the transcript. "facts": stage one, list the facts said.
   // "facts_draft": stage two, write the note from facts the clinician CONFIRMED (no transcript is sent or read).
-  readonly mode?: "draft" | "facts" | "facts_draft";
+  // "document" (S76-S80): a letter, prescription proposal or follow-up task list written from CONFIRMED facts, only once a human has approved
+  // and activated the governed prompt for those kinds (public.scribe_document_prompt returns null until then).
+  readonly mode?: "draft" | "facts" | "facts_draft" | "document";
+  readonly documentKind?: DocumentKind;
   readonly confirmedFacts?: readonly ScribeFact[];
   readonly segments: readonly TranscriptSegment[];
   // "typed": the clinician pasted or typed notes of the consultation (no recording, so no timestamps).
@@ -232,17 +243,20 @@ Deno.serve(async (req) => {
   }
 
   const mode = body.mode ?? "draft";
-  if (!["draft", "facts", "facts_draft"].includes(mode)) {
+  if (!["draft", "facts", "facts_draft", "document"].includes(mode)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
   if (!body.scribeConsentId || !body.encounterNoteId) {
     return Response.json({ error: "missing_fields" }, { status: 400 });
   }
   // facts_draft works from confirmed facts, not a transcript; every other mode needs the transcript.
-  if (mode !== "facts_draft" && !body.segments?.length) {
+  if (mode !== "facts_draft" && mode !== "document" && !body.segments?.length) {
     return Response.json({ error: "missing_fields" }, { status: 400 });
   }
-  if (mode === "facts_draft" && !validConfirmedFacts(body.confirmedFacts)) {
+  if ((mode === "facts_draft" || mode === "document") && !validConfirmedFacts(body.confirmedFacts)) {
+    return Response.json({ error: "invalid_input" }, { status: 400 });
+  }
+  if (mode === "document" && !(DOCUMENT_KINDS as readonly string[]).includes(body.documentKind ?? "")) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
 
@@ -251,7 +265,7 @@ Deno.serve(async (req) => {
   }
   const typed = body.source === "typed";
 
-  if ((mode !== "facts_draft" && !validSegments(body.segments)) || !validContext(body.patientContext)) {
+  if ((mode !== "facts_draft" && mode !== "document" && !validSegments(body.segments)) || !validContext(body.patientContext)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
 
@@ -319,6 +333,37 @@ Deno.serve(async (req) => {
     };
 
     try {
+      if (mode === "document") {
+        const kind = body.documentKind as DocumentKind;
+        const facts = body.confirmedFacts as readonly ScribeFact[];
+        // The governed prompt: null until the Clinical Director has approved and activated it. No prompt, no call to the model.
+        const { data: governed, error: promptError } = await client.rpc("scribe_document_prompt");
+        if (promptError) return Response.json({ status: "disabled", reason: "governance_unavailable" });
+        const kindText = (governed?.output_constraints?.kinds ?? {})[kind];
+        if (!governed || typeof governed.system_prompt !== "string" || typeof kindText !== "string") {
+          return Response.json({ status: "disabled", reason: "prompt_not_approved" });
+        }
+        const system = [governed.system_prompt, governed.safety_instructions, kindText].filter((x) => typeof x === "string" && x !== "").join("\n\n");
+        const r = await callClaudeJson(apiKey2, system, DOCUMENT_SCHEMAS[kind], buildDocumentUserMessage(kind, facts, body.patientContext));
+        if (!r.ok) return Response.json({ error: r.error }, { status: 502 });
+        const document = validateDocument(kind, r.parsed, facts);
+        if (!document) return Response.json({ error: "incomplete_response" }, { status: 502 });
+        const logError = await logInteraction(`Document draft: ${kind} from ${facts.length} confirmed facts`, r.model, r.inputTokens, r.outputTokens);
+        if (logError) {
+          console.error("scribe-draft: audit log insert failed", logError);
+          return Response.json({ error: "audit_unavailable" }, { status: 500 });
+        }
+        return Response.json({
+          status: "ok",
+          mode: "document",
+          document,
+          modelId: r.model,
+          promptVersion: `${DOCUMENT_PROMPT_VERSION}#${governed.version}`,
+          inputTokens: r.inputTokens,
+          outputTokens: r.outputTokens,
+        });
+      }
+
       if (mode === "facts") {
         const transcript2 = formatTranscript(body.segments, typed);
         const r = await callClaudeJson(apiKey2, FACTS_SYSTEM_PROMPT, FACTS_SCHEMA, buildFactsUserMessage(body.language, transcript2, typed));

@@ -353,3 +353,20 @@ export function slaState(dueAt: string | null | undefined, now: Date, warnWithin
   const minutes = Math.ceil(ms / 60_000);
   return { kind: "due", minutes, warn: warnWithinMinutes !== undefined && minutes <= warnWithinMinutes };
 }
+
+/**
+ * "Why this task, why now" for one queue item (S76-S80 queue explainability). Derived only from fields the task already carries: its state,
+ * priority class and due time. It explains the ordering the queue already applied; it never offers a choice and never names a patient.
+ */
+export function queueReasonKey(
+  task: { priority_class: number | null; due_at: string | null; state?: string | null },
+  now: Date,
+  warnWithinMinutes?: number,
+): MessageKey {
+  if (task.state === "escalated") return "queue.reason.escalated";
+  const sla = slaState(task.due_at, now, warnWithinMinutes);
+  if (sla.kind === "overdue") return "queue.reason.overdue";
+  if (task.priority_class === 1) return "queue.reason.class1";
+  if (sla.kind === "due" && sla.warn) return "queue.reason.due_soon";
+  return "queue.reason.ordered";
+}

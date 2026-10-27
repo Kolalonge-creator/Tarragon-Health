@@ -1430,6 +1430,9 @@ oq192_profile_access_permission_tightening.sql
 # a suspicious top-up for a person; a late line is netted once. Eight sabotage steps (dispute guard, ledger guard, withholding guard, activity check, withholding period filter, back-dating rule, raced-duplicate handler).
 s30b_earnings_disputes_withholding_pilot.sql
 money_reconciliation_screen.sql
+# --- Added 2026-10-21 (S47b) ---------------------------------------------------
+# S47b: home_card_config (Today cards, weekly summary gates, wearable readiness). Born unsigned and inactive, nothing served until the CMO signs, only the CMO signs, a ceiling above two primary actions and malformed configs cannot be stored, anon reaches nothing, a patient reads only through my_home_card_config(). Sabotage: validator accepting everything, a reader ignoring the signature, a grant to anon; all three must flip.
+s47b_home_cards_and_readiness.sql
 # OQ-714: the patient price comparison is gone: no patient_price_compare function in any schema, a signed-in or anon call is 42883; the chooser function (authenticated yes, anon no), the care-team suggestion read, the shared matcher, the listable rule, the routing and verified-batch triggers and the catalogue columns all stay and work. Sabotage: a function by the retired name is planted and the first check's own query finds it.
 oq714_remove_patient_price_compare.sql
 # Money reconciliation daily alert (2026-10-21): a real mismatch opens ONE ops incident (deduplicated, refreshed not duplicated, kind and screen named), a test-order mismatch opens nothing, the scan writes no money, clients cannot run it or read its config, the job is scheduled, and the two settled-by-hand refund messages give the refund:<id> reference. Sabotage: de-duplication removed and the scan emptied; both must flip.
@@ -1471,6 +1474,11 @@ cuff_camera_and_result_passport_guards.sql
 
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
+
+# S69b: Care Circle presets, the quiet waiting state, shared jobs, the weekly digest and the gentle nudge. Modules ship OFF; each tool refuses while off; viewers cannot claim; digest blocks follow permissions and carry counts not values; the nudge needs the patient's opt-in, the medicines permission, the grace period and window, the patient-first window holds it, a red event is untouched. The sweep follows the structured schedule (off day, end date, taper, not yet in effect, malformed time send nothing); a declined invite reads and counts as pending to the sender; a red_alerts-only member reads no job. Sabotage: six changes, all must flip.
+s69b_care_circle_presets_digest_tasks_nudge.sql
+
+
 s62_tests_sweep_guard.sql
 # CMO OQ-358 / OQ-358b (folio base-table lock, step 2): the MDCN folio is refused on the clinical_staff base table to a colleague, a patient and anon (named, select *, filtered) while every other column, joins and a security_invoker view over the table still work; clinical_staff_folio returns the clinician their own folio, the CMO and an admin a colleague's, a colleague and a patient nothing, anon cannot execute it; the directory view still serves names; admin writes untouched; every non-folio column is granted; clinician_licence_public and the slot list carry no folio; lab and verified-document kinds return a null folio. Sabotage: the table grant put back and the function without its entitlement check must each flip.
 clinical_staff_folio_base_table_lock.sql
@@ -1538,3 +1546,5 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+# S76-S80 scribe: signed diff record (append-only, versioned, linked to the review record, signed text read from the note), problem reports (fixed taxonomy), CMO count reads, and the document prompt inserted unapproved and inactive (the reader returns nothing until a human approves). Sabotage: the review-record link removed, and the CMO check removed; both checks must flip.
+s76_scribe_signed_diffs_reports_document_prompt.sql
