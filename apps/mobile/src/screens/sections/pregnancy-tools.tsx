@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Switch, Text, TextInput, View } from "react-native";
 import {
   birthPlanFlags,
@@ -33,6 +33,8 @@ import { evaluateContractionsNow, evaluateKickNow, finishContractionSession, fin
 import { todayIsoDate } from "@/lib/medications";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AlertTemplate } from "@/ui/alert-template";
+import { CardListen } from "@/ui/kit/CardListen";
 
 const SIGN_KEY: Record<InstantGoSign, Parameters<typeof t>[0]> = {
   waters_break: "preg.contractions.sign.waters_break",
@@ -46,16 +48,26 @@ const SIGN_KEY: Record<InstantGoSign, Parameters<typeof t>[0]> = {
  * The fixed "contact today" and "go now" cards. Fixed wording, never advice to hold off, draft pending CMO review (OQ-343). They hold no
  * personal figure and are never put behind the PIN lock.
  */
+/** The "message your care team" action, handed down from the screen that knows how to open Messages. Without one, the card has no button. */
+const MessageCareTeamContext = createContext<(() => void) | undefined>(undefined);
+
+/** The recorded clip that reads the pregnancy danger signs aloud (EMG-008). The Listen button shows only if that clip can really play. */
+const PREGNANCY_DANGER_CLIP = "EMG-008";
+
 function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; extra?: string }) {
-  const colors = useLegacyColors();
+  const onMessage = useContext(MessageCareTeamContext);
+  // UI-C change 12: the standard alert template. The title and step are the existing fixed wording; the extra line is kept in the step.
+  const step = variant === "go_now" ? t("preg.card.go_now.body") : t("preg.card.contact_today.body");
   return (
-    <Card style={{ borderLeftWidth: 4, borderLeftColor: "#DC2626", gap: 4 }}>
-      <Text accessibilityRole="alert" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
-        {variant === "go_now" ? t("preg.card.go_now.title") : t("preg.card.contact_today.title")}
-      </Text>
-      <Text style={{ fontSize: 14, color: colors.ink }}>{variant === "go_now" ? t("preg.card.go_now.body") : t("preg.card.contact_today.body")}</Text>
-      {extra ? <Text style={{ fontSize: 14, color: colors.ink }}>{extra}</Text> : null}
-    </Card>
+    <AlertTemplate
+      clinical
+      urgent={variant === "go_now"}
+      noticed={variant === "go_now" ? t("preg.card.go_now.title") : t("preg.card.contact_today.title")}
+      meaning={variant === "go_now" ? t("alerttpl.preg.go_now.meaning") : t("alerttpl.preg.contact_today.meaning")}
+      step={extra ? `${step} ${extra}` : step}
+      onMessageCareTeam={onMessage}
+      listenClipId={variant === "go_now" ? PREGNANCY_DANGER_CLIP : null}
+    />
   );
 }
 
@@ -68,7 +80,10 @@ export function PregnancyDangerGuideCard() {
   const entries = pregnancyDangerGuide();
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: "#DC2626", gap: 6 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.ui.offline.title")}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink, flex: 1 }}>{t("preg.ui.offline.title")}</Text>
+        <CardListen clipId={PREGNANCY_DANGER_CLIP} />
+      </View>
       <MutedText>{t("preg.ui.offline.intro")}</MutedText>
       {entries.map((e) => (
         <Text key={e.sign} style={{ fontSize: 13.5, color: colors.ink }}>{`• ${e.label}`}</Text>
@@ -473,7 +488,19 @@ function SchedulePanel({ subjectId }: { subjectId: string }) {
  * plan. Put this INSIDE the Women's Health `PrivateSection` (S66) and put `PregnancyDangerGuideCard` in its `outside` slot. Nothing shows
  * until the `maternal_enabled` go-live guard is open for this person (test accounts pass; real patients see nothing while it is off).
  */
-export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjectId: string; organisationId: string; lmp: string | null; edd: string | null }) {
+export function PregnancyTools({
+  subjectId,
+  organisationId,
+  lmp,
+  edd,
+  onMessageCareTeam,
+}: {
+  subjectId: string;
+  organisationId: string;
+  lmp: string | null;
+  edd: string | null;
+  onMessageCareTeam?: () => void;
+}) {
   const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState<BirthPlanState | null>(null);
@@ -499,6 +526,7 @@ export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjec
   if (!open) return null;
   return (
     <PregnancyPrivateSection>
+      <MessageCareTeamContext.Provider value={onMessageCareTeam}>
       <View style={{ gap: 16 }}>
         <View style={{ gap: 2 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("preg.ui.section_title")}</Text>
@@ -510,6 +538,7 @@ export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjec
         <ContractionTimerPanel subjectId={subjectId} organisationId={organisationId} week={week} plan={plan?.plan ?? null} planUnavailable={plan?.loadFailed === true} />
         <BirthPlanPanel subjectId={subjectId} organisationId={organisationId} state={plan} onSaved={() => void refreshPlan()} />
       </View>
+      </MessageCareTeamContext.Provider>
     </PregnancyPrivateSection>
   );
 }

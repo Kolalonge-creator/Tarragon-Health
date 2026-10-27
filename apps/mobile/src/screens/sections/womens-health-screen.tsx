@@ -359,6 +359,7 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
             organisationId={organisationId}
             lmp={activePregnancy.last_menstrual_period_date}
             edd={activePregnancy.estimated_due_date}
+            onMessageCareTeam={() => onNavigate("messages")}
           />
         </>
       )}

@@ -8452,4 +8452,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
+  {
+    key: "devices.sync_staleness",
+    // How long a set-up device may go without a successful sync before its row says "Needs a quick fix" and offers the fix button.
+    // An interface rule, not a clinical threshold. PROPOSED, CMO owned, unsigned (UI-C review, 2026-10-23). A device that has never synced is
+    // shown as "Waiting for the first reading" whatever this number is.
+    value: { staleAfterDays: 7 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-23",
+    source: "UI-C review 2026-10-23; docs/research/S66-S70-design-ui-comparison.md change 9",
+  },
 ];

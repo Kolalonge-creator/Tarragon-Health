@@ -15,6 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NAV_ICON } from "@/lib/icons";
+import { deviceSyncState, lastSyncedInWords, needsFix, shortDateInWords, t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
+
+/** PROPOSED configuration (devices.sync_staleness), never a literal here. */
+const staleAfterDays = getProposedConfig<{ staleAfterDays: number }>("devices.sync_staleness").value.staleAfterDays;
 
 /**
  * Spec 55.12 — patient tech-support auto-diagnosis. "My device isn't
@@ -31,6 +36,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sent, setSent] = useState(false);
+  const [nowMs] = useState(() => Date.now());
 
   const diagnosis = useDeviceDiagnosis(patientId, checked);
   const startThread = useStartThread();
@@ -78,7 +84,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Checking…</p>
         )}
         {checked && diagnosis.isError && (
-          <p className="text-sm text-red-600 dark:text-red-300">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Couldn&apos;t run the check just now. Try again in a moment.
           </p>
         )}
@@ -93,27 +99,46 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
 
         {checked && result && hasAnyDevice && (
           <ul className="space-y-2">
-            {result.connections.map((c) => {
-              const item = formatConnectionDiagnosis(c);
+            {[
+              ...result.connections.map((c) => {
+                const d = formatConnectionDiagnosis(c);
+                return { id: c.id, name: d.name, detail: d.summary, status: c.status, error: c.last_sync_error, last: c.last_synced_at };
+              }),
+              ...result.devices.map((dv) => {
+                const d = formatDeviceDiagnosis(dv);
+                return { id: dv.id, name: d.name, detail: d.summary, status: dv.status, error: dv.last_sync_error, last: dv.last_synced_at };
+              }),
+            ].map((row) => {
+              // UI-C: a plain state, the last sync in words, and one Green fix button when it is not working. The diagnostic detail stays below.
+              const state = deviceSyncState({ status: row.status, lastSyncError: row.error, lastSyncedAt: row.last }, nowMs, staleAfterDays);
+              const labelState = state === "stale" ? "needs_fix" : state;
+              const explain =
+                state === "stale"
+                  ? t("devicesync.explain.stale", "en", { date: shortDateInWords(row.last) })
+                  : t(`devicesync.explain.${state}`);
               return (
-                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <li key={row.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{item.name}</span>
-                    <Badge variant={item.badgeVariant}>{item.badgeLabel}</Badge>
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{row.name}</span>
+                    <Badge variant={state === "working" ? "green" : needsFix(state) ? "amber" : "grey"}>
+                      {t(`devicesync.state.${labelState}`)}
+                    </Badge>
                   </div>
-                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
-                </li>
-              );
-            })}
-            {result.devices.map((d) => {
-              const item = formatDeviceDiagnosis(d);
-              return (
-                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{item.name}</span>
-                    <Badge variant={item.badgeVariant}>{item.badgeLabel}</Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    {t("devicesync.last.label")}: {lastSyncedInWords(row.last, nowMs, (k, p) => t(k, "en", p))}
+                  </p>
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{explain}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{row.detail}</p>
+                  {needsFix(state) && (
+                    <Button size="sm" className="mt-2" onClick={openComposer}>
+                      {t("devicesync.fix.needs_fix")}
+                    </Button>
+                  )}
+                  {(state === "not_set_up" || state === "paused") && (
+                    <Button asChild size="sm" className="mt-2">
+                      <a href="#connect-devices">{t(state === "paused" ? "devicesync.fix.paused" : "devicesync.fix.not_set_up")}</a>
+                    </Button>
+                  )}
                 </li>
               );
             })}
@@ -166,7 +191,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
                 Cancel
               </Button>
               {startThread.isError && (
-                <span className="text-sm text-red-600 dark:text-red-300">
+                <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                   {startThread.error instanceof Error ? startThread.error.message : "Couldn't send"}
                 </span>
               )}
