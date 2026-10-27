@@ -1,7 +1,7 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { explainPatientResultAction } from "@/lib/patient-explainer/actions";
@@ -92,7 +92,7 @@ export function ResultExplainer({
   return (
     <div className="mt-2 space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
       <div className="flex items-center gap-2">
-        <Badge variant="grey">AI-drafted: for understanding, not a diagnosis</Badge>
+        <AiLabel variant="explainer" />
       </div>
 
       {isPending && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Working this out for you…</p>}
