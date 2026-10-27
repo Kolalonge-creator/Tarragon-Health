@@ -46,6 +46,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/outcomes/export", "export outcomes csv download pilot report renewal sponsor file blood pressure control aggregate"],
   ["/admin/outcomes/response-times", "response times care team claim time complete overdue pages acknowledge follow up median slowest tasks priority class data quality"],
   ["/admin/sponsors", "sponsors programme code cohort insurer hmo employer corporate ngo members join group figures sponsor report aggregate consent share"],
+  ["/admin/sponsors/institution", "institution console configuration request approve usage statement invoice link code overlap enrolment employer join code programme code collision procurement pack sponsor rewards budget pathways"],
   ["/admin/triage-agreement", "triage agreement accuracy automatic grade symptom checker clinician review coverage switch on off green amber red"],
   ["/clinician/triage-review", "review automatic grades triage agreement right higher lower completed tasks checker"],
   ["/admin/risk-fairness", "risk fairness bias distribution tiers sex age state region groups worklist ordering check monthly report cmo review"],

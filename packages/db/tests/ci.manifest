@@ -1538,3 +1538,6 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+
+# S79 Institution console (2026-10-27): module ships OFF; configuration requests (pathway list excludes mental and reproductive health, versioned, immutable, admin review); append-only usage records and write-once statements with no person column, small service lines folded; procurement pack and privacy ledger audited and free of any person; staged eligibility upload (add/remove/replace, row errors, second approver, leavers end the employer link only, staged values blanked); one enrolment-code entry with namespace guard; sponsor staff cannot read any new table. Sabotage: namespace trigger, pathway check, second-approver check and fold each removed must flip.
+s79_institution_console.sql

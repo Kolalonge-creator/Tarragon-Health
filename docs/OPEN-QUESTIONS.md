@@ -5620,3 +5620,27 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S79-1 Employer-funded rewards pool is a requested number only
+- S79 records a rewards budget the sponsor would like to set aside (`institution_programme_configs.rewards_budget_kobo`, capped by `institution.rules`). No pool, balance, per-person cap or checkout discount is built: OQ-S58-06 is informational, INV-09 forbids a stored balance, and the legal vehicle for an employer-funded pool is undecided. Build the pool only after a founder decision.
+- Decision: open (founder).
+
+### OQ-S79-2 Module 24 events are audit rows, not outbox events
+- `cohort.enrolled` and `sponsor.report_generated` exist only as audit actions (`sponsor.cohort_joined`, `sponsor.staff_exported`, `sponsor.pack_exported`). Registering them as outbox events needs a consumer to exist first.
+- Decision: open (product).
+
+### OQ-S79-3 The pathway list a sponsor may choose from is a proposal
+- `institution.rules.programme_pathways` = hypertension, diabetes, prevention_screening, nutrition_and_activity. Reproductive, pregnancy and mental health are deliberately absent. The CMO should confirm the list before the switch is turned on.
+- Decision: open (CMO).
+
+### OQ-S79-4 A usage statement must itemise for audit, and itemising can single a person out
+- Statement lines used by fewer people than the minimum are folded into "other services" (amount only). Finance may need the folded detail to reconcile an invoice; that must go through Tarragon finance, not the sponsor view. If a sponsor's contract requires itemised proof, counsel and the DPO must say how.
+- Decision: open (finance, DPO).
+
+### OQ-S79-5 Second approver for eligibility files that end access
+- A file that ends anyone needs a second person (or Tarragon); a file ending 30% or more of the active list needs Tarragon (`institution.rules`). A one-person HR team cannot approve its own removal file. Confirm the 30% and whether a solo employer should be allowed to confirm by email instead.
+- Decision: open (founder).
+
+### OQ-S79-6 Where the single code entry appears for members
+- `enter_enrolment_code` exists and is tested but is not wired into the patient web or mobile join screens (those still use `join_cohort` and the employer code path). Wire it when the module is switched on.
+- Decision: open (product).
