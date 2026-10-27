@@ -123,7 +123,13 @@ export interface TherapyProgrammeConfig {
   /** Due windows (minutes) for the clinician task each route raises. BUILD, the CMO confirms. */
   /** Hours after an entry-screen stop (crisis or red flag) during which the same programme cannot be re-entered by answering again: a clinician looks first. BUILD. */
   readonly reenrol_cooldown_hours: number;
-  readonly route_due_minutes: { readonly same_day_clinician: number; readonly medical_review_first: number; readonly worsening_review: number };
+  readonly route_due_minutes: {
+    readonly same_day_clinician: number;
+    readonly medical_review_first: number;
+    readonly worsening_review: number;
+    /** S96 (founder decision 2026-10-27): the due time of the task a non-paging crisis stop raises (hospital-now warning signs; no page). Config version 2 onward. */
+    readonly crisis_non_paging?: number;
+  };
   /** Outcome instruments asked at the checkpoint sessions; the first is the programme's primary score. */
   readonly instruments: Readonly<Record<TherapyProgrammeCode, readonly string[]>>;
   /** Session numbers at which scores are recorded. The first is the baseline. */
@@ -147,7 +153,7 @@ const SIX = [1, 3, 6] as const;
 
 export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
   reenrol_cooldown_hours: 72,
-  route_due_minutes: { same_day_clinician: 480, medical_review_first: 2880, worsening_review: 1440 },
+  route_due_minutes: { same_day_clinician: 480, medical_review_first: 2880, worsening_review: 1440, crisis_non_paging: 90 },
   instruments: {
     panic_breathing: ["panic_episodes_week"],
     pelvic_floor: ["leakage_episodes_week"],
@@ -228,6 +234,7 @@ const { msk: _msk, ...CONFIG_V2_WITHOUT_MSK } = THERAPY_PROGRAMME_CONFIG;
 void _msk;
 export const THERAPY_PROGRAMME_CONFIG_V1: Omit<TherapyProgrammeConfig, "msk"> = {
   ...CONFIG_V2_WITHOUT_MSK,
+  route_due_minutes: { same_day_clinician: 480, medical_review_first: 2880, worsening_review: 1440 },
   instruments: { ...THERAPY_PROGRAMME_CONFIG.instruments, pain_back: ["pain_nrs"], pain_neck: ["pain_nrs"], pain_knee: ["pain_nrs"], pain_hip: ["pain_nrs"] },
   instrument_ranges: { phq9: { min: 0, max: 27 }, gad7: { min: 0, max: 21 }, isi: { min: 0, max: 28 }, pain_nrs: { min: 0, max: 10 }, panic_episodes_week: { min: 0, max: 99 }, leakage_episodes_week: { min: 0, max: 99 }, ibs_symptom_0_10: { min: 0, max: 10 } },
   worsening: {

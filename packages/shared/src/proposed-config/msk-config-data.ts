@@ -124,6 +124,8 @@ export interface MskSettings {
   readonly too_hard_in_a_row: number;
   /** Pain, 0 to 10, that is reported as "now" in the flare-up flow and is kept with the event. */
   readonly flare_pain_scale_max: number;
+  /** A second "my pain got worse" that is clear, within this many minutes of the first, returns the first result instead of recording another. */
+  readonly flare_dedupe_minutes: number;
 }
 
 export const MSK_SETTINGS: MskSettings = {
@@ -136,4 +138,5 @@ export const MSK_SETTINGS: MskSettings = {
   too_hard_rating: 5,
   too_hard_in_a_row: 2,
   flare_pain_scale_max: 10,
+  flare_dedupe_minutes: 5,
 };

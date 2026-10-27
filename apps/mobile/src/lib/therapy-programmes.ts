@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  classifyRpcError, isActivityRest, isMskProgrammeCode, readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readFlareUpOutcome, readNotEnoughDays,
+  classifyRpcError, completionRpcName, isActivityRest, startRpcName, readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readFlareUpOutcome, readNotEnoughDays,
   readStartOutcome, validDifficulty,
   type AsyncStore, type CompleteOutcome, type EnrolOutcome, type EntryQuestions, type FlareUpOutcome, type StartOutcome, type TherapyAnswers,
 } from "@tarragon/shared";
@@ -63,7 +63,7 @@ export async function enrol(code: string, answers: TherapyAnswers): Promise<Enro
  */
 export async function startSession(enrolmentId: string, ordinal: number, answers: TherapyAnswers, programmeCode?: string): Promise<StartOutcome | { kind: "rest" }> {
   try {
-    const { data, error } = await supabase.rpc(isMskProgrammeCode(programmeCode) ? "start_msk_session" : "start_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_recheck: answers as unknown as Record<string, boolean | number> });
+    const { data, error } = await supabase.rpc(startRpcName(programmeCode), { p_enrolment: enrolmentId, p_ordinal: ordinal, p_recheck: answers as unknown as Record<string, boolean | number> });
     if (!error && isActivityRest(data)) return { kind: "rest" };
     return error ? { kind: "unknown" } : readStartOutcome(data);
   } catch {
@@ -74,7 +74,7 @@ export async function startSession(enrolmentId: string, ordinal: number, answers
 /** "network" means the call did not get an answer, so the caller may queue it; "rejected" is a permanent answer to show, never queue. */
 export async function completeSession(enrolmentId: string, ordinal: number, scores: Record<string, number> | null, programmeCode?: string): Promise<CompleteOutcome | { kind: "network" } | { kind: "rejected" } | { kind: "short"; daysNeeded: number }> {
   try {
-    const { data, error } = await supabase.rpc(isMskProgrammeCode(programmeCode) ? "complete_msk_session" : "complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: scores ?? undefined });
+    const { data, error } = await supabase.rpc(completionRpcName(programmeCode), { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: scores ?? undefined });
     if (error) return classifyRpcError(error) === "permanent" ? { kind: "rejected" } : { kind: "network" };
     const short = readNotEnoughDays(data);
     if (short) return { kind: "short", daysNeeded: short.daysNeeded };

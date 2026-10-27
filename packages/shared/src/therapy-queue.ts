@@ -23,6 +23,8 @@ export interface QueuedCompletion {
   ordinal: number;
   scores: Record<string, number> | null;
   queuedAt: string;
+  /** S96: the programme code, so a pain-programme week is sent through complete_msk_session (the days rule) and not the plain completion. */
+  programmeCode?: string;
 }
 
 const QUEUE_KEY = "tarragon.therapy.queue.v1";

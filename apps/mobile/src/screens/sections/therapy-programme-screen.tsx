@@ -143,6 +143,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [saveError, setSaveError] = useState(false);
   const [daysShort, setDaysShort] = useState<number | null>(null);
+  const [queuedShort, setQueuedShort] = useState(false);
   const [flareQuestions, setFlareQuestions] = useState<EntryQuestion[] | null>(null);
 
   const sendQueued = useCallback(async () => {
@@ -150,7 +151,9 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     if (!me) return;
     setUserId(me);
     await flushQueue(deviceStore, async (item) => {
-      const r = await completeSession(item.enrolmentId, item.ordinal, item.scores);
+      // a pain-programme week goes through complete_msk_session (the days rule); "not enough days" keeps it queued and says so
+      const r = await completeSession(item.enrolmentId, item.ordinal, item.scores, item.programmeCode);
+      if (r.kind === "short") { setQueuedShort(true); return "retry"; }
       return r.kind === "network" || r.kind === "unknown" ? "retry" : "sent";
     }, me);
   }, []);
@@ -206,7 +209,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     else if (r.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
     else if (r.kind === "rejected") setSaveError(true);
     else {
-      const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
+      const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString(), programmeCode: programme.code });
       setView(queued ? { kind: "done", text: "therapy.player.saved_offline", paused: false } : { kind: "message", key: "therapy.player.finish_error" });
     }
     setBusy(false);
@@ -221,6 +224,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
       <Card style={{ gap: 8 }}>
         <Text accessibilityRole="alert" style={{ fontWeight: "600", color: colors.ink }}>{t(view.text)}</Text>
         {view.paused && <MutedText>{t("therapy.player.paused_review")}</MutedText>}
+        {queuedShort && <MutedText>{t("therapy.msk.queued_not_enough_days")}</MutedText>}
         <SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} />
       </Card>
     );
@@ -274,6 +278,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
         <MutedText>{t("therapy.player.read_only_copy")}</MutedText>
       ) : (
         <>
+          {queuedShort && <MutedText>{t("therapy.msk.queued_not_enough_days")}</MutedText>}
           {daysShort !== null && <ErrorText>{t("therapy.msk.not_enough_days", "en", { needed: daysShort })}</ErrorText>}
           {saveError && <ErrorText>{t("therapy.player.score_rejected")}</ErrorText>}
       <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />

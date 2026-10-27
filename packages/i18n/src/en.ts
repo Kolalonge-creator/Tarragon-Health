@@ -6173,6 +6173,7 @@ export const en = {
   "therapy.msk.rate_error": "We could not save that just now. Please try again when you have a signal.",
   "therapy.msk.offer_easier": "That felt too hard twice in a row. Try the easier version next time.",
   "therapy.msk.days_progress": "Days with exercises done this week: {done} of {needed}",
+  "therapy.msk.queued_not_enough_days": "Your finished week is saved on this phone, but it needs exercises on more different days before it can be sent. It is still waiting.",
   "therapy.msk.not_enough_days": "Please do your exercises on {needed} different days before you finish the week.",
   "therapy.msk.gate_rest": "Today is a rest day for exercise. Take it easy and come back tomorrow. Your plan has not changed.",
   "therapy.msk.gate_gentle": "Today we are showing the gentle exercises only.",

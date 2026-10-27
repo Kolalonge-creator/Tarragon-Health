@@ -5,6 +5,7 @@ import {
   shouldOfferEasier, stepDownActive, validDifficulty,
 } from "./msk-programmes";
 import { mskExerciseRow } from "./therapy-content/msk-drafts";
+import { completionRpcName, startRpcName } from "./msk-programmes";
 import { assessWorsening, evaluateEntryScreen, stopPagesOnCall, therapyExclusionRules, therapyProgrammeConfig, validateScores, type TherapyAnswers } from "./therapy-programmes";
 import { readStartOutcome } from "./therapy-results";
 
@@ -259,5 +260,46 @@ describe("readers fail closed", () => {
   it("knows its programme codes", () => {
     expect(isMskProgrammeCode("pain_knee")).toBe(true);
     expect(isMskProgrammeCode("panic_breathing")).toBe(false);
+  });
+});
+
+describe("offline queue for a pain week", () => {
+  it("keeps a queued week (and its programme code) when the database says not enough days, and drops it once sent", async () => {
+    const { enqueueCompletion, flushQueue, readQueue } = await import("./therapy-queue");
+    const mem = new Map<string, string>();
+    const store = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
+    await enqueueCompletion(store, { enrolmentId: "e1", ordinal: 2, scores: null, queuedAt: "x", programmeCode: "pain_back" });
+    const seen: string[] = [];
+    await flushQueue(store, async (item) => {
+      seen.push(completionRpcName(item.programmeCode));
+      return readNotEnoughDays({ status: "not_enough_days", days_done: 1, days_needed: 3 }) ? "retry" : "sent";
+    });
+    expect(seen).toEqual(["complete_msk_session"]);
+    expect((await readQueue(store))[0]?.programmeCode).toBe("pain_back");
+    await flushQueue(store, async () => "sent");
+    expect(await readQueue(store)).toEqual([]);
+  });
+});
+
+describe("pain programmes use the pain database functions", () => {
+  it("pain codes start and finish through the MSK functions, every other code through the S63 ones", () => {
+    for (const c of MSK_PROGRAMME_CODES) {
+      expect(startRpcName(c)).toBe("start_msk_session");
+      expect(completionRpcName(c)).toBe("complete_msk_session");
+    }
+    expect(startRpcName("panic_breathing")).toBe("start_therapy_session");
+    expect(completionRpcName(undefined)).toBe("complete_therapy_session");
+  });
+
+  it("an unanswered non-paging warning sign stops with the hospital-now route and does not page, like answering yes", () => {
+    for (const c of MSK_PROGRAMME_CODES) {
+      const rule = MSK_EXCLUSION_LISTS[c].find((r) => r.route === "crisis");
+      const missing = { ...answers(c) } as Record<string, unknown>;
+      delete missing[rule?.code ?? ""];
+      const r = evaluateEntryScreen(therapyExclusionRules(c), missing as TherapyAnswers);
+      expect(r.route).toBe("crisis");
+      expect(r.stops.find((s) => s.code === rule?.code)).toMatchObject({ unanswered: true, nonPaging: true });
+      expect(stopPagesOnCall(r)).toBe(false);
+    }
   });
 });

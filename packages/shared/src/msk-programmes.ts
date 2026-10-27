@@ -176,6 +176,16 @@ export function readFlareUpOutcome(raw: unknown): FlareUpOutcome {
 }
 
 /** `start_msk_session` answers "activity_rest" when the activity safety gate says rest: no session is opened and nothing is counted. */
+/** The database function that finishes a week: pain programmes must go through `complete_msk_session` (the plain completion refuses them). */
+export function completionRpcName(programmeCode: string | undefined): "complete_msk_session" | "complete_therapy_session" {
+  return isMskProgrammeCode(programmeCode) ? "complete_msk_session" : "complete_therapy_session";
+}
+
+/** The database function that opens a week, same rule. */
+export function startRpcName(programmeCode: string | undefined): "start_msk_session" | "start_therapy_session" {
+  return isMskProgrammeCode(programmeCode) ? "start_msk_session" : "start_therapy_session";
+}
+
 export function isActivityRest(raw: unknown): boolean {
   return isRecord(raw) && raw.status === "activity_rest";
 }

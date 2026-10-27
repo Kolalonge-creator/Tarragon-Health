@@ -1,37 +1,40 @@
 -- S96 (Module 14): MSK pain programmes (back, neck, knee, hip) on the S63 therapy-programme engine.
--- NOT APPLIED TO PRODUCTION. Everything seeded is a DRAFT and nothing is signed, approved, confirmed, attested or switched on: the guard
+-- NOT APPLIED TO PRODUCTION. Everything seeded is a DRAFT and nothing is signed, approved, confirmed or switched on: the guard
 -- `therapy_pain_enabled` stays OFF, every programme version stays 'draft', every exclusion list stays 'draft'. The Chief Medical Officer signs
--- (approve_therapy_programme_version, save/confirm_therapy_exclusion_list, and the two attestations); a physiotherapist reviewer can be added
--- later with no rebuild because the content is versioned rows and the approval is one function. This migration adds no physiotherapist role.
+-- (approve_therapy_programme_version, save/confirm_therapy_exclusion_list, and the two attestations). This migration adds no physiotherapist role.
+--
+-- ONE FILE ON PURPOSE. An earlier draft split this in two; the follow-up (the non-paging flag, the 90 minute task, the physiotherapist marker, the
+-- server-side enforcement) is folded in here so the pieces can never be applied separately.
 --
 -- VERSION NOTE. The stamp below was read from the clock (20261027184235); live `list_migrations` on koiplnmbgnqnbywhpjlf was read first and
 -- its newest version is 20261026192347, the same as origin/main-dev, so this sorts after both.
 --
 -- WHAT THIS DOES
---   1. therapy_programme_sessions.exercises (jsonb): the structured exercises of a session (name, plain steps, dose, easier and harder version,
---      stop-if rule, drawing key and alt text). Frozen with the rest of an approved version.
---   2. therapy_enrolments.stop_reason gains 'flare_up_review' (a flare-up that failed the re-check pauses the plan for a clinician).
---      public.resume_therapy_enrolment is patched by exact-match anchor (fails loudly) to resume that pause too.
---   3. therapy_msk_events (new, patient-keyed, own-read only, registered in the S39d data registry): difficulty ratings, flare-up reports,
---      step-down periods. Written only by the functions below.
---   4. public.start_msk_session: asks the S48a activity safety gate first (rest => no session opens; restrict => gentle exercises only), then
---      calls start_therapy_session UNCHANGED (so the entry screen is re-run every session and fails closed), then adds the exercises.
---      public.record_msk_exercise_rating: difficulty 1 to 5 after an exercise. public.complete_msk_session: a week finishes only after enough
---      different days have a rating (the completion gate), then calls complete_therapy_session UNCHANGED (checkpoint scores, worsening check).
---      public.report_msk_flare_up: "my pain got worse". It RE-RUNS the deterministic red-flag screen (fails closed). A positive pauses the plan
---      (hard stop for the crisis route), raises a clinical_tasks row through the S63 routing, and tells the patient what to do. A clear
---      re-check records a step-down for a few days. No language model anywhere (INV-01).
---   5. Entry lists: exclusion list version 2 for pain_back, pain_neck, pain_knee, pain_hip (DRAFT, 17, 19, 16 and 16 items). Version 1
---      stays as history. The newest version is the one in force, and `exclusion_list_confirmed` needs the NEWEST version confirmed, so the CMO
---      must confirm version 2 before the guard can be switched on.
---   6. therapy_programme_config version 2 (active): version 1 with the pain instruments replaced by the free PEG (3 items) plus one
---      function goal, their ranges and worsening thresholds, and an `msk` settings block. Every other programme reads identical values. PROPOSED.
---   7. Content: 4 programmes x 8 weekly sessions of DRAFT text with 3 exercises a day at most. The four pain programmes move from 'scaffold'
---      to 'draft'. Nothing patient-visible changes while the guard is off.
+--   1. therapy_programme_sessions.exercises (jsonb): the structured exercises of a session. Frozen with the rest of an approved version.
+--   2. therapy_enrolments.stop_reason gains 'flare_up_review'. public.resume_therapy_enrolment is patched by exact-match anchor (fails loudly).
+--   2b. SERVER-SIDE ENFORCEMENT AND THE ROUTES, by exact-match anchors (each fails loudly if the live definition drifted):
+--      * start_therapy_session and complete_therapy_session REFUSE the four pain programmes unless called through start_msk_session /
+--        complete_msk_session (a transaction-local flag those two set). So the activity safety gate, the filtered exercises and the days rule cannot be
+--        bypassed by calling the S63 functions directly or from an offline queue. Behaviour for every other programme is unchanged.
+--      * therapy_exclusion_rules.non_paging (only valid on a `crisis` rule): founder decision 2026-10-27, possible heart or stroke warning signs
+--        stop the programme with the hospital-now guidance but do NOT page the on-call clinician; they raise a normal symptom_review task due in
+--        route_due_minutes.crisis_non_paging (90, PROPOSED). private.therapy_evaluate_screen carries the flag from the rule row into every stop
+--        (answered or unanswered); private.therapy_route_stop reads it; save_therapy_exclusion_list keeps it. Mental-health crisis rules have it off
+--        and still page through the unchanged S63 crisis path. No more urgent non-paging task class was found, so the type stays symptom_review.
+--   3. therapy_msk_events (new, patient-keyed, own-read only, registered in the S39d data registry).
+--   4. start_msk_session (gate first, filters the exercises it returns by the gate ceiling, the daily cap and a running step-down, audits a gate
+--      error), record_msk_exercise_rating, complete_msk_session (the days rule), report_msk_flare_up (re-runs the red-flag screen; safe on retries).
+--   5. Entry lists: exclusion list version 2 for the four pain programmes (DRAFT, 17, 19, 16 and 16 items, the six warning signs flagged non_paging).
+--      Version 1 stays as history. `exclusion_list_confirmed` needs the NEWEST version confirmed, so the CMO must confirm version 2.
+--      therapy_programme_config version 2 (active): version 1 with the pain instruments replaced by the free PEG plus one function goal, their
+--      ranges and worsening thresholds, route_due_minutes.crisis_non_paging and an `msk` block. PROPOSED.
+--      Content: 4 programmes x 8 weekly sessions of DRAFT text, at most 3 exercises a day. The four pain programmes move from 'scaffold' to 'draft'.
+--      therapy_programme_versions.not_physiotherapist_reviewed (INTERNAL, never patient-visible) is true on the four pain versions; a later
+--      physiotherapist review is recorded in the nullable physio_review_recorded_at / physio_review_ref columns, which clears it.
 --
--- ROWS AFFECTED. 4 therapy_programmes rows updated (status, title, summary); inserted: 32 session rows, 4 exclusion-list versions with 68 rules,
--- 1 config row (the previous config row is set inactive). 0 enrolments are expected on any pain programme (the guard has been off since S63, and
--- a screen stop writes a 'blocked' row at most), so no data conversion is needed.
+-- ROWS AFFECTED. 4 therapy_programmes rows updated (status, title, summary) and 4 version rows (marker); inserted: 32 session rows, 4 exclusion-list
+-- versions with 68 rules, 1 config row (the previous config row is set inactive). 0 enrolments are expected on any pain programme (the guard has been
+-- off since S63, and a screen stop writes a 'blocked' row at most), so no data conversion is needed.
 
 -- ---------------------------------------------------------------------------
 -- 1. Structured exercises on a session
@@ -59,6 +62,77 @@ begin
   if v_def not like '%flare_up_review%' then
     v_new := replace(v_def, $q$e.stop_reason <> 'worsening_review'$q$, $q$e.stop_reason not in ('worsening_review', 'flare_up_review')$q$);
     if v_new = v_def then raise exception 'S96: resume_therapy_enrolment marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 2b. Server-side enforcement, the non-paging flag and the 90 minute task
+-- ---------------------------------------------------------------------------
+alter table public.therapy_exclusion_rules add column if not exists non_paging boolean not null default false;
+alter table public.therapy_exclusion_rules drop constraint if exists therapy_rules_non_paging_only_crisis;
+alter table public.therapy_exclusion_rules add constraint therapy_rules_non_paging_only_crisis check (non_paging = false or route = 'crisis');
+comment on column public.therapy_exclusion_rules.non_paging is 'S96: a crisis rule that stops the programme and shows hospital-now guidance but raises a normal clinician task (route_due_minutes.crisis_non_paging) and does NOT page the on-call clinician. Default false: every mental-health crisis rule pages.';
+
+do $$
+declare v_def text; v_new text;
+begin
+  -- the screen carries the flag from the rule row into every stop, answered or not
+  v_def := pg_get_functiondef('private.therapy_evaluate_screen(text, jsonb, integer)'::regprocedure);
+  if v_def not like '%non_paging%' then
+    v_new := replace(v_def, $q$'unverified', r.unverified, 'unanswered', v_unans)$q$, $q$'unverified', r.unverified, 'unanswered', v_unans, 'non_paging', r.non_paging)$q$);
+    if v_new = v_def then raise exception 'S96: therapy_evaluate_screen marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
+
+  -- routing: a crisis whose stops are all non-paging raises the normal task (90 minutes) and never pages
+  v_def := pg_get_functiondef('private.therapy_route_stop(uuid, jsonb)'::regprocedure);
+  if v_def not like '%non_paging%' then
+    v_new := replace(v_def,
+      $q$  if v_route = 'crisis' then
+    v_task_failed := not private.therapy_raise_crisis(e.id);
+  elsif v_route in ('same_day_clinician', 'medical_review_first') then$q$,
+      $q$  if v_route = 'crisis' and exists (select 1 from jsonb_array_elements(coalesce(p_screen -> 'stops', '[]'::jsonb)) st
+                                         where st ->> 'route' = 'crisis' and not coalesce((st ->> 'non_paging')::boolean, false)) then
+    v_task_failed := not private.therapy_raise_crisis(e.id);
+  elsif v_route in ('crisis', 'same_day_clinician', 'medical_review_first') then$q$);
+    if v_new = v_def then raise exception 'S96: therapy_route_stop branch marker not found (definition drifted)'; end if;
+    v_def := v_new;
+    v_new := replace(v_def, $q$(v_cfg -> 'route_due_minutes' ->> v_route)::integer$q$,
+      $q$(case when v_route = 'crisis' then coalesce(v_cfg -> 'route_due_minutes' ->> 'crisis_non_paging', v_cfg -> 'route_due_minutes' ->> 'same_day_clinician')
+               else v_cfg -> 'route_due_minutes' ->> v_route end)::integer$q$);
+    if v_new = v_def then raise exception 'S96: therapy_route_stop due-minutes marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
+
+  -- a list the CMO saves keeps the flag
+  v_def := pg_get_functiondef('public.save_therapy_exclusion_list(text, jsonb, text)'::regprocedure);
+  if v_def not like '%non_paging%' then
+    v_new := replace(v_def, $q$route, unverified)$q$, $q$route, unverified, non_paging)$q$);
+    if v_new = v_def then raise exception 'S96: save_therapy_exclusion_list column marker not found (definition drifted)'; end if;
+    v_def := v_new;
+    v_new := replace(v_def, $q$coalesce((x ->> 'unverified')::boolean, false));$q$, $q$coalesce((x ->> 'unverified')::boolean, false), coalesce((x ->> 'non_paging')::boolean, false));$q$);
+    if v_new = v_def then raise exception 'S96: save_therapy_exclusion_list values marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
+
+  -- the S63 start and completion refuse the pain programmes unless they come through the MSK functions (which set the flag)
+  v_def := pg_get_functiondef('public.start_therapy_session(uuid, integer, jsonb)'::regprocedure);
+  if v_def not like '%tarragon.msk_path%' then
+    v_new := replace(v_def,
+      $q$  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$,
+      $q$  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes open through the pain programme path' using errcode = '22023'; end if;
+  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$);
+    if v_new = v_def then raise exception 'S96: start_therapy_session marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
+  v_def := pg_get_functiondef('public.complete_therapy_session(uuid, integer, jsonb)'::regprocedure);
+  if v_def not like '%tarragon.msk_path%' then
+    v_new := replace(v_def,
+      $q$  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$,
+      $q$  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes finish through the pain programme path' using errcode = '22023'; end if;
+  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$);
+    if v_new = v_def then raise exception 'S96: complete_therapy_session marker not found (definition drifted)'; end if;
     execute v_new;
   end if;
 end $$;
@@ -115,7 +189,9 @@ on conflict (table_name) do nothing;
 -- ---------------------------------------------------------------------------
 -- Opens a pain-programme session. The activity safety gate is asked FIRST (a red triage event in the last 48 hours means rest: no session opens
 -- and nothing is counted; an amber one means gentle exercises only). The gate can only make activity gentler, so an error asking it is treated as
--- "gentle only", never as allow. The gate's reason is deliberately not returned (it could name a pregnancy or a condition).
+-- "gentle only", never as allow, and is written to the audit log (no patient data) so a silent failure cannot hide. The gate's reason is deliberately
+-- not returned (it could name a pregnancy or a condition). The exercises RETURNED are filtered here by the gate's ceiling, the daily cap and any running
+-- step-down, so a client never receives an exercise above the ceiling. The S63 start is reached only through this function (see section 2b).
 create or replace function public.start_msk_session(p_enrolment uuid, p_ordinal integer, p_recheck jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -125,7 +201,10 @@ declare
   v_gate jsonb;
   v_res jsonb;
   v_ex jsonb;
+  v_shown jsonb;
   v_until date;
+  v_step boolean;
+  v_ceiling integer;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_days integer;
   v_cfg jsonb := private.therapy_config();
@@ -141,6 +220,7 @@ begin
     v_gate := private.activity_gate_for(v_uid, true, now());
   exception when others then
     v_gate := null;
+    perform private.therapy_audit_error(e.organisation_id, e.id, 'activity_gate', sqlerrm);
   end;
   if v_gate is null or v_gate ->> 'decision' not in ('allow', 'restrict', 'rest') then
     v_gate := jsonb_build_object('decision', 'restrict', 'max_intensity', 'gentle');
@@ -151,19 +231,42 @@ begin
   end if;
 
   -- the S63 start, unchanged: guard, re-check of the entry screen (fail closed), approved-content rule, progress row
+  perform set_config('tarragon.msk_path', 'on', true);
   v_res := public.start_therapy_session(p_enrolment, p_ordinal, p_recheck);
+  perform set_config('tarragon.msk_path', 'off', true);
   if v_res ->> 'status' <> 'ok' then return v_res; end if;
 
   select s.exercises into v_ex from public.therapy_programme_sessions s
    where s.programme_id = e.programme_id and s.version = e.programme_version and s.ordinal = p_ordinal;
   select max(m.step_down_until) into v_until from public.therapy_msk_events m where m.enrolment_id = e.id and m.kind = 'step_down';
+  v_step := v_until is not null and v_until >= v_today;
+  -- anything the gate does not name as moderate or vigorous is gentle only (fail closed)
+  v_ceiling := case v_gate ->> 'max_intensity' when 'vigorous' then 2 when 'moderate' then 1 else 0 end;
+
+  select coalesce(jsonb_agg(t.x order by t.ord), '[]'::jsonb) into v_shown
+    from jsonb_array_elements(coalesce(v_ex, '[]'::jsonb)) with ordinality as t(x, ord)
+   where t.ord <= (v_cfg -> 'msk' ->> 'daily_exercise_cap')::integer
+     and (case t.x ->> 'intensity' when 'gentle' then 0 when 'moderate' then 1 else 99 end) <= v_ceiling
+     and (not v_step or t.x ->> 'intensity' = 'gentle');
+  if v_step then
+    select coalesce(jsonb_agg(q.x order by q.ord), '[]'::jsonb) into v_shown
+      from (select t.x, t.ord from jsonb_array_elements(v_shown) with ordinality as t(x, ord) order by t.ord
+             limit (v_cfg -> 'msk' ->> 'step_down_max_exercises')::integer) q;
+  end if;
+  if jsonb_array_length(v_shown) = 0 then
+    -- a gentle-only day never means nothing to do (every written set has a gentle exercise)
+    select coalesce(jsonb_agg(q.x), '[]'::jsonb) into v_shown
+      from (select t.x from jsonb_array_elements(coalesce(v_ex, '[]'::jsonb)) with ordinality as t(x, ord)
+             where t.x ->> 'intensity' = 'gentle' order by t.ord limit 1) q;
+  end if;
+
   select count(distinct m.event_date) into v_days from public.therapy_msk_events m
    where m.enrolment_id = e.id and m.kind = 'difficulty' and m.ordinal = p_ordinal;
 
   return v_res || jsonb_build_object(
-    'exercises', coalesce(v_ex, '[]'::jsonb),
+    'exercises', v_shown,
     'activity_gate', v_gate,
-    'step_down', case when v_until is not null and v_until >= v_today then jsonb_build_object('until', v_until) else null end,
+    'step_down', case when v_step then jsonb_build_object('until', v_until) else null end,
     'days_done', v_days,
     'days_needed', (v_cfg -> 'msk' ->> 'min_days_to_complete')::integer);
 end $$;
@@ -218,7 +321,8 @@ revoke all on function public.record_msk_exercise_rating(uuid, integer, text, in
 grant execute on function public.record_msk_exercise_rating(uuid, integer, text, integer) to authenticated;
 
 -- The completion gate: a week finishes only after enough different days have a difficulty rating. An already finished week is passed straight on
--- (the S63 answer is "already saved"). Checkpoint scores and the worsening check are the S63 function's, unchanged.
+-- (the S63 answer is "already saved"). Checkpoint scores and the worsening check are the S63 function's, unchanged. The S63 completion is reached
+-- only through this function for pain programmes (see section 2b), so the days rule cannot be bypassed directly or by an offline queue.
 create or replace function public.complete_msk_session(p_enrolment uuid, p_ordinal integer, p_scores jsonb default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -228,6 +332,7 @@ declare
   v_cfg jsonb := private.therapy_config();
   v_days integer;
   v_need integer;
+  v_res jsonb;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
   select * into e from public.therapy_enrolments where id = p_enrolment and patient_id = v_uid;
@@ -242,16 +347,23 @@ begin
       return jsonb_build_object('status', 'not_enough_days', 'days_done', v_days, 'days_needed', v_need);
     end if;
   end if;
-  return public.complete_therapy_session(p_enrolment, p_ordinal, p_scores);
+  perform set_config('tarragon.msk_path', 'on', true);
+  v_res := public.complete_therapy_session(p_enrolment, p_ordinal, p_scores);
+  perform set_config('tarragon.msk_path', 'off', true);
+  return v_res;
 end $$;
 revoke all on function public.complete_msk_session(uuid, integer, jsonb) from public, anon;
 grant execute on function public.complete_msk_session(uuid, integer, jsonb) to authenticated;
 
 -- "My pain got worse". Re-runs the deterministic red-flag screen (latest list, fail closed) on the answers given now.
---   positive, crisis route   : the plan is stopped, the S63 crisis path runs (class 1 task, urgent event, on-call page).
+--   positive, crisis route   : the plan is stopped and the patient is shown "go to the nearest hospital now". If any positive crisis item pages (a
+--                              mental-health item), the S63 crisis path runs; the pain warning signs are non_paging: they raise the normal same-day
+--                              task (90 minutes, PROPOSED) and do NOT page.
 --   positive, any other route: the plan is PAUSED (flare_up_review), a clinical_tasks row is raised (never a notification only), a tied
 --                              clinician can resume it (resume_therapy_enrolment).
 --   clear                    : a step-down is recorded for the configured number of days (today counts as day one).
+-- Safe on a retry or a double tap: a report on a plan that a flare-up (or the screen) already paused or stopped returns the SAME stopped status and
+-- route (so the hospital-now guidance is still shown), and a clear report repeated within the configured few minutes returns the first step-down.
 -- A list with no rules (cannot happen once the lists are seeded) is treated as a same-day clinician route, never as clear.
 create or replace function public.report_msk_flare_up(p_enrolment uuid, p_recheck jsonb, p_pain_now integer default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -263,6 +375,7 @@ declare
   v_screen jsonb;
   v_routed jsonb;
   v_until date;
+  v_prev text;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
@@ -272,7 +385,17 @@ begin
   if p.code not in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') then raise exception 'not a pain programme' using errcode = '22023'; end if;
   if v_cfg is null then raise exception 'programmes are not configured' using errcode = '55000'; end if;
   if p_pain_now is not null and (p_pain_now < 0 or p_pain_now > 10) then raise exception 'pain must be 0 to 10' using errcode = '22023'; end if;
-  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;
+  if e.state <> 'active' then
+    -- a plan already stopped or paused by a red flag: say the same thing again, so the guidance is not lost on a retry
+    if e.stop_reason in ('flare_up_review', 'crisis', 'exclusion') and e.state in ('paused', 'stopped_exclusion')
+       and jsonb_typeof(e.exclusion_result -> 'stops') = 'array' and jsonb_array_length(e.exclusion_result -> 'stops') > 0 then
+      select s ->> 'route' into v_prev
+        from jsonb_array_elements(e.exclusion_result -> 'stops') s
+       order by array_position(array['crisis', 'same_day_clinician', 'medical_review_first', 'education_only'], s ->> 'route') nulls last limit 1;
+      return jsonb_build_object('status', 'stopped', 'route', coalesce(v_prev, 'same_day_clinician'), 'task_failed', false, 'repeat', true);
+    end if;
+    return jsonb_build_object('status', 'not_active', 'state', e.state);
+  end if;
 
   v_screen := private.therapy_evaluate_screen(p.code, p_recheck);
   if not (v_screen ->> 'passed')::boolean then
@@ -290,6 +413,13 @@ begin
     end if;
     return jsonb_build_object('status', 'stopped', 'route', v_screen ->> 'route', 'task_failed', coalesce((v_routed ->> 'task_failed')::boolean, false));
   end if;
+
+  -- clear: a repeat within a few minutes (a double tap, a retry) returns the first result and records nothing more
+  select m.step_down_until into v_until from public.therapy_msk_events m
+   where m.enrolment_id = e.id and m.kind = 'step_down'
+     and m.created_at > now() - make_interval(mins => (v_cfg -> 'msk' ->> 'flare_dedupe_minutes')::integer)
+   order by m.created_at desc limit 1;
+  if v_until is not null then return jsonb_build_object('status', 'step_down', 'until', v_until); end if;
 
   v_until := v_today + ((v_cfg -> 'msk' ->> 'step_down_days')::integer - 1);
   insert into public.therapy_msk_events (organisation_id, patient_id, enrolment_id, kind, pain_now, outcome, is_test)
@@ -324,9 +454,9 @@ select p.code, 2, 'draft', 'DRAFT (S96, 2026-10-27), unconfirmed. Red flags for 
   from public.therapy_programmes p where p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip')
 on conflict (programme_code, version) do nothing;
 
-insert into public.therapy_exclusion_rules (programme_code, list_version, ordinal, item_code, question, kind, threshold, route, unverified)
-select l.key, 2, r.ord::integer, r.val ->> 'code', r.val ->> 'question', r.val ->> 'kind', (r.val ->> 'threshold')::numeric, r.val ->> 'route', coalesce((r.val ->> 'unverified')::boolean, false)
-  from jsonb_each($json${"pain_back":[{"code":"saddle_numbness","question":"Do you have numbness or odd feelings around your genitals, buttocks or inner thighs (the saddle area)?","kind":"yes_no","route":"same_day_clinician"},{"code":"bladder_or_bowel_change","question":"Have you noticed a new change in passing urine or opening your bowels, such as leaking, or not being able to go?","kind":"yes_no","route":"same_day_clinician"},{"code":"weakness_both_legs","question":"Do you have weakness in one or both legs, such as a foot that drags or a leg that gives way?","kind":"yes_no","route":"same_day_clinician"},{"code":"chest_pain_now","question":"Do you have chest pain, chest tightness or shortness of breath now, or along with this pain?","kind":"yes_no","route":"crisis"},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"pain_first_time_over_50","question":"Are you over 50, and is this the first time you have had pain like this?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"pregnant_or_recent_birth","question":"Are you pregnant, or did you give birth in the last six weeks?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_neck":[{"code":"chest_or_arm_pain_now","question":"Do you have chest pain or tightness, or pain spreading down the left arm or into the jaw, now or along with this pain?","kind":"yes_no","route":"crisis"},{"code":"sudden_severe_headache","question":"Did a sudden, severe headache start with this neck pain, the worst you have ever had?","kind":"yes_no","route":"crisis"},{"code":"speech_swallow_vision_face","question":"Do you have trouble speaking or swallowing, double vision, or one side of your face drooping?","kind":"yes_no","route":"crisis"},{"code":"arm_or_hand_weakness_or_numbness","question":"Do you have weakness or numbness in your arm or hand that is spreading, or in both arms?","kind":"yes_no","route":"same_day_clinician"},{"code":"hands_clumsy","question":"Are your hands clumsy, or do you drop things more than usual?","kind":"yes_no","route":"same_day_clinician"},{"code":"balance_or_walking_change","question":"Has your balance or the way you walk changed, or do your legs feel stiff or weak?","kind":"yes_no","route":"same_day_clinician"},{"code":"bladder_or_bowel_change","question":"Have you noticed a new change in passing urine or opening your bowels?","kind":"yes_no","route":"same_day_clinician"},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"pain_first_time_over_50","question":"Are you over 50, and is this the first time you have had pain like this?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_knee":[{"code":"hot_swollen_joint_unwell","question":"Is your knee hot, red and swollen, and do you feel feverish or unwell?","kind":"yes_no","route":"same_day_clinician"},{"code":"cannot_weight_bear","question":"Is it too painful to put weight on your leg, or can you not stand on it at all?","kind":"yes_no","route":"same_day_clinician"},{"code":"knee_locks_or_gives_way","question":"Does your knee lock so it will not bend or straighten, or give way suddenly?","kind":"yes_no","route":"medical_review_first"},{"code":"calf_pain_or_swelling","question":"Do you have pain, swelling, warmth or redness in your calf?","kind":"yes_no","route":"same_day_clinician"},{"code":"breathless_with_leg_pain","question":"Are you short of breath, or coughing up blood, along with leg pain or swelling?","kind":"yes_no","route":"crisis"},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_hip":[{"code":"cannot_weight_bear","question":"Is it too painful to put weight on your leg, or can you not stand on it at all?","kind":"yes_no","route":"same_day_clinician"},{"code":"groin_pain_after_fall","question":"Do you have groin or hip pain after a fall, even a small one?","kind":"yes_no","route":"same_day_clinician"},{"code":"hip_pain_new_with_steroids_or_alcohol","question":"Did the hip pain start suddenly, and do you take steroid tablets or drink a lot of alcohol?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"calf_pain_or_swelling","question":"Do you have pain, swelling, warmth or redness in your calf?","kind":"yes_no","route":"same_day_clinician"},{"code":"breathless_with_leg_pain","question":"Are you short of breath, or coughing up blood, along with leg pain or swelling?","kind":"yes_no","route":"crisis"},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}]}$json$::jsonb) l
+insert into public.therapy_exclusion_rules (programme_code, list_version, ordinal, item_code, question, kind, threshold, route, unverified, non_paging)
+select l.key, 2, r.ord::integer, r.val ->> 'code', r.val ->> 'question', r.val ->> 'kind', (r.val ->> 'threshold')::numeric, r.val ->> 'route', coalesce((r.val ->> 'unverified')::boolean, false), coalesce((r.val ->> 'nonPaging')::boolean, false)
+  from jsonb_each($json${"pain_back":[{"code":"saddle_numbness","question":"Do you have numbness or odd feelings around your genitals, buttocks or inner thighs (the saddle area)?","kind":"yes_no","route":"same_day_clinician"},{"code":"bladder_or_bowel_change","question":"Have you noticed a new change in passing urine or opening your bowels, such as leaking, or not being able to go?","kind":"yes_no","route":"same_day_clinician"},{"code":"weakness_both_legs","question":"Do you have weakness in one or both legs, such as a foot that drags or a leg that gives way?","kind":"yes_no","route":"same_day_clinician"},{"code":"chest_pain_now","question":"Do you have chest pain, chest tightness or shortness of breath now, or along with this pain?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"pain_first_time_over_50","question":"Are you over 50, and is this the first time you have had pain like this?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"pregnant_or_recent_birth","question":"Are you pregnant, or did you give birth in the last six weeks?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_neck":[{"code":"chest_or_arm_pain_now","question":"Do you have chest pain or tightness, or pain spreading down the left arm or into the jaw, now or along with this pain?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"sudden_severe_headache","question":"Did a sudden, severe headache start with this neck pain, the worst you have ever had?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"speech_swallow_vision_face","question":"Do you have trouble speaking or swallowing, double vision, or one side of your face drooping?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"arm_or_hand_weakness_or_numbness","question":"Do you have weakness or numbness in your arm or hand that is spreading, or in both arms?","kind":"yes_no","route":"same_day_clinician"},{"code":"hands_clumsy","question":"Are your hands clumsy, or do you drop things more than usual?","kind":"yes_no","route":"same_day_clinician"},{"code":"balance_or_walking_change","question":"Has your balance or the way you walk changed, or do your legs feel stiff or weak?","kind":"yes_no","route":"same_day_clinician"},{"code":"bladder_or_bowel_change","question":"Have you noticed a new change in passing urine or opening your bowels?","kind":"yes_no","route":"same_day_clinician"},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"pain_first_time_over_50","question":"Are you over 50, and is this the first time you have had pain like this?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_knee":[{"code":"hot_swollen_joint_unwell","question":"Is your knee hot, red and swollen, and do you feel feverish or unwell?","kind":"yes_no","route":"same_day_clinician"},{"code":"cannot_weight_bear","question":"Is it too painful to put weight on your leg, or can you not stand on it at all?","kind":"yes_no","route":"same_day_clinician"},{"code":"knee_locks_or_gives_way","question":"Does your knee lock so it will not bend or straighten, or give way suddenly?","kind":"yes_no","route":"medical_review_first"},{"code":"calf_pain_or_swelling","question":"Do you have pain, swelling, warmth or redness in your calf?","kind":"yes_no","route":"same_day_clinician"},{"code":"breathless_with_leg_pain","question":"Are you short of breath, or coughing up blood, along with leg pain or swelling?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}],"pain_hip":[{"code":"cannot_weight_bear","question":"Is it too painful to put weight on your leg, or can you not stand on it at all?","kind":"yes_no","route":"same_day_clinician"},{"code":"groin_pain_after_fall","question":"Do you have groin or hip pain after a fall, even a small one?","kind":"yes_no","route":"same_day_clinician"},{"code":"hip_pain_new_with_steroids_or_alcohol","question":"Did the hip pain start suddenly, and do you take steroid tablets or drink a lot of alcohol?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"calf_pain_or_swelling","question":"Do you have pain, swelling, warmth or redness in your calf?","kind":"yes_no","route":"same_day_clinician"},{"code":"breathless_with_leg_pain","question":"Are you short of breath, or coughing up blood, along with leg pain or swelling?","kind":"yes_no","route":"crisis","nonPaging":true},{"code":"recent_trauma","question":"Did this pain start after a fall, accident, blow or injury?","kind":"yes_no","route":"same_day_clinician"},{"code":"fever","question":"Do you have a fever, or have you felt feverish or unwell with this pain?","kind":"yes_no","route":"same_day_clinician"},{"code":"progressive_deficit","question":"Is any weakness, numbness or pins and needles getting worse over days or weeks?","kind":"yes_no","route":"same_day_clinician"},{"code":"unexplained_weight_loss","question":"Have you lost weight without trying in the last few months?","kind":"yes_no","route":"same_day_clinician"},{"code":"cancer_history","question":"Have you ever been told you have or had cancer?","kind":"yes_no","route":"same_day_clinician"},{"code":"night_pain","question":"Does the pain wake you at night, or is it worst when you lie still and rest?","kind":"yes_no","route":"same_day_clinician"},{"code":"low_defences","question":"Do you inject drugs, take medicines that lower your body's defences (such as chemotherapy or long-term steroid tablets), or have an illness that weakens your defences?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"steroids_or_thin_bones","question":"Do you take steroid tablets most days, or have you been told your bones are thin (osteoporosis)?","kind":"yes_no","route":"medical_review_first","unverified":true},{"code":"known_tb","question":"Have you been told you have TB (tuberculosis)?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"sickle_cell_bone_pain","question":"Do you have sickle cell disease, and is this a bone pain?","kind":"yes_no","route":"same_day_clinician","unverified":true},{"code":"known_hiv","question":"Do you live with HIV?","kind":"yes_no","route":"same_day_clinician","unverified":true}]}$json$::jsonb) l
   cross join lateral jsonb_array_elements(l.value) with ordinality as r(val, ord)
 on conflict (programme_code, list_version, item_code) do nothing;
 -- exclusion-lists-v2-end
@@ -334,16 +464,29 @@ on conflict (programme_code, list_version, item_code) do nothing;
 -- programme-config-v2-begin (packages/shared/src/proposed-config/therapy-config-data.ts mirrors it, a test fails on drift). DRAFT, PROPOSED.
 update public.therapy_programme_config set is_active = false where is_active;
 insert into public.therapy_programme_config (version, config, notes, is_active)
-values (2, $json${"reenrol_cooldown_hours":72,"route_due_minutes":{"same_day_clinician":480,"medical_review_first":2880,"worsening_review":1440},"instruments":{"panic_breathing":["panic_episodes_week"],"pelvic_floor":["leakage_episodes_week"],"ibs_hypnotherapy":["ibs_symptom_0_10"],"cbt_i":["isi"],"pain_back":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_neck":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_knee":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_hip":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"low_mood":["phq9","gad7"],"stress":["phq9","gad7"],"anxiety":["gad7","phq9"],"pulmonary_rehab":[]},"checkpoints":{"panic_breathing":[1,3,6],"pelvic_floor":[1,4,8,12],"ibs_hypnotherapy":[1,3,6],"cbt_i":[1,3,6],"pain_back":[1,4,8],"pain_neck":[1,4,8],"pain_knee":[1,4,8],"pain_hip":[1,4,8],"low_mood":[1,3,6],"stress":[1,3,6],"anxiety":[1,3,6],"pulmonary_rehab":[]},"instrument_ranges":{"phq9":{"min":0,"max":27},"gad7":{"min":0,"max":21},"isi":{"min":0,"max":28},"pain_nrs":{"min":0,"max":10},"peg_pain":{"min":0,"max":10},"peg_enjoyment":{"min":0,"max":10},"peg_activity":{"min":0,"max":10},"function_goal":{"min":0,"max":10},"panic_episodes_week":{"min":0,"max":99},"leakage_episodes_week":{"min":0,"max":99},"ibs_symptom_0_10":{"min":0,"max":10}},"worsening":{"phq9":{"rise_at_least":5,"absolute_at_least":20},"gad7":{"rise_at_least":4},"isi":{"rise_at_least":4},"pain_nrs":{"rise_at_least":2},"peg_pain":{"rise_at_least":2},"peg_enjoyment":{"rise_at_least":2},"peg_activity":{"rise_at_least":2},"function_goal":{"rise_at_least":2},"panic_episodes_week":{"rise_at_least":3},"leakage_episodes_week":{"rise_at_least":3},"ibs_symptom_0_10":{"rise_at_least":2}},"cbt_i":{"time_in_bed_floor_minutes":330,"sleep_restriction_requires_clinician_flag":true,"default_variant":["sleep_diary","wind_down","stimulus_control"]},"pelvic_floor":{"contractions_per_set":8,"sets_per_day":3,"minimum_months":3},"msk":{"daily_exercise_cap":3,"min_days_to_complete":3,"step_down_days":3,"step_down_max_exercises":2,"difficulty_min":1,"difficulty_max":5,"too_hard_rating":5,"too_hard_in_a_row":2,"flare_pain_scale_max":10}}$json$::jsonb,
-  'DRAFT, UNSIGNED (S96, 2026-10-27). Version 1 plus: the pain programmes ask the free PEG (average pain, enjoyment of life, general activity, each 0 to 10) and one function goal at weeks 1, 4 and 8; a rise of 2 points on any of them pauses the programme for review (PROPOSED); and an msk block (daily cap of 3 exercises, 3 different days to finish a week, a 3 day step-down after a flare-up). Every number marked PROPOSED was chosen by the build so the programme can run and is for the CMO to confirm or replace. Every other programme reads the same values as version 1.', true)
+values (2, $json${"reenrol_cooldown_hours":72,"route_due_minutes":{"same_day_clinician":480,"medical_review_first":2880,"worsening_review":1440,"crisis_non_paging":90},"instruments":{"panic_breathing":["panic_episodes_week"],"pelvic_floor":["leakage_episodes_week"],"ibs_hypnotherapy":["ibs_symptom_0_10"],"cbt_i":["isi"],"pain_back":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_neck":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_knee":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"pain_hip":["peg_pain","peg_enjoyment","peg_activity","function_goal"],"low_mood":["phq9","gad7"],"stress":["phq9","gad7"],"anxiety":["gad7","phq9"],"pulmonary_rehab":[]},"checkpoints":{"panic_breathing":[1,3,6],"pelvic_floor":[1,4,8,12],"ibs_hypnotherapy":[1,3,6],"cbt_i":[1,3,6],"pain_back":[1,4,8],"pain_neck":[1,4,8],"pain_knee":[1,4,8],"pain_hip":[1,4,8],"low_mood":[1,3,6],"stress":[1,3,6],"anxiety":[1,3,6],"pulmonary_rehab":[]},"instrument_ranges":{"phq9":{"min":0,"max":27},"gad7":{"min":0,"max":21},"isi":{"min":0,"max":28},"pain_nrs":{"min":0,"max":10},"peg_pain":{"min":0,"max":10},"peg_enjoyment":{"min":0,"max":10},"peg_activity":{"min":0,"max":10},"function_goal":{"min":0,"max":10},"panic_episodes_week":{"min":0,"max":99},"leakage_episodes_week":{"min":0,"max":99},"ibs_symptom_0_10":{"min":0,"max":10}},"worsening":{"phq9":{"rise_at_least":5,"absolute_at_least":20},"gad7":{"rise_at_least":4},"isi":{"rise_at_least":4},"pain_nrs":{"rise_at_least":2},"peg_pain":{"rise_at_least":2},"peg_enjoyment":{"rise_at_least":2},"peg_activity":{"rise_at_least":2},"function_goal":{"rise_at_least":2},"panic_episodes_week":{"rise_at_least":3},"leakage_episodes_week":{"rise_at_least":3},"ibs_symptom_0_10":{"rise_at_least":2}},"cbt_i":{"time_in_bed_floor_minutes":330,"sleep_restriction_requires_clinician_flag":true,"default_variant":["sleep_diary","wind_down","stimulus_control"]},"pelvic_floor":{"contractions_per_set":8,"sets_per_day":3,"minimum_months":3},"msk":{"daily_exercise_cap":3,"min_days_to_complete":3,"step_down_days":3,"step_down_max_exercises":2,"difficulty_min":1,"difficulty_max":5,"too_hard_rating":5,"too_hard_in_a_row":2,"flare_pain_scale_max":10,"flare_dedupe_minutes":5}}$json$::jsonb,
+  'DRAFT, UNSIGNED (S96, 2026-10-27). Version 1 plus: the pain programmes ask the free PEG (average pain, enjoyment of life, general activity, each 0 to 10) and one function goal at weeks 1, 4 and 8; a rise of 2 points on any of them pauses the programme for review (PROPOSED); route_due_minutes.crisis_non_paging 90 (the task for a hospital-now warning sign, no page); and an msk block (daily cap of 3 exercises, 3 different days to finish a week, a 3 day step-down after a flare-up). Every number marked PROPOSED was chosen by the build so the programme can run and is for the CMO to confirm or replace. Every other programme reads the same values as version 1.', true)
 on conflict (version) do nothing;
 -- programme-config-v2-end
+
+-- the internal not-physiotherapist-reviewed marker (founder decision 2026-10-27): only the CMO approves; never patient-visible; cleared later by recording a review
+alter table public.therapy_programme_versions add column if not exists not_physiotherapist_reviewed boolean not null default false;
+alter table public.therapy_programme_versions add column if not exists physio_review_recorded_at timestamptz;
+alter table public.therapy_programme_versions add column if not exists physio_review_ref text;
+alter table public.therapy_programme_versions drop constraint if exists therapy_versions_physio_marker_shape;
+alter table public.therapy_programme_versions add constraint therapy_versions_physio_marker_shape
+  check (not (not_physiotherapist_reviewed and physio_review_recorded_at is not null));
+comment on column public.therapy_programme_versions.not_physiotherapist_reviewed is 'S96: INTERNAL marker, never patient-visible. True while exercise doses and progressions have been approved by the CMO only. Cleared (set false, with physio_review_recorded_at) when a physiotherapist review is recorded. No physiotherapist role exists yet; the two nullable columns are the hook.';
+update public.therapy_programme_versions v
+   set not_physiotherapist_reviewed = true
+  from public.therapy_programmes p
+ where p.id = v.programme_id and p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and v.physio_review_recorded_at is null;
 
 -- ---------------------------------------------------------------------------
 -- 6. Self-checks
 -- ---------------------------------------------------------------------------
 do $$
-declare t text; f text;
+declare f text;
 begin
   if (select count(*) from public.therapy_programme_sessions s join public.therapy_programmes p on p.id = s.programme_id where p.code like 'pain\_%') <> 32 then
     raise exception 'FAIL: expected 32 pain session rows';
@@ -356,15 +499,27 @@ begin
   if exists (select 1 from public.therapy_programme_versions v join public.therapy_programmes p on p.id = v.programme_id where p.code like 'pain\_%' and (v.review_state <> 'draft' or v.approved_by is not null)) then
     raise exception 'FAIL: a pain programme version is not a draft';
   end if;
+  if (select count(*) from public.therapy_programme_versions v join public.therapy_programmes p on p.id = v.programme_id where p.code like 'pain\_%' and v.not_physiotherapist_reviewed) <> 4 then
+    raise exception 'FAIL: the four pain versions must carry the not-physiotherapist-reviewed marker';
+  end if;
   if (select count(*) from public.therapy_exclusion_rules where list_version = 2 and programme_code like 'pain\_%') <> 68 then raise exception 'FAIL: expected 68 pain rules'; end if;
   if exists (select 1 from public.therapy_exclusion_list_versions where programme_code like 'pain\_%' and version = 2 and (status <> 'draft' or confirmed_by is not null)) then raise exception 'FAIL: a pain list is not a draft'; end if;
+  -- the six warning signs (and nothing else) are non-paging crisis items; no mental-health rule is
+  if (select count(*) from public.therapy_exclusion_rules where non_paging) <> 6 then raise exception 'FAIL: expected 6 non-paging rules'; end if;
+  if exists (select 1 from public.therapy_exclusion_rules where route = 'crisis' and programme_code like 'pain\_%' and list_version = 2 and not non_paging) then raise exception 'FAIL: a pain crisis item still pages'; end if;
+  if exists (select 1 from public.therapy_exclusion_rules where non_paging and (route <> 'crisis' or programme_code not like 'pain\_%' or list_version <> 2)) then raise exception 'FAIL: a non-paging rule outside the pain crisis items'; end if;
   if (select count(*) from pg_constraint where conrelid = 'public.therapy_enrolments'::regclass and contype = 'c' and (pg_get_constraintdef(oid) ilike '%stop_reason = any%' or pg_get_constraintdef(oid) ilike '%stop_reason in%')) <> 1 then
     raise exception 'FAIL: expected exactly one stop_reason check on therapy_enrolments';
   end if;
   if (select count(*) from public.therapy_programme_config where is_active) <> 1 or (select version from public.therapy_programme_config where is_active) <> 2 then raise exception 'FAIL: config v2 must be the one active config'; end if;
+  if (select (config -> 'route_due_minutes' ->> 'crisis_non_paging')::integer from public.therapy_programme_config where is_active) <> 90 then raise exception 'FAIL: the non-paging crisis task must be due in 90 minutes'; end if;
   if exists (select 1 from public.go_live_guards where key like 'therapy\_%\_enabled' and is_on) then raise exception 'FAIL: a therapy guard is on'; end if;
   if private.go_live_open('therapy_pain_enabled') then raise exception 'FAIL: the pain guard reads open'; end if;
   if pg_get_functiondef('public.resume_therapy_enrolment(uuid, text)'::regprocedure) not like '%flare_up_review%' then raise exception 'FAIL: resume does not know the flare-up pause'; end if;
+  if pg_get_functiondef('private.therapy_route_stop(uuid, jsonb)'::regprocedure) not like '%non_paging%'
+     or pg_get_functiondef('private.therapy_route_stop(uuid, jsonb)'::regprocedure) not like '%therapy_raise_crisis%' then raise exception 'FAIL: route_stop lost the flag or the crisis path'; end if;
+  if pg_get_functiondef('public.start_therapy_session(uuid, integer, jsonb)'::regprocedure) not like '%tarragon.msk_path%'
+     or pg_get_functiondef('public.complete_therapy_session(uuid, integer, jsonb)'::regprocedure) not like '%tarragon.msk_path%' then raise exception 'FAIL: the S63 start or completion does not refuse the pain programmes'; end if;
   if not (select relrowsecurity from pg_class where oid = 'public.therapy_msk_events'::regclass) then raise exception 'FAIL: RLS is not enabled on therapy_msk_events'; end if;
   if has_table_privilege('anon', 'public.therapy_msk_events', 'SELECT') or has_table_privilege('authenticated', 'public.therapy_msk_events', 'INSERT')
      or has_table_privilege('authenticated', 'public.therapy_msk_events', 'UPDATE') or has_table_privilege('authenticated', 'public.therapy_msk_events', 'DELETE') then

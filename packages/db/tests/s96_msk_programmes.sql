@@ -190,6 +190,8 @@ begin
   perform pg_temp.setf('patH', pg_temp.mkuser(v_org, 'patH', 'patient'));
   perform pg_temp.setf('patI', pg_temp.mkuser(v_org, 'patI', 'patient'));
   perform pg_temp.setf('patJ', pg_temp.mkuser(v_org, 'patJ', 'patient'));
+  perform pg_temp.setf('patK', pg_temp.mkuser(v_org, 'patK', 'patient'));
+  perform pg_temp.setf('patL', pg_temp.mkuser(v_org, 'patL', 'patient'));
 end $$;
 
 -- S96 helpers ----------------------------------------------------------------------------------------------------------------
@@ -237,6 +239,8 @@ begin
   o := pg_temp.enrol_as(p_uid, p_code, pg_temp.answers(p_code));
   return (o ->> 'enrolment_id')::uuid;
 end $f$;
+
+create temp table orig_gate on commit drop as select pg_get_functiondef('private.activity_gate_for(uuid, boolean, timestamptz)'::regprocedure) as def;
 
 -- 1. Seeds: draft content, draft lists, active config v2, guard off ---------------------------------------------------------------
 do $$
@@ -364,14 +368,20 @@ begin
   perform pg_temp.ck('...the flare-up is recorded, with the pain level', 'stopped:8',
     (select outcome || ':' || pain_now from public.therapy_msk_events where enrolment_id = e and kind = 'flare_up' order by created_at desc limit 1));
   perform pg_temp.ck('...a paused plan opens no session', 'not_active', pg_temp.msk_start_as(pat, e, 5, pg_temp.answers('pain_back')) ->> 'status');
-  perform pg_temp.ck('...and a second flare-up report does nothing more', 'not_active', pg_temp.flare_as(pat, e, pg_temp.answers('pain_back', 'fever')) ->> 'status');
+  r := pg_temp.flare_as(pat, e, pg_temp.answers('pain_back', 'fever'));
+  perform pg_temp.ck('...a repeat report on the paused plan says the same thing (stopped, same route), not a bare not-active', 'stopped:same_day_clinician:true',
+    (r ->> 'status') || ':' || (r ->> 'route') || ':' || (r ->> 'repeat'));
+  perform pg_temp.ck('...and raised no second task', '1',
+    (select count(*)::text from public.clinical_tasks where patient_id = pat and type = 'symptom_review' and dedup_key = 'ts:' || md5(pat::text || ':pain_back:same_day_clinician')));
   perform pg_temp.ck('an untied clinician cannot resume it', 'true',
     (pg_temp.try_as(pg_temp.f('docuntied'), format($q$select public.resume_therapy_enrolment(%L, 'trying to resume it')$q$, e)) like '%not authorised%')::text);
   perform pg_temp.ck('a tied clinician resumes it', 'ok', pg_temp.try_as(pg_temp.f('doctied'), format($q$select public.resume_therapy_enrolment(%L, 'reviewed with the patient today')$q$, e)));
   -- clear: a recorded step-down
   r := pg_temp.flare_as(pat, e, pg_temp.answers('pain_back'), 6);
   perform pg_temp.ck('a clear re-check records a step-down for the configured days', ((now() at time zone 'Africa/Lagos')::date + 2)::text, r ->> 'until');
-  perform pg_temp.ck('...it is stored', '1', (select count(*)::text from public.therapy_msk_events where enrolment_id = e and kind = 'step_down'));
+  perform pg_temp.ck('...a double tap within a few minutes returns the first step-down and records nothing more', ((now() at time zone 'Africa/Lagos')::date + 2)::text,
+    pg_temp.flare_as(pat, e, pg_temp.answers('pain_back'), 6) ->> 'until');
+  perform pg_temp.ck('...it is stored once', '1', (select count(*)::text from public.therapy_msk_events where enrolment_id = e and kind = 'step_down'));
   perform pg_temp.ck('...and the next session start reports it', ((now() at time zone 'Africa/Lagos')::date + 2)::text,
     pg_temp.msk_start_as(pat, e, 5, pg_temp.answers('pain_back')) -> 'step_down' ->> 'until');
   -- a missing answer is a positive
@@ -383,11 +393,47 @@ begin
   r := pg_temp.flare_as(b, eb, pg_temp.answers('pain_neck', 'chest_or_arm_pain_now'));
   perform pg_temp.ck('chest or arm pain on a flare-up is the hospital-now route', 'stopped:crisis', (r ->> 'status') || ':' || (r ->> 'route'));
   perform pg_temp.ck('...the plan is stopped', 'stopped_exclusion', (select state from public.therapy_enrolments where id = eb));
+  perform pg_temp.ck('...the patient is told again on a retry (stopped, crisis route)', 'stopped:crisis', (pg_temp.flare_as(b, eb, pg_temp.answers('pain_neck', 'sudden_severe_headache')) ->> 'status') || ':' || (pg_temp.flare_as(b, eb, '{}'::jsonb) ->> 'route'));
   perform pg_temp.ck('...but it does NOT page the on-call clinician: no class 1 task', '0', pg_temp.tasks_for(b, 'red_event_unacknowledged'));
   perform pg_temp.ck('...no page was sent', '0', (select count(*)::text from public.audit_log where action = 'therapy.crisis_notified' and entity_id = b));
-  perform pg_temp.ck('...a normal same-day clinician task was raised instead', '1', pg_temp.tasks_for(b, 'symptom_review'));
+  perform pg_temp.ck('...a normal clinician task was raised instead', '1', pg_temp.tasks_for(b, 'symptom_review'));
+  perform pg_temp.ck('...due in 90 minutes (the non-paging crisis window, not the 480 same-day one)', '90',
+    (select (extract(epoch from (due_at - created_at)) / 60)::integer::text from public.clinical_tasks where patient_id = b and type = 'symptom_review' limit 1));
   perform pg_temp.ck('...and the patient is shown the hospital-now route', 'crisis', (select exclusion_result -> 'stops' -> 0 ->> 'route' from public.therapy_enrolments where id = eb));
 end $$;
+
+-- 4a. Server side: the S63 functions refuse the pain programmes; returned exercises obey the gate; unanswered warning sign; gate error audited -----
+do $$
+declare e uuid := pg_temp.f('e_back'); pat uuid := pg_temp.f('pat'); s jsonb; ej uuid; r jsonb; n_audit integer;
+begin
+  perform pg_temp.ck('the plain S63 start refuses a pain programme', 'true', (pg_temp.start_as(pat, e, 5, pg_temp.answers('pain_back')) ->> 'error' like '%pain programme path%')::text);
+  perform pg_temp.ck('the plain S63 completion refuses a pain programme (no days-rule bypass)', 'true', (pg_temp.done_as(pat, e, 5, null) ->> 'error' like '%pain programme path%')::text);
+  perform pg_temp.ck('the plain S63 start still works for other programmes', 'ok', pg_temp.start_as(pg_temp.f('patE'), pg_temp.f('e_panic'), 1, pg_temp.answers('panic_breathing')) ->> 'status');
+  -- a gentle-only gate: no moderate exercise is RETURNED
+  create or replace function private.activity_gate_for(p_patient uuid, p_include_pregnancy boolean default true, p_now timestamptz default now())
+  returns jsonb language sql stable as $f$ select '{"decision":"restrict","reason":"x","reasons":["x"],"max_intensity":"gentle","blocked_kinds":[]}'::jsonb $f$;
+  s := pg_temp.msk_start_as(pat, e, 6, pg_temp.answers('pain_back'));
+  perform pg_temp.ck('with a gentle-only gate the returned exercises are all gentle, and at least one', 'true',
+    (jsonb_array_length(s -> 'exercises') >= 1 and not exists (select 1 from jsonb_array_elements(s -> 'exercises') x where x ->> 'intensity' <> 'gentle'))::text);
+  -- a gate that raises: gentle only, and the failure is written to the audit log
+  create or replace function private.activity_gate_for(p_patient uuid, p_include_pregnancy boolean default true, p_now timestamptz default now())
+  returns jsonb language plpgsql stable as $f$ begin raise exception 'gate down'; end $f$;
+  select count(*) into n_audit from public.audit_log where action = 'therapy_programme.error' and event ->> 'step' = 'activity_gate';
+  s := pg_temp.msk_start_as(pat, e, 6, pg_temp.answers('pain_back'));
+  perform pg_temp.ck('a gate error fails closed to gentle only', 'restrict:gentle', (s -> 'activity_gate' ->> 'decision') || ':' || (s -> 'activity_gate' ->> 'max_intensity'));
+  perform pg_temp.ck('...and is written to the audit log', (n_audit + 1)::text,
+    (select count(*)::text from public.audit_log where action = 'therapy_programme.error' and event ->> 'step' = 'activity_gate'));
+  -- an unanswered non-paging warning sign behaves like a yes: stop, hospital-now route, 90 minute task, no page
+  ej := pg_temp.clean_start(pg_temp.f('patK'), 'pain_neck');
+  r := pg_temp.flare_as(pg_temp.f('patK'), ej, pg_temp.answers('pain_neck') - 'sudden_severe_headache');
+  perform pg_temp.ck('an unanswered warning sign stops the plan on the hospital-now route', 'stopped:crisis', (r ->> 'status') || ':' || (r ->> 'route'));
+  perform pg_temp.ck('...and does not page', '0', pg_temp.tasks_for(pg_temp.f('patK'), 'red_event_unacknowledged'));
+  perform pg_temp.ck('...and raises the 90 minute task', '90',
+    (select (extract(epoch from (due_at - created_at)) / 60)::integer::text from public.clinical_tasks where patient_id = pg_temp.f('patK') and type = 'symptom_review' limit 1));
+  perform pg_temp.ck('...the stop records the flag from the rule row', 'true', (select (exclusion_result -> 'stops' -> 0 ->> 'non_paging') from public.therapy_enrolments where id = ej));
+end $$;
+-- the gate stubs above live in this rolled-back transaction; the real definition is put back for the sections below
+do $$ begin execute (select def from orig_gate); end $$;
 
 -- 4b. The mental-health crisis path is unchanged: it still pages ---------------------------------------------------------------
 do $$
@@ -419,7 +465,6 @@ begin
 end $$;
 
 -- 6. The activity safety gate decides what the day shows (the gate function is replaced inside this rolled-back transaction) --------------
-create temp table orig_gate on commit drop as select pg_get_functiondef('private.activity_gate_for(uuid, boolean, timestamptz)'::regprocedure) as def;
 create or replace function private.activity_gate_for(p_patient uuid, p_include_pregnancy boolean default true, p_now timestamptz default now())
 returns jsonb language sql stable as $$ select '{"decision":"rest","reason":"recent_red_event","reasons":["recent_red_event"],"max_intensity":"none","blocked_kinds":[]}'::jsonb $$;
 do $$
@@ -487,6 +532,29 @@ begin
 end $$;
 do $$ begin execute (select def from orig_defs where name = 'therapy_route_stop'); end $$;
 
+-- (f) the 90 minute window removed: the warning-sign task falls back to the 480 minute same-day window
+update public.therapy_programme_config set config = config #- '{route_due_minutes,crisis_non_paging}' where is_active;
+do $$
+declare ek uuid;
+begin
+  ek := pg_temp.clean_start(pg_temp.f('patL'), 'pain_knee');
+  perform pg_temp.flare_as(pg_temp.f('patL'), ek, pg_temp.answers('pain_knee', 'breathless_with_leg_pain'));
+  perform pg_temp.sab('the warning-sign task is due in 90 minutes', '90',
+    (select (extract(epoch from (due_at - created_at)) / 60)::integer::text from public.clinical_tasks where patient_id = pg_temp.f('patL') and type = 'symptom_review' limit 1));
+end $$;
+update public.therapy_programme_config set config = jsonb_set(config, '{route_due_minutes,crisis_non_paging}', '90') where is_active;
+
+-- (g) the direct-path refusal removed: the plain S63 completion would finish a pain week with no days rule
+do $$
+declare v_def text;
+begin
+  v_def := pg_get_functiondef('public.complete_therapy_session(uuid, integer, jsonb)'::regprocedure);
+  execute replace(v_def, $q$'tarragon.msk_path', true), '') <> 'on'$q$, $q$'tarragon.msk_path', true), '') = 'zzz'$q$);
+end $$;
+do $$ begin
+  perform pg_temp.sab('the plain completion refuses a pain programme', 'true', (pg_temp.done_as(pg_temp.f('pat'), pg_temp.f('e_back'), 5, null) ->> 'error' like '%pain programme path%')::text);
+end $$;
+
 -- (c) the completion gate removed: a week must no longer finish with one rated day
 create or replace function public.complete_msk_session(p_enrolment uuid, p_ordinal integer, p_scores jsonb default null)
 returns jsonb language sql security definer set search_path = '' as $$ select public.complete_therapy_session(p_enrolment, p_ordinal, p_scores) $$;
@@ -518,7 +586,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 7 checks', v_caught; end if;
+  if v_caught < 8 then raise exception 'VACUOUS TEST: the sabotage flipped % of 9 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
