@@ -20,8 +20,8 @@ type Mode = "partner" | "own";
  * The patient asks for the bundle (never single tests), then either picks a partner lab near them
  * (state, then town, then an address to go to) or takes the printed request to a lab of their own.
  * Either way the patient pays the lab directly and uploads the result afterwards, through the
- * request card that appears in "Your test requests". An uploaded result is a document in the record; it is not yet read into
- * structured lab values (OQ-BUNDLE-1). Tarragon-arranged blood collection is a
+ * request card that appears in "Your test requests". An uploaded result goes through the same patient upload as any result: it is kept in the
+ * record and read by the governed reader (AI-005) into a draft that a doctor files (OQ-BUNDLE-1). Tarragon-arranged blood collection is a
  * separate Membership Plus benefit, available only in states an admin has approved.
  */
 export function AnnualBundleCard({ patientId }: { patientId: string }) {

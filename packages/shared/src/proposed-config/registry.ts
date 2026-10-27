@@ -2264,6 +2264,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S23.md",
   },
   {
+    key: "scribe.review_rules",
+    // S76-S80 scribe gap closure. support_min_overlap: the share of a draft sentence's content words (and every number in it) that must appear in
+    // the visit text for the sentence to count as "said in the visit"; below it the sentence is marked "not said in the visit" and the clinician
+    // must keep it on purpose or remove it before the draft can be used. min_content_terms: a sentence with fewer content words than this is not
+    // judged (stock phrases). offline_queue_ttl_minutes: how long a draft request that could not be sent waits on this device before it is dropped.
+    // max_diff_words: a section longer than this is stored as one replacement rather than a word-by-word diff. follow_up_task_max_days: the
+    // furthest due date a drafted follow-up task may carry. Deterministic matching only; no model decides support.
+    value: { support_min_overlap: 0.6, min_content_terms: 3, offline_queue_ttl_minutes: 30, max_diff_words: 1500, follow_up_task_max_days: 180 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S23.md; S76-S80 scribe gap closure",
+  },
+  {
     key: "scribe.prompt_cache_ttl_seconds",
     value: 3600,
     owner: "Founder",

@@ -1544,3 +1544,5 @@ s80_content_dual_key_re_review.sql
 s80_directory_staleness_chase.sql
 # S80 gap closure 25.6: daily settlement tie-out in three classes extending S14x (matched, missing in ledger, missing at Paystack, plus other), nothing runs while the guard is off, one finance incident that does not stack, no general ledger posting, finance-only reads, no write path. Sabotage: every line counted matched, finance gate removed.
 s80_settlement_tieout_daily.sql
+# S76-S80 scribe: signed diff record (append-only, versioned, linked to the review record, signed text read from the note), problem reports (fixed taxonomy), CMO count reads, and the document prompt inserted unapproved and inactive (the reader returns nothing until a human approves). Sabotage: the review-record link removed, and the CMO check removed; both checks must flip.
+s76_scribe_signed_diffs_reports_document_prompt.sql
