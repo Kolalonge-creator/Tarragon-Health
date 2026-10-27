@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { rankCases, type TriageResult } from "@/lib/triage/score";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
 import type { Database, EscalationLevel, Tables } from "@tarragon/shared";
+import type { OverrideReasonCode } from "@/lib/clinician/override-reasons";
 
 export type AlertResolutionOutcome = Database["public"]["Enums"]["alert_resolution_outcome"];
 export type AlertTypeCode = Database["public"]["Enums"]["alert_type_code"];
@@ -139,15 +140,17 @@ export function useOverrideAlertLevel() {
       alertId,
       overrideLevel,
       overrideReason,
+      overrideReasonCode,
     }: {
       alertId: string;
       overrideLevel: EscalationLevel;
       overrideReason: string;
+      overrideReasonCode: OverrideReasonCode;
     }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("clinician_alerts")
-        .update({ override_level: overrideLevel, override_reason: overrideReason })
+        .update({ override_level: overrideLevel, override_reason: overrideReason, override_reason_code: overrideReasonCode })
         .eq("id", alertId);
       if (error) throw error;
     },

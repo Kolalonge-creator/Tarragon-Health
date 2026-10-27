@@ -13403,6 +13403,7 @@ export type Database = {
           overridden_by: string | null
           override_level: Database["public"]["Enums"]["alert_level"] | null
           override_reason: string | null
+          override_reason_code: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id: string
           protocol_scope_exceeded: boolean
           protocol_scope_exceeded_at: string | null
@@ -13463,6 +13464,7 @@ export type Database = {
           overridden_by?: string | null
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
+          override_reason_code?: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id: string
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
@@ -13511,6 +13513,7 @@ export type Database = {
           overridden_by?: string | null
           override_level?: Database["public"]["Enums"]["alert_level"] | null
           override_reason?: string | null
+          override_reason_code?: Database["public"]["Enums"]["override_reason_code"] | null
           patient_id?: string
           protocol_scope_exceeded?: boolean
           protocol_scope_exceeded_at?: string | null
@@ -59450,6 +59453,12 @@ export type Database = {
         | "authorisation_officer"
         | "claims_officer"
         | "analyst"
+      override_reason_code:
+        | "system_too_high"
+        | "system_too_low"
+        | "context_known"
+        | "data_error"
+        | "other"
       payer_network_provider_type:
         | "facility"
         | "lab_provider"
@@ -61914,6 +61923,13 @@ export const Constants = {
         "authorisation_officer",
         "claims_officer",
         "analyst",
+      ],
+      override_reason_code: [
+        "system_too_high",
+        "system_too_low",
+        "context_known",
+        "data_error",
+        "other",
       ],
       payer_network_provider_type: [
         "facility",
