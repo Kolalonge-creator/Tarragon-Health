@@ -8627,7 +8627,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-21",
-    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261021210826_s50b_fasting_safety_and_glucose_response.sql",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
   },
   {
     key: "fasting.calendar",
@@ -8663,7 +8663,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-21",
-    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261021210826_s50b_fasting_safety_and_glucose_response.sql",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
   },
   {
     key: "glucose_response.rules",
