@@ -7,6 +7,7 @@ import {
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
+import { TimeCapture } from "@/components/clinician/time-capture";
 import { AgpDisclosure } from "@/components/agp-disclosure";
 import { CareMessageTemplateManager } from "@/components/care-message-template-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,7 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
       </div>
       {open && (
         <div className="mt-3 space-y-3">
+          <TimeCapture source="message" sourceRef={thread.id} patientId={thread.patient_id} showNotice={false} />
           <AgpDisclosure patientId={thread.patient_id} />
           <CareMessageThread
             threadId={thread.id}

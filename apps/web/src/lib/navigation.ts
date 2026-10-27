@@ -626,6 +626,8 @@ export function getNavSections(
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: minutes of doctor time per Member per month, for planning and pricing (W-01).
+                { label: "Care team time", href: "/clinician/time", icon: "analytics" },
                 // Chief Medical Officer only: the cascade of care (screened, diagnosed, on a medicine, controlled) for hypertension and diabetes; shows nothing until the CMO signs the definitions (WP3).
                 { label: "Cascade of care", href: "/clinician/outcomes/cascade", icon: "analytics" },
                 // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
