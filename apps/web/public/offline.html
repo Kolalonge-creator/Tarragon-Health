@@ -49,7 +49,8 @@
       button:active {
         opacity: 0.85;
       }
-      /* S85b (INV-06): static emergency guidance, no script and no network. The words are the EMG-001 wording; a test keeps them identical. */
+      /* S85b (INV-06): the signed emergency wording, hidden unless this tab holds a note that a reading asking for emergency guidance was not
+         confirmed saved (src/lib/vitals/emergency-marker.ts). A test keeps every word identical to the wording in force. */
       section.emergency {
         margin-top: 28px;
         text-align: left;
@@ -58,12 +59,10 @@
         padding: 16px;
         background: #ffffff;
       }
-      section.emergency h2 {
-        font-size: 15px;
-        margin: 0 0 8px;
-        color: #7f1d1d;
+      section.emergency[hidden] {
+        display: none;
       }
-      section.emergency h3 {
+      section.emergency h2 {
         font-size: 18px;
         margin: 0 0 6px;
       }
@@ -82,11 +81,27 @@
         messages. Your care team is still here &mdash; reconnect and try again.
       </p>
       <button onclick="window.location.reload()">Try again</button>
-      <section class="emergency" aria-labelledby="emg-intro">
-        <h2 id="emg-intro">If you have a very high blood pressure reading or an emergency symptom</h2>
-        <h3 data-emg="title">Get help now</h3>
+      <section class="emergency" role="alert" data-emg-code="EMG-001" hidden>
+        <h2 data-emg="title">Get help now</h2>
         <p data-emg="body">Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms.</p>
       </section>
+      <section class="emergency" role="alert" data-emg-code="EMG-001L" hidden>
+        <h2 data-emg="title">Sit or lie down, then get help</h2>
+        <p data-emg="body">Sit or lie down now, and raise your legs if you can. Go to the nearest hospital, or ask someone to take you. Stand up slowly and do not drive yourself.</p>
+      </section>
+      <script>
+        (function () {
+          try {
+            var raw = window.sessionStorage.getItem("th-emergency-unconfirmed");
+            if (!raw) return;
+            var code = JSON.parse(raw).code;
+            var blocks = document.querySelectorAll("section.emergency");
+            for (var i = 0; i < blocks.length; i++) {
+              if (blocks[i].getAttribute("data-emg-code") === code) blocks[i].hidden = false;
+            }
+          } catch (e) {}
+        })();
+      </script>
     </main>
   </body>
 </html>
