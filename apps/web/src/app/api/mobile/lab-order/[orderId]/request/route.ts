@@ -45,7 +45,10 @@ export async function GET(
   }
 
   const result = await generateLabRequestPdf(supabase, orderId);
-  if (!result.ok) return new Response("Not found", { status: 404 });
+  if (!result.ok) {
+    if (result.error === "panel_unavailable") return new Response("Your request is not available right now. Please try again shortly.", { status: 503 });
+    return new Response("Not found", { status: 404 });
+  }
 
   return new Response(new Uint8Array(result.buffer), {
     headers: {

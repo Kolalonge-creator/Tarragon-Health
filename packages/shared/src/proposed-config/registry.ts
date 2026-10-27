@@ -2402,21 +2402,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S26-S30-competitor-review-and-build-plan.md (S26b); supabase/migrations/20261021091357_s26b_entitlement_and_refund_hardening.sql",
   },
   {
-    key: "instalments.membership_schedule",
-    // S25b: how the annual Membership can be paid in parts (founder decision 2026-10-20, against INV-09). `parts` payments; part n is due
-    // `due_offsets_days[n-1]` days after the FIRST part is paid (the first offset is always 0); access unlocks after the first part and its 365 days run
-    // from it. A part still unpaid `grace_days` after its due date lapses access until it is paid. Reminders go `reminder_days_before` days before a
-    // due date (0 = on the day). Behind the platform module membership_instalments (OFF). PROPOSED, founder and counsel decisions pending
-    // (OQ-715 to OQ-718). Mirrored by instalment_policy_config in the migration seed, with a drift test. The last due date plus the grace must fall
-    // inside the access window; the database refuses a schedule that does not.
-    value: { parts: 3, due_offsets_days: [0, 30, 60], grace_days: 5, reminder_days_before: [3, 0] },
-    owner: "Founder",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-20",
-    source: "docs/design/S25b.md; docs/OPEN-QUESTIONS.md OQ-715; supabase/migrations/20261021104312_s25b_membership_instalments.sql",
-  },
-  {
     key: "refunds.order_rules",
     // S26b: the plain-words refund rule shown at checkout and on the receipt. cooling_off_days applies to every order that is not a Membership
     // (a Membership uses membership.refund). decision_sla_days is how long the care team has to answer; bank_days_min/max is the usual time for
@@ -2686,6 +2671,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.pending_credit",
+    // S58b. Live value is the `pending_credit` row of `reward_config`; milestones-mirror.test.ts fails if the two drift. UNSIGNED, not clinical.
+    // How long an undecided point-earning action is shown as "on its way", when the screen offers the support route, and how far back it looks.
+    value: {"expected_within_minutes": 15, "ask_after_minutes": 120, "look_back_hours": 72, "ignore_before": "2026-10-07"},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
+  },
+  {
+    key: "rewards.milestone_display",
+    // S58b. Live value is the `milestone_display` row of `reward_config`. A milestone card is shown until dismissed, at most this long after first shown.
+    value: {"show_for_hours": 72},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
+  },
+  {
+    key: "rewards.milestones",
+    // S58b. Live value is the active `milestone_definitions` version 1 seed; milestones-mirror.test.ts parses the migration marker. Care steps only:
+    // no milestone may reference weight, BMI or any body metric (CHECK constraint), and none is about a result. UNSIGNED.
+    value: [{"code": "first_bp_logged", "kind": "first_event", "trigger_event": "vitals.logged", "params": {"requires": "blood_pressure"}}, {"code": "first_glucose_logged", "kind": "first_event", "trigger_event": "vitals.logged", "params": {"requires": "glucose"}}, {"code": "adherence_4_weeks", "kind": "adherence_window", "trigger_event": "adherence.checkin_answered", "params": {"days": 28}}, {"code": "first_lab_done", "kind": "first_event", "trigger_event": "lab_result.released", "params": {}}, {"code": "first_review_attended", "kind": "first_event", "trigger_event": "encounter.completed", "params": {}}, {"code": "first_lesson_completed", "kind": "first_event", "trigger_event": "lesson.completed", "params": {}}, {"code": "first_course_completed", "kind": "first_event", "trigger_event": "course.completed", "params": {}}],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S58b.md; supabase/migrations/*_s58b_pending_credit_milestones_refund_restore.sql",
   },
   {
     key: "rewards.rules",
@@ -3377,6 +3394,65 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
+    key: "commerce.membership_prices",
+    // Version 2, 2026-10-26 (founder: "go with 129,000"). The individual Membership is 129,000 naira a year. The live `prices` row for
+    // membership_annual has been 12,900,000 kobo since 2026-10-21 18:17 UTC (the three-tier decision in docs/DECISIONS.md, applied live
+    // from the Evergreen-ladder branch, whose migration is not on main-dev yet), while version 1 above, and so the website, still said
+    // 120,000: a visitor was shown one price and the app charged another. The organisation price is unchanged. Version 1 is kept: it is
+    // what the launch migration inserted, and the mirror test pins that history.
+    value: { individual_kobo: 12_900_000, organisation_member_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (three-tier annual-only membership, 2026-10-21); founder confirmed 129,000 in chat on 2026-10-26; the live prices row valid from 2026-10-21",
+  },
+  {
+    key: "employer.seat_pilot",
+    // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
+    // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
+    // price is NOT here: a pilot seat is priced at the organisation price in force (commerce.membership_prices). Mirrored by
+    // employer_seat_pilot_config in the migration seed, with a drift test. UNSIGNED: the founder has not approved the limits.
+    value: { max_seats_per_pilot: 500, max_window_days: 120, report_round_to: 5, usage_report_enabled: false },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/EMP.md; supabase/migrations/20261022002100_employer_seat_pilot_kit.sql",
+  },
+  {
+    key: "commerce.membership_ladder",
+    // Founder decision 2026-10-21 (docs/DECISIONS.md, three-tier annual-only membership): two paid tiers, billed once a year in
+    // integer kobo (INV-15). Membership (membership_annual_no_panel) has no annual blood panel; Membership Plus (membership_annual) has
+    // it. The upgrade is the flat difference, one named order, no stored balance. The database holds the live rows (prices); this is the
+    // code-side mirror and the mirror test pins the migration's numbers to it. commerce.membership_prices stays the PUBLIC marketing
+    // price until the pricing page is rewritten and the tier flag is on; nothing can be bought before then (items inactive).
+    value: {
+      evergreen_code: "membership_annual_no_panel",
+      evergreen_kobo: 8_400_000,
+      evergreen_plus_code: "membership_annual",
+      evergreen_plus_kobo: 12_900_000,
+      upgrade_kobo: 4_500_000,
+    },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (2026-10-21); supabase/migrations/20261021110528_membership_evergreen_ladder_foundation.sql",
+  },
+  {
+    key: "marketing.membership_ladder_public",
+    // Whether the public pricing page shows the three-card Membership ladder (true) or the single Membership price (false). It stays false
+    // until the launch conditions in docs/DECISIONS.md (2026-10-21) are met: CMO baseline-labs rule, independent CMO, one live Paystack
+    // payment and refund. Switching it is a reviewed code change on purpose, so the public price can never run ahead of what can be bought.
+    value: { enabled: false },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/DECISIONS.md (2026-10-21)",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
@@ -3720,6 +3796,58 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
   },
   {
+    key: "offline.data_cost",
+    // S06z. PROPOSED: the price of one megabyte of mobile data in kobo (80 kobo = N0.80 a MB, about N800 a GB, a typical Nigerian prepaid
+    // bundle rate) used ONLY to show the patient an estimate of what syncing cost them on mobile data (it is labelled an estimate wherever shown;
+    // a patient's real plan will differ). max_hold_hours is the longest an ordinary reading or dose log waits for Wi-Fi when the patient has chosen
+    // "sync on Wi-Fi only"; it is held well inside the 12 hours after which the server's missed-dose job marks an unanswered dose missed, so the
+    // care team never sees a false miss because a phone stayed on mobile data. Urgent and danger-flagged entries never wait (urgent kinds are a safety rule in code, not config).
+    value: {
+      price_per_mb_kobo: 80,
+      max_hold_hours: 6,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S06z.md (data-cost meter in naira); builds on S06x data-use meter (docs/design/S06x.md section 5)",
+    guardPatterns: ["pricePerMb\\w*\\s*[=:]\\s*80\\b", "maxHold\\w*\\s*[=:]\\s*6\\b"],
+  },
+  {
+    key: "medicines.dose_anchors",
+    // S08z. PROPOSED: dose times anchored to daily events. `anchors` are the STARTING times shown for each anchor (waking, meals, the five daily prayers,
+    // bedtime) before a patient sets their own; a patient confirms each one they use, and it is never presented as a prayer calendar or as clinical guidance. They
+    // are placeholders chosen to be plausible for Lagos, nothing is computed from location or a calendar, and the patient's own time always wins. The database seeds
+    // the same ten rows into `dose_anchor_defaults` (medicines-anchors-mirror.test.ts fails if they drift). `offset_choices_minutes` is what the phone offers beside
+    // an anchor (0 is "with it"; the database accepts any whole minute from -120 to 180), and `shift_offset_choices_minutes` what it offers for "move this part of my day by" (the
+    // database accepts up to 360 either way). `max_shift_days` is the longest a "my day has shifted" entry may run
+    // (a month of fasting fits; the table constraint mirrors it) and `max_shift_offset_minutes` the furthest it may move one anchor.
+    value: {
+      anchors: {
+        waking: "06:30",
+        morning_prayer: "05:45",
+        breakfast: "07:30",
+        midday_prayer: "13:15",
+        lunch: "13:30",
+        afternoon_prayer: "16:30",
+        evening_prayer: "19:00",
+        dinner: "20:00",
+        night_prayer: "20:15",
+        bedtime: "22:30",
+      },
+      offset_choices_minutes: [-30, 0, 15, 30, 60],
+      shift_offset_choices_minutes: [-120, -60, -30, 0, 30, 60, 90, 120],
+      max_shift_days: 45,
+      max_shift_offset_minutes: 360,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-09-30",
+    source: "docs/design/S08z.md (dose times anchored to daily events); supabase/migrations/20261021011847_s08z_dose_time_anchors.sql",
+    guardPatterns: ["max_?[sS]hift_?[dD]ays\\s*[=:]\\s*45\\b"],
+  },
+  {
     key: "device_lab.budgets",
     // S06x-c / S08x-3 device lab run. PROPOSED: the performance budgets the device lab harness (scripts/device-lab, packages/shared/src/device-lab)
     // reports against. They come from docs/S06X_DEVICE_CHECKLIST.md and docs/plans/S06-S10-competitor-gap-and-build-plan.md (S06x-c).
@@ -3867,6 +3995,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-20",
     source: "docs/BUILD-SPEC-v5.md Module 5 (5.1); supabase/migrations/20261020180745_s48a_activity_safety_gate.sql",
+  },
+  {
+    key: "activity.readiness_bands",
+    // Training load, recovery and sleep bands from stored device readings (S48b, spec 5.6). PROPOSED, unsigned, owner CMO. Compared with the person's
+    // OWN usual only, never with other people. recent_days against the baseline before it; a band needs at least min_recent_days and
+    // min_baseline_days days with data. usual_band_pct: within this percent either way is "about your usual". load: the last acute_days average
+    // against the chronic_days average (needs min_chronic_days days with data); below light_ratio is lighter, above heavy_ratio is heavier.
+    // Pinned by activity-readiness.test.ts. Dormant until real provider data exists (no provider credentials today).
+    value: {
+      recent_days: 3,
+      baseline_days: 28,
+      min_recent_days: 2,
+      min_baseline_days: 7,
+      usual_band_pct: 10,
+      load: { acute_days: 7, chronic_days: 28, min_chronic_days: 14, light_ratio: 0.8, heavy_ratio: 1.3 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.6); docs/design/S48b.md",
+  },
+  {
+    key: "activity.workout_plans",
+    // Workout plan display rules (S48b, spec 5.3 / 5.4). session_minutes mirrors the database CHECK workout_plans_session_minutes_chk (a mirror test
+    // fails on drift). older_adult_age: from this age a chair-based class is listed first (a display order only, the gate decides what is allowed).
+    value: { session_minutes: { min: 10, max: 20 }, older_adult_age: 65 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 5 (5.3, 5.4); supabase/migrations/20261021182454_s48b_activity_offline_plans_route_status.sql",
   },
   {
     key: "medicines.prn_limits",
@@ -4065,6 +4225,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S73.md; docs/DECISIONS.md S72-1, S73-1; OQ-321, OQ-324",
   },
   {
+    key: "pricing.transparency",
+    // Pricing transparency (WP1, competitor gaps B1 to B3). monthly_equivalent.enabled is OFF until the founder confirms (OQ-WP1-02: the founder has said Member is one yearly payment and no monthly figure); while off, no screen shows any monthly figure. When on, a yearly price is also shown as about a twelfth each month, in
+    // whole naira (kobo / 12 rounded half up), for an item that lasts between annual_duration_days.min and .max days, ALWAYS with "billed once a
+    // year" beside it: it is a way to compare, not a payment plan, and no monthly payment exists (decided; instalments were removed). It is never
+    // shown for Free, for a sponsor-covered price or when a quote leaves nothing to pay. max_not_included: how many things one item may list as not
+    // included (the database allows the same number). The not-included LISTS themselves are data (public.catalog_item_extras, effective-dated), and
+    // a price on that list always comes from the price book, never from here.
+    value: { monthly_equivalent: { enabled: false, months: 12, rounding: "half_up_whole_naira" }, annual_duration_days: { min: 360, max: 370 }, max_not_included: 12 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-23",
+    source: "docs/research S71-S75 competitor gap analysis (B1, B2, B3); docs/DECISIONS.md S72-2 (no monthly billing)",
+  },
+  {
     key: "commerce.processing_fee_estimate",
     // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
     // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an
@@ -4146,6 +4321,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
+  },
+  {
+    key: "assistant.triage_floor_eval",
+    // Clinician-style emergency test set for the assistant's deterministic red-flag floor (INV-01). The runner is
+    // packages/clinical/src/triage-floor-eval.ts; the vignette file is packages/clinical/fixtures/triage-floor-vignettes.v1.json.
+    // Under-triage (an emergency vignette the floor misses) is never acceptable, so its ceiling is 0. Over-triage (a non-urgent vignette
+    // that trips the floor) is the accepted failure, but it is measured: the ceiling is a PROPOSED number the CMO confirms after reading
+    // the report. The two minimums stop the set being thinned out to pass. No database mirror: this is a test-time setting only.
+    value: { max_under_triage_rate: 0, max_over_triage_rate: 0.1, min_emergency_vignettes: 60, min_non_urgent_vignettes: 60 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S51.md; docs/research/S51-S55-review-and-build-plan.md; BUILD-SPEC-v5 INV-01",
+  },
+  {
+    key: "learning.expiry_alerts",
+    // Learning content that is close to its review date (the S55 expiry rule hides it ON that date and this setting never changes that rule).
+    // `thresholds_days` are the days-before-the-review-date at which the owner of an item gets one generic in-app notice and the CMO gets a
+    // digest.
+    // Mirrored by the active `expiry_alerts` row of `learning_config` (migration *_learning_expiry_backlog.sql); a test pins the two. UNSIGNED.
+    value: { thresholds_days: [30, 14, 7] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S51-S55-review-and-build-plan.md; docs/design/S55.md",
   },
   {
     key: "devices.plausibility",
@@ -4311,6 +4513,74 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S56.md; spec 10.3",
   },
   {
+    key: "mental_health.worklist_rules",
+    // S56b: the rules of the clinician follow-up worklist. Live value is the SIGNED row of `mental_health_worklist_config`; v1 is born unsigned and
+    // inactive and a test fails if the migration seed and this value drift. The worklist shows nothing until the CMO signs a version AND the guard
+    // mental_health_worklist_enabled is on. The build proposed every number; none is a validated clinical threshold.
+    value: {
+      rising_screen: { enabled: true, look_back_days: 120, phq9_min_rise: 5, gad7_min_rise: 4 },
+      overdue_screen: { enabled: true, grace_days: 14, instruments: ["phq9", "gad7"] },
+      sleep_trouble: { enabled: true, window_days: 14, min_entries: 7, short_sleep_hours: 5.5, low_quality_at_or_below: 2, min_trouble_nights: 5 },
+      missed_checkins: { enabled: false, prior_window_days: 28, min_prior_checkins: 8, silent_days: 10 },
+      unactioned_handoff: { enabled: true, after_hours: 48 },
+      follow_up: { task_due_minutes: 4320, talk_request_due_minutes: 240, snooze_days: 7 },
+      max_rows: 100,
+      count_cache_minutes: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.features_cache",
+    // S56b: how long the phone trusts a saved "this feature is open" answer when it cannot reach the server. After this many days a saved
+    // OPEN answer is ignored for the share and patterns features. The calm tool is the one exception: a saved "open" is kept so help is
+    // never lost offline. A saved CLOSED answer is never turned into an open one, and an answer the server REFUSES (for example an expired
+    // session) closes everything.
+    value: { offline_trust_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.share_summary",
+    // S56b: the windows of the "Share with my care team" summary (how many recent scores, how many weeks of check-ins, how many days of sleep diary,
+    // the longest note). A display choice, not a clinical one. Live value is `private.wellbeing_share_cfg()`; a test fails on drift.
+    value: { version: 1, screen_points: 3, checkin_weeks: 4, sleep_days: 14, note_max_chars: 500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.mood_insights",
+    // S56b: how much of a patient's own data the patterns view needs before it says anything, and how big a difference it reports. Computed on
+    // the server (web) or on the phone from the patient's own entries; nothing is stored, sent or scored. A pattern is shown only when each group
+    // has at least min_group_days days and the share of below-usual days differs by at least min_gap (0 to 1).
+    value: { window_days: 90, min_days_with_mood: 21, min_group_days: 5, min_gap: 0.25, max_patterns: 3 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
+    key: "wellbeing.panic_tool",
+    // S56b: the pace and length of the calm tool. Wording is versioned with the i18n panic.* strings (a fingerprint of them is what the CMO attests).
+    // Slow breathing: in 4 seconds, out 6, for 60 seconds. This is a gentle pace, not a treatment claim.
+    value: { content_version: 1, inhale_seconds: 4, exhale_seconds: 6, total_seconds: 60, grounding_counts: [5, 4, 3, 2, 1] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S56b.md",
+  },
+  {
     key: "learning.micro_lesson",
     // S55 (spec 9.2): a weekly lesson (one per programme week) takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
@@ -4344,6 +4614,80 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md section 8; founder decision 2026-10-07",
+  },
+  {
+    key: "learning.reading_grade",
+    // S55 quality gates (item 12a): the highest Flesch-Kincaid grade patient content may have when published, and the shortest written reason a
+    // reviewer must give to override it. Live value is the active `reading_grade` row of `learning_config`; the database computes the grade itself
+    // (private.reading_grade, the same formula as packages/shared learning/reading-grade.ts) and refuses to publish above it. UNSIGNED: the CMO sets it.
+    value: { max_grade: 8, min_override_reason_chars: 15 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); spec 9.6; OQ-S55-QG-01",
+  },
+  {
+    key: "learning.teachback",
+    // S55 quality gates (item 12c): one to three authored questions per lesson, two to four options each. The database enforces the same limits.
+    // Live value is the active `teachback` row of `learning_config`. UNSIGNED.
+    value: { min_questions: 1, max_questions: 3, min_options: 2, max_options: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-04",
+  },
+  {
+    key: "learning.record_lessons",
+    // S55 quality gates (item 7): which published lesson goes with which band of a blood pressure, glucose or lab result, and how much of a pattern
+    // is needed before a lesson above the lowest band may show. No threshold lives here: the bands come from the platform's own classifiers. The
+    // lesson codes name DRAFT rows that cannot be served until a clinician publishes them. Behind the `record_triggered_lessons_enabled` guard (OFF).
+    // Live value is the active `record_lessons` row of `learning_config`. UNSIGNED: the CMO chooses the lessons, the pattern sizes and the window.
+    value: {
+      suppress_hours_after_urgent: 72,
+      vitals: { sustained_readings: 3, window_days: 14 },
+      lab: { sustained_results: 2 },
+      lessons: {
+        blood_pressure: { in_target: "record-bp-in-target", above_target: "record-bp-above-target" },
+        glucose: { in_target: "record-glucose-in-target", above_target: "record-glucose-above-target" },
+        lab: { hba1c: { normal: "record-lab-hba1c-normal", high: "record-lab-hba1c-high" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-02",
+  },
+  {
+    key: "learning.portion_guide",
+    // S55 quality gates (item 8): the hand-measure amounts shown in the local food portion guide for diabetes and for blood pressure. EVERY NUMBER
+    // is a placeholder, written so the screens can be built and checked, not clinical advice. A guide that uses these numbers cannot be published
+    // until a clinician or dietitian has set them and the row is marked confirmed (the database refuses while it is proposed). Live value is the
+    // active `portion_guide` row of `learning_config`; the phone bundles this value for offline use. UNSIGNED.
+    value: {
+      portions: {
+        swallow: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        rice_jollof: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        beans: { diabetes: { amount: 1, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        soup: { diabetes: { amount: 2, unit: "cupped_hand", per: "meal" }, blood_pressure: { amount: 1, unit: "cupped_hand", per: "meal" } },
+        plantain: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        yam: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 1, unit: "fist", per: "meal" } },
+        bread: { diabetes: { amount: 2, unit: "slice", per: "meal" }, blood_pressure: { amount: 2, unit: "slice", per: "meal" } },
+        drinks: { diabetes: { amount: 0, unit: "cupped_hand", per: "day" } },
+        fruit: { diabetes: { amount: 1, unit: "fist", per: "meal" }, blood_pressure: { amount: 2, unit: "fist", per: "day" } },
+        protein: { diabetes: { amount: 1, unit: "palm", per: "meal" }, blood_pressure: { amount: 1, unit: "palm", per: "meal" } },
+        fried_food: { diabetes: { amount: 1, unit: "fist", per: "week" }, blood_pressure: { amount: 1, unit: "fist", per: "week" } },
+        seasoning_cube: { blood_pressure: { amount: 1, unit: "cube", per: "pot" } },
+        table_salt: { blood_pressure: { amount: 1, unit: "pinch", per: "pot" } },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/BUILD-PROGRESS.md (learning quality gates, 2026-10-22); OQ-S55-QG-03",
   },
   {
     key: "learning.search_gap_log",
@@ -4464,6 +4808,55 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
+  },
+  {
+    key: "outcomes.dashboard",
+    // Honest outcomes dashboard (docs/design/OUTCOMES.md). Mirrors outcomes_dashboard_config version 1; a test fails if the migration seed and this value
+    // drift. Audience: the founder / super admin and the CMO only. comparison.*: a group needs at least min_per_group people measured at both ends (the
+    // greater of this and the platform minimum for a cut by two attributes); "high" engagement is at least high_active_days_per_30 active days in each
+    // 30 days after joining and "low" is at most low_active_days_per_30; blood pressure readings are NOT counted as engagement for the comparison because
+    // they are how control is measured. engagement.*: only these Health Points rules count in any points figure (rules that can touch screening, lab or
+    // review data are left out), and screening codes matching these patterns are never counted. The CMO owns every number here.
+    value: {
+      due_days: [90, 180],
+      primary_day: 90,
+      min_age_years: 18,
+      confidence_level: 0.95,
+      comparison: {
+        min_per_group: 30,
+        high_active_days_per_30: 12,
+        low_active_days_per_30: 4,
+        exclude_blood_pressure_from_engagement: true,
+        exclude_checkins_from_comparison: true,
+        points_rules_included: ["meal_logged", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"],
+      },
+      engagement: {
+        points_rules_included: ["vitals_logged", "meal_logged", "adherence_checkin_completed", "lpe_task_completed", "lpe_goal_achieved", "challenge_completed", "wellness_class_attended"],
+        milestone_rules: ["lpe_goal_achieved"],
+        vital_types_allowed: ["blood_pressure", "glucose", "pulse", "temperature", "spo2", "respiratory_rate", "peak_flow", "ketones"],
+        screening_excluded_code_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "fertil", "contracep", "menstr", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet"],
+        protected_topic_patterns: ["cervic", "mammo", "breast", "hpv", "(^|_)pap(_|$)", "psa", "prostat", "ovar", "pregnan", "antenat", "postnat", "maternal", "fertil", "contracep", "menstr", "menopaus", "period", "sexual", "hiv", "hep", "syphil", "(^|_)sti(_|$)", "mental", "phq", "gad", "depress", "anxiet", "mood", "stress", "wellbeing", "trauma", "grief", "suicid", "self.harm"],
+        escalation_alert_types_allowed: ["abnormal_result", "abnormal_monitoring", "deterioration", "medication_safety"],
+        protected_lesson_categories: ["mental_health", "womens_health", "mens_health", "cancer_screening"],
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md; docs/OPEN-QUESTIONS.md OQ-OUT-01 to OQ-OUT-10",
+  },
+  {
+    key: "outcomes.founder_unfrozen_view",
+    // Founder decision on OQ-OUT-09 and OQ-OUT-11. Mirrors outcomes_dashboard_config version 1 `founder_unfrozen_view`. OFF by default. When on, the super-admin
+    // account (not the CMO, not anyone else) can open a read that computes to today the outcome figures the held-back rule froze. It lifts only the freeze: the
+    // minimum cell, complementary suppression and protected-data exclusions still apply; every read needs a reason and is audited; nothing is stored; no export.
+    value: { enabled: false },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/OUTCOMES.md section Founder view; docs/OPEN-QUESTIONS.md OQ-OUT-09, OQ-OUT-11",
   },
   {
     key: "paging.watchdog",
@@ -4986,6 +5379,247 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S59b.md section C5; docs/OPEN-QUESTIONS.md OQ-S59b-06",
   },
   {
+    key: "symptom.risk_tightening",
+    // S59d version 3 for the CMO. Still ALL DRAFT, unsigned, inert, raise-only. Adds the travel, season and state hooks for the S59d adult fever
+    // pathway (matched on the fever COMPLAINT, not a fever ticked inside another check) and keeps every version 2 entry. `any_trigger` is a new,
+    // optional key; like every other key it can only add a match. The entries need the S59d fever pathway to be signed to ever match.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: {
+            source: "https://www.doctorswithoutborders.org/latest/nigeria-preventing-long-and-deadly-malaria-season-claiming-more-lives-borno",
+            note: "Nigeria's rainy season runs about April to October and malaria transmission peaks in it (MSF and WHO-recommended seasonal chemoprevention material). The season is shorter in the north, longer in the south: the CMO may split it by state. Minimum category is the CMO's call.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-burden state",
+          provenance: {
+            source: "https://www.who.int/emergencies/disease-outbreak-news/item/Lassa-fever---Nigeria",
+            note: "NCDC situation reports (as relayed in the press, see docs/research/S59b.md) name Edo, Ondo, Bauchi and Taraba as the main burden states and a dry season peak from December to April. Other states report cases (for example Ebonyi and Nasarawa in 2026): the CMO decides whether to widen the list. A person whose state is unknown still matches (the safe direction).",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [12, 1, 2, 3, 4], states: ["Edo", "Ondo", "Bauchi", "Taraba"], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "fever_complaint_rainy_season",
+          label: "A fever, as the main worry, during the rainy season",
+          provenance: {
+            source: "https://www.doctorswithoutborders.org/latest/nigeria-preventing-long-and-deadly-malaria-season-claiming-more-lives-borno",
+            note: "Same season as malaria_season_fever, but matched on the S59d fever PATHWAY (the main worry is the fever) rather than a fever ticked inside another check. Minimum category is the CMO's call. Never lowers: it can only raise self-care to routine.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], complaint_keys: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "fever_complaint_lassa_season",
+          label: "A fever, as the main worry, in the dry season in a high-burden state",
+          provenance: {
+            source: "https://www.who.int/emergencies/disease-outbreak-news/item/Lassa-fever---Nigeria",
+            note: "Same months and states as lassa_season_fever (S59b), matched on the S59d fever pathway. A person whose state is unknown still matches (the safe direction). The CMO decides the states and the minimum.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [12, 1, 2, 3, 4], states: ["Edo", "Ondo", "Bauchi", "Taraba"], complaint_keys: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "fever_after_travel",
+          label: "A fever after recent travel",
+          provenance: {
+            source: "https://www.who.int/news-room/fact-sheets/detail/malaria",
+            note: "Fever after travel is a standard prompt to test for malaria (WHO malaria fact sheet, page not opened in full). The S59d fever pathway asks about recent travel. The CMO decides what counts as travel for someone moving within Nigeria, and whether urgent is the right minimum. The hook can only raise a result.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { complaint_keys: ["fever"], any_trigger: ["recent_travel"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S59d-pathway-coverage.md section A; docs/OPEN-QUESTIONS.md OQ-S59d-02",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59d version 3 for the CMO. Still ALL DRAFT, unsigned, inert, raise-only. Keeps every version 2 entry and adds the record-reading hooks for
+    // the S59d pathways (recent blood pressure for the hypertension complication pathway, recent glucose for the diabetes one, pregnancy with
+    // fever or belly pain). A reading from the record only ever raises the minimum. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "No source found for severity 6 as a pregnancy cut-off; it is the CMO's number. The complaints are those of the signed pathways only." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "NICE NG133 (hypertension in pregnancy), via secondary summaries", note: "Severe headache with visual disturbance is a listed feature of pre-eclampsia. The guideline text itself was not opened; confirm against it. Emergency is the CMO's call (it is a possible severe pre-eclampsia pattern)." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED", note: "The bleeding-risk logic is general; no guideline cut-off found for a non-injury headache on an anticoagulant. Drug names and severity are the CMO's call." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_systolic_reading_with_symptom",
+          label: "A recent very high top blood pressure number and a symptom",
+          provenance: { source: "ESC/ESH and ACC/AHA definitions of hypertensive emergency (180 over 120 or higher with symptoms), via secondary summaries", note: "Threshold 180 matches the commonly cited line. The guideline documents were not opened. A home reading is not proof of organ damage, so this only raises the minimum." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_diastolic_reading_with_symptom",
+          label: "A recent very high bottom blood pressure number and a symptom",
+          provenance: { source: "Same as the systolic entry", note: "Diastolic 120 is the other half of the same commonly cited line." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "diastolic", value: 120 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "NEWS2 SpO2 scale 1 (Royal College of Physicians), via secondary summaries", note: "NEWS2 scores 91 or below the highest (3 points) on scale 1. Version 1 used 92. Home pulse oximeters are less reliable, so this only raises the minimum. The CMO confirms the number and the look-back window." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 91 } },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_fever_or_belly_pain",
+          label: "Pregnant with a fever or belly pain",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "S59b dropped abdominal_pain because no signed pathway asked it; the S59 draft and the S59d draft do. Severity 5 mirrors the v2 fever draft (fever.pregnant). Fever or belly pain in pregnancy is a listed warning sign in CDC/ACOG urgent maternal warning signs and WHO antenatal danger signs (secondary summaries). The CMO's number and category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 5, complaint_keys: ["fever", "abdominal_pain"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "hypertension_complication_high_top_reading",
+          label: "A recent very high top blood pressure number, checking on blood pressure complications",
+          provenance: { source: "ESC/ESH and ACC/AHA definitions of hypertensive emergency (180 over 120 or higher with symptoms), via secondary summaries", note: "Tightening only, from the recent record. The pathway has its own rules for a reading typed into the check. A home reading is not proof of organ damage, so this only raises the minimum. The documents were not opened." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["hypertension_complication"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "hypertension_complication_high_bottom_reading",
+          label: "A recent very high bottom blood pressure number, checking on blood pressure complications",
+          provenance: { source: "Same as the top-number entry", note: "Diastolic 120 is the other half of the same commonly cited line." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "diastolic", value: 120 }, complaint_keys: ["hypertension_complication"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "diabetes_complication_recent_low_glucose",
+          label: "A recent low sugar reading, checking on diabetes complications",
+          provenance: { source: "ADA Standards of Care, hypoglycaemia levels (level 1 below 3.9 mmol/L, level 2 below 3.0), via secondary summaries", note: "Tightening only, from the recent record. 3.8 is 'below 3.9' to one decimal place; the inclusive 'at most' operator is why. The CMO decides the number, the look-back window and the minimum. The standards document was not opened." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "glucose_mmol_l", value: 3.8 }, complaint_keys: ["diabetes_complication"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "diabetes_complication_recent_high_glucose",
+          label: "A recent high sugar reading, checking on diabetes complications",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "20 mmol/L is a common 'seek advice' line in diabetes sick-day guidance but no primary source was opened. The hyperglycaemic crisis consensus uses lower (about 11) and higher (33.3, HHS) lines for the crises themselves. The CMO's number." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "glucose_mmol_l", value: 20 }, complaint_keys: ["diabetes_complication"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S59d-pathway-coverage.md sections B to D; docs/OPEN-QUESTIONS.md OQ-S59d-03",
+  },
+  {
+    key: "symptom.diagnosis_urgency_map",
+    // S59d (accuracy audit feed): which urgency category a clinician's signed ICD-10 diagnosis maps to, by code prefix (the longest prefix
+    // wins, dots ignored). Used ONLY to decide whether the checker's category agreed with the clinician's diagnosis. Every entry is a
+    // PLACEHOLDER for the CMO to confirm, replace or delete: which urgency a diagnosis "deserved" at presentation is a clinical judgement.
+    // The live value is the row of `symptom_diagnosis_urgency_maps` the CMO confirms through confirm_symptom_diagnosis_urgency_map; version 1
+    // in the database is unsigned and inactive, so until then no auto-fed outcome is counted. A Jest test fails if the migration seed and
+    // this value drift.
+    value: {
+      entries: [
+          { prefix: "I21", category: "emergency", label: "Acute myocardial infarction" },
+          { prefix: "I20", category: "urgent", label: "Angina" },
+          { prefix: "I16", category: "emergency", label: "Hypertensive crisis" },
+          { prefix: "I10", category: "routine", label: "Essential hypertension" },
+          { prefix: "I60", category: "emergency", label: "Subarachnoid haemorrhage" },
+          { prefix: "I61", category: "emergency", label: "Intracerebral haemorrhage" },
+          { prefix: "I63", category: "emergency", label: "Cerebral infarction" },
+          { prefix: "I64", category: "emergency", label: "Stroke, not specified" },
+          { prefix: "G00", category: "emergency", label: "Bacterial meningitis" },
+          { prefix: "G03", category: "emergency", label: "Meningitis of other causes" },
+          { prefix: "G43", category: "routine", label: "Migraine" },
+          { prefix: "R51", category: "routine", label: "Headache" },
+          { prefix: "B50", category: "urgent", label: "Plasmodium falciparum malaria" },
+          { prefix: "B51", category: "urgent", label: "Plasmodium vivax malaria" },
+          { prefix: "B54", category: "urgent", label: "Malaria, unspecified" },
+          { prefix: "A01", category: "urgent", label: "Typhoid and paratyphoid fevers" },
+          { prefix: "A09", category: "routine", label: "Gastroenteritis and colitis" },
+          { prefix: "R50", category: "routine", label: "Fever of other and unknown origin" },
+          { prefix: "K35", category: "emergency", label: "Acute appendicitis" },
+          { prefix: "J45", category: "urgent", label: "Asthma" },
+          { prefix: "J18", category: "urgent", label: "Pneumonia, organism unspecified" },
+          { prefix: "J06", category: "self_management", label: "Acute upper respiratory infection" },
+          { prefix: "J00", category: "self_management", label: "Acute nasopharyngitis (common cold)" },
+          { prefix: "N39", category: "routine", label: "Urinary tract infection" },
+          { prefix: "E10", category: "routine", label: "Type 1 diabetes" },
+          { prefix: "E11", category: "routine", label: "Type 2 diabetes" },
+          { prefix: "E101", category: "emergency", label: "Type 1 diabetes with ketoacidosis" },
+          { prefix: "E111", category: "emergency", label: "Type 2 diabetes with ketoacidosis" },
+          { prefix: "E16", category: "urgent", label: "Other disorders of pancreatic internal secretion (includes hypoglycaemia)" },
+          { prefix: "O14", category: "emergency", label: "Pre-eclampsia" },
+          { prefix: "O15", category: "emergency", label: "Eclampsia" },
+          { prefix: "O20", category: "urgent", label: "Haemorrhage in early pregnancy" },
+          { prefix: "O46", category: "emergency", label: "Antepartum haemorrhage" },
+          { prefix: "M54", category: "routine", label: "Dorsalgia (back pain)" },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59d.md section 3; docs/OPEN-QUESTIONS.md OQ-S59d-04",
+  },
+  {
     key: "i18n.language_registry",
     // Language readiness (S86, decision D-14). DORMANT: English is the only language and the only entry. A language can appear
     // here only after a forward translation, an independent back translation, a reconciliation and a native clinical review, with
@@ -5409,6 +6043,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S65.md; CMO decisions Q17 and Q18",
+  },
+  {
+    key: "vitals.diary_import",
+    // S07y. PROPOSED: how far back a reading copied from the person's own paper diary may be dated (the server column offline_sync_config.diary_window_days
+    // mirrors it and diary-import-mirror.test.ts fails if they drift; outside the window the reading is REFUSED, never stamped as now), the future skew the
+    // clock may have (the same value as offline_sync_config.future_skew_minutes), how many rows one confirmation may carry, and the largest photo of a diary page
+    // the reading assistant (AI-021, off) will accept, and how many photos one person may send for reading in an hour. It adds NO clinical threshold: what counts as impossible or dangerous is the existing devices.plausibility
+    // and the triage rules, unchanged. The Chief Medical Officer confirms the window (OQ-S07YL-5).
+    value: {
+      window_days: 30,
+      future_skew_minutes: 5,
+      max_rows_per_save: 20,
+      max_photo_bytes: 8000000,
+      max_reads_per_hour: 20,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/S07y-reading-labels-and-diary.md; supabase/migrations/20261020181520_s07y_reading_provenance_pharmacy_and_paper_diary.sql",
+    guardPatterns: ["diary\\w*days?\\s*[=:]\\s*30\\b"],
   },
   {
     key: "vitals.device_red_rules",
@@ -6973,6 +7628,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S53-pack-scan.md; NAFDAC Greenbook public examples",
   },
   {
+    key: "lab_value.duplicate_match",
+    // DUP-1: when the same lab value reaches a record by two routes (a partner lab's structured result and a filed paper report), a pair is a
+    // DUPLICATE when the code matches, the dates are within window_days, the unit is the same and the values are within value_tolerance_pct of
+    // each other. Same test and window but a different value or unit is a DISAGREEMENT: both are shown and a clinician is told, none is picked.
+    // Live values are the active row of `lab_value_match_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // PROPOSED: the CMO or the lab liaison confirms the window and the tolerance.
+    value: { window_days: 2, value_tolerance_pct: 0.5, require_same_unit: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-20",
+    source: "docs/design/DUP-1.md",
+  },
+  {
     key: "observations.plausibility",
     // S47a (BUILD-SPEC-v5 4.3, 4.7): the typo gate for every hand-typed number. Hard limits refuse with a plain message; soft limits (water, sleep,
     // inhaler puffs) only ask the person to confirm. Mirrored in the database CHECK for the lifestyle types and the inhaler log; a test fails on drift.
@@ -7062,5 +7731,737 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-16",
     source: "docs/design/build-vitals-rule-sets.md; triage_rule_sets vitals_care_triage version 1 (draft)",
+  },
+  {
+    key: "assisted_entry.limits",
+    // A helper (family member or other caregiver) entering readings for the person: how many per helper per person per hour and per helper per
+    // day. PROPOSED, Founder owned, no clinical meaning. Live value is the active row of `assisted_entry_config`.rules.
+    value: { max_per_helper_per_person_per_hour: 6, max_per_helper_per_day: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-16",
+    source: "docs/design/build-assisted-entry.md; supabase/migrations/*_assisted_entry_and_caregiver_red_care.sql",
+  },
+  {
+    key: "medicines.reminder_reliability",
+    // Reminder reliability on a phone that may stop background apps (Android makers such as Tecno and Infinix, and iPhone Focus or notification limits). PROPOSED, CMO owned.
+    //  unconfirmedFollowUpMinutes: one gentle follow-up this long after a dose time with no answer. maxUnconfirmedFollowUpsPerDose is the cap per dose (1).
+    //  selfTestDelaySeconds: the reliability test notification arrives this long after the person starts it. selfTestAnswerWindowSeconds: how long after it
+    //  is due the app waits before asking "did you see it?". selfTestStaleDays: a result older than this is asked for again.
+    //  iosPendingLimit: iOS keeps at most 64 pending local notifications; the rolling plan (reminders.behaviour maxPending) stays under it.
+    //  iosTimeSensitive: mark dose reminders time sensitive on iPhone. It only has an effect in a build made with IOS_TIME_SENSITIVE=1 (see app.config.js). Critical Alerts are NOT used.
+    value: {
+      unconfirmedFollowUpMinutes: 30,
+      maxUnconfirmedFollowUpsPerDose: 1,
+      selfTestDelaySeconds: 60,
+      selfTestAnswerWindowSeconds: 120,
+      selfTestStaleDays: 30,
+      iosPendingLimit: 64,
+      iosTimeSensitive: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/research/S08.md section 3; Founder request 2026-10-22 (item 4, reminder reliability)",
+  },
+  {
+    key: "medicines.dose_reasons",
+    // Why a dose was not taken, one tap alongside taken. `code` is stored against the dose event. `private` reasons are kept apart from the
+    // dose log (medication_dose_reasons): only the person, someone acting for them and the tied care team read them; a supporter reads one only after
+    // the person opted in for that reason (dose_reason_sharing). `status` is the dose status the tap records. `opensPharmacy`: a gentle in-app
+    // prompt to open the pharmacy page; it never raises a clinician alert by itself. The SQL function private.is_private_dose_reason mirrors the
+    // private codes; a test fails on drift.
+    value: [
+      { code: "side_effect", status: "skipped", private: false, opensPharmacy: false },
+      { code: "felt_well", status: "skipped", private: false, opensPharmacy: false },
+      { code: "ran_out", status: "not_available", private: true, opensPharmacy: true },
+      { code: "other", status: "skipped", private: false, opensPharmacy: false },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 5); existing phone skip reasons in medications-screen.tsx",
+  },
+  {
+    key: "medicines.runway_and_stock_freshness",
+    // The "days of medicine left" bar and how old a pharmacy's stock answer may be. PROPOSED, CMO owned.
+    //  barFullDays: the bar is full at this many days or more. offerCollectBelowDays: the one-tap "choose where to collect" shows at or under this many days.
+    //  lowSupplyDays: the bar reads low at or under this many days (equals medicines.dose_rules lowSupplyDays).
+    //  maxStockAgeHours: a pharmacy stock confirmation older than this is NOT shown as available; the page says "ask the pharmacy to confirm".
+    // No price is shown (OQ-714, founder 2026-10-21).
+    value: { barFullDays: 30, offerCollectBelowDays: 14, lowSupplyDays: 7, maxStockAgeHours: 48 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 9); OQ-714",
+  },
+  {
+    key: "medicines.nafdac_verify_helper",
+    // The NAFDAC check helper, behind the go-live guard nafdac_verify_helper_enabled (OFF). Founder decision 2026-10-22: a link to NAFDAC's public
+    // registered-product check only (no text message, no short code). The address was read on 2026-10-22 (the site calls itself Nigeria's Registered
+    // Product Database). A registration match is not proof that a pack is genuine.
+    value: {
+      registrationCheck: { name: "NAFDAC Greenbook", url: "https://greenbook.nafdac.gov.ng", readOn: "2026-10-22" },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "Founder request 2026-10-22 (item 14); docs/OPEN-QUESTIONS.md OQ-NAFDAC-HELPER-1",
+  },
+  {
+    key: "symptom.checkback",
+    // S59c (follow-up check-back): when a completed symptom check that ended as self-care or a routine appointment is followed up with "better, same or worse?"
+    // and "did you get care?", and when a "same" answer nudges toward a booking. An UNSIGNED DRAFT: while status is "draft" nothing is scheduled. The CMO signs
+    // it through sign_symptom_ux_config('checkback', n); the live value is the active row of `symptom_ux_config` (kind checkback). The delays are product choices, not
+    // clinical thresholds. Urgent and emergency results are never followed up this way (a human is already involved). Mirrored in the engine package's drafts.ts and
+    // the migration seed; tests fail if the three differ.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 2",
+        "note": "Agent-proposed timing for the CMO. Delays and the nudge rule are product choices, not clinical thresholds. Not reviewed by a clinician."
+      },
+      "categories": {
+        "self_management": {
+          "delay_hours": 48,
+          "same_nudge_after_hours": 72
+        },
+        "routine": {
+          "delay_hours": 24,
+          "same_nudge_after_hours": 24
+        }
+      },
+      "expire_after_hours": 48,
+      "nudge_after_hours": 12,
+      "max_nudges": 1,
+      "notification_window": {
+        "start_hour": 7,
+        "end_hour": 21
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 2; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-01",
+  },
+  {
+    key: "symptom.describe_synonyms",
+    // S59c (describe it): the deterministic synonym table that routes a person's own words to one of the SIGNED, ACTIVE pathways, after the shared danger-phrase screen
+    // has run on the device. An UNSIGNED DRAFT: while status is "draft" nothing matches and the person goes to the ordinary checklist and picker. English plus common
+    // Nigerian English; no Pidgin (D-14). A wrong route only changes which questions are asked: the red-flag floor runs over every answer either way.
+    // Live value: the active row of `symptom_ux_config` (kind describe). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 3",
+        "note": "Agent-proposed routing words. A wrong route only changes which questions are asked: the red-flag floor runs over every answer either way. Not reviewed by a clinician or a Nigerian-English speaker."
+      },
+      "min_score": 2,
+      "ambiguity_margin": 2,
+      "danger_event_min_gap_minutes": 30,
+      "entries": [
+        {
+          "id": "headache_clear",
+          "pathway_key": "headache",
+          "weight": 2,
+          "phrases": [
+            "headache*",
+            "head ache",
+            "head pain",
+            "migraine*",
+            "pain in my head",
+            "pain in the head",
+            "my head hurts",
+            "head hurts",
+            "head is hurting",
+            "head is paining",
+            "my head is paining me",
+            "head is pounding",
+            "pounding head",
+            "throbbing head"
+          ]
+        },
+        {
+          "id": "headache_hint",
+          "pathway_key": "headache",
+          "weight": 1,
+          "phrases": [
+            "head feels heavy",
+            "heavy head",
+            "sore head"
+          ]
+        },
+        {
+          "id": "chest_pain_clear",
+          "pathway_key": "chest_pain",
+          "weight": 2,
+          "phrases": [
+            "chest pain*",
+            "chest ache",
+            "pain in my chest",
+            "pain in the chest",
+            "chest hurts",
+            "chest is hurting",
+            "chest is paining",
+            "my chest is paining me",
+            "chest paining",
+            "heart pain",
+            "pain around my heart"
+          ]
+        },
+        {
+          "id": "chest_pain_hint",
+          "pathway_key": "chest_pain",
+          "weight": 1,
+          "phrases": [
+            "chest feels heavy",
+            "heavy chest",
+            "sore chest",
+            "chest discomfort"
+          ]
+        },
+        {
+          "id": "breathlessness_clear",
+          "pathway_key": "breathlessness",
+          "weight": 2,
+          "phrases": [
+            "breathless*",
+            "short of breath",
+            "shortness of breath",
+            "difficulty breathing",
+            "difficulty in breathing",
+            "trouble breathing",
+            "hard to breathe",
+            "cannot catch my breath",
+            "can't catch my breath",
+            "out of breath",
+            "panting",
+            "wheez*"
+          ]
+        },
+        {
+          "id": "breathlessness_hint",
+          "pathway_key": "breathlessness",
+          "weight": 1,
+          "phrases": [
+            "breathing is heavy",
+            "breathing fast",
+            "breathing hard",
+            "chest is tight"
+          ]
+        },
+        {
+          "id": "fever_clear",
+          "pathway_key": "fever",
+          "weight": 2,
+          "phrases": [
+            "fever*",
+            "feverish",
+            "high temperature",
+            "my body is hot",
+            "body is hot",
+            "body hot",
+            "hot body",
+            "feeling hot",
+            "chills",
+            "shivering"
+          ]
+        },
+        {
+          "id": "fever_hint",
+          "pathway_key": "fever",
+          "weight": 1,
+          "phrases": [
+            "temperature",
+            "sweating at night"
+          ]
+        },
+        {
+          "id": "abdominal_pain_clear",
+          "pathway_key": "abdominal_pain",
+          "weight": 2,
+          "phrases": [
+            "stomach pain*",
+            "stomach ache",
+            "stomach is paining",
+            "my stomach is paining me",
+            "belly pain",
+            "belly ache",
+            "belly is paining",
+            "tummy pain",
+            "tummy ache",
+            "abdominal pain",
+            "pain in my stomach",
+            "pain in my belly",
+            "cramps"
+          ]
+        },
+        {
+          "id": "abdominal_pain_hint",
+          "pathway_key": "abdominal_pain",
+          "weight": 1,
+          "phrases": [
+            "stomach feels",
+            "bloated",
+            "upset stomach"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 3; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-02",
+  },
+  {
+    key: "symptom.result_explainer",
+    // S59c (Why this result): one plain-words reason per signed red-flag rule and per question-tree outcome, shown beside the person's own answers. An UNSIGNED DRAFT:
+    // while status is "draft" no explanation is shown at all, and a rule with no entry shows nothing (nothing is invented). Restates the signed v1 rules and their rationale;
+    // no cause, no ranking, no diagnosis. Live value: the active row of `symptom_ux_config` (kind explainer). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 4",
+        "note": "Plain-words restatement of the signed v1 red-flag rules and the rationale on each signed outcome. No new clinical rule. Not reviewed by a clinician."
+      },
+      "entries": [
+        {
+          "id": "rule:headache.thunderclap_onset",
+          "reason": "You told us the headache came on suddenly and is very strong. A sudden, very strong headache is one of the signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.neuro_deficit",
+          "reason": "You told us you have new weakness, numbness or confusion with the headache. Those are signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.meningitic_signs",
+          "reason": "You told us you have a fever and a stiff neck with the headache. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:headache.vision_loss",
+          "reason": "You told us you have lost some vision with the headache. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:headache.recent_head_injury",
+          "reason": "You told us the headache followed a recent knock to the head and is quite strong. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:headache.immunocompromised_new_severe",
+          "reason": "You told us about something in your health history that makes a strong headache worth a prompt look."
+        },
+        {
+          "id": "rule:headache.pregnancy_severe",
+          "reason": "You told us about something in your health history that makes a strong headache worth a prompt look."
+        },
+        {
+          "id": "rule:chest_pain.cardiac_pattern",
+          "reason": "You told us the chest pain comes with breathlessness, sweating, or pain in your arm or jaw. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.sudden_severe_tearing",
+          "reason": "You told us the chest pain started suddenly and is very strong. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.syncope",
+          "reason": "You told us you fainted with the chest pain. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:chest_pain.known_cardiac_history",
+          "reason": "You told us about something in your health history that makes chest pain worth checking straight away."
+        },
+        {
+          "id": "rule:breathlessness.severe_sudden",
+          "reason": "You told us the breathlessness came on suddenly and is severe even at rest. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.spo2_low",
+          "reason": "You told us your oxygen reading was low. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.chest_pain",
+          "reason": "You told us you have chest pain with the breathlessness. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.cannot_complete_sentences",
+          "reason": "You told us you are too breathless to finish a sentence. That is a sign this check treats as serious."
+        },
+        {
+          "id": "rule:breathlessness.unilateral_leg_swelling",
+          "reason": "You told us one leg is swollen along with the breathlessness. Together they are signs this check treats as serious."
+        },
+        {
+          "id": "outcome:headache.urgent_worsening",
+          "reason": "Your answers show a headache that is getting worse or waking you from sleep. This check asks for a prompt look at a headache that follows that pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.routine_frequent",
+          "reason": "Your answers show headaches that come often. This check suggests a routine appointment to look at the pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.self_mild",
+          "reason": "Your answers show a mild headache with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.routine_moderate",
+          "reason": "Your answers show a headache that is slowing you down, with none of the warning signs on this check's list. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:headache.urgent_severe",
+          "reason": "Your answers show severe pain without a clear reason from the questions asked. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the pain comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you get a fever with a stiff neck"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.urgent_exertional",
+          "reason": "Your answers show chest pain that comes on with effort. This check asks for a prompt look at that pattern.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.self_msk",
+          "reason": "Your answers show chest pain that changes when you press on it and has stayed steady, with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.routine_msk",
+          "reason": "Your answers show chest pain that changes when you press on it and is new or changing. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.urgent_new",
+          "reason": "Your answers show new chest pain, under an hour old, without a clear pattern. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:chest_pain.routine_general",
+          "reason": "Your answers show chest pain lasting several hours or longer, with none of the warning signs on this check's list. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.routine_exertional",
+          "reason": "Your answers show breathlessness that comes with effort and eases with rest. This check suggests a routine appointment.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.urgent_worsening",
+          "reason": "Your answers show breathlessness that has been getting worse over days. This check asks for a prompt look.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        },
+        {
+          "id": "outcome:breathlessness.self_mild",
+          "reason": "Your answers show mild, steady breathlessness with none of the warning signs on this check's list. That is why it suggests looking after yourself and keeping an eye on it.",
+          "tell_us_sooner_if": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 4; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-03",
+  },
+  {
+    key: "symptom.safety_net",
+    // S59c (safety-net advice): the per-pathway "go to a hospital or call for help straight away if ..." lines, added to the generic safety net that is always shown. An UNSIGNED
+    // DRAFT: while status is "draft" only the generic block shows. The one number it may carry is the national emergency number, shown only when signed AND confirmed (OQ-87);
+    // no helpline number is shipped. Live value: the active row of `symptom_ux_config` (kind safety_net). Mirrored in drafts.ts and the migration seed.
+    value: {
+      "version": 1,
+      "status": "draft",
+      "clinical_sign_off": null,
+      "provenance": {
+        "source": "docs/design/S59c.md section 5",
+        "note": "Plain-words restatement of the signed v1 red-flag rules of each pathway. No new clinical rule and no phone number. Not reviewed by a clinician."
+      },
+      "emergency_number": {
+        "value": "112",
+        "confirmed": false
+      },
+      "entries": [
+        {
+          "id": "headache_all",
+          "pathway_key": "headache",
+          "category": "*",
+          "triggers": [
+            "the headache comes on suddenly and is very strong",
+            "you have new weakness, numbness or confusion",
+            "you lose some of your vision",
+            "you have a fever and a stiff neck",
+            "the headache follows a knock to the head"
+          ]
+        },
+        {
+          "id": "chest_pain_all",
+          "pathway_key": "chest_pain",
+          "category": "*",
+          "triggers": [
+            "the pain comes with breathlessness, sweating, or pain in your arm or jaw",
+            "the pain starts suddenly and is very strong",
+            "you faint"
+          ]
+        },
+        {
+          "id": "breathlessness_all",
+          "pathway_key": "breathlessness",
+          "category": "*",
+          "triggers": [
+            "the breathlessness comes on suddenly and is severe even at rest",
+            "you cannot finish a sentence",
+            "you have chest pain with it",
+            "one leg swells up"
+          ]
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S59c.md section 5; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
+  },
+  {
+    key: "outcomes.cascade_rules",
+    // WP3: the cascade-of-care stage definitions (hypertension and diabetes), the 140/90 and 7.0 percent control lines, and the selection-bias panel bands.
+    // The database holds it as `outcome_cascade_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).
+    // A test compares this value with the migration seed. The control line differs on purpose from the S38 day-90 / day-180 BP reports (fixed 140/90, most recent
+    // 7-day average, as at the report day, instead of each person's own home target at fixed days after joining); every output says so.
+    value: {
+      "min_adult_age_years": 18,
+      "exclude_pregnant": true,
+      "hypertension": {
+        "controlled_below": {
+          "systolic": 140,
+          "diastolic": 90
+        },
+        "control_window_days": 7,
+        "min_readings": 3,
+        "diagnosis_icd10_prefixes": [
+          "I10",
+          "I11",
+          "I12",
+          "I13",
+          "I15",
+          "I16"
+        ],
+        "diagnosis_statuses": [
+          "active",
+          "controlled",
+          "uncontrolled"
+        ],
+        "stages": [
+          {
+            "code": "enrolled",
+            "label": "Enrolled adult Members",
+            "definition": "Members aged 18 or over with a known date of birth and a joining date, not pregnant, not a test account."
+          },
+          {
+            "code": "screened",
+            "label": "Blood pressure measured",
+            "definition": "Enrolled Members with at least one cleared blood pressure reading on the platform (home or recorded by a clinician). This is a share of enrolled Members, not screening coverage of a population."
+          },
+          {
+            "code": "diagnosed",
+            "label": "Hypertension on record",
+            "definition": "Enrolled Members with an active hypertension care plan, or a hypertension entry on the problem list (ICD-10 I10 to I16) marked active, controlled or uncontrolled. Includes people with no reading yet."
+          },
+          {
+            "code": "on_treatment",
+            "label": "On a recorded medicine",
+            "definition": "Diagnosed Members with at least one active, current medicine recorded under their hypertension care plan. The medicine class is not held, so this counts any medicine under that plan. Lifestyle-only treatment is not counted."
+          },
+          {
+            "code": "controlled",
+            "label": "Blood pressure under 140/90",
+            "definition": "Members on treatment whose average of the cleared home readings in the last 7 days up to the day the report is run, from at least 3 readings in those 7 days, is under 140 systolic and under 90 diastolic. Members on treatment with fewer than 3 cleared readings in the last 7 days are shown as control unknown, not as uncontrolled."
+          }
+        ],
+        "not_available": [
+          {
+            "item": "Population screening coverage",
+            "reason": "Tarragon holds no register of the people who could have been screened, so a screened share of a population cannot be given."
+          },
+          {
+            "item": "Undiagnosed raised blood pressure",
+            "reason": "A raised reading in a Member with no diagnosis is followed up clinically, and the platform does not hold a confirmed-raised-without-diagnosis record to count."
+          },
+          {
+            "item": "Prevalence",
+            "reason": "This is a cascade of Tarragon Members, not of a population, and says nothing about how common hypertension is."
+          }
+        ]
+      },
+      "diabetes": {
+        "controlled_hba1c_below_percent": 7.0,
+        "lookback_days": 180,
+        "valid_min": 3.0,
+        "valid_max": 20.0,
+        "diagnosis_icd10_prefixes": [
+          "E10",
+          "E11",
+          "E13",
+          "E14"
+        ],
+        "diagnosis_statuses": [
+          "active",
+          "controlled",
+          "uncontrolled"
+        ],
+        "stages": [
+          {
+            "code": "enrolled",
+            "label": "Enrolled adult Members",
+            "definition": "Members aged 18 or over with a known date of birth and a joining date, not pregnant, not a test account."
+          },
+          {
+            "code": "screened",
+            "label": "Glucose or HbA1c measured",
+            "definition": "Enrolled Members with at least one cleared glucose reading or an HbA1c result on the platform. This is a share of enrolled Members, not screening coverage of a population."
+          },
+          {
+            "code": "diagnosed",
+            "label": "Diabetes on record",
+            "definition": "Enrolled Members with an active diabetes care plan, or a diabetes entry on the problem list (ICD-10 E10 to E14) marked active, controlled or uncontrolled. Includes people with no result yet."
+          },
+          {
+            "code": "on_treatment",
+            "label": "On a recorded medicine",
+            "definition": "Diagnosed Members with at least one active, current medicine recorded under their diabetes care plan. The medicine class is not held, so this counts any medicine under that plan."
+          },
+          {
+            "code": "controlled",
+            "label": "HbA1c under 7.0 percent",
+            "definition": "Members on treatment whose most recent HbA1c in the last 180 days is under 7.0 percent. Members on treatment with no recent HbA1c are shown as control unknown, not as uncontrolled. The fixed 7.0 line is used, not each person's own care-plan target."
+          }
+        ],
+        "not_available": [
+          {
+            "item": "Population screening coverage",
+            "reason": "Tarragon holds no register of the people who could have been screened, so a screened share of a population cannot be given."
+          },
+          {
+            "item": "Undiagnosed diabetes",
+            "reason": "The platform does not hold a record of raised glucose in a Member with no diagnosis to count."
+          },
+          {
+            "item": "Prevalence",
+            "reason": "This is a cascade of Tarragon Members, not of a population, and says nothing about how common diabetes is."
+          }
+        ]
+      },
+      "selection_panel": {
+        "age_bands": [
+          [
+            18,
+            39
+          ],
+          [
+            40,
+            49
+          ],
+          [
+            50,
+            59
+          ],
+          [
+            60,
+            69
+          ],
+          [
+            70,
+            150
+          ]
+        ],
+        "severe_from": {
+          "systolic": 160,
+          "diastolic": 100
+        },
+        "note": "These comparisons are descriptive, not causal. They show who is in the figures and who is not, on the few details Tarragon holds. They cannot show why people joined or stayed, and they do not show that the programme caused any difference.",
+        "eligible_roster_reason": "Tarragon holds no list of the people a sponsor could have enrolled, so people who were eligible but did not enrol cannot be counted. The comparison given is with other adult Members who are not in this programme's figures."
+      },
+      "notes": {
+        "cascade": "A cascade of Tarragon Members, not of a population. It is a count of people at a point in time, not a measure of what any service did. Differences between months can come from who joined.",
+        "difference_from_s38": "Control here means the average of the cleared home readings in the 7 days up to the day the report is run is under 140/90. The day-90 and day-180 blood pressure reports judge each person against their own home target when they have one, at fixed days after joining. The two measures can differ."
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-23",
+    source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
 ];

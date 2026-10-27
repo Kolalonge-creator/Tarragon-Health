@@ -28,6 +28,8 @@ const USER_SESSION_ONLY = new Set([
   "queries/allergies.ts",
   "wearables/ingest.ts",
   "patient-explainer/snapshot.ts",
+  // S07y: INSERTS the person's confirmed paper-diary rows through their own session (cookie or bearer, never the service role); it reads nothing back but the row it just wrote.
+  "diary/save-diary-readings.ts",
 ]);
 
 function walk(dir: string): string[] {

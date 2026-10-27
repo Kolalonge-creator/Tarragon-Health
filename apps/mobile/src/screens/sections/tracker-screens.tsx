@@ -6,7 +6,6 @@ import {
   loadAlcoholState,
   loadSleepState,
   loadSmokingState,
-  logActivity,
   logAlcohol,
   logSleep,
   logSmoking,
@@ -21,6 +20,9 @@ import {
   type MealPhotoEstimate,
 } from "@/lib/lifestyle-trackers";
 import { LifestyleTrackerScreen } from "@/screens/sections/lifestyle-tracker-screen";
+import { ACTIVITY_KIND_CHOICES, parseActivityEntry } from "@/lib/activity-movement-model";
+import { queueActivity } from "@/lib/activity-movement";
+import { MovementGate, ReadinessCard, RouteRecorderCard, WeeklyGoalEditor } from "@/screens/sections/movement-extras";
 import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
 import { EatingPlansCard } from "@/screens/sections/eating-plans-card";
 import { loadGuidance, queueMeal } from "@/lib/food-diary";
@@ -194,26 +196,35 @@ export function SmokingScreen({ patientId }: { patientId: string }) {
   );
 }
 
-export function ActivityScreen({ patientId }: { patientId: string }) {
+export function ActivityScreen({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const t = useT();
   return (
     <LifestyleTrackerScreen<ActivityState>
       config={{
         title: t("Movement"),
-        blurb: t("Anything counts: a walk, housework, football. Write what you did and for how long."),
+        blurb: t("Anything counts: a walk, housework, football. Choose what you did and for how long."),
         fields: [
-          { key: "name", label: t("What did you do?"), hint: "Like: walked to the market", required: true },
+          { key: "kind", label: t("What did you do?"), required: true, choices: ACTIVITY_KIND_CHOICES },
           { key: "minutes", label: t("For how many minutes?"), hint: "A number, like 30", keyboard: "numeric", required: true },
+          { key: "distance_km", label: t("How far, in kilometres? (optional)"), hint: "Like 2.5", keyboard: "numeric" },
         ],
         submitLabel: t("Save it"),
         load: () => loadActivityState(patientId),
+        // Saved on the phone first (offline outbox); it sends when there is a signal. Logging a past activity is never blocked by the safety gate.
         submit: async (values) => {
-          const minutes = num(values, "minutes");
-          const name = values.name?.trim();
-          if (!name) return { error: "Say what you did." };
-          if (minutes === undefined) return { error: "Enter how many minutes." };
-          return logActivity(patientId, { activityName: name, durationMinutes: minutes });
+          const parsed = parseActivityEntry(values, Date.now());
+          if (!parsed.ok) return { error: parsed.error };
+          await queueActivity(patientId, parsed.payload);
+          return {};
         },
+        extras: (state, reload) => (
+          <>
+            <MovementGate />
+            <WeeklyGoalEditor patientId={patientId} current={state?.week?.goalMinutes ?? null} onSaved={reload} />
+            <ReadinessCard patientId={patientId} />
+            <RouteRecorderCard patientId={patientId} organisationId={organisationId} />
+          </>
+        ),
         summary: (s) =>
           s.week
             ? { label: "This week", value: `${s.week.activeMinutes} of ${s.week.goalMinutes} minutes` }
@@ -227,6 +238,7 @@ export function ActivityScreen({ patientId }: { patientId: string }) {
             subtitle: [
               dayLabel(e.loggedOn),
               e.durationMinutes != null ? `${e.durationMinutes} min` : null,
+              e.distanceM != null ? `${(e.distanceM / 1000).toFixed(1)} km` : null,
               e.stepCount != null ? `${e.stepCount} steps` : null,
             ]
               .filter(Boolean)

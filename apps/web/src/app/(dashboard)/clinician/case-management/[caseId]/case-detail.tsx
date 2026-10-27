@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { readAuditedSection, ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
+import { disagreementLine, readLabValueDisagreements } from "@/lib/clinical/lab-value-disagreements";
 import { readPatientMedicationsOrThrow } from "@/lib/clinical/medications-audited";
 import { parseReferralList } from "@/lib/queries/specialist-referrals";
 import {
@@ -247,6 +248,18 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  // DUP-1: two reports of one test that disagree. Audited and tied; a refusal is shown as unavailable, never as "none".
+  const { data: labDisagreements, isError: labDisagreementsUnavailable } = useQuery({
+    queryKey: ["care-management", "case-file", "lab-disagreements", patientId],
+    queryFn: async () => {
+      const result = await readLabValueDisagreements(supabase, patientId);
+      if (result.status !== "ok") throw new Error(`lab disagreements ${result.status}`);
+      return result.rows;
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const { data: labOrders } = useQuery({
     queryKey: ["care-management", "case-file", "lab-orders", patientId],
     queryFn: async () => {
@@ -311,6 +324,11 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
         <CaseFileList
           title="Investigations"
           items={(labOrders ?? []).map((l) => `Ordered ${new Date(l.ordered_at).toLocaleDateString()} (${l.status})`)}
+        />
+        <CaseFileList
+          title="Results that disagree"
+          items={(labDisagreements ?? []).map(disagreementLine)}
+          unavailable={labDisagreementsUnavailable}
         />
         <CaseFileList
           title="Specialists"

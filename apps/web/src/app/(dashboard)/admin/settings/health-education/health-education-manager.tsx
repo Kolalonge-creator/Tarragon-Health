@@ -24,6 +24,9 @@ import { flaggedButStillLive, isPastReviewDate } from "@/lib/health-education/re
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLearningCreators } from "@/lib/queries/learning-centre";
+import { useSetReadingGradeOverride } from "@/lib/queries/learning-quality";
+import { t } from "@tarragon/i18n";
+import { gatedReadingGrade, getProposedConfig, type ReadingGradeConfig } from "@tarragon/shared";
 import { parseKnowledgeCheck } from "@/lib/validation/health-education";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -277,6 +280,17 @@ function ContentForm({
           <Input id="content_self_care" value={form.self_care_action ?? ""} onChange={(e) => set("self_care_action", e.target.value || null)} />
           <p className="text-xs text-charcoal-ink/60">Asking the care team, booking and the urgent-help box are added by the template and cannot be edited here.</p>
         </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="content_change_note">What changed since the last review (required when you publish a new version)</Label>
+          <Input
+            id="content_change_note"
+            maxLength={500}
+            placeholder="For example: updated the salt advice to match the new protocol"
+            value={form.review_change_note ?? ""}
+            onChange={(e) => set("review_change_note", e.target.value || null)}
+          />
+          <p className="text-xs text-charcoal-ink/60">Patients see this on the item. Not needed the first time an item is published, or when it is simply reviewed again with nothing changed.</p>
+        </div>
         <div className="space-y-1">
           <Label htmlFor="content_audio_clip">Audio clip id (S32 manifest, optional)</Label>
           <Input id="content_audio_clip" className="font-mono text-xs" placeholder="LSN-001" value={form.audio_clip_id ?? ""} onChange={(e) => set("audio_clip_id", e.target.value || null)} />
@@ -360,6 +374,56 @@ function ContentHistory({ item }: { item: HealthEducationContent }) {
   );
 }
 
+/**
+ * Reading grade of the wording (quality gate 12a): a live estimate with the same formula the database uses at publish time, and, when the
+ * wording is above the PROPOSED limit, a place for the Chief Medical Officer to record why it may go out anyway. The database is the gate;
+ * this only shows it before the Publish button is pressed.
+ */
+function ReadingGradeNote({ item }: { item: HealthEducationContent }) {
+  // The database grades the harder of the body and the summary; show the same number.
+  const grade = Math.max(gatedReadingGrade(item.body), gatedReadingGrade(item.summary ?? ""));
+  const cfg = getProposedConfig("learning.reading_grade").value as unknown as ReadingGradeConfig;
+  const override = useSetReadingGradeOverride();
+  const [reason, setReason] = useState("");
+  if (item.reading_level === "clinician" || item.is_placeholder) return null;
+  const over = grade > cfg.max_grade;
+  const overridden = item.reading_grade_override_reason && item.reading_grade_override_body_md5 !== null;
+  return (
+    <div className="space-y-1 text-xs" data-testid="reading-grade-note">
+      <p className={over ? "font-medium text-amber-800" : "text-charcoal-ink/60"}>
+        {t("learn.grade.label", "en", { grade })}
+        {". "}
+        {over ? t("learn.grade.over", "en", { max: cfg.max_grade }) : t("learn.grade.ok", "en", { max: cfg.max_grade })}
+      </p>
+      {over && item.content_status !== "published" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="h-8 min-w-64 flex-1 rounded-md border border-charcoal-ink/20 px-2 text-xs"
+            aria-label={t("learn.grade.override_reason", "en", { min: cfg.min_override_reason_chars })}
+            placeholder={t("learn.grade.override_reason", "en", { min: cfg.min_override_reason_chars })}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={override.isPending || reason.trim().length < cfg.min_override_reason_chars}
+            onClick={() => override.mutate({ contentId: item.id, reason: reason.trim() }, { onSuccess: () => setReason("") })}
+          >
+            {t("learn.grade.override_save")}
+          </Button>
+        </div>
+      )}
+      {overridden && <p className="text-charcoal-ink/60">{t("learn.grade.overridden")}</p>}
+      {override.isError && (
+        <p className="text-red-600">
+          {/only the chief medical officer/i.test((override.error as Error).message) ? "Only the Chief Medical Officer can record this override." : (override.error as Error).message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ContentRow({ item }: { item: HealthEducationContent }) {
   const setDripWeek = useSetContentDripWeek();
   const setStatus = useSetHealthEducationContentStatus();
@@ -414,6 +478,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           </Button>
         </div>
       </div>
+      <ReadingGradeNote item={item} />
       {item.is_placeholder && (
         <p className="text-xs font-medium text-amber-800">
           Draft placeholder, needs a clinical author. It cannot be published until a clinical author is named and the placeholder text is replaced.
@@ -458,6 +523,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
               clinical_author_name: item.clinical_author_name,
               evidence_source: item.evidence_source,
               self_care_action: item.self_care_action,
+              review_change_note: item.review_change_note,
               audio_clip_id: item.audio_clip_id,
               is_micro_lesson: item.is_micro_lesson,
               lesson_action: item.lesson_action,
@@ -518,6 +584,9 @@ export function HealthEducationManager() {
                 </Link>
                 <Link href="/admin/settings/health-education/readiness" className="text-brand-green hover:underline">
                   Content readiness →
+                </Link>
+                <Link href="/admin/settings/health-education/expiry" className="text-brand-green hover:underline">
+                  Review list and expiry →
                 </Link>
                 <Link href="/admin/settings/health-education/search-gaps" className="text-brand-green hover:underline">
                   Searches with no result →

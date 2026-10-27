@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { useT } from "@/components/ui-language-provider";
+import { ReadinessCard } from "@/components/activity/readiness-card";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_QUERY_KEY = "activity-goal";
@@ -134,6 +135,8 @@ export function ActivityClient({ patientId }: { patientId: string }) {
       />
 
       <WeeklyGoalCard patientId={patientId} />
+
+      <ReadinessCard patientId={patientId} />
 
       <LogWorkoutCard patientId={patientId} />
 

@@ -44,7 +44,16 @@ export interface PostVitalReadingResult {
  * apps/web/src/app/api/mobile/vitals/route.ts — the six vital types the
  * native quick-log screen collects (MOBILE_APP_SPEC.md §2.2). */
 export type VitalReadingPayload =
-  | { vital_type: "blood_pressure"; systolic: number; diastolic: number; note?: string; cuff_type?: "upper_arm" | "wrist" | "not_sure" }
+  | {
+      vital_type: "blood_pressure";
+      systolic: number;
+      diastolic: number;
+      note?: string;
+      cuff_type?: "upper_arm" | "wrist" | "not_sure";
+      /** S07y: taken at a pharmacy or clinic machine. Saved as an ordinary reading with this label (the server refuses it while its guard is off). */
+      entry_origin?: "pharmacy_machine";
+      place_label?: string;
+    }
   | {
       vital_type: "glucose";
       glucose_value: number;
@@ -174,6 +183,8 @@ export interface SymptomCheckerState {
   open: boolean;
   eligibility: "ok" | "under_18" | "dob_required" | "error";
   complaints: { key: string; label: string; bundledCurrent: boolean }[];
+  /** S59c: the describe table, the explainer and the safety-net lines the server has checked against the live signed version (null = not in force). Absent on an older server. */
+  ux?: { describe: unknown; explainer: unknown; safetyNet: unknown };
 }
 export async function getSymptomCheckerState(): Promise<SymptomCheckerState | null> {
   const result = await request<SymptomCheckerState>("/api/mobile/symptom-check", "GET");
@@ -185,13 +196,56 @@ export type SymptomStepResponse =
   | { status: "blocked"; reason: "under_18" | "dob_required" }
   | { status: "error"; error: string }
   | { status: "in_progress"; question: { type: "question"; kind: "boolean"; key: string; prompt: string } | { type: "question"; kind: "choice"; key: string; prompt: string; options: { value: string; label: string }[] }; state: { capture: Record<string, unknown>; answers: Record<string, boolean | string>; questionLog: { questionKey: string; prompt: string; answer: boolean | string; answeredAt: string }[] } }
-  | { status: "complete"; category: string; clinicianReviewRequired: boolean; safetyNetMessageKey: string; assessmentId: string | null; degraded: boolean; urgencyLevel: string | null; forDependant: boolean; recorded: boolean };
+  | { status: "complete"; category: string; clinicianReviewRequired: boolean; safetyNetMessageKey: string; assessmentId: string | null; degraded: boolean; urgencyLevel: string | null; forDependant: boolean; recorded: boolean; firedRuleKeys?: string[]; tightenedBy?: string[]; questionsAsked?: { questionKey: string; prompt: string; answer: boolean | string; answeredAt: string }[] };
 
 /** One step. Not retried blind (a repeat after a timeout could record a second check); a failure returns null and the screen uses
  * its on-device result, which can only be as safe or safer than silence. */
 export async function postSymptomStep(input: unknown): Promise<SymptomStepResponse | null> {
   const result = await request<SymptomStepResponse>("/api/mobile/symptom-check", "POST", input, false, true);
   return result.ok ? result.data : null;
+}
+
+/** S59c: the follow-up after a symptom check. The same server code the web uses (apps/web/src/app/api/mobile/symptom-checkback). Any
+ * failure returns null and the screen shows nothing (a follow-up is never required for anything). */
+export interface SymptomCheckbackView {
+  id: string;
+  state: "scheduled" | "open" | "answered" | "expired" | "cancelled";
+  assessment_id: string;
+  category: "self_management" | "routine";
+  complaint_key: string;
+  complaint_label: string;
+  checked_at: string;
+  hours_since_check: number;
+  sign_vocabulary: string[];
+  capture: { presentingComplaintKey: string; onset: "sudden" | "gradual" | "unknown"; severity: number; associatedSymptoms: string[]; triggers: string[]; relevantHistory: string[]; measurements: Record<string, number> };
+  outcome: { action: "close" | "keep_watching" | "book" | "escalate" | "emergency"; progress: string; escalated: boolean; alert_raised?: boolean; emergency?: boolean; doctor_access?: boolean | null } | null;
+}
+
+export async function getOpenSymptomCheckbacks(): Promise<{ open: boolean; checkbacks: { id: string }[] } | null> {
+  const result = await request<{ open: boolean; checkbacks: { id: string }[] }>("/api/mobile/symptom-checkback", "GET");
+  return result.ok ? result.data : null;
+}
+
+export async function getSymptomCheckback(id: string): Promise<{ open: boolean; view: SymptomCheckbackView | null } | null> {
+  const result = await request<{ open: boolean; view: SymptomCheckbackView | null }>(`/api/mobile/symptom-checkback?id=${encodeURIComponent(id)}`, "GET");
+  return result.ok ? result.data : null;
+}
+
+export type SymptomCheckbackAnswer =
+  | { ok: true; complaintKey: string; outcome: { action: "close" | "keep_watching" | "book" | "escalate" | "emergency"; escalated: boolean; alert_raised: boolean; emergency: boolean; doctor_access?: boolean | null; assessment_id: string } }
+  | { ok: false; reason: "invalid" | "signed_out" | "closed" | "not_open" | "failed" };
+
+/** Not retried blind (a repeat after a timeout is harmless on the server, which returns the stored answer, but the screen keeps its own result). */
+export async function postSymptomCheckback(input: { checkbackId: string; progress: "better" | "same" | "worse"; care: string | null; signs: string[] }): Promise<SymptomCheckbackAnswer | null> {
+  const result = await request<SymptomCheckbackAnswer>("/api/mobile/symptom-checkback", "POST", input, false, true);
+  return result.ok ? result.data : null;
+}
+
+/** S59c (OQ-S59c-05): danger wording was found in the describe box ON THE PHONE. Only a session key and a coarse code are sent, never the words.
+ * Says whether it was recorded and whether a clinician was really paged (a plan without doctor time is recorded but not paged); any failure is false/false and the screen then makes no promise. */
+export async function postDescribeDanger(input: { session: string; category: "danger" | "self_harm" }): Promise<{ recorded: boolean; doctorAlerted: boolean }> {
+  const result = await request<{ recorded?: boolean; doctorAlerted?: boolean }>("/api/mobile/symptom-describe-danger", "POST", input, false, true);
+  return result.ok ? { recorded: result.data.recorded === true, doctorAlerted: result.data.doctorAlerted === true } : { recorded: false, doctorAlerted: false };
 }
 
 export interface HealthSyncCursor {
@@ -594,9 +648,9 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * this recovers from without a caller having to notice or handle it. */
 const RETRY_DELAY_MS = 1_500;
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -630,7 +684,8 @@ async function request<T>(
   method: "GET" | "POST",
   body?: unknown,
   isRetry = false,
-  noRetry = false
+  noRetry = false,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
@@ -651,7 +706,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = noRetry ? await fetchWithTimeout(url, init) : await fetchWithTimeoutAndRetry(url, init);
+    response = noRetry ? await fetchWithTimeout(url, init, timeoutMs) : await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
@@ -664,7 +719,7 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshed.session) {
-      return request<T>(path, method, body, true, noRetry);
+      return request<T>(path, method, body, true, noRetry, timeoutMs);
     }
     await supabase.auth.signOut();
     return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
@@ -709,6 +764,28 @@ export async function postPhotoReading(payload: PhotoReadingRequest): Promise<Po
   if (result.data?.held) return { ok: true, held: true, heldId: result.data.held_id ?? "", reasons: result.data.reasons ?? [] };
   return { ok: true, held: false, merged: result.data?.merged === true, deduped: result.data?.deduped === true };
 }
+
+/**
+ * S43m: asks the server to read a document photo the person just saved into SUGGESTIONS (apps/web/.../api/mobile/document-reading). The answer is a
+ * status and one sentence; it never carries what was read. Not retried blind: a request that reached the server may already have started a reading.
+ */
+export async function postDocumentReading(
+  documentId: string
+): Promise<{ ok: true; status: string; message: string } | { ok: false; offline: boolean; unknown: boolean }> {
+  // The reading runs while the request is open (a multi-page document can take a while), so it gets a long timeout. A request that waited the whole
+  // timeout may STILL be running on the server: that is "unknown", and the caller must not ask again straight away. A request that failed sooner never
+  // got an answer at all (no connection): that is "offline".
+  const started = Date.now();
+  const result = await request<{ status?: string; message?: string }>("/api/mobile/document-reading", "POST", { document_id: documentId }, false, true, DOCUMENT_READING_TIMEOUT_MS);
+  if (!result.ok) {
+    const noAnswer = result.error === NETWORK_ERROR_MESSAGE;
+    const timedOut = noAnswer && Date.now() - started >= DOCUMENT_READING_TIMEOUT_MS - 2_000;
+    return { ok: false, offline: noAnswer && !timedOut, unknown: timedOut };
+  }
+  return { ok: true, status: result.data?.status ?? "suggested", message: result.data?.message ?? "" };
+}
+
+const DOCUMENT_READING_TIMEOUT_MS = 75_000;
 
 export interface DeviceRhythmRequest {
   source: "healthkit_ecg" | "ecg_report" | "device_label";
