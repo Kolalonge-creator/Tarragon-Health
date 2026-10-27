@@ -2340,6 +2340,23 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-16",
     source: "docs/design/S29.md; docs/research/S26-S30-competitor-review-and-build-plan.md (S29d); spec 4.7, 8.6",
   },
+  {
+    key: "care_circle.supporter_tools",
+    // Care Circle supporter tools (S69b). Live values are the active row of `care_circle_tools_config`; this entry mirrors it and
+    // care-circle-tools-mirror.test.ts fails if the migration seed and this value drift. missed_dose_grace_minutes: how long a dose
+    // slot may stay unanswered before a supporter the patient chose is nudged (Medisafe Medfriend waits 30 minutes; PROPOSED).
+    // missed_dose_window_minutes: after the grace, how long the nudge may still be sent (about an hour; later it would be stale and is
+    // dropped). missed_dose_max_per_day: nudges per supporter per day. digest_days: the days a weekly digest counts. task_max_open:
+    // open shared tasks per person. task_keep_days: how long finished tasks are kept. task_max_days_ahead: how far ahead a job's date may be. task_stale_days: an open job is cancelled this many days after its date. task_done_visible_days: how long a finished job stays on the list. The nudge never applies to a red event and is
+    // held back by the patient-first window while the care_circle_checkin_window module is on. All modules ship OFF; the CMO rules on
+    // the nudge (OQ-S69b-3).
+    value: { missed_dose_grace_minutes: 30, missed_dose_window_minutes: 60, missed_dose_max_per_day: 3, digest_days: 7, task_max_open: 10, task_keep_days: 30, task_max_days_ahead: 90, task_stale_days: 7, task_done_visible_days: 7 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-22",
+    source: "docs/design/S69b-care-circle.md; docs/research/S69.md; Medisafe Medfriend, Apple Health Sharing, Lotsa Helping Hands patterns",
+  },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
   {
@@ -7725,6 +7742,46 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S49a.md; supabase/migrations/20261020181309_s49a_food_logging_foundation.sql",
   },
   {
+    key: "today.home_cards",
+    // The Today screen's cards, the weekly summary gates and wearable readiness (S47b, v5 4.1, 4.5, 4.6). Live value is `home_card_config`.config, seeded
+    // INACTIVE and unsigned; the CMO signs it through sign_home_card_config. The Today screen never shows more than TWO primary actions: `max_primary_actions`
+    // is capped at 2 by the database validator and again in code, so no configuration can raise it. Readiness is a plain-language band built from stored
+    // wearable sleep, HRV and resting heart rate compared with the person's OWN recent baseline, always labelled an estimate, never a medical claim.
+    // packages/shared/src/proposed-config/today-mirror.test.ts fails if this drifts from the migration seed.
+    value: {
+      max_primary_actions: 2,
+      cards: [
+        { code: "task_due", priority: 10, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "medicines", priority: 20, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "readings", priority: 30, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "goal", priority: 40, primary_eligible: true, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "lesson", priority: 50, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "assistant_nudge", priority: 60, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "streak", priority: 70, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "weekly_summary", priority: 80, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: false } },
+        { code: "readiness", priority: 90, primary_eligible: false, rules: { goals_any: [], pathways_any: [], requires_device: true } },
+      ],
+      streak: { enabled: true },
+      weekly: { min_bp_readings: 3, window_days: 7 },
+      readiness: {
+        enabled: true,
+        max_age_hours: 36,
+        baseline_days: 14,
+        min_baseline_days: 5,
+        min_signals: 2,
+        sleep_drop_pct: 15,
+        hrv_drop_pct: 15,
+        hrv_rise_pct: 5,
+        resting_hr_rise_bpm: 5,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S47b.md; supabase/migrations/*_s47b_home_cards_and_readiness.sql",
+  },
+  {
     key: "triage.single_reading_vitals_bands",
     // The combined registry of single-reading dangerous vitals bands (pulse, SpO2, temperature) and the typo gates around them. These are the starting
     // values of the DRAFT rule set `vitals_care_triage` v1, taken over unchanged from the live older classifiers (private.classify_pulse_level,
@@ -8480,5 +8537,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
+  },
+  {
+    key: "support.sla_targets",
+    // S80d (Module 25.4): the support ticket clock. A ticket's first reply and its resolution are each due a number of minutes (hours for resolution)
+    // after it was logged, by priority. A ticket flagged clinical has its own, shorter first-reply target. warn_fraction is how much of the target may
+    // pass before the queue shows "due soon". These are PROPOSED operations targets, not a promise to patients; the founder confirms them. The clock
+    // only ever FLAGS a ticket on the staff queue: it never closes, reassigns or messages anyone.
+    value: {
+      first_response_minutes: { critical: 30, high: 120, normal: 480, low: 1440 },
+      resolution_hours: { critical: 8, high: 24, normal: 72, low: 168 },
+      clinical_first_response_minutes: 60,
+      warn_fraction: 0.75,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S80.md section 25.4 (SLA clock). Unconfirmed: no support SLA has been agreed with the founder yet.",
+  },
+  {
+    key: "ai.monitoring_rules",
+    // S80d (Module 25.10): the monthly AI review sample. The database holds it as `ai_monitoring_config` v1 (UNSIGNED, INACTIVE until the Chief Medical
+    // Officer signs on the sign-off hub; the monthly draw does nothing before). A test compares this value with the migration seed, and checks that
+    // sample_rate equals `ai.review_sample_rate`. always_sample lists the groups that are always drawn: conversations that touched an emergency or
+    // doctor-escalation grade, answers a patient reported as wrong, and cost spikes (tokens at least min_tokens and more than factor times the
+    // system's median for the month). No model price is held here; prices are entered by finance in ai_model_prices.
+    value: {
+      sample_rate: 0.05,
+      always_sample: ["emergency_touching", "patient_reported", "cost_spike"],
+      cost_spike: { factor: 3, min_tokens: 4000 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/plans/S80-S85-cmo-decision-pack.md decision 6; ai_monitoring_config version 1 (inactive). Unsigned until the CMO signs.",
   },
 ];

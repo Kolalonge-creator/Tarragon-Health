@@ -14,6 +14,7 @@
     "./titration": "./src/titration-entry.ts",
     "./pathways": "./src/pathways/index.ts",
     "./activity-gate": "./src/activity-gate.ts",
+    "./today": "./src/today.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
     "./workout-plans": "./src/workout-plans.ts"
   },
