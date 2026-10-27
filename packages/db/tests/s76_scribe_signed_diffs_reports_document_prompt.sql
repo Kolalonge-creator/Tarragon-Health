@@ -172,7 +172,7 @@ begin
     pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.scribe_signed_diffs where note_id = %L$q$, pg_temp.f('note'))));
   insert into results values ('real', 'another clinician reads none', '0',
     pg_temp.q_as(pg_temp.f('other'), format($q$select count(*)::text from public.scribe_signed_diffs where note_id = %L$q$, pg_temp.f('note'))));
-  insert into results values ('real', 'the CMO reads them for audit', '2',
+  insert into results values ('real', 'the CMO has no direct read of the note text (counts only, through the rates function)', '0',
     pg_temp.q_as(pg_temp.f('cmo'), format($q$select count(*)::text from public.scribe_signed_diffs where note_id = %L$q$, pg_temp.f('note'))));
   insert into results values ('real', 'a patient reads none', '0',
     pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.scribe_signed_diffs where note_id = %L$q$, pg_temp.f('note'))));

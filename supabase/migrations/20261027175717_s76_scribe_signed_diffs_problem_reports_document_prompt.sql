@@ -79,8 +79,10 @@ comment on table public.scribe_signed_diffs is
   'S76-S80: one row per AI scribe draft taken into a note that is then signed. Hash of the visit text, model and prompt version, the AI draft, the signed text and a word-level diff. Append-only; clinician-own read plus CMO audit read.';
 
 alter table public.scribe_signed_diffs enable row level security;
+-- Own rows only. The row holds the full AI draft and the signed note text (clinical content), so the CMO gets no direct read: the S39 rule is that
+-- a staff read of clinical text is tied to a reason and audited. The CMO sees edit rates through scribe_diff_edit_rates (counts only).
 create policy scribe_signed_diffs_read on public.scribe_signed_diffs for select to authenticated
-  using (clinician_profile_id = (select auth.uid()) or (private.credential_is_cmo() and organisation_id = private.current_org_id()));
+  using (clinician_profile_id = (select auth.uid()));
 grant select on public.scribe_signed_diffs to authenticated;
 revoke insert, update, delete, truncate on public.scribe_signed_diffs from authenticated, anon;
 
