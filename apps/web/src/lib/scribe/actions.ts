@@ -7,6 +7,10 @@ import { z } from "zod";
 import { loose } from "@/lib/clinician/loose-client";
 import { consentStateSchema } from "./consent-state";
 import { FACT_TYPES, MAX_FACTS, MAX_FACT_QUOTE, MAX_FACT_TEXT } from "./facts";
+import { DOCUMENT_KINDS } from "./documents";
+import { DRAFT_SECTION_KEYS } from "./draft-review";
+import { problemReportSchema } from "./problem-report";
+import { getProposedConfig } from "@tarragon/shared";
 
 // One definition of the context the model may see, used by both the recorded and the typed path.
 /** The only language the scribe records and drafts in. Stored as-is in the scribe tables. */
@@ -311,4 +315,133 @@ export async function draftScribeFromFacts(input: z.input<typeof DraftFromFactsS
     patientContext: parsed.patientContext,
   });
   return draftFromFactsResponseSchema.parse(out);
+}
+
+// ---------------------------------------------------------------------------
+// S76-S80: the stored edit diff, problem reports, and the draft kinds beyond the note.
+// ---------------------------------------------------------------------------
+
+const sectionDiffSchema = z.object({
+  draft_words: z.number().int().nonnegative(),
+  signed_words: z.number().int().nonnegative(),
+  words_added: z.number().int().nonnegative(),
+  words_removed: z.number().int().nonnegative(),
+  ops: z.array(
+    z.union([
+      z.object({ op: z.literal("eq"), n: z.number().int().positive() }),
+      z.object({ op: z.literal("del"), text: z.string() }),
+      z.object({ op: z.literal("ins"), text: z.string() }),
+    ]),
+  ),
+});
+
+const RecordSignedDiffSchema = z.object({
+  noteId: z.string().uuid(),
+  consentId: z.string().uuid(),
+  transcriptHash: z.string().regex(/^[0-9a-f]{64}$/),
+  model: z.string().min(1).max(100),
+  promptVersion: z.string().min(1).max(40),
+  draftHash: z.string().regex(/^[0-9a-f]{64}$/),
+  source: z.enum(["stt", "typed"]),
+  aiDraft: z.object(Object.fromEntries(DRAFT_SECTION_KEYS.map((k) => [k, z.string().max(20000)])) as Record<(typeof DRAFT_SECTION_KEYS)[number], z.ZodString>),
+  diff: z.object(Object.fromEntries(DRAFT_SECTION_KEYS.map((k) => [k, sectionDiffSchema])) as Record<(typeof DRAFT_SECTION_KEYS)[number], typeof sectionDiffSchema>),
+});
+
+/**
+ * Stores the AI draft, the text about to be signed (the database reads that from the note itself) and the word-level diff. Called right after
+ * recordScribeReview and before signing. Fails closed like the review record: a refusal is thrown and the note is not signed.
+ */
+export async function recordScribeSignedDiff(input: z.input<typeof RecordSignedDiffSchema>) {
+  const parsed = RecordSignedDiffSchema.parse(input);
+  const supabase = loose(await createClient());
+  const { error } = await supabase.rpc("record_scribe_signed_diff", {
+    p_note: parsed.noteId,
+    p_consent: parsed.consentId,
+    p_transcript_hash: parsed.transcriptHash,
+    p_model: parsed.model,
+    p_prompt_version: parsed.promptVersion,
+    p_draft_hash: parsed.draftHash,
+    p_source: parsed.source,
+    p_ai_draft: parsed.aiDraft,
+    p_diff: parsed.diff,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** "Report a problem with this draft". A result, not a thrown error, so the screen can say it failed without losing the draft. */
+export async function reportScribeProblem(input: z.input<typeof problemReportSchema>) {
+  const parsed = problemReportSchema.parse(input);
+  const supabase = loose(await createClient());
+  const { error } = await supabase.rpc("report_scribe_draft_problem", {
+    p_note: parsed.noteId,
+    p_consent: parsed.consentId,
+    p_kind: parsed.draftKind,
+    p_section: parsed.section,
+    p_category: parsed.category,
+    p_comment: parsed.comment ?? null,
+  });
+  return error ? { ok: false as const } : { ok: true as const };
+}
+
+const documentSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("letter"), body: z.string() }),
+  z.object({
+    kind: z.literal("prescription_proposal"),
+    dropped: z.number().int().nonnegative(),
+    items: z.array(z.object({ medicine: z.string(), dose: z.string(), frequency: z.string(), duration: z.string(), reason: z.string(), sourceFactId: z.string() })),
+  }),
+  z.object({
+    kind: z.literal("follow_up_tasks"),
+    dropped: z.number().int().nonnegative(),
+    items: z.array(z.object({ description: z.string(), dueInDays: z.number().int(), sourceFactId: z.string() })),
+  }),
+]);
+const documentResponseSchema = z.union([
+  z.object({ status: z.literal("disabled"), reason: z.string().optional() }),
+  z.object({ status: z.literal("ok"), document: documentSchema, modelId: z.string(), promptVersion: z.string() }),
+]);
+
+const DraftDocumentSchema = z.object({
+  scribeConsentId: z.string().uuid(),
+  encounterNoteId: z.string().uuid(),
+  kind: z.enum(DOCUMENT_KINDS),
+  confirmedFacts: z.array(factSchema).min(1).max(MAX_FACTS + 10),
+  patientContext: PatientContextSchema,
+});
+
+/**
+ * A letter, prescription proposal or follow-up task list from the facts the clinician confirmed. Nothing is stored. The edge function
+ * answers "disabled" until a human has approved the governed prompt for these kinds.
+ */
+export async function draftScribeDocument(input: z.input<typeof DraftDocumentSchema>) {
+  const parsed = DraftDocumentSchema.parse(input);
+  const out = await postScribe({
+    mode: "document",
+    documentKind: parsed.kind,
+    scribeConsentId: parsed.scribeConsentId,
+    encounterNoteId: parsed.encounterNoteId,
+    confirmedFacts: parsed.confirmedFacts,
+    source: "typed",
+    patientContext: parsed.patientContext,
+  });
+  return documentResponseSchema.parse(out);
+}
+
+const AcceptTaskSchema = z.object({
+  patientId: z.string().uuid(),
+  dueInDays: z.number().int().min(1),
+});
+
+/**
+ * The clinician accepts one drafted follow-up task: only now is a clinical_follow_ups row created, through the existing function (which checks
+ * the clinician is tied to the patient). The row holds ids and a due time only, so the drafted wording is not stored there.
+ */
+export async function acceptFollowUpTaskProposal(input: z.input<typeof AcceptTaskSchema>) {
+  const parsed = AcceptTaskSchema.parse(input);
+  const max = getProposedConfig<{ follow_up_task_max_days: number }>("scribe.review_rules").value.follow_up_task_max_days;
+  if (parsed.dueInDays > max) return { ok: false as const, reason: "too_far" as const };
+  const supabase = loose(await createClient());
+  const due = new Date(Date.now() + parsed.dueInDays * 86_400_000).toISOString();
+  const { error } = await supabase.rpc("create_clinical_follow_up", { p_patient: parsed.patientId, p_kind: "follow_up", p_due_at: due });
+  return error ? { ok: false as const, reason: "refused" as const } : { ok: true as const };
 }
