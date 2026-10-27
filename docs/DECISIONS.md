@@ -468,6 +468,11 @@ Recorded from the founder/CMO's selections. Items marked BUILD are being built i
 
 Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six migrations.
 
+## Tier names: Membership and Membership Plus (2026-10-21, supersedes the Evergreen names)
+
+| Decision | Chosen |
+|---|---|
+| Customer-facing names of the two paid tiers | **Membership** (NGN 84,000, no annual blood panel) and **Membership Plus** (NGN 129,000, with the annual blood panel). Chosen by the founder in chat after "Membership Standard" was considered and set aside: "Standard" can read as a lesser grade of care, against the same-care rule (both paid tiers are "Member" for every safety purpose). The earlier "Evergreen / Evergreen Plus" names are retired before launch. Never Basic, Lite, Standard, Premium or Gold. Internal catalogue codes and the stored tier values (`evergreen`, `plus`) are unchanged: `membership_annual` is Membership Plus, `membership_annual_no_panel` is Membership. |
 ## Founder decisions, 2026-10-21 (instalments removed; three tiers confirmed; four rulings recorded)
 
 | Decision | Chosen |
@@ -492,3 +497,29 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 |---|---|
 | **A governed server-side vision call may be built and evaluated to read a blood pressure cuff display from a photo (AI-022).** Narrows the OQ-598 line "server vision not approved". | The founder, 2026-10-22, in chat, chose "Approve for evaluation only". The feature stays OFF behind guard `cuff_camera_enabled`; AI-022 stays registered disabled. |
 | **What is still required before go-live** | A human-run AI-022 evaluation on real cuff photos, a DPO view on the transient image (held in memory only, never stored or logged), defined go-live conditions for the guard, per-user rate limiting on the route, and a further written founder go-live decision. No evaluation, approval or guard change is made by this entry. |
+
+## Founder and CMO decisions, 2026-10-23 (S71 to S75 gap closure; PRs 1316 to 1320 and follow-ups)
+
+| Decision | Chosen |
+|---|---|
+| **Community Access Fund rules (OQ-420).** | Accepted as proposed: four reasons, 100,000 naira per grant, 60 days, 1,000 naira smallest gift, 14 day pledge, 3 open pledges. Admins approve with a written reason; no CMO approval or monthly CMO review. The Fund stays OFF until counsel clears it (OQ-323). |
+| **Payment request limits (OQ-424).** | Confirmed as proposed, with no name shown on the link page. |
+| **Health Points at checkout (S73/S72).** | Values approved: 100 points per step, 5,000 kobo off Tarragon's own fee per step, at most 5 steps, never more than 50 percent of the service fee, minimum payable 10,000 kobo. A refund returns the spent points. Stays OFF behind `pricing_config.rules.points.enabled` until the founder switches it on. |
+| **Cascade-of-care definitions (OQ-WP3-01), CMO.** | Approved as written: hypertension controlled when the 7 day average is under 140/90 from at least 3 readings; diabetes controlled when the latest HbA1c in 180 days is under 7.0 percent; on treatment is any active medicine under the condition's care plan; pregnant members and under 18s excluded; fixed lines. The signature itself is made on the CMO sign-off hub after the migration is applied; nothing is signed by an agent. |
+| **Usable blood pressure reading (OQ-WP3-04).** | Tighten S38 and S75 to the stricter rule (valid, or requires_validation with only insufficient_context and a non-empty flag list). Already written snapshots are not rewritten. |
+| **Sponsors never see a comparison with other Members (OQ-WP3-05).** | Internal admin view only; revisit only after a counsel and DPO opinion. |
+| **Care purpose stays required for reproductive and mental health data (OQ-331).** | No change. |
+| **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
+
+
+## Founder decision, 2026-10-26 (annual test bundle open to everyone; Membership Plus gated by state)
+
+| Decision | Chosen |
+|---|---|
+| **The annual test bundle is open nationwide, to Free, Membership and Membership Plus, and to people abroad.** Refines the 2026-10-21 rule "Membership has no annual panel". | The founder, 2026-10-26, in chat. The patient picks the annual BUNDLE (never single tests), then chooses a partner lab or their own lab. Partner lab: choose state, then town, then see the partner labs near them with address (Synlab today; any lab added later uses the same structure). Own lab: download or print the request form (PDF) and take it to any lab. Either way the patient uploads the result when done. Tarragon does not collect blood on this path. |
+| **Who pays the lab on that path.** | The patient pays the lab directly (same as the existing self-arranged model). No Tarragon partner billing on this path. |
+| **What Membership Plus adds.** | Tarragon-arranged blood collection, available only in states an admin has approved. The Plus checkout requires the buyer to pick a state from the approved list before payment. Any of the 36 states plus FCT can be added; the admin approves or withdraws a state against capacity. Launch states: Lagos, Oyo (Ibadan), Osun, Ogun. |
+| **Supersedes in part** | The 2026-10-21 entry's statement that the annual panel is a Plus-only entitlement: the bundle flow is open to all; what is Plus-only is the Tarragon-arranged collection (and the price step now buys collection). Prices (84,000 / 129,000 / 45,000 upgrade), annual-only, no instalments and the flag `membership_two_member_tiers` (off until its blockers are met) are unchanged. |
+| **Clarified by the founder, same day.** | (1) The 45,000 naira step covers BOTH the panel and the collection, and it is Plus-only. (2) A Plus holder's collection state is the state they chose when they registered for Plus. If they later move to a state that is not approved, they travel to a state that runs the test with the panel; they are not switched to self-arranged and not refunded. Registration must say this plainly before payment. (3) Free and Membership signup is never blocked by state: anyone can join either online from anywhere, including states where Plus is not offered. |
+| **CMO** | The founder states that they are the CMO. Recording that as the founder's statement only; whether it satisfies the 2026-10-21 condition for an independent, non-founder CMO is for the founder to decide and record. An agent never signs a clinical rule: the baseline-labs proposal is drafted at `docs/design/baseline-labs-rule-proposal.md` for signing through the CMO sign-off hub. |
+| **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle is read into platform values by AI in the background (OQ-BUNDLE-1): already provided by the existing governed reader AI-005, which drafts values for a doctor to file, so nothing new was built. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |

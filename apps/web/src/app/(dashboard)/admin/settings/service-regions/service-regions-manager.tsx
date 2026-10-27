@@ -3,6 +3,7 @@
 import {
   useServiceRegions,
   useSetServiceRegionActive,
+  useSetServicePlusCollection,
   useOpenWaitlistCounts,
   type ServiceRegion,
 } from "@/lib/queries/service-regions";
@@ -14,21 +15,30 @@ export function ServiceRegionsManager() {
   const { data: regions, isLoading, isError } = useServiceRegions();
   const { data: waitlistCounts } = useOpenWaitlistCounts();
   const setActive = useSetServiceRegionActive();
+  const setPlus = useSetServicePlusCollection();
 
   const liveCount = regions?.filter((r) => r.is_active).length ?? 0;
+  const plusCount = regions?.filter((r) => r.plus_collection_enabled).length ?? 0;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>States</CardTitle>
         <CardDescription>
-          {liveCount} of {regions?.length ?? 0} states live. Deactivating a state re-gates its
+          {liveCount} of {regions?.length ?? 0} states live. {plusCount} approved for Membership Plus blood
+          collection (Plus buyers pick from these; the nationwide partner-lab list does not depend on it). Deactivating a state re-gates its
           partner actions immediately; it does not remove partner data you&apos;ve already loaded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load service regions.</p>}
+        <p className="text-xs text-charcoal-ink/60">
+          Plus approval is recorded and audited here. The Plus checkout does not read it yet; it will when the Membership Plus tier is switched on.
+        </p>
+        {setPlus.isError && (
+          <p className="text-sm text-red-600">Could not update Plus collection for that state. Please try again.</p>
+        )}
         {setActive.isError && (
           <p className="text-sm text-red-600">Could not update that state. Please try again.</p>
         )}
@@ -48,6 +58,28 @@ export function ServiceRegionsManager() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Badge variant={region.plus_collection_enabled ? "green" : "grey"}>
+                      {region.plus_collection_enabled ? "Plus on" : "Plus off"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={setPlus.isPending}
+                      onClick={() => {
+                        // Withdrawing is the one direction that can strand someone: a Plus holder's collection state is fixed when they join.
+                        if (
+                          region.plus_collection_enabled &&
+                          !window.confirm(
+                            `Withdraw Membership Plus from ${region.display_name}? Plus checkout stops offering this state straight away. Anyone who already chose it for blood collection keeps that choice, so contact them before you withdraw it.`,
+                          )
+                        ) {
+                          return;
+                        }
+                        setPlus.mutate({ id: region.id, enabled: !region.plus_collection_enabled });
+                      }}
+                    >
+                      {region.plus_collection_enabled ? "Withdraw Plus" : "Approve for Plus"}
+                    </Button>
                     <Badge variant={region.is_active ? "green" : "grey"}>
                       {region.is_active ? "Live" : "Dark"}
                     </Badge>

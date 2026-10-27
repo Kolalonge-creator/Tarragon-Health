@@ -1,6 +1,7 @@
 import { addDataUsage } from "./data-usage";
 import { loadOfflineTrustConfig } from "./offline-trust-config";
 import { looksConnected, shouldProbe, type NetState } from "./reachability-rules";
+import { connectionKindFromNetInfo } from "./connection-kind";
 import { recordSyncError } from "./sync-diagnostics";
 
 /**
@@ -52,7 +53,7 @@ async function defaultSubscribe(listener: (state: NetState) => void): Promise<()
   try {
     const mod = await import("@react-native-community/netinfo");
     const NetInfo = mod.default;
-    return NetInfo.addEventListener((s) => listener({ isConnected: s.isConnected, isInternetReachable: s.isInternetReachable }));
+    return NetInfo.addEventListener((s) => listener({ isConnected: s.isConnected, isInternetReachable: s.isInternetReachable, type: s.type }));
   } catch (error) {
     // No NetInfo on this binary: the foreground and one-minute flush carry on alone.
     recordSyncError("offline_outbox", "netinfo:unavailable", error);
@@ -89,14 +90,18 @@ export function startReconnectWatcher(deps: WatcherDeps, io: WatcherIo = default
   let lastProbeFailed = false;
   let inFlight = false;
   let connected = false;
+  let onWifi = false;
 
-  const attempt = async (): Promise<void> => {
+  const attempt = async (arrivedOnWifi = false): Promise<void> => {
     if (inFlight) return;
     inFlight = true;
     try {
       const rowsWaiting = await deps.rowsWaiting().catch(() => 0);
       const now = io.now();
-      if (!shouldProbe({ now, lastProbeAt, minIntervalMs: config.probeMinIntervalMs, rowsWaiting })) return;
+      // Arriving on Wi-Fi (S06z) is not throttled by a probe made a moment ago on mobile data: entries held for Wi-Fi are waiting for
+      // exactly this, and the one HEAD request costs nothing on Wi-Fi. It still needs something waiting.
+      const throttle = arrivedOnWifi ? 0 : config.probeMinIntervalMs;
+      if (!shouldProbe({ now, lastProbeAt, minIntervalMs: throttle, rowsWaiting })) return;
       lastProbeAt = now;
       const reachable = await io.probe(config.probeTimeoutMs);
       await addDataUsage(PROBE_BYTES_ESTIMATE);
@@ -111,9 +116,12 @@ export function startReconnectWatcher(deps: WatcherDeps, io: WatcherIo = default
 
   const unsubscribe = io.subscribe((state) => {
     const was = connected;
+    const wasOnWifi = onWifi;
     connected = looksConnected(state);
-    // A transition to connected is the trigger; repeated reports of the same state are not.
-    if (connected && !was) void attempt();
+    onWifi = connected && connectionKindFromNetInfo(state.type, state.isConnected) === "wifi";
+    // A transition to connected is the trigger; repeated reports of the same state are not. So is arriving on Wi-Fi from
+    // mobile data (S06z): entries held for Wi-Fi are waiting for exactly that, and the phone never stopped being "connected".
+    if (connected && (!was || (onWifi && !wasOnWifi))) void attempt(onWifi && !wasOnWifi);
   });
   // A failed probe (captive portal, weak signal) is retried once a minute, no faster, only while entries wait.
   const timer = io.setInterval(() => {

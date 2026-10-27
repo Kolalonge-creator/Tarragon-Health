@@ -64,6 +64,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
       <nav aria-label="Outcome reports" className="flex flex-wrap gap-3 text-sm">
         <Link href="/admin/outcomes?day=90" className="min-h-11 rounded border px-3 py-2" aria-current={day === 90 ? "page" : undefined}>Blood pressure, day 90</Link>
         <Link href="/admin/outcomes?day=180" className="min-h-11 rounded border px-3 py-2" aria-current={day === 180 ? "page" : undefined}>Blood pressure, day 180</Link>
+        <Link href="/admin/outcomes/cascade" className="min-h-11 rounded border px-3 py-2">Cascade of care (hypertension, diabetes)</Link>
         <Link href="/admin/outcomes/measures" className="min-h-11 rounded border px-3 py-2">HbA1c, weight, PHQ-9, GAD-7, retention, response times, data quality</Link>
       </nav>
       <p className="text-sm">Blood pressure is judged against each person&apos;s own home target when they have one, otherwise 140/90. Home readings usually run lower than clinic readings, so control may be overstated.</p>

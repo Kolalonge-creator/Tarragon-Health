@@ -128,6 +128,15 @@ describe("the Chief Medical Officer index", () => {
   });
 });
 
+describe("the Chief Medical Officer index for the learning content review list", () => {
+  it("finds the review list by what the CMO would type, under /clinician", () => {
+    const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmo, "expiry backlog").map((e) => e.href)).toContain("/clinician/learning-review");
+    expect(searchAdminEntries(cmo, "assign owner").map((e) => e.href)).toContain("/clinician/learning-review");
+    expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
+  });
+});
+
 describe("the Chief Medical Officer index for testing-day results", () => {
   it("finds the point-of-care results page by ECG, urine and HbA1c", () => {
     const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
@@ -307,6 +316,11 @@ describe("Learning Centre admin pages (S55) are searchable", () => {
     expect(top("placeholder")[0]).toBe("/admin/settings/health-education/readiness");
     expect(top("review date")[0]).toBe("/admin/settings/health-education/readiness");
   });
+  it("finds the expiry backlog page (every console page needs a search entry)", () => {
+    expect(top("expiry backlog")[0]).toBe("/admin/settings/health-education/expiry");
+    expect(top("assign owner")[0]).toBe("/admin/settings/health-education/expiry");
+    expect(top("hidden by expiry")[0]).toBe("/admin/settings/health-education/expiry");
+  });
   it("finds the zero-result search page", () => {
     expect(top("no result")[0]).toBe("/admin/settings/health-education/search-gaps");
     expect(top("synonyms")[0]).toBe("/admin/settings/health-education/search-gaps");
@@ -317,5 +331,35 @@ describe("Learning creator credentials page for clinicians (S55)", () => {
   it("is findable by the Chief Medical Officer", () => {
     const cmoIdx = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
     expect(searchAdminEntries(cmoIdx, "mdcn creator", 3).map((e) => e.href)[0]).toBe("/clinician/learning-creator");
+  });
+});
+
+describe("the engagement and outcomes dashboard is searchable", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("is found by the words someone would type, for the admin and for the CMO", () => {
+    for (const q of ["engagement and outcomes", "do points work", "health points outcomes", "difference in differences", "self selection"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/outcomes/engagement");
+      expect(hit(cmoIndex, q)).toContain("/clinician/engagement-outcomes");
+    }
+  });
+
+  it("points the CMO at /clinician and never at /admin", () => {
+    expect(cmoIndex.filter((e) => e.href.includes("engagement")).every((e) => e.href.startsWith("/clinician"))).toBe(true);
+  });
+});
+
+describe("the founder view is searchable by the admin and never by the CMO", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("is found by the words someone would type", () => {
+    for (const q of ["founder view", "unfrozen", "held back figures", "small groups"]) {
+      expect(searchAdminEntries(adminIndex, q, 8).map((e) => e.href)).toContain("/admin/outcomes/engagement/founder");
+    }
+  });
+  it("is not in the CMO's index at all", () => {
+    expect(cmoIndex.some((e) => e.href.includes("founder"))).toBe(false);
   });
 });

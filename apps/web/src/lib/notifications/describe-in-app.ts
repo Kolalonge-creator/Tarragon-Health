@@ -144,12 +144,23 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_join_ready") {
     return { text: "Your consultation room is open. Open the app to join.", href: `/patient/consultation/${String(payload.encounter_id ?? "")}` };
   }
+  // WP1: a neutral preview (INV-07); the details are on the Membership screen, never in the bell.
+  if (n.template === "price_change_notice") {
+    return { text: "A price is changing. What you hold is already paid for, so nothing changes for you. Open the app to see the details", href: "/patient/membership" };
+  }
   // PCC: neutral previews (INV-07).
   if (n.template === "consult_checkin_due") {
     return { text: "Your care team has a quick check-in for you. Open the app to answer", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
   }
   if (n.template === "consult_checkin_nudge") {
     return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
+  }
+  // S59c: neutral previews for the follow-up after a symptom check (INV-07). Nothing names a symptom, a result or a person.
+  if (n.template === "symptom_checkback_due") {
+    return { text: "Your care team would like to know how you are getting on. Open the app to answer", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
+  }
+  if (n.template === "symptom_checkback_nudge") {
+    return { text: "Your quick follow-up is still waiting whenever you are ready", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
   }
   if (n.template === "consult_missed") {
     return {
@@ -791,6 +802,15 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "assistant_daily_nudge") {
     // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
     return { text: "Your check-in for today is ready", href: "/patient/care" };
+  }
+  if (n.template === "learning_expiry_owner" || n.template === "learning_expiry_cmo_digest") {
+    // Generic by design (INV-07): a count is never shown, no item title or topic is named. The link depends on which console the recipient
+    // uses, which the job stamped into the payload from their role; anything else falls back to the clinician page (the safer default).
+    const area = (n.payload as Record<string, unknown> | null)?.area;
+    return {
+      text: n.template === "learning_expiry_owner" ? "Some learning content you look after is due for review soon" : "Learning content is coming up for review",
+      href: area === "admin" ? "/admin/settings/health-education/expiry" : "/clinician/learning-review",
+    };
   }
   if (n.template === "assistant_weekly_reflection") {
     return { text: "Your look back at this week is ready", href: "/patient/care" };

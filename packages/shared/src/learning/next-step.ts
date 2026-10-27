@@ -26,6 +26,8 @@ export interface TrustFields {
   readonly evidenceSource?: string | null;
   readonly clinicalAuthorName?: string | null;
   readonly creatorName?: string | null;
+  /** The short "what changed since the last review" note. Shown only when it has text; never required for a first publish. */
+  readonly reviewChangeNote?: string | null;
 }
 
 export interface TrustLine {
@@ -34,6 +36,7 @@ export interface TrustLine {
   readonly nextReview: string | null;
   readonly sources: string | null;
   readonly author: string | null;
+  readonly changeNote: string | null;
   /** True when any of reviewer, review date or sources is missing: the card then says details are being added. */
   readonly incomplete: boolean;
 }
@@ -50,6 +53,7 @@ export function buildTrustLine(f: TrustFields): TrustLine {
     nextReview: clean(f.nextReviewDue)?.slice(0, 10) ?? null,
     sources,
     author: clean(f.creatorName) ?? clean(f.clinicalAuthorName),
+    changeNote: clean(f.reviewChangeNote),
     incomplete: !reviewedBy || !reviewedOn || !sources,
   };
 }

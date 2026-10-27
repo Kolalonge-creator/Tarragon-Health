@@ -94,14 +94,14 @@ export function MarketingNav() {
     <>
       {/* Utility strip: scrolls away, leaving the floating nav bar sticky. */}
       <div className="bg-deep-forest text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-0.5 sm:px-6">
           <p className="hidden text-xs text-white/70 sm:block">Care that stays with you.</p>
-          <nav aria-label="Audiences" className="flex items-center gap-4 text-xs">
+          <nav aria-label="Audiences" className="flex items-center gap-1 text-xs">
             {AUDIENCE_LINKS.map(({ key, label }) => (
               <Link
                 key={key}
                 href={MARKETING_ROUTES[key]}
-                className="text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 rounded-sm"
+                className="inline-flex min-h-9 items-center rounded-sm px-2 text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 {label}
               </Link>
