@@ -1,0 +1,822 @@
+{
+ "generated": "2026-10-27",
+ "note": "Baseline of every non-test file that uses the service-role key. Adding a file needs a reviewed reason; removing one is always fine.",
+ "files": [
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/account-recovery/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/employers/[organisationId]/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/employers/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/members/[id]/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/settings/lab-result-consult-pricing/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/settings/members/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/settings/members/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/settings/partners/labs/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/admin/settings/partners/pharmacies/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/attestation-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/availability/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/escalations/[escalationId]/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/lab-result-consults/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/screening-result-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/second-opinions/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/clinician/vaccinations/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/dashboard/corporate/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/ai-coach-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/ai-coach-quick-action.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/appointments/video-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/cvd-risk-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/family/add-child-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/family/add-elder-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/family/claim-dependent-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/health-check-video-consult-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/mens-health-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/sexual-health/fertility-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/sexual-health/sexual-wellness-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/sexual-health/sti-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/skin-photo-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/patient/video-visit-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/payer/team/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(dashboard)/provider-org/staff/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(marketing)/_components/eligibility-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/(marketing)/contact/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/access-fund/page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/admin/search/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/auth/recovery/contact/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/broadcasts/track-click/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/broadcasts/track-open/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/broadcasts/unsubscribe/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/community/images/[id]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/community/images/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/credentialing/documents/[documentId]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/assistant-nudges/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/assistant-review-sample/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/assistant-silence/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/clinical-rules/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/community-housekeeping/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/community-overdue/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/credential-document-purge/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/device-connectivity-check/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/entitlement-expiry/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/entitlement-reminders/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/fraud-sweep/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/generate-quarterly-reports/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/health-report-build/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/integration-health-check/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/lab-turnaround-check/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/learning-expiry-alerts/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/order-refunds/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/pharmacy-order-refunds/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/reconcile-payment-providers/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/reproductive-deletions/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/service-purchase-guarantee-refunds/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/skin-photo-purge/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/testing-day-reminders/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/video-visit-refunds/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/voucher-cancellation-refunds/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/cron/wearable-sync/route.ts",
+   "category": "cron or webhook route (no user session)"
+  },
+  {
+   "file": "apps/web/src/app/api/health/deadman/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/health/deep/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/integrations/device-readings/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/integrations/me/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/internal/notifications/lab-order-request-pdf/[orderId]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/internal/notifications/preventive-care-plan-pdf/[patientId]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/media/[code]/stream/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/ai-coach/handoff/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/ai-coach/message/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/ai-coach/prep-draft/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/ai-coach/quick-action/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/ecg-report-upload/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/health-check/confirm-video-slot/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/health-samples/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/lab-result-replace/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/lab-result-upload/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/sexual-health/fertility-assessment/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/sexual-health/sexual-wellness-screen/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/sexual-health/sti-risk-check/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/mobile/video-visits/select-alternate-slot/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/protocol-api/v1/me/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/reputation/trustpilot-click/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/second-opinions/documents/[documentId]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/status/canary/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/track/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/wearables/callback/[provider]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/wearables/webhook/[provider]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/written-questions/attachments/[attachmentId]/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/api/zoom/webhook/route.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/app/onboarding/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/components/account/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/components/account/phone-change-confirm-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/components/symptom/skin-photo-reviews-page.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/components/your-care-team.tsx",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/account/step-up.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-coach/graph.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-coach/handoff-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-coach/knowledge-base.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-coach/referral-tool.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-governance/run-coach-eval-suites.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-governance/run-imaging-eval-suites.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-governance/run-scribe-eval-suites.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ai-governance/run-scribe-facts-eval.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/alcohol/escalate.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/appointment-prep/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/appointments/confirm-with-video-setup.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/auth/recovery/recovery-routes.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/auth/signup-cohort-code.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/auth/signup-gate.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/billing/booking-checkout.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/billing/service-purchase-checkout.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/broadcasts/link-token.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/care-messages/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/care-messages/attachments.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/case-briefs/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/case-cockpit/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/consultations/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/consultations/mobile-deps.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/credentialing/applicant-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/cv-risk/escalate.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/cycle/reminders.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/data-quality/run.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/document-capture/request-reading.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ecg-reports/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ecg-reports/extraction-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/emergency/alert-contact.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/go-live/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/health-report/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/health-score/assess-health-score.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/imaging-reports/document-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/imaging-reports/documents.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/institutions/aggregate-access.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/integrations/api-key.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/integrations/events.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/integrations/external-identifiers.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/integrations/gateway.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lab-reports/extraction-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lab-results/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lab-results/structured-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lifestyle/coaching-run.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lifestyle/embed-content.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lifestyle/ingest.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lifestyle/messaging-gateway.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/lifestyle/service.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/masked-calls/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/mental-health/save-screens.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/ml/assess-bp-control.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/notifications/lab-result-consult-confirmation.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/notifications/queue-risk-signal-attention.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/notifications/video-call-requested.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/notifications/video-consult-confirmation.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/partner-admin/invite-staff-action.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/passkeys/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/passkeys/server.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/patient-duplicates/run.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/patient-explainer/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/payment-request/preview.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/prescriptions/signature.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/preventive/generate-vaccination-schedule.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/protocol-api/check-quota.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/protocol-api/log-usage.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/referrals/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/referrals/outcome-documents.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/risk-reassessment/run.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/service-navigation/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/sleep/escalate.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/supabase/sign-storage-paths.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/symptom-triage/run-step.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/testing-days/actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/vaccination-cards/extraction-actions.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/vaccination/set-non-administration.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/vitals/assess-glucose.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/vitals/assess-heart-rate.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/wearables/state-token.ts",
+   "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "packages/auth/src/supabase/service-role.ts",
+   "category": "the factory itself"
+  },
+  {
+   "file": "supabase/functions/abnormal-result-handler/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/auth-send-sms-hook/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/expo-push-receipts/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/hmo-eligibility/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/integration-outbound-drain/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/order-checkout/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/order-reconcile/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/order-verify/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/payouts/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/paystack-webhook/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/process-events/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/provider-event-drain/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/refund-reconcile/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/resend-webhook/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/scribe-draft/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/send-pending-notifications/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/settlement-reconcile/index.ts",
+   "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/zoom-webhook/index.ts",
+   "category": "edge function (runs with no user session)"
+  }
+ ]
+}
