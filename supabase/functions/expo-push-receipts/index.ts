@@ -5,6 +5,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { classifyExpoReceipt, type ExpoReceipt } from "../_shared/notifications/delivery.ts";
 
+import { withSentry } from "../_shared/observability/sentry.ts";
 interface Due { event_id: string; notification_id: string; provider_ref: string; subscription_id: string | null }
 
 function sameSecret(a: string, b: string): boolean {
@@ -15,7 +16,7 @@ function sameSecret(a: string, b: string): boolean {
   return diff === 0;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("expo-push-receipts", async (req) => {
   const expected = Deno.env.get("NOTIFICATION_JOBS_SECRET");
   if (!expected) return Response.json({ error: "not configured" }, { status: 503 });
   if (!sameSecret(req.headers.get("x-notification-jobs-secret") ?? "", expected)) {
@@ -72,4 +73,4 @@ Deno.serve(async (req) => {
     else failed++;
   }
   return Response.json({ checked: due.length, delivered, tokenDead, failed, waiting });
-});
+}));

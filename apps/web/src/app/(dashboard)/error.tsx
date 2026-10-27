@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { UnconfirmedEmergencyNotice } from "@/components/unconfirmed-emergency-notice";
 
 /**
  * Error boundary for the whole signed-in dashboard surface. Before this file
@@ -42,7 +43,8 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16 text-center">
-      <p className="font-heading text-5xl font-bold text-brand-green">Oops</p>
+      <UnconfirmedEmergencyNotice />
+      <p className="mt-6 font-heading text-5xl font-bold text-brand-green">Oops</p>
       <h1 className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
         Something didn&rsquo;t load properly
       </h1>

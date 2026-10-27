@@ -318,6 +318,24 @@ const SECURITY_NOTICE_ENTRIES: Record<string, (payload: Record<string, unknown>)
   Object.entries(SECURITY_NOTICE_SUBJECTS).map(([key, subject]) => [key, securityNoticeRender(subject)]),
 );
 
+/** S69b: one fixed, generic message for the Care Circle updates that must say nothing about anyone (INV-07). */
+function circleUpdateTemplate(pushUrl: string) {
+  return {
+    smsText: "Your circle has an update. Tarragon Health",
+    pushUrl,
+    email: {
+      subject: "Your circle has an update",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your circle has an update.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your circle has an update.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  };
+}
+
 // Unknown template keys are never guessed at — see the caller below.
 export const TEMPLATE_MAP: Record<
   string,
@@ -936,6 +954,22 @@ export const TEMPLATE_MAP: Record<
       },
     };
   },
+  sponsored_reservation_ready: () => ({
+    // Part C D3 (no SMS): the person the sponsor paid for is never texted, so the sponsor is told in the app that the
+    // link is ready to share. Neutral (INV-07): names no person, service, price or condition.
+    smsText: "The care you paid for is ready to share. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "The care you paid for is ready to share",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your payment went through and the care you paid for is ready to share.</p>` +
+        `<p>Open Tarragon Health, go to People you support, and copy the private link to give to them yourself. We do not text them.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your payment went through and the care you paid for is ready to share.\n\nOpen Tarragon Health, go to People you support, and copy the private link to give to them yourself. We do not text them.\n\nTarragon Health",
+    },
+  }),
   sponsor_spend_receipt: (payload) => {
     const beneficiary = String(payload.beneficiary_name ?? "someone you support");
     const what = String(payload.what ?? "care");
@@ -1431,6 +1465,28 @@ export const TEMPLATE_MAP: Record<
       },
     };
   },
+  // S80 directory freshness: an email to a partner's contact address asking them to confirm their listing details. Names only the
+  // last check date; no patient, clinical or financial detail (non_clinical content class). Sent only while the
+  // directory_partner_stale_email guard is on.
+  directory_partner_recheck_notice: (payload) => {
+    // The listing name is deliberately not echoed: a laboratory or pharmacy name can trip the neutral-wording lint, and the recipient already
+    // knows which listing the address belongs to.
+    const last = String(payload.last_checked ?? "not yet");
+    const message = `Please confirm that the details we show for your listing are still correct (address, opening hours, phone and licence). We last checked on ${last}. Reply to this email or tell your Tarragon Health contact.`;
+    return {
+      smsText: message,
+      email: {
+        subject: "Please confirm your Tarragon Health listing details",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
   // S29 Care Circle (INV-07): fixed wording, nothing from the payload is echoed, nothing names a condition, reading or result.
   // circle_check_in is the red alert to a supporter who holds red_alerts; the others are notices about the circle itself.
   circle_check_in: () => ({
@@ -1624,6 +1680,11 @@ export const TEMPLATE_MAP: Record<
       text: "Your pause on sharing has ended.\n\nThe people in your Care Circle can see what you chose to share again. You can pause again, or change who sees what, in Tarragon Health.\n\nTarragon Health",
     },
   }),
+  // S69b (INV-07): the weekly digest, the gentle nudge and a shared-job update all use the same generic line. Nothing from the payload is
+  // echoed: no name, no reading, no dose, no medicine, no condition. What the update is, and about whom, is behind the sign-in.
+  circle_digest: () => circleUpdateTemplate("/patient/supporting"),
+  circle_gentle_nudge: () => circleUpdateTemplate("/patient/supporting"),
+  circle_task_update: () => circleUpdateTemplate("/patient/care-circle"),
   circle_gift_waiting: () => ({
     smsText: "Someone has paid for care for you. Open Tarragon Health to accept it. Tarragon Health",
     pushUrl: "/patient/care-circle",

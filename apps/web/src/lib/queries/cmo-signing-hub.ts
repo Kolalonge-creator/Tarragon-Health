@@ -24,6 +24,7 @@ import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
 import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
@@ -86,6 +87,8 @@ export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
 /** S90: the care gap rule configuration (the lines each rule uses, the outreach ladder, the weekly cap, the quiet hours). Unsigned means shadow mode at most: nobody is contacted. */
 export const CARE_GAP_CONFIG_ITEM_KEY = "care_gap_config";
+/** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
+export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
@@ -108,7 +111,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, aiMonitoring] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -137,6 +140,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
     readPendingCareGapConfigSignoff(supabase),
+    readPendingAiMonitoringSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -482,6 +486,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (aiMonitoring.version !== null) {
+    items.push({
+      key: AI_MONITORING_ITEM_KEY,
+      title: "AI monitoring rules",
+      detail: `AI monitoring rules version ${aiMonitoring.version} (the monthly review sample: what is always drawn, and the random share) are waiting for your signature. No monthly sample is drawn until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -505,6 +520,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
     ...(careGapConfig.failed ? ["the care gap rules"] : []),
+    ...(aiMonitoring.failed ? ["the AI monitoring rules"] : []),
     ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
   ];

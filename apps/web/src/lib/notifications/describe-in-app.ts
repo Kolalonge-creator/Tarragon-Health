@@ -330,6 +330,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
     };
   }
+  if (n.template === "sponsored_reservation_ready") {
+    // From the Paystack webhook (OQ-727, no SMS): the person the sponsor paid for is not texted, so the sponsor is told the
+    // claim link is ready to share. Fixed neutral line: no name, service or price (INV-07).
+    return { text: "The care you paid for is ready to share. Copy the link and give it to them yourself", href: "/patient/supporting" };
+  }
   if (n.template === "care_message_safety_flag") {
     // From private.after_care_message_insert_safety_screen() (17.12) — a
     // patient/sponsor care message matched the deterministic danger-phrase
@@ -716,6 +721,21 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "community_update") {
     // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
     return { text: "Your group has an update", href: "/patient/cohorts" };
+  }
+  if (n.template === "circle_digest") {
+    // S69b: the weekly note for a supporter. The content is built when they open it, from the permissions the patient gave (INV-07).
+    return { text: "Your Care Circle weekly update is ready", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_gentle_nudge") {
+    // S69b: the gentle nudge. Says nothing about doses, medicines or readings; the screen shows only a first name.
+    return { text: "Someone in your Care Circle may like a friendly call", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_task_update") {
+    // S69b: a shared job changed. No name, no kind of job, nothing medical. A notice to a helper carries only whose circle it is (a uuid,
+    // never echoed in the text) so it opens that person's page; the patient's own notice opens their Care Circle.
+    const pid = typeof payload["patient_id"] === "string" ? payload["patient_id"] : null;
+    const isUuid = pid !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+    return { text: "Your circle has an update", href: isUuid ? `/patient/supporting/circle/${pid}` : "/patient/care-circle" };
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };

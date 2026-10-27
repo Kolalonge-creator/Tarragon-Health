@@ -363,3 +363,17 @@ describe("the founder view is searchable by the admin and never by the CMO", () 
     expect(cmoIndex.some((e) => e.href.includes("founder"))).toBe(false);
   });
 });
+
+describe("S80d pages (every console page needs a search entry)", () => {
+  const real = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const top = (q: string) => searchAdminEntries(real, q, 8).map((e) => e.href);
+  const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+  const topCmo = (q: string) => searchAdminEntries(cmo, q, 8).map((e) => e.href);
+  it("finds AI monitoring, the triage version comparison, the support queue and the patient thread", () => {
+    expect(top("ai monitoring")).toContain("/admin/ops/ai-monitoring");
+    expect(topCmo("ai monitoring")).toContain("/clinician/ai-monitoring");
+    expect(topCmo("compare triage versions")).toContain("/clinician/triage-protocols/compare");
+    expect(top("regression loosened")).toContain("/admin/settings/triage-protocols/compare");
+    expect(topCmo("log email ticket")).toContain("/clinician/support-tickets");
+  });
+});
