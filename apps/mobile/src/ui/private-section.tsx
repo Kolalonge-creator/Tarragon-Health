@@ -58,7 +58,7 @@ export function PrivateSection({ accountId, title, outside, children }: { accoun
   );
 }
 
-function PinInput({ value, onChange, label, max, disabled }: { value: string; onChange: (v: string) => void; label: string; max: number; disabled?: boolean }) {
+export function PinInput({ value, onChange, label, max, disabled }: { value: string; onChange: (v: string) => void; label: string; max: number; disabled?: boolean }) {
   const { scheme } = useTheme();
   const colors = useLegacyColors();
   const style = useTextInputStyle();
@@ -81,7 +81,7 @@ function PinInput({ value, onChange, label, max, disabled }: { value: string; on
   );
 }
 
-function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
+export function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   const cfg = getPrivateLockConfig();
   const colors = useLegacyColors();
   const [pin, setPin] = useState("");
@@ -112,7 +112,7 @@ function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   );
 }
 
-function UnlockCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
+export function UnlockCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   const cfg = getPrivateLockConfig();
   const colors = useLegacyColors();
   const [pin, setPin] = useState("");

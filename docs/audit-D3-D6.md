@@ -76,3 +76,16 @@ Owner is who has to act. "Unconfirmed" means no written regulator or counsel con
 - Live `regulatory_obligations` row count and who maintains it.
 - `audit_log` immutability.
 - INV-14 names `app_config` for go-live guards; live has no `app_config` table (queried). The guards live elsewhere (S37 dashboard), so the spec wording is stale. Noted so the S83 build does not add such a table.
+
+## Status update, 2026-10-27 (privacy basics; re-checked against `origin/main-dev`)
+
+| Item | Status now | Evidence |
+|---|---|---|
+| 1.4 withdraw consent in two taps on mobile | Already closed | `withdrawConsent` and the privacy consent controls exist on the phone (S04b-2, #1046) |
+| consent receipt | Already closed | Web consent receipts panel and PDF; the phone privacy screen |
+| 1.11 audit log tamper resistance | Already closed, proved | `s02_identity_consent_audit_baseline.sql` (UPDATE fails with "append-only"), `audit_log_select_narrowed.sql` (clients cannot update or delete) |
+| 1.13 / 1.14 no ad or marketing SDKs | **Closed here, by test** | `packages/shared/src/no-tracking-sdk.test.ts`: no denied dependency in any package.json, no tracking host in source, none in the content-security policy, none in the mobile plugins |
+| 1.17 app-specific PIN | **Built here** | Optional PIN on the whole-app lock, PIN only (OQ-731); lock screen shows the PIN card when one is set; Settings control; 7 new controller tests |
+| 1.18 app-switcher protection | **Partly built here** | iOS cover for App lock and discreet mode users (OQ-730). Android and screenshot blocking need a native build |
+| 1.16 neutral app icon and name | Open | Needs a native build (OQ-728 in PR #1337) |
+

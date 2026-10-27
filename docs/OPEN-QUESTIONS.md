@@ -5959,3 +5959,16 @@ The request status function and the PDF routes now hide sensitive requests from 
 ### OQ-735 Queued wellbeing check-ins have no client id and take the phone clock (raised 2026-10-27)
 - The check-in table has no client id column, so the queue de-duplicates by looking up an existing row for the same person and check-in time. That lookup is allowed only for the patient or a supporter with mental-health read access, so for a helper acting for someone without that permission a retry after a lost reply could store a second check-in. The fix is a `client_id` column with a unique index, which is a migration (the activity log already works this way).
 - A queued check-in is stamped with the phone clock. Vitals have a back-date window and the server clock as the cap; check-ins do not. A phone with a wrong clock stores a wrong check-in time. Option: clamp to the server time on send when the recorded time is in the future.
+
+### OQ-730 Screenshot blocking and the Android app-switcher cover need a native change (raised 2026-10-27)
+- Built: a privacy cover that hides the app in the app switcher for anyone with App lock or discreet mode on (`lib/privacy-cover.ts`, `ui/privacy-cover.tsx`). On iOS the snapshot is taken as the app goes inactive and React draws the cover in that window, so this works. On Android the system takes the recents thumbnail as the activity pauses, before JavaScript can react, so the React cover is not reliable there.
+- Also not covered even on iOS: anything shown inside a React Native `Modal` (the emergency guidance, consent and several sheets). A Modal is a separate native window, so a cover drawn by the app sits underneath it. If the app is backgrounded with one open, the snapshot shows that Modal.
+- Not built: blocking screenshots and screen recording, and a dependable Android thumbnail. Both need the window's secure flag (`FLAG_SECURE`) through a native module such as `expo-screen-capture`, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build and a test on real phones. iOS cannot block a screenshot at all, only notice it.
+- Decision needed: which screens get the secure flag (the whole app, or only reproductive health, HIV, mental health and the private section), and whether to spend a native build on it now.
+
+### OQ-731 The app PIN has no biometric on purpose (raised 2026-10-27)
+- The optional app PIN (Settings, under App lock) is PIN only. The device biometric prompt falls back to the phone's own passcode, which is exactly what an app PIN exists to stop: anyone who knows the phone's passcode would get in. It reuses the tested private-section controller (lockout after repeated wrong tries, hashed PIN in the keystore) with its own stored record, so a PIN for one lock never opens the other.
+- A forgotten PIN is cleared with a code sent to the account's phone or email (the same recovery as the private section); only the PIN on that device is removed.
+- Option for later: let the PIN be combined with a biometric that does not fall back to the passcode (`disableDeviceFallback`). Not done, because it is a behaviour the device test in S66 never covered.
+- Not run on a real phone.
+

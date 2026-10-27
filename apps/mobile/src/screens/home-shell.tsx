@@ -385,7 +385,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     ),
     emergency: () => <EmergencyCardScreen patientId={userId} organisationId={organisationId} />,
     settings: () => (
-      <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+      <SettingsScreen patientName={patientName} initials={initials} accountId={userId} onNavigate={handleSelect} />
     ),
     womensHealth: () => (
       <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
