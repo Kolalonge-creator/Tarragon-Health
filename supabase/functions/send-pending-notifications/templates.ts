@@ -1465,6 +1465,28 @@ export const TEMPLATE_MAP: Record<
       },
     };
   },
+  // S80 directory freshness: an email to a partner's contact address asking them to confirm their listing details. Names only the
+  // last check date; no patient, clinical or financial detail (non_clinical content class). Sent only while the
+  // directory_partner_stale_email guard is on.
+  directory_partner_recheck_notice: (payload) => {
+    // The listing name is deliberately not echoed: a laboratory or pharmacy name can trip the neutral-wording lint, and the recipient already
+    // knows which listing the address belongs to.
+    const last = String(payload.last_checked ?? "not yet");
+    const message = `Please confirm that the details we show for your listing are still correct (address, opening hours, phone and licence). We last checked on ${last}. Reply to this email or tell your Tarragon Health contact.`;
+    return {
+      smsText: message,
+      email: {
+        subject: "Please confirm your Tarragon Health listing details",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hello,</p>` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `Hello,\n\n${message}\n\nTarragon Health`,
+      },
+    };
+  },
   // S29 Care Circle (INV-07): fixed wording, nothing from the payload is echoed, nothing names a condition, reading or result.
   // circle_check_in is the red alert to a supporter who holds red_alerts; the others are notices about the circle itself.
   circle_check_in: () => ({
