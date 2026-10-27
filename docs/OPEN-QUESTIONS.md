@@ -5655,3 +5655,9 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) a removal migration following the CLAUDE.md pattern (count rows first, delete the enum VALUES, rewrite dependents, end in a DO block of assertions, reconcile `seed.sql`); (b) keep the values as a permanently refused channel.
 - Recommend (a), after the code in this change is deployed (the deployed `send-pending-notifications` must not query a dropped value).
 - Decision: pending.
+
+### OQ-733 The lifestyle nudge text (AI-002) reaches people as a notification, not a labelled screen (raised by the S87 review fixes)
+- Blocks: nothing. `AI_SYSTEM_SURFACES` (`packages/shared/src/part-c-scan/ai-surfaces.ts`) now makes every registered AI system say where a person sees its output. AI-002 (`lib/lifestyle/coaching-proposer.ts`) writes a short in-app nudge for a patient who has gone quiet on a lifestyle programme; it passes the tone guard and the neutral notification lint, then goes out through the notification pipeline. There is no screen of its own to carry the shared `AiLabel`, so the entry says `noText` and points here.
+- Options: (a) add one fixed line to the in-app rendering of that template ("Written by AI") through the template mechanism, so the notification bell says it; (b) leave it, because the nudge is a coaching reminder the tone guard already limits and no clinical content reaches it.
+- Recommend (a) once the CMO has read a sample of real nudges, because an unlabelled model-written message to a patient is the case the `ai-label` rule exists for.
+- Decision: pending.

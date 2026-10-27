@@ -865,7 +865,7 @@ export async function processVerifiedEvent(
           const unexpectedKind: never = metadata.kind;
           await markFailed(
             `charge.success with unrecognised metadata.kind=${String(unexpectedKind)} (reference=${event.data.reference}): ` +
-              "if this is a retired charge (for example the removed platform_credit_topup), refund it in Paystack and reconcile manually",
+              "if this is a retired charge, refund it in Paystack and reconcile manually",
           );
         }
         break;

@@ -11,6 +11,7 @@ export const AI_LABEL_TEXT = {
   directory: "Drafted by AI: from our facility directory, not a recommendation",
   explainer: "Drafted by AI: for understanding, not a diagnosis",
   coach: "Written by AI, not by a doctor",
+  plan: "Drafted by AI: a starting point, not a prescription",
 } as const;
 
 export type AiLabelVariant = keyof typeof AI_LABEL_TEXT;

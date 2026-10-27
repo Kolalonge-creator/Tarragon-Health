@@ -13,7 +13,6 @@ export interface PartCAllow {
   readonly reason: string;
 }
 
-
 export const PART_C_ALLOWLIST: readonly PartCAllow[] = [
   // SMS: none beyond verification codes (sent by Supabase phone auth, never through the app). The emergency-contact exception (D3) and clinician SMS paging were removed 2026-10-16 (OQ-332, OQ-333); the last SMS and voice sender code (OQ-727) was deleted 2026-10-27.
   // Fertile window: the six `fertile-window-label` entries were removed by S85 D2 (OQ-12): opt-in "Planning a pregnancy"

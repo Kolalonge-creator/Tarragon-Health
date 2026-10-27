@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "How pricing works",
     subtitle:
-      "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, and how Tarragon compares to your HMO.",
+      "Our No-Hidden-Cost Promise, why there is nothing to trial, giving Membership, how Tarragon compares to your HMO, and booking step-by-step.",
   });
 }
