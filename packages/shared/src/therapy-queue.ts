@@ -109,6 +109,8 @@ export interface CachedSession {
   checkpoint: boolean;
   instruments: string[];
   cachedAt: string;
+  /** S96: the exercises of a pain programme session, kept so they can be read again with no signal. */
+  msk?: import("./msk-programmes").MskStartExtras | null;
 }
 
 export async function cacheSession(store: AsyncStore, enrolmentId: string, s: CachedSession): Promise<void> {

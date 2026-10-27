@@ -9,6 +9,8 @@
  *  - "BUILD"    : a number the build had to choose so the engine can run; the CMO must replace or confirm it.
  */
 
+import { MSK_EXCLUSION_LISTS, MSK_INSTRUMENTS, MSK_SETTINGS, type MskSettings } from "./msk-config-data";
+
 export type TherapyRoute = "crisis" | "same_day_clinician" | "medical_review_first" | "education_only";
 export type TherapyRuleKind = "yes_no" | "score_at_least" | "score_below";
 
@@ -38,7 +40,7 @@ export const THERAPY_PROGRAMME_CODES = [
 ] as const;
 export type TherapyProgrammeCode = (typeof THERAPY_PROGRAMME_CODES)[number];
 
-const PAIN_RED_FLAGS: readonly TherapyExclusionRule[] = [
+const PAIN_RED_FLAGS_V1: readonly TherapyExclusionRule[] = [
   { code: "saddle_numbness", question: "Do you have numbness or odd feelings around your genitals, buttocks or inner thighs (the saddle area)?", kind: "yes_no", route: "same_day_clinician" },
   { code: "bladder_or_bowel_change", question: "Have you noticed a new change in passing urine or opening your bowels, such as leaking or not being able to go?", kind: "yes_no", route: "same_day_clinician" },
   { code: "weakness_both_legs", question: "Do you have weakness in both legs?", kind: "yes_no", route: "same_day_clinician" },
@@ -95,10 +97,11 @@ export const THERAPY_EXCLUSION_LISTS: Readonly<Record<TherapyProgrammeCode, read
     { code: "epworth_total", question: "Epworth Sleepiness Scale total score (0 to 24)", kind: "score_at_least", threshold: 10, route: "medical_review_first" },
     { code: "stopbang_total", question: "STOP-Bang total score (0 to 8)", kind: "score_at_least", threshold: 3, route: "medical_review_first" },
   ],
-  pain_back: PAIN_RED_FLAGS,
-  pain_neck: PAIN_RED_FLAGS,
-  pain_knee: PAIN_RED_FLAGS,
-  pain_hip: PAIN_RED_FLAGS,
+  // S96: list version 2 for the four pain programmes (the version 1 scaffold list is PAIN_RED_FLAGS, kept in the S63 migration as history).
+  pain_back: MSK_EXCLUSION_LISTS.pain_back,
+  pain_neck: MSK_EXCLUSION_LISTS.pain_neck,
+  pain_knee: MSK_EXCLUSION_LISTS.pain_knee,
+  pain_hip: MSK_EXCLUSION_LISTS.pain_hip,
   low_mood: MOOD_RULES,
   stress: MOOD_RULES,
   anxiety: MOOD_RULES,
@@ -131,6 +134,8 @@ export interface TherapyProgrammeConfig {
   };
   /** The pelvic floor dose (NICE NG123 style). BUILD, the CMO confirms. */
   readonly pelvic_floor: { readonly contractions_per_set: number; readonly sets_per_day: number; readonly minimum_months: number };
+  /** S96: settings for the back, neck, knee and hip programmes (config version 2). PROPOSED, the CMO confirms. */
+  readonly msk: MskSettings;
 }
 
 const SIX = [1, 3, 6] as const;
@@ -143,10 +148,10 @@ export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
     pelvic_floor: ["leakage_episodes_week"],
     ibs_hypnotherapy: ["ibs_symptom_0_10"],
     cbt_i: ["isi"],
-    pain_back: ["pain_nrs"],
-    pain_neck: ["pain_nrs"],
-    pain_knee: ["pain_nrs"],
-    pain_hip: ["pain_nrs"],
+    pain_back: MSK_INSTRUMENTS,
+    pain_neck: MSK_INSTRUMENTS,
+    pain_knee: MSK_INSTRUMENTS,
+    pain_hip: MSK_INSTRUMENTS,
     low_mood: ["phq9", "gad7"],
     stress: ["phq9", "gad7"],
     anxiety: ["gad7", "phq9"],
@@ -171,6 +176,10 @@ export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
     gad7: { min: 0, max: 21 },
     isi: { min: 0, max: 28 },
     pain_nrs: { min: 0, max: 10 },
+    peg_pain: { min: 0, max: 10 },
+    peg_enjoyment: { min: 0, max: 10 },
+    peg_activity: { min: 0, max: 10 },
+    function_goal: { min: 0, max: 10 },
     panic_episodes_week: { min: 0, max: 99 },
     leakage_episodes_week: { min: 0, max: 99 },
     ibs_symptom_0_10: { min: 0, max: 10 },
@@ -180,6 +189,11 @@ export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
     gad7: { rise_at_least: 4 },
     isi: { rise_at_least: 4 },
     pain_nrs: { rise_at_least: 2 },
+    // S96, PROPOSED: a rise of 2 points on a 0 to 10 item is the usual size of a change that matters; the CMO confirms or replaces it.
+    peg_pain: { rise_at_least: 2 },
+    peg_enjoyment: { rise_at_least: 2 },
+    peg_activity: { rise_at_least: 2 },
+    function_goal: { rise_at_least: 2 },
     panic_episodes_week: { rise_at_least: 3 },
     leakage_episodes_week: { rise_at_least: 3 },
     ibs_symptom_0_10: { rise_at_least: 2 },
@@ -190,4 +204,34 @@ export const THERAPY_PROGRAMME_CONFIG: TherapyProgrammeConfig = {
     default_variant: ["sleep_diary", "wind_down", "stimulus_control"],
   },
   pelvic_floor: { contractions_per_set: 8, sets_per_day: 3, minimum_months: 3 },
+  msk: MSK_SETTINGS,
+};
+
+/**
+ * Version 1 of both documents (S63), kept as history: the registry runs 1..n without gaps, and the S63 migration still seeds these.
+ * Version 2 (S96) is the one in force: the four pain lists are list version 2, and the config adds the PEG instruments and the msk block.
+ */
+export const THERAPY_EXCLUSION_LISTS_V1: Readonly<Record<TherapyProgrammeCode, readonly TherapyExclusionRule[]>> = {
+  ...THERAPY_EXCLUSION_LISTS,
+  pain_back: PAIN_RED_FLAGS_V1,
+  pain_neck: PAIN_RED_FLAGS_V1,
+  pain_knee: PAIN_RED_FLAGS_V1,
+  pain_hip: PAIN_RED_FLAGS_V1,
+};
+
+const { msk: _msk, ...CONFIG_V2_WITHOUT_MSK } = THERAPY_PROGRAMME_CONFIG;
+void _msk;
+export const THERAPY_PROGRAMME_CONFIG_V1: Omit<TherapyProgrammeConfig, "msk"> = {
+  ...CONFIG_V2_WITHOUT_MSK,
+  instruments: { ...THERAPY_PROGRAMME_CONFIG.instruments, pain_back: ["pain_nrs"], pain_neck: ["pain_nrs"], pain_knee: ["pain_nrs"], pain_hip: ["pain_nrs"] },
+  instrument_ranges: { phq9: { min: 0, max: 27 }, gad7: { min: 0, max: 21 }, isi: { min: 0, max: 28 }, pain_nrs: { min: 0, max: 10 }, panic_episodes_week: { min: 0, max: 99 }, leakage_episodes_week: { min: 0, max: 99 }, ibs_symptom_0_10: { min: 0, max: 10 } },
+  worsening: {
+    phq9: { rise_at_least: 5, absolute_at_least: 20 },
+    gad7: { rise_at_least: 4 },
+    isi: { rise_at_least: 4 },
+    pain_nrs: { rise_at_least: 2 },
+    panic_episodes_week: { rise_at_least: 3 },
+    leakage_episodes_week: { rise_at_least: 3 },
+    ibs_symptom_0_10: { rise_at_least: 2 },
+  },
 };
