@@ -32,15 +32,6 @@ const lyingKneesBent: MskShape[] = [
   body([26, 66], [46, 66]),
 ];
 
-/** Hands and knees, facing left. */
-const fourPoint: MskShape[] = [
-  ground(72),
-  head(20, 32),
-  body([27, 36], [57, 34], [84, 40]),
-  body([30, 37], [30, 72]),
-  body([84, 40], [84, 72], [104, 72]),
-];
-
 const standing = (x = 60): MskShape[] => [
   ground(78),
   head(x, 12),

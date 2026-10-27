@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  cacheSession, clearCachedSession, enqueueCompletion, evaluateEntryScreen, flushQueue, isTherapyProgrammeCode, readCachedSession, therapyExclusionRules, validateScores,
+  cacheSession, clearCachedSession, enqueueCompletion, evaluateEntryScreen, flushQueue, isMskProgrammeCode, isTherapyProgrammeCode, readCachedSession, therapyExclusionRules, validateScores,
   type CachedSession, type EntryQuestion, type EntryQuestions, type SessionContent, type TherapyAnswers, type TherapyRoute,
 } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
@@ -12,6 +12,7 @@ import {
   completeSession, currentUserId, deviceStore, diaryKey, enrol, loadEntryQuestions, loadOpenProgrammes, loadSharing, setSharing, startSession, stopEnrolment,
   type EnrolmentRow, type ProgrammeRow,
 } from "@/lib/therapy-programmes";
+import { MskDaySetNative, MskFlareUpNative } from "./msk-programme-parts";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -126,6 +127,7 @@ type PlayerView =
   | { kind: "loading" }
   | { kind: "recheck"; q: EntryQuestions }
   | { kind: "session"; s: SessionContent | CachedSession; offlineCopy: boolean }
+  | { kind: "rest" }
   | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean }
   | { kind: "done"; text: MessageKey; paused: boolean }
   | { kind: "message"; key: MessageKey };
@@ -140,6 +142,8 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   const [shared, setShared] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [saveError, setSaveError] = useState(false);
+  const [daysShort, setDaysShort] = useState<number | null>(null);
+  const [flareQuestions, setFlareQuestions] = useState<EntryQuestion[] | null>(null);
 
   const sendQueued = useCallback(async () => {
     const me = await currentUserId();
@@ -159,7 +163,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     (async () => {
       const q = await loadEntryQuestions(programme.code);
       if (!alive) return;
-      if (q) return setView({ kind: "recheck", q });
+      if (q) { setFlareQuestions(q.questions); return setView({ kind: "recheck", q }); }
       const cached = await readCachedSession(deviceStore, enrolmentId, ordinal);
       if (alive) setView(cached ? { kind: "session", s: cached, offlineCopy: true } : { kind: "message", key: "therapy.player.error" });
     })();
@@ -168,11 +172,12 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
 
   const start = async (answers: TherapyAnswers) => {
     setBusy(true);
-    const o = await startSession(enrolmentId, ordinal, answers);
+    const o = await startSession(enrolmentId, ordinal, answers, programme.code);
     setBusy(false);
+    if (o.kind === "rest") { setView({ kind: "rest" }); return; }
     if (o.kind === "ok") {
       const s = o.session;
-      await cacheSession(deviceStore, enrolmentId, { title: s.title, kind: s.kind, text: s.text, ordinal: s.ordinal, totalSessions: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, cachedAt: new Date().toISOString() });
+      await cacheSession(deviceStore, enrolmentId, { title: s.title, kind: s.kind, text: s.text, ordinal: s.ordinal, totalSessions: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, cachedAt: new Date().toISOString(), msk: s.msk });
       setView({ kind: "session", s, offlineCopy: false });
     } else if (o.kind === "stopped") setView({ kind: "stopped", route: o.route, taskFailed: o.taskFailed });
     else if (o.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
@@ -195,8 +200,9 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     if (payload && isTherapyProgrammeCode(programme.code) && validateScores(programme.code, ordinal, payload) !== null) { setScoreError(true); return; }
     setScoreError(false);
     setBusy(true);
-    const r = await completeSession(enrolmentId, ordinal, payload);
-    if (r.kind === "ok") setView({ kind: "done", text: r.programmeCompleted ? "therapy.player.programme_done" : "therapy.player.done", paused: r.pausedForReview });
+    const r = await completeSession(enrolmentId, ordinal, payload, programme.code);
+    if (r.kind === "short") setDaysShort(r.daysNeeded);
+    else if (r.kind === "ok") setView({ kind: "done", text: r.programmeCompleted ? "therapy.player.programme_done" : "therapy.player.done", paused: r.pausedForReview });
     else if (r.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
     else if (r.kind === "rejected") setSaveError(true);
     else {
@@ -208,6 +214,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
 
   if (view.kind === "loading") return <ActivityIndicator />;
   if (view.kind === "message") return <><ErrorText>{t(view.key)}</ErrorText><SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} /></>;
+  if (view.kind === "rest") return <><Card><MutedText>{t("therapy.msk.gate_rest")}</MutedText></Card><SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} /></>;
   if (view.kind === "stopped") return <Guidance route={view.route} taskFailed={view.taskFailed} onBack={onBack} />;
   if (view.kind === "done") {
     return (
@@ -238,6 +245,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
         <MutedText>{t("therapy.player.audio_none")}</MutedText>
         <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{s.text}</Text>
       </Card>
+      {s.msk && <MskDaySetNative enrolmentId={enrolmentId} ordinal={ordinal} extras={s.msk} />}
       <Card style={{ gap: 6 }}>
         <MutedText>{t("therapy.diary.note")}</MutedText>
         <TextInput
@@ -266,6 +274,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
         <MutedText>{t("therapy.player.read_only_copy")}</MutedText>
       ) : (
         <>
+          {daysShort !== null && <ErrorText>{t("therapy.msk.not_enough_days", "en", { needed: daysShort })}</ErrorText>}
           {saveError && <ErrorText>{t("therapy.player.score_rejected")}</ErrorText>}
       <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />
           <SecondaryButton
@@ -279,6 +288,9 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
             }}
           />
         </>
+      )}
+      {isMskProgrammeCode(programme.code) && !view.offlineCopy && (
+        <MskFlareUpNative enrolmentId={enrolmentId} questions={flareQuestions} Form={Questions} Guidance={Guidance} onBack={onBack} />
       )}
       <Card style={{ gap: 6 }}>
         <Text style={{ fontWeight: "700", color: colors.ink }}>{t("therapy.share.title")}</Text>

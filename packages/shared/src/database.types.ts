@@ -49347,6 +49347,7 @@ export type Database = {
           duration_seconds: number
           audio_bytes: number | null
           created_at: string
+          exercises: Json | null
         }
         Insert: {
           id?: string
@@ -49360,6 +49361,7 @@ export type Database = {
           duration_seconds: number
           audio_bytes?: number | null
           created_at?: string
+          exercises?: Json | null
         }
         Update: {
           id?: string
@@ -49372,6 +49374,58 @@ export type Database = {
           audio_clip_id?: string | null
           duration_seconds?: number
           audio_bytes?: number | null
+          created_at?: string
+          exercises?: Json | null
+        }
+        Relationships: []
+      }
+      therapy_msk_events: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          kind: string
+          ordinal: number | null
+          exercise_key: string | null
+          rating: number | null
+          pain_now: number | null
+          outcome: string | null
+          step_down_until: string | null
+          event_date: string
+          is_test: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          kind: string
+          ordinal?: number | null
+          exercise_key?: string | null
+          rating?: number | null
+          pain_now?: number | null
+          outcome?: string | null
+          step_down_until?: string | null
+          event_date?: string
+          is_test?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          enrolment_id?: string
+          kind?: string
+          ordinal?: number | null
+          exercise_key?: string | null
+          rating?: number | null
+          pain_now?: number | null
+          outcome?: string | null
+          step_down_until?: string | null
+          event_date?: string
+          is_test?: boolean
           created_at?: string
         }
         Relationships: []
@@ -56874,6 +56928,10 @@ export type Database = {
       enrol_in_therapy_programme: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
       confirm_therapy_exclusion_list: { Args: { p_programme_code: string; p_version: number }; Returns: Json }
       complete_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      start_msk_session: { Args: { p_enrolment: string; p_ordinal: number; p_recheck: Json }; Returns: Json }
+      record_msk_exercise_rating: { Args: { p_enrolment: string; p_exercise_key: string; p_ordinal: number; p_rating: number }; Returns: Json }
+      complete_msk_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      report_msk_flare_up: { Args: { p_enrolment: string; p_pain_now?: number; p_recheck: Json }; Returns: Json }
       approve_therapy_programme_version: { Args: { p_note?: string; p_programme_code: string; p_version: number }; Returns: Json }
       correct_health_report: {
         Args: { p_id: string; p_note: string }

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  cacheSession, classifyRpcError, clearCachedSession, enqueueCompletion, flushQueue, isTherapyProgrammeCode, readCachedSession, validateScores,
+  cacheSession, classifyRpcError, clearCachedSession, enqueueCompletion, flushQueue, isActivityRest, isMskProgrammeCode, isTherapyProgrammeCode,
+  readCachedSession, readNotEnoughDays, validateScores,
   type AsyncStore, type CachedSession, type TherapyAnswers, type TherapyRoute,
 } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TherapyGuidanceCard } from "./guidance-card";
 import { TherapyQuestionForm } from "./question-form";
+import { MskDaySet } from "./msk-day-set";
 
 /** Device storage for the offline copy and the queue. A blocked store only costs the offline convenience. */
 const deviceStore: AsyncStore = {
@@ -30,12 +32,13 @@ type View =
   | { kind: "session"; session: SessionContent | CachedSession; offlineCopy: boolean }
   | { kind: "stopped"; route: TherapyRoute | null; taskFailed: boolean }
   | { kind: "finished"; programmeCompleted: boolean; pausedForReview: boolean; queued: boolean }
+  | { kind: "rest" }
   | { kind: "message"; key: MessageKey };
 
 function asContent(s: SessionContent | CachedSession) {
   return "programmeCode" in s
-    ? { title: s.title, text: s.text, ordinal: s.ordinal, total: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, draft: s.draftContent, audioReady: s.audioBytes !== null }
-    : { title: s.title, text: s.text, ordinal: s.ordinal, total: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, draft: false, audioReady: false };
+    ? { title: s.title, text: s.text, ordinal: s.ordinal, total: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, draft: s.draftContent, audioReady: s.audioBytes !== null, msk: s.msk }
+    : { title: s.title, text: s.text, ordinal: s.ordinal, total: s.totalSessions, programmeTitle: s.programmeTitle, checkpoint: s.checkpoint, instruments: s.instruments, draft: false, audioReady: false, msk: s.msk ?? null };
 }
 
 /**
@@ -50,6 +53,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
   const [scores, setScores] = useState<Record<string, string>>({});
   const [scoreError, setScoreError] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [daysShort, setDaysShort] = useState<number | null>(null);
   const [diary, setDiary] = useState("");
   const [userId, setUserId] = useState<string | undefined>(undefined);
 
@@ -93,16 +97,18 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
   async function start(answers: TherapyAnswers) {
     setBusy(true);
     try {
-      const { data, error } = await createClient().rpc("start_therapy_session", {
+      // Pain programmes open through start_msk_session: it asks the activity safety gate first, then runs the same start.
+      const { data, error } = await createClient().rpc(isMskProgrammeCode(programmeCode) ? "start_msk_session" : "start_therapy_session", {
         p_enrolment: enrolmentId, p_ordinal: ordinal, p_recheck: answers as unknown as Record<string, boolean | number>,
       });
+      if (!error && isActivityRest(data)) { setView({ kind: "rest" }); return; }
       const outcome = error ? ({ kind: "unknown" } as const) : readStartOutcome(data);
       switch (outcome.kind) {
         case "ok": {
           const s = outcome.session;
           await cacheSession(deviceStore, enrolmentId, {
             title: s.title, kind: s.kind, text: s.text, ordinal: s.ordinal, totalSessions: s.totalSessions, programmeTitle: s.programmeTitle,
-            checkpoint: s.checkpoint, instruments: s.instruments, cachedAt: new Date().toISOString(),
+            checkpoint: s.checkpoint, instruments: s.instruments, cachedAt: new Date().toISOString(), msk: s.msk,
           });
           setView({ kind: "session", session: s, offlineCopy: false });
           break;
@@ -138,7 +144,9 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
     setSaveError(false);
     setBusy(true);
     try {
-      const { data, error } = await createClient().rpc("complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: payload ?? undefined });
+      const { data, error } = await createClient().rpc(isMskProgrammeCode(programmeCode) ? "complete_msk_session" : "complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: payload ?? undefined });
+      const short = error ? null : readNotEnoughDays(data);
+      if (short) { setDaysShort(short.daysNeeded); return; }
       const outcome = error ? ({ kind: "unknown" } as const) : readCompleteOutcome(data);
       if (outcome.kind === "ok") {
         setView({ kind: "finished", programmeCompleted: outcome.programmeCompleted, pausedForReview: outcome.pausedForReview, queued: false });
@@ -178,6 +186,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
 
   if (view.kind === "loading") return <p className="text-sm" role="status">{t("therapy.player.starting")}</p>;
   if (view.kind === "message") return <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t(view.key)}</p>;
+  if (view.kind === "rest") return <Card><CardContent className="py-4 text-sm" role="status">{t("therapy.msk.gate_rest")}</CardContent></Card>;
   if (view.kind === "stopped") return <TherapyGuidanceCard route={view.route} taskFailed={view.taskFailed} />;
   if (view.kind === "finished") {
     return (
@@ -217,6 +226,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
           <h2 className="text-sm font-semibold">{t("therapy.player.text_heading")}</h2>
           <p className="mt-1 whitespace-pre-line text-sm leading-relaxed">{c.text}</p>
         </section>
+        {c.msk && <MskDaySet enrolmentId={enrolmentId} ordinal={ordinal} extras={c.msk} />}
         <section className="space-y-1">
           <label htmlFor="therapy-diary" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("therapy.diary.note")}</label>
           <textarea
@@ -248,6 +258,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
             {scoreError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.player.scores_needed")}</p>}
           </section>
         )}
+        {daysShort !== null && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.msk.not_enough_days", "en", { needed: daysShort })}</p>}
         {saveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.player.score_rejected")}</p>}
         {view.offlineCopy ? (
           <p className="text-sm" role="status">{t("therapy.player.read_only_copy")}</p>

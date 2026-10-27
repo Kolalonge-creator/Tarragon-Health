@@ -5619,3 +5619,34 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S96-1 The CMO must read, change or reject every MSK draft (raised by S96)
+- Back, neck, knee and hip: 4 x 8 weekly sessions, 22 exercises with steps and doses, the 68 entry questions with their routes, config version 2 (PEG plus function goal, the rise of 2 that pauses, the daily cap of 3, 3 different days to finish a week, a 3 day step-down). Every dose, hold time, repeat count and rule of thumb is PROPOSED and was written from NICE NG59 and NG226 style guidance and general self-management guidance that the CMO must verify against the source. Items marked unverified (low defences, steroids or thin bones, first pain over 50, pregnancy or recent birth, TB, sickle cell bone pain, HIV, hip pain with steroids or alcohol) are local additions.
+- Where: `/clinician/clinical-signoff`, line "Back, neck, knee and hip pain programmes". Nothing is shown to a patient until content is approved, the newest list (version 2) is confirmed, clinician cover and the outcome thresholds are attested, and `therapy_pain_enabled` is switched on. Decision: open.
+
+### OQ-S96-2 Who reviews exercise content without a physiotherapist (raised by S96)
+- Founder decision 2026-10-27: no physiotherapist now; the CMO approves. A physiotherapist could be added later as a reviewer with no rebuild (content is versioned rows, approval is one function), but no such role exists. Question for the CMO: is a general doctor's review enough for exercise doses and progressions, or should the dose numbers stay conservative until a physiotherapist has read them? Decision: open.
+
+### OQ-S96-3 Routes chosen for the pain red flags (raised by S96)
+- Hospital-now (the engine's `crisis` route, which also pages the on-call clinician): chest or arm or jaw pain, sudden worst headache with neck pain, trouble speaking or swallowing or face drooping, breathless or coughing blood with leg pain, chest pain or breathlessness with back pain. Same-day clinician: cauda equina signs, trauma, fever, spreading weakness, cancer or weight loss, night pain, low defences, cannot weight-bear, hot swollen knee, calf pain or swelling (possible clot), groin pain after a fall. Review first within 2 days: steroids or thin bones, first pain over 50, pregnancy or recent birth, knee locking. The CMO decides whether `crisis` (a page) is right for a possible heart or stroke problem, or whether a different emergency route is wanted. Decision: open.
+
+### OQ-S96-4 The function goal item has no wording of a named goal (raised by S96)
+- The fourth outcome item asks how hard "one everyday thing your pain gets in the way of" was in the last week. The app does not store which thing the person chose, so the score is comparable only if they keep the same goal. Options: (a) keep as built; (b) store the goal text on the device (never uploaded); (c) store it in the database with the enrolment. Recommendation: (b) first. Decision: open.
+
+### OQ-S96-5 Clinician view of the MSK trend is not built (raised by S96)
+- The tied clinician sees a worsening only as a task. The consent-gated audited read returns the scores, but there is no screen showing the PEG trend, difficulty ratings or flare-ups. The task does not say which red flag fired (OQ-S63-3 still applies). Decision: open (build when clinician cover is confirmed).
+
+### OQ-S96-6 A queued offline completion skips the days gate (raised by S96)
+- A week finished with no signal is queued and later sent through `complete_therapy_session`, which does not check the days rule that `complete_msk_session` checks. Ratings need a signal, so a person offline cannot have their days confirmed anyway. Options: (a) accept; (b) make the queue call `complete_msk_session` for pain programmes. Recommendation: (b), a small change to the shared queue. Decision: open.
+
+### OQ-S96-7 A day counts when one exercise is rated (raised by S96)
+- The completion gate counts different days with at least one difficulty rating, not a full set. The screens ask for a rating after each exercise, but the database cannot know which exercises the activity gate or a step-down hid on that day. Options: keep; or store the day's shown exercises with the rating. Decision: open.
+
+### OQ-S96-8 The pain guard's description is out of date (raised by S96)
+- `go_live_guards.blocks` for `therapy_pain_enabled` still says "scaffolds: no content exists yet". The guard table has its own change trigger and this build did not touch the row (not verified whether a text-only update is allowed outside the switch function). The four conditions are sufficient and unchanged. Decision: update the wording when the guard is next touched.
+
+### OQ-S96-9 Pregnancy in the back programme (raised by S96)
+- "Pregnant or gave birth in the last six weeks" routes back-pain patients to a clinician review first (plan adjusted by a clinician; lying on the back late in pregnancy is not covered by the written exercises). The activity gate also lowers intensity for pregnancy. Whether a pregnancy-specific back plan is wanted is a product question. Decision: open.
+
+### OQ-S96-10 Drawings were drawn by the build and have not been looked at by a clinician (raised by S96)
+- The 22 line drawings are simple original stick figures. They were checked by tests (accessible, tiny, no external file) and not by eye on a device or by a clinician for form. Someone should look at them on a phone and in dark mode before the guard is switched on. Decision: open.
