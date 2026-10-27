@@ -140,11 +140,27 @@ export const AI_SYSTEMS = {
     // behind the document_capture_enabled go-live guard.
     failClosedIfGovernanceUnavailable: true,
   },
+  paperDiaryReader: {
+    code: "AI-021",
+    // Reads a photo of a handwritten blood pressure or glucose diary page into SUGGESTED rows the person checks and confirms one by one (S07y). Nothing it
+    // reads is stored, the photo is not kept, and it is never in a triage or red-flag path (INV-01): a confirmed row goes through the same deterministic
+    // triage as a typed reading. Moderate risk, but it renders clinical values on the patient's own record path, so it fails closed like AI-003 and AI-018:
+    // the fallback (type the rows from the diary) costs nothing. Registered DISABLED (draft, not runtime_governed) and behind the paper_diary_ai_reader guard.
+    failClosedIfGovernanceUnavailable: true,
+  },
   healthReportSummaryDraft: {
     code: "AI-019",
     // Drafts the one-paragraph summary of a yearly Health Report for a clinician to edit and sign (S46). Moderate risk but stricter than the
     // rule on the same reasoning as AI-003: it produces patient-facing wording on a care record path, and the fallback (the deterministic template
     // paragraph) costs nothing. AI-018 is taken on the S43 branch (document capture). Registered DISABLED.
+    failClosedIfGovernanceUnavailable: true,
+  },
+  cuffDisplayReader: {
+    code: "AI-022",
+    // Proposes the numbers on a home blood pressure cuff display from a photo the patient chooses to send (item 6, cuff camera). Moderate risk,
+    // but the numbers land on a clinical record path once the patient confirms them, so it fails closed like AI-003: the fallback (type the
+    // numbers from the display, the path that has always worked) costs nothing. AI-021 is taken by the unmerged S07y diary reader. Registered
+    // DISABLED, runtime_governed false, behind the cuff_camera_enabled guard.
     failClosedIfGovernanceUnavailable: true,
   },
 } as const;

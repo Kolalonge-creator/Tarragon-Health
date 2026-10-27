@@ -4,7 +4,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ rpc: (...args: unknown[]) => rpc(...args) }),
 }));
 
-import { setItemActive, setItemPrice } from "./actions";
+import { setItemActive, setItemExtras, setItemPrice } from "./actions";
 
 const form = (entries: Record<string, string>): FormData => {
   const f = new FormData();
@@ -63,5 +63,36 @@ describe("setItemPrice", () => {
   it("maps a backdated price to a sentence", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "price_start_before_current" } });
     expect((await setItemPrice(undefined, form(base)))?.error).toMatch(/after the current price/);
+  });
+});
+
+describe("setItemExtras", () => {
+  const withExtras = (extras: string[], over: Record<string, string> = {}): FormData => {
+    const f = form({ code: "membership_annual", reason: "Founder reviewed the list", ...over });
+    for (const e of extras) f.append("extra", e);
+    return f;
+  };
+  it("sends the chosen item codes and the reason to the database, which audits it", async () => {
+    rpc.mockResolvedValue({ data: 3, error: null });
+    const r = await setItemExtras(undefined, withExtras(["consultation_single", "lab_panel_standard"]));
+    expect(r?.message).toBe("List saved.");
+    expect(rpc).toHaveBeenCalledWith("admin_set_item_extras", { p_code: "membership_annual", p_extra_codes: ["consultation_single", "lab_panel_standard"], p_reason: "Founder reviewed the list" });
+  });
+  it("lets an admin clear the list", async () => {
+    rpc.mockResolvedValue({ data: 2, error: null });
+    await setItemExtras(undefined, withExtras([]));
+    expect(rpc).toHaveBeenCalledWith("admin_set_item_extras", expect.objectContaining({ p_extra_codes: [] }));
+  });
+  it("refuses a short reason, a bad code or more than twelve without calling the database", async () => {
+    expect((await setItemExtras(undefined, withExtras([], { reason: "short" })))?.error).toMatch(/reason/);
+    expect((await setItemExtras(undefined, withExtras(["Bad Code"])))?.error).toBeDefined();
+    expect((await setItemExtras(undefined, withExtras(Array.from({ length: 13 }, (_, i) => `extra_item_${i}`))))?.error).toMatch(/at most 12/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("maps the database's refusals to sentences", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "extras_invalid" } });
+    expect((await setItemExtras(undefined, withExtras(["membership_annual"])))?.error).toMatch(/not valid/);
+    rpc.mockResolvedValue({ data: null, error: { message: "catalogue_not_authorised" } });
+    expect((await setItemExtras(undefined, withExtras([])))?.error).toMatch(/admin/);
   });
 });

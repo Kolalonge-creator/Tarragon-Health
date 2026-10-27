@@ -9,6 +9,7 @@ const TABS = [
   { href: "/dashboard/corporate/eligibility", label: "Eligibility & benefits", exact: false },
   { href: "/dashboard/corporate/campaigns", label: "Campaigns & messages", exact: false },
   { href: "/dashboard/corporate/billing", label: "Billing", exact: false },
+  { href: "/dashboard/corporate/pilot", label: "Seat pilot", exact: false },
   { href: "/dashboard/corporate/reports", label: "Reports & outcomes", exact: false },
   { href: "/dashboard/corporate/programmes", label: "Programmes", exact: false },
   { href: "/dashboard/corporate/visits", label: "On-site visits", exact: false },

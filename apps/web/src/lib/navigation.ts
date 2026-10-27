@@ -196,6 +196,7 @@ export function getNavSections(
             },
             { label: "Your month", href: "/patient/progress", icon: "analytics" },
             { label: "Programmes", href: "/patient/programmes", icon: "members" },
+            { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
           ],
         },
@@ -618,11 +619,17 @@ export function getNavSections(
                 // itself redirects/shows a friendly message for anyone else.
                 // Patients ordered by who may need a call first; only your own tied patients (S38c).
                 { label: "Risk worklist", href: "/clinician/risk-worklist", icon: "analytics" },
+                // Tied patients who may need a mental health follow-up, by fixed rules the CMO signs; shows nothing until signed (S56b). Doctors only: the database refuses coordinators.
+                { label: "Mental health follow-ups", href: "/clinician/mental-health-worklist", icon: "mood", countKey: "mentalHealthWorklistWaiting" },
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: the cascade of care (screened, diagnosed, on a medicine, controlled) for hypertension and diabetes; shows nothing until the CMO signs the definitions (WP3).
+                { label: "Cascade of care", href: "/clinician/outcomes/cascade", icon: "analytics" },
                 // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
                 { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
+                // Chief Medical Officer only: learning content coming up for its review date, who owns it and what is already hidden (S55 expiry backlog).
+                { label: "Learning content review", href: "/clinician/learning-review", icon: "review" },
                 // Chief Medical Officer only: alerts, pages, doctor reviews and emergencies as a ratio, and how often the lead handled the task (S16-S20 W6.3).
                 { label: "Care funnel", href: "/clinician/funnel", icon: "analytics" },
                 // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
@@ -668,6 +675,8 @@ export function getNavSections(
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
                 { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
+                // Do Health Points and taking part change outcomes, or do healthier people just take part more? Engagement and outcomes kept apart (OUTCOMES). CMO only; the page redirects others.
+                { label: "Engagement and outcomes", href: "/clinician/engagement-outcomes", icon: "analytics" },
                 // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
                 { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
                 // The monthly review of a sample of assistant conversations, plus every reported one (S52). CMO only; the page redirects anyone below that tier.
@@ -775,6 +784,7 @@ export function getNavSections(
           items: [
             { label: "Patients", href: "/admin/patients", icon: "members" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
+            { label: "Directory queues", href: "/admin/directory-queues", icon: "review" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
@@ -798,8 +808,13 @@ export function getNavSections(
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Response times", href: "/admin/outcomes/response-times", icon: "analytics" },
+            // Do Health Points and taking part change outcomes, or do healthier people just take part more? Internal, never published (OUTCOMES).
+            { label: "Engagement and outcomes", href: "/admin/outcomes/engagement", icon: "analytics" },
+            // The founder's figures to today, small groups included. Super admin only; switched off by default; a reason is audited (OUTCOMES, OQ-OUT-09/11).
+            { label: "Founder view (small groups)", href: "/admin/outcomes/engagement/founder", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
+            { label: "Cascade of care", href: "/admin/outcomes/cascade", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },

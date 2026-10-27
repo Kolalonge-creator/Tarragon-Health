@@ -111,3 +111,30 @@ export function describeProviderError(raw: string | null | undefined, fallback =
 export const idSchema = z.string().uuid();
 export const reasonSchema = z.string().trim().min(10).max(300);
 export const closeStatusSchema = z.enum(["explained", "resolved"]);
+
+/** public.provider_layer_health(): counts, seconds and provider names only (no webhook body, no email, no patient). */
+const nonNegInt = z.number().int().min(0);
+export const providerLayerHealthSchema = z.object({
+  generated_at: z.string(),
+  status: z.enum(["ok", "attention"]),
+  reasons: z.array(z.string()),
+  inbox: z.object({
+    open: nonNegInt,
+    oldest_open_seconds: nonNegInt,
+    dead: nonNegInt,
+    waiting_too_long: nonNegInt,
+    rejected_24h: nonNegInt,
+    stale_after_seconds: nonNegInt,
+    by_provider: z.array(z.object({ provider: z.string(), open: nonNegInt, oldest_open_seconds: nonNegInt, dead: nonNegInt, rejected_24h: nonNegInt, verified_24h: nonNegInt, last_received_at: z.string().nullable() })),
+  }),
+  breakers: z.object({ open: nonNegInt, half_open: nonNegInt }),
+  reconciliation: z.object({ open_breaks: nonNegInt, older_than_limit: nonNegInt, limit_hours: nonNegInt, oldest_hours: nonNegInt }),
+  payout_postings: z.object({ failed: nonNegInt, skipped: nonNegInt }),
+});
+export type ProviderLayerHealth = z.infer<typeof providerLayerHealthSchema>;
+
+/** A reply that does not match is "could not be read", never a healthy-looking page. */
+export function parseProviderLayerHealth(raw: unknown): ProviderLayerHealth | null {
+  const r = providerLayerHealthSchema.safeParse(raw);
+  return r.success ? r.data : null;
+}

@@ -13,6 +13,8 @@ const ALLOWED = [
   /supabase[\\/]migrations[\\/]/,
   /packages[\\/]db[\\/]tests[\\/]/,
   /routes-private\.test\.ts$/,
+  // S48b: the phone's owner-only recorder store, the one deliberate widening (see the tests at the end of this file).
+  /apps[\\/]mobile[\\/]src[\\/]lib[\\/]routes[\\/]route-store\.ts$/,
 ];
 
 function walk(dir: string, out: string[]): void {
@@ -47,5 +49,27 @@ describe("private routes are never shared", () => {
   it("the patient export and the share sections list no route", () => {
     const hits = files.filter((f) => /record[-_]?share|export|fhir/i.test(f) && !ALLOWED.some((re) => re.test(f))).filter((f) => /route_geojson/.test(readFileSync(f, "utf8")));
     expect(hits).toEqual([]);
+  });
+
+  it("S48b: only the owner-only route store names the table or the route column in the apps", () => {
+    const named = files.filter((f) => /activity_routes|route_geojson/.test(readFileSync(f, "utf8"))).filter((f) => !ALLOWED.some((re) => re.test(f)));
+    expect(named).toEqual([]);
+    expect(files.filter((f) => /route-store\.ts$/.test(f))).toHaveLength(1);
+  });
+
+  it("S48b: the recorder, its store and its screen card have no share, export, map, link-out or send path", () => {
+    const FORBIDDEN = /expo-sharing|react-native-maps|MapView|expo-file-system|Share\.share|Linking\.|openURL|fetch\(|navigator\.share|toGpx|exportRoute|shareRoute|postRoute|sendRoute|ShareLink/;
+    const recorderFiles = files.filter(
+      (f) => /apps[\\/]mobile[\\/]src[\\/]lib[\\/]routes[\\/][^\\/]+\.ts$/.test(f) || /movement-extras\.tsx$/.test(f),
+    );
+    // route-recorder, route-session, route-store, location-source, the stubbed-source test and the screen card
+    expect(recorderFiles.length).toBeGreaterThanOrEqual(6);
+    expect(recorderFiles.filter((f) => FORBIDDEN.test(readFileSync(f, "utf8")))).toEqual([]);
+  });
+
+  it("S48b: the route store only selects, inserts and deletes (the same three the database allows)", () => {
+    const store = readFileSync(files.find((f) => /route-store\.ts$/.test(f)) as string, "utf8");
+    expect(store).not.toMatch(/\.update\(|\.upsert\(/);
+    expect((store.match(/from\("activity_routes"\)/g) ?? []).length).toBe(3);
   });
 });

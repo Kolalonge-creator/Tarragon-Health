@@ -3,15 +3,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { GLUCOSE_UNIT_LABEL, bpAckDelivery, diagnosticBpReadings, type BpAckDelivery } from "@tarragon/shared";
+import {
+  GLUCOSE_UNIT_LABEL,
+  TEMPERATURE_UNIT_LABEL,
+  WEIGHT_UNIT_LABEL,
+  bpAckDelivery,
+  cleanPlaceLabel,
+  diagnosticBpReadings,
+  entryOriginLabelKey,
+  type BpAckDelivery,
+} from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
+import { useMeasurementUnits } from "@/lib/measurement-units";
 import { BP_THRESHOLDS, classifyBpLevel, type BpLevel, type BpThresholds } from "@/lib/bp-classification";
 import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-trend";
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { loadCuffGuidance } from "@/lib/cuff-guidance";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
+import { NO_PROVENANCE_GUARDS, loadProvenanceGuards, type ProvenanceGuards } from "@/lib/provenance-guards";
 import { bpAckMessage, bpRowState } from "@/lib/bp-ack-view";
 import { listOutbox } from "@/lib/outbox";
 import { toHomeReadings } from "@/lib/home-check";
@@ -23,6 +34,8 @@ import {
   KETONE_ENTRY_BOUNDS,
   parseStrictNumber,
   validateOtherEntry,
+  typedToStoredEntry,
+  rangeHintInPatientUnit,
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
@@ -72,7 +85,9 @@ import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
+import { PharmacyTick } from "@/screens/sections/provenance-extras";
 import { LifestyleLogCard } from "@/screens/sections/lifestyle-log-card";
+import { DiarySheet } from "@/screens/sections/diary-sheet";
 
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
@@ -167,6 +182,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rulesStale, setRulesStale] = useState(false);
   const [obstetric, setObstetric] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
+  // S07y: the pharmacy label and the paper diary are born off on the server; the box and the button appear only while their guard is open for this person.
+  const [guards, setGuards] = useState<ProvenanceGuards>(NO_PROVENANCE_GUARDS);
+  const [atPharmacy, setAtPharmacy] = useState(false);
+  const [pharmacyPlace, setPharmacyPlace] = useState("");
+  const [diaryOpen, setDiaryOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   // Two-tier: whether a red event reaches a doctor for this patient (null until known, or when it cannot be worked out).
   const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
@@ -367,7 +387,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         setQuestionFailed(false);
         setQuestion({ systolic: plan.systolic, diastolic: plan.diastolic, gradedAtMs: outcome.device.gradedAtMs });
       }
-    });
+    }, atPharmacy && guards.pharmacyOpen ? { entryOrigin: "pharmacy_machine", placeLabel: cleanPlaceLabel(pharmacyPlace) } : undefined);
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
@@ -390,6 +410,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setDia("");
     setPulse("");
     setTicked([]);
+    setAtPharmacy(false);
+    setPharmacyPlace("");
     await load();
     setHomeReload((n) => n + 1);
   }
@@ -425,6 +447,16 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     }
   }
 
+  useEffect(() => {
+    let alive = true;
+    void loadProvenanceGuards(patientId).then((g) => {
+      if (alive) setGuards(g);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [patientId]);
+
   const latest = readings[0] ?? null;
   const average = computeSevenDayAverage(readings);
   const windowed = useMemo(() => windowReadings(readings, windowDays, nowMs), [readings, windowDays, nowMs]);
@@ -443,6 +475,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     : "";
   const levelLabel = (level: BpLevel) => tr(`vitals.level.${level}` as MessageKey);
   const ackText = bpAckMessage(ack, locale);
+  // S07y: "Taken at a pharmacy or clinic machine" or "From your paper diary", or nothing for an ordinary reading.
+  const originLabel = (origin: string | null | undefined): string | null => {
+    const key = entryOriginLabelKey(origin);
+    return key ? tr(key) : null;
+  };
   // The guided home-check panel works from the readings this screen already holds (cuff and manual only), and gives way while guidance for the reading just saved is showing.
   const homeSessionReadings = useMemo(() => toHomeReadings(rawReadings), [rawReadings]);
   // Emergency guidance or the emergency-symptom question is open: the steps give way until it is dealt with. A repeat prompt does not hold them, since measuring again is what it asks.
@@ -483,6 +520,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               </AppText>
             </View>
             <Badge label={levelLabel(latest.level)} tone={LEVEL_TONE[latest.level]} />
+            {originLabel(latest.entryOrigin) ? <Badge label={originLabel(latest.entryOrigin) as string} tone="neutral" /> : null}
             <AppText variant="caption" tone="textSubtle">
               {formatWhen(latest.takenAt)}
               {latest.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}
@@ -618,6 +656,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           ]}
         />
         {cuffType === "wrist" ? <InlineAlert tone="info" message={tr("vitals.cuff.wrist_hint")} /> : null}
+        {guards.pharmacyOpen ? <PharmacyTick tr={tr} checked={atPharmacy} onChange={setAtPharmacy} place={pharmacyPlace} onPlace={setPharmacyPlace} /> : null}
         <SymptomChecklist
           tr={tr}
           selected={ticked}
@@ -675,7 +714,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
               <View key={r.id} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>
                 <ListItem
                   title={`${r.systolic}/${r.diastolic} mmHg`}
-                  subtitle={`${formatWhen(r.takenAt)}${r.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}`}
+                  subtitle={`${formatWhen(r.takenAt)}${r.pending ? ` · ${t("outbox.row_waiting", locale)}` : ""}${originLabel(r.entryOrigin) ? ` · ${originLabel(r.entryOrigin)}` : ""}`}
                   trailing={<Badge label={levelLabel(r.level)} tone={LEVEL_TONE[r.level]} />}
                 />
               </View>
@@ -706,6 +745,25 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
             <Button title={tr("vitals.symptom.close")} variant="secondary" onPress={() => setSymptomOpen(false)} />
           </View>
           <SymptomScreen patientId={patientId} beneficiaryProfileId={beneficiaryProfileId} />
+        </View>
+      </Modal>
+
+      {/* The paper diary (S07y): copy readings from the person's own diary. Offered only while its guard is open. */}
+      {guards.diaryEntryOpen ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="bodyStrong">{tr("diary.entry_link")}</AppText>
+          <AppText variant="caption" tone="textMuted">
+            {tr("diary.entry_link_hint")}
+          </AppText>
+          <Button title={tr("diary.open_button")} variant="secondary" onPress={() => setDiaryOpen(true)} />
+        </Card>
+      ) : null}
+      <Modal visible={diaryOpen} animationType="slide" onRequestClose={() => setDiaryOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          <View style={{ padding: space.xl, paddingTop: 56 }}>
+            <Button title={tr("diary.close")} variant="secondary" onPress={() => { setDiaryOpen(false); void load(); }} />
+          </View>
+          <DiarySheet readerOpen={guards.diaryReaderOpen} beneficiaryProfileId={beneficiaryProfileId} emergencyContact={emergencyContact} doctorReview={doctorReview} />
         </View>
       </Modal>
 
@@ -746,6 +804,7 @@ function OtherVitalCard({
   // already touched the toggle themselves; otherwise the preference landing a moment
   // later would yank the unit out from under a deliberate choice mid-entry.
   const preferredUnit = useGlucoseDisplayUnit();
+  const measurementUnits = useMeasurementUnits();
   const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [unitTouched, setUnitTouched] = useState(false);
   useEffect(() => {
@@ -763,7 +822,14 @@ function OtherVitalCard({
   const [urine, setUrine] = useState<KetoneUrine | null>(null);
   const [glucoseCard, setGlucoseCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
 
-  const unit = type === "glucose" ? GLUCOSE_UNIT_LABEL[glucoseUnit] : OTHER_VITAL_TYPES.find((v) => v.id === type)!.unit;
+  const unit =
+    type === "glucose"
+      ? GLUCOSE_UNIT_LABEL[glucoseUnit]
+      : type === "weight"
+        ? WEIGHT_UNIT_LABEL[measurementUnits.weight]
+        : type === "temperature"
+          ? TEMPERATURE_UNIT_LABEL[measurementUnits.temperature]
+          : OTHER_VITAL_TYPES.find((v) => v.id === type)!.unit;
 
   function resetForNewType(next: OtherVitalType) {
     setType(next);
@@ -775,7 +841,8 @@ function OtherVitalCard({
   }
 
   async function handleSave() {
-    const entry = validateOtherEntry(type, value, glucoseUnit);
+    // Typed in the patient's own unit; checked and saved in the stored one (kg, degrees C).
+    const entry = validateOtherEntry(type, typedToStoredEntry(type, value, measurementUnits), glucoseUnit);
     if (!entry.ok) {
       // Guidance for a ticked level 3 sign never waits for a valid number (a meter that says LO, a mistyped value, a carer who has no number): nothing was saved, so it says so.
       const level3 = signs.filter((x) => LEVEL_3_SIGNS.includes(x));
@@ -962,7 +1029,16 @@ function OtherVitalCard({
         </>
       ) : null}
 
-      {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
+      {errorKey ? (
+        <InlineAlert
+          tone="danger"
+          message={(() => {
+            // The range message names kg or degrees C; add the same range in the unit they typed in.
+            const hint = errorKey.endsWith("range_weight") || errorKey.endsWith("range_temperature") ? rangeHintInPatientUnit(type, measurementUnits) : null;
+            return hint ? `${tr(errorKey)} (${hint})` : tr(errorKey);
+          })()}
+        />
+      ) : null}
       {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
       {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
       {glucoseCard ? (

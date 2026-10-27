@@ -1,5 +1,6 @@
-import { buildBpChart, buildBpSection, buildSkipped, buildSymptoms, summaryConfig, SECTION_KEYS, type BpReadingIn } from "./model";
+import { buildBpChart, buildBpSection, buildSkipped, buildSymptoms, summaryConfig, VISIT_SECTION_KEYS, type BpReadingIn } from "./model";
 import type { DoctorSummaryData } from "./load";
+import { buildGlucoseSection, buildLabSection } from "./passport-model";
 
 /**
  * Invented data for tests and the render script. Not a real person. Includes the cases the summary must handle: a wearable
@@ -27,7 +28,7 @@ export function sampleReadings(): BpReadingIn[] {
 
 const skippedWith = (...a: Parameters<typeof buildSkipped>) => ({ ...buildSkipped(...a), capped: false });
 
-export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION_KEYS]): DoctorSummaryData {
+export function sampleData(sections: DoctorSummaryData["sections"] = [...VISIT_SECTION_KEYS]): DoctorSummaryData {
   const cfg = summaryConfig();
   const bp = buildBpSection(sampleReadings(), cfg);
   return {
@@ -68,5 +69,21 @@ export function sampleData(sections: DoctorSummaryData["sections"] = [...SECTION
       cfg,
     ),
     allergiesConditions: { allergies: [{ allergen: "Penicillin", detail: "rash, moderate", provenance: "patient" }], conditions: ["hypertension", "diabetes"] },
+    glucose: buildGlucoseSection([
+      { takenAt: "2026-10-15T06:30:00Z", mmolL: 6.4, context: "fasting", source: "manual", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-13T13:10:00Z", mmolL: 9.8, context: "post_meal", source: "device", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-11T06:40:00Z", mmolL: 7.1, context: "fasting", source: "manual", validationStatus: "valid" }, // band-ok: sample PDF values for the preview, not a threshold
+      { takenAt: "2026-10-10T06:40:00Z", mmolL: 2.0, context: "random", source: "manual", validationStatus: "rejected" }, // band-ok: sample PDF values for the preview, not a threshold
+    ]),
+    labs: buildLabSection(
+      [
+        { code: "hba1c", value: 6.9, valueText: null, unit: "%", referenceRangeText: "4.0 to 5.6", rangeSource: "laboratory", rangeSourceRef: null, abnormalFlag: "high", takenAt: "2026-09-30T08:00:00Z", laboratory: "Sample Lab", sensitivePositive: false },
+        { code: "hba1c", value: 7.4, valueText: null, unit: "%", referenceRangeText: "4.0 to 5.6", rangeSource: "laboratory", rangeSourceRef: null, abnormalFlag: "high", takenAt: "2026-05-30T08:00:00Z", laboratory: "Sample Lab", sensitivePositive: false },
+        { code: "creatinine", value: 82, valueText: null, unit: "umol/L", referenceRangeText: null, rangeSource: "laboratory", rangeSourceRef: null, abnormalFlag: null, takenAt: "2026-09-30T08:00:00Z", laboratory: "Sample Lab", sensitivePositive: false },
+        { code: "hcg_quantitative", value: 12, valueText: null, unit: "mIU/mL", referenceRangeText: null, rangeSource: "laboratory", rangeSourceRef: null, abnormalFlag: null, takenAt: "2026-09-30T08:00:00Z", laboratory: "Sample Lab", sensitivePositive: false },
+        { code: "hivag", value: null, valueText: "Reactive", unit: null, referenceRangeText: null, rangeSource: "laboratory", rangeSourceRef: null, abnormalFlag: null, takenAt: "2026-09-30T08:00:00Z", laboratory: "Sample Lab", sensitivePositive: true },
+      ],
+      { showRange: () => true, describe: () => "range set by the laboratory" },
+    ),
   };
 }

@@ -1,6 +1,7 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { AnnualBundleCard } from "@/app/(dashboard)/patient/annual-bundle-card";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
 import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
@@ -40,6 +41,7 @@ export default async function PatientLabsPage() {
           <ResultsTrendsCard patientId={subjectId} />
         </div>
         <div className="space-y-4">
+          <AnnualBundleCard patientId={subjectId} />
           <LabOrdersList patientId={subjectId} />
           <LabCatalogue />
           {/* Synlab Nigeria was contracted 2026-08-21 and this branch

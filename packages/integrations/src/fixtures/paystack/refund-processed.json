@@ -1,0 +1,1 @@
+{"event":"refund.processed","data":{"status":"processed","transaction_reference":"ord_8f1c2a9e","refund_reference":"3939393939","amount":"150000","currency":"NGN","processor":"processor-1","customer":{"first_name":"","last_name":"","email":"patient@example.com"},"integration":463433,"domain":"live"}}

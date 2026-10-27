@@ -124,12 +124,12 @@ test("an untagged clip and an unlabelled speaker are grouped, not dropped", () =
   assert.deepEqual(words(undefined), []);
 });
 
-test("a small gold set carries a warning, and there is no pass mark", () => {
+test("a small gold set carries a warning, and the measuring report never says PASS itself", () => {
   const r = evaluate([clip("c1", "yoruba", [t("patient", "hello")], [t("patient", "hello")])], drugs);
   assert.ok(r.warnings.some((w) => /20 to 30 clip/.test(w)));
   assert.ok(r.warnings.some((w) => /drug-name occurrence/.test(w)));
   const text = renderReport(r);
-  assert.match(text, /no pass mark/);
+  assert.match(text, /only measures/);
   assert.doesNotMatch(text, /\bPASS\b/);
 });
 

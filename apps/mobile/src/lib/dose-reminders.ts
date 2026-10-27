@@ -1,23 +1,29 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { asLocale, t } from "@tarragon/i18n";
+import { anchorPhrase, asLocale, t } from "@tarragon/i18n";
 import {
   DOSE_NOTIFICATION_PREFIX,
   diffNotifications,
   lagosLocalDate,
+  cappedPending,
   planDoseNotifications,
   reminderIssues,
   slotKey,
+  startSelfTest,
+  type PlanConfig,
   type ReminderIssue,
   type ReminderMedicine,
+  type SelfTestRecord,
 } from "@tarragon/medicines";
+import { writeSelfTest } from "./reminder-reliability";
 import { loadManagedDependants, type ManagedDependant } from "./acting";
 import { ownerOfNotification } from "./reminder-owner";
-import { loadMedicineRules } from "./medicines-config";
+import { loadMedicineRules, loadReminderReliability } from "./medicines-config";
 import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { listOutbox, type DosePayload } from "./outbox";
 import { loadReminderBehaviour } from "./s07-config";
+import { refreshAnchorProfile } from "./anchor-profile";
 import { scheduleOf } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
@@ -53,13 +59,36 @@ Notifications.setNotificationHandler({
 });
 
 async function text(
-  key: "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
+  key: "doseanchor.notify.body" | "doseanchor.notify.body_for" | "medicines.notify.title" | "medicines.notify.body" | "medicines.notify.follow_up_title" | "medicines.notify.follow_up_body" | "medicines.notify.channel" | "medicines.notify.test_title" | "medicines.notify.test_body" | "medicines.notify.title_for" | "medicines.notify.body_for",
   params?: Record<string, string | number>,
 ) {
   return t(key, asLocale(await getUiLanguage()), params);
 }
 
-async function ensureChannel(): Promise<void> {
+/**
+ * The plan's limits, all from versioned config. On iPhone the cap is held under the 64 pending local notifications iOS keeps (the app
+ * plans a rolling window and tops it up on open, on foreground, after a dose is answered and in the background task). The unconfirmed-dose
+ * follow-up is one gentle reminder, never more than one per dose, with the same generic text as every other reminder.
+ */
+function planConfig(): PlanConfig {
+  const cfg = loadReminderBehaviour();
+  const rules = loadMedicineRules();
+  const rel = loadReminderReliability();
+  return {
+    maxPending: cappedPending(cfg.maxPending, Platform.OS === "ios", rel),
+    horizonDays: cfg.horizonDays,
+    followUpMinWindowMinutes: rules.followUpMinWindowMinutes,
+    maxFollowUps: rules.maxFollowUps,
+    unconfirmedFollowUpMinutes: rel.maxUnconfirmedFollowUpsPerDose > 0 ? rel.unconfirmedFollowUpMinutes : 0,
+  };
+}
+
+/** iPhone only: let a dose reminder break through a Focus mode. Has no effect unless the build holds the Time Sensitive capability (IOS_TIME_SENSITIVE=1, see app.config.js); Critical Alerts are not used. */
+function iosInterruption(): { interruptionLevel?: "timeSensitive" } {
+  return Platform.OS === "ios" && loadReminderReliability().iosTimeSensitive ? { interruptionLevel: "timeSensitive" } : {};
+}
+
+export async function ensureChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(DOSE_CHANNEL, {
     name: await text("medicines.notify.channel"),
@@ -155,11 +184,10 @@ export async function replanDoseReminders(
     if (!granted) return { ok: false, planned: 0, pending: 0, allowed: false };
     await ensureChannel();
 
-    const cfg = loadReminderBehaviour();
-    const rules = loadMedicineRules();
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
-    const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) }));
+    await refreshAnchorProfile(patientId);
+    const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) }));
     // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
     const loadedDependants = await loadManagedDependants(patientId);
     // Could not find out who is managed (offline, a failed read): leave the plan exactly as it is. Replanning from the person's own doses
@@ -170,21 +198,17 @@ export async function replanDoseReminders(
     for (const dep of dependants) {
       try {
         const depMeds = await loadMedicines(dep.profileId);
+        await refreshAnchorProfile(dep.profileId);
         for (const slot of await loadClosedSlots(dep.profileId, nowMs)) closed.add(slot);
         for (const m of depMeds) {
-          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) });
+          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, dep.profileId) });
           dependantOfMedicine.set(m.id, dep.firstName);
         }
       } catch {
         // A dependant who cannot be read right now is skipped; the person's own reminders still go ahead.
       }
     }
-    const planned = planDoseNotifications(reminderMeds, closed, nowMs, {
-      maxPending: cfg.maxPending,
-      horizonDays: cfg.horizonDays,
-      followUpMinWindowMinutes: rules.followUpMinWindowMinutes,
-      maxFollowUps: rules.maxFollowUps,
-    });
+    const planned = planDoseNotifications(reminderMeds, closed, nowMs, planConfig());
 
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const diff = diffNotifications(planned, scheduled.map((n) => n.identifier));
@@ -195,13 +219,24 @@ export async function replanDoseReminders(
 
     for (const id of diff.toCancel) await Notifications.cancelScheduledNotificationAsync(id);
     for (const item of diff.toSchedule) {
-      const followUp = item.kind === "follow_up";
+      const followUp = item.kind !== "due";
       const forName = ownerOfNotification(item.slotKeys, dependantOfMedicine);
       const title = forName && !followUp ? await text("medicines.notify.title_for", { name: forName }) : followUp ? followTitle : dueTitle;
-      const body = forName && !followUp ? await text("medicines.notify.body_for", { name: forName }) : followUp ? followBody : dueBody;
+      // S08z: when every dose in this notification is tied to the same part of the person's day, say which, in plain words and nothing else.
+      const when = item.anchor && !followUp ? anchorPhrase(item.anchor.anchor, item.anchor.offsetMinutes, asLocale(await getUiLanguage())) : "";
+      const body =
+        forName && !followUp
+          ? when
+            ? await text("doseanchor.notify.body_for", { name: forName, when })
+            : await text("medicines.notify.body_for", { name: forName })
+          : followUp
+            ? followBody
+            : when
+              ? await text("doseanchor.notify.body", { when })
+              : dueBody;
       await Notifications.scheduleNotificationAsync({
         identifier: item.id,
-        content: { title, body, data: { slotKeys: item.slotKeys } },
+        content: { title, body, data: { slotKeys: item.slotKeys }, ...iosInterruption() },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(item.fireAtMs), channelId: DOSE_CHANNEL },
       });
     }
@@ -280,6 +315,31 @@ export async function sendTestReminder(): Promise<boolean> {
   }
 }
 
+/**
+ * The reliability self-test (item 4): a test reminder about a minute from now, with the same generic wording as a real one. The time it
+ * is due is kept on the phone so the screen can ask "did you see it?" afterwards, even after the app was closed. Works offline.
+ */
+export async function startReminderSelfTest(nowMs: number = Date.now()): Promise<SelfTestRecord | null> {
+  try {
+    if (!(await ensureDoseReminderPermission())) return null;
+    await ensureChannel();
+    const rec = startSelfTest(nowMs, loadReminderReliability());
+    await Notifications.scheduleNotificationAsync({
+      identifier: "selftest|1",
+      content: { title: await text("medicines.notify.test_title"), body: await text("medicines.notify.test_body"), ...iosInterruption() },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.round((rec.dueAtMs - nowMs) / 1000)),
+        channelId: DOSE_CHANNEL,
+      },
+    });
+    await writeSelfTest(rec);
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
 /** Why reminders may be unreliable on this phone, in the order to fix them. Empty means nothing is known to be wrong. */
 export async function checkReminderHealth(patientId: string, nowMs: number = Date.now(), known?: ReplanResult): Promise<ReminderIssue[]> {
   try {
@@ -292,14 +352,13 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       pending = known.pending;
     } else {
       const meds = await loadMedicines(patientId);
+      await refreshAnchorProfile(patientId);
       const closed = await loadClosedSlots(patientId, nowMs);
-      const cfg = loadReminderBehaviour();
-      const rules = loadMedicineRules();
       plannedCount = planDoseNotifications(
-        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m) })),
+        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) })),
         closed,
         nowMs,
-        { maxPending: cfg.maxPending, horizonDays: cfg.horizonDays, followUpMinWindowMinutes: rules.followUpMinWindowMinutes, maxFollowUps: rules.maxFollowUps }
+        planConfig()
       ).length;
       pending = (await Notifications.getAllScheduledNotificationsAsync()).filter((n) => n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)).length;
     }

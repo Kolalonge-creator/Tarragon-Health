@@ -7,6 +7,7 @@ import {
   useCreateEncounterNote,
   useUpdateEncounterNoteDraft,
   useFinalizeEncounterNote,
+  useSetEncounterNoteDiagnosisCode,
   type ClinicalEncounterNote,
 } from "@/lib/queries/encounter-notes";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
 import { extractSafetyLines } from "@/lib/scribe/safety-lines";
 import { draftHash, sectionOutcomes } from "@/lib/scribe/review-record";
 import { t } from "@tarragon/i18n";
+import { ICD10_HINT, normaliseIcd10, saveCodeIfChanged } from "@/lib/clinical/icd10";
 import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
@@ -65,6 +67,7 @@ function NoteFields({
   values,
   onChange,
   disabled,
+  diagnosisCode,
 }: {
   values: {
     reasonForEncounter: string;
@@ -77,6 +80,8 @@ function NoteFields({
   };
   onChange: (field: keyof typeof values, value: string) => void;
   disabled?: boolean;
+  /** Only on a saved draft: the ICD-10 code that feeds the symptom checker accuracy audit once the note is signed. */
+  diagnosisCode?: { value: string; onChange: (value: string) => void; problem: boolean; amends?: boolean };
 }) {
   return (
     <div className="grid gap-3">
@@ -120,6 +125,28 @@ function NoteFields({
           onChange={(e) => onChange("diagnosis", e.target.value)}
         />
       </div>
+      {diagnosisCode && (
+        <div>
+          <Label>ICD-10 code (optional)</Label>
+          <Input
+            value={diagnosisCode.value}
+            disabled={disabled}
+            maxLength={10}
+            placeholder="for example B50.9"
+            aria-invalid={diagnosisCode.problem}
+            onChange={(e) => diagnosisCode.onChange(e.target.value)}
+          />
+          <p className={`mt-1 text-xs ${diagnosisCode.problem ? "text-red-600" : "text-charcoal-ink/50"}`}>
+            {diagnosisCode.problem ? "That is not an ICD-10 code. " : ""}
+            {ICD10_HINT} It is used only when you sign the note, to check how the symptom checker did.
+          </p>
+          {diagnosisCode.amends && (
+            <p className="mt-1 text-xs text-charcoal-ink/70">
+              This note amends a signed note. Signing it replaces the original&apos;s code in that check, so enter the code again if the diagnosis still stands.
+            </p>
+          )}
+        </div>
+      )}
       <div>
         <Label>Plan</Label>
         <Textarea
@@ -433,6 +460,10 @@ function DraftNoteCard({
   });
   const [outcome, setOutcome] = useState<NonNullable<ClinicalEncounterNote["outcome"]> | "">("");
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
+  const [diagnosisCode, setDiagnosisCode] = useState(note.diagnosis_code ?? "");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const codeCheck = normaliseIcd10(diagnosisCode);
+  const setCode = useSetEncounterNoteDiagnosisCode();
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
   const scribeAvailable = useScribeAvailable().data === true;
@@ -522,6 +553,19 @@ function DraftNoteCard({
     }
   }
 
+  /** Saves the ICD-10 code when it changed. False means "do not go on": a malformed code or a refused save. */
+  async function persistCode(): Promise<boolean> {
+    const result = await saveCodeIfChanged(diagnosisCode, note.diagnosis_code ?? null, (code) =>
+      setCode.mutateAsync({ noteId: note.id, patientId, code }),
+    );
+    if (result.ok) {
+      setCodeError(null);
+      return true;
+    }
+    if (result.reason === "refused") setCodeError(result.message ?? "The ICD-10 code could not be saved.");
+    return false;
+  }
+
   const noteFieldsPayload = () => ({
     reason_for_encounter: fields.reasonForEncounter.trim(),
     history: fields.history.trim() || null,
@@ -557,7 +601,12 @@ function DraftNoteCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <NoteFields values={fields} onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))} />
+        <NoteFields
+          values={fields}
+          onChange={(field, value) => setFields((f) => ({ ...f, [field]: value }))}
+          diagnosisCode={{ value: diagnosisCode, onChange: (value) => { setDiagnosisCode(value); setCodeError(null); }, problem: !codeCheck.ok, amends: Boolean(note.amends_note_id) }}
+        />
+        {codeError && <p className="text-sm text-red-600">{codeError}</p>}
         {scribeAvailable && (
           <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
             <ScribePanel
@@ -599,10 +648,16 @@ function DraftNoteCard({
           <Button
             size="sm"
             variant="outline"
-            disabled={update.isPending}
+            disabled={update.isPending || setCode.isPending}
             onClick={async () => {
               if (!(await persistScribe())) return;
               update.mutate({ noteId: note.id, patientId, fields: noteFieldsPayload() });
+              // The other fields are saved even when the code is not valid yet; only the code waits.
+              if (!codeCheck.ok) {
+                setCodeError("The other changes were saved. Fix or clear the ICD-10 code to save it.");
+                return;
+              }
+              await persistCode();
             }}
           >
             {update.isPending ? "Saving…" : "Save changes"}
@@ -635,11 +690,14 @@ function DraftNoteCard({
                 outcome === "" ||
                 !identityConfirmed ||
                 (aiDrafted && !safetyConfirmed) ||
+                !codeCheck.ok ||
                 finalize.isPending
               }
               title="Locks this note permanently, no further edits after signing"
               onClick={async () => {
                 if (!(await persistScribe())) return;
+                // The code must be on the draft before signing: a signed note refuses it.
+                if (!(await persistCode())) return;
                 // The AI text lives only in these fields until saved, and signing locks the note: save it first, so a note
                 // is never locked blank while its patient summary is attached.
                 if (scribe || aiDrafted) {
@@ -746,6 +804,13 @@ function FinalizedNoteCard({
           <p>
             <span className="font-medium">Diagnosis: </span>
             {note.diagnosis}
+            {note.diagnosis_code ? ` (ICD-10 ${note.diagnosis_code})` : ""}
+          </p>
+        )}
+        {!note.diagnosis && note.diagnosis_code && (
+          <p>
+            <span className="font-medium">ICD-10: </span>
+            {note.diagnosis_code}
           </p>
         )}
         {note.plan && (
