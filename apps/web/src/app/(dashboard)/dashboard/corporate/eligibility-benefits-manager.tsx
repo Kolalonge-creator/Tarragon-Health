@@ -207,7 +207,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
       <CardContent className="space-y-4">
         {seats.data?.price_kobo ? (
           <p className="text-sm text-charcoal-ink/80" role="status">
-            A Membership seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
+            A {t("catalog.membership_annual.name", "en")} seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
             active {seats.data.active_seats === 1 ? "seat" : "seats"}.{" "}
             {seats.data.module_open ? "" : "Organisation-paid Membership is not open yet, so a package cannot grant it."}
             {seats.data.already_member_count > 0

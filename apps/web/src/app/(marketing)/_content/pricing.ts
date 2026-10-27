@@ -59,7 +59,10 @@
  * The platform has two plans: Free and Membership. No other price is shown on the public site (decision 2026-10-13); the one
  * Membership price is read from versioned config by the pricing page.
  */
-import { renewalCopy } from "@/lib/marketing/membership";
+import { paidProductName, renewalCopy } from "@/lib/marketing/membership";
+
+/** The name of the one paid product while the ladder is OFF (W-46). */
+const P = paidProductName();
 
 export type PricingLabel =
   | "FREE"
@@ -122,7 +125,7 @@ export const PRICING_LABELS: Record<
   "PAID SERVICE": {
     title: "Paid service",
     description:
-      "Part of Membership: a yearly blood test and a video call with your care team every month.",
+      `Part of ${P}: a yearly blood test and a video call with your care team every month.`,
     className: "bg-sprout-gold/15 text-charcoal-ink",
   },
 };
@@ -141,10 +144,10 @@ export const NAIRA_ONLY_STATEMENT =
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const pricingPromises = (autoRenews: boolean): string[] => [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  "There are two plans: Free, and Membership. Membership is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
+  `There are two plans: Free, and ${P}. ${P} is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.`,
   renewalCopy(autoRenews, 0).promise,
   "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
-  "The Membership price is reviewed once a year at most, and we will tell you at least 30 days before any change. A Membership you have already paid for is honoured until it ends.",
+  `The ${P} price is reviewed once a year at most, and we will tell you at least 30 days before any change. A ${P} you have already paid for is honoured until it ends.`,
   NAIRA_ONLY_STATEMENT,
 ];
 
@@ -304,7 +307,7 @@ export const ALWAYS_FREE_NOTE =
  * offer here would have described something the platform cannot do.
  */
 export const FREE_TRIAL_INTRO =
-  "There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is Membership, one price for a year that you see and confirm first.";
+  `There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is ${P}, one price for a year that you see and confirm first.`;
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
@@ -312,8 +315,8 @@ export const FREE_TRIALS: { title: string; body: string }[] = [
     body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous one gets you immediate guidance.",
   },
   {
-    title: "Join Membership when you want a doctor",
-    body: "If you want your care team to look at your numbers with you every month, and a yearly blood test, join Membership. There is no plan to join first, and nothing carries on charging you afterwards.",
+    title: `Join ${P} when you want a doctor`,
+    body: `If you want your care team to look at your numbers with you every month, and a yearly blood test, join ${P}. There is no plan to join first, and nothing carries on charging you afterwards.`,
   },
 ];
 
@@ -331,7 +334,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For Membership, you see the exact price",
+    title: `For ${P}, you see the exact price`,
     body: "In the app, before you are ever charged. No estimates, no “roughly.” A test, refill, or vaccine is not something Tarragon charges for at all, so there is no price of ours to show; see the next step.",
   },
   {
@@ -352,7 +355,7 @@ export const OUR_UNDERTAKINGS: string[] = [
   "We show you the price and wait for your confirmation before we charge you anything",
   "A doctor reviews your case before any diagnosis is offered or any medicine is changed",
   "Your health information reaches a family member only with your consent",
-  "There is no contract and no subscription, and your card is charged once for the Membership you confirm",
+  `There is no contract and no subscription, and your card is charged once for the ${P} you confirm`,
   "What is Membership is always labelled as Membership, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
   "The free app stays free, with no expiry date and nothing that turns into a charge on its own",
 ];
