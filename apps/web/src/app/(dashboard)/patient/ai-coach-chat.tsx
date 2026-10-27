@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { CoachSuggestedAction } from "@tarragon/shared";
+import { AiLabel } from "@/components/ai/ai-label";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
 import { CareTeamHandoffStatus } from "@/components/ai/care-team-handoff-status";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
@@ -111,6 +112,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <AiLabel variant="coach" />
         {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
         <AssistantEmergencyButton />
         <AssistantNudgeCard />

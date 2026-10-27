@@ -19,6 +19,7 @@ export type VersionedGovernedTable =
   | "nutrition_target_config"
   | "activity_safety_config"
   | "fasting_safety_config"
+  | "home_card_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"
   | "health_report_config_versions"

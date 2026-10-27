@@ -17,8 +17,11 @@
     "./fasting-safety": "./src/fasting-safety.ts",
     "./fasting-details": "./src/fasting-details.ts",
     "./glucose-response": "./src/glucose-response.ts",
+    "./today": "./src/today.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
-    "./workout-plans": "./src/workout-plans.ts"
+    "./workout-plans": "./src/workout-plans.ts",
+    "./omission-check": "./src/omission-check.ts",
+    "./text-match": "./src/text-match.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

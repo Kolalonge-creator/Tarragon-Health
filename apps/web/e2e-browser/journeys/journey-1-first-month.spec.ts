@@ -13,7 +13,7 @@ import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
  *
  * Runs the steps that exist today with real sessions and the real database functions, and declares the rest pending with the
  * owner session. Nothing is simulated that the platform does not do: Health Points, the risk questionnaire, the screening
- * calendar, the silence nudge and the care pack offer are PENDING, not faked. Checkout through Paystack is SKIPPED with its
+ * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal and Health Points steps stay pending: what exists is checked separately, as supporting checks that are not journey steps). Checkout through Paystack is SKIPPED with its
  * reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
  *
  * The phone number below is a Supabase test OTP number (supabase/config.toml [auth.sms.test_otp], fixed code 123456), so the
@@ -94,6 +94,29 @@ test.describe("Journey 1: a new user's first month", () => {
     await me.auth.setSession({
       access_token: (patient as { session: { access_token: string; refresh_token: string } }).session.access_token,
       refresh_token: (patient as { session: { access_token: string; refresh_token: string } }).session.refresh_token,
+    });
+
+    // ------------------------------------------------------------------ 3: onboarding goal and condition (S41), through her own session
+    // A SUPPORTING check, not the journey step: the spec step "goal-blood-pressure" says the goal 'blood pressure' is recorded, and the live onboarding
+    // has no such goal (the goals are manage_condition, stay_ahead, screening_check, family_care, not_sure; hypertension is a separate condition
+    // answer). So the step stays pending in journeys.ts and this only proves what does exist: her own answers are saved and read back.
+    await test.step("supporting check: onboarding saves her own goal and condition answers", async () => {
+      const saved = await me.rpc("save_onboarding_answers", { p_goals: ["manage_condition"], p_conditions: ["hypertension"] });
+      expect(saved.error, JSON.stringify(saved.error)).toBeNull();
+      expect((saved.data as { ok: boolean }).ok).toBe(true);
+      // her own session reads her answers back
+      const mine = await me.from("onboarding_answers").select("question_code, answer");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      const byCode = Object.fromEntries((mine.data ?? []).map((r: { question_code: string; answer: unknown }) => [r.question_code, r.answer]));
+      expect(byCode.goals).toEqual(["manage_condition"]);
+      expect(byCode.conditions).toEqual(["hypertension"]);
+      // control: it is her row and a test row, and a signed-out client reads none of it (the table has no anon grant)
+      expect(Number(sqlValue<string>(`select count(*)::text from public.onboarding_answers where patient_id = ${lit(patientId!)} and is_test`))).toBe(2);
+      const signedOut = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).from("onboarding_answers").select("id");
+      expect(signedOut.error !== null || (signedOut.data ?? []).length === 0, "a signed-out client could read onboarding answers").toBe(true);
+      // an invalid choice is refused, not stored
+      const bad = await me.rpc("save_onboarding_answers", { p_goals: ["not_a_goal"], p_conditions: ["hypertension"] });
+      expect(bad.error, "an unknown goal was accepted").not.toBeNull();
     });
 
     // ------------------------------------------------------------------ 6 and 7: an order for a screen (real RPC), then checkout
@@ -189,6 +212,29 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
       const graded = Number(sqlValue<string>(`select count(*)::text from public.triage_events where patient_id = ${lit(patientId!)}`));
       expect(graded, "each logged reading should have been graded through the bus").toBeGreaterThanOrEqual(1);
+    });
+
+    // ------------------------------------------------------------------ 13: Health Points for logging (S58), through the bus the readings above already went into
+    // A SUPPORTING check, not the journey step: the spec step says points are awarded "for consistency", and what S58 awards is a capped amount per
+    // day for the act of logging (a participation reward). A consistency or streak reward is a badge condition with no points, so the step stays
+    // pending in journeys.ts and this only proves what does exist: points through the bus, capped, never for what a reading says.
+    await test.step("supporting check: logging readings earns capped Health Points through the bus", async () => {
+      const drain = await drainBus();
+      expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
+      const rule = sqlRows<{ points: number }>(`select points::int as points from public.reward_rules where code = 'vitals_logged' and is_active order by version desc limit 1`)[0];
+      expect(rule, "the vitals_logged reward rule does not exist").toBeDefined();
+      const decisions = sqlRows<{ outcome: string; detail: string | null; points: number }>(
+        `select outcome, detail, points::int as points from public.points_award_decisions where patient_id = ${lit(patientId!)} and rule_code = 'vitals_logged'`,
+      );
+      const awarded = decisions.filter((d) => d.outcome === "awarded");
+      // Five readings were logged today and the rule is capped per day: the points reward the act of logging (one award a day), never the
+      // number, so the rest are capped (two awards only if the run crossed midnight in Lagos).
+      expect(awarded.length, "no Health Points were awarded for logging readings: " + JSON.stringify(decisions)).toBeGreaterThanOrEqual(1);
+      expect(awarded.length).toBeLessThanOrEqual(2);
+      for (const a of awarded) expect(a.points, "the award is the rule's points whatever the reading said").toBe(rule!.points);
+      expect(decisions.filter((d) => d.outcome === "capped" && d.detail === "day_cap").length, "the per day cap did not apply").toBeGreaterThanOrEqual(1);
+      const ledger = sqlRows<{ points: number }>(`select points::int as points from public.wellness_points_ledger where patient_id = ${lit(patientId!)} and reason = 'vitals_logged' and kind = 'earn'`);
+      expect(ledger.length, "every award has a ledger row").toBeGreaterThanOrEqual(awarded.length);
     });
 
     // ------------------------------------------------------------------ 15: her son joins her Care Circle (real sessions both sides)

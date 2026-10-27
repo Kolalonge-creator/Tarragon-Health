@@ -1,7 +1,7 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useState, useTransition } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   confirmLabReportExtraction,
@@ -222,7 +222,7 @@ export function LabReportExtractionPanel({
     <div className="space-y-3 rounded-lg border border-charcoal-ink/15 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-charcoal-ink">Check before filing</p>
-        <Badge variant="amber">AI-drafted, not yet filed</Badge>
+        <AiLabel variant="unfiled" tone="amber" />
       </div>
 
       {extraction.unreadableReason ? (

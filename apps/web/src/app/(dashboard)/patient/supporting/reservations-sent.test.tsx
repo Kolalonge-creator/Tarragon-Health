@@ -14,11 +14,16 @@ describe("ReservationsSent", () => {
     render(<ReservationsSent />);
     expect((screen.getByLabelText("Claim link for Amaka") as HTMLInputElement).value).toMatch(/\/claim\/tok123$/);
     expect(screen.getByText(/We do not text them/)).toBeTruthy();
+    // the payer's own return surface says plainly what to do next
+    expect(screen.getByText("Share this link with Amaka")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toMatch(/Paid\. Share the link below with Amaka/);
     expect(screen.getByText("Copy link")).toBeTruthy();
   });
   it("shows no link once claimed or when there is no token", () => {
     hook.mockReturnValue({ isLoading: false, data: [{ ...base, id: "b", status: "claimed", inviteToken: null }] });
     render(<ReservationsSent />);
     expect(screen.queryByText("Copy link")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/Share this link with/)).toBeNull();
   });
 });

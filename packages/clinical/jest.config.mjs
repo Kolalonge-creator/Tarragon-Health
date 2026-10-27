@@ -30,6 +30,9 @@ export default {
     "<rootDir>/packages/clinical/src/glucose-response.ts",
     "<rootDir>/packages/clinical/src/home-bp-session.ts",
     "<rootDir>/packages/clinical/src/cuff-check.ts",
+    "<rootDir>/packages/clinical/src/today-build.ts",
+    "<rootDir>/packages/clinical/src/readiness.ts",
+    "<rootDir>/packages/clinical/src/weekly-summary.ts",
   ],
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },
 };

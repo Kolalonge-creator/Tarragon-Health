@@ -1,0 +1,43 @@
+name: Device lab results gate
+
+# S88d. Reports whether a completed real-device results file exists for the current native runtimeVersion
+# (docs/device-lab/release-results/<runtimeVersion>.md). Report only by default: it never turns an existing check red.
+# For a release, run it by hand (Actions, Run workflow) with "require" set to true and it fails when the file is absent
+# or incomplete. Not a required status check on main-dev.
+
+on:
+  workflow_dispatch:
+    inputs:
+      require:
+        description: "Fail when the results file is missing or incomplete (use for a release)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "apps/mobile/app.json"
+      - "docs/device-lab/**"
+      - "scripts/device-lab/**"
+
+permissions:
+  contents: read
+
+jobs:
+  device-lab-results:
+    name: Device lab results (report only unless required)
+    runs-on: ubuntu-latest
+    # On pull requests this job can never block a merge, even if it errors.
+    continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check the results file
+        env:
+          REQUIRE: ${{ inputs.require }}
+        run: |
+          if [ "$REQUIRE" = "true" ]; then
+            scripts/device-lab/check-release-results.sh --require
+          else
+            scripts/device-lab/check-release-results.sh
+          fi
