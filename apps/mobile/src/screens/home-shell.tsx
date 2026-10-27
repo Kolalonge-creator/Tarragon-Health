@@ -15,6 +15,7 @@ import { loadOpenAlerts, loadUnanswered } from "@/lib/care-circle/api";
 import { CheckInCard } from "@/screens/sections/care-circle-section";
 import { needsAttentionCount } from "@/lib/care-circle/parse";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
+import { ScreenHelp } from "@/ui/screen-help";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { useTheme } from "@/ui/design";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
@@ -447,6 +448,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
 
       {/* S29e: a supporter asked for a check-in; the patient's own account only, and only while a question waits. */}
       {acting === null ? <CheckInCard /> : null}
+
+      {/* D.2: "What is this?" for the screen and a one-time offer of a short tour on the four bottom tabs. Words only; nothing autoplays. */}
+      <ScreenHelp section={section} />
 
       <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 

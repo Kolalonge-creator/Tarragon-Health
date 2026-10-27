@@ -5940,3 +5940,22 @@ The request status function and the PDF routes now hide sensitive requests from 
 ### OQ-740 Journey testing: the Android Maestro workflow needs an Android test build, a test backend and two secrets before it can run (raised by the journey-testing pass)
 - `.github/workflows/mobile-maestro-android.yml` is manual only and has never run. It needs: an EAS preview build of the Android app (`apps/mobile/android` is not committed, so CI cannot build one); a non-production backend; repository secrets `MOBILE_E2E_EMAIL` and `MOBILE_E2E_PASSWORD` for an `is_test` account. Several flows still carry iOS app ids or unconfirmed selectors; run one flow by hand first.
 - A person decides: which backend the test account lives on, and who builds and uploads the APK.
+
+### OQ-732 Cycle logs and lifestyle trackers are still online-only (raised 2026-10-27)
+- Built: wellbeing check-ins now save on the phone first (outbox kind `wellbeing_checkin`). Not built: cycle and daily logs, alcohol, smoking and sleep-goal trackers.
+- Cycle data is in the protected reproductive category. A queued row sits in the phone's encrypted store until it sends, and the held-rows notices list what is waiting. Whether a waiting cycle log may appear there by name, whether it should sit behind the private-section lock, and how discreet mode treats it are decisions the S66 design did not make. Queueing it without that decision could show a reproductive entry on a shared phone's sync banner.
+- The lifestyle trackers have no such privacy question; they are plain follow-up work (an outbox kind each, with the same pattern as the check-in).
+- Decision needed: how queued cycle entries are shown (recommend: never by name; the generic "something is waiting to send" line only), then build both.
+
+### OQ-733 Some text sizes are still capped below 200 percent (raised 2026-10-27)
+- WCAG 2.2 asks for text to be usable at 200 percent. The top-bar title now scales fully. Still capped at 1.2 on purpose: the initials in a fixed circle, the unread-count badge, the drawer label and the five bottom-tab labels (`TAB_LABEL_MAX_SCALE`). Raising them without a device would risk clipped text on a narrow phone.
+- Needs a pass on a real small Android phone at the largest text setting; the tab bar probably needs to wrap or stack its labels rather than just lift the cap.
+
+### OQ-734 The "What is this?" help covers 11 screens; the rest have none (raised 2026-10-27)
+- The help text is the written script of the planned audio clip, so the words and the recording cannot differ. A screen is mapped only where its script clearly describes it (`lib/screen-help.ts`). 41 scripts exist for about 79 screens, and several scripts describe features the app does not have (a feature-phone short code, USSD payment, a PIN on discreet mode). Those were left unmapped on purpose.
+- Needs: scripts for the other screens, written and reviewed (they are patient-facing words), and the audio itself. Recording stays gated on a voice audition on drug names with Nigerian listeners and the CMO's sign-off on the clinical clips.
+
+
+### OQ-735 Queued wellbeing check-ins have no client id and take the phone clock (raised 2026-10-27)
+- The check-in table has no client id column, so the queue de-duplicates by looking up an existing row for the same person and check-in time. That lookup is allowed only for the patient or a supporter with mental-health read access, so for a helper acting for someone without that permission a retry after a lost reply could store a second check-in. The fix is a `client_id` column with a unique index, which is a migration (the activity log already works this way).
+- A queued check-in is stamped with the phone clock. Vitals have a back-date window and the server clock as the cap; check-ins do not. A phone with a wrong clock stores a wrong check-in time. Option: clamp to the server time on send when the recorded time is in the future.
