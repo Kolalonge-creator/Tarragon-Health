@@ -97,12 +97,18 @@ end $$;
 
 -- 1 and 2. Test patient (exempt from the signed-set condition so the path is provable before signing)
 do $$
-declare t uuid := pg_temp.f('test'); due uuid; fut uuid; hiv uuid; nob uuid; r jsonb; o public.lab_orders%rowtype;
+declare t uuid := pg_temp.f('test'); due uuid; fut uuid; hiv uuid; nob uuid; fer uuid; r jsonb; o public.lab_orders%rowtype;
 begin
   due := pg_temp.sched(t, 'lipid_panel', current_date);
   fut := pg_temp.sched(t, 'fbc', current_date + 10);
   hiv := pg_temp.sched(t, 'hiv', current_date);
   nob := pg_temp.sched(t, 'bone_density', current_date);
+  -- a REAL self-bookable bundle (live: single_ferritin is self_bookable). enforce_lab_order_origin refuses a schedule link on those for a signed-in
+  -- patient, so without the job exception this request could never be issued and the nightly run would swallow the refusal.
+  fer := pg_temp.sched(t, 'ferritin', current_date);
+  perform pg_temp.setf('fer', fer);
+  perform pg_temp.ck('control: the fixture really is a self-bookable single-test bundle', 'true',
+    (select (b.self_bookable and b.is_active)::text from public.panel_bundles b where b.test_codes = array['ferritin'] limit 1));
   perform pg_temp.setf('due', due); perform pg_temp.setf('fut', fut); perform pg_temp.setf('hiv', hiv); perform pg_temp.setf('nob', nob);
   r := private.run_screening_request_automation(t);
   select * into o from public.lab_orders where screening_schedule_id = due;
@@ -116,7 +122,12 @@ begin
   perform pg_temp.ck('a future-due item gets nothing', '0', pg_temp.orders(fut)::text);
   perform pg_temp.ck('a sensitive test (HIV) is never auto-issued', '0', pg_temp.orders(hiv)::text);
   perform pg_temp.ck('a test with no single-test bundle gets nothing', '0', pg_temp.orders(nob)::text);
-  perform pg_temp.ck('the run reports the skips', '1,1,1', (r ->> 'issued') || ',' || (r ->> 'skipped_sensitive') || ',' || (r ->> 'skipped_no_bundle'));
+  perform pg_temp.ck('the self-bookable single-test bundle (ferritin) is issued and its schedule booked', '1,booked',
+    pg_temp.orders(fer)::text || ',' || (select status::text from public.screening_schedules where id = fer));
+  perform pg_temp.ck('the run reports the skips and no failure', '2,1,1,0', (r ->> 'issued') || ',' || (r ->> 'skipped_sensitive') || ',' || (r ->> 'skipped_no_bundle') || ',' || (r ->> 'failed'));
+  perform pg_temp.ck('no failure incident or audit row after a clean run', '0,0',
+    (select count(*)::text from public.audit_log where action = 'screening_request.auto_issue_failed') || ',' ||
+    (select count(*)::text from public.ops_incidents where external_reference = 'screening_request_automation'));
   -- idempotency, with the schedule forced back to pending as if a status had been reset
   update public.screening_schedules set status = 'pending' where id = due;
   perform private.run_screening_request_automation(t);
@@ -185,9 +196,11 @@ end $$;
 
 -- 6. Sabotage. Each redefines the real function, repeats the matching check, and must DIFFER from the expected value above.
 do $$
-declare v_def text; t uuid := pg_temp.f('test');
+declare v_def text; t uuid := pg_temp.f('test'); v_up text; v_trg text; v_sbx uuid; v_fer2 uuid; v_fer3 uuid; v_a0 bigint;
 begin
   v_def := pg_get_functiondef('private.run_screening_request_automation(uuid)'::regprocedure);
+  v_up := pg_get_functiondef('private.screening_result_uploaded(uuid)'::regprocedure);
+  v_trg := pg_get_functiondef('private.enforce_lab_order_origin()'::regprocedure);
   -- A: sensitive skip removed
   execute replace(v_def, 'v_sensitive := v_sensitive + 1; continue;', 'v_sensitive := v_sensitive + 1;');
   perform private.run_screening_request_automation(t);
@@ -211,6 +224,84 @@ begin
   perform private.queue_screening_reminders();
   perform pg_temp.sab('upload check removed: the uploaded item is chased again', '0',
     (select count(*)::text from public.notifications where recipient_id = pg_temp.f('real2') and payload ->> 'schedule_id' = pg_temp.f('s2')::text));
+  execute v_up;
+
+  -- control first: a signed-in patient is STILL refused a schedule link on a self-bookable bundle (the trigger was not weakened for patients)
+  v_sbx := pg_temp.sched(pg_temp.f('stranger'), 'ferritin', current_date);
+  perform pg_temp.ck('a signed-in patient is still refused a schedule link on a self-bookable bundle', '23514',
+    pg_temp.sqlstate_as(pg_temp.f('stranger'), format(
+      'insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, screening_schedule_id, status, total_kobo) values (%L, %L, (select id from public.panel_bundles where code = ''single_ferritin''), %L, ''ordered'', 0)',
+      pg_temp.f('org'), pg_temp.f('stranger'), v_sbx)));
+  -- E: the job's exception removed from the job: the self-bookable request cannot be issued, the failure is recorded durably
+  -- (audit_log is append only, so rows are counted before and after rather than deleted)
+  v_a0 := (select count(*) from public.audit_log where action = 'screening_request.auto_issue_failed');
+  delete from public.ops_incidents where external_reference = 'screening_request_automation';
+  execute replace(v_def, 'perform set_config(''tarragon.screening_request_job'', ''on'', true);', '');
+  perform private.run_screening_request_automation(pg_temp.f('stranger'));
+  perform pg_temp.sab('job exception removed: the self-bookable request is not issued', '1', pg_temp.orders(v_sbx)::text);
+  -- the failure that just happened is a REAL check of the failure signal
+  perform pg_temp.ck('a failed issue leaves a durable audit row', '1',
+    ((select count(*) from public.audit_log where action = 'screening_request.auto_issue_failed') - v_a0)::text);
+  perform pg_temp.ck('...and one open ops incident that names no patient or test', '1,true',
+    (select count(*)::text || ',' || bool_and(summary !~* 'ferritin|hiv|hepat' and title !~* 'ferritin|hiv|hepat')::text from public.ops_incidents where external_reference = 'screening_request_automation' and status = 'open'));
+  perform private.run_screening_request_automation(pg_temp.f('stranger'));
+  perform pg_temp.ck('...a second failing night does not open a second incident', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'screening_request_automation' and status not in ('resolved', 'closed')));
+  execute v_def;
+  perform private.run_screening_request_automation(pg_temp.f('stranger'));
+  perform pg_temp.ck('with the job intact the same self-bookable request is issued', '1', pg_temp.orders(v_sbx)::text);
+  -- F: the trigger exception itself removed (restored refusal): the job can no longer issue a self-bookable request
+  v_fer2 := pg_temp.sched(t, 'vitamin_b12', current_date);
+  execute replace(v_trg, 'coalesce(current_setting(''tarragon.screening_request_job'', true), '''') <> ''on'' or (select auth.uid()) is not null', 'true');
+  perform private.run_screening_request_automation(t);
+  perform pg_temp.sab('trigger exception removed: the self-bookable request is refused again', '1', pg_temp.orders(v_fer2)::text);
+  execute v_trg;
+  -- G: failure signal removed
+  v_fer3 := pg_temp.sched(pg_temp.f('stranger'), 'vitamin_b12', current_date);
+  v_a0 := (select count(*) from public.audit_log where action = 'screening_request.auto_issue_failed');
+  delete from public.ops_incidents where external_reference = 'screening_request_automation';
+  execute replace(v_def, 'if v_failed > 0 then', 'if false then');
+  execute replace(v_trg, 'coalesce(current_setting(''tarragon.screening_request_job'', true), '''') <> ''on'' or (select auth.uid()) is not null', 'true');
+  perform private.run_screening_request_automation(pg_temp.f('stranger'));
+  perform pg_temp.sab('failure signal removed: a failed night leaves an audit row', '1',
+    ((select count(*) from public.audit_log where action = 'screening_request.auto_issue_failed') - v_a0)::text);
+  execute v_trg;
+  execute v_def;
+end $$;
+
+-- 8. Replaced documents, and someone acting for the patient
+do $$
+declare p uuid := pg_temp.f('real2'); s2 uuid := pg_temp.f('s2'); a uuid; b uuid; v_up text; cg uuid; pt uuid := pg_temp.f('test'); fer uuid := pg_temp.f('fer'); hivs uuid;
+begin
+  v_up := pg_get_functiondef('private.screening_result_uploaded(uuid)'::regprocedure);
+  select d.id into a from public.lab_result_documents d join public.lab_orders o on o.id = d.lab_order_id where o.screening_schedule_id = s2 limit 1;
+  insert into public.lab_result_documents (organisation_id, patient_id, lab_order_id, file_path, source) values (pg_temp.f('org'), p, null, p::text || '/s98-b.pdf', 'patient') returning id into b;
+  update public.lab_result_documents set supersedes_document_id = a where id = b;
+  perform pg_temp.ck('a REPLACED document (the only one on the request) no longer counts as uploaded', 'false', private.screening_result_uploaded(s2)::text);
+  perform pg_temp.ck('...and the patient sees no upload on that request', '0',
+    pg_temp.q_as(pg_temp.f('real2'), format('select coalesce(max(upload_count),0)::text from public.my_screening_requests() where schedule_id = %L', s2)));
+  execute replace(v_up, 'and d.superseded_by_document_id is null', '');
+  perform pg_temp.sab('superseded filter removed: a replaced document silences reminders', 'false', private.screening_result_uploaded(s2)::text);
+  execute v_up;
+
+  -- a caregiver with view_results sees the non-sensitive request but never learns a sensitive screening has one
+  cg := pg_temp.mkuser(pg_temp.f('org'), 'caregiver', 'patient', true);
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
+  values (pt, cg, 'manage', pt, array['view_results']::public.caregiver_permission[]);
+  hivs := pg_temp.f('hiv');
+  perform pg_temp.ck('control: the owner has a non-sensitive request on file', 'true', (private.open_screening_request_id(fer) is not null)::text);
+  -- make sure the patient has a sensitive request (as the opted-in job would issue), then ask as the caregiver
+  if pg_temp.orders(hivs) = 0 then
+    perform set_config('tarragon.screening_request_job', 'on', true);
+    insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, screening_schedule_id, status, origin, fulfilment, total_kobo)
+    values (pg_temp.f('org'), pt, (select id from public.panel_bundles where code = 'single_hiv'), hivs, 'ordered', 'patient_initiated', 'self_arranged', 0);
+    perform set_config('tarragon.screening_request_job', 'off', true);
+  end if;
+  perform pg_temp.ck('the owner sees the sensitive request', 'true', pg_temp.q_as(pt, format('select coalesce(bool_or(schedule_id = %L), false)::text from public.my_screening_requests()', hivs)));
+  perform pg_temp.ck('a caregiver sees the non-sensitive request', 'true',
+    pg_temp.q_as(cg, format('select bool_or(schedule_id = %L)::text from public.my_screening_requests(%L)', fer, pt)));
+  perform pg_temp.ck('...and NOT the sensitive one', 'false',
+    pg_temp.q_as(cg, format('select coalesce(bool_or(schedule_id = %L), false)::text from public.my_screening_requests(%L)', hivs, pt)));
 end $$;
 
 do $$

@@ -5633,5 +5633,11 @@ The request insert sends the existing "your test request" email (PDF attached) a
 ### OQ-S98-4 An uploaded result does not close the calendar item (raised 2026-10-27)
 The upload is kept as a document, shown to the patient as "result received" and to the clinician as "Patient-uploaded, not lab-verified"; the schedule row stays `booked` until a clinician records the result (existing `refresh_screening_schedule_on_result`), or the patient confirms it done. Reminders stop at upload. No OCR or value extraction was built. Decide whether a clinician "record result from this document" shortcut is wanted.
 
+### OQ-S98-6 The manual "Get & print" button fails for self-bookable single tests (raised 2026-10-27)
+Found in review: `useCreateLabOrder` links the schedule, and the live trigger refuses that for a self-bookable bundle (HIV, hepatitis B and C, FIT, ferritin, vitamin B12, cervical smear bundles). The automatic job has its own narrow exception; the patient button does not. Options: (a) leave (the patient can still order these from the front-door catalogue without a schedule link); (b) make the button order without the link for self-bookable bundles (the result trigger already matches by patient and screen type). Recommendation: (b), as a separate small change.
+
+### OQ-S98-7 A caregiver with view_results can still read the order row (raised 2026-10-27)
+The request status function and the PDF routes now hide sensitive requests from non-owners, but `lab_orders_select` still admits a caregiver with `view_results` (bundle id, order number). Narrowing it for sensitive bundles is a wider RLS change. Recommendation: do it with the next lab-orders RLS pass, proved with a simulated caregiver.
+
 ### OQ-S98-5 Edge Function wording (raised 2026-10-27)
 `send-pending-notifications` templates for `screening_due` do not yet mention the request (not redeployed here). The in-app line does. Update and redeploy the template if wanted.

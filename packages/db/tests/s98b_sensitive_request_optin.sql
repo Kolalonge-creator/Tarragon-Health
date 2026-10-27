@@ -75,6 +75,10 @@ end $f$;
 create function pg_temp.names(p_order uuid) returns text language sql as
 $$ select coalesce(string_agg(distinct payload ->> 'test_name', ','), 'none') from public.notifications
     where template = 'lab_order_requested_patient' and payload ->> 'order_number' = (select order_number from public.lab_orders where id = p_order) $$;
+create function pg_temp.email_order_id(p_order uuid) returns text language sql as
+$$ select coalesce((select payload ->> 'order_id' from public.notifications
+    where template = 'lab_order_requested_patient' and channel = 'email'
+      and payload ->> 'order_number' = (select order_number from public.lab_orders where id = p_order) limit 1), 'none') $$;
 
 do $$
 declare v_org uuid; v_staff uuid; v_admin uuid;
@@ -102,10 +106,11 @@ declare t uuid := pg_temp.f('t'); hiv uuid; lip uuid; hepb uuid; r jsonb; o_hiv 
 begin
   hiv := pg_temp.sched(t, 'hiv', current_date);
   lip := pg_temp.sched(t, 'lipid_panel', current_date);
+  perform pg_temp.setf('fit', pg_temp.sched(t, 'fit', current_date));
   r := private.run_screening_request_automation(t);
   perform pg_temp.setf('hiv', hiv);
   perform pg_temp.ck('no opt-in: the sensitive test gets no request', '0', pg_temp.orders(hiv)::text);
-  perform pg_temp.ck('...and is counted as skipped', '1', r ->> 'skipped_sensitive');
+  perform pg_temp.ck('...and is counted as skipped (HIV and FIT)', '2', r ->> 'skipped_sensitive');
   perform pg_temp.ck('...while the non-sensitive control is issued', '1', pg_temp.orders(lip)::text);
   o_lip := private.open_screening_request_id(lip);
   perform pg_temp.ck('non-sensitive payload still names the test', 'true', (pg_temp.names(o_lip) <> 'a lab test')::text);
@@ -116,6 +121,12 @@ begin
   o_hiv := private.open_screening_request_id(hiv);
   perform pg_temp.ck('opted in: the sensitive test gets one request', '1', pg_temp.orders(hiv)::text);
   perform pg_temp.ck('...the request notifications call it "a lab test"', 'a lab test', pg_temp.names(o_hiv));
+  perform pg_temp.ck('...the email carries no order id, so no PDF link is built for it', 'none', pg_temp.email_order_id(o_hiv));
+  perform pg_temp.ck('...while the non-sensitive request email still carries its order id', 'true', (pg_temp.email_order_id(o_lip) = o_lip::text)::text);
+  -- real self-bookable fixtures (live: single_hiv and single_fit are self_bookable; enforce_lab_order_origin refuses a schedule link on them for a patient)
+  perform pg_temp.ck('control: single_hiv and single_fit are self-bookable bundles', '2',
+    (select count(*)::text from public.panel_bundles where code in ('single_hiv', 'single_fit') and self_bookable and is_active));
+  perform pg_temp.ck('opted in: a second self-bookable sensitive test (FIT) is issued as well', '1', pg_temp.orders(pg_temp.f('fit'))::text);
   perform pg_temp.ck('...the audit entry names no test', 'false',
     (select (event ? 'screen_type')::text from public.audit_log where action = 'screening_request.auto_issued' and entity_id = o_hiv));
   -- reminder payloads
@@ -192,13 +203,15 @@ begin
   execute v_def;
   -- C: payload masking removed
   v_enq := pg_get_functiondef('private.enqueue_lab_order_requested_notifications()'::regprocedure);
-  execute replace(v_enq, 'select case when exists (select 1 from public.screen_types st where st.sensitive and st.code = any (b.test_codes)) then null else b.name end into v_test_name from public.panel_bundles b where b.id = new.panel_bundle_id;',
-                  'select name into v_test_name from public.panel_bundles where id = new.panel_bundle_id;');
+  execute replace(replace(v_enq, 'select case when exists (select 1 from public.screen_types st where st.sensitive and st.code = any (b.test_codes)) then null else b.name end into v_test_name from public.panel_bundles b where b.id = new.panel_bundle_id;',
+                  'select name into v_test_name from public.panel_bundles where id = new.panel_bundle_id;'),
+                  'case when exists (select 1 from public.panel_bundles pbx join public.screen_types sx on sx.sensitive and sx.code = any (pbx.test_codes) where pbx.id = new.panel_bundle_id) then null else new.id end', 'new.id');
   s4 := pg_temp.sched(t, 'hep_c', current_date);
   update public.screening_sensitive_request_optin set opted_in = true where patient_id = t;
   perform private.run_screening_request_automation(t);
   o := private.open_screening_request_id(s4);
   perform pg_temp.sab('payload masking removed: the notification names the sensitive test', 'a lab test', pg_temp.names(o));
+  perform pg_temp.sab('email masking removed: the sensitive request email carries its order id', 'none', pg_temp.email_order_id(o));
 end $$;
 
 do $$
@@ -210,7 +223,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase, check_name;

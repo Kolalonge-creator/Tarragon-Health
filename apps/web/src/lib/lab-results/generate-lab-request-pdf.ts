@@ -34,15 +34,29 @@ export type GenerateLabRequestPdfResult =
 export async function generateLabRequestPdf(
   supabase: SupabaseClient<Database>,
   orderId: string,
+  /**
+   * S98: the signed-in caller on the two patient-facing routes. A caller who is not the order's patient (a caregiver with view_results)
+   * is refused, as "not found", for a self-service request that holds a SENSITIVE test: the PDF names it. Omitted by the service-key route.
+   */
+  viewerId?: string,
 ): Promise<GenerateLabRequestPdfResult> {
   const { data: order } = await supabase
     .from("lab_orders")
     .select(
-      "id, order_number, ordered_at, patient_id, ordered_by, clinical_indication, panel_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
+      "id, order_number, ordered_at, patient_id, ordered_by, origin, clinical_indication, panel_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
     )
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { ok: false, error: "not_found" };
+  if (viewerId && viewerId !== order.patient_id && order.origin === "patient_initiated") {
+    const codes = order.panel_bundle?.test_codes ?? [];
+    if (codes.length > 0) {
+      const { data: sensitive } = await supabase.from("screen_types").select("code").eq("sensitive", true).in("code", codes);
+      // fail closed: a failed or empty lookup for a non-owner is treated as "cannot tell", which is a refusal only when something sensitive was found;
+      // the catalogue read is a plain select, so an error here returns null data and we refuse.
+      if (sensitive === null || sensitive.length > 0) return { ok: false, error: "not_found" };
+    }
+  }
 
   const { data: patient } = await supabase
     .from("profiles")

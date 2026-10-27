@@ -18,7 +18,7 @@
 --      untouched and still governs home collection only.
 --   5. INV-07: the "your request" notification payload and the screening reminder payloads no longer carry a sensitive test's name.
 --
--- Rollback: restore run_screening_request_automation from 20261027183700, restore the two patched functions from their previous definitions, drop the
+-- Rollback: restore run_screening_request_automation from 20261027192259, restore the two patched functions from their previous definitions, drop the
 -- two RPCs and the table, delete the guard row and the registry row.
 
 -- 1. Table
@@ -91,6 +91,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   r record; v_order uuid; v_issued integer := 0; v_sensitive integer := 0; v_no_bundle integer := 0; v_failed integer := 0; v_is_sens boolean;
+  v_fail_states text[] := '{}'; v_fail_org uuid;
 begin
   if p_patient is null then
     if not private.go_live_guard_on('screening_request_automation_enabled') then return jsonb_build_object('ran', false, 'reason', 'guard_off'); end if;
@@ -100,7 +101,7 @@ begin
 
   for r in
     select s.id as schedule_id, s.organisation_id, s.patient_id, st.code, st.sensitive,
-           (select b.id from public.panel_bundles b where b.is_active and b.test_codes = array[st.code] order by b.self_bookable desc, b.code limit 1) as bundle_id
+           (select b.id from public.panel_bundles b where b.is_active and b.test_codes = array[st.code] order by (b.code like 'single\_%') desc, b.self_bookable, b.code limit 1) as bundle_id
       from public.screening_schedules s
       join public.profiles p on p.id = s.patient_id
       join public.screen_types st on st.id = s.screen_type_id and st.is_active
@@ -114,7 +115,8 @@ begin
      order by s.due_date, s.id
      limit 1000
   loop
-    v_is_sens := r.sensitive or r.code = any (array['hiv', 'hep_b', 'hep_c', 'syphilis', 'chlamydia_gonorrhoea']);
+    -- one source: screen_types.sensitive (live, hiv, hep_b, hep_c, syphilis and chlamydia_gonorrhoea are all flagged)
+    v_is_sens := r.sensitive;
     -- a sensitive test needs the second guard AND the patient's own opt-in; otherwise it stays a patient action (INV-04)
     if v_is_sens and not (
          private.go_live_open_patient('screening_sensitive_request_optin_enabled', r.patient_id)
@@ -125,26 +127,37 @@ begin
     begin
       perform pg_advisory_xact_lock(hashtextextended('screening_request:' || r.schedule_id::text, 0));
       if exists (select 1 from public.lab_orders o where o.screening_schedule_id = r.schedule_id) then continue; end if;
+      perform set_config('tarragon.screening_request_job', 'on', true);
       insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, screening_schedule_id, status, origin, fulfilment, total_kobo)
       values (r.organisation_id, r.patient_id, r.bundle_id, r.schedule_id, 'ordered', 'patient_initiated', 'self_arranged', 0)
       returning id into v_order;
+      perform set_config('tarragon.screening_request_job', 'off', true);
       insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
       values (r.organisation_id, null, 'screening_request.auto_issued', 'lab_orders', v_order,
               case when v_is_sens then jsonb_build_object('screening_schedule_id', r.schedule_id, 'sensitive', true)
                    else jsonb_build_object('screening_schedule_id', r.schedule_id, 'screen_type', r.code) end);
       v_issued := v_issued + 1;
     exception when others then
-      -- skip and log, never bypass; the log names no test (INV-07)
+      -- skip, never bypass; recorded durably after the loop, naming no patient, schedule or test (INV-07)
+      perform set_config('tarragon.screening_request_job', 'off', true);
       v_failed := v_failed + 1;
-      begin
-        insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result)
-        values (r.organisation_id, null, 'screening_request.auto_issue_skipped', 'screening_schedules', r.schedule_id,
-                jsonb_build_object('sqlstate', sqlstate, 'sensitive', v_is_sens), 'failed');
-      exception when others then null;
-      end;
-      raise warning 'screening request automation skipped schedule %: %', r.schedule_id, sqlstate;
+      v_fail_states := array_append(v_fail_states, sqlstate);
+      v_fail_org := coalesce(v_fail_org, r.organisation_id);
     end;
   end loop;
+  -- outside the per-row handler on purpose: if recording the failure fails, the whole run fails loudly instead of being swallowed
+  if v_failed > 0 then
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result)
+    values (v_fail_org, null, 'screening_request.auto_issue_failed', 'screening_schedules', null,
+            jsonb_build_object('failed', v_failed, 'sqlstates', to_jsonb(v_fail_states)), 'failed');
+    if not exists (select 1 from public.ops_incidents where external_reference = 'screening_request_automation' and status not in ('resolved', 'closed')) then
+      insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values (v_fail_org, 'technical', 'sev3', 'Automatic test requests failed for some patients',
+              format('%s automatic test request(s) failed in the last nightly run (SQLSTATE: %s). See audit_log action screening_request.auto_issue_failed. No patient or test is named here.',
+                     v_failed, array_to_string(v_fail_states, ',')),
+              'screening_request_automation', now(), now() + interval '1 day');
+    end if;
+  end if;
   return jsonb_build_object('ran', true, 'issued', v_issued, 'skipped_sensitive', v_sensitive, 'skipped_no_bundle', v_no_bundle, 'failed', v_failed);
 end $$;
 revoke all on function private.run_screening_request_automation(uuid) from public, anon, authenticated;
@@ -159,6 +172,17 @@ begin
   if position(v_a in v_def) = 0 then raise exception 'S98b: anchor missing in enqueue_lab_order_requested_notifications'; end if;
   v_new := replace(v_def, v_a,
     'select case when exists (select 1 from public.screen_types st where st.sensitive and st.code = any (b.test_codes)) then null else b.name end into v_test_name from public.panel_bundles b where b.id = new.panel_bundle_id;');
+  execute v_new;
+
+  -- the request EMAIL: the PDF link (a bearer link built from order_id by send-pending-notifications' documentLinkFor) names the test inside the PDF.
+  -- For a sensitive bundle the email carries no order_id, so the function sends no link; the email text is already neutral ("sign in to open your
+  -- printable request") and the patient downloads from the app. No Edge Function change or redeploy is needed: documentLinkFor returns null when
+  -- order_id is not a string and the email goes without a link.
+  v_def := pg_get_functiondef('private.enqueue_lab_order_requested_notifications()'::regprocedure);
+  v_a := $a$'order_id',     new.id$a$;
+  if position(v_a in v_def) = 0 then raise exception 'S98b: order_id anchor missing in enqueue_lab_order_requested_notifications'; end if;
+  v_new := replace(v_def, v_a,
+    $a$'order_id',     case when exists (select 1 from public.panel_bundles pbx join public.screen_types sx on sx.sensitive and sx.code = any (pbx.test_codes) where pbx.id = new.panel_bundle_id) then null else new.id end$a$);
   execute v_new;
 
   -- the screening reminders: a sensitive screening is called "a screening test"
