@@ -288,6 +288,17 @@ grant select on public.baseline_labs_overrides to authenticated;
 create policy baseline_labs_overrides_read on public.baseline_labs_overrides for select to authenticated
   using (private.credential_is_cmo() or private.is_admin());
 
+-- The data registry (S39d): this table holds a patient's rows, so it is registered with the default retention class (a record of a prescribing decision,
+-- so clinical_record) and exported with the person's other rows. Awaiting CMO and DPO review like every other row.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
+       case when private.retention_class_for(t.table_name) = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for(t.table_name) <> 'audit',
+       'Registered with the default S39d classification when the baseline-labs prescribing rule was added; a documented override of a prescribing check; awaiting review.'
+  from unnest(array['baseline_labs_overrides']) as t(table_name)
+ where to_regclass('public.' || t.table_name) is not null
+on conflict (table_name) do nothing;
+
 create function public.sign_baseline_labs_rule_config(p_version integer) returns void
 language plpgsql security definer set search_path = ''
 as $$
