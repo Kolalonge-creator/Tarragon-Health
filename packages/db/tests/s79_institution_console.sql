@@ -82,6 +82,9 @@ begin
   perform pg_temp.rec('0c usage is refused while off', (coalesce(r ->> 'error', 'allowed') like '%not yet activated%')::text, 'true');
   r := pg_temp.call_as(cs, $q$select public.employer_stage_roster_upload(null, 'add', '[]'::jsonb)$q$);
   perform pg_temp.rec('0d staging is refused while off', (coalesce(r ->> 'error', 'allowed') like '%not yet activated%')::text, 'true');
+  -- going live needs an active, signed contract with a billing model
+  insert into public.corporate_contracts (organisation_id, name, status, billing_model, billing_rate_kobo, billing_interval, signed_at, signed_by)
+    values (v_sp, 'S79 Acme contract', 'active', 'per_employee', 100000, 'monthly', now(), adm);
   insert into public.employer_accounts (organisation_id, verification_status, verified_by, verified_at, onboarding_step, went_live_at, join_code)
     values (v_sp, 'verified', adm, now(), 'live', now(), 'EMPLOY22');
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = adm, activation_note = 'S79 proof only' where key = 'institution_console';
