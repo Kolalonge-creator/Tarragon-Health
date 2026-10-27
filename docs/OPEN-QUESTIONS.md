@@ -5050,6 +5050,30 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
 
+### OQ-S47B-1 Signing the Today screen configuration switches on four things at once (raised by S47b, 2026-10-21)
+- `home_card_config` v1 is unsigned and inactive. One CMO signature (`/clinician/home-card-config`, also a line on the sign-off hub) turns on the new Today plan (two main actions, the rest under "More for today"), the days-logged card, the weekly summary cards and the wearable readiness line. There is no separate go-live guard: the signature is the gate. If the founder wants each to switch on separately, split the config into per-feature switches before signing.
+- The CMO is asked to confirm: card order, the weekly minimum of 3 blood pressure readings, and every readiness threshold (sleep and HRV 15 percent under usual, HRV 5 percent over usual, resting heart rate 5 beats over usual, at least 5 earlier days, at least 2 of 3 signals, data under 36 hours old). These numbers are PROPOSED engineering defaults, not clinical guidance.
+- Decision: open (CMO, founder).
+
+### OQ-S47B-2 Goals and pathways are not read on the phone, so a card rule that names one hides that card (raised by S47b, 2026-10-21)
+- `home_cards.rules` supports `goals_any` and `pathways_any`, but the phone has no single source for a person's goals or pathways yet, so it passes empty lists. v1 uses no such rule. If the CMO adds one, the card hides for everyone until a source is wired (fail closed).
+- Decision: open (product).
+
+### OQ-S47B-3 The streak counts any logged vital, and freezes live on the phone only (raised by S47b, 2026-10-21)
+- A day counts when any vital was logged (blood pressure, glucose, weight and so on; a wearable-synced sample counts too). Freeze events are kept in the phone's storage, not the server, so a second phone shows its own streak. The per-person "turn this off" from the S07 design is not built; the CMO can switch the card off for everyone (`streak.enabled`).
+- Decision: open (product).
+
+### OQ-S47B-4 No notifications were added for the streak, goal or weekly summary (raised by S47b, 2026-10-21)
+- The brief says these notifications must stay neutral (INV-07). None was built, so there is nothing to word. If the founder wants a weekly "your week is ready" push, it needs a keyed neutral template that names no condition or reading, reviewed like the others.
+- Decision: open (founder).
+
+### OQ-S47B-5 Mobile glucose and weight charts are new, online only, and use the profile height (raised by S47b, 2026-10-21)
+- The phone had no glucose or weight chart, so one was added (plain views, no native module) with the same bands as the web (`trend_target_bands` module, adult, not pregnant). It reads the server directly, so it shows nothing offline. The weight band uses `profiles.height_cm` only; the web also reconciles a questionnaire height. A person with no profile height gets no weight band.
+- Decision: open (product).
+
+### OQ-S47B-6 Readiness is phone-only, uses wearable sleep and HRV plus pulse readings from a wearable, and was never run on real data (raised by S47b, 2026-10-21)
+- Resting heart rate comes from `vitals_readings` (pulse, source wearable), because the ingest path routes it there, not to `wearable_readings`. No provider has live credentials, so the line has never shown for a real person. Voice logging (4.4) is dropped by the founder and was not built.
+- Decision: open (founder, after real device data exists).
 ### OQ-S48B-1 Private route recording needs `expo-location`, a new native build and the same privacy review (raised by S48b, 2026-10-21)
 - The recorder, its owner-only store, the screen card and tests with a stubbed location source are built, and sit behind the guard `private_route_recording` (off) plus each person's own switch (off). `expo-location` is not in `apps/mobile/package.json`, so `getLocationSource()` returns null and the card (when it ever shows) says recording needs a newer app. Adding it means a new EAS build, the iOS when-in-use location text, Android foreground location permission and a `runtimeVersion` bump. `runtimeVersion` was not touched.
 - Still open from OQ-S48A-3: the privacy review (home and workplace inference), a retention period, counsel's view, and whether the owner may download their own route. Until those are answered the guard stays off. A route is held in memory until the person taps "Stop and save"; if the save fails (offline) it is not kept, and the screen says so. Whether a route should instead wait encrypted on the phone is a question for the privacy review.
