@@ -5620,3 +5620,26 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
 - Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
 - Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
+
+### OQ-S85B-1 The offline web guidance uses wording the founder signed, not the CMO
+- Built: with the network off, the web vitals form shows the EMG-001 wording read through `activeWording("EMG-001")`, the same gate the online page and the phone use. No web-only clinical text was written.
+- Gap: `clinical-wording.json` records the signature as the founder's, on the founder's own chat instruction (2026-10-07), and says the CMO may re-sign. The offline page (`apps/web/public/offline.html`) and the dialog carry exactly that text, and a test keeps them equal, so a CMO re-signature changes both with one edit and one test update.
+- Decision needed (CMO): confirm EMG-001 is acceptable as the offline wording on the web, including for someone who ticks a symptom with no reading (the text says "your reading and how you feel").
+- Recommendation: confirm as is; if the CMO wants a symptom-only variant, EMG-001L-style, add it to the wording file and the same test.
+
+### OQ-S85B-2 The offline web check shows guidance on a wider set than the server grades red
+- Built: the check is never weaker than the server and is deliberately wider. It shows the guidance for an engine red, for a reading at or above the rule set's question line (the web cannot ask the symptom question), for the crisis band, and for any ticked symptom from a short list. It uses the bundled draft rule set `BP_CARE_V5`, the same fallback the phone uses.
+- Gap: a person on a lower personal target, pregnant, or under 18 is graded on the standard adult facts offline (no cached target, pregnancy or date of birth on the web), so the offline answer can differ from the later server grade in either direction on the lower bands; it cannot be weaker for a red.
+- Decision needed (CMO): is over-showing guidance acceptable offline, and should the web cache the person's target and pregnancy flag as the phone does?
+- Recommendation: accept over-showing; cache the target and pregnancy flag in a later pass only if the offline check is used often.
+
+### OQ-S85B-3 The offline web form refuses to save and keeps no outbox
+- Built: nothing new is queued. The web has no outbox (the phone's outbox is native storage plus a sync engine). The form keeps the typed numbers, says the reading was not saved, and asks the person to press Save reading again when back online.
+- Decision needed (founder): is a browser-side outbox (IndexedDB, replay on reconnect, one idempotency key per reading) wanted for the web? It changes what "Received" means and needs its own safety review.
+- Recommendation: not now; the phone is the offline surface.
+
+### OQ-S85B-4 Journey steps that cannot be switched on, corrected from the S85 to S90 analysis
+- The analysis of 2026-10-22 listed the symptom checker steps of journey 3 as "enable". Read against the code they cannot be: the checker is behind the `symptom_checker_enabled` go-live guard (off), the seeded pathways are headache, chest pain and breathlessness only (no urinary complaint), and by founder decision it never returns possible causes. Journey 1 steps for the screening calendar, the risk questionnaire and the silence nudge wait on CMO signatures or a sweep that is born off. Each step's pending reason now says exactly this.
+- Decision needed (founder): whether journey 3 should be re-scripted around a complaint that has a pathway (for example headache), since "likely causes with how common each is" is excluded by a standing decision.
