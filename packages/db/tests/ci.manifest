@@ -1538,3 +1538,5 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+# S76-S80 scribe: signed diff record (append-only, versioned, linked to the review record, signed text read from the note), problem reports (fixed taxonomy), CMO count reads, and the document prompt inserted unapproved and inactive (the reader returns nothing until a human approves). Sabotage: the review-record link removed, and the CMO check removed; both checks must flip.
+s76_scribe_signed_diffs_reports_document_prompt.sql
