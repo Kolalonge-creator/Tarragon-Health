@@ -291,7 +291,7 @@ end $$;
 do $$
 declare
   v_org uuid := pg_temp.f('org'); v_ins uuid := pg_temp.f('ins'); v_ok uuid := pg_temp.f('ok'); v_cmo uuid := pg_temp.f('cmo');
-  v_today date := pg_temp.lagos_today(); v_rx uuid := gen_random_uuid(); v_chg uuid; v_err text; v_id uuid; v_ws date; v_we date; v_ps date; v_pe date;
+  v_today date := pg_temp.lagos_today(); v_rx uuid := gen_random_uuid(); v_chg uuid; v_err text; v_id uuid; v_ws date; v_we date; v_ps date; v_pe date; v_txt text;
 begin
   perform pg_temp.ck('plan: ACCEPTANCE, an insulin user cannot start a fasting plan without a signed timing plan', 'true',
     (pg_temp.q_as(v_ins, format('select public.start_fasting_plan(''ramadan'', %L, %L)::text', v_today, v_today + 29)) like 'ERR:%')::text);
@@ -329,7 +329,11 @@ begin
   perform pg_temp.ck('plan: a plan that covers only part of the expected fast is not reported as covering it', 'needs_clinician_plan', pg_temp.q_as(pg_temp.f('ins2x'), 'select public.my_fasting_gate(''ramadan'')::jsonb ->> ''decision'''));
   perform pg_temp.ck('plan: the door shows the plan the clinician wrote and who signed it', 'true', (
     (pg_temp.q_as(v_ins, 'select public.my_fasting_gate(''ramadan'')::jsonb -> ''timing_plans'' -> 0 ->> ''summary''')) like 'Take your morning tablet%')::text);
-  v_id := pg_temp.q_as(v_ins, format('select public.start_fasting_plan(''ramadan'', %L, %L)::text', v_ps, v_pe))::uuid;
+  v_txt := pg_temp.q_as(v_ins, format('select public.start_fasting_plan(''ramadan'', %L, %L)::text', v_ps, v_pe));
+  if v_txt ~ '^ERR' then
+    raise exception 'DIAG start refused: % | gate for the same dates: % | today % ps % pe %', v_txt, pg_temp.q_as(v_ins, format('select public.my_fasting_gate(''ramadan'', %L, %L)::text', v_ps, v_pe)), v_today, v_ps, v_pe;
+  end if;
+  v_id := v_txt::uuid;
   perform pg_temp.ck('plan: a plan covering only part of the fast does not let her start for the whole of it', 'true',
     (pg_temp.q_as(pg_temp.f('ins2x'), format('select public.start_fasting_plan(''ramadan'', %L, %L)::text', v_ps - 30, v_pe)) like 'ERR:%')::text);
   perform pg_temp.ck('plan: the covered insulin user can start', '1', (select count(*)::text from public.fasting_plans where id = v_id));
