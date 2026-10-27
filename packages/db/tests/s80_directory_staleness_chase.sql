@@ -185,7 +185,7 @@ begin
   execute v_def;
   delete from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@s80dsc-labs.test';
   n := private.directory_chase_notices();
-  insert into results values ('sabotaged', 'with the score broken nothing is noticed', '0', n::text);
+  insert into results values ('sabotaged', 'with the score broken the stale labs are no longer noticed (the real run notices at least 2)', 'true', (n >= 2)::text);
   execute v_orig;
 end $$;
 

@@ -161,7 +161,10 @@ begin
   raise notice 'PASS: CMO approval clears the flag';
 
   -- BACKLOG
+  -- approval and publishing normally go through set_health_education_content_status; this fixture state is set directly, past that trigger
+  set local session_replication_role = replica;
   update public.health_education_content set content_status = 'published', next_review_due = v_future where id = v_b;
+  set local session_replication_role = origin;
   update public.health_education_content set body = 'edited again' where id = v_b;   -- postgres session edit of a published row
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
   set local role authenticated;
