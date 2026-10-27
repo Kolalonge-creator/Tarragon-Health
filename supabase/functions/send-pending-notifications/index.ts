@@ -50,7 +50,7 @@ const EXTERNAL_TIMEOUT_MS = 5_000;
 // (often multi-sentence) smsText down to something that reads cleanly there.
 const PUSH_BODY_MAX_CHARS = 160;
 // Errors a retry cannot fix, for a page notification: it fails at once instead of waiting out the attempts (S19c).
-const PERMANENT_PAGE_ERRORS = /no active push subscription|no email address|address suppressed|has no (phone|email)/i;
+const PERMANENT_PAGE_ERRORS = /no active push subscription|no email address|address suppressed|has no email/i;
 
 
 interface NotificationRow {
@@ -240,71 +240,10 @@ async function withExternalCall(
   }
 }
 
-async function sendTermiiSms(
-  toPhone: string,
-  text: string,
-): Promise<SendResult> {
-  const apiKey = Deno.env.get("TERMII_API_KEY");
-  if (!apiKey) {
-    return { ok: false, error: "TERMII_API_KEY not configured" };
-  }
-
-  return withExternalCall((signal) =>
-    fetch("https://api.ng.termii.com/api/sms/send", {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        to: toPhone,
-        from: "Tarragon",
-        sms: text,
-        type: "plain",
-        channel: "generic",
-      }),
-    })
-  );
-}
-
-/**
- * Termii's Voice Call API — same /api/sms/send endpoint as sendTermiiSms,
- * with channel: 'voice' instead of 'generic'. Termii converts the `sms`
- * field to speech and places a phone call rather than sending a text.
- * Built for private.remap_notification_channel() (2026-07-23), which
- * transparently turns a queued reminder row into 'voice' at insert time
- * for a patient with profiles.preferred_reminder_channel = 'voice' — no
- * producer function needs to know voice exists.
- */
-async function sendTermiiVoiceCall(
-  toPhone: string,
-  text: string,
-): Promise<SendResult> {
-  const apiKey = Deno.env.get("TERMII_API_KEY");
-  if (!apiKey) {
-    return { ok: false, error: "TERMII_API_KEY not configured" };
-  }
-
-  return withExternalCall((signal) =>
-    fetch("https://api.ng.termii.com/api/sms/send", {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        to: toPhone,
-        from: "Tarragon",
-        sms: text,
-        type: "plain",
-        channel: "voice",
-      }),
-    })
-  );
-}
-
 /**
  * Web Push (RFC 8030/8291/8292 — VAPID). VAPID keys are a self-signed
  * application identity, not a third-party account credential, so unlike
- * TERMII_API_KEY/RESEND_API_KEY there is no provider account
+ * RESEND_API_KEY there is no provider account
  * to wait on — these were generated directly for this build.
  *
  * Fans out to every active subscription the recipient has (phone + desktop,
@@ -591,10 +530,9 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, phone, role, discreet_mode")
+    .select("id, role, discreet_mode")
     .in("id", recipientIds)
-    .returns<Array<{ id: string; phone: string | null; role: string | null; discreet_mode: boolean | null }>>();
-  const phoneById = new Map((profiles ?? []).map((p) => [p.id, p.phone]));
+    .returns<Array<{ id: string; role: string | null; discreet_mode: boolean | null }>>();
   const roleById = new Map((profiles ?? []).map((p) => [p.id, p.role]));
   const discreetById = new Map((profiles ?? []).map((p) => [p.id, p.discreet_mode === true]));
 
@@ -880,11 +818,6 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   for (const row of rows) {
     if (foldedIds.has(row.id) || pushedBackSet.has(row.id)) continue;
 
-    if (platformDisabledChannel(row)) {
-      await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
-      suppressed++;
-      continue;
-    }
     if (!channelAllowed(row)) {
       await suppress(row.id, "patient turned off this channel for this category");
       suppressed++;
@@ -1110,17 +1043,6 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     // Email: the address was resolved above by resolveEmailAddress (own verified Auth address for page, on-call, credential,
     // care-team and security.* notices; the payload address for the rest). A page is never addressed from a payload.
     const toEmail = resolvedEmail?.address;
-    // Defence in depth for P3: a page notification is never sent by SMS or voice, whatever queued it.
-    if ((row.channel === "sms" || row.channel === "voice") && typeof row.template === "string" && row.template.startsWith("on_call_")) {
-      await suppress(row.id, "pages never use sms or voice");
-      await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "page_no_sms" });
-      suppressed++;
-      continue;
-    }
-    const toPhone = typeof payload.to_phone === "string"
-      ? payload.to_phone
-      : phoneById.get(row.recipient_id) ?? undefined;
-
     if (row.channel === "email") {
       if (!render.email) {
         await markFailed("template has no email rendering");
@@ -1235,20 +1157,13 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       // attempt limit below decides when this row is given up on. Critical rows are unchanged: a failed push
       // becomes its own `failed` row that the escalation engine turns into the next channel's tracked hop.
       await settle(pushResult);
-    } else if (row.channel === "voice") {
-      if (!toPhone) {
-        await markFailed("recipient has no phone number on file");
-        failed++;
-        continue;
-      }
-      await settle(await sendTermiiVoiceCall(toPhone, render.smsText));
     } else {
-      if (!toPhone) {
-        await markFailed("recipient has no phone number on file");
-        failed++;
-        continue;
-      }
-      await settle(await sendTermiiSms(toPhone, render.smsText));
+      // Nothing else can be sent through this queue. sms and voice rows were refused by the gate above, before any template or
+      // provider work, and in_app rows are never selected. A row that still lands here is a code or data fault: it fails visibly
+      // (a critical row then moves its ladder on and, at the last rung, raises the exhausted-ladder alarm) instead of staying pending.
+      await markFailed(`channel ${String(row.channel)} cannot be sent through this queue (push and email only)`);
+      await recordEvent(row.id, "failed", "system", null, { reason: "unsupported_channel", channel: String(row.channel) });
+      failed++;
     }
   }
 

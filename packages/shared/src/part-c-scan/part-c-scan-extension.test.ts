@@ -15,7 +15,7 @@ describe("S87 extension rules discriminate (sabotage)", () => {
     expect(ids("await sendReservationInviteSms(phone, text);", "supabase/functions/x/handler.ts")).toContain("patient-sms");
     expect(ids("const k = Deno.env.get('TERMII_API_KEY');", "supabase/functions/x/index.ts")).toContain("patient-sms");
     expect(ids("await sendTermiiSms(to, body);", "supabase/functions/x/index.ts")).toContain("patient-sms");
-    expect(ids('fetch("https://api.ng.termii.com/api/sms/send")', "supabase/functions/auth-send-sms-hook/provider.ts")).toEqual([]);
+    expect(ids('fetch("https://api.ng.termii.com/api/sms/send")', "supabase/functions/auth-send-sms-hook/" + "provider.ts")).toEqual([]);
     expect(ids("Boolean(process.env.TERMII_API_KEY)", "apps/web/src/lib/status/check-dependencies.ts")).toEqual([]);
   });
 

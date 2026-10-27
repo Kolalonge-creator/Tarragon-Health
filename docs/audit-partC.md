@@ -23,7 +23,7 @@ Date: 2026-10-07. Tree: `origin/main-dev` at `e1e7db3d1`. Method: (1) the standi
 |---|---|---|---|
 | Health Wallet, stored balance, Platform Credit | CLEAN in code | Tables gone. The webhook refund branch for a retired `platform_credit_topup` charge was deleted 2026-10-27 (live evidence: 0 rows, OQ-309 decided); a stray charge now fails loudly as an unrecognised kind. `payment_provider` enum still has `wallet` and `stripe` labels | OQ-309, OQ-312 |
 | WhatsApp | CLEAN in code | scan rule `whatsapp`: 0 hits (comments excluded). Immutable consent text still names it; `escalation_slas` ladder still names it, normalised to email at read time | OQ-29, OQ-31 |
-| SMS beyond codes and paging | CONFLICT | 5 code paths (list in `allowlist.ts`): emergency-contact SMS, dependent-claim SMS, virtual-review link, broadcast channel, employer roster invite. Live: 57 SMS rows in 30 days across 4 templates | OQ-32, OQ-48, OQ-92, OQ-310; D3 drafted, unsigned |
+| SMS beyond codes and paging | CLOSED 2026-10-27 (was CONFLICT; see the S87 extension below) | 5 code paths (list in `allowlist.ts`): emergency-contact SMS, dependent-claim SMS, virtual-review link, broadcast channel, employer roster invite. Live: 57 SMS rows in 30 days across 4 templates | OQ-32, OQ-48, OQ-92, OQ-310; D3 drafted, unsigned |
 | Virtual ward | CLEAN | no hits | none |
 | Pharmacy delivery | DORMANT | Removed from code (#1017) and database (#1023). `logistics_partners` 1 row stays dormant; enum labels `delivery`, `delivery_failed`, `delivery_unavailable` remain | OQ-261, OQ-281, OQ-312 |
 | Therapist matching | CLEAN, dormant schema | alphabetical directory, no ranking | OQ-16 |
@@ -35,7 +35,7 @@ Date: 2026-10-07. Tree: `origin/main-dev` at `e1e7db3d1`. Method: (1) the standi
 
 ## S87 extension, 2026-10-27 (branch `s87/scan-rules-sms-allowlist`)
 
-Status of the SMS finding: the paystack-webhook Termii reservation-invite SMS is removed (the sponsor already shares the claim link from `/patient/supporting`). The widened `patient-sms` rule now sees every Termii send and `send...Sms(` helper. It still finds the clinician-paging SMS and voice code in `abnormal-result-handler` and `send-pending-notifications` (OQ-727, allowlisted to 2026-11-26). The auth hook (`auth-send-sms-hook`, verification codes) and the status page key check are exempt by path, with the reason in the rule.
+Status of the SMS finding: closed. The paystack-webhook Termii reservation-invite SMS is removed (the sponsor already shares the claim link from `/patient/supporting`), and on 2026-10-27 the founder decided OQ-727 (delete clinician SMS and voice paging): the Termii senders in `abnormal-result-handler` and `send-pending-notifications` are deleted, and both `patient-sms` allowlist entries are gone. The widened `patient-sms` rule (every Termii send and `send...Sms(` helper) now reports zero hits outside `auth-send-sms-hook` (verification codes) and the status page key check, both exempt by path with the reason in the rule. A clinician page that cannot be queued opens a sev1 ops incident for the ops desk phone fallback instead of ending in an audit row.
 
 New rules (all start clean unless noted; each has a sabotage case in `part-c-scan-extension.test.ts`):
 

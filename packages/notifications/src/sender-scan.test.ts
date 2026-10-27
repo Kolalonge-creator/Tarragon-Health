@@ -1,8 +1,9 @@
 /**
  * S04b-3 repo scan: every push, email and web-push send goes through send-pending-notifications, the one place that
  * applies quiet hours, discreet mode and the INV-07 re-lint. This fails if a new file talks to a delivery provider
- * directly. SMS (Termii) is a separate, codes-and-paging-only route (INV-08) and is allow-listed file by file, with
- * the reason, so a new SMS sender also has to be added here on purpose.
+ * directly. SMS (Termii) is a separate, verification-codes-only route (INV-08; OQ-727, founder decision 2026-10-27: no page
+ * to a clinician goes by SMS or voice) and is allow-listed file by file, with the reason, so a new SMS sender also has to be
+ * added here on purpose.
  */
 import { describe, expect, it } from "@jest/globals";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -53,12 +54,10 @@ const rules: Rule[] = [
     ]),
   },
   {
-    name: "Termii SMS or voice (SMS stays codes and clinician paging; INV-08)",
+    name: "Termii SMS or voice (SMS is verification codes only; INV-08, OQ-727)",
     pattern: /api\.ng\.termii\.com|TERMII_API_KEY/,
     allowed: new Map([
-      [PIPELINE, "the pipeline (clinician paging; routine SMS is refused by decide())"],
       ["supabase/functions/auth-send-sms-hook/" + "provider.ts", "verification codes only"],
-      ["supabase/functions/abnormal-result-handler/index.ts", "clinician paging fallback (D-12)"],
       ["apps/web/src/lib/status/check-dependencies.ts", "status page: checks the key is configured, sends nothing"],
     ]),
   },
@@ -93,7 +92,7 @@ describe("notification senders", () => {
   it("the pipeline applies discreet mode and quiet hours before any provider call", () => {
     const text = files.find((f) => f.path === PIPELINE)!.text;
     const decideAt = text.indexOf("decide({");
-    for (const call of ["sendEmail(toEmail", "sendWebPush(", "sendExpoPush(", "sendTermiiSms(toPhone"]) {
+    for (const call of ["sendEmail(toEmail", "sendWebPush(", "sendExpoPush("]) {
       const at = text.lastIndexOf(call);
       expect(at).toBeGreaterThan(decideAt);
     }
@@ -103,5 +102,33 @@ describe("notification senders", () => {
     expect(text).toContain("discreetEmail(");
     expect(text).toContain("pushEnvelope(");
     expect(text).toContain("safetyCritical: isSafetyCritical(");
+  });
+
+  it("OQ-727: the pipeline and the abnormal-result handler carry no SMS or voice sender, and refuse sms and voice rows first", () => {
+    const pipeline = files.find((f) => f.path === PIPELINE)!.text;
+    const handler = files.find((f) => f.path === "supabase/functions/abnormal-result-handler/index.ts")!.text;
+    for (const text of [pipeline, handler]) {
+      expect(text).not.toMatch(/termii|sendTermii\w*\(|sendClinicianPageSms\(/i);
+    }
+    // every sms or voice row is refused (critical: failed so the ladder moves; routine: suppressed) before any template or provider work
+    const gate = pipeline.indexOf('if (row.channel === "sms" || row.channel === "voice") {');
+    expect(gate).toBeGreaterThan(0);
+    expect(gate).toBeLessThan(pipeline.indexOf("TEMPLATE_MAP[row.template]", gate));
+    expect(gate).toBeLessThan(pipeline.indexOf("sendEmail(toEmail", gate));
+    expect(pipeline).toContain("refusedSmsOutcome(row.priority)");
+    // the last branch no longer sends anything: it fails the row visibly
+    expect(pipeline).toContain("cannot be sent through this queue");
+    // a helper that was removed in S85-D3 but still called crashed every batch: nothing here may call an undefined helper
+    expect(pipeline).not.toContain("platformDisabledChannel");
+  });
+
+  it("OQ-727: a clinician page that cannot be queued opens a sev1 ops incident for the ops desk instead of ending in an audit row", () => {
+    const page = readFileSync(join(ROOT, "supabase/functions/abnormal-result-handler/clinician-page.ts"), "utf8");
+    expect(page).toContain('"page_nobody_reachable:abnormal_result:"');
+    expect(page).toContain("raiseIncident(");
+    expect(page).toContain("incidentFailed");
+    const handler = files.find((f) => f.path === "supabase/functions/abnormal-result-handler/index.ts")!.text;
+    expect(handler).toContain("pageClinicians(");
+    expect(handler).toContain("status: pageOutcome.incidentFailed ? 500 : 200");
   });
 });
