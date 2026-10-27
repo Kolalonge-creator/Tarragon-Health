@@ -429,9 +429,16 @@ Deno.test({
 });
 
 Deno.test({
-  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and an invite SMS is attempted (best-effort — TERMII_API_KEY unset here, so it fails without a network call)",
+  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and NO SMS is sent (Part C / D3: the sponsor shares the claim link)",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET", "TERMII_API_KEY", "APP_BASE_URL"] },
   async fn() {
+    const fetchCalls: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = ((input: Request | URL | string) => {
+      fetchCalls.push(String(input));
+      return Promise.reject(new Error("no outbound call expected"));
+    }) as typeof fetch;
+    try {
     const client = newClient();
     // Simulates private.activate_sponsored_service_reservation having
     // already flipped the row to 'invited' and minted payment_provider_ref
@@ -459,6 +466,11 @@ Deno.test({
     const txn = client.rows("payment_transactions")[0];
     assertExists(txn.processed_at);
     assertEquals(txn.organisation_id, "org-1");
+    // No Termii call: fetch must never be reached for this event.
+    assertEquals(fetchCalls.length, 0);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   },
 });
 
@@ -734,7 +746,7 @@ Deno.test({
 // Paystack when the feature went away) has no handler any more. It must be marked FAILED loudly so
 // finance sees money that arrived with nowhere to go, never reported as successfully processed.
 Deno.test({
-  name: "charge.success (platform_credit_topup, retired kind): falls through and is marked failed, never silently processed",
+  name: "charge.success (retired platform_credit_topup kind, branch deleted OQ-309): hits the unrecognised-kind failure and is never silently processed",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET"] },
   async fn() {
     const client = newClient();
@@ -742,7 +754,7 @@ Deno.test({
 
     const txn = client.rows("payment_transactions")[0];
     assertEquals(txn.processed_at, undefined);
-    assert(typeof txn.error === "string" && txn.error.includes("retired platform_credit_topup"));
+    assert(typeof txn.error === "string" && txn.error.includes("unrecognised metadata.kind=platform_credit_topup"));
   },
 });
 

@@ -219,47 +219,6 @@ export function intervalToMs(interval: string | null): number {
 }
 
 /**
- * A duplicate of send-pending-notifications/index.ts's sendTermiiSms, not a
- * shared import: Edge Functions in this repo each deploy standalone (no
- * `_shared/` directory exists between them yet), and this is the one place
- * that must send an SMS to someone with NO profile row at all — the
- * `notifications` table demands a non-null recipient_id, which cannot exist
- * yet for a sponsored_service_reservations recipient until they claim, so
- * the queue that every other notification goes through cannot carry this
- * one. Best-effort and never throws: a failed SMS must not fail the
- * payment's own activation, which has already happened in the DB by the
- * time this runs.
- */
-async function sendReservationInviteSms(toPhone: string, text: string): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = Deno.env.get("TERMII_API_KEY");
-  if (!apiKey) return { ok: false, error: "TERMII_API_KEY not configured" };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch("https://api.ng.termii.com/api/sms/send", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        to: toPhone,
-        from: "Tarragon",
-        sms: text,
-        type: "plain",
-        channel: "generic",
-      }),
-    });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "unknown error" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
  * Every label public.payment_transaction_type actually carries. The insert
  * below used to write `event.event` verbatim, which meant any event name
  * Postgres did not recognise made the whole INSERT fail with 22P02 — and the
@@ -780,13 +739,6 @@ export async function processVerifiedEvent(
           } else {
             await markProcessed({ organisation_id: triggerRow.organisation_id });
           }
-        } else if (String(metadata.kind) === "platform_credit_topup") {
-          // Platform Credit was removed 2026-09-30 (S01b). A top-up charge that was already in flight at
-          // Paystack has no handler, no balance to credit and no sweep left. Say so plainly (not the
-          // generic add-on lookup error) so finance refunds it in Paystack and reconciles by hand.
-          await markFailed(
-            `retired platform_credit_topup charge (reference=${event.data.reference}): Platform Credit no longer exists; refund this charge in Paystack and reconcile manually`,
-          );
         } else if (metadata.kind === "add_on") {
           const { data: row } = await supabase
             .from("subscription_add_ons")
@@ -826,14 +778,9 @@ export async function processVerifiedEvent(
           // payment_provider_ref does exist and is set by the trigger on
           // success, the same shape sponsored_subscription's own
           // TRIGGER_ACTIVATED_KIND_TABLE entry matches against. The real
-          // reason this stays a dedicated branch is the extra fields a
-          // genuine success needs that the generic mechanism's
-          // id/organisation_id/status-only select can't provide: unlike
-          // every other trigger-activated kind, a success here means
-          // someone with no profile yet must be told by SMS (invite_token,
-          // recipient_phone, recipient_first_name), since
-          // public.notifications demands a non-null recipient_id that
-          // cannot exist for them until they claim.
+          // reason this stays a dedicated branch is that the recipient has no profile row yet, so
+          // there is nobody to notify here: the sponsor shares the claim link themselves (no SMS,
+          // Part C / D3).
           const reservationId = metadata.reservation_id;
           if (!reservationId) {
             await markFailed("sponsored_service_reservation charge.success missing metadata.reservation_id");
@@ -842,7 +789,7 @@ export async function processVerifiedEvent(
 
           const { data: reservation } = await supabase
             .from("sponsored_service_reservations")
-            .select("id, organisation_id, status, payment_provider_ref, invite_token, recipient_phone, recipient_first_name")
+            .select("id, organisation_id, status, payment_provider_ref")
             .eq("id", reservationId)
             .maybeSingle();
 
@@ -854,22 +801,9 @@ export async function processVerifiedEvent(
             );
           } else {
             await markProcessed({ organisation_id: reservation.organisation_id });
-
-            const claimUrl = `${Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng"}/claim/${reservation.invite_token}`;
-            const smsResult = await sendReservationInviteSms(
-              reservation.recipient_phone,
-              `Hi ${reservation.recipient_first_name}, someone paid for care for you on Tarragon Health. Claim it: ${claimUrl}`,
-            );
-            if (!smsResult.ok) {
-              // The reservation itself is correctly activated regardless —
-              // this only means the recipient has to be told some other
-              // way. Logged, not a markFailed(): the payment_transactions
-              // row already reflects a genuine success above.
-              console.error("paystack-webhook: reservation invite SMS failed", {
-                reservationId: reservation.id,
-                error: smsResult.error,
-              });
-            }
+            // No SMS is sent (Part C, D3: SMS is for verification codes only). The sponsor shares the
+            // claim link themselves from /patient/supporting (ClaimLink, their own share sheet); the
+            // reservation is already activated and nothing depends on anyone being notified.
           }
         } else {
           // Exhaustiveness: CheckoutKind has exactly 10 members and every one
