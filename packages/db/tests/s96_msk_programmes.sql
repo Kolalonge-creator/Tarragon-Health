@@ -188,6 +188,8 @@ begin
   perform pg_temp.setf('patF', pg_temp.mkuser(v_org, 'patF', 'patient'));
   perform pg_temp.setf('patG', pg_temp.mkuser(v_org, 'patG', 'patient'));
   perform pg_temp.setf('patH', pg_temp.mkuser(v_org, 'patH', 'patient'));
+  perform pg_temp.setf('patI', pg_temp.mkuser(v_org, 'patI', 'patient'));
+  perform pg_temp.setf('patJ', pg_temp.mkuser(v_org, 'patJ', 'patient'));
 end $$;
 
 -- S96 helpers ----------------------------------------------------------------------------------------------------------------
@@ -253,6 +255,19 @@ begin
   end loop;
   perform pg_temp.ck('config v2 is the one active config and carries the PEG instruments', 'peg_pain',
     (select config -> 'instruments' -> 'pain_back' ->> 0 from public.therapy_programme_config where is_active and version = 2));
+  perform pg_temp.ck('the four pain versions carry the internal not-physiotherapist-reviewed marker, no other programme does', '4:0',
+    (select count(*) filter (where p.code like 'pain\_%' and v.not_physiotherapist_reviewed)::text || ':' || count(*) filter (where p.code not like 'pain\_%' and v.not_physiotherapist_reviewed)::text
+       from public.therapy_programme_versions v join public.therapy_programmes p on p.id = v.programme_id));
+  perform pg_temp.ck('...and no physiotherapist review is recorded', '0', (select count(*)::text from public.therapy_programme_versions where physio_review_recorded_at is not null));
+  perform pg_temp.ck('the six pain crisis items are non-paging and nothing else is', '6:0',
+    (select count(*) filter (where non_paging and programme_code like 'pain\_%' and route = 'crisis')::text || ':' || count(*) filter (where non_paging and not (programme_code like 'pain\_%' and route = 'crisis'))::text from public.therapy_exclusion_rules));
+  begin
+    insert into public.therapy_exclusion_rules (programme_code, list_version, ordinal, item_code, question, kind, route, non_paging)
+      values ('pain_back', 2, 99, 'bad_flag', 'q', 'yes_no', 'same_day_clinician', true);
+    perform pg_temp.ck('a non-paging flag on a non-crisis rule is refused by the table', 'refused', 'inserted');
+  exception when check_violation then
+    perform pg_temp.ck('a non-paging flag on a non-crisis rule is refused by the table', 'refused', 'refused');
+  end;
   perform pg_temp.ck('the pain guard is off', 'false', (select is_on::text from public.go_live_guards where key = 'therapy_pain_enabled'));
   perform pg_temp.ck('the pain guard is not open to a real patient', 'false', (private.go_live_open_patient('therapy_pain_enabled', pg_temp.f('real')))::text);
   perform pg_temp.ck('a real patient is told the pain programme is not open yet', 'not_open_yet',
@@ -368,7 +383,20 @@ begin
   r := pg_temp.flare_as(b, eb, pg_temp.answers('pain_neck', 'chest_or_arm_pain_now'));
   perform pg_temp.ck('chest or arm pain on a flare-up is the hospital-now route', 'stopped:crisis', (r ->> 'status') || ':' || (r ->> 'route'));
   perform pg_temp.ck('...the plan is stopped', 'stopped_exclusion', (select state from public.therapy_enrolments where id = eb));
-  perform pg_temp.ck('...a class 1 task exists', '1', pg_temp.tasks_for(b, 'red_event_unacknowledged'));
+  perform pg_temp.ck('...but it does NOT page the on-call clinician: no class 1 task', '0', pg_temp.tasks_for(b, 'red_event_unacknowledged'));
+  perform pg_temp.ck('...no page was sent', '0', (select count(*)::text from public.audit_log where action = 'therapy.crisis_notified' and entity_id = b));
+  perform pg_temp.ck('...a normal same-day clinician task was raised instead', '1', pg_temp.tasks_for(b, 'symptom_review'));
+  perform pg_temp.ck('...and the patient is shown the hospital-now route', 'crisis', (select exclusion_result -> 'stops' -> 0 ->> 'route' from public.therapy_enrolments where id = eb));
+end $$;
+
+-- 4b. The mental-health crisis path is unchanged: it still pages ---------------------------------------------------------------
+do $$
+declare o jsonb;
+begin
+  o := pg_temp.enrol_as(pg_temp.f('patI'), 'low_mood', pg_temp.answers('low_mood', 'phq9_item9'));
+  perform pg_temp.ck('PHQ-9 item 9 above zero is still a paging crisis stop', 'crisis', o ->> 'route');
+  perform pg_temp.ck('...with its class 1 task', '1', pg_temp.tasks_for(pg_temp.f('patI'), 'red_event_unacknowledged'));
+  perform pg_temp.ck('...and the page record', '1', (select count(*)::text from public.audit_log where action = 'therapy.crisis_notified' and entity_id = pg_temp.f('patI')));
 end $$;
 
 -- 5. Access: own rows only, no direct writes, no staff read -------------------------------------------------------------------------
@@ -444,6 +472,21 @@ begin
 end $$;
 do $$ begin execute (select def from orig_defs where name = 'therapy_route_stop'); end $$;
 
+-- (e) the non-paging branch removed: a hospital-now warning sign on a flare-up would page the on-call clinician again
+create or replace function private.therapy_route_stop(p_enrolment uuid, p_screen jsonb) returns jsonb language plpgsql as
+$$ begin
+  if p_screen ->> 'route' = 'crisis' then perform private.therapy_raise_crisis(p_enrolment); end if;
+  return jsonb_build_object('route', p_screen ->> 'route', 'task_failed', false);
+end $$;
+do $$
+declare ej uuid;
+begin
+  ej := pg_temp.clean_start(pg_temp.f('patJ'), 'pain_neck');
+  perform pg_temp.flare_as(pg_temp.f('patJ'), ej, pg_temp.answers('pain_neck', 'sudden_severe_headache'));
+  perform pg_temp.sab('a hospital-now warning sign does not page the on-call clinician', '0', pg_temp.tasks_for(pg_temp.f('patJ'), 'red_event_unacknowledged'));
+end $$;
+do $$ begin execute (select def from orig_defs where name = 'therapy_route_stop'); end $$;
+
 -- (c) the completion gate removed: a week must no longer finish with one rated day
 create or replace function public.complete_msk_session(p_enrolment uuid, p_ordinal integer, p_scores jsonb default null)
 returns jsonb language sql security definer set search_path = '' as $$ select public.complete_therapy_session(p_enrolment, p_ordinal, p_scores) $$;
@@ -475,7 +518,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 7 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

@@ -28,6 +28,12 @@ function Programme({ p }: { p: MskProgrammeView }) {
         Content version {p.version}: {p.reviewState}. Entry list version {p.listVersion ?? "none"}: {p.listStatus ?? "none"}.
       </p>
 
+      {p.notPhysiotherapistReviewed && (
+        <p className="rounded-md border border-amber-300 p-2 text-sm" data-testid="not-physio-reviewed">
+          Marker (internal, never shown to patients): <span className="font-medium">not physiotherapist-reviewed</span>. You approve the exercise doses and progressions
+          alone. The marker stays on this version so it can be re-reviewed when a physiotherapist is hired; it is cleared only by recording a physiotherapist review.
+        </p>
+      )}
       <details>
         <summary className="cursor-pointer text-sm font-medium">Entry questions and what each one does ({p.questions.length})</summary>
         <ol className="ml-5 mt-2 list-decimal space-y-1 text-sm">

@@ -49313,6 +49313,9 @@ export type Database = {
           approved_at: string | null
           note: string | null
           created_at: string
+          not_physiotherapist_reviewed: boolean
+          physio_review_recorded_at: string | null
+          physio_review_ref: string | null
         }
         Insert: {
           programme_id: string
@@ -49322,6 +49325,9 @@ export type Database = {
           approved_at?: string | null
           note?: string | null
           created_at?: string
+          not_physiotherapist_reviewed?: boolean
+          physio_review_recorded_at?: string | null
+          physio_review_ref?: string | null
         }
         Update: {
           programme_id?: string
@@ -49331,6 +49337,9 @@ export type Database = {
           approved_at?: string | null
           note?: string | null
           created_at?: string
+          not_physiotherapist_reviewed?: boolean
+          physio_review_recorded_at?: string | null
+          physio_review_ref?: string | null
         }
         Relationships: []
       }
@@ -49466,6 +49475,7 @@ export type Database = {
           threshold: number | null
           route: string
           unverified: boolean
+          non_paging: boolean
         }
         Insert: {
           id?: string
@@ -49478,6 +49488,7 @@ export type Database = {
           threshold?: number | null
           route: string
           unverified?: boolean
+          non_paging?: boolean
         }
         Update: {
           id?: string
@@ -49490,6 +49501,7 @@ export type Database = {
           threshold?: number | null
           route?: string
           unverified?: boolean
+          non_paging?: boolean
         }
         Relationships: []
       }

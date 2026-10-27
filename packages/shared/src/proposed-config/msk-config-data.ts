@@ -9,7 +9,8 @@
  *  - General neck, knee and hip self-management guidance. No licensed instrument is used: the PEG (3 items) is free to use; the
  *    function goal is a plain 0 to 10 item written for this programme.
  *
- * Routes: `crisis` means "go to the nearest hospital now" (the engine's urgent route, with the on-call page); `same_day_clinician` a
+ * Routes: `crisis` means "go to the nearest hospital now" (the engine's urgent route; for these MSK items it carries `nonPaging`: the programme stops
+ * and a normal same-day clinician task is raised, and the on-call clinician is NOT paged, founder decision 2026-10-27); `same_day_clinician` a
  * task due the same day; `medical_review_first` a task due within two days before the programme starts; `education_only` no task.
  * Every item is a yes or no and FAILS CLOSED in the engine: an unanswered item stops the programme.
  * `unverified` marks a local addition the CMO has not confirmed. It still stops the programme.
@@ -24,7 +25,11 @@ const yn = (
   question: string,
   route: TherapyExclusionRule["route"],
   unverified = false,
-): TherapyExclusionRule => (unverified ? { code, question, kind: "yes_no", route, unverified } : { code, question, kind: "yes_no", route });
+): TherapyExclusionRule => {
+  const base: TherapyExclusionRule = unverified ? { code, question, kind: "yes_no", route, unverified } : { code, question, kind: "yes_no", route };
+  // Founder decision 2026-10-27: possible heart or stroke warning signs stop the programme and show hospital-now guidance, but never page the on-call clinician.
+  return route === "crisis" ? { ...base, nonPaging: true } : base;
+};
 
 /** Items every MSK programme asks. Order matters (the screen shows them in this order). */
 const COMMON_FIRST: readonly TherapyExclusionRule[] = [

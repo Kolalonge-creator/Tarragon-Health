@@ -5,7 +5,7 @@ import {
   shouldOfferEasier, stepDownActive, validDifficulty,
 } from "./msk-programmes";
 import { mskExerciseRow } from "./therapy-content/msk-drafts";
-import { assessWorsening, evaluateEntryScreen, therapyExclusionRules, therapyProgrammeConfig, validateScores, type TherapyAnswers } from "./therapy-programmes";
+import { assessWorsening, evaluateEntryScreen, stopPagesOnCall, therapyExclusionRules, therapyProgrammeConfig, validateScores, type TherapyAnswers } from "./therapy-programmes";
 import { readStartOutcome } from "./therapy-results";
 
 const walk = mskExerciseRow("walk");
@@ -73,6 +73,39 @@ describe("MSK entry screen (red flags as data, fail closed)", () => {
     has("pain_hip", "cannot_weight_bear", "same_day_clinician");
     has("pain_hip", "groin_pain_after_fall", "same_day_clinician");
     has("pain_hip", "fever", "same_day_clinician");
+  });
+
+  it("possible heart or stroke warning signs stop the programme with the hospital-now route but never page the on-call clinician", () => {
+    const warning: Array<[(typeof MSK_PROGRAMME_CODES)[number], string]> = [
+      ["pain_back", "chest_pain_now"], ["pain_neck", "chest_or_arm_pain_now"], ["pain_neck", "sudden_severe_headache"],
+      ["pain_neck", "speech_swallow_vision_face"], ["pain_knee", "breathless_with_leg_pain"], ["pain_hip", "breathless_with_leg_pain"],
+    ];
+    for (const [c, item] of warning) {
+      const r = evaluateEntryScreen(therapyExclusionRules(c), answers(c, [item]));
+      expect(r.passed).toBe(false);
+      expect(r.route).toBe("crisis");
+      expect(r.stops.every((x) => x.nonPaging)).toBe(true);
+      expect(stopPagesOnCall(r)).toBe(false);
+    }
+    // every crisis item on a pain list is non-paging, and an ordinary same-day item is not a page either
+    for (const c of MSK_PROGRAMME_CODES) for (const rule of MSK_EXCLUSION_LISTS[c]) if (rule.route === "crisis") expect(rule.nonPaging).toBe(true);
+  });
+
+  it("a crisis item that is not marked non-paging (the mental-health items) still pages", () => {
+    const rules = [{ code: "phq9_item9", question: "q", kind: "score_at_least", threshold: 1, route: "crisis" }] as const;
+    const r = evaluateEntryScreen(rules, { phq9_item9: 2 });
+    expect(r.route).toBe("crisis");
+    expect(stopPagesOnCall(r)).toBe(true);
+    expect(stopPagesOnCall(evaluateEntryScreen(therapyExclusionRules("low_mood"), { phq9_item9: 1, phq9_total: 3, gad7_total: 3 }))).toBe(true);
+  });
+
+  it("a mixed screen (a non-paging warning sign and a paging crisis item) still pages", () => {
+    const rules = [
+      { code: "a", question: "q", kind: "yes_no", route: "crisis", nonPaging: true },
+      { code: "b", question: "q", kind: "yes_no", route: "crisis" },
+    ] as const;
+    expect(stopPagesOnCall(evaluateEntryScreen(rules, { a: true, b: true }))).toBe(true);
+    expect(stopPagesOnCall(evaluateEntryScreen(rules, { a: true, b: false }))).toBe(false);
   });
 
   it("the most urgent route wins when several are positive", () => {

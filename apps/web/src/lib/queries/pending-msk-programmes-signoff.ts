@@ -15,6 +15,8 @@ export type MskProgrammeView = {
   /** The programme's current content version and its review state ('draft' until the CMO approves it). */
   version: number;
   reviewState: string;
+  /** INTERNAL marker: the doses and progressions have been approved by the CMO only. Cleared when a physiotherapist review is recorded. Never patient-visible. */
+  notPhysiotherapistReviewed: boolean;
   sessions: MskSessionView[];
   /** The newest entry-list version and whether the CMO has confirmed it. */
   listVersion: number | null;
@@ -67,7 +69,7 @@ export async function readPendingMskProgrammesSignoff(supabase: SupabaseClient<D
       const p = progs.data.find((x) => x.code === code);
       if (!p) return { ...EMPTY, failed: true };
       const [ver, sess, lists] = await Promise.all([
-        supabase.from("therapy_programme_versions").select("review_state").eq("programme_id", p.id).eq("version", p.current_version).maybeSingle(),
+        supabase.from("therapy_programme_versions").select("review_state, not_physiotherapist_reviewed").eq("programme_id", p.id).eq("version", p.current_version).maybeSingle(),
         supabase.from("therapy_programme_sessions").select("ordinal, title, text_body, exercises").eq("programme_id", p.id).eq("version", p.current_version).order("ordinal"),
         supabase.from("therapy_exclusion_list_versions").select("version, status").eq("programme_code", code).order("version", { ascending: false }).limit(1),
       ]);
@@ -84,6 +86,8 @@ export async function readPendingMskProgrammesSignoff(supabase: SupabaseClient<D
         title: p.title,
         version: p.current_version,
         reviewState: ver.data?.review_state ?? "draft",
+        // no version row means we cannot say it was reviewed: show the marker
+        notPhysiotherapistReviewed: ver.data?.not_physiotherapist_reviewed ?? true,
         sessions: (sess.data ?? []).map((s) => ({ ordinal: s.ordinal, title: s.title, body: s.text_body, exercises: toExercises(s.exercises) })),
         listVersion: newest?.version ?? null,
         listStatus: newest?.status ?? null,

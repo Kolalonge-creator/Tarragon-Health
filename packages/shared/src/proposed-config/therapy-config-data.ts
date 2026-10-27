@@ -22,6 +22,11 @@ export interface TherapyExclusionRule {
   readonly route: TherapyRoute;
   /** A local item the CMO has not confirmed. Shown to the CMO as unverified; it still stops the programme (fail closed). */
   readonly unverified?: boolean;
+  /**
+   * S96 (founder decision 2026-10-27): a `crisis` item that stops the programme and shows "go to the nearest hospital now" but does NOT page the
+   * on-call clinician; it raises a normal same-day clinician task instead. Only valid with route `crisis`. Mental-health items never set it.
+   */
+  readonly nonPaging?: boolean;
 }
 
 export const THERAPY_PROGRAMME_CODES = [
