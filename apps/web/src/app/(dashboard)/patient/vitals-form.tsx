@@ -22,6 +22,8 @@ import { useOnlineStatus } from "@/lib/network/use-online-status";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
+import { gradeOfflineEmergency, OFFLINE_SYMPTOMS, type OfflineSymptom } from "@/lib/vitals/offline-emergency";
+import { OfflineEmergencyGuidance } from "./offline-emergency-guidance";
 import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +103,10 @@ export function VitalsForm({
   // exists to fix).
   const isOnline = useOnlineStatus();
   const [offlineBlocked, setOfflineBlocked] = useState(false);
+  // INV-06 on the web (S85b): with the network off the emergency guidance comes from bundled code. The ticks are not posted (no `name`): they
+  // exist only so the on-device check can see them, and are offered only while offline.
+  const [offlineSymptoms, setOfflineSymptoms] = useState<readonly OfflineSymptom[]>([]);
+  const [offlineGuidance, setOfflineGuidance] = useState(false);
 
   // Crosscheck nudge: when a reading lands outside the normal band we ask the
   // patient to confirm it before saving, and show how to take a cleaner
@@ -150,6 +156,11 @@ export function VitalsForm({
       // resubmit the same reading a second time, since vitals_readings has
       // no dedup constraint.
       confirmedRef.current = false;
+      const raw = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const onBp = raw.vital_type === "blood_pressure";
+      const sys = onBp && raw.systolic !== "" ? Number(raw.systolic) : null;
+      const dia = onBp && raw.diastolic !== "" ? Number(raw.diastolic) : null;
+      if (gradeOfflineEmergency({ systolic: sys, diastolic: dia, symptoms: offlineSymptoms }).emergency) setOfflineGuidance(true);
       setOfflineBlocked(true);
       setStaleMark({ for: state });
       return;
@@ -168,6 +179,13 @@ export function VitalsForm({
       event.preventDefault();
       setCrosscheck(result);
     }
+  }
+
+  function toggleOfflineSymptom(symptom: OfflineSymptom, on: boolean) {
+    const next = on ? [...offlineSymptoms.filter((x) => x !== symptom), symptom] : offlineSymptoms.filter((x) => x !== symptom);
+    setOfflineSymptoms(next);
+    // A ticked emergency symptom is enough on its own: the guidance shows at once, before anything is submitted.
+    if (on && gradeOfflineEmergency({ symptoms: next }).emergency) setOfflineGuidance(true);
   }
 
   function confirmAndSave() {
@@ -454,6 +472,25 @@ export function VitalsForm({
             </div>
           )}
 
+          {!isOnline && (
+            <fieldset className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15" data-testid="offline-symptoms">
+              <legend className="px-1 text-sm font-medium">{t("vitals.symptoms.title")}</legend>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">You are offline. Tick anything you have right now and this screen will tell you what to do.</p>
+              {OFFLINE_SYMPTOMS.map((code) => (
+                <div key={code} className="flex items-center gap-2">
+                  <input
+                    id={`offline_symptom_${code}`}
+                    type="checkbox"
+                    checked={offlineSymptoms.includes(code)}
+                    onChange={(event) => toggleOfflineSymptom(code, event.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor={`offline_symptom_${code}`}>{t(`vitals.symptom.${code}`)}</Label>
+                </div>
+              ))}
+            </fieldset>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="note">Note (optional)</Label>
             <Input
@@ -511,6 +548,7 @@ export function VitalsForm({
           )}
         </form>
       </CardContent>
+      {offlineGuidance && <OfflineEmergencyGuidance onClose={() => setOfflineGuidance(false)} />}
     </Card>
   );
 }

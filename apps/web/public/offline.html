@@ -49,6 +49,28 @@
       button:active {
         opacity: 0.85;
       }
+      /* S85b (INV-06): static emergency guidance, no script and no network. The words are the EMG-001 wording; a test keeps them identical. */
+      section.emergency {
+        margin-top: 28px;
+        text-align: left;
+        border: 2px solid #b91c1c;
+        border-radius: 12px;
+        padding: 16px;
+        background: #ffffff;
+      }
+      section.emergency h2 {
+        font-size: 15px;
+        margin: 0 0 8px;
+        color: #7f1d1d;
+      }
+      section.emergency h3 {
+        font-size: 18px;
+        margin: 0 0 6px;
+      }
+      section.emergency p {
+        margin: 0;
+        color: #1c1917;
+      }
     </style>
   </head>
   <body>
@@ -60,6 +82,11 @@
         messages. Your care team is still here &mdash; reconnect and try again.
       </p>
       <button onclick="window.location.reload()">Try again</button>
+      <section class="emergency" aria-labelledby="emg-intro">
+        <h2 id="emg-intro">If you have a very high blood pressure reading or an emergency symptom</h2>
+        <h3 data-emg="title">Get help now</h3>
+        <p data-emg="body">Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms.</p>
+      </section>
     </main>
   </body>
 </html>

@@ -6,6 +6,10 @@
  * platform, so every navigation goes to the network and the cache is
  * consulted only when the network itself is unreachable.
  *
+ * The one page it does keep, /offline.html, carries the emergency guidance (the EMG-001 wording) as plain static text, so a reload with no
+ * network still tells a person what to do (INV-06, S85b). That is fixed wording, not patient data. src/lib/vitals/offline-page.test.ts
+ * keeps the page's words identical to the signed wording.
+ *
  * The push half (2026-07-30) shows whatever send-pending-notifications sent
  * and reports back when the user actually opens it — that open is the real
  * delivery-confirmation signal the forced-channel escalation engine
@@ -13,7 +17,8 @@
  * the next channel. It never touches the notification's content beyond
  * display — no clinical data is cached or stored by this file either way.
  */
-const OFFLINE_CACHE = "th-offline-v1";
+// v2 (S85b): offline.html now carries the static emergency guidance (INV-06), so installed workers must refetch it.
+const OFFLINE_CACHE = "th-offline-v2";
 const OFFLINE_URL = "/offline.html";
 const OFFLINE_ASSETS = [OFFLINE_URL, "/icon-192.png"];
 
