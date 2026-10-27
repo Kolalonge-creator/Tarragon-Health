@@ -17,7 +17,8 @@ export const CARE_GAP_TYPES = [
 ] as const;
 export type CareGapType = (typeof CARE_GAP_TYPES)[number];
 
-export const CLOSURE_REASONS = ["closed", "declined", "unreachable", "wrong"] as const;
+/** closed: a recorded outcome. declined / unreachable / wrong: a person closed it. superseded: the system closed it because the premise went or the rule changed. */
+export const CLOSURE_REASONS = ["closed", "declined", "unreachable", "wrong", "superseded"] as const;
 export type ClosureReason = (typeof CLOSURE_REASONS)[number];
 
 /** The reasons a person may choose by hand. `closed` is never one of them: it needs a recorded outcome signal. */
@@ -36,7 +37,7 @@ export function gapTypeLabel(type: string): string {
 }
 
 export function closureReasonLabel(reason: string | null): string {
-  if (reason === "closed" || reason === "declined" || reason === "unreachable" || reason === "wrong") {
+  if (reason === "closed" || reason === "declined" || reason === "unreachable" || reason === "wrong" || reason === "superseded") {
     return careGapText(`staff.reason.${reason}` as CareGapCopyKey);
   }
   return "";
@@ -91,7 +92,7 @@ export function whyOpenLines(gap: Pick<CareGapRow, "why" | "gap_type" | "due_dat
   const lines: string[] = [];
   const lastAt = str(why.last_signal_at);
   const anchor = str(why.anchor);
-  // the date a no-signal gap is counted from: a missed reading is due plan start + line, a lab gap is due on the plan start itself
+  // the date a no-signal gap is counted from: a missed reading is due plan start + line, a lab gap is due plan start + lookback
   let anchorDate = gap.due_date;
 
   if (criterion === "no_reading_in_days") {
@@ -104,6 +105,7 @@ export function whyOpenLines(gap: Pick<CareGapRow, "why" | "gap_type" | "due_dat
     const lookback = num(why.lookback_days);
     const grace = num(why.grace_days);
     if (lookback === null || grace === null) return [careGapText("staff.why.unknown")];
+    anchorDate = shiftDate(gap.due_date, -lookback);
     lines.push(careGapText("staff.why.lab", { lookback, grace }));
   } else if (criterion === "bp_average_rose_between_windows") {
     const window = num(why.window_days);
@@ -144,6 +146,21 @@ export function nextAttemptText(next: NextAttempt): string {
   if (next.kind === "none") return careGapText("staff.next.none");
   const date = lagosShortDate(next.at);
   return careGapText(next.kind === "overdue" ? "staff.next.overdue" : "staff.next.due", { date });
+}
+
+export type ReviewClock = { kind: "none" } | { kind: "due"; at: string } | { kind: "overdue"; at: string };
+
+/** The review clock of a doctor-owned gap: nothing for a coordinator's gap, a date, or a date that has passed. */
+export function reviewClock(gap: Pick<CareGapRow, "review_due_at" | "status" | "owner_role">, now: Date = new Date()): ReviewClock {
+  if (gap.status !== "open" || gap.owner_role !== "clinician" || !gap.review_due_at) return { kind: "none" };
+  const at = new Date(gap.review_due_at);
+  if (Number.isNaN(at.getTime())) return { kind: "none" };
+  return at.getTime() <= now.getTime() ? { kind: "overdue", at: gap.review_due_at } : { kind: "due", at: gap.review_due_at };
+}
+
+export function reviewClockText(clock: ReviewClock): string {
+  if (clock.kind === "none") return "";
+  return careGapText(clock.kind === "overdue" ? "staff.review.overdue" : "staff.review.due", { date: lagosShortDate(clock.at) });
 }
 
 /** True when a gap belongs on a doctor's list rather than a coordinator's (a judgement item). */

@@ -7559,6 +7559,7 @@ export type Database = {
           result: string
           step: string
           variant: Json | null
+          week_start: string | null
         }
         Insert: {
           actor_id?: string | null
@@ -7576,6 +7577,7 @@ export type Database = {
           result: string
           step: string
           variant?: Json | null
+          week_start?: string | null
         }
         Update: {
           actor_id?: string | null
@@ -7593,6 +7595,7 @@ export type Database = {
           result?: string
           step?: string
           variant?: Json | null
+          week_start?: string | null
         }
         Relationships: [
           {
@@ -7621,6 +7624,7 @@ export type Database = {
           id: string
           is_test: boolean
           ladder_step: number
+          last_checked_at: string | null
           next_attempt_due_at: string | null
           opened_at: string
           organisation_id: string
@@ -7628,10 +7632,13 @@ export type Database = {
           owner_id: string | null
           owner_role: string
           patient_id: string
+          review_due_at: string | null
+          review_escalated_at: string | null
           risk_rank: number
           shadow: boolean
           status: string
           subject_id: string | null
+          threshold: number | null
           trend_flag: boolean
           updated_at: string
           why: Json
@@ -7652,6 +7659,7 @@ export type Database = {
           id?: string
           is_test?: boolean
           ladder_step?: number
+          last_checked_at?: string | null
           next_attempt_due_at?: string | null
           opened_at?: string
           organisation_id: string
@@ -7659,10 +7667,13 @@ export type Database = {
           owner_id?: string | null
           owner_role: string
           patient_id: string
+          review_due_at?: string | null
+          review_escalated_at?: string | null
           risk_rank?: number
           shadow: boolean
           status?: string
           subject_id?: string | null
+          threshold?: number | null
           trend_flag?: boolean
           updated_at?: string
           why: Json
@@ -7683,6 +7694,7 @@ export type Database = {
           id?: string
           is_test?: boolean
           ladder_step?: number
+          last_checked_at?: string | null
           next_attempt_due_at?: string | null
           opened_at?: string
           organisation_id?: string
@@ -7690,10 +7702,13 @@ export type Database = {
           owner_id?: string | null
           owner_role?: string
           patient_id?: string
+          review_due_at?: string | null
+          review_escalated_at?: string | null
           risk_rank?: number
           shadow?: boolean
           status?: string
           subject_id?: string | null
+          threshold?: number | null
           trend_flag?: boolean
           updated_at?: string
           why?: Json

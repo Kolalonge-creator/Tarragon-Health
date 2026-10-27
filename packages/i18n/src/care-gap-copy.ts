@@ -74,10 +74,20 @@ export const careGapCopy = {
   "staff.reason.declined": "Declined",
   "staff.reason.unreachable": "Unreachable",
   "staff.reason.wrong": "Wrong",
+  "staff.reason.superseded": "No longer applies",
+  "staff.review.due": "Review due {date}",
+  "staff.review.overdue": "Review overdue since {date}",
+  "staff.review.escalated": "Handed to the Chief Medical Officer after the review date passed",
+  "staff.unowned.title": "Care gaps with no owner",
+  "staff.unowned.intro":
+    "These gaps have no coordinator or doctor to hold them, so nobody else can see them. Assign a coordinator or a doctor to the organisation, or close one with a reason. They are visible to you only because nobody owns them.",
+  "staff.unowned.empty": "No care gap is without an owner.",
+  "staff.unowned.note": "No owner",
 
   // --- institution wording (counts of people only) ---
   "institution.title": "Care gaps found by the rules",
-  "institution.intro": "People with at least one open gap of each kind, and gaps closed in the last 90 days from a recorded outcome. Counts of people only.",
+  "institution.intro":
+    "People with at least one open gap of each kind, and gaps closed in the last 90 days by a recorded outcome (a reading, a lab result or a refill). People whose gap closed another way (declined, unreachable, wrong) are counted apart, under how they closed, never as closed. Counts of people only.",
   "institution.not_live": "These counts appear once the care gap rules have been signed and switched on.",
   "institution.withheld": "Withheld",
   "institution.withheld_note": "A figure for fewer than {min} people is withheld, and a second figure is withheld alongside it so a withheld count cannot be worked out by subtraction.",

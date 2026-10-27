@@ -83,6 +83,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/activity-safety-config", "activity safety rules exercise workout rest gentle red amber pregnancy arthritis back pain hypertension sign cmo gate s48a"],
   ["/admin/settings/activity-safety-config", "activity safety rules exercise workout rest gentle read only signed gate"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
+  ["/admin/ops/care-gaps", "care gaps with no owner unowned no coordinator no doctor available sev2 incident care-gap-unowned ops s90"],
   ["/clinician/clinical-signoff", "care gap rules s90 sign care gaps missed reading hba1c lipids refill adherence rising trend outreach ladder weekly cap quiet hours experiment shadow mode cmo"],
   ["/clinician/outreach", "care gaps why this gap is open missed reading hba1c lipids refill overdue adherence rising trend closure by outcome contact attempt log next attempt due coordinator doctor review shadow"],
   ["/dashboard/care-coordinator/outreach", "care gaps why this gap is open missed reading hba1c lipids refill overdue adherence closure by outcome contact attempt log next attempt due coordinator"],

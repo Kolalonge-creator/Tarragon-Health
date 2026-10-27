@@ -17,6 +17,9 @@ type Rule = {
   lookback_days?: number;
   grace_days?: number;
   min_rise_systolic_mmhg?: number | null;
+  cmo_to_confirm?: string[];
+  exclude_drug_name_patterns?: string[];
+  exclude_indication_patterns?: string[];
 };
 type CareGapRules = {
   verify_against_source: boolean;
@@ -30,6 +33,8 @@ type CareGapRules = {
     coordinator_followup_days: number;
     unreachable_after_staff_attempts: number;
     reopen_after_manual_close_days: number;
+    doctor_review_days: number;
+    recheck_after_hours: number;
   };
   ab: { enabled: boolean; outcome_days: number; experiments: { key: string; variants: (string | number)[] }[] };
   notifications: { template_first: string; template_followup: string; rule: string };
@@ -90,6 +95,17 @@ describe("care_gaps.rules mirrors the migration seed (S90)", () => {
     expect(cfg.value.ladder.weekly_cap_per_patient).toBeGreaterThanOrEqual(1);
     expect(cfg.value.ladder.quiet_hours).toEqual({ start: "20:00", end: "08:00" });
     expect(cfg.value.ladder.reopen_after_manual_close_days).toBeGreaterThanOrEqual(1);
+  });
+
+  it("the doctor review clock and the recheck period are config, and the adherence scope lists are the CMO's to confirm", () => {
+    expect(cfg.value.ladder.doctor_review_days).toBeGreaterThanOrEqual(1);
+    expect(cfg.value.ladder.recheck_after_hours).toBeGreaterThanOrEqual(1);
+    const adherence = cfg.value.rules.adherence_lapse;
+    expect((adherence?.exclude_drug_name_patterns ?? []).length).toBeGreaterThan(0);
+    expect((adherence?.exclude_indication_patterns ?? []).length).toBeGreaterThan(0);
+    expect(adherence?.cmo_to_confirm).toEqual(["exclude_drug_name_patterns", "exclude_indication_patterns"]);
+    // the controlled-patient cadence question is recorded for the CMO, not decided in code
+    expect(cfg.value.rules.missed_reading?.cmo_to_confirm).toEqual(["hypertension_days_without_reading"]);
   });
 
   it("no experiment is switched on", () => {

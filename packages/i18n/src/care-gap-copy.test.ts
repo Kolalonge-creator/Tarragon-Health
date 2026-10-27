@@ -46,6 +46,8 @@ describe("care gap copy", () => {
 
   it("the institution wording is counts of people only and explains the withholding", () => {
     expect(careGapCopy["institution.intro"]).toMatch(/Counts of people only/);
+    expect(careGapCopy["institution.intro"]).toMatch(/by a recorded outcome/);
+    expect(careGapCopy["institution.intro"]).toMatch(/never as closed/);
     expect(careGapCopy["institution.withheld_note"]).toMatch(/subtraction/);
   });
 

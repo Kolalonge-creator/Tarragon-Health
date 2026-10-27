@@ -3,6 +3,8 @@ import {
   CARE_GAP_TYPES,
   MANUAL_CLOSURE_REASONS,
   closureReasonLabel,
+  reviewClock,
+  reviewClockText,
   gapTypeLabel,
   isDoctorGap,
   nextAttempt,
@@ -52,6 +54,12 @@ describe("why this gap is open (staff text)", () => {
     expect(lines[1]).toBe("None recorded yet, counted from the start of the plan on 7 Oct");
   });
 
+  it("counts a lab gap with no result on file from the plan start plus the lookback", () => {
+    // plan start 2025-09-01, lookback 365 -> due 2026-09-01
+    const lines = whyOpenLines(gap({ criterion: "no_lab_in_days", lookback_days: 365, grace_days: 30, last_signal_at: null, anchor: "plan_start" }, { gap_type: "no_lipids_12_months", due_date: "2026-09-01" }));
+    expect(lines[1]).toBe("None recorded yet, counted from the start of the plan on 1 Sep");
+  });
+
   it("names glucose for a glucose gap", () => {
     expect(whyOpenLines(gap({ criterion: "no_reading_in_days", signal: "glucose", threshold_days: 10, days_since: 12, anchor: "last_reading", last_signal_at: "2026-10-01T08:00:00Z" }))[0]).toMatch(/glucose/);
   });
@@ -91,7 +99,18 @@ describe("next attempt, labels and routing", () => {
     for (const t of CARE_GAP_TYPES) expect(gapTypeLabel(t)).not.toBe(t);
     expect([...MANUAL_CLOSURE_REASONS]).toEqual(["declined", "unreachable", "wrong"]);
     expect(closureReasonLabel("closed")).toBe("Closed by a recorded outcome");
+    expect(closureReasonLabel("superseded")).toBe("No longer applies");
     expect(closureReasonLabel(null)).toBe("");
+  });
+
+  it("shows the review clock of a doctor-owned gap only: nothing for a coordinator gap, due, or overdue", () => {
+    const now = new Date("2026-10-28T10:00:00Z");
+    expect(reviewClock({ status: "open", owner_role: "care_coordinator", review_due_at: "2026-10-27T10:00:00Z" }, now).kind).toBe("none");
+    expect(reviewClock({ status: "open", owner_role: "clinician", review_due_at: null }, now).kind).toBe("none");
+    expect(reviewClock({ status: "closed", owner_role: "clinician", review_due_at: "2026-10-27T10:00:00Z" }, now).kind).toBe("none");
+    expect(reviewClockText(reviewClock({ status: "open", owner_role: "clinician", review_due_at: "2026-10-30T10:00:00Z" }, now))).toBe("Review due 30 Oct");
+    expect(reviewClockText(reviewClock({ status: "open", owner_role: "clinician", review_due_at: "2026-10-27T10:00:00Z" }, now))).toBe("Review overdue since 27 Oct");
+    expect(reviewClockText({ kind: "none" })).toBe("");
   });
 
   it("routes a judgement item to a doctor and logistics to a coordinator", () => {

@@ -22,6 +22,8 @@ import {
   lagosShortDate,
   nextAttempt,
   nextAttemptText,
+  reviewClock,
+  reviewClockText,
   whyOpenLines,
   type AttemptResult,
   type ManualClosureReason,
@@ -121,6 +123,7 @@ function CloseForm({ gapId }: { gapId: string }) {
 function GapRow({ gap }: { gap: CareGapWithPeople }) {
   const [open, setOpen] = useState(false);
   const next = nextAttempt(gap);
+  const review = reviewClock(gap);
   return (
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -135,10 +138,17 @@ function GapRow({ gap }: { gap: CareGapWithPeople }) {
         {gap.trend_flag && <Badge variant="red">{careGapText("staff.trend.flag")}</Badge>}
         {isDoctorGap(gap) && <Badge variant="grey">{careGapText("staff.owner.doctor")}</Badge>}
         {gap.shadow && <Badge variant="grey">{careGapText("staff.shadow.badge")}</Badge>}
+        {gap.owner_id === null && <Badge variant="red">{careGapText("staff.unowned.note")}</Badge>}
       </div>
       <p className="text-xs text-charcoal-ink/70">
         {nextAttemptText(next)} · {careGapText("staff.attempts", { n: gap.attempt_count })}
       </p>
+      {review.kind !== "none" && (
+        <p className={review.kind === "overdue" ? "text-xs font-medium text-red-700" : "text-xs text-charcoal-ink/70"} data-testid="review-clock">
+          {reviewClockText(review)}
+          {gap.review_escalated_at ? ` · ${careGapText("staff.review.escalated")}` : ""}
+        </p>
+      )}
       {gap.shadow && <p className="text-[11px] text-charcoal-ink/60">{careGapText("staff.shadow.note")}</p>}
       <WhyOpenPanel gap={gap} />
       <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -159,18 +169,18 @@ function GapRow({ gap }: { gap: CareGapWithPeople }) {
  * S90: the care gaps assigned to the signed-in staff member, ranked, each with its "why this gap is open" panel, the contact log and the two ways a person
  * may close one without an outcome. Rendered on the coordinator and clinician outreach worklists. Reads through row level security only.
  */
-export function CareGapSection() {
+export function CareGapSection({ unowned = false }: { unowned?: boolean } = {}) {
   const { data, isLoading, isError } = useOpenCareGaps();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{careGapText("staff.section.title")}</CardTitle>
+        <CardTitle>{careGapText(unowned ? "staff.unowned.title" : "staff.section.title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-xs text-charcoal-ink/60">{careGapText("staff.section.intro")}</p>
+        <p className="mb-3 text-xs text-charcoal-ink/60">{careGapText(unowned ? "staff.unowned.intro" : "staff.section.intro")}</p>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the care gaps.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">{careGapText("staff.section.empty")}</p>}
+        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">{careGapText(unowned ? "staff.unowned.empty" : "staff.section.empty")}</p>}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((gap) => (
