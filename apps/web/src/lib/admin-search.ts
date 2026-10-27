@@ -118,6 +118,12 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/automation-health", "automation health automations scheduled job jobs cron schedule owner owners runbook failed stale unowned background task reminders chasing reports sync"],
   ["/admin/ops/ai-cost", "ai cost spend price prices model tokens naira kobo month monthly assistant coach scribe unpriced budget"],
   ["/admin/settings/translations", "translation translations translate language languages review native speaker clinical reviewed draft text strings pidgin yoruba hausa igbo"],
+  ["/admin/ops/ai-monitoring", "ai monitoring monitor sample monthly scheduler review rules signed reported answers wrong patient report emergency cost spike escalation accuracy agreement"],
+  ["/clinician/ai-monitoring", "ai monitoring monitor sample monthly scheduler review rules signed reported answers wrong patient report emergency cost spike escalation accuracy agreement"],
+  ["/clinician/triage-protocols/compare", "compare triage protocol versions diff difference change control regression replay loosened red flag symptom checker knowledge base draft signed"],
+  ["/admin/settings/triage-protocols/compare", "compare triage protocol versions diff difference change control regression replay loosened red flag symptom checker knowledge base draft signed"],
+  ["/clinician/support-tickets", "support tickets queue log email log phone call ticket technical help sla overdue past target possible emergency red flag"],
+  ["/clinician/support-tickets/thread", "patient support thread conversation app phone email one thread everything patient sent channels"],
   ["/clinician/ai-review", "ai review answers sample sampled flagged verdict accurate harmful minor issue assistant coach reported answer safety audit"],
   ["/clinician/research", "research protocol protocols ethics approval data sharing agreement de-identified export participants consent study evaluation registered cmo dpo data protection officer"],
   ["/admin/settings/research", "research protocol protocols data protection officer dpo confirm ethics approval data sharing agreement export study"],
@@ -182,6 +188,9 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
 export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "AI monitoring", href: "/clinician/ai-monitoring", group: "Clinical governance", hint: "The monthly AI review sample, answers patients reported as wrong, and how often doctors agreed with the automatic grade." },
+  { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", group: "Clinical governance", hint: "What changed between two versions of the symptom triage rules, and the same cases replayed against both. Read only." },
+  { label: "Support tickets", href: "/clinician/support-tickets", group: "Clinical queue", hint: "The support queue: log an email or a phone call as a ticket, see what is past its target and what looks like an emergency." },
   { label: "Clinician applications", href: "/clinician/credentialing", group: "Clinician credentialing", hint: "Review new clinicians, approve, grant competencies." },
   { label: "Licences and cover", href: "/clinician/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Training and test content", href: "/clinician/credentialing/content", group: "Clinician credentialing", hint: "Write and approve the training modules and test scenarios." },

@@ -1538,3 +1538,10 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+
+# S80d support (Module 25.4): staff log an email as a ticket (staff only, one patient match, sender kept, audited, nothing parsed), the red-flag scan on every ticket and patient reply on every channel (emergency message_safety_flag alert, a red-flag row with the matched phrases only, a page; care-team replies, internal notes and ordinary text raise nothing; the ticket is untouched), the clinical review link for phone and email, and the one-thread-per-patient view under row-level security. Sabotage: the phone-or-email patch, the ticket scan trigger and the reply scan trigger each removed.
+s80d_support_email_red_flag_thread.sql
+# S80d AI monitoring (Module 25.10): the monthly review-sample scheduler is inert until the CMO signs, only the CMO signs, a signed config cannot be edited, the scheduled draw always includes emergency-touching conversations, patient-reported answers and cost spikes with their own rules, never a test account, once per month; the overview is admin or CMO only and carries no answer text. Sabotage: the inert guard, the test-account filter and the reported rule each removed.
+s80d_ai_monitoring_scheduler.sql
+# S80d go-live guard registry (OQ-539): the two guards the registry called unenforced list their real enforcement, the named triggers exist, an unknown key reads as off, sign-up with the invite switch on refuses an uninvited person and passes admin-made accounts, and with the switch off (as shipped) or the guard on everyone passes (no live behaviour change). Sabotage: the checker made always-yes, the registry row emptied.
+s80d_go_live_guard_registry.sql

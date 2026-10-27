@@ -21,3 +21,4 @@ export * from "./assessment-ux/checkback";
 export * from "./assessment-ux/drafts";
 export * from "./assessment-ux/view";
 export * from "./safety/proxy-pregnancy";
+export * from "./change-control/compare";
