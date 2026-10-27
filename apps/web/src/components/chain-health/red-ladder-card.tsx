@@ -35,8 +35,8 @@ export function RedLadderCard({ ladder }: { ladder: RedLadder | null }) {
         )}
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
           <div>
-            <dt className="font-semibold">Every-minute red chain check</dt>
-            <dd>{ladder.red_lane.enabled ? "On" : "Off"}. A failure is seen within {Math.round(ladder.red_lane.detection_budget_seconds / 60)} minutes. Last result {when(ladder.red_lane.last_judged_at)}{ladder.red_lane.last_passed === null ? "" : ladder.red_lane.last_passed ? ", passed" : ", failed"}. Last day: {ladder.red_lane.runs_24h} runs, {ladder.red_lane.failures_24h} failed.</dd>
+            <dt className="font-semibold">Red chain check, every {ladder.red_lane.inject_every_minutes} minutes</dt>
+            <dd>{ladder.red_lane.enabled ? "On" : "Off"}. A break is normally seen within {ladder.red_lane.inject_every_minutes} to {Math.round(ladder.red_lane.detection_budget_seconds / 60)} minutes, at worst {Math.round(ladder.red_lane.detection_budget_seconds / 60)}. Last result {when(ladder.red_lane.last_judged_at)}{ladder.red_lane.last_passed === null ? "" : ladder.red_lane.last_passed ? ", passed" : ", failed"}. Last day: {ladder.red_lane.runs_24h} runs, {ladder.red_lane.failures_24h} failed.</dd>
           </div>
           <div>
             <dt className="font-semibold">Failed red chain steps</dt>

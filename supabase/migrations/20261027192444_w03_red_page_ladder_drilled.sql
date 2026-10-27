@@ -1,12 +1,15 @@
--- W-03: the red-page ladder, watched every minute and ending in a named human.
+-- W-03: the red-page ladder, watched every three minutes and ending in a named human.
 --
 -- WHAT THIS ADDS (all additive; nothing patient-facing changes, red guidance is untouched on every plan):
---   1. chain-canary-red: a SEPARATE per-minute job. Each minute it injects the red fixture through the real insert path, and judges every
---      run that is at least eval_after_seconds old: graded red, bus deliveries done, page made to the (synthetic) on-call clinician,
---      acknowledged. A failure opens a sev1 incident. The existing 30-minute full canary (minutes 11 and 41) is not touched and the red
---      lane writes to its OWN table, so chain_health, the reliability report and the heartbeat keep reading only the full canary.
---      The detection budget is a CHECK on the config row: one injection every inject_every_minutes plus the evaluation wait, rounded
---      up to whole cron ticks, must be at most 180 seconds. Ships OFF (red_lane_enabled = false); the cron job exists but does nothing.
+--   1. chain-canary-red: a SEPARATE job, every 3 MINUTES (founder decision 2026-10-27; the first draft ran every minute). Each tick judges
+--      every run that is at least eval_after_seconds old (graded red, bus deliveries done, page made to the synthetic on-call clinician,
+--      acknowledged) and then injects the red fixture through the real insert path. A failure opens a sev1 incident. The existing
+--      30-minute full canary (minutes 11 and 41) is not touched and the red lane writes to its OWN table, so chain_health, the reliability
+--      report and the heartbeat keep reading only the full canary.
+--      HONEST DETECTION BUDGET: a failure that starts just after an injection is first exercised by the NEXT injection (up to one interval
+--      later) and judged on the tick after that: worst case 2 x 3 minutes = 360 seconds, typical 3 to 6 minutes. It is NOT inside three
+--      minutes. The budget is stored (detection_budget_seconds = 360), a CHECK refuses a cadence whose worst case exceeds it, and the proof
+--      asserts the real figure. Ships OFF (red_lane_enabled = false); the cron job exists but does nothing. About 480 injections a day.
 --      Why pg_cron and not a new sub-daily vercel.json cron: Vercel refuses deploys with sub-daily crons on this plan (see the repo's
 --      "Vercel cron frequency limit" note) and every other per-minute job on this project (sweep-pages, paging-health, ops-desk-sweep,
 --      triage-recheck-sweep) already runs in pg_cron next to the data it reads.
@@ -58,14 +61,16 @@ create table public.chain_canary_red_config (
   id                          boolean primary key default true check (id),
   red_lane_enabled            boolean not null default false,
   dead_letter_paging_enabled  boolean not null default false,
-  inject_every_minutes        integer not null default 1 check (inject_every_minutes between 1 and 60),
+  -- the cron job ticks every 3 minutes, so the cadence is a multiple of 3
+  inject_every_minutes        integer not null default 3 check (inject_every_minutes between 3 and 60 and inject_every_minutes % 3 = 0),
   eval_after_seconds          integer not null default 90 check (eval_after_seconds between 30 and 600),
   red_class_subscribers       text[] not null default array['paging.on_red', 'queue.create_from_triage', 'triage.grade_observation'],
   note                        text,
   updated_at                  timestamptz not null default now(),
-  -- a seeded failure must be seen within three minutes: the wait for the next injection plus the wait for a judging tick
-  constraint chain_canary_red_detects_within_three_minutes
-    check (inject_every_minutes * 60 + (((eval_after_seconds + 59) / 60) * 60) <= 180)
+  detection_budget_seconds    integer not null default 360 check (detection_budget_seconds > 0),
+  -- worst case: wait for the next injection (one interval) plus the wait for the first 3-minute tick that is at least eval_after_seconds later
+  constraint chain_canary_red_budget_holds
+    check (inject_every_minutes * 60 + (((eval_after_seconds + 179) / 180) * 180) <= detection_budget_seconds)
 );
 alter table public.chain_canary_red_config enable row level security;
 create policy chain_canary_red_config_read on public.chain_canary_red_config for select to authenticated
@@ -212,7 +217,7 @@ begin
   if v_stage is not null then
     perform private.ops_alert_incident('chain_canary_red:' || v_stage,
       'Red page chain canary missed at stage: ' || v_stage,
-      format('The per-minute check of the red event chain failed at stage "%s". %s Open the chain health page (/clinician/chain-health) for the timeline. A real red event could be stuck the same way: phone the on-call clinician for any open case.', v_stage, coalesce(v_msg, '')),
+      format('The three-minute check of the red event chain failed at stage "%s". %s Open the chain health page (/clinician/chain-health) for the timeline. A real red event could be stuck the same way: phone the on-call clinician for any open case.', v_stage, coalesce(v_msg, '')),
       'sev1');
   end if;
   return v_stage is null;
@@ -231,7 +236,7 @@ exception when others then
   exception when others then null; end;
   begin
     perform private.ops_alert_incident('chain_canary_red:evaluate', 'Red page chain canary could not be evaluated',
-      'Red lane run ' || p_run || ' could not be judged: ' || sqlerrm || '. Until this is fixed the red chain is not being checked every minute.', 'sev1');
+      'Red lane run ' || p_run || ' could not be judged: ' || sqlerrm || '. Until this is fixed the red chain is not being checked every three minutes.', 'sev1');
   exception when others then raise warning 'red canary: could not raise the evaluate incident: %', sqlerrm; end;
 end $$;
 revoke all on function private.chain_canary_evaluate_red_safe(uuid) from public, anon, authenticated;
@@ -251,9 +256,9 @@ begin
   -- the lane must not die quietly: judged BEFORE this tick writes anything
   begin
     select max(judged_at) into v_last from public.chain_canary_red_runs;
-    if v_last is not null and v_last < now() - interval '5 minutes' then
+    if v_last is not null and v_last < now() - make_interval(mins => c.inject_every_minutes * 2 + 2) then
       perform private.ops_alert_incident('chain_canary_red:stale', 'Red page chain canary has stopped reporting',
-        format('No red lane run has been judged since %s although the per-minute job is running.', v_last), 'sev1');
+        format('No red lane run has been judged since %s although the three-minute job is running.', v_last), 'sev1');
     end if;
   exception when others then raise warning 'red canary stale check failed: %', sqlerrm; end;
 
@@ -277,13 +282,14 @@ begin
     end;
   end if;
 
+  -- retention: about 480 runs a day, 7 days is about 3,400 small rows
   delete from public.chain_canary_red_runs where injected_at < now() - interval '7 days';
   return jsonb_build_object('evaluated', v_eval, 'started', v_started);
 end $$;
 revoke all on function private.chain_canary_red_tick() from public, anon, authenticated;
 
 -- the same gate as the full canary: nothing to check while the platform holds no real patient
-select cron.schedule('chain-canary-red', '* * * * *',
+select cron.schedule('chain-canary-red', '*/3 * * * *',
   $$select private.chain_canary_red_tick() where exists (select 1 from public.profiles where role = 'patient' and not is_test);$$);
 
 -- 3. Dead letters on red-class subscribers reach a named human --------------------------------------------------------------
@@ -713,7 +719,8 @@ begin
   return jsonb_build_object(
     'red_lane', jsonb_build_object(
       'enabled', c.red_lane_enabled,
-      'detection_budget_seconds', c.inject_every_minutes * 60 + (((c.eval_after_seconds + 59) / 60) * 60),
+      'detection_budget_seconds', c.detection_budget_seconds,
+      'inject_every_minutes', c.inject_every_minutes,
       'last_judged_at', v_last.judged_at, 'last_passed', v_last.passed, 'last_stage', v_last.failed_stage,
       'runs_24h', (select count(*) from public.chain_canary_red_runs where judged_at > now() - interval '24 hours'),
       'failures_24h', (select count(*) from public.chain_canary_red_runs where judged_at > now() - interval '24 hours' and not passed)),
@@ -757,7 +764,7 @@ begin
      or has_table_privilege('anon', 'public.rota_cover_policy', 'SELECT') then
     raise exception 'W-03: table grants are too wide';
   end if;
-  if (select count(*) from cron.job where jobname = 'chain-canary-red' and schedule = '* * * * *') <> 1
+  if (select count(*) from cron.job where jobname = 'chain-canary-red' and schedule = '*/3 * * * *') <> 1
      or (select count(*) from cron.job where jobname = 'chain-canary' and schedule = '11,41 * * * *') <> 1
      or (select count(*) from cron.job where jobname = 'red-dead-letter-sweep') <> 1 then
     raise exception 'W-03: cron jobs are not as expected';

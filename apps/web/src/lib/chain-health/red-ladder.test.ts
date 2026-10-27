@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { ladderConcerns, parseRedLadder } from "./red-ladder";
 
 const good = {
-  red_lane: { enabled: true, detection_budget_seconds: 180, last_judged_at: "2026-10-27T10:00:00Z", last_passed: true, last_stage: null, runs_24h: 1440, failures_24h: 0 },
+  red_lane: { enabled: true, detection_budget_seconds: 360, inject_every_minutes: 3, last_judged_at: "2026-10-27T10:00:00Z", last_passed: true, last_stage: null, runs_24h: 480, failures_24h: 0 },
   dead_letters: { paging_enabled: true, subscribers: ["paging.on_red"], open: 0, unassigned: 0, paged_30d: 0 },
   rota: {
     required_clinicians: 5, window_days: 28, distinct_on_rota: 5, distinct_credentialed_on_rota: 5, eligible_on_call_staff: 5, hours_total: 672, hours_covered: 672,

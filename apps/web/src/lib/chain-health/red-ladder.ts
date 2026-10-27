@@ -28,6 +28,7 @@ export const redLadderSchema = z.object({
   red_lane: z.object({
     enabled: z.boolean(),
     detection_budget_seconds: z.number(),
+    inject_every_minutes: z.number(),
     last_judged_at: z.string().nullable(),
     last_passed: z.boolean().nullable(),
     last_stage: z.string().nullable(),
@@ -64,9 +65,9 @@ export type LadderConcern = { key: string; text: string; severe: boolean };
  */
 export function ladderConcerns(l: RedLadder): LadderConcern[] {
   const out: LadderConcern[] = [];
-  if (!l.red_lane.enabled) out.push({ key: "red_lane_off", text: "The every-minute red chain check is switched off, so a broken red path would only be found by the half-hourly check.", severe: false });
-  else if (l.red_lane.last_passed === false) out.push({ key: "red_lane_failed", text: `The last every-minute red chain check failed${l.red_lane.last_stage ? ` (${l.red_lane.last_stage})` : ""}.`, severe: true });
-  else if (l.red_lane.last_judged_at === null) out.push({ key: "red_lane_silent", text: "The every-minute red chain check is on but has not reported yet.", severe: false });
+  if (!l.red_lane.enabled) out.push({ key: "red_lane_off", text: "The three-minute red chain check is switched off, so a broken red path would only be found by the half-hourly check.", severe: false });
+  else if (l.red_lane.last_passed === false) out.push({ key: "red_lane_failed", text: `The last three-minute red chain check failed${l.red_lane.last_stage ? ` (${l.red_lane.last_stage})` : ""}.`, severe: true });
+  else if (l.red_lane.last_judged_at === null) out.push({ key: "red_lane_silent", text: "The three-minute red chain check is on but has not reported yet.", severe: false });
   if (!l.dead_letters.paging_enabled) out.push({ key: "dead_letter_off", text: "A failed red chain step does not yet phone anyone: paging the ops desk about dead letters is switched off.", severe: false });
   if (l.dead_letters.unassigned > 0) out.push({ key: "dead_letter_unassigned", text: `${l.dead_letters.unassigned} failed red chain step(s) have no ops person assigned. Phone the on-call clinician now.`, severe: true });
   else if (l.dead_letters.open > 0) out.push({ key: "dead_letter_open", text: `${l.dead_letters.open} failed red chain step(s) are still open on the ops desk.`, severe: true });

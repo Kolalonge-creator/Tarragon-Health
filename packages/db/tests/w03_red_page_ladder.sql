@@ -1,17 +1,22 @@
 -- W-03 proof: the drilled red-page ladder (migration *_w03_red_page_ladder_drilled.sql). One rolled-back transaction.
 --   1. Ships OFF: both switches false; the per-minute job exists and the 30-minute full canary is unchanged; the detection budget is a CHECK
 --      (a config that could not see a failure inside three minutes is refused).
---   2. RED LANE, seeded failure: with the event processor stopped, the run injected by one tick is judged by a tick two minutes later, fails at
---      'graded', and opens a sev1 incident, well inside 180 seconds. A run that is not yet old enough is not judged. With the processor's work
---      emulated the lane passes (the check can pass), and with the auto-acknowledge trigger dropped it fails at 'ack'.
+--   2. RED LANE (every 3 minutes), seeded failure: with the event processor stopped, the run injected by one tick is judged by the next tick
+--      (180 s later), fails at 'graded', and opens a sev1 incident. The proof asserts the REAL budget: judged within 360 s of injection, and the
+--      stored worst-case budget is 360 s, not 180 s ("within 3 minutes" does not hold at a 3-minute cadence). A run that is not yet old enough
+--      is not judged and no second run is injected inside the interval. With the processor's work emulated the lane passes (the check can
+--      pass), and with the auto-acknowledge trigger dropped it fails at 'ack'.
 --   3. DEAD LETTER: a dead delivery on a red-class subscriber opens a sev1 incident, one tracking row and an audit row, goes to the ops desk
---      (an assignment, or the loud "no named ops person" incident when nobody is on duty); a second sweep does nothing new; a non-red
+--      (the loud "no named ops person" incident when nobody is on duty; a real assignment plus the three neutral notices to the named ops
+--      person once one is on duty); a second sweep does nothing new; a non-red
 --      subscriber and a test event are ignored; a requeued delivery closes the alarm; the sweep is inert while its switch is off.
 --   4. ROTA COVERAGE: the report counts credentialed clinicians and uncovered hours for the window; with no rota every hour is uncovered and the
---      minimum is not met; non-admins are refused.
+--      minimum is not met; with five credentialed on-call clinicians covering all 28 days (primary and backup) the minimum IS met; a cancelled
+--      shift or a revoked competency drops it again; non-admins are refused.
 --   5. SOLE-CMO EXPIRY: a new real exception is capped to the dated end; none can be signed after it; the active check refuses after it; the
 --      sweep closes a lapsed exception; test rows are exempt.
---   6. PHONE FALLBACKS: a call logged on the ops desk for an expired-page incident is mirrored once; RLS and grants.
+--   6. PHONE FALLBACKS: a call logged on the ops desk for an expired-page incident is mirrored once; log_page_phone_fallback through a real
+--      page (admin ok, plain user refused, unknown page, blank outcome); the ladder status counts an expired page without a call, then with one.
 --   SABOTAGE: (a) auto-ack trigger dropped -> lane must fail at 'ack'; (b) red-class list emptied -> a seeded dead letter must NOT be paged
 --   (the check flips); (c) mirror trigger dropped -> the phone fallback row must be missing (the check flips).
 -- NOT EXECUTED LOCALLY when written (Docker was down): run it in the CI migration replay before merging.
@@ -48,6 +53,41 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'W03 ' || p_label, (current_date - interval '50 years')::date, true)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  return v;
+end $f$;
+
+create function pg_temp.q_as(p_uid uuid, p_sql text) returns text language plpgsql as
+$f$ declare r text;
+begin
+  perform pg_temp.act(p_uid);
+  begin execute p_sql into r; exception when others then r := 'ERR:' || sqlstate; end;
+  perform pg_temp.back();
+  return coalesce(r, 'null');
+end $f$;
+-- a user with a phone number confirmed through auth.users.phone_confirmed_at, exactly as sign-in does
+create function pg_temp.mkphoneuser(p_org uuid, p_label text, p_role text, p_phone text) returns uuid language plpgsql as
+$f$ declare v uuid := gen_random_uuid();
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, phone, phone_confirmed_at)
+  values (v, 'w03-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}', regexp_replace(p_phone, '\D', '', 'g'), now());
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
+  values (v, p_org, p_role::public.user_role, 'W03 ' || p_label, p_phone, (current_date - interval '45 years')::date, true, 'en')
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, organisation_id = excluded.organisation_id;
+  return v;
+end $f$;
+-- a credentialed on-call doctor: eligible (licence and indemnity dated well ahead) and holding the on_call competency
+create function pg_temp.mkoncall(p_org uuid, p_admin uuid, p_label text) returns uuid language plpgsql as
+$f$ declare v uuid := pg_temp.mkuser(p_org, p_label, 'clinician'); v_cs uuid;
+begin
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by,
+      doctor_tier, employment_type, credentialing_level, license_expires_at, indemnity_expires_at, is_test)
+  values (p_org, v, 'W03 ' || p_label, 'MDCN', 'W03-' || p_label || '-' || substr(v::text, 1, 8), true, 'active', now(), p_admin,
+      'senior_medical_officer', 'employed', 2, now() + interval '2 years', now() + interval '2 years', true) returning id into v_cs;
+  alter table public.clinician_competencies disable trigger user;
+  insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_cs, 'on_call', p_admin, true);
+  alter table public.clinician_competencies enable trigger user;
   return v;
 end $f$;
 
@@ -95,6 +135,7 @@ declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_plain uuid; v_s public.chain_canary_subjects;
   v_a uuid; v_b uuid; v_c uuid; v_ev uuid; v_dl uuid; v_dl2 uuid; v_dl3 uuid; v_tick jsonb; v_inc uuid; v_n integer; v_cov jsonb; v_exc uuid; v_pat uuid;
   v_ref text; v_end timestamptz; v_org2 uuid; v_cmo2 uuid;
+  v_ops uuid; v_ct uuid; v_dl4 uuid; v_inc4 uuid; v_asg uuid; v_org3 uuid; v_docs uuid[] := '{}'; v_d uuid; i integer; v_cadm uuid; v_cplain uuid; v_pg uuid; v_rota uuid;
 begin
   select id into v_org from public.organisations where not coalesce((metadata ->> 'canary')::boolean, false) order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -110,24 +151,29 @@ begin
     (select schedule from cron.job where jobname = 'chain-canary-red') || ',' || (select schedule from cron.job where jobname = 'chain-canary'));
   perform pg_temp.res('a disabled lane does nothing', 'disabled', private.chain_canary_red_tick() ->> 'skipped');
   perform pg_temp.res('a disabled dead letter sweep does nothing', 'disabled', private.sweep_red_dead_letters() ->> 'skipped');
-  perform pg_temp.res('a config that could not see a failure inside three minutes is refused (check 23514)', '23514',
-    pg_temp.try('update public.chain_canary_red_config set inject_every_minutes = 2'));
-  perform pg_temp.res('the default budget is within three minutes', 'true', (select (inject_every_minutes * 60 + (((eval_after_seconds + 59) / 60) * 60) <= 180)::text from public.chain_canary_red_config));
+  perform pg_temp.res('the job runs every 3 minutes', '*/3 * * * *', (select schedule from cron.job where jobname = 'chain-canary-red'));
+  perform pg_temp.res('a cadence that is not a multiple of the 3-minute tick is refused (check 23514)', '23514',
+    pg_temp.try('update public.chain_canary_red_config set inject_every_minutes = 4'));
+  perform pg_temp.res('a cadence whose worst case exceeds the stored budget is refused (check 23514)', '23514',
+    pg_temp.try('update public.chain_canary_red_config set inject_every_minutes = 6'));
+  perform pg_temp.res('the stored budget is the honest worst case: one interval plus one judging tick, 360 s, not 180 s', '360,3,360',
+    (select detection_budget_seconds::text || ',' || inject_every_minutes::text || ',' || (inject_every_minutes * 60 + (((eval_after_seconds + 179) / 180) * 180))::text from public.chain_canary_red_config));
 
   -- 2. RED LANE: the seeded failure -----------------------------------------------------------------------------------------
   update public.chain_canary_red_config set red_lane_enabled = true;
   v_s := private.chain_canary_ensure();
-  v_tick := private.chain_canary_red_tick();     -- minute 0: injects a run (no processor is running: the seeded failure)
+  v_tick := private.chain_canary_red_tick();     -- tick 1: injects a run (no processor is running: the seeded failure)
   perform pg_temp.res('tick 1 injects one red run', '1,true', (select count(*)::text from public.chain_canary_red_runs where judged_at is null) || ',' || (v_tick ->> 'started' is not null)::text);
   perform pg_temp.res('the red reading went through the real insert path and emitted observation.recorded as a test event', 'true',
     (exists (select 1 from public.domain_events e where e.event_type = 'observation.recorded' and e.patient_id = v_s.patient_id and e.is_test))::text);
-  update public.chain_canary_red_runs set injected_at = clock_timestamp() - interval '61 seconds' where judged_at is null;
-  v_tick := private.chain_canary_red_tick();     -- minute 1: the first run is 61 s old (under 90 s): not judged; a new run is injected
-  perform pg_temp.res('tick 2 does not judge a run that is not yet old enough, and injects the next', '0,2', (v_tick ->> 'evaluated') || ',' || (select count(*)::text from public.chain_canary_red_runs));
-  update public.chain_canary_red_runs set injected_at = injected_at - interval '61 seconds' where judged_at is null and injected_at < clock_timestamp() - interval '55 seconds';
-  v_tick := private.chain_canary_red_tick();     -- minute 2: the first run is 122 s old: judged
-  perform pg_temp.res('tick 3 judges the first run: failed at graded', 'false,graded', (select passed::text || ',' || failed_stage from public.chain_canary_red_runs order by injected_at limit 1));
-  perform pg_temp.res('the failure was seen inside three minutes of its injection', 'true', (select ((details ->> 'judged_after_seconds')::int <= 180)::text from public.chain_canary_red_runs order by injected_at limit 1));
+  v_tick := private.chain_canary_red_tick();     -- the same instant again: not old enough to judge, and no second injection inside the interval
+  perform pg_temp.res('a run that is not yet old enough is not judged and no second run is injected', '0,1', (v_tick ->> 'evaluated') || ',' || (select count(*)::text from public.chain_canary_red_runs));
+  update public.chain_canary_red_runs set injected_at = clock_timestamp() - interval '181 seconds' where judged_at is null;
+  v_tick := private.chain_canary_red_tick();     -- tick 2, 3 minutes later: judges the first run and injects the next
+  perform pg_temp.res('tick 2 judges the first run: failed at graded', 'false,graded', (select passed::text || ',' || failed_stage from public.chain_canary_red_runs order by injected_at limit 1));
+  perform pg_temp.res('and injects the next run', '2', (select count(*)::text from public.chain_canary_red_runs));
+  perform pg_temp.res('the failure was seen within the stored worst-case budget (360 s), not within 180 s', 'true', (select ((details ->> 'judged_after_seconds')::int <= (select detection_budget_seconds from public.chain_canary_red_config))::text
+    from public.chain_canary_red_runs order by injected_at limit 1));
   perform pg_temp.res('a sev1 incident names the stage', '1', (select count(*)::text from public.ops_incidents where external_reference = 'chain_canary_red:graded' and severity = 'sev1' and status not in ('resolved', 'closed')));
   perform pg_temp.res('the lane did not touch the full canary history', '0', (select count(*)::text from public.chain_canary_runs where at > now() - interval '1 hour'));
 
@@ -169,6 +215,30 @@ begin
   update public.domain_event_deliveries set status = 'done', done_at = now() where id = v_dl;
   perform pg_temp.res('a requeued and finished delivery closes the alarm', '1,resolved', (private.sweep_red_dead_letters() ->> 'resolved') || ',' || (select status::text from public.ops_incidents where id = v_inc));
 
+  -- positive assignment: a named, verified ops person is on duty, so the dead letter reaches THEM (and nobody else) with the neutral notice
+  v_ops := pg_temp.mkphoneuser(v_org, 'ops', 'admin', '+2348062541973');
+  insert into public.ops_desk_contacts (organisation_id, profile_id, role) values (v_org, v_ops, 'primary') returning id into v_ct;
+  insert into public.ops_desk_contact_windows (organisation_id, contact_id, day_of_week, start_time, end_time)
+    values (v_org, v_ct, extract(isodow from now() at time zone 'Africa/Lagos')::int, time '00:00', time '23:59');
+  update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_ct;
+  update public.ops_desk_contacts set is_test = false where id = v_ct;      -- the dead letter below is a real-world event
+  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-dl4-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'queue.create_from_triage', v_org, 'dead') returning id into v_dl4;
+  perform pg_temp.res('with an ops person on duty the dead letter is paged', '1', private.sweep_red_dead_letters() ->> 'paged');
+  select id into v_inc4 from public.ops_incidents where external_reference = 'page_dead_letter:' || v_dl4;
+  perform pg_temp.res('it is assigned to the named ops person, who owns the incident', 'true,true,true',
+    (exists (select 1 from public.ops_desk_assignments a where a.incident_id = v_inc4 and a.profile_id = v_ops and a.role = 'primary'))::text || ',' ||
+    ((select owner_id from public.ops_incidents where id = v_inc4) = v_ops)::text || ',' ||
+    ((select assigned_to from public.red_dead_letter_pages where delivery_id = v_dl4) = v_ops)::text);
+  perform pg_temp.res('no uncovered alarm was raised for it', '0', (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered:' || v_inc4));
+  perform pg_temp.res('the ops person got the dead letter notice on push, in-app and email only', '3,email,in_app,push',
+    (select count(*)::text || ',' || string_agg(channel::text, ',' order by channel::text) from public.notifications where recipient_id = v_ops and template = 'on_call_ops_desk_dead_letter'));
+  perform pg_temp.res('and the notice carries only the incident id', 'incident_id', (select string_agg(distinct k, ',') from public.notifications n, jsonb_object_keys(n.payload) k where n.recipient_id = v_ops and n.template = 'on_call_ops_desk_dead_letter'));
+  perform pg_temp.res('nobody else got a dead letter notice', '0', (select count(*)::text from public.notifications where template = 'on_call_ops_desk_dead_letter' and recipient_id <> v_ops));
+  update public.domain_event_deliveries set status = 'done', done_at = now() where id = v_dl4;
+  perform private.sweep_red_dead_letters();
+
   -- SABOTAGE (b): the red-class list emptied -> a seeded dead letter must NOT be paged
   update public.domain_event_deliveries set status = 'dead', done_at = null where id = v_dl;
   delete from public.red_dead_letter_pages where delivery_id = v_dl;
@@ -183,6 +253,36 @@ begin
   perform pg_temp.res('the report carries the required number and window from the policy', '5,28', (v_cov ->> 'required_clinicians') || ',' || (v_cov ->> 'window_days'));
   perform pg_temp.res('the synthetic canary rota shows its clinician but one is not five', 'false,true', (private.rota_coverage(v_s.organisation_id, true, now()) ->> 'meets_minimum') ||
     ',' || ((private.rota_coverage(v_s.organisation_id, true, now()) ->> 'distinct_on_rota')::int >= 1)::text);
+  -- positive: five credentialed on-call clinicians cover all 28 days, each with a credentialed backup
+  insert into public.organisations (name, type) values ('W03 proof org three', 'clinic') returning id into v_org3;
+  for i in 1..5 loop
+    v_docs := v_docs || pg_temp.mkoncall(v_org3, v_admin, 'doc' || i);
+  end loop;
+  perform set_config('tarragon.lead_write', 'on', true);
+  for i in 0..29 loop
+    insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, is_test)
+    values (v_org3, date_trunc('hour', now()) + make_interval(hours => 24 * i), date_trunc('hour', now()) + make_interval(hours => 24 * (i + 1)),
+            v_docs[1 + (i % 5)], v_docs[1 + ((i + 1) % 5)], true);
+  end loop;
+  perform set_config('tarragon.lead_write', 'off', true);
+  v_cov := private.rota_coverage(v_org3, true, now());
+  perform pg_temp.res('five credentialed clinicians covering all 28 days meets the minimum', 'true,5,0,0,672,5',
+    (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota') || ',' || (v_cov ->> 'hours_uncovered') || ',' || (v_cov ->> 'hours_without_backup') || ',' ||
+    (v_cov ->> 'hours_covered') || ',' || (v_cov ->> 'eligible_on_call_staff'));
+  select id into v_rota from public.on_call_rota where organisation_id = v_org3 order by starts_at offset 10 limit 1;
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set cancelled_at = now() where id = v_rota;
+  perform set_config('tarragon.lead_write', 'off', true);
+  v_cov := private.rota_coverage(v_org3, true, now());
+  perform pg_temp.res('cancelling one day of the rota leaves 24 hours uncovered and the minimum unmet', 'false,24', (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'hours_uncovered'));
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set cancelled_at = null where id = v_rota;
+  perform set_config('tarragon.lead_write', 'off', true);
+  update public.clinician_competencies set revoked_at = now() where clinical_staff_id = (select id from public.clinical_staff where profile_id = v_docs[1]) and competency_code = 'on_call';
+  v_cov := private.rota_coverage(v_org3, true, now());
+  perform pg_temp.res('revoking one clinician''s on_call competency drops the credentialed count to four and the minimum fails', 'false,4',
+    (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota'));
+
   perform pg_temp.res('an admin reads the report, a plain user is refused', 'ok,42501', pg_temp.try_as(v_admin, 'select public.rota_coverage_report()') || ',' || pg_temp.try_as(v_plain, 'select public.rota_coverage_report()'));
   perform pg_temp.res('the ladder status is the same: admin ok, plain refused', 'ok,42501', pg_temp.try_as(v_admin, 'select public.red_ladder_status()') || ',' || pg_temp.try_as(v_plain, 'select public.red_ladder_status()'));
 
@@ -222,6 +322,29 @@ begin
   perform pg_temp.res('the table cannot be written by a client or read by anon', '42501,42501', pg_temp.try_as(v_admin, format('insert into public.page_phone_fallbacks (organisation_id, page_id, called_by, callee_kind, outcome) values (%L, %L, %L, ''other'', ''x'')', v_org, v_pat, v_admin)) ||
     ',' || (case when has_table_privilege('anon', 'public.page_phone_fallbacks', 'SELECT') then 'open' else '42501' end));
   perform pg_temp.res('an admin of the organisation reads the log, a plain user cannot read it as a table row', 'ok', pg_temp.try_as(v_admin, 'select count(*) from public.page_phone_fallbacks'));
+
+  -- log_page_phone_fallback through a real page (the one the healthy red lane run above made in the canary organisation)
+  v_cadm := pg_temp.mkuser(v_s.organisation_id, 'canaryadmin', 'admin');
+  v_cplain := pg_temp.mkuser(v_s.organisation_id, 'canaryplain', 'patient');
+  select id into v_pg from public.pages where organisation_id = v_s.organisation_id and parent_page_id is null order by created_at desc limit 1;
+  perform pg_temp.res('there is a real red page to log a call against', 'true', (v_pg is not null)::text);
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set expired_at = now() where id = v_pg;
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform pg_temp.res('the ladder status counts an expired page with no logged call', '1,1',
+    ((pg_temp.q_as(v_cadm, 'select public.red_ladder_status()')::jsonb) -> 'phone_fallbacks' ->> 'expired_pages_30d') || ',' ||
+    ((pg_temp.q_as(v_cadm, 'select public.red_ladder_status()')::jsonb) -> 'phone_fallbacks' ->> 'expired_pages_without_call_30d'));
+  perform pg_temp.res('an admin logs the call', 'ok', pg_temp.try_as(v_cadm, format('select public.log_page_phone_fallback(%L, %L, ''on_call_clinician'', ''no_answer'', ''rang twice'')', v_pg, v_s.clinician_id)));
+  perform pg_temp.res('one row, keyed to the page, attributed to the caller', '1,true', (select count(*)::text from public.page_phone_fallbacks where page_id = v_pg and called_by = v_cadm and source = 'rpc') || ',' ||
+    (select (outcome = 'no_answer' and callee_kind = 'on_call_clinician')::text from public.page_phone_fallbacks where page_id = v_pg and source = 'rpc'));
+  perform pg_temp.res('and the audit trail records it', '1', (select count(*)::text from public.audit_log where action = 'page.phone_fallback_logged' and entity_id = v_pg));
+  perform pg_temp.res('the ladder status now shows the call', '0',
+    ((pg_temp.q_as(v_cadm, 'select public.red_ladder_status()')::jsonb) -> 'phone_fallbacks' ->> 'expired_pages_without_call_30d'));
+  perform pg_temp.res('a plain user is refused, an unknown page, a blank outcome and a bad callee kind are refused', '42501,P0002,23514,23514',
+    pg_temp.try_as(v_cplain, format('select public.log_page_phone_fallback(%L, %L, ''other'', ''no_answer'')', v_pg, v_s.clinician_id)) || ',' ||
+    pg_temp.try_as(v_cadm, format('select public.log_page_phone_fallback(%L, %L, ''other'', ''no_answer'')', gen_random_uuid(), v_s.clinician_id)) || ',' ||
+    pg_temp.try_as(v_cadm, format('select public.log_page_phone_fallback(%L, %L, ''other'', ''   '')', v_pg, v_s.clinician_id)) || ',' ||
+    pg_temp.try_as(v_cadm, format('select public.log_page_phone_fallback(%L, %L, ''neighbour'', ''no_answer'')', v_pg, v_s.clinician_id)));
 
   -- SABOTAGE (c): the mirror trigger dropped -> the row must be missing
   drop trigger ops_desk_call_log_mirror_phone_fallbacks on public.ops_desk_call_log;
