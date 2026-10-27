@@ -222,8 +222,8 @@ select cron.schedule('directory-staleness-chase', '45 5 * * *', $c$select privat
 -- automation_jobs pause registry, as an ordinary (not safety-critical) pg_cron job.
 insert into public.automations (name, kind, schedule, source_ref, expected_interval_minutes)
 values ('cron:directory-staleness-chase', 'pg_cron', '45 5 * * *', 'cron.job:directory-staleness-chase', 1560) on conflict (name) do nothing;
-insert into public.automation_jobs (job_name, schedule, source, purpose)
-values ('directory-staleness-chase', '45 5 * * *', 'pg_cron', 'Chases partners whose directory listing is stale (emails the contact while the notice guard is on). Tied to the partner chase list.') on conflict (job_name) do nothing;
+insert into public.automation_jobs (job_name, schedule, source)
+values ('directory-staleness-chase', '45 5 * * *', 'pg_cron') on conflict (job_name) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- assertions

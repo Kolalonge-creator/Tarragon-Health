@@ -148,8 +148,8 @@ select cron.schedule('settlement-tieout-daily', '10 6 * * *', $c$select private.
 -- automation_jobs pause registry, as an ordinary (not safety-critical) pg_cron job.
 insert into public.automations (name, kind, schedule, source_ref, expected_interval_minutes)
 values ('cron:settlement-tieout-daily', 'pg_cron', '10 6 * * *', 'cron.job:settlement-tieout-daily', 1560) on conflict (name) do nothing;
-insert into public.automation_jobs (job_name, schedule, source, purpose)
-values ('settlement-tieout-daily', '10 6 * * *', 'pg_cron', 'Counts matched and unmatched Paystack settlement lines for yesterday and opens one finance incident when any are unmatched.') on conflict (job_name) do nothing;
+insert into public.automation_jobs (job_name, schedule, source)
+values ('settlement-tieout-daily', '10 6 * * *', 'pg_cron') on conflict (job_name) do nothing;
 
 do $$
 begin

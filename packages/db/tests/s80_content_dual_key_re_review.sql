@@ -58,8 +58,11 @@ begin
   update public.health_education_content set content_status = 'clinical_review' where id in (v_a, v_b, v_c, v_d, v_e, v_f);
 
   -- a live published item that was never clinician reviewed (the 213-row shape), inserted as the postgres session
+  -- the live rows of this shape were written before the publish guard existed, so build it with triggers off for this one insert
+  set local session_replication_role = replica;
   insert into public.health_education_content (code, title, body, category, content_status, clinician_reviewed)
   values ('s80dk-unrev','Published, never reviewed','body',v_cat,'published',false) returning id into v_pub_unrev;
+  set local session_replication_role = origin;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
   set local role authenticated;

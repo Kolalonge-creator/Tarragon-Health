@@ -76,11 +76,11 @@ begin
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values (v_ops, 'ops.console.view', v_admin);
   -- A: stale (verified 800 days ago), has a contact. B: never verified. C: fresh (verified today).
   insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation, contact_email)
-    values ('S80dsc Lab A stale', true, 'S80DSC-A', now(), now() + interval '1 year', 'ISO 15189', 'lab-a@example.invalid') returning id into v_a;
+    values ('S80dsc Lab A stale', true, 'S80DSC-A', now(), now() + interval '1 year', 'ISO 15189', 'lab-a@s80dsc-labs.test') returning id into v_a;
   insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation, contact_email)
-    values ('S80dsc Lab B never', true, 'S80DSC-B', now(), now() + interval '1 year', 'ISO 15189', 'lab-b@example.invalid') returning id into v_b;
+    values ('S80dsc Lab B never', true, 'S80DSC-B', now(), now() + interval '1 year', 'ISO 15189', 'lab-b@s80dsc-labs.test') returning id into v_b;
   insert into public.lab_providers (name, is_active, license_number, license_verified_at, license_expires_at, accreditation, contact_email)
-    values ('S80dsc Lab C fresh', true, 'S80DSC-C', now(), now() + interval '1 year', 'ISO 15189', 'lab-c@example.invalid') returning id into v_c;
+    values ('S80dsc Lab C fresh', true, 'S80DSC-C', now(), now() + interval '1 year', 'ISO 15189', 'lab-c@s80dsc-labs.test') returning id into v_c;
   insert into public.lab_provider_locations (lab_provider_id, name, state, town, address) values
     (v_a, 'A branch', 'Lagos', 'Yaba', '1 Test Road'), (v_b, 'B branch', 'Lagos', 'Yaba', '2 Test Road'), (v_c, 'C branch', 'Lagos', 'Yaba', '3 Test Road');
   insert into public.pharmacy_partners (name, is_active, onboarding_status) values ('S80dsc Pharmacy no contact', true, 'activated') returning id into v_pp;
@@ -136,19 +136,19 @@ insert into results values ('real', 'guard off: no email row exists', '0', (sele
 select pg_temp.guard('directory_partner_stale_email', true);
 do $$ declare n integer; begin n := private.directory_chase_notices(); insert into results values ('real', 'guard on: stale and never-verified labs with a contact are noticed (at least 2)', 'true', (n >= 2)::text); end $$;
 insert into results values ('real', 'the stale lab is emailed at its contact', '1',
-  (select count(*)::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@example.invalid' and channel = 'email'));
+  (select count(*)::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@s80dsc-labs.test' and channel = 'email'));
 insert into results values ('real', 'the notice is non-clinical and pending', 'non_clinical,pending',
-  (select content_class::text || ',' || status::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@example.invalid'));
+  (select content_class::text || ',' || status::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@s80dsc-labs.test'));
 insert into results values ('real', 'the notice carries no patient detail (only listing, date, audience, address)', 'audience,last_checked,listing_name,to_email',
-  (select string_agg(k, ',' order by k) from (select jsonb_object_keys(payload) k from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@example.invalid') z));
+  (select string_agg(k, ',' order by k) from (select jsonb_object_keys(payload) k from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@s80dsc-labs.test') z));
 insert into results values ('real', 'the fresh lab is not emailed', '0',
-  (select count(*)::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-c@example.invalid'));
+  (select count(*)::text from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-c@s80dsc-labs.test'));
 do $$
 declare c1 bigint; c2 bigint;
 begin
-  select count(*) into c1 from public.notifications where payload ->> 'to_email' = 'lab-a@example.invalid';
+  select count(*) into c1 from public.notifications where payload ->> 'to_email' = 'lab-a@s80dsc-labs.test';
   perform private.directory_chase_notices();
-  select count(*) into c2 from public.notifications where payload ->> 'to_email' = 'lab-a@example.invalid';
+  select count(*) into c2 from public.notifications where payload ->> 'to_email' = 'lab-a@s80dsc-labs.test';
   insert into results values ('real', 'a second run inside the repeat window queues nothing for the stale lab', '0', (c2 - c1)::text);
 end $$;
 insert into results values ('real', 'noticing a lab never deactivates it', 'true', (select is_active::text from public.lab_providers where id = pg_temp.f('a')));
@@ -183,7 +183,7 @@ begin
   v_def := replace(v_orig, 'when p_last_verified_at is null or coalesce(p_cadence_months, 0) <= 0 then 0', 'when true then 100');
   if v_def = v_orig then raise exception 'SABOTAGE (b) not applied'; end if;
   execute v_def;
-  delete from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@example.invalid';
+  delete from public.notifications where template = 'directory_partner_recheck_notice' and payload ->> 'to_email' = 'lab-a@s80dsc-labs.test';
   n := private.directory_chase_notices();
   insert into results values ('sabotaged', 'with the score broken nothing is noticed', '0', n::text);
   execute v_orig;
@@ -201,5 +201,5 @@ begin
   if v_caught < 2 then raise exception 'VACUOUS TEST: only % of 2 sabotages flipped a check', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase desc, check_name;
+select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
 rollback;
