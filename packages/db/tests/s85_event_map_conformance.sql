@@ -5,20 +5,20 @@
 -- registered, and then emits one event of each type in a rolled-back transaction to see what the bus really does with it.
 --
 -- Proves, in one rolled-back transaction:
---   1. WIRED events (observation.recorded, triage.graded, order.paid): the type exists, exactly the expected active subscribers
+--   1. WIRED events (observation.recorded, which carries blood pressure AND glucose (R2), triage.graded, order.paid, silence.detected (P6)): the type exists, exactly the expected active subscribers
 --      are registered, and emitting the event creates exactly one delivery per subscriber (the downstream effect starts).
 --   2. GAP events whose type exists but nothing listens (dose.recorded, dose.missed, lab_result.received,
---      symptom_check.completed, pregnancy.recorded): the type exists, there is NO active subscriber, and an emitted event creates
+--      symptom_check.completed, pregnancy.recorded, device.synced, questionnaire.completed): the type exists, there is NO active subscriber, and an emitted event creates
 --      NO delivery. This is the expected-gap registry, asserted against the database. The registry may only shrink: the day one
 --      of these gets a subscriber this proof fails until the registry (event-map.ts and the lists below) is updated.
---   3. GAP events whose type does not exist yet (glucose_observation.recorded, wearable.synced,
---      phq9.scored): emitting raises "unknown or inactive event type". The day a type is added this fails.
+--   3. GAP events whose type does not exist yet: none since S85b. The loop is kept (empty) so a future gap with no type can be listed
+--      here and in REGISTRY-GAP-TYPES-NO-TYPE.
 --   4. SABOTAGE: switch off the triage subscriber and the observation.recorded fan-out check must flip; add a subscriber to a gap
 --      type and the gap check must flip. A proof that cannot fail is not a proof.
 --
 -- The two lines below are read by the Jest registry test so the TypeScript and SQL registries cannot drift apart.
--- REGISTRY-GAP-TYPES-NO-SUBSCRIBER: glucose_observation.recorded, dose.recorded, dose.missed, symptom_check.completed, lab_result.received, wearable.synced, pregnancy.recorded, phq9.scored
--- REGISTRY-GAP-TYPES-NO-TYPE: glucose_observation.recorded, wearable.synced, phq9.scored
+-- REGISTRY-GAP-TYPES-NO-SUBSCRIBER: dose.recorded, dose.missed, symptom_check.completed, lab_result.received, device.synced, pregnancy.recorded, questionnaire.completed
+-- REGISTRY-GAP-TYPES-NO-TYPE: 
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -57,10 +57,11 @@ declare
   v_wired text[][] := array[
     ['observation.recorded', 'triage.grade_observation'],
     ['triage.graded',        'paging.on_red,queue.create_from_triage'],
-    ['order.paid',           'lead.on_order_paid']
+    ['order.paid',           'lead.on_order_paid'],
+    ['silence.detected',     'triage.grade_silence']
   ];
-  v_gap_with_type text[] := array['dose.recorded', 'dose.missed', 'lab_result.received', 'symptom_check.completed', 'pregnancy.recorded'];
-  v_gap_no_type text[] := array['glucose_observation.recorded', 'wearable.synced', 'phq9.scored'];
+  v_gap_with_type text[] := array['dose.recorded', 'dose.missed', 'lab_result.received', 'symptom_check.completed', 'pregnancy.recorded', 'device.synced', 'questionnaire.completed'];
+  v_gap_no_type text[] := array[]::text[];  -- empty since S85b: glucose, wearable and PHQ-9 were re-keyed to the real event types
   i integer;
 begin
   insert into public.organisations (name, type) values ('S85 event map proof', 'clinic') returning id into v_org;

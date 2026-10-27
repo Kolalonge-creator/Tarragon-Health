@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { J2, startJourney } from "../../../../packages/shared/src/journeys/journeys";
+import { activeWording } from "../../../../packages/i18n/src/clinical-wording";
 import { grade } from "../../../../supabase/functions/_shared/clinical/engine";
 import type { RuleSet, TriageInput } from "../../../../supabase/functions/_shared/clinical/types";
 import { BP_CARE_V1 } from "../../../../packages/clinical/src/rules/bp-care-v1";
@@ -167,20 +168,35 @@ test.describe("Journey 2: a red reading at night", () => {
     });
 
     // ------------------------------------------------------------------ the network goes off
+    // What the page showed with the network off, captured here and judged against the server's grade after the bus is drained.
+    const offlineWeb = { symptomDialog: false, readingDialog: false, dialogText: "", notSavedText: "" };
     await run.step("offline-web-refuses-to-claim-saved", async () => {
       const ack = page.getByRole("button", { name: /i'm getting help/i });
       if (await ack.isVisible().catch(() => false)) await ack.click();
       await page.goto("/patient/vitals", { waitUntil: "domcontentloaded" });
       const before = Number(sqlValue<string>(`select count(*)::text from public.vitals_readings where patient_id = ${lit(patient.id)}`));
+      await page.waitForLoadState("networkidle");
       await context.setOffline(true);
       try {
+        const dialog = page.getByRole("alertdialog");
+        // The emergency symptom first: ticking it is enough, the guidance shows at once with nothing submitted (S85b, INV-06).
+        await page.locator("#offline_symptom_severe_headache").check({ timeout: 10_000 });
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        offlineWeb.symptomDialog = true;
+        await page.getByRole("button", { name: "I have read this" }).click();
+        await expect(dialog).toHaveCount(0);
         await page.locator("#systolic").fill(String(SYSTOLIC));
         await page.locator("#diastolic").fill(String(DIASTOLIC));
         await page.getByRole("button", { name: "Save reading" }).click();
         const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
         if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
-        await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        offlineWeb.readingDialog = true;
+        offlineWeb.dialogText = (await dialog.textContent()) ?? "";
+        offlineWeb.notSavedText = (await page.getByTestId("offline-not-saved").textContent()) ?? "";
         await expect(page.getByText("Received by TarragonHealth.")).toHaveCount(0);
+        await page.getByRole("button", { name: "I have read this" }).click();
+        await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
       } finally {
         await context.setOffline(false);
       }
@@ -219,6 +235,18 @@ test.describe("Journey 2: a red reading at night", () => {
       // shadow is a consequence of the rule set's status, never of anything this test sets
       expect(graded!.shadow).toBe(graded!.rule_set_status !== "approved");
       console.log(`[J2] stored grade ${graded!.grade} (rule ${graded!.rule_id}, shadow ${graded!.shadow}) equals the engine on the same facts`);
+    });
+
+    await run.step("guidance-with-network-off-web", async () => {
+      // S85b: the web shows the emergency guidance from bundled code with the network off (INV-06). The grade is the server's, read above.
+      expect(offlineWeb.symptomDialog, "ticking an emergency symptom offline showed no guidance").toBe(true);
+      expect(offlineWeb.readingDialog, "a very high reading offline showed no guidance").toBe(true);
+      const wording = activeWording("EMG-001");
+      expect(offlineWeb.dialogText).toContain(wording.title);
+      expect(offlineWeb.dialogText).toContain(wording.body);
+      expect(offlineWeb.notSavedText).toMatch(/has not been saved/i);
+      // Never weaker than the server: a red grade from the database's rule set must have produced the guidance.
+      if (graded?.grade === "red") expect(offlineWeb.readingDialog && offlineWeb.symptomDialog).toBe(true);
     });
 
     await run.step("guidance-with-network-off-device", async () => {
@@ -367,7 +395,7 @@ test.describe("Journey 2: a red reading at night", () => {
     }
 
     await finishJourney(run, testInfo);
-    // The verdict can never be "passing" here: D1, the web offline guidance, follow-up booking and outcomes are pending.
+    // The verdict can never be "passing" here: D1, follow-up booking and outcomes are pending.
     expect(run.report().verdict).not.toBe("passing");
   });
 });

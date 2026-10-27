@@ -34,8 +34,8 @@ describe("journey definitions", () => {
 
   it("known-pending counts per journey (a change here is a deliberate edit to what the platform lacks)", () => {
     expect({ J1: knownPendingCount(J1), J2: knownPendingCount(J2), J3: knownPendingCount(J3), J4: knownPendingCount(J4) }).toEqual({
-      J1: 8,
-      J2: 3,
+      J1: 6,
+      J2: 2,
       J3: 12,
       J4: 2,
     });
@@ -48,7 +48,7 @@ describe("Journey 3 typed skeleton", () => {
     const r = run.report();
     expect(r.counts).toEqual({ passed: 0, failed: 0, pending: J3.steps.length, skipped: 0, total: J3.steps.length });
     expect(r.verdict).toBe("incomplete");
-    expect(Object.keys(r.pendingByOwner).sort()).toEqual(["S51", "S53", "S54", "S59", "S60", "S64"]);
+    expect(Object.keys(r.pendingByOwner).sort()).toEqual(["CMO signs a urinary pathway", "FOUNDER decides whether causes are ever shown", "S51", "S53", "S54", "S59", "S60", "S64"]);
     expect(renderReport(r)).toContain("INCOMPLETE");
   });
 
@@ -66,5 +66,32 @@ describe("the four journeys together", () => {
     expect(text).toContain("Journeys: 4");
     // nothing in the wording claims a stage or a gate is done
     expect(text).not.toMatch(/stage 1|\bgate\b|\bcomplete\b/i);
+  });
+});
+
+describe("S85b: the web offline guidance step is a real assertion, not a pending entry", () => {
+  const spec = readFileSync(join(ROOT, "apps", "web", "e2e-browser", "journeys", "journey-2-red-reading-at-night.spec.ts"), "utf8");
+  const present = (text: string): boolean =>
+    text.includes('run.step("guidance-with-network-off-web"') &&
+    text.includes("context.setOffline(true)") &&
+    text.includes('activeWording("EMG-001")') &&
+    /graded\?\.grade === "red"/.test(text);
+
+  it("the definition no longer carries a pending entry for it and the spec runs it with the network off", () => {
+    expect(J2.steps.find((s) => s.id === "guidance-with-network-off-web")?.pending).toBeUndefined();
+    expect(present(spec)).toBe(true);
+  });
+
+  it("sabotage: take the offline switch, the wording check or the never-weaker comparison out of the spec and the check notices", () => {
+    expect(present(spec.replace("context.setOffline(true)", "/* online */"))).toBe(false);
+    expect(present(spec.replace('activeWording("EMG-001")', "null"))).toBe(false);
+    expect(present(spec.replaceAll('graded?.grade === "red"', "false"))).toBe(false);
+    expect(present(spec.replace('run.step("guidance-with-network-off-web"', 'run.pending("guidance-with-network-off-web"'))).toBe(false);
+  });
+
+  it("the stale Pidgin audio wording is gone from journey 1 (D-14, English only)", () => {
+    const step = J1.steps.find((s) => s.id === "result-plain-language-explanation")!;
+    expect(step.title).toMatch(/English/);
+    expect(step.title).not.toMatch(/audio in English; Pidgin was removed/);
   });
 });

@@ -45,12 +45,9 @@ export const EVENT_MAP: readonly EventMapRow[] = [
   {
     id: "glucose-reading-logged",
     spec: "D.7.2 blood pressure or glucose reading logged (glucose half)",
-    eventType: "glucose_observation.recorded",
-    gap: {
-      missing: ["event_type", "emitter", "subscriber", "effect"],
-      owner: "S61, S62",
-      note: "observation.recorded is emitted only for blood pressure rows (private.emit_bp_observation_recorded); glucose is graded by the older live trigger, not by the bus. S61/S62 add the diabetes pathway and its rules.",
-    },
+    eventType: "observation.recorded",
+    effectRpc: "record_glucose_triage_result",
+    note: "R2 (20261014162443): a glucose reading emits observation.recorded with kind glucose (private.emit_glucose_observation_recorded) and the same triage.grade_observation subscriber grades it; process-events routes on kind to record_glucose_triage_result. Re-keyed in S85b: the row used to name a glucose_observation.recorded type that was never added and never will be. SHADOW while glucose_care_triage is a draft: the grade is stored, no task or page follows. Only manual and device sources emit; CGM and wearable glucose stay on the older pipeline.",
   },
   {
     id: "dose-recorded",
@@ -96,7 +93,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     gap: {
       missing: ["subscriber", "effect"],
       owner: "S46",
-      note: "S27 emits it and holds abnormal results in its own release state machine, but no bus subscriber marks the screening calendar or updates trends. Screening calendar and Health Report are S45/S46.",
+      note: "S27 emits it and holds abnormal results in its own release state machine, but no bus subscriber marks the screening calendar or updates trends. S46 (results guidance and the Health Report) reads released results through lab_result.released and its own RPCs, not this event, so the gap stands.",
     },
   },
   {
@@ -109,21 +106,21 @@ export const EVENT_MAP: readonly EventMapRow[] = [
   {
     id: "wearable-synced",
     spec: "D.7.2 wearable or device data synced",
-    eventType: "wearable.synced",
+    eventType: "device.synced",
     gap: {
-      missing: ["event_type", "emitter", "subscriber", "effect"],
+      missing: ["subscriber", "effect"],
       owner: "S70",
-      note: "device and wearable ingestion exists in apps/web and apps/mobile but publishes no bus event",
+      note: "S70a (20261007123856) added the type and public.report_device_synced emits it, so the type and emitter now exist. Re-keyed in S85b from wearable.synced, a name that was never added. Nothing subscribes: device alerts are raised by tasks created in the reading's own transaction (device.alert), not as a bus reaction to device.synced.",
     },
   },
   {
     id: "mood-or-phq9-logged",
     spec: "D.7.2 mood or PHQ-9 score logged",
-    eventType: "phq9.scored",
+    eventType: "questionnaire.completed",
     gap: {
-      missing: ["event_type", "emitter", "subscriber", "effect"],
-      owner: "S56, S57",
-      note: "no mental wellbeing module; the crisis pathway on a risk answer is S56",
+      missing: ["subscriber", "effect"],
+      owner: "S56",
+      note: "S56 (20261007151522) emits questionnaire.completed for a saved wellbeing screen, carrying ids only (the instrument and the score are read through the audited path, so a PHQ-9 total is deliberately not in the event). Re-keyed in S85b from phq9.scored, a name that was never added. The crisis pathway on a risk answer runs inside the save transaction, not as a bus subscriber, so nothing subscribes.",
     },
   },
   {
@@ -147,11 +144,8 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     id: "silence-detected",
     spec: "D.7.2 silence (no activity for a set period)",
     eventType: "silence.detected",
-    gap: {
-      missing: ["effect"],
-      owner: "S26",
-      note: "the type is seeded and the engine has a silence rule, but no job emits silence.detected and nothing subscribes (assistant re-engagement and the clinician call are not driven from the bus). S26 or an S10 follow-up.",
-    },
+    effectRpc: "record_coverage_triage_result",
+    note: "P6 (20261013223020): the daily coverage sweep emits silence.detected (BP-A5, the day count is read from the bp_care_triage rule set) and subscriber triage.grade_silence records the grade. WIRED in code, but the sweep is born OFF (triage_coverage_config.enabled = false, a human turns it on after the CMO confirms) and while the rule set is a draft the result is shadow, so on a fresh database nothing is emitted. Closed in S85b: the old gap said there was no emitter or subscriber, which stopped being true with P6.",
   },
   // The red path the journeys depend on. Not D.7.2 rows, but a break here breaks journey 2.
   {
