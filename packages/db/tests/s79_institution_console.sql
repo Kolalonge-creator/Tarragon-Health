@@ -227,6 +227,7 @@ begin
 
   -- =============================== 4. Eligibility upload ===============================
   insert into public.employer_departments (organisation_id, name) values (v_sp, 'Finance') returning id into v_dept;
+  update public.profiles set phone = '+2348090000001' where id = pts[1];   -- a roster row needs a contact route
   insert into public.employer_roster_members (organisation_id, phone, full_name, status, claimed_profile_id, claimed_at) select v_sp, phone, 'Claimed One', 'claimed', id, now() from public.profiles where id = pts[1] returning id into v_ro1;
   update public.profiles set organisation_id = v_sp where id = pts[1];
   insert into public.vitals_readings (patient_id, systolic) values (pts[1], 128);
