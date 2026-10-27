@@ -9960,4 +9960,37 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-28",
     source: "docs/design/S75-outcome-measures.md (D3); supabase/migrations/*_d3_bp_control_by_medicine_adjustment.sql; docs/design/WP3.md",
   },
+  {
+    key: "bp.target_config",
+    // W-25 / D-09 (founder decision 2026-10-27). PROPOSED and UNSIGNED. A NEW target config with a home line (135/85) and a clinic line (140/90) plus the reading-grade
+    // thresholds. It does not replace the S75 / cascade-of-care 140/90 definitions (they are untouched); any outcome or sponsor surface that uses the home line stays OFF until
+    // the Chief Medical Officer and an external clinician sign this version. Live value is the row of `bp_target_config`; bp-target-config-mirror.test.ts fails if the migration
+    // seed and this value drift. contextToTarget: home, diary and assisted-home readings use the home line; pharmacy and clinic readings use the clinic line; an unlabelled
+    // reading has no line and is never judged. grade: see packages/clinical/src/reading-grade.ts (never shown to the patient).
+    value: {
+      "targets": {
+        "home": { "systolic": 135, "diastolic": 85 },
+        "clinic": { "systolic": 140, "diastolic": 90 }
+      },
+      "contextToTarget": {
+        "home_self": "home",
+        "home_assisted": "home",
+        "diary": "home",
+        "pharmacy": "clinic",
+        "clinic": "clinic"
+      },
+      "grade": {
+        "restMinutes": 5,
+        "repeatWindowMinutes": 10,
+        "minGapMinutes": 1,
+        "plausible": { "systolicMin": 60, "systolicMax": 260, "diastolicMin": 30, "diastolicMax": 160 },
+        "minReadingsPerPerson": 3
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027192319_w25_measurement_context_target_config_stratified_view.sql; plan FD5 (home 135/85, clinic 140/90). The grade thresholds are engineering proposals. Unsigned.",
+  },
 ];
