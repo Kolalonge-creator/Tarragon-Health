@@ -152,6 +152,46 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     };
     expect(seeded.vitals, "the fixture must contain rows, or every later 'zero rows' check is vacuous").toBeGreaterThan(0);
 
+    // S88: the nine pregnancy and maternal tables must hold rows for the two real patients, or the untied-clinician step below reads zero rows from EMPTY
+    // tables and proves nothing. The owner connection (psql) inserts them; the lifecycle rows are written directly because the hook would otherwise decide
+    // by stage whether to record anything. These are is_test fixture rows on is_test accounts, never anyone's real record.
+    const maternalTables = [
+      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log",
+      "lifecycle_states", "lifecycle_events", "pregnancy_loss_records",
+    ] as const;
+    {
+      const ids = realPatients.map((p) => lit(p.id)).join(", ");
+      sql(`
+        begin;
+        insert into public.pregnancies (organisation_id, patient_id, pregnancy_number, lmp, edd, source, is_test)
+          select ${lit(tenant)}, p, 0, current_date - 140, current_date + 140, 'system', true from unnest(array[${ids}]::uuid[]) p;
+        insert into public.kick_counts (organisation_id, patient_id, pregnancy_id, client_id, started_at, result, config_version, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, gen_random_uuid(), now(), 'target_reached', 1, 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.contractions (organisation_id, patient_id, pregnancy_id, client_id, started_at, pattern, result, config_version, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, gen_random_uuid(), now(), 'standard', 'keep_timing', 1, 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.birth_plans (organisation_id, patient_id, pregnancy_id, place_of_birth, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, 'S88 journey hospital', 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type)
+          select ${lit(tenant)}, p, 'formula' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.lifecycle_states (patient_id, organisation_id, stage) select p, ${lit(tenant)}, 'pregnant' from unnest(array[${ids}]::uuid[]) p
+          on conflict (patient_id) do update set stage = 'pregnant';
+        insert into public.lifecycle_events (organisation_id, patient_id, kind, from_stage, to_stage, occurred_on, cause, config_version)
+          select ${lit(tenant)}, p, 'pregnancy_confirmed', 'tracking', 'pregnant', current_date - 30, 'self_confirmed', 1 from unnest(array[${ids}]::uuid[]) p;
+        insert into public.pregnancy_loss_records (organisation_id, patient_id, occurred_on, gestation_weeks, note, source)
+          select ${lit(tenant)}, p, current_date - 60, 8, 'S88 journey fixture note', 'patient_entered' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.postnatal_profiles (organisation_id, patient_id, delivery_date, delivery_mode)
+          select ${lit(tenant)}, p, current_date - 3, 'vaginal' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.postnatal_baby_checks (organisation_id, patient_id, postnatal_profile_id, check_window, scheduled_date)
+          select ${lit(tenant)}, pp.patient_id, pp.id, 'week_1', current_date + 4 from public.postnatal_profiles pp where pp.patient_id in (${ids})
+          on conflict (postnatal_profile_id, check_window) do nothing;
+        commit;
+      `);
+      for (const t of maternalTables) {
+        const n = Number(sqlValue<string>(`select count(*)::text from public.${t} where patient_id in (${ids})`));
+        expect(n, `the fixture must hold rows in ${t}, or the untied-clinician zero read below is vacuous`).toBeGreaterThan(0);
+      }
+    }
+
     // ------------------------------------------------------------------ the institution session
     const inst = await signIn(instAdmin);
 
