@@ -326,6 +326,8 @@ create index care_gaps_review_due_idx on public.care_gaps (review_due_at) where 
 
 create trigger care_gaps_set_updated_at before update on public.care_gaps
   for each row execute function private.set_updated_at();
+-- The S04b-1e event trigger (guard_new_patient_tables_trigger) already adds this guard to any new table with patient_id; drop-then-create keeps one copy either way.
+drop trigger if exists "00_minor_dependant_scope" on public.care_gaps;
 create trigger "00_minor_dependant_scope" before insert or update of patient_id on public.care_gaps
   for each row execute function private.guard_minor_dependant_scope('patient_id');
 
