@@ -69,7 +69,7 @@ begin
   update public.outcome_config set config = jsonb_set(config, '{min_cell}', '3') where is_active;
   insert into public.organisations (name, type) values ('S79 Acme Corp', 'corporate') returning id into v_sp;
   insert into public.organisations (name, type) values ('S79 Other NGO', 'ngo') returning id into v_sp2;
-  update public.organisations set min_cohort_size = 3 where id in (v_sp, v_sp2);
+  update public.organisations set min_cohort_size = 5 where id in (v_sp, v_sp2);  -- the table's own floor is 5; the platform minimum above is 3, so the working floor is 5
   adm := pg_temp.mkuser('admin'); clin := pg_temp.mkuser('clinician'); pat := pg_temp.mkuser('patient');
   cs := pg_temp.mkuser('corporate_admin', v_sp); cs2 := pg_temp.mkuser('corporate_admin', v_sp); ns := pg_temp.mkuser('ngo_admin', v_sp2);
   v_month := (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '1 month')::date;
@@ -126,13 +126,13 @@ begin
   perform pg_temp.rec('1o the screen lists what exists and the requests, with the services on offer', (jsonb_array_length(r -> 'requests') = 2 and jsonb_array_length(r -> 'items') = 2)::text, 'true');
 
   -- =============================== 2. Usage ===============================
-  -- a programme, one lab panel line used by five different people (shown), one consult used by one person (folded)
+  -- a programme, one lab panel line used by six different people (five after the refund: shown at a floor of 5), one consult used by one person (folded)
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses, status)
     values (v_cons, v_sp, 'S79 Acme staff', 'PROOFAA2', current_date - 100, current_date + 300, 100, 'active') returning id into v_cohort;
   insert into public.sponsor_programmes (organisation_id, sponsor_org_id, name, item_codes, share_percent, budget_kobo, eligibility, cohort_id, valid_from, valid_to, status)
     values (v_cons, v_sp, 'S79 Acme staff cover', array['s79_lab_panel', 's79_consult'], 100, 50000000, 'cohort', v_cohort, current_date - 100, current_date + 300, 'active') returning id into v_prog;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo) values (v_cons, v_item, 1000000) returning id into v_price;
-  for i in 1..5 loop
+  for i in 1..6 loop
     p := pg_temp.mkuser('patient'); pts := pts || p;
     insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, paystack_reference)
       values (v_cons, p, p, v_item, v_price, 1000000, 's79ref-lab-' || i || substr(md5(random()::text), 1, 6)) returning id into v_ord;
@@ -167,9 +167,9 @@ begin
   v_n := private.generate_usage_statements((date_trunc('month', v_month + 40)::date + 5)::timestamp at time zone 'Africa/Lagos');
   perform pg_temp.rec('2h one statement for the sponsor', v_n::text, '1');
   select id into v_st from public.usage_statements where sponsor_org_id = v_sp and period = v_month;
-  perform pg_temp.rec('2i the lab line (4 people left after the refund) is shown', (select (payload -> 'lines' -> 0 ->> 'service_code') || '/' || (payload -> 'lines' -> 0 ->> 'units') from public.usage_statements where id = v_st), 's79_lab_panel/4');
+  perform pg_temp.rec('2i the lab line (5 people left after the refund) is shown', (select (payload -> 'lines' -> 0 ->> 'service_code') || '/' || (payload -> 'lines' -> 0 ->> 'units') from public.usage_statements where id = v_st), 's79_lab_panel/5');
   perform pg_temp.rec('2j the one-person consult is folded into other services, test reservation excluded', (select (payload ->> 'other_services_kobo') || '/' || jsonb_array_length(payload -> 'lines') from public.usage_statements where id = v_st), '500000/1');
-  perform pg_temp.rec('2k the total is exact kobo', (select total_kobo::text from public.usage_statements where id = v_st), '4500000');
+  perform pg_temp.rec('2k the total is exact kobo', (select total_kobo::text from public.usage_statements where id = v_st), '5500000');
   perform pg_temp.rec('2l the fold is recorded for the privacy ledger', (select payload -> 'suppressed' -> 0 ->> 'reason' from public.usage_statements where id = v_st), 'under_minimum');
   perform pg_temp.rec('2m a second run writes no second statement', private.generate_usage_statements((date_trunc('month', v_month + 40)::date + 5)::timestamp at time zone 'Africa/Lagos')::text, '0');
   begin delete from public.usage_statements; perform pg_temp.rec('2n a statement is write-once', 'deleted', 'refused');
