@@ -31,4 +31,6 @@ export { activeVitalsWording, VITALS_WORDING_CODES, VITALS_WORDING_DATA, VITALS_
 export * from "./points";
 export * from "./portion-copy";
 export * from "./anchor-phrase";
+export * from "./plain-statement";
+
 export { outcomesDashboardCopy, outcomesDashText } from "./outcomes-dashboard-copy";

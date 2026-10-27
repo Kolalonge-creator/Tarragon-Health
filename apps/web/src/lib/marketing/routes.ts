@@ -46,6 +46,7 @@ export const MARKETING_ROUTES = {
   telehealthConsent: "/telehealth-consent",
   terms: "/terms",
   accessibility: "/accessibility",
+  pricingAndAccessibility: "/pricing-and-accessibility",
   cookies: "/cookies",
   gift: "/gift",
 } as const;
@@ -94,6 +95,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "telehealthConsent",
   "terms",
   "accessibility",
+  "pricingAndAccessibility",
   "cookies",
   "gift",
 ];

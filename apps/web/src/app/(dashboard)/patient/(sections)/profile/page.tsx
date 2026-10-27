@@ -14,11 +14,18 @@ import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
 import { MeasurementUnitsForm } from "@/app/(dashboard)/patient/measurement-units-form";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
+import { plainStatement } from "@tarragon/i18n";
+import { PlainStatementView } from "@/components/plain-statement/plain-statement";
+import { readPlainStatementInput } from "@/lib/plain-statement-input";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { absoluteUrl } from "@/lib/marketing/site";
+
 const SETTINGS_GROUPS = [
   { id: "about-you", label: "About you" },
   { id: "how-things-show", label: "How things are shown" },
   { id: "notifications", label: "Notifications" },
   { id: "sign-in-security", label: "Sign-in & security" },
+  { id: "pricing-accessibility", label: "Pricing & accessibility" },
 ] as const;
 
 function SettingsGroup({ id, title, description, children }: { id: string; title: string; description: string; children: React.ReactNode }) {
@@ -100,6 +107,17 @@ export default async function PatientProfilePage() {
       </SettingsGroup>
 
       <CommunicationHistoryCard />
+
+      {/* One plain page: privacy first, what costs money, what the app does for large text, screen readers and audio. */}
+      <section id="pricing-accessibility" aria-label="Pricing and accessibility" className="scroll-mt-24">
+        <PlainStatementView
+          statement={plainStatement(await readPlainStatementInput("app"))}
+          idPrefix="settings-plain"
+          privacyHref="/patient/privacy"
+          accessibilityHref={absoluteUrl(MARKETING_ROUTES.accessibility)}
+          pricingHref={absoluteUrl(MARKETING_ROUTES.pricing)}
+        />
+      </section>
     </DashboardSection>
   );
 }
