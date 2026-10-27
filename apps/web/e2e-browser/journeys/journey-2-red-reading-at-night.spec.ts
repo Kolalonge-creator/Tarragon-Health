@@ -169,7 +169,9 @@ test.describe("Journey 2: a red reading at night", () => {
 
     // ------------------------------------------------------------------ the network goes off
     // What the page showed with the network off, captured here and judged against the server's grade after the bus is drained.
-    const offlineWeb = { symptomDialog: false, readingDialog: false, dialogText: "", notSavedText: "" };
+    // Three separate paths, so none can hide behind another: a symptom ticked with NO reading typed, a reading typed with NO symptom
+    // ticked, and the two together (the server's stored grade was made with the symptom, so only the last is compared with it).
+    const offlineWeb = { symptomOnly: false, readingOnly: false, combined: false, readingOnlyText: "", combinedText: "", notSavedText: "" };
     await run.step("offline-web-refuses-to-claim-saved", async () => {
       const ack = page.getByRole("button", { name: /i'm getting help/i });
       if (await ack.isVisible().catch(() => false)) await ack.click();
@@ -179,23 +181,45 @@ test.describe("Journey 2: a red reading at night", () => {
       await context.setOffline(true);
       try {
         const dialog = page.getByRole("alertdialog");
-        // The emergency symptom first: ticking it is enough, the guidance shows at once with nothing submitted (S85b, INV-06).
-        await page.locator("#offline_symptom_severe_headache").check({ timeout: 10_000 });
+        const tick = page.locator("#offline_symptom_severe_headache");
+        const readIt = page.getByRole("button", { name: "I have read this" });
+        const save = async () => {
+          await page.getByRole("button", { name: "Save reading" }).click();
+          const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
+          if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
+        };
+
+        // 1. symptom only: ticking it is enough, the guidance shows at once with no reading typed and nothing submitted (S85b, INV-06).
+        await tick.check({ timeout: 10_000 });
         await expect(dialog).toBeVisible({ timeout: 10_000 });
-        offlineWeb.symptomDialog = true;
-        await page.getByRole("button", { name: "I have read this" }).click();
+        offlineWeb.symptomOnly = true;
+        await readIt.click();
         await expect(dialog).toHaveCount(0);
+
+        // 2. reading only: the tick is CLEARED first, so this path stands on the reading alone.
+        await tick.uncheck();
+        await expect(tick).not.toBeChecked();
         await page.locator("#systolic").fill(String(SYSTOLIC));
         await page.locator("#diastolic").fill(String(DIASTOLIC));
-        await page.getByRole("button", { name: "Save reading" }).click();
-        const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
-        if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
+        await save();
+        offlineWeb.readingOnly = await dialog.waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+        if (offlineWeb.readingOnly) {
+          offlineWeb.readingOnlyText = (await dialog.textContent()) ?? "";
+          await readIt.click();
+          await expect(dialog).toHaveCount(0);
+        }
+
+        // 3. both: the symptom ticked again, then the same reading submitted.
+        await tick.check();
         await expect(dialog).toBeVisible({ timeout: 10_000 });
-        offlineWeb.readingDialog = true;
-        offlineWeb.dialogText = (await dialog.textContent()) ?? "";
+        await readIt.click();
+        await save();
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        offlineWeb.combined = true;
+        offlineWeb.combinedText = (await dialog.textContent()) ?? "";
         offlineWeb.notSavedText = (await page.getByTestId("offline-not-saved").textContent()) ?? "";
         await expect(page.getByText("Received by TarragonHealth.")).toHaveCount(0);
-        await page.getByRole("button", { name: "I have read this" }).click();
+        await readIt.click();
         await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
       } finally {
         await context.setOffline(false);
@@ -238,15 +262,41 @@ test.describe("Journey 2: a red reading at night", () => {
     });
 
     await run.step("guidance-with-network-off-web", async () => {
-      // S85b: the web shows the emergency guidance from bundled code with the network off (INV-06). The grade is the server's, read above.
-      expect(offlineWeb.symptomDialog, "ticking an emergency symptom offline showed no guidance").toBe(true);
-      expect(offlineWeb.readingDialog, "a very high reading offline showed no guidance").toBe(true);
+      // S85b: the web shows the emergency guidance from bundled code with the network off (INV-06). Every expectation below comes from the
+      // rule set row the database holds and the grade it stored, never from a number or a symptom list written in this file.
+      expect(graded, "no stored server grade to compare with").toBeDefined();
+      const svc = serviceClient();
+      const { data } = await svc.rpc("triage_rule_set_for_grading", { p_code: "bp_care_triage" });
+      const rules = (data as { rules: RuleSet }).rules;
+
+      // symptom only: the symptom the page offers is in the rule set's own red-flag group, so ticking it alone must show the guidance.
+      expect(rules.params.symptomGroups.redFlag, "the ticked symptom is not a red-flag symptom in this rule set").toContain("severe_headache");
+      expect(offlineWeb.symptomOnly, "ticking an emergency symptom with no reading showed no guidance").toBe(true);
+
+      // reading only (no symptom): judged against the engine on the same facts WITHOUT the symptom, with the symptom question asked and unasked.
+      const readingFacts = (answered: boolean): TriageInput => ({
+        ...input!,
+        trigger: { ...(input!.trigger as Extract<TriageInput["trigger"], { type: "observation" }>), symptoms: [], symptomsAnswered: answered },
+      });
+      const answeredNone = grade(readingFacts(true), rules);
+      const unanswered = grade(readingFacts(false), rules);
+      const readingNeedsGuidance =
+        unanswered.status === "symptom_check_required" ||
+        (answeredNone.status === "graded" && answeredNone.grade === "red") ||
+        answeredNone.actions.some((a) => a.kind === "show_emergency_guidance");
+      if (readingNeedsGuidance) expect(offlineWeb.readingOnly, "a reading at or above the question line, or graded red, showed no guidance with no symptom ticked").toBe(true);
+      console.log(`[J2] reading-only path: engine needs guidance ${readingNeedsGuidance}, web showed it ${offlineWeb.readingOnly}`);
+
+      // both together, compared with the stored server grade (which the symptom informed).
+      expect(offlineWeb.combined, "a very high reading with a ticked symptom showed no guidance").toBe(true);
       const wording = activeWording("EMG-001");
-      expect(offlineWeb.dialogText).toContain(wording.title);
-      expect(offlineWeb.dialogText).toContain(wording.body);
+      for (const text of [offlineWeb.combinedText, ...(offlineWeb.readingOnly ? [offlineWeb.readingOnlyText] : [])]) {
+        expect(text).toContain(wording.title);
+        expect(text).toContain(wording.body);
+      }
       expect(offlineWeb.notSavedText).toMatch(/has not been saved/i);
-      // Never weaker than the server: a red grade from the database's rule set must have produced the guidance.
-      if (graded?.grade === "red") expect(offlineWeb.readingDialog && offlineWeb.symptomDialog).toBe(true);
+      // Never weaker than the server: a red grade stored by the database must have produced the guidance on the web.
+      if (graded!.grade === "red") expect(offlineWeb.combined, "the server graded red and the web showed nothing").toBe(true);
     });
 
     await run.step("guidance-with-network-off-device", async () => {

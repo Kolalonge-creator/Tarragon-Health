@@ -13,7 +13,7 @@ import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
  *
  * Runs the steps that exist today with real sessions and the real database functions, and declares the rest pending with the
  * owner session. Nothing is simulated that the platform does not do: Health Points, the risk questionnaire, the screening
- * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal step and the Health Points step run since S85b). Checkout through Paystack is SKIPPED with its
+ * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal and Health Points steps stay pending: what exists is checked separately, as supporting checks that are not journey steps). Checkout through Paystack is SKIPPED with its
  * reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
  *
  * The phone number below is a Supabase test OTP number (supabase/config.toml [auth.sms.test_otp], fixed code 123456), so the
@@ -97,7 +97,10 @@ test.describe("Journey 1: a new user's first month", () => {
     });
 
     // ------------------------------------------------------------------ 3: onboarding goal and condition (S41), through her own session
-    await run.step("goal-blood-pressure", async () => {
+    // A SUPPORTING check, not the journey step: the spec step "goal-blood-pressure" says the goal 'blood pressure' is recorded, and the live onboarding
+    // has no such goal (the goals are manage_condition, stay_ahead, screening_check, family_care, not_sure; hypertension is a separate condition
+    // answer). So the step stays pending in journeys.ts and this only proves what does exist: her own answers are saved and read back.
+    await test.step("supporting check: onboarding saves her own goal and condition answers", async () => {
       const saved = await me.rpc("save_onboarding_answers", { p_goals: ["manage_condition"], p_conditions: ["hypertension"] });
       expect(saved.error, JSON.stringify(saved.error)).toBeNull();
       expect((saved.data as { ok: boolean }).ok).toBe(true);
@@ -212,7 +215,10 @@ test.describe("Journey 1: a new user's first month", () => {
     });
 
     // ------------------------------------------------------------------ 13: Health Points for logging (S58), through the bus the readings above already went into
-    await run.step("health-points-awarded", async () => {
+    // A SUPPORTING check, not the journey step: the spec step says points are awarded "for consistency", and what S58 awards is a capped amount per
+    // day for the act of logging (a participation reward). A consistency or streak reward is a badge condition with no points, so the step stays
+    // pending in journeys.ts and this only proves what does exist: points through the bus, capped, never for what a reading says.
+    await test.step("supporting check: logging readings earns capped Health Points through the bus", async () => {
       const drain = await drainBus();
       expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
       const rule = sqlRows<{ points: number }>(`select points::int as points from public.reward_rules where code = 'vitals_logged' and is_active order by version desc limit 1`)[0];
