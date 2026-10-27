@@ -6,6 +6,7 @@ export { LOCALES, DEFAULT_LOCALE, catalogues, t, type Locale, type MessageParams
 export type { MessageKey };
 export { en };
 export * from "./visit-summary";
+export * from "./output-kind";
 export { activeWording, speakable, WORDING_CODES, WORDING_KEYS, WORDING_SIGNED, type WordingCode } from "./clinical-wording";
 export {
   activeFertileWindowWording,

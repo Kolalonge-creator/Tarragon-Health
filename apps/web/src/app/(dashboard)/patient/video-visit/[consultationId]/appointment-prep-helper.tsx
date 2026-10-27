@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { prepareForAppointmentAction } from "@/lib/appointment-prep/actions";
+import { OutputKindLabel } from "@/components/output-kind-label";
 
 /**
  * "Not sure what to ask?" -- the appointment-prep sibling of ResultExplainer.

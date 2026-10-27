@@ -1796,6 +1796,17 @@ export const en = {
   "avs.followup.title": "Questions about this visit?",
   "avs.followup.body": "You can message your care team in the app about anything in this summary. Say it is about the summary checked on {date} so they can find it.",
   "avs.followup.cta": "Message your care team",
+  // The three kinds of output (spec D.4). One definition for every screen: packages/i18n/src/output-kind.ts.
+  "output.kind.automated.label": "Automated information",
+  "output.kind.automated.hint": "Written by software from your record and reviewed health information. No one on your care team has checked it, and it is not a diagnosis.",
+  "output.kind.reviewed.label": "Reviewed by your care team",
+  "output.kind.reviewed.hint": "General health information that a clinician on our team has checked and approved. It is not a decision about you.",
+  "output.kind.decision.label": "Clinician decision",
+  "output.kind.decision.hint": "A decision about you, made and signed by a named clinician.",
+  // The same three meanings for staff reading a patient's chart (no "your record", no "your care team").
+  "output.kind.automated.staff_hint": "Written by software from the patient's record and reviewed health information. No clinician has checked it, and it is not a diagnosis.",
+  "output.kind.reviewed.staff_hint": "General health information that a clinician on our team has checked and approved. It is not a decision about this patient.",
+  "output.kind.decision.staff_hint": "A decision about this patient, made and signed by a named clinician.",
   "avs.urgent.title": "When to get help now",
   "avs.error.generic": "That did not save. Check your connection and try again.",
   "avs.review.title": "After-visit summary",

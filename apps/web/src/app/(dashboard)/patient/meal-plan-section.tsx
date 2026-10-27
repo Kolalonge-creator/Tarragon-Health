@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AiLabel } from "@/components/ai/ai-label";
 import { cn } from "@/lib/utils";
+import { OutputKindLabel } from "@/components/output-kind-label";
 
 /**
  * 7-day meal planner (spec 19.8) — LLM-generated, grounded against the

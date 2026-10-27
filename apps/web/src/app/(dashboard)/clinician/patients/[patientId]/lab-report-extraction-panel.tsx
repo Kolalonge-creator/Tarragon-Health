@@ -11,6 +11,7 @@ import {
 import { getQualitativeAnalyte } from "@/lib/lab-reports/analyte-catalogue";
 import { interpretReading, type AnalyteStatus } from "@/lib/lab-reports/reference-ranges";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
+import { OutputKindLabel } from "@/components/output-kind-label";
 
 export interface ExtractionView {
   id: string;
