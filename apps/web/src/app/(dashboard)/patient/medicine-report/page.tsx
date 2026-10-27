@@ -6,6 +6,7 @@ import { loadAdherenceReport } from "@/lib/medicines/adherence-report-data";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
+import { CounterCard } from "./counter-card";
 
 export const metadata = { title: "Doses marked taken" };
 
@@ -16,6 +17,8 @@ export default async function MedicineReportPage() {
   const profile = await getCurrentProfile();
   const supabase = await createClient();
   const report = profile ? await loadAdherenceReport(supabase, profile.id) : null;
+  // Courtesy check only (the database refuses whatever this says): the counter page is shown only once its guard is open for this person.
+  const { data: counterOpen } = await supabase.rpc("go_live_guard_is_open", { p_key: "pharmacy_counter_snapshot" });
 
   return (
     <div className="space-y-6">
@@ -27,6 +30,7 @@ export default async function MedicineReportPage() {
           <Link href="/api/patient/medicine-report/pdf" prefetch={false} className="inline-block rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white">
             {t("medicines.report.download")}
           </Link>
+          {counterOpen === true && report.data.hasScheduledMedicines && <CounterCard />}
           <Card>
             <CardContent className="overflow-x-auto pt-6">
               {report.data.hasScheduledMedicines ? (
