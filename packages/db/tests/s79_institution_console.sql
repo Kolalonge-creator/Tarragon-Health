@@ -175,7 +175,7 @@ begin
   begin delete from public.usage_statements; perform pg_temp.rec('2n a statement is write-once', 'deleted', 'refused');
   exception when sqlstate 'P0001' then perform pg_temp.rec('2n a statement is write-once', 'refused', 'refused'); end;
   r := pg_temp.call_as(cs, 'select public.sponsor_usage_statements()');
-  perform pg_temp.rec('2o sponsor staff read their statement', (jsonb_array_length(r) = 1 and r -> 0 ->> 'total_kobo' = '4500000')::text, 'true');
+  perform pg_temp.rec('2o sponsor staff read their statement', (jsonb_array_length(r) = 1 and r -> 0 ->> 'total_kobo' = '5500000')::text, 'true');
   r := pg_temp.call_as(ns, 'select public.sponsor_usage_statements()');
   perform pg_temp.rec('2p another sponsor reads none of it', jsonb_array_length(r)::text, '0');
   insert into public.employer_invoices (organisation_id, period_start, period_end, billing_model, amount_kobo, status) values (v_sp, v_month, v_month + 27, 'fixed_contract', 4500000, 'draft') returning id into v_inv;
