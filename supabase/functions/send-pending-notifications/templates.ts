@@ -622,7 +622,7 @@ export const TEMPLATE_MAP: Record<
     const message =
       "We've been trying to reach you and wanted to check in a different way. Is everything OK?";
     return {
-      smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
+      smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
     };
   },
   // S22 written questions and clinical notes. Push and in-app text only (INV-08: never SMS), neutral (INV-07):
