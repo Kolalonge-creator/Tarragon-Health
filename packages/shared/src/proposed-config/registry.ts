@@ -7700,7 +7700,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // The only numbers in the eating plans and swaps (S50a, v5 6.8 and 6.9). Live value is `nutrition_guidance_config`.config.plans.*.numbers, seeded
     // INACTIVE and unsigned; the CMO signs it through sign_nutrition_guidance_config. The kidney and pregnancy plans carry NO numbers (the database
     // refuses a numbers block on either) and the weight plan has no calorie figure. The 5 g salt line is the WHO figure, a PLACEHOLDER for the CMO.
-    value: { hypertension_salt_g_max: 5 },
+    value: { hypertension_salt_g_max: 5 }, // band-ok: grams of salt a day for the eating plan, not a blood pressure band
     owner: "CMO",
     status: "proposed",
     version: 1,
