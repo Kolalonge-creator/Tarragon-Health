@@ -50,6 +50,7 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
+import { BpControlRatePanel } from "./bp-control-rate-panel";
 import { ThresholdOverrideCard } from "./threshold-override-card";
 import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
 import { CuffCheckPanel } from "./cuff-check-panel";
@@ -384,6 +385,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <BpControlRatePanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
                 {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}

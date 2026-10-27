@@ -534,3 +534,13 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Order of work** | Code first (this change); schema second (OQ-732: enum values, preferences, INV-08 trigger) and a new signed `escalation_slas` version without `sms` literals (OQ-730) later. Wiring the exhausted-ladder alarm to the ops desk is OQ-731. |
 | **Pre-existing fault fixed in the same change** | `send-pending-notifications` called `platformDisabledChannel(row)`, a helper deleted in S85-D3 (#1031), so every batch with a pending row would have thrown a ReferenceError. The call is removed; the file is now type-checked in CI. Check the deployed version against source before relying on any past claim that it was redeployed. |
 
+
+| **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle is read into platform values by AI in the background (OQ-BUNDLE-1): already provided by the existing governed reader AI-005, which drafts values for a doctor to file, so nothing new was built. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
+
+## Founder decision, 2026-10-27 (no independent CMO; Membership and Membership Plus switched on)
+
+| Decision | Chosen |
+|---|---|
+| **No independent CMO.** | The founder, 2026-10-27, in chat: there is no independent, non-founder CMO. The founder is the CMO and signs the CMO items. This closes the question left open on 2026-10-26 about whether the founder's own statement satisfies the 2026-10-21 condition for an independent CMO: it is not required. An agent still never signs a clinical protocol or rule. |
+| **Membership and Membership Plus switched on.** | The founder, 2026-10-27, in chat. `membership_two_member_tiers` was switched on in the live database by the admin account, with the reason recorded in the audit log. Plus now needs an admin-approved collection state at checkout (Lagos, Oyo, Osun and Ogun approved); Membership and Free are never limited by state. |
+| **Launch conditions knowingly open at switch-on.** | (1) The baseline-labs prescribing rule is drafted (`docs/design/baseline-labs-rule-proposal.md`) but unsigned and its check is not built; it waits for the CMO's answers to its four questions, then a build, then the CMO signs on the sign-off hub. (2) No live Paystack payment and refund has been run for the new tiers yet. The founder chose to proceed without either. |

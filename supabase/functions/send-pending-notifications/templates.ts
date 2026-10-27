@@ -318,6 +318,24 @@ const SECURITY_NOTICE_ENTRIES: Record<string, (payload: Record<string, unknown>)
   Object.entries(SECURITY_NOTICE_SUBJECTS).map(([key, subject]) => [key, securityNoticeRender(subject)]),
 );
 
+/** S69b: one fixed, generic message for the Care Circle updates that must say nothing about anyone (INV-07). */
+function circleUpdateTemplate(pushUrl: string) {
+  return {
+    smsText: "Your circle has an update. Tarragon Health",
+    pushUrl,
+    email: {
+      subject: "Your circle has an update",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your circle has an update.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your circle has an update.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  };
+}
+
 // Unknown template keys are never guessed at — see the caller below.
 export const TEMPLATE_MAP: Record<
   string,
@@ -1640,6 +1658,11 @@ export const TEMPLATE_MAP: Record<
       text: "Your pause on sharing has ended.\n\nThe people in your Care Circle can see what you chose to share again. You can pause again, or change who sees what, in Tarragon Health.\n\nTarragon Health",
     },
   }),
+  // S69b (INV-07): the weekly digest, the gentle nudge and a shared-job update all use the same generic line. Nothing from the payload is
+  // echoed: no name, no reading, no dose, no medicine, no condition. What the update is, and about whom, is behind the sign-in.
+  circle_digest: () => circleUpdateTemplate("/patient/supporting"),
+  circle_gentle_nudge: () => circleUpdateTemplate("/patient/supporting"),
+  circle_task_update: () => circleUpdateTemplate("/patient/care-circle"),
   circle_gift_waiting: () => ({
     smsText: "Someone has paid for care for you. Open Tarragon Health to accept it. Tarragon Health",
     pushUrl: "/patient/care-circle",

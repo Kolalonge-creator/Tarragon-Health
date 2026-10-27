@@ -6,6 +6,7 @@ import { NAV_ICON } from "@/lib/icons";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { SupportedPeople } from "./supported-people";
 import { CircleSupporting } from "./circle-supporting";
+import { NudgesCard } from "@/components/care-circle/nudges-card";
 import { CaregiverCallInvites } from "./caregiver-call-invites";
 import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
@@ -55,6 +56,7 @@ export default async function SupportingPage() {
 
       <CaregiverCallInvites locale={uiLanguage} />
 
+      <NudgesCard locale={uiLanguage} />
       <CircleSupporting locale={uiLanguage} />
 
       <SupportedPeople />

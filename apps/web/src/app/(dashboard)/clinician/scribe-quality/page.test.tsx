@@ -49,4 +49,30 @@ describe("ScribeQualityPage", () => {
     render(await ScribeQualityPage());
     expect(screen.getByText(/No AI-drafted notes have been signed yet/)).toBeTruthy();
   });
+
+  it("shows the rewrite rate from the stored diffs and the problem counts, as counts only", async () => {
+    staff.mockResolvedValue({ doctor_tier: "chief_medical_officer" });
+    const diff = { drafts: 3, draft_words: 200, words_added: 30, words_removed: 50, sections: { plan: { drafts_changed: 2, draft_words: 100, words_added: 10, words_removed: 25 } } };
+    const problems = { total: 2, by_category: { omission: 1, wrong_patient: 1 }, by_kind: { note: 2 } };
+    rpc.mockImplementation((fn: string) => {
+      const data = fn === "scribe_edit_rates" ? rates : fn === "scribe_diff_edit_rates" ? diff : fn === "scribe_problem_counts" ? problems : [note];
+      return Promise.resolve({ data, error: null });
+    });
+    render(await ScribeQualityPage());
+    expect(screen.getByText("3 signed drafts")).toBeTruthy();
+    const table = screen.getByTestId("diff-rates");
+    expect(table.textContent).toContain("25%");
+    expect(table.textContent).toContain("25%");
+    const list = screen.getByTestId("problem-counts");
+    expect(list.textContent).toContain("Wrong patient: 1");
+    expect(list.textContent).toContain("Omission (something that was said is missing): 1");
+  });
+
+  it("a failed diff read is an error, never zero drafts", async () => {
+    staff.mockResolvedValue({ doctor_tier: "chief_medical_officer" });
+    rpc.mockImplementation((fn: string) => Promise.resolve(fn === "scribe_diff_edit_rates" ? { data: null, error: { message: "boom" } } : { data: fn === "scribe_edit_rates" ? rates : [note], error: null }));
+    render(await ScribeQualityPage());
+    expect(screen.queryByText(/No signed drafts yet/)).toBeNull();
+    expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(1);
+  });
 });
