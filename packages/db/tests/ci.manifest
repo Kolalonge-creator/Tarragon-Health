@@ -1538,3 +1538,5 @@ membership_queued_year.sql
 plus_checkout_collection_state.sql
 # Plus without a checkout (2026-10-26, OQ-PLUS-1): admin grant of Plus needs an approved state while the tier module is on (authority error wins over the state error, a refusal leaves nothing behind); a Plus member with no state chooses once (approved only, set once, Membership holder refused, audited, anon closed). Sabotage: the requirement and the set-once rule removed must each flip.
 plus_state_without_checkout.sql
+# guard_is_test_flag works for service_role (2026-10-27): the is_test write guard was SECURITY INVOKER and named private.is_admin(), so a service-role write failed 42501 permission denied for schema private (Browser E2E journey 2 fixture). Sabotage: the invoker function must reproduce the original error.
+guard_is_test_flag_service_role.sql
