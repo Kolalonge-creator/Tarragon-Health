@@ -86,6 +86,11 @@ export function MedicineProposalForm({
     instructions: "",
   });
   const [rationale, setRationale] = useState("");
+  // S50b: tag this change as the signed medicine timing plan for a religious fast (only for a change to a current medicine).
+  const [fastingOn, setFastingOn] = useState(false);
+  const [fastKind, setFastKind] = useState<"ramadan" | "lent">("ramadan");
+  const [fastFrom, setFastFrom] = useState("");
+  const [fastTo, setFastTo] = useState("");
   const { error, pending, run } = useRunner(onDone);
 
   function set<K extends keyof typeof fields>(key: K, value: string) {
@@ -128,8 +133,21 @@ export function MedicineProposalForm({
       action === "stop"
         ? proposeMedicineChange({ action: "stop", patientId, medicationId, rationale })
         : action === "change"
-          ? proposeMedicineChange({ action: "change", patientId, medicationId, item, rationale })
-          : proposeMedicineChange({ action: "start", patientId, item, rationale })
+          ? proposeMedicineChange({
+              action: "change",
+              patientId,
+              medicationId,
+              item,
+              rationale,
+              ...(fastingOn ? { fasting: { fast: fastKind, valid_from: fastFrom, valid_to: fastTo } } : {}),
+            })
+          : proposeMedicineChange({
+              action: "start",
+              patientId,
+              item,
+              rationale,
+              ...(fastingOn ? { fasting: { fast: fastKind, valid_from: fastFrom, valid_to: fastTo } } : {}),
+            })
     );
   }
 
@@ -188,6 +206,33 @@ export function MedicineProposalForm({
             <Field id="pm-instructions" label="Instructions for the patient" value={fields.instructions} onChange={(v) => set("instructions", v)} />
           </div>
         </div>
+      )}
+      {action !== "stop" && (
+        <fieldset className="space-y-2 rounded-md border p-3">
+          <legend className="px-1 text-xs font-medium">Fasting</legend>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1 h-5 w-5" checked={fastingOn} onChange={(e) => setFastingOn(e.target.checked)} />
+            <span>
+              This is my medicine timing plan for a Ramadan or Lent fast. The timing goes in the instructions above, in my own words. If the patient typed this medicine in themselves, start it here as a
+              prescription from the care team and ask them to stop their own entry.
+            </span>
+          </label>
+          {fastingOn && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="pm-fast" className="text-xs">
+                  Which fast
+                </Label>
+                <Select id="pm-fast" value={fastKind} onChange={(e) => setFastKind(e.target.value === "lent" ? "lent" : "ramadan")}>
+                  <option value="ramadan">Ramadan</option>
+                  <option value="lent">Lent</option>
+                </Select>
+              </div>
+              <Field id="pm-fast-from" label="Covers from" type="date" value={fastFrom} onChange={setFastFrom} required />
+              <Field id="pm-fast-to" label="Covers to" type="date" value={fastTo} onChange={setFastTo} required />
+            </div>
+          )}
+        </fieldset>
       )}
       <RationaleField id="pm-rationale" value={rationale} onChange={setRationale} />
       <Footer error={error} pending={pending} label="Save as a draft" onCancel={onCancel} disabled={needsMedication && medicationId === ""} />

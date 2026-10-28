@@ -87,6 +87,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/home-card-config", "today screen cards weekly summary streak readiness read only signed"],
   ["/clinician/activity-safety-config", "activity safety rules exercise workout rest gentle red amber pregnancy arthritis back pain hypertension sign cmo gate s48a"],
   ["/admin/settings/activity-safety-config", "activity safety rules exercise workout rest gentle read only signed gate"],
+  ["/clinician/fasting-safety-config", "fasting safety rules ramadan lent religious fast insulin sulfonylurea medicine timing plan pregnancy type 1 kidney eating disorder sign cmo s50b"],
+  ["/admin/settings/fasting-safety-config", "fasting safety rules ramadan lent read only signed gate"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
   ["/clinician/assistant-review", "assistant ai coach chat monthly review sample conversations reported answers report an answer unsafe appropriate verdict clinical lead cmo audit read reason safety review ai health assistant"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
@@ -227,6 +229,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Yearly report settings", href: "/clinician/health-report-config", group: "Clinical sign-off", hint: "Sign the targets, minimum readings, priority windows and suggested recheck weeks behind every yearly report." },
   { label: "Hepatitis and HIV repeat rules", href: "/clinician/serology-rules", group: "Clinical sign-off", hint: "Confirm the anti-HBs level that records hepatitis B immunity." },
   { label: "Limits for typed numbers", href: "/clinician/observation-limits", group: "Clinical sign-off", hint: "Sign the typo limits for water, sleep, mood and inhaler logs, and restate the limits for glucose, weight, pulse and blood pressure (S47a)." },
+  { label: "Fasting safety rules", href: "/clinician/fasting-safety-config", group: "Clinical sign-off", hint: "Sign who may start a Ramadan or Lent fasting plan, who is stopped, and which medicines need a signed timing plan first (S50b)." },
   { label: "Today screen and weekly summary", href: "/clinician/home-card-config", group: "Clinical sign-off", hint: "Confirm and sign which cards the Today screen shows, the weekly summary minimum and the wearable readiness thresholds (S47b)." },
   { label: "Activity safety rules", href: "/clinician/activity-safety-config", group: "Clinical sign-off", hint: "Sign when a patient is told to rest or kept to gentle activity, and the kinds blocked for pregnancy, arthritis and back pain." },
 ];

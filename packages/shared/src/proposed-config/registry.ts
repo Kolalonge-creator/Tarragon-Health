@@ -8954,4 +8954,243 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-21",
     source: "docs/design/S50a.md; supabase/migrations/20261021182447_s50a_eating_plans_swaps.sql",
   },
+  {
+    key: "fasting.safety_rules",
+    // Religious fasting safety rules (S50b, spec 6.13, Ramadan and Lent only). PROPOSED, UNSIGNED, INACTIVE: the CMO owns every outcome, medicine name and
+    // condition match. Live values are the active, SIGNED row of `fasting_safety_config`.config.safety; fasting-mirror.test.ts fails if the migration seed
+    // and this value drift. Unlike the activity gate this one can answer "may fast with guidance", so unsigned rules never enforce (no signed row = unavailable).
+    //  outcomes: not_advised (a hard stop) or needs_clinician_plan. recent_red_event is not_advised and the database refuses any other value.
+    //  medicine_classes: insulin and sulfonylurea cannot start without a clinician-signed medicine timing plan (an S24 care_plan_changes row, INV-02).
+    value: {
+      "lookback": {
+        "red_hours": 72,
+        "amber_hours": 72
+      },
+      "min_age_years": 18,
+      "outcomes": {
+        "pregnancy": "not_advised",
+        "under_age": "not_advised",
+        "type1_diabetes": "not_advised",
+        "kidney_disease": "not_advised",
+        "eating_disorder": "not_advised",
+        "recent_red_event": "not_advised",
+        "recent_amber_event": "needs_clinician_plan",
+        "insulin": "needs_clinician_plan",
+        "sulfonylurea": "needs_clinician_plan",
+        "diabetes_medicines_unconfirmed": "needs_clinician_plan"
+      },
+      "matches": {
+        "type1_diabetes": {
+          "name_patterns": [
+            "type 1",
+            "type i diabetes",
+            "t1dm",
+            "insulin dependent",
+            "insulin-dependent",
+            "juvenile diabetes"
+          ],
+          "icd10_prefixes": [
+            "E10"
+          ]
+        },
+        "kidney_disease": {
+          "name_patterns": [
+            "kidney",
+            "renal",
+            "ckd",
+            "nephro",
+            "dialysis"
+          ],
+          "icd10_prefixes": [
+            "N17",
+            "N18",
+            "N19"
+          ]
+        },
+        "eating_disorder": {
+          "name_patterns": [
+            "anorexia",
+            "bulimia",
+            "eating disorder",
+            "binge eating"
+          ],
+          "icd10_prefixes": [
+            "F50"
+          ]
+        },
+        "diabetes": {
+          "name_patterns": [
+            "diabet"
+          ],
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ]
+        }
+      },
+      "medicine_classes": {
+        "insulin": {
+          "name_patterns": [
+            "insulin",
+            "glargine",
+            "detemir",
+            "degludec",
+            "lispro",
+            "aspart",
+            "glulisine",
+            "humulin",
+            "mixtard",
+            "novomix",
+            "lantus",
+            "levemir",
+            "tresiba",
+            "novorapid",
+            "humalog",
+            "toujeo",
+            "novolin",
+            "novolog",
+            "admelog",
+            "lyumjev",
+            "semglee",
+            "actrapid",
+            "insulatard",
+            "protaphane",
+            "insuman",
+            "basaglar",
+            "apidra",
+            "fiasp",
+            "ryzodeg",
+            "xultophy",
+            "soliqua",
+            "isophane",
+            "biphasic"
+          ]
+        },
+        "sulfonylurea": {
+          "name_patterns": [
+            "glibenclamide",
+            "glyburide",
+            "glimepiride",
+            "gliclazide",
+            "glipizide",
+            "tolbutamide",
+            "chlorpropamide",
+            "daonil",
+            "amaryl",
+            "diamicron",
+            "glucotrol",
+            "euglucon",
+            "glibomet",
+            "glucovance",
+            "gliben",
+            "glyburide",
+            "glimiprid",
+            "glynase",
+            "minidiab",
+            "diabeta",
+            "micronase",
+            "glibenese"
+          ]
+        },
+        "other_diabetes": {
+          "name_patterns": [
+            "metformin",
+            "glucophage",
+            "pioglitazone",
+            "sitagliptin",
+            "vildagliptin",
+            "saxagliptin",
+            "linagliptin",
+            "gliptin",
+            "empagliflozin",
+            "dapagliflozin",
+            "canagliflozin",
+            "gliflozin",
+            "acarbose",
+            "repaglinide",
+            "nateglinide",
+            "liraglutide",
+            "semaglutide",
+            "dulaglutide",
+            "exenatide",
+            "tirzepatide",
+            "janumet",
+            "galvus",
+            "januvia",
+            "jardiance",
+            "forxiga"
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "fasting.calendar",
+    // EXPECTED windows for Ramadan and Lent. Ramadan follows the moon and Lent follows Easter, so a person confirms the real dates locally; a year that is
+    // not listed is "unknown until a person confirms locally". Dates are a hint on the screen, never a gate.
+    value: {
+      "ramadan": [
+        {
+          "year": 2027,
+          "start": "2027-02-08",
+          "end": "2027-03-09"
+        },
+        {
+          "year": 2028,
+          "start": "2028-01-28",
+          "end": "2028-02-26"
+        }
+      ],
+      "lent": [
+        {
+          "year": 2027,
+          "start": "2027-02-10",
+          "end": "2027-03-27"
+        },
+        {
+          "year": 2028,
+          "start": "2028-03-01",
+          "end": "2028-04-15"
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "glucose_response.rules",
+    // Personal glucose-response insights (S50b, spec 6.11). PROPOSED. Deterministic pairing of a logged meal with the readings before it and about two hours
+    // after it; the screen shows RANGES AND SAMPLE COUNTS only, never labels a food good or bad, and shows nothing for a group under min_pairs_to_show.
+    //  before_window_minutes: a "before" reading is taken up to this long before the meal (and up to before_grace_minutes after it was logged).
+    //  after_window_minutes: the "after" reading is the one closest to after_target_minutes, inside min..max.
+    //  allowed_sources: fingerstick only today. A CGM series is added here later; the input already carries a source label.
+    value: {
+      min_pairs_to_show: 5,
+      max_age_days: 90,
+      before_window_minutes: 30,
+      before_grace_minutes: 10,
+      after_target_minutes: 120,
+      after_window_minutes: { min: 90, max: 150 },
+      plausible_mmol: { min: 1.5, max: 40 },
+      allowed_sources: ["fingerstick"],
+      before_contexts: ["fasting", "pre_meal", "random", "untagged"],
+      after_contexts: ["post_meal", "random", "untagged"],
+      skip_if_other_meal_between: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.11); docs/research/S46-S50-competitor-gap-and-build-plan.md S50b",
+  },
 ];

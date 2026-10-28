@@ -91,6 +91,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   sleep: Moon,
   activity: Footprints,
   exercise: Dumbbell,
+  fasting: Moon,
   smoking: Flame,
   alcohol: Wine,
   lifestyle: Leaf,

@@ -26,6 +26,7 @@ import { MovementGate, ReadinessCard, RouteRecorderCard, WeeklyGoalEditor } from
 import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
 import { EatingPlansCard } from "@/screens/sections/eating-plans-card";
 import { loadGuidance, queueMeal } from "@/lib/food-diary";
+import { GlucoseResponseCard } from "@/screens/sections/glucose-response-card";
 import { appendPhrase, type Guidance } from "@/lib/food-diary-model";
 import {
   Badge,
@@ -280,7 +281,7 @@ function estimateSummary(estimate: MealPhotoEstimate): string {
  * comment in lib/lifestyle-trackers.ts for why it's a governed server call
  * rather than a client-side AI call.
  */
-export function MealsScreen({ patientId }: { patientId: string }) {
+export function MealsScreen({ patientId, acting = false }: { patientId: string; acting?: boolean }) {
   const colors = useLegacyColors();
   const { scheme } = useTheme();
   const t = useT();
@@ -437,6 +438,8 @@ export function MealsScreen({ patientId }: { patientId: string }) {
 
       <TargetsCard guidance={guidance} />
       <EatingPlansCard patientId={patientId} />
+      {/* The insight reads the signed-in person's own readings, so it is never shown on someone else's screen. */}
+      {acting ? null : <GlucoseResponseCard />}
 
       <Card style={{ gap: 12 }}>
         <View style={{ gap: 6 }}>
