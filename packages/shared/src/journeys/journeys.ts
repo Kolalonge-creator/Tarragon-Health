@@ -71,7 +71,7 @@ export const J2: JourneyDef = {
     { id: "audit-rows-written", title: "Audit rows exist for the reading, the grade, the page and the clinician's chart read (INV-10)" },
     { id: "followup-task-created", title: "A follow-up task is created" },
     { id: "followup-consult-booked", hazards: ["HZ-J2-08"], title: "The next day a follow-up consultation is booked automatically", pending: { owner: "S64", reason: "the approved rule set names no follow-up task or booking for a red reading (OQ-551), so nothing books one; consultation booking itself exists from S64" } },
-    { id: "outcomes-engine-logs-event", title: "The outcomes engine logs the event", pending: { owner: "S38", reason: "S38 snapshots are daily programme windows and the S38c risk view counts red events from triage_events (red_events_30d); nothing writes an outcome record at red time, so there is no event to assert" } },
+    { id: "outcomes-engine-logs-event", title: "The outcomes engine logs the event: the red grade is in the append-only triage log and the S38c risk computation counts it (founder decision 2026-10-28: no second copy of the event)" },
   ],
 };
 

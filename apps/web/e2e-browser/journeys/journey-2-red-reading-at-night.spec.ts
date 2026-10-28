@@ -444,6 +444,26 @@ test.describe("Journey 2: a red reading at night", () => {
       run.pending("followup-task-created", "CMO approves bp_care_triage", "tasks are created only from an approved rule set");
     }
 
+    // The outcomes engine reads red events from the append-only triage log (the one copy of the event, founder decision 2026-10-28), but only those graded by an approved rule set.
+    if (approved && graded && graded.grade === "red") {
+      await run.step("outcomes-engine-logs-event", async () => {
+        const inputs = sqlValue<string>(
+          `select (inputs ->> 'red_events_30d') from private.risk_compute(${lit(patient.id)}, (now() at time zone 'Africa/Lagos')::date)`,
+        );
+        expect(Number(inputs), "the outcomes risk computation did not count the red event").toBeGreaterThanOrEqual(1);
+        const reasons = sqlValue<string>(
+          `select reasons::text from private.risk_compute(${lit(patient.id)}, (now() at time zone 'Africa/Lagos')::date)`,
+        );
+        expect(reasons).toContain("recent_red_event");
+        // control: a patient with no graded events is not counted (the count is this patient's, not everyone's)
+        const other = await createUser(runId, "no-events", { role: "patient", organisationId: org, fullName: "[s85] No events" });
+        const none = sqlValue<string>(`select coalesce(inputs ->> 'red_events_30d', '0') from private.risk_compute(${lit(other.id)}, (now() at time zone 'Africa/Lagos')::date)`);
+        expect(Number(none)).toBe(0);
+      });
+    } else {
+      run.pending("outcomes-engine-logs-event", "CMO approves bp_care_triage", "the outcomes engine counts only red events graded by an approved rule set; this grade was made by a draft (shadow, OQ-88)");
+    }
+
     await finishJourney(run, testInfo);
     // The verdict can never be "passing" here: D1, follow-up booking and outcomes are pending.
     expect(run.report().verdict).not.toBe("passing");
