@@ -56,6 +56,8 @@ begin
   if v.status <> 'draft' or v.approved_by is not null or v.approved_at is not null then raise exception 'version 2 must be an unsigned draft'; end if;
   if not v.verify_against_source then raise exception 'version 2 must still require the CMO to confirm the sources'; end if;
   if length(btrim(v.content #>> '{monitoring,stop_and_review_rule}')) = 0 then raise exception 'the stop-and-review rule must be present'; end if;
+  if private.clinical_config_required_unsupplied('glp1_readiness_protocol', v.content) <> array[]::text[] then raise exception 'version 2 must have every CMO-required field supplied'; end if;
+  if not private.clinical_config_content_ok('glp1_readiness_protocol', v.content) then raise exception 'version 2 content shape is invalid'; end if;
   if (v.content #>> '{entry,ancestry_specific_lower_bmi_cutoffs,bmi_min}')::numeric <> 27.5 then raise exception 'ancestry cutoff must be 27.5'; end if;
   if exists (select 1 from public.independent_clinical_reviews r where r.config_version_id = v.id) then raise exception 'version 2 must start with no review'; end if;
   if (select status from public.clinical_config_versions where config_kind = 'glp1_readiness_protocol' and version = 1) <> 'draft' then raise exception 'version 1 must be left untouched'; end if;
