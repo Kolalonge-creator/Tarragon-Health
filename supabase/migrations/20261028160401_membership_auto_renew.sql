@@ -18,8 +18,13 @@
 --      Charging before ends_at makes the EXISTING record_order_payment extend from ends_at (greatest(ends_at, paid_at) + 365d), so no
 --      day of the paid year is lost. Each renewal is an ordinary orders + payments row, so the ledger, refund window (21 days) and
 --      receipts all work unchanged.
---   5. record_order_payment is rewritten from its LIVE definition (pg_get_functiondef, 2026-10-26) with one change: a renewal order
---      does not raise the 'order-membership-overlap' incident (expected for a renewal) and queues a 'membership_renewed' notice.
+--   5. record_order_payment is PATCHED in place (exact-once text replacements on its current pg_get_functiondef), never rewritten from a
+--      copy: a renewal order does not raise the 'order-membership-overlap' incident (expected for a renewal), carries the person's renewal
+--      choice to a late-confirmed or queued year, and queues a 'membership_renewed' notice. Everything else newer migrations put in that
+--      function (the upgrade guard, the queued Plus year, the Plus collection state) is untouched. The reminder function is patched the same
+--      way. The sweep never charges a member whose next year is already scheduled (the queued-year feature).
+--      This migration was re-timestamped to sort AFTER 20261028110233 on 2026-10-28: its first draft rewrote the whole function from the
+--      2026-10-26 body and would have removed those live features; CI's replay caught it (the Plus checkout patch no longer matched).
 --   6. Patient RPCs: my_membership_renewal() (status) and cancel_membership_renewal() (cancel, delete the saved card).
 --   7. Notices: membership_auto_renewal_notice replaces the "ends soon" reminder for people on auto-renewal; also
 --      membership_renewed, membership_renewal_failed, membership_renewal_cancelled. Never SMS.
@@ -241,6 +246,7 @@ begin
      where m.state = 'active' and m.auto_renew and m.ends_at is not null
        and m.ends_at > now() and m.ends_at <= now() + interval '3 days'
        and exists (select 1 from public.membership_cards c where c.patient_id = m.patient_id)
+       and not exists (select 1 from public.patient_memberships q where q.patient_id = m.patient_id and q.state = 'scheduled')
        and not exists (select 1 from public.orders o where o.renews_membership_id = m.id and o.renewal_term_ends_at = m.ends_at and o.state = 'paid')
      order by m.ends_at limit greatest(1, least(coalesce(p_limit, 50), 200));
 end $$;
@@ -259,6 +265,8 @@ begin
   select * into m from public.patient_memberships where id = p_membership for update;
   if not found or m.state <> 'active' or not m.auto_renew or m.ends_at is null then return jsonb_build_object('skip', 'not_eligible'); end if;
   if m.ends_at <= now() or m.ends_at > now() + interval '3 days' then return jsonb_build_object('skip', 'outside_window'); end if;
+  -- the next year is already bought and queued (a Membership year bought while a Plus year runs): charging again would sell the same year twice
+  if exists (select 1 from public.patient_memberships q where q.patient_id = m.patient_id and q.state = 'scheduled') then return jsonb_build_object('skip', 'next_year_scheduled'); end if;
   select * into c from public.membership_cards where patient_id = m.patient_id;
   if not found then perform private.notify_renewal_blocked(m.id); return jsonb_build_object('skip', 'no_card'); end if;
   select * into pr from public.profiles where id = m.patient_id and is_active;
@@ -455,7 +463,7 @@ declare o public.orders%rowtype; m public.patient_memberships%rowtype; c public.
 begin
   select * into o from public.orders where id = p_order;
   -- the patient's CURRENT membership: the same row after an on-time renewal, the new row after a late one
-  select * into m from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active' order by starts_at desc limit 1;
+  select * into m from public.patient_memberships where patient_id = o.beneficiary_patient_id and (state = 'active' or order_id = o.id) order by (order_id = o.id) desc, starts_at desc limit 1;
   select * into c from public.membership_cards where patient_id = o.beneficiary_patient_id;
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
   values (o.organisation_id, o.beneficiary_patient_id, private.patient_reminder_channel(o.beneficiary_patient_id), 'pending', 'membership_renewed',
@@ -465,120 +473,87 @@ end $$;
 revoke all on function private.queue_membership_renewed_notice(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 6. record_order_payment: the LIVE body, with the renewal change only
+-- 6. record_order_payment: the CURRENT live body, patched in six places for renewal
 -- ---------------------------------------------------------------------------
-create or replace function public.record_order_payment(p_reference text, p_amount_kobo bigint, p_fee_kobo bigint, p_total_kobo bigint, p_currency text, p_status text, p_source text, p_event_key text default null::text, p_paid_at timestamp with time zone default null::timestamp with time zone, p_raw jsonb default '{}'::jsonb, p_processor_fee_kobo bigint default null::bigint)
- returns jsonb
- language plpgsql
- security definer
- set search_path to ''
-as $function$
-declare
-  o public.orders%rowtype;
-  it public.catalog_items%rowtype;
-  v_reason text;
-  v_ent uuid;
-  v_old public.patient_memberships%rowtype;
-  v_start timestamptz := coalesce(p_paid_at, now());
+-- Patch a function's CURRENT definition with exact-once text replacements. An earlier draft of this migration rewrote record_order_payment and the
+-- reminder function from a copy of their body, which silently removed everything newer migrations had added (the upgrade guard, the queued Plus
+-- year, the Plus collection state). Patching fails loudly instead if a fragment is missing or appears twice, and keeps whatever else is live.
+drop function if exists pg_temp.renewal_patch_text(text, text[], text);
+create function pg_temp.renewal_patch_text(p_text text, p_pairs text[], p_what text) returns text language plpgsql as $f$
+declare d text := p_text; i integer := 1; n integer;
 begin
-  if (select auth.role()) is distinct from 'service_role' then raise exception 'order_not_authorised' using errcode = '42501'; end if;
-  select * into o from public.orders where paystack_reference = p_reference for update;
-  if not found then return jsonb_build_object('result', 'not_found'); end if;
+  while i < array_length(p_pairs, 1) loop
+    n := (length(d) - length(replace(d, p_pairs[i], ''))) / length(p_pairs[i]);
+    if n <> 1 then raise exception 'renewal patch of % expected 1 match for [%], found %', p_what, p_pairs[i], n; end if;
+    d := replace(d, p_pairs[i], p_pairs[i + 1]);
+    i := i + 2;
+  end loop;
+  return d;
+end $f$;
 
-  if p_status is distinct from 'success' then return jsonb_build_object('result', 'not_paid', 'order_id', o.id); end if;
-  if o.state in ('paid', 'refunded') and exists (select 1 from public.payments where provider = 'paystack' and provider_reference = p_reference and status = 'success') then
-    return jsonb_build_object('result', 'replay', 'order_id', o.id);
-  end if;
-
-  v_reason := case
-    when p_currency is distinct from 'NGN' then 'currency'
-    when p_amount_kobo is distinct from o.amount_kobo then 'amount'
-    when p_fee_kobo is null or p_fee_kobo < 0 or p_total_kobo is distinct from p_amount_kobo + p_fee_kobo then 'fee'
-    when p_processor_fee_kobo is not null and p_fee_kobo > p_processor_fee_kobo then 'fee'
-    else null end;
-  if v_reason is not null then
-    return private.record_order_mismatch(o, v_reason, p_amount_kobo, p_fee_kobo, p_total_kobo, p_source, p_event_key, p_raw);
-  end if;
-
-  insert into public.payments (organisation_id, order_id, provider_reference, amount_kobo, fee_kobo, total_kobo, status, source, event_key, raw, verified_at, is_test)
-  values (o.organisation_id, o.id, p_reference, p_amount_kobo, p_fee_kobo, p_total_kobo, 'success', p_source, p_event_key, coalesce(p_raw, '{}'), now(), o.is_test)
-  on conflict (provider, provider_reference) where status = 'success' do nothing;
-
-  if o.state in ('created', 'failed', 'cancelled') then
-    update public.orders set state = 'paid', paid_at = v_start, fee_kobo = p_fee_kobo, total_kobo = p_total_kobo, failure_reason = null where id = o.id;
-    if o.state in ('failed', 'cancelled') then
-      perform private.order_incident(o.organisation_id, 'order-late-payment:' || o.id, 'A payment arrived for a closed order',
-        'Order ' || o.id || ' was ' || o.state || ' when a verified payment arrived. It was honoured as paid.');
-    end if;
-  end if;
-
-  select * into it from public.catalog_items where id = o.catalog_item_id;
-  -- Membership to Membership Plus: flip the tier of the current Membership membership, nothing else. No entitlement, no new membership row.
-  if it.code = 'membership_upgrade_plus' then
-    update public.patient_memberships set tier = 'plus'
-     where patient_id = o.beneficiary_patient_id and state = 'active' and tier = 'evergreen' and (ends_at is null or ends_at > now());
-    if not found then
-      perform private.order_incident(o.organisation_id, 'order-upgrade-no-evergreen:' || o.id, 'An upgrade was paid with no Membership membership to upgrade',
-        'Order ' || o.id || ' was paid but the patient has no current Membership membership, so nothing was upgraded. Refund the payment.');
-    end if;
-    perform private.emit_domain_event('order.paid', o.organisation_id,
-      jsonb_build_object('order_id', o.id, 'kind', 'membership_upgrade', 'code', it.code),
-      'order:' || o.id, o.beneficiary_patient_id, 'order', o.id);
-    perform private.post_order_safely(o.id);
-    return jsonb_build_object('result', 'paid', 'order_id', o.id, 'entitlement_id', null);
-  end if;
-  insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, is_test, acceptance)
-  values (o.organisation_id, o.beneficiary_patient_id, o.id,
-          case it.kind when 'consultation' then 'consultation_credit' else it.kind end, v_start,
-          case when it.duration_days is not null then v_start + make_interval(days => it.duration_days) end,
-          it.uses, o.is_test, case when (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) then 'pending' else 'not_needed' end)
-  on conflict (order_id) do nothing
-  returning id into v_ent;
-
-  if v_ent is not null and it.kind = 'membership' and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) then
-    -- a renewal that is confirmed AFTER the end date closes the old row and opens a new one; the new one must inherit the person's renewal
-    -- choice as it stands NOW (a cancel in between is respected), or renewal would silently stop after the first late confirmation
-    if o.renews_membership_id is not null then select * into v_old from public.patient_memberships where id = o.renews_membership_id; end if;
+do $mig$
+declare d text;
+begin
+  d := pg_temp.renewal_patch_text(pg_get_functiondef('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure), array[
+    -- 1. the renewed membership row, read before anything closes it
+    $r$  v_up uuid;
+$r$,
+    $r$  v_up uuid;
+  v_old public.patient_memberships%rowtype;
+$r$,
+    -- 2. a renewal confirmed AFTER the end date closes the old row and opens a new one; the new one must inherit the person's renewal choice
+    --    as it stands NOW (a cancel in between is respected), or renewal would silently stop after the first late confirmation
+    $r$    update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
+$r$,
+    $r$    if o.renews_membership_id is not null then select * into v_old from public.patient_memberships where id = o.renews_membership_id; end if;
     update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
-     where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null and ends_at <= now();
-    if exists (select 1 from public.patient_memberships where patient_id = o.beneficiary_patient_id and state = 'active') then
-      update public.patient_memberships
-         set ends_at = greatest(ends_at, v_start) + make_interval(days => it.duration_days),
-             tier = case when private.membership_tier_for_item(it.code) = 'plus' then 'plus' else tier end
-       where patient_id = o.beneficiary_patient_id and state = 'active' and ends_at is not null;
-      -- a renewal is EXPECTED to land on an active membership; only an unplanned overlap is an incident
-      if o.renews_membership_id is null then
+$r$,
+    -- 3. a renewal bought while a Plus year runs is queued like any other Membership year; the queued year keeps the person's renewal choice
+    $r$      update public.entitlements set starts_at = v_q, ends_at = v_q + make_interval(days => it.duration_days) where id = v_ent;
+$r$,
+    $r$      update public.entitlements set starts_at = v_q, ends_at = v_q + make_interval(days => it.duration_days) where id = v_ent;
+      if coalesce(v_old.auto_renew, false) then
+        update public.patient_memberships
+           set auto_renew = true, renewal_item_code = v_old.renewal_item_code, renewal_consent_at = v_old.renewal_consent_at
+         where order_id = o.id and state = 'scheduled';
+      end if;
+$r$,
+    -- 4. a renewal is EXPECTED to land on an active membership; only an unplanned overlap is an incident
+    $r$      perform private.order_incident(o.organisation_id, 'order-membership-overlap:' || o.id, 'A membership was paid for by someone who already had one',
+        'Order ' || o.id || ' was paid while the patient already had an active membership. A dated one was extended by the paid period; check whether a refund is due.');
+$r$,
+    $r$      if o.renews_membership_id is null then
         perform private.order_incident(o.organisation_id, 'order-membership-overlap:' || o.id, 'A membership was paid for by someone who already had one',
           'Order ' || o.id || ' was paid while the patient already had an active membership. A dated one was extended by the paid period; check whether a refund is due.');
       end if;
-    else
-      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, auto_renew, renewal_item_code, renewal_consent_at)
-      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code),
+$r$,
+    -- 5. a brand-new row (a late renewal) carries the choice; the Plus collection state stays as the live body has it
+    $r$      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, collection_state)
+      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code), o.collection_state);
+$r$,
+    $r$      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, collection_state, auto_renew, renewal_item_code, renewal_consent_at)
+      values (o.organisation_id, o.beneficiary_patient_id, 'purchase', v_start, v_start + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code), o.collection_state,
               coalesce(v_old.auto_renew, false),
               case when coalesce(v_old.auto_renew, false) then v_old.renewal_item_code end,
               case when coalesce(v_old.auto_renew, false) then v_old.renewal_consent_at end);
-    end if;
+$r$,
+    -- 6. after a renewal: the next renewal's baseline is what they were just charged, and the person is told
+    $r$    end if;
+  end if;
+
+  if v_ent is not null and it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) and not exists$r$,
+    $r$    end if;
     if o.renews_membership_id is not null then
-      -- the next renewal's baseline is what they were just charged
       update public.patient_memberships set renewal_notified_kobo = o.amount_kobo, renewal_notified_at = now()
-       where patient_id = o.beneficiary_patient_id and state = 'active' and auto_renew;
+       where patient_id = o.beneficiary_patient_id and (state = 'active' or order_id = o.id) and auto_renew;
       perform private.queue_membership_renewed_notice(o.id);
     end if;
   end if;
 
-  if v_ent is not null and it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) and not exists (select 1 from private.lead_candidates(o.beneficiary_patient_id, '{}', true)) then
-    perform private.order_incident(o.organisation_id, 'order-no-lead-slot:' || o.id, 'A paid order has no lead clinician slot',
-      'Order ' || o.id || ' was paid but no lead clinician has a free slot. Arrange a lead for this patient.');
-  end if;
-
-  perform private.emit_domain_event('order.paid', o.organisation_id,
-    jsonb_build_object('order_id', o.id, 'care_pack', it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead), 'gift_pending', (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead), 'kind', it.kind, 'code', it.code),
-    'order:' || o.id, o.beneficiary_patient_id, 'order', o.id);
-
-  if v_ent is not null then perform private.post_order_safely(o.id); end if;
-
-  return jsonb_build_object('result', case when v_ent is null then 'replay' else 'paid' end, 'order_id', o.id, 'entitlement_id', v_ent);
-end $function$;
+  if v_ent is not null and it.grants_lead and not (o.buyer_profile_id <> o.beneficiary_patient_id and it.grants_lead) and not exists$r$
+  ], 'record_order_payment');
+  execute d;
+end $mig$;
 revoke all on function public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamp with time zone, jsonb, bigint) from public, anon, authenticated;
 grant execute on function public.record_order_payment(text, bigint, bigint, bigint, text, text, text, text, timestamp with time zone, jsonb, bigint) to service_role;
 
@@ -615,23 +590,26 @@ insert into public.notification_template_locales (template_key, locale, channel,
   ('membership_renewal_cancelled', 'en', 'email', 'Automatic renewal is off for your TarragonHealth Membership', E'Hi there,\n\nAutomatic renewal is off. You keep the year you have already paid for, until {{ends_at}}, and nothing more will be charged. We have deleted the saved card.\n\nYou can join again whenever you like from the Membership page.')
 on conflict (template_key, locale, channel) do nothing;
 
--- the "ends soon" reminder: auto-renewal members get the renewal notice instead (live body, one branch changed)
-create or replace function private.queue_membership_renewal_reminders() returns integer
- language plpgsql security definer set search_path to ''
-as $function$
-declare
-  v_days integer[] := coalesce((select array(select jsonb_array_elements_text(rules -> 'reminder_days_before')::integer from public.membership_lapse_config where is_active)), '{30,14,7}');
-  r record; v_due integer; n integer := 0; v_auto boolean; v_amount bigint; v_last4 text;
+-- the "ends soon" reminder: auto-renewal members get the renewal notice instead. Patched into the CURRENT body, which already skips a member whose
+-- next (queued) year is scheduled.
+do $mig$
+declare d text;
 begin
-  for r in
-    select m.id, m.patient_id, m.organisation_id, m.ends_at, m.source, m.tier, m.auto_renew, m.renewal_item_code from public.patient_memberships m
-     where m.state = 'active' and m.ends_at is not null and m.ends_at > now()
-       and m.ends_at <= now() + make_interval(days => (select max(d) from unnest(v_days) d))
-  loop
-    select min(d) into v_due from unnest(v_days) d where r.ends_at <= now() + make_interval(days => d);
-    -- one reminder per threshold; a membership found late sends only the nearest one, never a burst
-    if exists (select 1 from public.membership_renewal_reminders x where x.membership_id = r.id and x.days_before <= v_due) then continue; end if;
-    v_auto := r.auto_renew and r.source = 'purchase' and public.membership_auto_renew_enabled();
+  d := pg_temp.renewal_patch_text(pg_get_functiondef('private.queue_membership_renewal_reminders()'::regprocedure), array[
+    $r$  r record; v_due integer; n integer := 0;
+$r$,
+    $r$  r record; v_due integer; n integer := 0; v_auto boolean; v_amount bigint; v_last4 text;
+$r$,
+    $r$    select m.id, m.patient_id, m.organisation_id, m.ends_at, m.source, m.tier from public.patient_memberships m
+$r$,
+    $r$    select m.id, m.patient_id, m.organisation_id, m.ends_at, m.source, m.tier, m.auto_renew, m.renewal_item_code from public.patient_memberships m
+$r$,
+    $r$    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+    values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id), 'pending',
+            case when r.source = 'employer' then 'membership_employer_cover_ending' else 'membership_renewal_reminder' end,
+            jsonb_build_object('membership_id', r.id, 'ends_at', to_char(r.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY'), 'days_before', v_due, 'tier', r.tier));
+$r$,
+    $r$    v_auto := r.auto_renew and r.source = 'purchase' and public.membership_auto_renew_enabled();
     v_amount := null; v_last4 := null;
     if v_auto then
       begin
@@ -651,12 +629,10 @@ begin
                  else 'membership_renewal_reminder' end,
             jsonb_build_object('membership_id', r.id, 'ends_at', to_char(r.ends_at at time zone 'Africa/Lagos', 'FMDD Mon YYYY'), 'days_before', v_due, 'tier', r.tier)
               || case when v_auto then jsonb_build_object('amount', to_char(v_amount / 100, 'FM999,999,999'), 'card_last4', v_last4) else '{}'::jsonb end);
-    insert into public.membership_renewal_reminders (membership_id, days_before)
-      select r.id, d from unnest(v_days) d where d >= v_due on conflict do nothing;
-    n := n + 1;
-  end loop;
-  return n;
-end $function$;
+$r$
+  ], 'queue_membership_renewal_reminders');
+  execute d;
+end $mig$;
 revoke all on function private.queue_membership_renewal_reminders() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------

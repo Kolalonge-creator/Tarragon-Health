@@ -136,7 +136,7 @@ describe("runRenewals", () => {
     const { payments, store, renewals, deps } = await setup({ open: [earlier] });
     store.add({ reference: earlier, amountKobo: PRICE });
     await payments.chargeAuthorization({ reference: earlier, email: "p@example.com", amountKobo: PRICE, authorizationCode: CARD.code, metadata: { kind: "order" } });
-    payments.chargeCalls.length = 0;
+    (payments.chargeCalls as unknown[]).length = 0;
     const r = await runRenewals(deps);
     expect(r).toMatchObject({ ok: true, data: { alreadyPaid: 1, renewed: 0 } });
     expect(payments.chargeCalls).toHaveLength(0);
@@ -150,7 +150,7 @@ describe("runRenewals", () => {
     store.add({ reference: earlier, amountKobo: PRICE });
     payments.setChargeOutcome("pending");
     await payments.chargeAuthorization({ reference: earlier, email: "p@example.com", amountKobo: PRICE, authorizationCode: CARD.code });
-    payments.chargeCalls.length = 0;
+    (payments.chargeCalls as unknown[]).length = 0;
     expect(await runRenewals(deps)).toMatchObject({ ok: true, data: { pending: 1 } });
     expect(payments.chargeCalls).toHaveLength(0);
     expect(renewals.calls.prepare).toBe(0);
@@ -163,7 +163,7 @@ describe("runRenewals", () => {
     payments.setChargeOutcome("failed");
     await payments.chargeAuthorization({ reference: earlier, email: "p@example.com", amountKobo: PRICE, authorizationCode: CARD.code });
     payments.setChargeOutcome("success");
-    payments.chargeCalls.length = 0;
+    (payments.chargeCalls as unknown[]).length = 0;
     expect(await runRenewals(deps)).toMatchObject({ ok: true, data: { renewed: 1 } });
     expect(payments.chargeCalls).toHaveLength(1);
   });

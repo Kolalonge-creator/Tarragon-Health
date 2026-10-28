@@ -10,6 +10,9 @@
 --   * cancelling keeps the paid year, deletes the card, stops the sweep and tells the person once; a second cancel is a no-op
 --   * the 30/14/7 reminder becomes the renewal notice (with amount and card) only for a person on auto-renewal, plain otherwise
 --   * housekeeping deletes a card whose owner no longer has an auto-renewing membership
+--   * the migration PATCHES record_order_payment and the reminder function instead of rewriting them: the upgrade guard, the queued year
+--     and the Plus collection state survive; a renewal bought onto a queued year keeps the renewal choice; a member whose next year is
+--     already scheduled is neither due nor prepared (the same year is never sold twice)
 -- SABOTAGE: the consent check removed from save_membership_card; the renewal exemption removed from the overlap incident. Both
 -- must flip a check.
 begin;
@@ -279,6 +282,47 @@ begin
   perform pg_temp.ck('the renewal notice tells them how to cancel and never mentions a clinical thing', 'true',
     (select bool_and(body ~* 'cancel' and body !~* '(blood|pressure|diabet|result|medic)') from public.notification_template_locales where template_key = 'membership_auto_renewal_notice')::text);
   perform pg_temp.ck('no renewal notice was ever an SMS', '0', (select count(*)::text from public.notifications where template like 'membership_%renew%' and channel::text = 'sms'));
+end $$;
+
+-- 6b. Patching, not rewriting: what newer migrations put in the two functions survives, and a queued year is never charged twice -----
+do $$
+declare
+  v_pq uuid := pg_temp.mkuser(pg_temp.f('org'), 'p16'); v_ref text; v_m uuid; v_end timestamptz; r jsonb; v_amt bigint; v_order uuid; v_res text;
+  d text := pg_get_functiondef('public.record_order_payment(text,bigint,bigint,bigint,text,text,text,text,timestamptz,jsonb,bigint)'::regprocedure);
+  q text := pg_get_functiondef('private.queue_membership_renewal_reminders()'::regprocedure);
+begin
+  -- the live features this migration must NOT remove (its first draft rewrote the body from an old copy and did)
+  perform pg_temp.ck('record_order_payment keeps the upgrade guard, the queued year and the Plus collection state, and gains the renewal carry-over', 'true/true/true/true',
+    (position('upgrade_not_applicable' in d) > 0)::text || '/' || (position('membership_queue_applies' in d) > 0)::text || '/'
+    || (position('o.collection_state' in d) > 0)::text || '/' || (position('v_old.auto_renew' in d) > 0)::text);
+  perform pg_temp.ck('the reminder function keeps its scheduled-year exclusion and gains the renewal notice', 'true/true',
+    (position('q.state = ''scheduled''' in q) > 0)::text || '/' || (position('membership_auto_renewal_notice' in q) > 0)::text);
+
+  -- a renewal bought while a Plus year runs is queued, keeps the person's renewal choice, and is told; the running year is not extended
+  perform pg_temp.setf('p16', v_pq);
+  update public.catalog_items set active = true where code = 'membership_annual_no_panel';
+  v_ref := pg_temp.buy(v_pq, true);
+  perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p16', true, 'sig16', 'visa', '4081', '12', '2030', 'CUS_p16', 'p16@example.invalid')::text$q$, v_ref));
+  select id into v_m from public.patient_memberships where patient_id = v_pq and state = 'active';
+  update public.patient_memberships set ends_at = now() + interval '2 days', renewal_item_code = 'membership_annual_no_panel' where id = v_m;
+  select ends_at into v_end from public.patient_memberships where id = v_m;
+  r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
+  perform pg_temp.ck('a Plus member renewing onto the Membership item gets a renewal order', 'true', (r ? 'order_id')::text);
+  v_amt := (r ->> 'amount_kobo')::bigint; v_order := (r ->> 'order_id')::uuid;
+  v_res := pg_temp.q_svc(format($q$select public.record_order_payment(%L, %s, 0, %s, 'NGN', 'success', 'sweep')::text$q$, r ->> 'reference', v_amt, v_amt))::jsonb ->> 'result';
+  perform pg_temp.ck('and the payment is recorded as paid', 'paid', v_res);
+  perform pg_temp.ck('the year is queued as ONE scheduled row tied to the order, and the running Plus year is not extended', '1/true',
+    (select count(*)::text from public.patient_memberships where patient_id = v_pq and state = 'scheduled' and order_id = v_order)
+    || '/' || ((select ends_at from public.patient_memberships where id = v_m) = v_end)::text);
+  perform pg_temp.ck('the queued year keeps the renewal choice and the item', 'true/membership_annual_no_panel',
+    (select auto_renew::text || '/' || renewal_item_code from public.patient_memberships where patient_id = v_pq and state = 'scheduled'));
+  perform pg_temp.ck('the person is told once that it renewed', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_pq and template = 'membership_renewed'));
+  -- with the next year already bought, the sweep must not sell the same year again
+  perform pg_temp.ck('a member whose next year is scheduled is not due', '0',
+    pg_temp.q_svc(format($q$select count(*)::text from public.service_due_membership_renewals(100) d where d.membership_id = %L$q$, v_m)));
+  perform pg_temp.ck('and preparing a renewal for them is refused for that reason', 'next_year_scheduled',
+    (pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb ->> 'skip'));
 end $$;
 
 -- 7. Housekeeping: a card outlives nobody's consent ----------------------------------------------------------------------------
