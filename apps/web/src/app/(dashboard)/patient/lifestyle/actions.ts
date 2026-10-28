@@ -11,6 +11,7 @@ import {
 } from "@tarragon/lifestyle-engine";
 import { enrollPatient } from "@/lib/lifestyle/service";
 import { ingestMeasurement } from "@/lib/lifestyle/ingest";
+import { flaggedReadingMessage, patientHasDoctorReview } from "@/lib/clinical/doctor-review-claim";
 import { ED_DISORDERED_BEHAVIOURS, obesityEdScreenSchema } from "@/lib/validation/obesity";
 
 export type LifestyleActionState = {
@@ -234,11 +235,8 @@ export async function logReadingAction(
 
   // Safety-first reply: a flagged reading never says "you're fine".
   if (result.evaluation?.hasFlag) {
-    return {
-      success: true,
-      message:
-        "Thanks for logging this. Your care team has been notified and a doctor will be in touch.",
-    };
+    // W-53: only a Member (doctor review is true) is told the care team has been notified.
+    return { success: true, message: flaggedReadingMessage(await patientHasDoctorReview(ctx.supabase, ctx.userId!)) };
   }
   return { success: true, message: "Logged. Nice work keeping it up." };
 }

@@ -3,6 +3,8 @@
 import { useActionState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { logHospitalAdmission, updateHospitalAdmission } from "./actions";
+import { useDoctorReview } from "@/lib/queries/doctor-review";
+import { t } from "@tarragon/i18n";
 import {
   usePatientAdmissions,
   hospitalAdmissionsKey,
@@ -119,6 +121,7 @@ function AdmissionRow({
 
 export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
   const [state, formAction, pending] = useActionState(logHospitalAdmission, undefined);
+  const doctorReview = useDoctorReview(patientId); // W-53: only a Member is told the care team was notified
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = usePatientAdmissions(patientId);
 
@@ -178,7 +181,7 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
           {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green dark:text-brand-green-bright">
-              Saved. Your care team has been notified to review your plan.
+              {doctorReview ? "Saved. Your care team has been notified to review your plan." : t("freered.notified.free.admission", "en")}
             </p>
           )}
 

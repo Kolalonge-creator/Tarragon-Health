@@ -38,11 +38,14 @@ jest.mock("@/lib/queries/free-red-checkin", () => ({
 const baseEvent = { id: "e1", source: "triage_red", trigger_detail: null, created_at: "2026-10-12T10:00:00Z", contact_notified_at: null };
 
 describe("EmergencyAlert on the Free plan", () => {
-  it("says no doctor was alerted, keeps the acknowledge button, and offers Membership and a hospital search", async () => {
+  it("gives the same guidance without plan framing, keeps the acknowledge button, offers a hospital search and no Join prompt", async () => {
     mockEmergency.mockReturnValue({ ...baseEvent, clinician_alert_id: null });
     const { container } = render(<EmergencyAlert patientId="p1" hasEmergencyContact />);
-    expect(screen.getByText("A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Join as a Member" }).getAttribute("href")).toBe("/patient/membership");
+    expect(screen.getByText("No doctor has been alerted about this reading. Please get care now.")).toBeTruthy();
+    // W-53 / D-03: no Membership prompt in any red state, and no plan framing.
+    expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
+    expect(container.textContent).not.toMatch(/Free plan|Membership|Join/);
+    expect(container.textContent).toContain("No doctor has been alerted about this reading. Please get care now.");
     expect(screen.getByRole("link", { name: /Find a hospital near you/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "I'm getting help" })).toBeTruthy();
     expect(container.textContent).not.toMatch(/care team has been told/i);
@@ -53,6 +56,7 @@ describe("EmergencyAlert on the Free plan", () => {
     mockEmergency.mockReturnValue({ ...baseEvent, clinician_alert_id: "alert-1" });
     render(<EmergencyAlert patientId="p1" hasEmergencyContact />);
     expect(screen.queryByTestId("free-red-block")).toBeNull();
+    expect(screen.queryByText(/No doctor has been alerted/)).toBeNull();
     expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
     expect(screen.getByText(/care team has been told/i)).toBeTruthy();
   });
@@ -86,8 +90,9 @@ describe("FreeGuidance (amber and heart failure on the Free plan)", () => {
     mockGuidance.mockReturnValue({ id: "g1", kind: "heart_failure" });
     const { container } = render(<FreeGuidance patientId="p1" />);
     expect(container.textContent).toContain("Your weight has gone up quickly");
-    expect(screen.getByText("A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Join as a Member" }).getAttribute("href")).toBe("/patient/membership");
+    expect(screen.queryByRole("link", { name: "Join as a Member" })).toBeNull();
+    expect(container.textContent).not.toMatch(/Free plan|Membership/);
+    expect(container.textContent).toContain("No doctor has been alerted about this reading. Please get care now.");
     expect(container.textContent).not.toMatch(/warning|danger|—/i);
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(mockAck).toHaveBeenCalledWith("g1");

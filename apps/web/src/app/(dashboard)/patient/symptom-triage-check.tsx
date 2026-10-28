@@ -12,6 +12,7 @@ import {
 } from "./symptom-triage-actions";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { CATEGORY_SAFETY_NET_MESSAGE, getSafetyNetMessage } from "@/lib/symptom-triage/safety-net-copy";
+import { useDoctorReview } from "@/lib/queries/doctor-review";
 import {
   SEED_PATHWAYS,
   buildResultExtras,
@@ -211,6 +212,7 @@ export function SymptomTriageCheck({
   const [stage, setStage] = useState<Stage>({ step: "pick_complaint" });
   const [pending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const doctorReview = useDoctorReview(patientId); // W-53: the signed "care team notified" urgent line is for Members only
   const [complaintKey, setComplaintKey] = useState<string>("");
   // S59c: set when the describe box found danger wording (the words are gone; only the fact is kept), and after "Clear this screen"
   const [describeDanger, setDescribeDanger] = useState<{ selfHarm: boolean } | null>(null);
@@ -306,7 +308,7 @@ export function SymptomTriageCheck({
         complaintKey: result.complaintKey,
         complaintLabel: presentingComplaints.find((c) => c.key === result.complaintKey)?.label ?? null,
         headline: resultHeadline(category, result.urgencyLevel as UrgencyLevel | null, CATEGORY_LABEL[result.category] ?? result.category.replace(/_/g, " ")),
-        nextStep: category === "emergency" ? t("symptom.emergency.go_now") : getSafetyNetMessage(result.safetyNetMessageKey, category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE),
+        nextStep: category === "emergency" ? t("symptom.emergency.go_now") : getSafetyNetMessage(result.safetyNetMessageKey, category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE, doctorReview),
         dateLabel: new Date(result.checkedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" }),
         capture: result.capture,
         firedRuleKeys: result.firedRuleKeys,
@@ -471,7 +473,7 @@ export function SymptomTriageCheck({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               {stage.category === "emergency"
                 ? t("symptom.emergency.go_now")
-                : getSafetyNetMessage(stage.safetyNetMessageKey, stage.category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE)}
+                : getSafetyNetMessage(stage.safetyNetMessageKey, stage.category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE, doctorReview)}
             </p>
             {stage.category === "urgent" && stage.degraded && (
               <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.result.urgent_floor")}</p>

@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { reportBreastSymptoms } from "./womens-health-actions";
+import { useDoctorReview } from "@/lib/queries/doctor-review";
+import { t } from "@tarragon/i18n";
 import { useBreastSymptomReports, useInvalidateWomensHealth } from "@/lib/queries/womens-health";
 import {
   BREAST_SYMPTOM_TYPES,
@@ -27,6 +29,7 @@ import { formatPatientDate } from "@/lib/format-date";
  */
 export function BreastSymptomCard({ patientId }: { patientId: string }) {
   const reports = useBreastSymptomReports(patientId);
+  const doctorReview = useDoctorReview(patientId); // W-53: only a Member is told the care team was notified
   const invalidate = useInvalidateWomensHealth(patientId);
   const [state, formAction, pending] = useActionState(reportBreastSymptoms, undefined);
   const errorId = fieldErrorId("breast-symptom-report");
@@ -110,7 +113,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
           <FormError id={errorId} message={state?.error} />
           {state?.success && (
             <p className="text-sm text-brand-green dark:text-brand-green-bright">
-              Reported. Your care team has been notified for clinical assessment.
+              {doctorReview ? "Reported. Your care team has been notified for clinical assessment." : t("freered.notified.free.breast", "en")}
             </p>
           )}
 
