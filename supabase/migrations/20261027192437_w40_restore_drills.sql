@@ -60,6 +60,8 @@ as $$
 declare
   c_open_writable constant text[] := array['finished_at', 'achieved_rpo_minutes', 'checks', 'passed', 'notes', 'duration_minutes'];
   c_void_cols     constant text[] := array['voided_at', 'voided_by', 'void_reason'];
+  -- a stored generated column (duration_minutes) is computed AFTER BEFORE triggers, so NEW carries a stale value there: never compare it
+  c_void_cmp      constant text[] := array['voided_at', 'voided_by', 'void_reason', 'duration_minutes'];
   v_old jsonb; v_new jsonb;
 begin
   if tg_op = 'DELETE' then
@@ -70,7 +72,7 @@ begin
   v_new := to_jsonb(new);
 
   -- the void path: only voided_* change, on a row not yet voided, through the owner-run function
-  if (v_new - c_void_cols) = (v_old - c_void_cols) and v_new <> v_old then
+  if (v_new - c_void_cmp) = (v_old - c_void_cmp) and (v_new - 'duration_minutes') <> (v_old - 'duration_minutes') then
     if old.voided_at is not null then
       raise exception 'restore drill % is already voided', old.id using errcode = '42501';
     end if;
