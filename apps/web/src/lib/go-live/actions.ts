@@ -89,7 +89,12 @@ export async function attestConditionAction(formData: FormData): Promise<void> {
   const key = keySchema.safeParse(formData.get("key"));
   const code = z.string().regex(/^[a-z][a-z0-9_]*$/).safeParse(formData.get("code"));
   const met = formData.get("met") === "1";
-  const note = z.string().trim().min(10).max(1000).safeParse(formData.get("note"));
+  // A wording attestation only counts while its note carries the current text fingerprint. The panels send the fingerprint as a hidden field
+  // and the person's own note stays optional, so nobody has to see or type "Text fingerprint ... Read in full." in a box.
+  const fingerprint = z.string().regex(/^[a-f0-9]{12}$/).safeParse(formData.get("fingerprint"));
+  const typed = String(formData.get("note") ?? "").trim();
+  const noteText = fingerprint.success ? `Text fingerprint ${fingerprint.data}. Read in full.${typed ? ` ${typed}` : ""}` : typed;
+  const note = z.string().trim().min(10).max(1000).safeParse(noteText);
   if (!key.success || !code.success || !note.success) return fail(viewer, "golive.error.input", undefined, path);
   const { error } = await (await client()).rpc("attest_go_live_condition", { p_key: key.data, p_code: code.data, p_met: met, p_note: note.data });
   if (error) {

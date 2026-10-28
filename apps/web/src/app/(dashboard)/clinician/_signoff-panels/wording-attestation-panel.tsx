@@ -93,6 +93,7 @@ export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" | "cu
         <input type="hidden" name="key" value={guard} />
         <input type="hidden" name="code" value={code} />
         <input type="hidden" name="met" value="1" />
+        {kind === "cuff_prompt" && <input type="hidden" name="fingerprint" value={fingerprintOf(t("cuff.visit_prompt", locale))} />}
         <label className="flex items-start gap-2 text-sm text-charcoal-ink">
           <input type="checkbox" name="read" required className="mt-1 h-5 w-5" />
           <span>{t("s06s10.attest.read", locale)}</span>
@@ -101,11 +102,10 @@ export function WordingAttestationPanel({ kind }: { kind: "c4" | "pattern" | "cu
           {t("s06s10.attest.note", locale)}
           <input
             name="note"
-            required
-            minLength={10}
-            maxLength={1000}
+            required={kind !== "cuff_prompt"}
+            minLength={kind === "cuff_prompt" ? undefined : 10}
+            maxLength={900}
             placeholder={t("s06s10.attest.note_placeholder", locale)}
-            defaultValue={kind === "cuff_prompt" ? `Text fingerprint ${fingerprintOf(t("cuff.visit_prompt", locale))}. Read in full.` : undefined}
             className={field}
           />
         </label>
