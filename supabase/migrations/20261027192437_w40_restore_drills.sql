@@ -43,7 +43,7 @@ comment on table public.restore_drills is 'W-40: one row per timed restore drill
 create index restore_drills_started_idx on public.restore_drills (started_at desc);
 
 alter table public.restore_drills enable row level security;
-revoke all on public.restore_drills from public, anon;
+revoke all on public.restore_drills from public, anon, authenticated;
 grant select, insert, update on public.restore_drills to authenticated;
 
 create policy restore_drills_admin_select on public.restore_drills for select to authenticated using (private.is_admin());
