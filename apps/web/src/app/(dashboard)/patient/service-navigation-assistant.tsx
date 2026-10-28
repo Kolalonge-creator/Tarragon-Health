@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { askServiceNavigationAction, type AskServiceNavigationResult } from "@/lib/service-navigation/actions";
-import { OutputKindLabel } from "@/components/output-kind-label";
 
 /**
  * "Where can I do my blood test?" -- a friendlier front end on the same

@@ -25,7 +25,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { OutputKindLabel } from "@/components/output-kind-label";
 
 const CERTIFICATE_BUCKET = "vaccination-certificates";
 

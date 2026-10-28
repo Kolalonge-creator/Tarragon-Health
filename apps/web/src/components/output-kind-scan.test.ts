@@ -14,13 +14,13 @@ import { join, relative } from "node:path";
 const ROOT = join(__dirname, "../../../..");
 const SCAN = ["apps/web/src", "apps/mobile/src"];
 const WORDING = /AI-drafted|AI-generated|Drafted by AI|Automated summary|Automated information/;
-const USES_LABEL = /OutputKindLabel/;
+// AiLabel is the shared label S89 added for model-generated text (apps/web/src/components/ai/ai-label.tsx). Eight screens carry it already
+// (main-dev put it there before this branch landed), so either shared label counts. Having two shared labels is itself a follow-up: pick one.
+const USES_LABEL = /OutputKindLabel|AiLabel|AiDraftBlock/;
 
 const NOT_A_BADGE: Record<string, string> = {
   "apps/web/src/components/output-kind-label.tsx": "the label itself",
   "apps/mobile/src/ui/output-kind-label.tsx": "the phone's label itself",
-  "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/clinical-encounter-notes-section.tsx":
-    "a sentence under the note fields saying scribe text is in them (the scribe draft is the clinician's to edit and sign; it is not a badge)",
   "apps/web/src/components/scribe/safety-lines-panel.tsx": "a code comment about signing an AI-drafted note; the panel is the clinician's confirmation step, not an output label",
   "apps/web/src/app/(dashboard)/clinician/scribe-quality/page.tsx": "a code comment about the review sample of signed notes",
   "apps/web/src/app/(dashboard)/clinician/health-reports/page.tsx": "a code comment on who may see the draft summary; the page hands the draft to a panel component, which is not covered by this wording scan (follow-up)",
