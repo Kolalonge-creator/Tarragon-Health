@@ -3363,6 +3363,17 @@ following are recorded in the system:
 - Decision: open (product).
 ## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
 
+### OQ-GAP71-1 What "funded by" should say (raised by GAP-71, 2026-10-28)
+- The disclosure says the sponsor organisation on the programme "sponsors this programme and this report" and that Tarragon produced the figures. The database holds the sponsor organisation, not the payer of each invoice, so a programme paid for by a third party (a funder behind an NGO) is described as sponsored by the NGO. Confirm the wording, or add a funder field to `sponsor_cohorts`.
+- Decision: open (CMO and founder; the guard stays off until the wording is read).
+
+### OQ-GAP71-2 Date shown for the outcome measure sign-off (raised by GAP-71, 2026-10-28)
+- `outcome_config` records no signing date (activation is the sign-off). The block shows "Signed on <date>" only when a confirmed `proposed_config_signoffs` row exists for `outcomes.measure_rules`; otherwise "Signed (the date is not recorded in this report)". Decide whether to add an activation timestamp to `outcome_config`.
+- Decision: open (engineering, CMO).
+
+### OQ-GAP71-3 Who may enter an independent review, and what counts as one (raised by GAP-71, 2026-10-28)
+- Only a platform admin or the CMO can record a review (name, organisation, date, scope), as asked. Tarragon staff entering a review of Tarragon's own figures is a conflict of interest if no reviewer document is kept. Decide whether a reference to the reviewer's report (a document id or link) should be required before the record is accepted, and who checks it.
+- Decision: open (CMO and founder).
 ### OQ-D4-1 Reliable change points for PHQ-9 and GAD-7 (raised by gap 71 D4)
 - PROPOSED `outcomes.reliable_change_rules` v1: 6 points on the PHQ-9 and 4 points on the GAD-7, a change of at least that many in either direction. Written from the published sources (the Jacobson and Truax reliable change method; the points the English NHS Talking Therapies programme uses), NOT checked against the primary texts and NOT validated for Nigeria or app self-completion. A baseline under the points cannot show a reliable improvement; the group is the response group (baseline of 5 or more).
 - Options: (a) the CMO signs 6 and 4 after reading the sources (recommended as a start); (b) the CMO asks for a different number or a locally derived index; (c) wait for local data.

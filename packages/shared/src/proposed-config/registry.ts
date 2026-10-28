@@ -8487,6 +8487,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S59c.md section 5; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
   },
   {
+    key: "sponsor.methods_disclosure_wording",
+    // GAP-71: the plain-words wording of the "Methods and funding" block in the sponsor pack and on the sponsor programme-figures pages.
+    // The database holds it as the constant private.sponsor_methods_wording(); a test compares this value with the migration. PROPOSED: the block is
+    // behind the go-live guard `sponsor_methods_disclosure_enabled` (seeded OFF; the CMO switches it on after reading this wording).
+    value: {
+      "version": 1,
+      "title": "Methods and funding",
+      "funding": "{sponsor} sponsors this programme and this report. Tarragon Health produced the figures from its own records. {sponsor} did not choose which members, readings or results are included.",
+      "minimum_cell": "A group smaller than {minimum} people is never shown, and neither is a small group beside it that would let the hidden number be worked out. A figure that is hidden says so; it is never shown as zero.",
+      "definitions": "The figures use the definition versions listed here. A definition marked proposed has not been signed by Tarragon's Chief Medical Officer, and the figures that depend on it are held back until it is.",
+      "exclusions_in_force": "Not counted in any outcome measure: people under 18, or with no date of birth on record; test accounts; people who are pregnant (for HbA1c, weight and the cascade of care); and people whose PHQ-9 total reached the safeguarding line (for PHQ-9 and GAD-7). They are followed up through the usual clinical routes, never through a report. Only members who agreed to share are included.",
+      "exclusions_not_in_force": "No signed definition version yet lists who is left out of the measures, so the exclusion rules are not yet applied to them. Only members who agreed to share are included, and test accounts are never included.",
+      "review_none": "These figures have not been independently reviewed.",
+      "review_done": "Independently reviewed by {reviewer} ({organisation}) on {date}. Scope of the review: {scope}.",
+      "descriptive": "These are descriptions of a group of members. They do not show that the programme caused any change."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "supabase/migrations/20261028061244_gap71_sponsor_methods_and_funding_disclosure.sql; docs/BUILD-PROGRESS.md GAP-71",
+  },
+  {
     key: "outcomes.cascade_rules",
     // WP3: the cascade-of-care stage definitions (hypertension and diabetes), the 140/90 and 7.0 percent control lines, and the selection-bias panel bands.
     // The database holds it as `outcome_cascade_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).

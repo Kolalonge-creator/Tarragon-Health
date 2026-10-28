@@ -51619,6 +51619,9 @@ export type Database = {
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      sponsor_methods_disclosure: { Args: { p_cohort: string }; Returns: Json };
+      record_sponsor_independent_review: { Args: { p_cohort: string; p_reviewer_name: string; p_reviewer_organisation: string; p_reviewed_on: string; p_scope: string }; Returns: string };
+      withdraw_sponsor_independent_review: { Args: { p_review: string; p_note: string }; Returns: undefined };
       // Optional passkeys (docs/design/passkeys.md): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       authorise_passkey_add: { Args: { p_minutes: number; p_user: string }; Returns: boolean };
       cancel_passkey_add: { Args: { p_user: string }; Returns: undefined };
