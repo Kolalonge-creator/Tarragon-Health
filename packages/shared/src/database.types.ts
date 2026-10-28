@@ -51332,6 +51332,23 @@ export type Database = {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
       }
+      my_sensitive_request_optin: {
+        Args: Record<PropertyKey, never>
+        Returns: { available: boolean; opted_in: boolean }[]
+      }
+      set_my_sensitive_request_optin: { Args: { p_opt_in: boolean }; Returns: boolean }
+      my_screening_requests: {
+        Args: { p_patient?: string }
+        Returns: {
+          schedule_id: string
+          lab_order_id: string
+          order_status: string
+          requested_at: string
+          upload_count: number
+          last_uploaded_at: string | null
+          doctor_reviewed: boolean
+        }[]
+      }
       add_visit_summary_item_to_tasks: { Args: { p_item: string }; Returns: string }
       approve_visit_summary: { Args: { p_summary: string }; Returns: undefined }
       assemble_visit_summary: { Args: { p_note: string }; Returns: string }

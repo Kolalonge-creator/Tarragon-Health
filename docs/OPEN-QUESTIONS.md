@@ -5839,6 +5839,27 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 
 ### OQ-S96-10 Drawings were drawn by the build and have not been looked at by a clinician (raised by S96)
 - The 22 line drawings are simple original stick figures. They were checked by tests (accessible, tiny, no external file) and not by eye on a device or by a clinician for form. Someone should look at them on a phone and in dark mode before the guard is switched on. Decision: open.
+### OQ-S98-1 Which calendar items may the engine issue a request for without a person? (raised 2026-10-27)
+Built: only items from a SIGNED screening rule set, only tests with `screen_types.sensitive = false` and an active single-test bundle. Calendar items written by the app from the risk questionnaire (no `rule_set_id`) are NOT auto-issued; the patient still has "Get & print". Options: (a) keep (fail closed until the CMO signs); (b) also auto-issue questionnaire items. Recommendation: (a). Owner: CMO.
+
+### OQ-S98-2 Sensitive tests (HIV, hepatitis B/C, cervical smear, FIT, PSA, imaging) and automatic requests (raised 2026-10-27, DECIDED by founder 2026-10-27)
+Decision: a sensitive test MAY get an automatic request, but only for a patient who has opted in. Built (S98b): per-patient revocable opt-in (`screening_sensitive_request_optin`, own row, audited RPC, adults only), new guard `screening_sensitive_request_optin_enabled` (OFF) on top of `screening_request_automation_enabled`; the job needs both guards, the opt-in, a signed rule set and a passing insert (a trigger refusal is skipped and logged, never bypassed). Notification payloads, reminder payloads and the audit entry no longer name a sensitive test. Withdrawing stops new requests and keeps existing ones.
+STILL OWED before the guard is switched on: CMO review (which tests count, how a reactive result is disclosed, wording) and DPO review (consent basis, retention class `consent` is PROPOSED in the data registry). The opt-in switch is hidden from patients while the guard is off. Side effect to confirm: reminders for every `screen_types.sensitive` test (cervical smear, FIT, PSA, imaging as well as infections) now carry the neutral name "a screening test" in the payload; the email body never named the test.
+
+### OQ-S98-3 Two messages on the due day (raised 2026-10-27)
+The request insert sends the existing "your test request" email (PDF attached) and a notice on the patient's channel; the 06:35 `screening_due` reminder follows with a link to the same request. Options: (a) accept (the reminder ladder must keep running if the patient does nothing); (b) suppress the first `screening_due` when a request was issued the same day. Recommendation: (a) now, revisit with real usage.
+
+### OQ-S98-4 An uploaded result does not close the calendar item (raised 2026-10-27)
+The upload is kept as a document, shown to the patient as "result received" and to the clinician as "Patient-uploaded, not lab-verified"; the schedule row stays `booked` until a clinician records the result (existing `refresh_screening_schedule_on_result`), or the patient confirms it done. Reminders stop at upload. No OCR or value extraction was built. Decide whether a clinician "record result from this document" shortcut is wanted.
+
+### OQ-S98-6 The manual "Get & print" button fails for self-bookable single tests (raised 2026-10-27)
+Found in review: `useCreateLabOrder` links the schedule, and the live trigger refuses that for a self-bookable bundle (HIV, hepatitis B and C, FIT, ferritin, vitamin B12, cervical smear bundles). The automatic job has its own narrow exception; the patient button does not. Options: (a) leave (the patient can still order these from the front-door catalogue without a schedule link); (b) make the button order without the link for self-bookable bundles (the result trigger already matches by patient and screen type). Recommendation: (b), as a separate small change.
+
+### OQ-S98-7 A caregiver with view_results can still read the order row (raised 2026-10-27)
+The request status function and the PDF routes now hide sensitive requests from non-owners, but `lab_orders_select` still admits a caregiver with `view_results` (bundle id, order number). Narrowing it for sensitive bundles is a wider RLS change. Recommendation: do it with the next lab-orders RLS pass, proved with a simulated caregiver.
+
+### OQ-S98-5 Edge Function wording (raised 2026-10-27)
+`send-pending-notifications` templates for `screening_due` do not yet mention the request (not redeployed here). The in-app line does. Update and redeploy the template if wanted.
 ## S89 first slice (2026-10-27)
 
 ### OQ-S89-01: where the edit-rate figures and the sign attestation are stored
