@@ -2676,6 +2676,6 @@ Tests and documents only; no migration, nothing applied.
 ## Privacy basics from the S81-S85 review (2026-10-27, branch `worktree-privacy-basics`)
 - **Built:** optional app PIN on the whole-app lock (reuses the private-section controller with its own record, PIN only, off by default, forgot-PIN recovery clears only the local PIN); an app-switcher privacy cover for App lock and discreet mode users; a test that fails if an advertising or tracking SDK or host appears in any dependency, source file, content-security policy or mobile plugin.
 - **Already built, so not rebuilt:** consent receipt (web and phone), two-tap consent withdrawal on the phone, audit-log immutability (proved in existing DB tests).
-- **Not built:** screenshot blocking and an Android cover (OQ-730, native build); neutral app name and icon (OQ-728).
+- **Not built:** screenshot blocking and an Android cover (OQ-744, native build); neutral app name and icon (OQ-742).
 - **Proof:** mobile Jest including 7 new app PIN controller tests and 8 privacy cover tests; shared Jest for the tracking scan; `tsc` clean. Not run: any phone, any browser. No migration.
 
