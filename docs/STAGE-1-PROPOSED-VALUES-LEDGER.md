@@ -6,7 +6,7 @@ Walked in chat during the S40 gate run, 72 batches of up to 4 keys, values shown
 
 **Counsel-owned nulls.** privacy.transcript_retention is null and privacy.retention.retentionPeriodYears is null: the owner confirmed the batch (changed from defer to confirm after the pop-up) but no retention period has been set by counsel, so retention behaviour is still undecided in substance.
 
-**Open conflict.** triage.silence_rule_days: registry v1 said 5, the latest says 7, the safety-case fixture says 6. The owner ruled case 7 = 6 days, then confirmed the registry value 7. These disagree and need one number.
+**Resolved 2026-10-28.** triage.silence_rule_days is 7 days: the owner chose 7, matching registry v2, decision S11-1 and the live approved rule set `bp_care_triage` v7. Safety case 7 follows (7 days); the spec's 5 is out of date and is never edited.
 
 ## Confirmed in chat: 287 keys
 | key | owner | version |

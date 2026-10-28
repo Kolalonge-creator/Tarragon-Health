@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
+import { guidanceForItem } from "../../src/lib/lab-results/guidance";
 import { J1, startJourney } from "../../../../packages/shared/src/journeys/journeys";
 import { drainBus, serviceClient } from "./harness/drain";
 import { journeyEnv, newRunId } from "./harness/env";
@@ -13,8 +14,8 @@ import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
  *
  * Runs the steps that exist today with real sessions and the real database functions, and declares the rest pending with the
  * owner session. Nothing is simulated that the platform does not do: Health Points, the risk questionnaire, the screening
- * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal and Health Points steps stay pending: what exists is checked separately, as supporting checks that are not journey steps). Checkout through Paystack is SKIPPED with its
- * reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
+ * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal, Health Points and result explanation steps were reworded by founder decision 2026-10-28 and now run).
+ * The paid order step stays pending with its own reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
  *
  * The phone number below is a Supabase test OTP number (supabase/config.toml [auth.sms.test_otp], fixed code 123456), so the
  * real GoTrue phone sign-up runs and no SMS is sent. Nothing about the phone number or the code is a secret.
@@ -97,10 +98,9 @@ test.describe("Journey 1: a new user's first month", () => {
     });
 
     // ------------------------------------------------------------------ 3: onboarding goal and condition (S41), through her own session
-    // A SUPPORTING check, not the journey step: the spec step "goal-blood-pressure" says the goal 'blood pressure' is recorded, and the live onboarding
-    // has no such goal (the goals are manage_condition, stay_ahead, screening_check, family_care, not_sure; hypertension is a separate condition
-    // answer). So the step stays pending in journeys.ts and this only proves what does exist: her own answers are saved and read back.
-    await test.step("supporting check: onboarding saves her own goal and condition answers", async () => {
+    // Founder decision 2026-10-28: a condition answer counts as the goal, so the step is her goal 'manage a condition' with the condition hypertension,
+    // saved and read back through her own session.
+    await run.step("goal-blood-pressure", async () => {
       const saved = await me.rpc("save_onboarding_answers", { p_goals: ["manage_condition"], p_conditions: ["hypertension"] });
       expect(saved.error, JSON.stringify(saved.error)).toBeNull();
       expect((saved.data as { ok: boolean }).ok).toBe(true);
@@ -195,6 +195,25 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(audited).toBeGreaterThan(0);
     });
 
+    // Founder decision 2026-10-28: "explained in plain language" means the deterministic English guidance (no audio, no AI), gated by the database's own explain_allowed.
+    await run.step("result-plain-language-explanation", async () => {
+      expect(resultId).not.toBeNull();
+      const mine = await me.rpc("my_lab_results");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      type Item = { analyte_code: string; flag: "normal" | "low" | "high" | "critical" | "positive" | "negative"; sensitive_positive?: boolean };
+      const entry = (mine.data as Array<{ lab_result_id: string; explain_allowed: boolean; items: Item[] }>).find((r) => r.lab_result_id === resultId);
+      expect(entry, "the released result is not visible to the patient").toBeDefined();
+      expect(entry!.explain_allowed, "a released, non-sensitive result must be explainable").toBe(true);
+      // the patient's own released items (creatinine and potassium were submitted), each through the same function the page uses
+      expect(entry!.items.length, "a released result carried no items").toBeGreaterThanOrEqual(2);
+      for (const item of entry!.items) {
+        expect(guidanceForItem(item, entry!.explain_allowed).explanationKey, `no plain-language explanation for ${item.analyte_code}`).not.toBeNull();
+      }
+      // controls: a sensitive result is never explained, and neither is a result the database says is not explainable
+      expect(guidanceForItem({ analyte_code: "hiv", flag: "positive" }, true).explanationKey).toBeNull();
+      expect(guidanceForItem(entry!.items[0], false).explanationKey).toBeNull();
+    });
+
     // ------------------------------------------------------------------ 11: daily readings graded through the bus
     await run.step("daily-readings-graded", async () => {
       for (let d = 1; d <= 5; d++) {
@@ -215,10 +234,8 @@ test.describe("Journey 1: a new user's first month", () => {
     });
 
     // ------------------------------------------------------------------ 13: Health Points for logging (S58), through the bus the readings above already went into
-    // A SUPPORTING check, not the journey step: the spec step says points are awarded "for consistency", and what S58 awards is a capped amount per
-    // day for the act of logging (a participation reward). A consistency or streak reward is a badge condition with no points, so the step stays
-    // pending in journeys.ts and this only proves what does exist: points through the bus, capped, never for what a reading says.
-    await test.step("supporting check: logging readings earns capped Health Points through the bus", async () => {
+    // Founder decision 2026-10-28: the per-log award (capped per day, never for what a reading says) is the consistency reward; a streak is a badge only.
+    await run.step("health-points-awarded", async () => {
       const drain = await drainBus();
       expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
       const rule = sqlRows<{ points: number }>(`select points::int as points from public.reward_rules where code = 'vitals_logged' and is_active order by version desc limit 1`)[0];

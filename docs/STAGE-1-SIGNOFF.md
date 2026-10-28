@@ -8,7 +8,7 @@ The gate does not pass today for these reasons, none of which is a failing autom
 
 1. The mobile half of safety case 1 was proved on the iOS simulator only in part (guidance with no network: yes; the reading reaching the server after the network returns: not verified), and no flow was run on a real phone.
 2. Five-plus hardware and money rows cannot be run on a simulator (section 7).
-3. Safety case 7 has three different numbers (5, 6, 7 days). See section 6.
+3. Safety case 7 is settled at 7 days (owner decision 2026-10-28, matching S11-1 and the approved rule set v7). The spec text still says 5 and is never edited. See section 6.
 4. The S85 journeys J1, J2 and J4 finish with no failures but are INCOMPLETE: their pending steps are human decisions or later-stage features.
 5. About 593 entries in `docs/OPEN-QUESTIONS.md` still read "Decision: open" (a text match, not a verified status).
 
@@ -38,7 +38,7 @@ All three run end to end and report **INCOMPLETE** with no failed steps.
 
 | Journey | Passed | Failed | Pending | Skipped |
 |---|---|---|---|---|
-| J1 a new user's first month | 6 | 0 | 9 | 1 |
+| J1 a new user's first month | 9 (was 6; three steps reworded by the owner on 2026-10-28 now run) | 0 | 6 (was 9) | 1 |
 | J2 a red reading at night | 14 | 0 | 4 | 0 |
 | J4 institution | 8 | 0 | 3 | 1 |
 
@@ -56,7 +56,7 @@ The pending steps are the human or later-stage items the journeys already name: 
 | 4 | 85/60 with fainting: red low-pressure path | `SC-04` | Pass |
 | 5 | 300/40 rejected with TRI-006 | `SC-05` | Pass |
 | 6 | Seven readings average target plus 25: amber, 24 h | `SC-06` | Pass |
-| 7 | Care-pack patient silent N days: one silence task | `SC-07` passes against the fixture (6 days) | **Pass against the fixture only; the number is unresolved, section 6** |
+| 7 | Care-pack patient silent N days: one silence task | `SC-07a` to `SC-07f` under `bp_care_triage` v3 and later (6 days does not create the task, 7 days does); the live approved rule set v7 carries `silence.days` 7 and the registry `triage.silence_rule_days` is 7 | Pass at 7 days (section 6) |
 | 8 | Unacknowledged red page: backup at 5 min, lead and ops at 10 min | `s19_red_event_paging.sql`, `s19_page_ack_sweep_race.sh` | Pass |
 | 9 | Red event outside rota: level 2 at once | `s19_red_event_paging.sql`, `s19b_on_call_readiness.sql` | Pass |
 | 10 | Titration cannot change medications until signed | `s24_prescriptions_and_care_plan_changes.sql` | Pass |
@@ -85,7 +85,7 @@ Cases 2 to 25 pass on the automated proofs. The CMO's review of the safety-case 
 | M0 Foundations | CI green; no staging deployment of either app (OQ-36). **Not met.** |
 | M1 Identity and consent | Proofs pass. Met on automated evidence. |
 | M2 Records and offline | Proofs pass; offline guidance proved on a simulator; sync half and performance on a device not verified. **Not met.** |
-| M3 Triage and events | Safety cases 1 to 7 and 20: see section 3. Case 1 partial, case 7 number unresolved. **Not met.** |
+| M3 Triage and events | Safety cases 1 to 7 and 20: see section 3. Case 1 partial. **Not met.** |
 | M4 Clinician network | Cases 8, 9, 16 to 19 pass including the concurrency proofs. Met on automated evidence. |
 | M5 Consultations and scribe | Cases 10, 14, 15 pass. End-to-end consultation (Zoom SDK) not run on a device. **Not met.** |
 | M6 Payments | Cases 24, 25 pass; Paystack test-mode init and verify pass. A hosted-checkout payment and live webhook were not run. **Not met.** |
@@ -114,7 +114,7 @@ All 287 were walked in chat on 2026-10-28 in 72 batches; the owner confirmed eve
 - Several confirmed values are embedded drafts with `clinical_sign_off: null` (`symptom.checkback`, `symptom.describe_synonyms`, `symptom.result_explainer`, `symptom.safety_net`, `symptom.urgency_map`, `emergency.pack`, `immunisation.schedule`, `pathways.hypertension_step_table`) or placeholders pending counsel (`records_request.letter`, `records_request.response_days`). A chat confirmation does not replace those signatures.
 - `privacy.transcript_retention` and `privacy.retention.retentionPeriodYears` are `null`: counsel has not set a retention period.
 - CMO-owned rows were confirmed by the project owner; the CMO should countersign.
-- **Case 7 and `triage.silence_rule_days` disagree three ways:** the spec table says 5, the safety-case fixture says 6, the latest registry value is 7. The owner ruled "6" when asked about case 7 and then confirmed the registry value 7 in the walkthrough. One number has to be chosen, then the fixture, the registry and the spec text aligned.
+- **Case 7 is 7 days (resolved 2026-10-28).** The owner chose 7. It agrees with the live approved `bp_care_triage` v7 (`silence.days` 7, read from the database), the registry `triage.silence_rule_days` and decision S11-1 in `docs/DECISIONS.md` (founder and CMO, 2026-10-07). The earlier "fixture says 6" was the unmodified base fixture file: the v3 to v6 tests re-pin SC-07a and SC-07c to 7 days and the 36 tests in `bp-care-v3`, `bp-care-v6` and `wording-and-config` pass. The spec table's 5 is out of date by design (the spec is never edited); the CMO note on S11-1 already records that.
 
 ## 7. What a simulator and a Mac cannot run
 
@@ -129,7 +129,7 @@ All 287 were walked in chat on 2026-10-28 in 72 batches; the owner confirmed eve
 ## 8. What to do next
 
 1. Apply `20261028192001_push_subscriptions_expo_token_unique_non_partial.sql` to production, then merge this branch.
-2. Choose one number for case 7 and align the fixture, the registry and the spec.
+2. ~~Choose one number for case 7~~ Done: 7 days.
 3. Run safety case 1 end to end on a real phone and record the result in section 3.
 4. Decide, item by item, the pending journey steps and the unsigned drafts listed in section 6.
 5. Run the rows in section 7 that need hardware, money or a staging environment.
