@@ -439,9 +439,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: PAGING_DELIVERY_CONFIG_ITEM_KEY,
       title: "Pager readiness gate: activate version " + queuePaging.pagingVersion,
-      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.`,
+      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.${queuePaging.pagingRunningUnsigned === true ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: queuePaging.pagingRunningUnsigned === true ? "live_unsigned" : "draft_pending",
       count: 1,
     });
   }

@@ -936,3 +936,14 @@ describe("readCmoSigningHub: unsigned versions already running go to the urgent 
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
   });
 });
+
+describe("readCmoSigningHub: pager readiness gate running unsigned", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("ranks the pager readiness line live_unsigned only when the paging version in force has no signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, pagingVersion: 2, pagingRunningUnsigned: true });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, pagingVersion: 2, pagingRunningUnsigned: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
+  });
+});

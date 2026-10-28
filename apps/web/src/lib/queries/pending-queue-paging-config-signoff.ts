@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { z } from "zod";
-import { newestWaiting } from "@/lib/queries/pending-quality-config-signoff";
+import { newestWaiting, runningUnsigned } from "@/lib/queries/pending-quality-config-signoff";
 
 /**
  * OQ-451: what the task layer configuration (queue_task_layer_config) and the paging delivery configuration (paging_delivery_config)
@@ -99,6 +99,8 @@ export type PendingQueuePagingConfigSignoff = {
   pagingRules: PagingRulesView | null;
   /** The numbers of the paging version in force, so the panel can say what changes. */
   pagingInForceRules: PagingRulesView | null;
+  /** The paging version now in force has no signature on record: it is already running unsigned. */
+  pagingRunningUnsigned?: boolean;
   failed: boolean;
 };
 
@@ -121,6 +123,7 @@ export async function readPendingQueuePagingConfigSignoff(supabase: SupabaseClie
       pagingVersion,
       pagingRules: pagingVersion === null ? null : pagingRulesView(p.data.find((r) => r.version === pagingVersion)?.rules),
       pagingInForceRules: pagingRulesView(live?.rules),
+      pagingRunningUnsigned: runningUnsigned(p.data),
       failed: false,
     };
   } catch {
