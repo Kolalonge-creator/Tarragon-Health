@@ -7857,6 +7857,201 @@ export type Database = {
           },
         ]
       }
+      care_gap_attempts: {
+        Row: {
+          actor_id: string | null
+          attempted_at: string
+          channel: string | null
+          gap_id: string
+          id: string
+          note: string | null
+          notification_id: string | null
+          organisation_id: string
+          outcome: string | null
+          outcome_checked_at: string | null
+          outcome_days: number | null
+          patient_id: string
+          result: string
+          step: string
+          variant: Json | null
+          week_start: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          attempted_at?: string
+          channel?: string | null
+          gap_id: string
+          id?: string
+          note?: string | null
+          notification_id?: string | null
+          organisation_id: string
+          outcome?: string | null
+          outcome_checked_at?: string | null
+          outcome_days?: number | null
+          patient_id: string
+          result: string
+          step: string
+          variant?: Json | null
+          week_start?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          attempted_at?: string
+          channel?: string | null
+          gap_id?: string
+          id?: string
+          note?: string | null
+          notification_id?: string | null
+          organisation_id?: string
+          outcome?: string | null
+          outcome_checked_at?: string | null
+          outcome_days?: number | null
+          patient_id?: string
+          result?: string
+          step?: string
+          variant?: Json | null
+          week_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_gap_attempts_gap_id_fkey"
+            columns: ["gap_id"]
+            isOneToOne: false
+            referencedRelation: "care_gaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_gaps: {
+        Row: {
+          attempt_count: number
+          closed_at: string | null
+          closed_by: string | null
+          closed_by_signal: Json | null
+          closure_note: string | null
+          closure_reason: string | null
+          condition: string | null
+          config_version: number
+          created_at: string
+          days_overdue: number
+          due_date: string
+          gap_type: string
+          id: string
+          is_test: boolean
+          ladder_step: number
+          last_checked_at: string | null
+          next_attempt_due_at: string | null
+          opened_at: string
+          organisation_id: string
+          outreach_task_id: string | null
+          owner_id: string | null
+          owner_role: string
+          patient_id: string
+          review_due_at: string | null
+          review_escalated_at: string | null
+          risk_rank: number
+          shadow: boolean
+          status: string
+          subject_id: string | null
+          threshold: number | null
+          trend_flag: boolean
+          updated_at: string
+          why: Json
+        }
+        Insert: {
+          attempt_count?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_by_signal?: Json | null
+          closure_note?: string | null
+          closure_reason?: string | null
+          condition?: string | null
+          config_version: number
+          created_at?: string
+          days_overdue?: number
+          due_date: string
+          gap_type: string
+          id?: string
+          is_test?: boolean
+          ladder_step?: number
+          last_checked_at?: string | null
+          next_attempt_due_at?: string | null
+          opened_at?: string
+          organisation_id: string
+          outreach_task_id?: string | null
+          owner_id?: string | null
+          owner_role: string
+          patient_id: string
+          review_due_at?: string | null
+          review_escalated_at?: string | null
+          risk_rank?: number
+          shadow: boolean
+          status?: string
+          subject_id?: string | null
+          threshold?: number | null
+          trend_flag?: boolean
+          updated_at?: string
+          why: Json
+        }
+        Update: {
+          attempt_count?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_by_signal?: Json | null
+          closure_note?: string | null
+          closure_reason?: string | null
+          condition?: string | null
+          config_version?: number
+          created_at?: string
+          days_overdue?: number
+          due_date?: string
+          gap_type?: string
+          id?: string
+          is_test?: boolean
+          ladder_step?: number
+          last_checked_at?: string | null
+          next_attempt_due_at?: string | null
+          opened_at?: string
+          organisation_id?: string
+          outreach_task_id?: string | null
+          owner_id?: string | null
+          owner_role?: string
+          patient_id?: string
+          review_due_at?: string | null
+          review_escalated_at?: string | null
+          risk_rank?: number
+          shadow?: boolean
+          status?: string
+          subject_id?: string | null
+          threshold?: number | null
+          trend_flag?: boolean
+          updated_at?: string
+          why?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_gaps_outreach_task_id_fkey"
+            columns: ["outreach_task_id"]
+            isOneToOne: false
+            referencedRelation: "care_outreach_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_gaps_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_gaps_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_outreach_tasks: {
         Row: {
           assigned_to: string | null
@@ -51481,6 +51676,10 @@ export type Database = {
       record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
+      sign_care_gap_rule_config: { Args: { p_version: number }; Returns: undefined };
+      log_care_gap_attempt: { Args: { p_gap: string; p_next_in_days?: number; p_note: string; p_result: string }; Returns: undefined };
+      close_care_gap_manual: { Args: { p_gap: string; p_note: string; p_reason: string }; Returns: undefined };
+      care_gap_institution_summary: { Args: { p_gap_types?: string[]; p_org: string }; Returns: Json };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       admin_set_reward_rule: {
         Args: { p_active: boolean; p_caps: Json; p_code: string; p_points: number }
@@ -59154,6 +59353,10 @@ export type Database = {
         | "medication_engagement_barrier"
         | "engagement_decline"
         | "disengagement_risk"
+        | "gap_missed_reading"
+        | "gap_lab_overdue"
+        | "gap_refill_lapse"
+        | "gap_adherence_lapse"
       partner_notification_method:
         | "self_notify"
         | "clinician_assisted"
@@ -61602,6 +61805,10 @@ export const Constants = {
         "medication_engagement_barrier",
         "engagement_decline",
         "disengagement_risk",
+        "gap_missed_reading",
+        "gap_lab_overdue",
+        "gap_refill_lapse",
+        "gap_adherence_lapse",
       ],
       partner_notification_method: [
         "self_notify",
