@@ -61,6 +61,11 @@ select pg_temp.ck('an unauthorised request older than 7 days shows as expired, m
 select pg_temp.ck('research_challenges is in the S39d data registry and the member export',
   (select (count(*) = 1)::text from public.data_registry where table_name = 'research_challenges' and in_export), 'true');
 
+select pg_temp.ck('the export keeps the earlier review fixes: live consent join, only data after the consent date, small-month blanking',
+  (pg_get_functiondef('public.run_research_export(uuid)'::regprocedure) like '%patient_consent_state%'
+   and pg_get_functiondef('public.run_research_export(uuid)'::regprocedure) like '%granted_at%'
+   and pg_get_functiondef('public.run_research_export(uuid)'::regprocedure) like '%enrol_n%')::text, 'true');
+
 -- SABOTAGE
 create or replace function private.research_difference_ok(p_prev text[], p_curr text[], p_min integer) returns boolean language sql immutable as $f$ select true $f$;
 select pg_temp.ck('SABOTAGE: with the check made always-true the swap passes, so the "refuses a swap" check above would fail (test discriminates)',

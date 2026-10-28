@@ -252,11 +252,24 @@ begin
     select o.*, s.patient_id
     from analytics.v_outcome_snapshots o
     join analytics.subjects s on s.subject_key = o.subject_key
-    where o.organisation_id = v_p.organisation_id and private.research_eligible(s.patient_id, v_p.id)
+    join public.patient_consent_state c on c.patient_id = s.patient_id and c.consent_type_code = 'research' and c.granted and c.withdrawn_at is null
+    -- only data recorded AFTER the person agreed: nothing collected before their consent is released (the day they agreed is left out too)
+    where o.organisation_id = v_p.organisation_id
+      and private.research_eligible(s.patient_id, v_p.id)
+      and o.computed_on > (c.granted_at at time zone 'UTC')::date
+  ), enrol_n as (
+    select enrolment_month m, count(distinct subject_key) n from elig group by 1
+  ), month_n as (
+    select date_trunc('month', computed_on::timestamp)::date m, count(distinct subject_key) n from elig group by 1
   ), shaped as (
     select encode(extensions.digest(e.subject_key::text || ':' || v_p.id::text, 'sha256'), 'hex') as participant,
-           to_jsonb(e) || jsonb_build_object('computed_month', date_trunc('month', e.computed_on::timestamp)::date) as j
+           to_jsonb(e)
+             -- a month value shared by fewer participants than the protocol's minimum would single someone out: it is released as empty
+             || jsonb_build_object('enrolment_month', case when en.n >= v_p.min_cell_size then to_jsonb(e.enrolment_month) else 'null'::jsonb end)
+             || jsonb_build_object('computed_month', case when mn.n >= v_p.min_cell_size then to_jsonb(date_trunc('month', e.computed_on::timestamp)::date) else 'null'::jsonb end) as j
     from elig e
+    join enrol_n en on en.m = e.enrolment_month
+    join month_n mn on mn.m = date_trunc('month', e.computed_on::timestamp)::date
   )
   select coalesce(jsonb_agg(
            jsonb_build_object('participant', participant) ||
