@@ -21,7 +21,7 @@ import {
   loadLatestWellbeingCheckin,
   loadWellbeingCheckinFrequencyDays,
   loadNextReviewDue,
-  submitWellbeingCheckin,
+  queueWellbeingCheckin,
   updateWellbeingCheckinFrequency,
   bandHigherIsBetter,
   bandLowerIsBetter,
@@ -320,7 +320,8 @@ function CheckinForm({
       return;
     }
     setSubmitting(true);
-    const result = await submitWellbeingCheckin({
+    // Saved on the phone first, so a check-in made with no signal is not lost (D.1). The text below says it was saved, not that it was sent.
+    const result = await queueWellbeingCheckin({
       patientId,
       organisationId,
       moodScore: answers.mood_score,

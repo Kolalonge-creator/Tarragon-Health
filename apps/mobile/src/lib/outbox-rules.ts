@@ -15,6 +15,8 @@ export type OutboxKind =
   | "birth_plan"
   | "meal"
   | "activity"
+  // D.1: a wellbeing check-in (mood, stress, sleep, activity), saved on the phone first like a reading.
+  | "wellbeing_checkin"
   // S08z: the patient's anchor times and "my day has shifted" entries. Settings, not records: they queue so they work offline.
   | "anchor_times"
   | "day_shift"

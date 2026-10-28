@@ -2573,7 +2573,8 @@ Design note: `docs/design/S47-decisions-applied.md`. Everything below that needs
 ### OQ-549 An untied clinician can read reproductive and mental health rows for a whole organisation (raised by S85, journey 4)
 - On main-dev, a real clinician session with no task, lead assignment or page reads `menstrual_cycles`, `mental_health_screens` and `wellbeing_checkins` for every patient in the organisation (300 rows each in the journey fixture). `vitals_readings`, `symptoms`, `lab_results`, `menstrual_daily_logs`, `reproductive_health_profiles`, `patient_pregnancy` and `contraception_plans` were correctly empty. INV-12 says a clinician sees only tied patients.
 - S39b (PR 997, tied staff reads, 128 tables) is the planned fix and is not on main-dev. Journey 4 holds this as `pending(S39b)` only while the leak is exactly those three tables; a new leaked table fails the journey, and a table that stops leaking fails it until the list is shrunk.
-- Decision: pending (merge S39b).
+- **Update 2026-10-27 (S88): CLOSED.** S39b is on main-dev and live (the three tables named here were tied by S39b and S56; journey 4's known-leak list is now empty and the step is a plain assertion). The same sweep found nine pregnancy and maternal tables S39b never reached; they are tied by the S88 migration (see OQ-362, OQ-588).
+- Decision: closed (S88).
 ### OQ-550 The web app has no offline emergency guidance (raised by S85, journey 2)
 - INV-06 is met on the phone (bundled rules, on-device red). On the web, with the network off, the vitals form only refuses to save and says so; no emergency guidance is shown and `offline.html` has none. Journey 2 records `guidance-with-network-off-web` as pending. Options: add static emergency text to the offline page and the service worker (recommended), or declare INV-06 phone only in the spec.
 - Related finding: the phone's bundled fallback rules are `BP_CARE_V1` while the database holds v3; the journey asserts the device grade is never weaker than the server grade on the same facts.
@@ -2653,7 +2654,8 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 - Decision: open.
 ### OQ-362 Staff reads of the new tables use `is_org_staff` today (raised by S68)
 - Until S39b (tied staff reads, #997) lands, any staff member of the organisation can read the S68 tables through `private.maternal_staff_may_read`, which is one function. S39b must register the nine new tables (growth columns, baby checks, feed log, lifecycle, loss records, deletion receipts) in `staff_read_scope` as tied and change that one function.
-- Decision: open (S39b follow-up).
+- **Closed 2026-10-27 (S88, `20261027175050_s88_tie_staff_reads_pregnancy_and_maternal_tables.sql`):** `private.maternal_staff_may_read` now calls `private.staff_may_read(patient, org, 'reproductive_health')`, the five S68 tables are registered tied, and their two write policies with a literal staff arm use `staff_may_write`. Proof `s88_tied_staff_reads_maternal_tables.sql`. Not yet applied to the live project. S68 growth columns on `child_growth_measurements` and the deletion receipts were already covered or not patient-readable by staff (S39b tied `child_growth_measurements`); no separate action.
+- Decision: closed (S88), pending apply and `/code-review ultra`.
 ### OQ-363 Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (raised by S68; INV-05)
 - The severe route uses the existing alert and `enqueue_critical_notification` loop (as the red-flag symptom handler does), not `create_red_page`, because that function takes a triage event from a BP rule set. A child nutrition triage rule set would be needed to feed the on-call page and its escalation timer.
 - Decision: open (CMO, S11/S19 owners).
@@ -2820,7 +2822,8 @@ The S86 gate refuses to enable a language unless the registry (`i18n.language_re
 ### OQ-588 New pregnancy tables use `is_org_staff`, not the S39b tied-staff rule (raised by S67)
 - INV-12 says a clinician sees only patients they hold a task, lead or page for. S39b (#997) ties 128 tables to that rule but is not on this branch's base, so the new tables read staff access through one helper (`private.pregnancy_staff_may_read`). After S39b merges, retarget that one function and add the new tables to its list and to the S39b proof.
 - Options: (a) retarget the helper after S39b merges (recommended); (b) copy the S39b predicate into each policy now.
-- Decision: open.
+- **Closed 2026-10-27 (S88):** `private.pregnancy_staff_may_read(org)` takes no patient so it cannot be tied in place; instead the four S67 SELECT policies now call `private.maternal_staff_may_read(patient_id, organisation_id)` (tied, `reproductive_health`, so break-glass, audited openings and, after the S88 review, support view-as never open them) and `private.pregnancy_may_write` uses `staff_may_write`. The one-argument helper stays defined but no policy calls it. Option (a) in spirit, with one helper for both groups.
+- Decision: closed (S88), pending apply.
 
 ### OQ-346 Patient screens for the counter, timer, birth plan, week card and schedule are not built (raised by S67)
 - Built and tested: rules, storage, RLS, the offline outbox path, the phone's cached facts, the cards' wording, the offline danger guide and the PIN-lock seam. Not built: the web and mobile screens, the clinician view of sessions, the antenatal reminder notification template and cron, retiring the old `antenatal_booking` route, and wiring `maternal_enabled` into the screens. Nothing was run in a simulator or browser.
@@ -5806,6 +5809,22 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-S90-07 Who owns care gaps in an organisation with no coordinator (raised 2026-10-27)
 - Live today there is no active care coordinator in the Tarragon organisation. The engine now falls back, in order: the least-loaded available coordinator of the SAME organisation, then the least-loaded eligible doctor of that organisation (same eligibility as the escalation picker, load counted in open gaps plus pushed clinical tasks), then nobody, which opens an immediate sev2 incident `care-gap-unowned` and lets an admin of the organisation read those gaps (`/admin/ops/care-gaps`). A judgement item never goes to a coordinator.
 - Founder decision wanted: is a doctor holding logistics gaps (a missed reading call) acceptable as the fallback, or should a coordinator be hired first and logistics gaps stay unowned (visible to ops only) until then? Recommendation: accept the fallback while the programme is small; it moves back to a coordinator by itself on the next run once one exists.
+
+### OQ-S88-1 The plan said 8 untied clinical tables; the live sweep found 9, and two reminder tables were left (raised by S88)
+- Live `pg_policies` sweep on 2026-10-27 (SELECT only): every `patient_id` table outside `staff_read_scope` whose policy admits staff by role or organisation. Result: the nine maternal tables fixed by S88, plus `vitals_reminder_rules` (any clinician of the organisation reads every patient's reminder frequency per condition) and `patient_reminder_group_members` (any clinician reads group membership). Neither is a clinical record, so S88 left them. `ai_conversations` already limits staff to conversations with a raised alert or escalation; `clinical_tasks`, `pages`, `lead_assignments`, `encounters` and the caregiver-model tables already use ties of their own.
+- Options: (a) tie both with `staff_may_read` (reminder frequency by condition reveals the condition; recommended); (b) register them as `org` with a reason (work queue).
+- Decision: open.
+
+### OQ-S88-2 Journey 4 proves the nine tables only if the fixture seeds them (raised by S88)
+- The journey's untied-clinician step lists the nine maternal tables; with an empty fixture a zero read proves nothing.
+- **Closed 2026-10-27 (S88 review follow-up):** option (b) was taken. The journey now seeds rows in all nine tables for its two real patients (owner connection, is_test accounts) and asserts each table holds at least one row before the untied-clinician step runs. The DB proof `s88_tied_staff_reads_maternal_tables.sql` still carries the real-RLS control rows.
+- Decision: closed.
+
+### OQ-S88-3 The Chief Medical Officer and an on-call doctor with no care tie cannot read the nine maternal tables by any audited route (raised by S88 strict review; founder decision needed)
+- After S88 a clinician reads pregnancies, kick counts, contractions, birth plans, baby checks, feed logs, lifecycle stage and loss records only with a care relationship to that woman (care-team assignment, an open escalation or alert routed to them, a consultation, a task, an acknowledged page, an assigned referral). Break-glass (`private.has_emergency_access`) and the audited S39c opening (`private.staff_has_open`) both refuse `reproductive_health` by design, and S88 also refuses a support view-as session. So the CMO, and an on-call doctor who is paged for a woman they have not yet acknowledged, have NO route to these rows until a tie exists. The patient-facing safety net (emergency guidance, emergency contacts) does not depend on a clinician reading them, and a paged clinician who acknowledges the page gains the tie (S19), so the gap is narrow: oversight and a doctor who must see a woman's pregnancy record before they hold any task for her.
+- Nothing was invented in S88. Options: (a) assign a tie through a clinical care task (the existing S16 task layer, CMO pushes a task to the doctor; recommended, no new access route, fully audited by the task); (b) a CMO-only audited opening for `reproductive_health` on these nine tables (a new route: per-read audit, reason, expiry, patient told; needs a founder and DPO decision because it is the first exception to "never opened by anything but a tie"); (c) none, accept the gap and rely on (a) in practice.
+- Decision: open (founder, CMO, DPO).
+
 ### OQ-S96-1 The CMO must read, change or reject every MSK draft (raised by S96)
 - Back, neck, knee and hip: 4 x 8 weekly sessions, 22 exercises with steps and doses, the 68 entry questions with their routes, config version 2 (PEG plus function goal, the rise of 2 that pauses, the daily cap of 3, 3 different days to finish a week, a 3 day step-down). Every dose, hold time, repeat count and rule of thumb is PROPOSED and was written from NICE NG59 and NG226 style guidance and general self-management guidance that the CMO must verify against the source. Items marked unverified (low defences, steroids or thin bones, first pain over 50, pregnancy or recent birth, TB, sickle cell bone pain, HIV, hip pain with steroids or alcohol) are local additions.
 - Where: `/clinician/clinical-signoff`, line "Back, neck, knee and hip pain programmes". Nothing is shown to a patient until content is approved, the newest list (version 2) is confirmed, clinician cover and the outcome thresholds are attested, and `therapy_pain_enabled` is switched on. Decision: open.
@@ -5957,3 +5976,51 @@ The request status function and the PDF routes now hide sensitive requests from 
 - **OQ-S88-01 (information, no decision needed unless the founder disagrees).** The S88 plan and the S85-S90 gap analysis list `lab_booking_enabled` as "defined, no call site". That is stale. Migration `20261007222755_s37_enforce_prescribing_lab_booking_guards.sql` (S37, OQ-184) added `private.enforce_lab_booking_guard` and the `lab_orders_a0_go_live_guard` BEFORE INSERT trigger on `public.lab_orders`: a patient-initiated, `fulfilment = 'partner'` order by a signed-in user is refused with `lab_booking_guard_off` unless the guard is on or the patient is a test account. Proof: `packages/db/tests/s37b_guard_enforcement_prescribing_lab_payouts.sql` (in `ci.manifest`). Checked read-only on the live project 2026-10-27: trigger present, guard `is_on = false`, `enforced_in` filled, 0 rows in `lab_orders`, so enforcing it affects no real patient today. No new migration was written.
 - Deliberately not covered (so lab collection that is live today keeps working): self-arranged orders (including `public.start_annual_bundle`, which inserts `self_arranged`), clinician-ordered tests, and inserts with no signed-in user. If the founder wants the guard to also stop self-arranged annual bundle starts, that is a separate decision: it would make Membership Plus collection depend on the guard.
 - Switching the guard on is a founder action through `set_go_live_guard`; nothing here flips it.
+
+### Follow-up to OQ-549 (2026-10-28): menstrual_cycles still readable by an untied clinician
+
+- **Status:** open, founder-approved known gap (journey 4 keeps `menstrual_cycles` as its one shrink-only known leak, pending S39b). Not an S88 table; the nine S88 tables now fail journey 4 on any leak with no pending pass.
+- **What is known:** the live `menstrual_cycles_select` policy has an S39b `staff_may_read` arm plus emergency and `can_read_clinical` arms. Which arm admits an untied clinician in the CI replay is not traced (suspect `can_read_clinical`).
+- **Decision needed:** trace and tie it in a separate PR (reproductive_health category, written fresh, with a simulated untied-clinician proof), or accept.
+
+### OQ-739 Journey testing: `dose.recorded` and `dose.missed` are registered on the new event bus and nothing emits them (raised by the journey-testing pass)
+- Gap: dose logging and missed doses feed the older `clinical_rule_events` bus (S08), not `domain_events`, so the two names seeded by S10 have no producer and no subscriber (audit D.7 finding F-3, event-map rows `dose-recorded` and `dose-missed`).
+- Not built here on purpose: a bridge emitter would add outbox rows that nothing reads, could not be proved without a real database replay, and the choice between "emit on the new bus" and "retire the names" changes what S53/S54 subscribe to.
+- Options: (a) emit both from the existing S08 triggers and add the adherence and refill subscribers in the same change; (b) retire the two names and keep one bus for doses; (c) leave as is.
+- Recommendation: (a) when S53/S54 are next worked, so a subscriber lands with the producer.
+
+### OQ-740 Journey testing: the Android Maestro workflow needs an Android test build, a test backend and two secrets before it can run (raised by the journey-testing pass)
+- `.github/workflows/mobile-maestro-android.yml` is manual only and has never run. It needs: an EAS preview build of the Android app (`apps/mobile/android` is not committed, so CI cannot build one); a non-production backend; repository secrets `MOBILE_E2E_EMAIL` and `MOBILE_E2E_PASSWORD` for an `is_test` account. Several flows still carry iOS app ids or unconfirmed selectors; run one flow by hand first.
+- A person decides: which backend the test account lives on, and who builds and uploads the APK.
+
+### OQ-746 Cycle logs and lifestyle trackers are still online-only (raised 2026-10-27)
+- Built: wellbeing check-ins now save on the phone first (outbox kind `wellbeing_checkin`). Not built: cycle and daily logs, alcohol, smoking and sleep-goal trackers.
+- Cycle data is in the protected reproductive category. A queued row sits in the phone's encrypted store until it sends, and the held-rows notices list what is waiting. Whether a waiting cycle log may appear there by name, whether it should sit behind the private-section lock, and how discreet mode treats it are decisions the S66 design did not make. Queueing it without that decision could show a reproductive entry on a shared phone's sync banner.
+- The lifestyle trackers have no such privacy question; they are plain follow-up work (an outbox kind each, with the same pattern as the check-in).
+- Decision needed: how queued cycle entries are shown (recommend: never by name; the generic "something is waiting to send" line only), then build both.
+
+### OQ-747 Some text sizes are still capped below 200 percent (raised 2026-10-27)
+- WCAG 2.2 asks for text to be usable at 200 percent. The top-bar title now scales fully. Still capped at 1.2 on purpose: the initials in a fixed circle, the unread-count badge, the drawer label and the five bottom-tab labels (`TAB_LABEL_MAX_SCALE`). Raising them without a device would risk clipped text on a narrow phone.
+- Needs a pass on a real small Android phone at the largest text setting; the tab bar probably needs to wrap or stack its labels rather than just lift the cap.
+
+### OQ-734 The "What is this?" help covers 11 screens; the rest have none (raised 2026-10-27)
+- The help text is the written script of the planned audio clip, so the words and the recording cannot differ. A screen is mapped only where its script clearly describes it (`lib/screen-help.ts`). 41 scripts exist for about 79 screens, and several scripts describe features the app does not have (a feature-phone short code, USSD payment, a PIN on discreet mode). Those were left unmapped on purpose.
+- Needs: scripts for the other screens, written and reviewed (they are patient-facing words), and the audio itself. Recording stays gated on a voice audition on drug names with Nigerian listeners and the CMO's sign-off on the clinical clips.
+
+
+### OQ-735 Queued wellbeing check-ins have no client id and take the phone clock (raised 2026-10-27)
+- The check-in table has no client id column, so the queue de-duplicates by looking up an existing row for the same person and check-in time. That lookup is allowed only for the patient or a supporter with mental-health read access, so for a helper acting for someone without that permission a retry after a lost reply could store a second check-in. The fix is a `client_id` column with a unique index, which is a migration (the activity log already works this way).
+- A queued check-in is stamped with the phone clock. Vitals have a back-date window and the server clock as the cap; check-ins do not. A phone with a wrong clock stores a wrong check-in time. Option: clamp to the server time on send when the recorded time is in the future.
+
+### OQ-744 Screenshot blocking and the Android app-switcher cover need a native change (raised 2026-10-27)
+- Built: a privacy cover that hides the app in the app switcher for anyone with App lock or discreet mode on (`lib/privacy-cover.ts`, `ui/privacy-cover.tsx`). On iOS the snapshot is taken as the app goes inactive and React draws the cover in that window, so this works. On Android the system takes the recents thumbnail as the activity pauses, before JavaScript can react, so the React cover is not reliable there.
+- Also not covered even on iOS: anything shown inside a React Native `Modal` (the emergency guidance, consent and several sheets). A Modal is a separate native window, so a cover drawn by the app sits underneath it. If the app is backgrounded with one open, the snapshot shows that Modal.
+- Not built: blocking screenshots and screen recording, and a dependable Android thumbnail. Both need the window's secure flag (`FLAG_SECURE`) through a native module such as `expo-screen-capture`, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build and a test on real phones. iOS cannot block a screenshot at all, only notice it.
+- Decision needed: which screens get the secure flag (the whole app, or only reproductive health, HIV, mental health and the private section), and whether to spend a native build on it now.
+
+### OQ-745 The app PIN has no biometric on purpose (raised 2026-10-27)
+- The optional app PIN (Settings, under App lock) is PIN only. The device biometric prompt falls back to the phone's own passcode, which is exactly what an app PIN exists to stop: anyone who knows the phone's passcode would get in. It reuses the tested private-section controller (lockout after repeated wrong tries, hashed PIN in the keystore) with its own stored record, so a PIN for one lock never opens the other.
+- A forgotten PIN is cleared with a code sent to the account's phone or email (the same recovery as the private section); only the PIN on that device is removed.
+- Option for later: let the PIN be combined with a biometric that does not fall back to the passcode (`disableDeviceFallback`). Not done, because it is a behaviour the device test in S66 never covered.
+- Not run on a real phone.
+
