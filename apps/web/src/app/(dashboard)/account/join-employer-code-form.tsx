@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { t } from "@tarragon/i18n";
 import { useJoinWithEmployerCode } from "@/lib/queries/employer-accounts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,17 @@ export function JoinEmployerCodeForm() {
         <CardDescription>Have an organisation code from your employer? Enter it here to join.</CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Said before the code is entered, not after: joining puts the person on the employer's staff list. */}
+        <div className="mb-4 space-y-3 text-sm">
+          <section aria-labelledby="employer-sees">
+            <h3 id="employer-sees" className="font-medium">{t("employer.join.sees_title", "en")}</h3>
+            <p className="text-charcoal-ink/70">{t("employer.join.sees_body", "en")}</p>
+          </section>
+          <section aria-labelledby="employer-pays">
+            <h3 id="employer-pays" className="font-medium">{t("programme.who_pays_title", "en")}</h3>
+            <p className="text-charcoal-ink/70">{t("programme.who_pays_body", "en")}</p>
+          </section>
+        </div>
         <form onSubmit={handleSubmit} className="flex items-end gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="employer_code">Organisation code</Label>

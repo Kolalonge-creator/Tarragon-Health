@@ -14,6 +14,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { assessDeviceSync } from "@tarragon/shared";
+import { t, type MessageKey } from "@tarragon/i18n";
 
 const PROVIDER_LABEL: Record<CloudOAuthWearableProvider, string> = {
   oura: "Oura",
@@ -215,6 +217,8 @@ export function WearableConnectCard({
                   <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{connection.last_sync_error}</p>
                 )}
 
+                {connection?.status === "active" && <SyncLine lastSyncedAt={connection.last_synced_at ?? null} />}
+
                 {connection && connection.status !== "error" && (
                   <ConnectionControls connection={connection} patientId={patientId} />
                 )}
@@ -386,5 +390,21 @@ function ConnectionControls({
         </div>
       </div>
     </details>
+  );
+}
+
+/**
+ * When this connection last synced, and a calm note if it has been quiet for a while (devices.sync_freshness). Wording only: no clinical rule
+ * reads it, and a stale display never changes a grade. Only an active connection shows it; a paused one is quiet on purpose.
+ */
+function SyncLine({ lastSyncedAt }: { lastSyncedAt: string | null }) {
+  // Read once on mount, not during every render; "N hours ago" only needs to be right when the person opens the page.
+  const [nowMs] = useState(() => Date.now());
+  const a = assessDeviceSync(lastSyncedAt, nowMs);
+  return (
+    <div className="mt-1 space-y-0.5">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t(a.label.key as MessageKey, "en", a.label.params)}</p>
+      {a.showNote && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("devices.sync.note_wearable", "en")}</p>}
+    </div>
   );
 }

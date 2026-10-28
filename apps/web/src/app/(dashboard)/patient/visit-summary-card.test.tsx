@@ -75,4 +75,43 @@ describe("VisitSummaryCard", () => {
     summaries.mockReturnValue({ data: undefined, isLoading: false, isError: true });
     expect(render()).toContain(t("avs.error.generic", "en"));
   });
+
+  describe("the follow-up prompt (visit.follow_up_prompt)", () => {
+    afterEach(() => jest.useRealTimers());
+    const at = (iso: string) => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(iso));
+    };
+
+    // The configuration entry is in force from 2026-10-27, so these tests run after that date.
+    it("is shown in the days after approval, with a link to Messages, and names the summary date", () => {
+      at("2026-10-29T09:00:00Z");
+      summaries.mockReturnValue({ data: [summary({ approved_at: "2026-10-27T09:00:00Z" })], isLoading: false, isError: false });
+      const html = render();
+      expect(html).toContain(t("avs.followup.title", "en"));
+      expect(html).toContain(t("avs.followup.cta", "en"));
+      expect(html).toContain('href="/patient/messages"');
+      expect(html).toContain("Say it is about the summary checked on");
+    });
+
+    it("is gone once the window has ended, and the emergency wording is still there", () => {
+      at("2026-11-05T09:00:00Z");
+      summaries.mockReturnValue({ data: [summary({ approved_at: "2026-10-27T09:00:00Z" })], isLoading: false, isError: false });
+      const html = render();
+      expect(html).not.toContain(t("avs.followup.title", "en"));
+      expect(html).toContain(t("avs.urgent.title", "en"));
+    });
+
+    it("is not shown in a caregiver's read only view (they do not message on the person's behalf here)", () => {
+      at("2026-10-29T09:00:00Z");
+      summaries.mockReturnValue({ data: [summary({ approved_at: "2026-10-27T09:00:00Z" })], isLoading: false, isError: false });
+      expect(render({ readOnly: true })).not.toContain(t("avs.followup.title", "en"));
+    });
+
+    it("promises nothing about replies, prices or allowances", () => {
+      const words = [t("avs.followup.title", "en"), t("avs.followup.body", "en", { date: "1 Jan" }), t("avs.followup.cta", "en")].join(" ");
+      expect(words).not.toMatch(/free|within|hours|instant|guarantee|unlimited|doctor/i);
+      expect(words).not.toMatch(/[\u2013\u2014]/);
+    });
+  });
 });
