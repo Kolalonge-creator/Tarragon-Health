@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  classifyRpcError, readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readStartOutcome,
-  type AsyncStore, type CompleteOutcome, type EnrolOutcome, type EntryQuestions, type StartOutcome, type TherapyAnswers,
+  classifyRpcError, completionRpcName, isActivityRest, startRpcName, readCompleteOutcome, readEnrolOutcome, readEntryQuestions, readFlareUpOutcome, readNotEnoughDays,
+  readStartOutcome, validDifficulty,
+  type AsyncStore, type CompleteOutcome, type EnrolOutcome, type EntryQuestions, type FlareUpOutcome, type StartOutcome, type TherapyAnswers,
 } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 
@@ -56,9 +57,14 @@ export async function enrol(code: string, answers: TherapyAnswers): Promise<Enro
   }
 }
 
-export async function startSession(enrolmentId: string, ordinal: number, answers: TherapyAnswers): Promise<StartOutcome> {
+/**
+ * Pain programmes (S96) open through `start_msk_session`: it asks the activity safety gate first ("rest" opens nothing), then runs the same start,
+ * so the entry screen is re-run every session. Every other programme uses the S63 start.
+ */
+export async function startSession(enrolmentId: string, ordinal: number, answers: TherapyAnswers, programmeCode?: string): Promise<StartOutcome | { kind: "rest" }> {
   try {
-    const { data, error } = await supabase.rpc("start_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_recheck: answers as unknown as Record<string, boolean | number> });
+    const { data, error } = await supabase.rpc(startRpcName(programmeCode), { p_enrolment: enrolmentId, p_ordinal: ordinal, p_recheck: answers as unknown as Record<string, boolean | number> });
+    if (!error && isActivityRest(data)) return { kind: "rest" };
     return error ? { kind: "unknown" } : readStartOutcome(data);
   } catch {
     return { kind: "unknown" };
@@ -66,10 +72,12 @@ export async function startSession(enrolmentId: string, ordinal: number, answers
 }
 
 /** "network" means the call did not get an answer, so the caller may queue it; "rejected" is a permanent answer to show, never queue. */
-export async function completeSession(enrolmentId: string, ordinal: number, scores: Record<string, number> | null): Promise<CompleteOutcome | { kind: "network" } | { kind: "rejected" }> {
+export async function completeSession(enrolmentId: string, ordinal: number, scores: Record<string, number> | null, programmeCode?: string): Promise<CompleteOutcome | { kind: "network" } | { kind: "rejected" } | { kind: "short"; daysNeeded: number }> {
   try {
-    const { data, error } = await supabase.rpc("complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: scores ?? undefined });
+    const { data, error } = await supabase.rpc(completionRpcName(programmeCode), { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: scores ?? undefined });
     if (error) return classifyRpcError(error) === "permanent" ? { kind: "rejected" } : { kind: "network" };
+    const short = readNotEnoughDays(data);
+    if (short) return { kind: "short", daysNeeded: short.daysNeeded };
     return readCompleteOutcome(data);
   } catch {
     return { kind: "network" };
@@ -110,5 +118,29 @@ export async function loadSharing(enrolmentId: string): Promise<boolean | null> 
     return error ? null : (data?.shared ?? false);
   } catch {
     return null;
+  }
+}
+
+/** A difficulty rating after a pain-programme exercise (S96). Never throws: `null` means it was not saved. */
+export async function rateExercise(enrolmentId: string, ordinal: number, exerciseKey: string, rating: number): Promise<{ offerEasier: boolean; daysDone: number | null } | null> {
+  if (!validDifficulty(rating)) return null;
+  try {
+    const { data, error } = await supabase.rpc("record_msk_exercise_rating", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_exercise_key: exerciseKey, p_rating: rating });
+    if (error || typeof data !== "object" || data === null || Array.isArray(data)) return null;
+    const o = data as Record<string, unknown>;
+    if (o.status !== "ok") return null;
+    return { offerEasier: o.offer_easier === true, daysDone: typeof o.days_done === "number" ? o.days_done : null };
+  } catch {
+    return null;
+  }
+}
+
+/** "My pain got worse" (S96): the database re-runs the red-flag screen. An unreadable answer is "unknown", never a continue. */
+export async function reportFlareUp(enrolmentId: string, answers: TherapyAnswers, painNow?: number): Promise<FlareUpOutcome> {
+  try {
+    const { data, error } = await supabase.rpc("report_msk_flare_up", { p_enrolment: enrolmentId, p_recheck: answers as unknown as Record<string, boolean | number>, p_pain_now: painNow });
+    return error ? { kind: "unknown" } : readFlareUpOutcome(data);
+  } catch {
+    return { kind: "unknown" };
   }
 }

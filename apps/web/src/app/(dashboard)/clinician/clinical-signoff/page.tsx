@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, AI_MONITORING_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -31,10 +31,13 @@ import { BpDevicesList } from "../recommended-devices/devices-list";
 import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
+import { LowCarbProtocolConfigPanel } from "../_signoff-panels/lowcarb-protocol-config-panel";
+import { NutritionGuidanceConfigPanel } from "../_signoff-panels/nutrition-guidance-config-panel";
 import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
 import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
 import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
+import { FastingSafetyConfigPanel } from "../_signoff-panels/fasting-safety-config-panel";
 import { HomeCardConfigPanel } from "../_signoff-panels/home-card-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
@@ -47,13 +50,21 @@ import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-pan
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
 import { CascadeConfigPanel } from "../_signoff-panels/cascade-config-panel";
+import { BaselineLabsRulePanel } from "../_signoff-panels/baseline-labs-rule-panel";
+import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
 import { AiMonitoringPanel } from "../_signoff-panels/ai-monitoring-panel";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { CareGapConfigPanel } from "../_signoff-panels/care-gap-config-panel";
+import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { AdjustmentConfigPanel, ReliableChangeConfigPanel } from "../_signoff-panels/outcome-definitions-panel";
+import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
 import { MentalWellbeingPanel } from "../_signoff-panels/mental-wellbeing-panel";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { SymptomUxPanel } from "../_signoff-panels/symptom-ux-panel";
+import { MskProgrammesPanel } from "../_signoff-panels/msk-programmes-panel";
+import { readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { LegacyNoticeRetirementPanel } from "../_signoff-panels/legacy-notice-retirement-panel";
@@ -114,10 +125,13 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,
   nutrition_target_config: () => <NutritionTargetsConfigPanel />,
+  lowcarb_protocol_config: () => <LowCarbProtocolConfigPanel />,
+  nutrition_guidance_config: () => <NutritionGuidanceConfigPanel />,
   health_report_config_versions: () => <HealthReportConfigPanel />,
   serology_rule_versions: () => <SerologyRulesPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
   activity_safety_config: () => <ActivitySafetyConfigPanel />,
+  fasting_safety_config: () => <FastingSafetyConfigPanel />,
   home_card_config: () => <HomeCardConfigPanel />,
 };
 
@@ -277,9 +291,26 @@ export default async function ClinicianClinicalSignoffPage({
     const pendingWellbeing = await readPendingMentalWellbeingSignoff(supabase);
     inlinePanels[MENTAL_WELLBEING_ITEM_KEY] = <MentalWellbeingPanel worklistVersion={pendingWellbeing.worklistVersion} worklistRules={pendingWellbeing.worklistRules} attestations={pendingWellbeing.attestations} />;
   }
+  if (keys.has(MSK_PROGRAMMES_ITEM_KEY)) {
+    const pendingMsk = await readPendingMskProgrammesSignoff(supabase);
+    inlinePanels[MSK_PROGRAMMES_ITEM_KEY] = <MskProgrammesPanel programmes={pendingMsk.programmes} />;
+  }
   if (keys.has(CASCADE_CONFIG_ITEM_KEY)) {
     const pendingCascade = await readPendingCascadeConfigSignoff(supabase);
     inlinePanels[CASCADE_CONFIG_ITEM_KEY] = <CascadeConfigPanel version={pendingCascade.version} rules={pendingCascade.rules} />;
+  }
+  if (keys.has(CARE_GAP_CONFIG_ITEM_KEY)) {
+    const pendingCareGap = await readPendingCareGapConfigSignoff(supabase);
+    inlinePanels[CARE_GAP_CONFIG_ITEM_KEY] = <CareGapConfigPanel version={pendingCareGap.version} rules={pendingCareGap.rules} />;
+  }
+  if (keys.has(RELIABLE_CHANGE_ITEM_KEY) || keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) {
+    const pendingOutcomes = await readPendingOutcomeDefinitionsSignoff(supabase);
+    if (keys.has(RELIABLE_CHANGE_ITEM_KEY)) inlinePanels[RELIABLE_CHANGE_ITEM_KEY] = <ReliableChangeConfigPanel version={pendingOutcomes.reliableChange.version} view={pendingOutcomes.reliableChange.view} />;
+    if (keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) inlinePanels[ADJUSTMENT_CONFIG_ITEM_KEY] = <AdjustmentConfigPanel version={pendingOutcomes.adjustment.version} view={pendingOutcomes.adjustment.view} />;
+  }
+  if (keys.has(BASELINE_LABS_ITEM_KEY)) {
+    const pendingBaseline = await readPendingBaselineLabsRuleSignoff(supabase);
+    inlinePanels[BASELINE_LABS_ITEM_KEY] = <BaselineLabsRulePanel version={pendingBaseline.version} rule={pendingBaseline.rule} />;
   }
   if (keys.has(AI_MONITORING_ITEM_KEY)) {
     const pendingAiMonitoring = await readPendingAiMonitoringSignoff(supabase);

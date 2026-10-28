@@ -26,6 +26,22 @@ describe("sponsor pack rows", () => {
   it("allows a sentence that states a limit", () => {
     expect(() => assertNoCausalWording(packRows({ note: "This does not show that the programme caused any change." }))).not.toThrow();
   });
+  it("carries the methods and funding block into the rows (so into the CSV and the PDF), with the review absent by default", () => {
+    const withMethods = {
+      ...pack,
+      methods_and_funding: {
+        withheld: false,
+        funding: { sponsor: "Acme", produced_by: "Tarragon Health" },
+        definitions: { cascade_of_care: { version: 1, status: "proposed_not_signed", signed_on: null } },
+        review: { status: "not_independently_reviewed", text: "These figures have not been independently reviewed." },
+      },
+    };
+    const rows = packRows(withMethods);
+    expect(rows.find((r) => r.item === "funding.produced_by")?.value).toBe("Tarragon Health");
+    expect(rows.find((r) => r.item === "review.status")?.value).toBe("not_independently_reviewed");
+    expect(rows.find((r) => r.item === "definitions.cascade_of_care.signed_on")?.value).toBe("withheld");
+    expect(packToCsv(rows)).toContain("have not been independently reviewed");
+  });
 });
 
 describe("parsePackReply", () => {

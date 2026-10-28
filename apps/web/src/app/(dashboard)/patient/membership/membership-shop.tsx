@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import Link from "next/link";
-import { estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice } from "@tarragon/commerce";
+import { estimatedBreakdown, formatNaira, itemiseCheckout, sponsorSplit, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
@@ -262,6 +262,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
 function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Locale; kindByCode: ReadonlyMap<string, string> }) {
   const [refundTarget, setRefundTarget] = useState<OrderRow | null>(null);
   const paidRow = rows.find((o) => o.state === "paid") ?? null;
+  // A sponsor part-covered this order (A4): say plainly what the person pays and what the sponsor pays. Nothing is said when they paid it all or the sponsor did.
+  const split = (o: OrderRow): string | null => {
+    const s = sponsorSplit({ youKobo: o.total_kobo ?? o.amount_kobo, sponsorShareKobo: o.sponsor_share_kobo, sponsorName: o.sponsor_name });
+    return s === null ? null : t("sponsor.split", locale, { you: `\u20A6${formatNaira(s.youKobo)}`, name: s.sponsorName ?? t("sponsor.name_generic", locale), amount: `\u20A6${formatNaira(s.sponsorKobo)}` });
+  };
 
   return (
     <Card>
@@ -288,6 +293,7 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
                   {o.refund_state !== null && <span className={`text-sm ${MUTED}`}>{t(refundStateKey(o.refund_state), locale)}</span>}
                   <div className="text-right">
                     {o.amount_kobo === 0 && o.sponsor_share_kobo > 0 ? <p>{o.sponsor_name ? t("sponsor.history_covered", locale, { name: o.sponsor_name }) : t("sponsor.covered_generic", locale)}</p> : <p><Naira kobo={o.total_kobo ?? o.amount_kobo} /></p>}
+                    {split(o) ? <p className={`text-sm ${MUTED}`}>{split(o)}</p> : null}
                     <p className={`text-sm ${MUTED}`}>{t(orderStateKey(o.state), locale)}</p>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { asLocale, AVS_URGENT_KEY, avsItemLabel, t, type MessageKey } from "@tarragon/i18n";
+import { visitFollowUpOpen } from "@tarragon/shared";
 import { addVisitItemToTasks, loadVisitSummaries, recordVisitSummaryOpened, setVisitItemDone } from "@/lib/visit-summary";
 import type { VisitSummary, VisitSummaryItem } from "@/lib/visit-summary/parse";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -19,7 +20,7 @@ function lagosDate(iso: string): string {
  * signal for a moment and no notification at all: the list is the interface. The urgent-care block is the app's existing
  * emergency wording, shown on every summary. Not run on a real device.
  */
-export function VisitSummarySection() {
+export function VisitSummarySection({ onOpenMessages }: { onOpenMessages?: () => void } = {}) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr: Translate = useCallback((key, params) => t(key, locale, params), [locale]);
@@ -62,13 +63,25 @@ export function VisitSummarySection() {
       <MutedText>{tr("avs.intro")}</MutedText>
       {failed ? <ErrorText>{tr("avs.error.generic")}</ErrorText> : null}
       {summaries.map((s) => (
-        <SummaryCard key={s.id} summary={s} tr={tr} locale={locale} onChanged={refresh} />
+        <SummaryCard key={s.id} summary={s} tr={tr} locale={locale} onChanged={refresh} onOpenMessages={onOpenMessages} />
       ))}
     </View>
   );
 }
 
-function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary; tr: Translate; locale: ReturnType<typeof asLocale>; onChanged: () => Promise<void> }) {
+function SummaryCard({
+  summary,
+  tr,
+  locale,
+  onChanged,
+  onOpenMessages,
+}: {
+  summary: VisitSummary;
+  tr: Translate;
+  locale: ReturnType<typeof asLocale>;
+  onChanged: () => Promise<void>;
+  onOpenMessages?: () => void;
+}) {
   const colors = useLegacyColors();
   const [error, setError] = useState(false);
 
@@ -148,6 +161,17 @@ function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary
         );
       })}
       {error ? <ErrorText>{tr("avs.error.generic")}</ErrorText> : null}
+
+      {/* A prompt only (visit.follow_up_prompt): it makes the existing conversation easy to find; it adds no entitlement and promises no reply time. */}
+      {onOpenMessages && summary.approvedAt && visitFollowUpOpen(summary.approvedAt, Date.now()) ? (
+        <View style={{ gap: 6 }}>
+          <Text accessibilityRole="header" style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+            {tr("avs.followup.title")}
+          </Text>
+          <MutedText>{tr("avs.followup.body", { date: lagosDate(summary.approvedAt) })}</MutedText>
+          <SecondaryButton title={tr("avs.followup.cta")} onPress={onOpenMessages} />
+        </View>
+      ) : null}
 
       <View accessibilityRole="summary" style={{ gap: 4, padding: 12, borderRadius: 10, backgroundColor: colors.border }}>
         <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{tr("avs.urgent.title")}</Text>

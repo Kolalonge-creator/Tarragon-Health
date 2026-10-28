@@ -17,7 +17,7 @@
 import { BIOMARKER_GRADE_BANDS } from "./biomarker-grade-bands";
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
 import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
-import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
+import { THERAPY_EXCLUSION_LISTS, THERAPY_EXCLUSION_LISTS_V1, THERAPY_PROGRAMME_CONFIG, THERAPY_PROGRAMME_CONFIG_V1 } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
@@ -2397,15 +2397,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
   {
     key: "therapy.exclusion_lists",
-    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
-    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
-    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
-    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    // Version 1 (S63): the lists the engine shipped with, the four pain programmes on one shared scaffold list. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_EXCLUSION_LISTS_V1 as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Version 1 (S63): pain programmes scored on one pain rating. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_PROGRAMME_CONFIG_V1 as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+  },
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1, except the four pain programmes which are at list version 2 (S96, msk-config-data.ts); a test fails if the
+    // migration seeds and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123, CG61, NG59 and NG226 style exclusions (to verify)",
   },
   {
     key: "therapy.programme_config",
@@ -2415,9 +2436,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md (config version 2: PEG and function goal for the pain programmes, MSK settings); docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
@@ -3643,6 +3664,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
   },
   {
+    key: "ops.deadman_thresholds",
+    // v2: adds the safety-sweeper counts from public.deadman_status() (migration 20261027083719). Only a "down" verdict opens the incident
+    // issue (.github/scripts/deadman-check.sh); "degraded" is a log warning. So ONE silent safety sweeper (the 15 second re-page sweep, the
+    // recheck sweep) is "down": that failure looks like "no red events", which is exactly what the external switch exists to catch.
+    // A single failed run is only "degraded" (down at two), because a transient error that heals itself should not open an issue.
+    // A listed job with no active cron job is never "down": it means the allow-list names a job that was renamed or unscheduled, a
+    // configuration fault. The per-job allowance (max_silence_minutes) lives in public.critical_cron_jobs. PROPOSED by engineering;
+    // the founder confirms. Do not mark confirmed from an agent.
+    value: {
+      dbQueryTimeoutMs: 5000,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
+      dueOlderThanSeconds: 300,
+      dueUnclaimedDegradedCount: 1,
+      dueUnclaimedDownCount: 10,
+      deadLetterDegradedCount: 1,
+      deadLetterDownCount: 25,
+      openSev1Sev2DegradedCount: 1,
+      openSev1Sev2DownCount: 5,
+      staleCriticalJobsDegradedCount: 1,
+      staleCriticalJobsDownCount: 1,
+      failingCriticalJobsDegradedCount: 1,
+      failingCriticalJobsDownCount: 2,
+      missingCriticalJobsDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027083719_deadman_status_safety_sweeper_heartbeats.sql; docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (heartbeats for the sweepers)",
+  },
+  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
@@ -3919,6 +3972,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-20",
     source: "docs/S06X_DEVICE_CHECKLIST.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md S06x-c; docs/device-lab/RUNBOOK.md",
     guardPatterns: ["cold\\w*start\\w*(ms)?\\s*[=:]\\s*3_?000\\b", "installed\\w*size\\w*(mb)?\\s*[=:]\\s*40\\b"],
+  },
+  {
+    key: "visit.follow_up_prompt",
+    // PROPOSED: how many days after an after-visit summary is approved the app keeps a "questions about this visit? message your care team"
+    // prompt in front of the person. A prompt only: it creates no entitlement, changes no price, and promises no response time, and after it
+    // ends the person can still message their care team from Messages. The written-question follow-up window (async_question.behaviour
+    // followUpDays 7) is separate and unchanged. 7 days is a starting point (the same figure) for the founder to confirm.
+    // Read through loadVisitFollowUpConfig() in packages/shared, never as a literal.
+    value: {
+      days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (K Health 7 day reconnect); docs/design/AVS.md; docs/design/S22.md followUpDays",
+  },
+  {
+    key: "devices.sync_freshness",
+    // PROPOSED: how many days a paired device or connected wearable may go without syncing before the app adds a calm note that the newest
+    // reading the person sees may not be the latest one. Wording only: no clinical rule reads this (the rule engines window readings by
+    // their own signed or proposed rules), and a stale display never changes a grade. 7 days is a starting point for the founder to confirm.
+    // Read through loadDeviceSyncConfig() in packages/shared, never as a literal.
+    value: {
+      stale_after_days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (last synced display; Swissmedic notice on a glucose app that kept showing the last value)",
+    guardPatterns: ["stale\\w*days?\\s*[=:]\\s*7\\b"],
   },
   {
     key: "offline.freshness",
@@ -4255,6 +4340,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S72.md; docs/DECISIONS.md S72-3; OQ-323; OQ-420",
+  },
+  {
+    key: "checkout.payment_channels",
+    // The Paystack channels the hosted checkout page offers (gap 71, OQ-401). Mirrored in supabase/functions/_shared/commerce/checkout-channels.ts
+    // (a Deno function cannot import this package); a test fails on drift. Every member must be in PAYMENT_CHANNELS. DO NOT add "qr" (Paystack Zap) or
+    // any new channel until a human has verified its exact string against the live Paystack account/docs (OQ-S71-CHANNELS); an unknown or empty value
+    // falls back to this default, never to an empty list.
+    value: ["card", "bank_transfer", "ussd"],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/OPEN-QUESTIONS.md OQ-401, OQ-S71-CHANNELS",
   },
   {
     key: "payment_requests.rules",
@@ -8389,6 +8487,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S59c.md section 5; supabase/migrations/20261022233226_s59c_assessment_ux.sql; docs/OPEN-QUESTIONS.md OQ-S59c-04",
   },
   {
+    key: "sponsor.methods_disclosure_wording",
+    // GAP-71: the plain-words wording of the "Methods and funding" block in the sponsor pack and on the sponsor programme-figures pages.
+    // The database holds it as the constant private.sponsor_methods_wording(); a test compares this value with the migration. PROPOSED: the block is
+    // behind the go-live guard `sponsor_methods_disclosure_enabled` (seeded OFF; the CMO switches it on after reading this wording).
+    value: {
+      "version": 1,
+      "title": "Methods and funding",
+      "funding": "{sponsor} sponsors this programme and this report. Tarragon Health produced the figures from its own records. {sponsor} did not choose which members, readings or results are included.",
+      "minimum_cell": "A group smaller than {minimum} people is never shown, and neither is a small group beside it that would let the hidden number be worked out. A figure that is hidden says so; it is never shown as zero.",
+      "definitions": "The figures use the definition versions listed here. A definition marked proposed has not been signed by Tarragon's Chief Medical Officer, and the figures that depend on it are held back until it is.",
+      "exclusions_in_force": "Not counted in any outcome measure: people under 18, or with no date of birth on record; test accounts; people who are pregnant (for HbA1c, weight and the cascade of care); and people whose PHQ-9 total reached the safeguarding line (for PHQ-9 and GAD-7). They are followed up through the usual clinical routes, never through a report. Only members who agreed to share are included.",
+      "exclusions_not_in_force": "No signed definition version yet lists who is left out of the measures, so the exclusion rules are not yet applied to them. Only members who agreed to share are included, and test accounts are never included.",
+      "review_none": "These figures have not been independently reviewed.",
+      "review_done": "Independently reviewed by {reviewer} ({organisation}) on {date}. Scope of the review: {scope}.",
+      "descriptive": "These are descriptions of a group of members. They do not show that the programme caused any change."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "supabase/migrations/20261028061244_gap71_sponsor_methods_and_funding_disclosure.sql; docs/BUILD-PROGRESS.md GAP-71",
+  },
+  {
     key: "outcomes.cascade_rules",
     // WP3: the cascade-of-care stage definitions (hypertension and diabetes), the 140/90 and 7.0 percent control lines, and the selection-bias panel bands.
     // The database holds it as `outcome_cascade_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).
@@ -8557,6 +8678,210 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-23",
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
+  },
+  {
+    key: "prescribing.baseline_labs_rule",
+    // The baseline-labs prescribing rule: kidney function, potassium and glucose (plus HbA1c for every glucose-lowering medicine, and for blood-pressure medicines
+    // when diabetic) within a recent window before a doctor starts or raises the dose of a blood-pressure-lowering or glucose-lowering medicine, with a documented,
+    // audited, followed-up override. The database holds it as `baseline_labs_rule_config` v1 (UNSIGNED, INACTIVE
+    // until the Chief Medical Officer signs on the sign-off hub; until then the check does nothing). A test compares this value with the migration seed.
+    value: {
+      "applies_to": {
+        "start_new_medicine": true,
+        "dose_increase": true,
+        "sources_checked": [
+          "clinician",
+          "specialist"
+        ],
+        "sources_never_checked": [
+          "patient",
+          "fhir_import"
+        ],
+        "note": "Checked when a doctor starts one of these medicines, restarts a stopped one, changes a prescription to one of them, or raises its dose or how often it is taken. A person recording a medicine they already take, an imported record, a stopped medicine, and a dose or frequency that stays the same or goes down are never checked. Doses are compared by their amounts and units, so 1 g to 500 mg is a decrease."
+      },
+      "drug_classes": {
+        "bp_lowering": {
+          "label": "Blood-pressure-lowering medicines",
+          "name_patterns": [
+            "%losartan%",
+            "%telmisartan%",
+            "%valsartan%",
+            "%irbesartan%",
+            "%candesartan%",
+            "%olmesartan%",
+            "%azilsartan%",
+            "%sacubitril%",
+            "%ramipril%",
+            "%lisinopril%",
+            "%enalapril%",
+            "%perindopril%",
+            "%captopril%",
+            "%benazepril%",
+            "%fosinopril%",
+            "%quinapril%",
+            "%aliskiren%",
+            "%amlodipine%",
+            "%nifedipine%",
+            "%felodipine%",
+            "%lercanidipine%",
+            "%nitrendipine%",
+            "%diltiazem%",
+            "%verapamil%",
+            "%hydrochlorothiazide%",
+            "%hctz%",
+            "%indapamide%",
+            "%bendroflumethiazide%",
+            "%chlortalidone%",
+            "%chlorthalidone%",
+            "%spironolactone%",
+            "%amiloride%",
+            "%eplerenone%",
+            "%moduretic%",
+            "%furosemide%",
+            "%frusemide%",
+            "%bumetanide%",
+            "%torsemide%",
+            "%atenolol%",
+            "%bisoprolol%",
+            "%metoprolol%",
+            "%propranolol%",
+            "%carvedilol%",
+            "%nebivolol%",
+            "%labetalol%",
+            "%hydralazine%",
+            "%methyldopa%",
+            "%doxazosin%",
+            "%prazosin%",
+            "%terazosin%",
+            "%clonidine%"
+          ]
+        },
+        "glucose_lowering": {
+          "label": "Glucose-lowering medicines",
+          "name_patterns": [
+            "%metformin%",
+            "%gliclazide%",
+            "%glibenclamide%",
+            "%glimepiride%",
+            "%glipizide%",
+            "%tolbutamide%",
+            "%sitagliptin%",
+            "%vildagliptin%",
+            "%linagliptin%",
+            "%saxagliptin%",
+            "%alogliptin%",
+            "%empagliflozin%",
+            "%dapagliflozin%",
+            "%canagliflozin%",
+            "%ertugliflozin%",
+            "%pioglitazone%",
+            "%acarbose%",
+            "%repaglinide%",
+            "%nateglinide%",
+            "%insulin%",
+            "%liraglutide%",
+            "%semaglutide%",
+            "%dulaglutide%",
+            "%exenatide%",
+            "%tirzepatide%"
+          ]
+        },
+        "note": "Every class of blood-pressure medicine is covered: ACE inhibitors, ARBs, calcium channel blockers, diuretics (thiazide-type, potassium-sparing and loop), beta blockers, alpha blockers, hydralazine, methyldopa and clonidine. The glucose group covers the oral glucose-lowering medicines, the injectable GLP-1 and GIP medicines and every insulin. To add a medicine, the CMO asks for a new version."
+      },
+      "required_baseline": {
+        "for_every_medicine_in_both_groups": [
+          "kidney_function",
+          "potassium",
+          "glucose"
+        ],
+        "additionally_for_every_glucose_lowering_medicine": [
+          "hba1c"
+        ],
+        "additionally_if_diabetes_on_record": [
+          "hba1c"
+        ],
+        "analytes": {
+          "kidney_function": {
+            "label": "Kidney function (creatinine or eGFR)",
+            "analyte_codes": [
+              "creatinine"
+            ],
+            "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
+          },
+          "potassium": {
+            "label": "Potassium",
+            "analyte_codes": [
+              "potassium"
+            ]
+          },
+          "glucose": {
+            "label": "Glucose",
+            "analyte_codes": [
+              "fasting_glucose",
+              "random_glucose"
+            ],
+            "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
+          },
+          "hba1c": {
+            "label": "HbA1c",
+            "analyte_codes": [
+              "hba1c"
+            ]
+          }
+        },
+        "diabetes_on_record": {
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ],
+          "statuses": [
+            "active",
+            "controlled",
+            "uncontrolled"
+          ],
+          "note": "HbA1c is always required before starting or raising a glucose-lowering medicine, to set the baseline. For a blood-pressure-lowering medicine it is required when diabetes is on the patient's problem list (the same ICD-10 prefixes and statuses the cascade of care uses)."
+        }
+      },
+      "recency_window_days": 90,
+      "recency_window_note": "PROPOSED: 90 days. A result counts only if the specimen was collected (or the result dated) within this many days before the medicine is started or the dose is raised. A result dated in the future does not count. The CMO may change this by asking for a new version before signing.",
+      "when_labs_are_missing": {
+        "action": "refuse_unless_documented_override",
+        "bypass_available": true,
+        "message": "The start or increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file, or records a documented override.",
+        "override": {
+          "categories": [
+            {
+              "key": "emergency_treatment",
+              "label": "Emergency treatment: waiting for labs would put the patient at risk"
+            },
+            {
+              "key": "labs_ordered_results_pending",
+              "label": "Labs have been ordered and the results are pending"
+            },
+            {
+              "key": "labs_not_obtainable_documented",
+              "label": "Labs cannot be obtained now, and the reason is written down"
+            }
+          ],
+          "min_reason_length": 20,
+          "valid_minutes": 30,
+          "followup_hours": 48,
+          "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
+        },
+        "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine (however the prescriber words the name, for example insulin glargine or insulin glargine 100 units/ml), and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten. If the labs are still outstanding after 48 hours, the item appears on this hub as something needing your attention."
+      },
+      "informational": {
+        "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
+      },
+      "proposed_note": "Every clinical value here is PROPOSED (the medicine groups, the required labs, the 90-day window, the documented override). Nothing applies until the Chief Medical Officer signs. No agent signs."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-26",
+    source: "docs/DECISIONS.md 2026-10-21 (three-tier Membership ladder, go-live condition 2); supabase/migrations/20261026183108_baseline_labs_prescribing_rule.sql. Unsigned until the CMO signs.",
   },
   {
     key: "support.sla_targets",
@@ -8737,5 +9062,524 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-27",
     source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
+  },
+  {
+    key: "nutrition.eating_plans_numbers",
+    // The only numbers in the eating plans and swaps (S50a, v5 6.8 and 6.9). Live value is `nutrition_guidance_config`.config.plans.*.numbers, seeded
+    // INACTIVE and unsigned; the CMO signs it through sign_nutrition_guidance_config. The kidney and pregnancy plans carry NO numbers (the database
+    // refuses a numbers block on either) and the weight plan has no calorie figure. The 5 g salt line is the WHO figure, a PLACEHOLDER for the CMO.
+    value: { hypertension_salt_g_max: 5 }, // band-ok: grams of salt a day for the eating plan, not a blood pressure band
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S50a.md; supabase/migrations/20261021182447_s50a_eating_plans_swaps.sql",
+  },
+  {
+    key: "fasting.safety_rules",
+    // Religious fasting safety rules (S50b, spec 6.13, Ramadan and Lent only). PROPOSED, UNSIGNED, INACTIVE: the CMO owns every outcome, medicine name and
+    // condition match. Live values are the active, SIGNED row of `fasting_safety_config`.config.safety; fasting-mirror.test.ts fails if the migration seed
+    // and this value drift. Unlike the activity gate this one can answer "may fast with guidance", so unsigned rules never enforce (no signed row = unavailable).
+    //  outcomes: not_advised (a hard stop) or needs_clinician_plan. recent_red_event is not_advised and the database refuses any other value.
+    //  medicine_classes: insulin and sulfonylurea cannot start without a clinician-signed medicine timing plan (an S24 care_plan_changes row, INV-02).
+    value: {
+      "lookback": {
+        "red_hours": 72,
+        "amber_hours": 72
+      },
+      "min_age_years": 18,
+      "outcomes": {
+        "pregnancy": "not_advised",
+        "under_age": "not_advised",
+        "type1_diabetes": "not_advised",
+        "kidney_disease": "not_advised",
+        "eating_disorder": "not_advised",
+        "recent_red_event": "not_advised",
+        "recent_amber_event": "needs_clinician_plan",
+        "insulin": "needs_clinician_plan",
+        "sulfonylurea": "needs_clinician_plan",
+        "diabetes_medicines_unconfirmed": "needs_clinician_plan"
+      },
+      "matches": {
+        "type1_diabetes": {
+          "name_patterns": [
+            "type 1",
+            "type i diabetes",
+            "t1dm",
+            "insulin dependent",
+            "insulin-dependent",
+            "juvenile diabetes"
+          ],
+          "icd10_prefixes": [
+            "E10"
+          ]
+        },
+        "kidney_disease": {
+          "name_patterns": [
+            "kidney",
+            "renal",
+            "ckd",
+            "nephro",
+            "dialysis"
+          ],
+          "icd10_prefixes": [
+            "N17",
+            "N18",
+            "N19"
+          ]
+        },
+        "eating_disorder": {
+          "name_patterns": [
+            "anorexia",
+            "bulimia",
+            "eating disorder",
+            "binge eating"
+          ],
+          "icd10_prefixes": [
+            "F50"
+          ]
+        },
+        "diabetes": {
+          "name_patterns": [
+            "diabet"
+          ],
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ]
+        }
+      },
+      "medicine_classes": {
+        "insulin": {
+          "name_patterns": [
+            "insulin",
+            "glargine",
+            "detemir",
+            "degludec",
+            "lispro",
+            "aspart",
+            "glulisine",
+            "humulin",
+            "mixtard",
+            "novomix",
+            "lantus",
+            "levemir",
+            "tresiba",
+            "novorapid",
+            "humalog",
+            "toujeo",
+            "novolin",
+            "novolog",
+            "admelog",
+            "lyumjev",
+            "semglee",
+            "actrapid",
+            "insulatard",
+            "protaphane",
+            "insuman",
+            "basaglar",
+            "apidra",
+            "fiasp",
+            "ryzodeg",
+            "xultophy",
+            "soliqua",
+            "isophane",
+            "biphasic"
+          ]
+        },
+        "sulfonylurea": {
+          "name_patterns": [
+            "glibenclamide",
+            "glyburide",
+            "glimepiride",
+            "gliclazide",
+            "glipizide",
+            "tolbutamide",
+            "chlorpropamide",
+            "daonil",
+            "amaryl",
+            "diamicron",
+            "glucotrol",
+            "euglucon",
+            "glibomet",
+            "glucovance",
+            "gliben",
+            "glyburide",
+            "glimiprid",
+            "glynase",
+            "minidiab",
+            "diabeta",
+            "micronase",
+            "glibenese"
+          ]
+        },
+        "other_diabetes": {
+          "name_patterns": [
+            "metformin",
+            "glucophage",
+            "pioglitazone",
+            "sitagliptin",
+            "vildagliptin",
+            "saxagliptin",
+            "linagliptin",
+            "gliptin",
+            "empagliflozin",
+            "dapagliflozin",
+            "canagliflozin",
+            "gliflozin",
+            "acarbose",
+            "repaglinide",
+            "nateglinide",
+            "liraglutide",
+            "semaglutide",
+            "dulaglutide",
+            "exenatide",
+            "tirzepatide",
+            "janumet",
+            "galvus",
+            "januvia",
+            "jardiance",
+            "forxiga"
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "fasting.calendar",
+    // EXPECTED windows for Ramadan and Lent. Ramadan follows the moon and Lent follows Easter, so a person confirms the real dates locally; a year that is
+    // not listed is "unknown until a person confirms locally". Dates are a hint on the screen, never a gate.
+    value: {
+      "ramadan": [
+        {
+          "year": 2027,
+          "start": "2027-02-08",
+          "end": "2027-03-09"
+        },
+        {
+          "year": 2028,
+          "start": "2028-01-28",
+          "end": "2028-02-26"
+        }
+      ],
+      "lent": [
+        {
+          "year": 2027,
+          "start": "2027-02-10",
+          "end": "2027-03-27"
+        },
+        {
+          "year": 2028,
+          "start": "2028-03-01",
+          "end": "2028-04-15"
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "glucose_response.rules",
+    // Personal glucose-response insights (S50b, spec 6.11). PROPOSED. Deterministic pairing of a logged meal with the readings before it and about two hours
+    // after it; the screen shows RANGES AND SAMPLE COUNTS only, never labels a food good or bad, and shows nothing for a group under min_pairs_to_show.
+    //  before_window_minutes: a "before" reading is taken up to this long before the meal (and up to before_grace_minutes after it was logged).
+    //  after_window_minutes: the "after" reading is the one closest to after_target_minutes, inside min..max.
+    //  allowed_sources: fingerstick only today. A CGM series is added here later; the input already carries a source label.
+    value: {
+      min_pairs_to_show: 5,
+      max_age_days: 90,
+      before_window_minutes: 30,
+      before_grace_minutes: 10,
+      after_target_minutes: 120,
+      after_window_minutes: { min: 90, max: 150 },
+      plausible_mmol: { min: 1.5, max: 40 },
+      allowed_sources: ["fingerstick"],
+      before_contexts: ["fasting", "pre_meal", "random", "untagged"],
+      after_contexts: ["post_meal", "random", "untagged"],
+      skip_if_other_meal_between: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.11); docs/research/S46-S50-competitor-gap-and-build-plan.md S50b",
+  },
+  {
+    key: "lowcarb.protocol_rules",
+    // Low-carbohydrate type 2 diabetes programme (S50b part 2, spec 6.10, founder decision S50-2). PROPOSED, UNSIGNED, and the programme is dormant
+    // behind the go-live guard `low_carb_t2d_programme`. EVERY number below is a placeholder for the CMO: who is excluded, how often the patient
+    // checks in, the glucose and ketone lines that pause the programme, and when a doctor must look at medicines. Live values are the active, SIGNED
+    // row of `lowcarb_protocol_config`.config; lowcarb-mirror.test.ts fails if the migration seed and this value drift.
+    value: {"eligibility": {"min_age_years": 18, "postnatal_months": 12, "require_confirmed_type_2": true, "severe_hypo_below_mmol": 3.0, "hypo_lookback_days": 90, "triage_lookback_hours": 72, "condition_exclusions": {"type_1_diabetes": {"name_patterns": ["type 1", "type i diabetes", "lada"], "icd10_prefixes": ["E10"]}, "kidney_disease": {"name_patterns": ["kidney", "renal", "ckd", "nephr"], "icd10_prefixes": ["N17", "N18", "N19"]}, "pancreatitis": {"name_patterns": ["pancreatit"], "icd10_prefixes": ["K85", "K86"]}, "liver_disease": {"name_patterns": ["cirrho", "liver failure"], "icd10_prefixes": ["K70", "K72", "K74"]}, "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}}, "medicine_groups": {"insulin": {"handling": "supervision", "name_patterns": ["insulin", "actrapid", "insulatard", "mixtard", "insuman", "insugen", "wosulin", "basalog", "glaritus", "xultophy", "soliqua", "lixilan", "humulin", "humalog", "novorapid", "novomix", "lantus", "abasaglar", "basaglar", "semglee", "levemir", "tresiba", "toujeo", "apidra", "fiasp", "lyumjev", "ryzodeg", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "isophane"]}, "sulfonylurea": {"handling": "supervision", "name_patterns": ["glibenclamide", "glyburide", "gliclazide", "glimepiride", "glipizide", "gliquidone", "tolbutamide", "chlorpropamide", "tolazamide", "daonil", "euglucon", "diamicron", "amaryl", "glucotrol", "minidiab", "glurenorm", "glucovance", "glibomet", "sulfonylurea", "sulphonylurea"]}, "meglitinide": {"handling": "supervision", "name_patterns": ["repaglinide", "nateglinide", "mitiglinide", "novonorm", "starlix"]}, "sglt2_inhibitor": {"handling": "exclude", "name_patterns": ["gliflozin", "dapagliflozin", "empagliflozin", "canagliflozin", "ertugliflozin", "sotagliflozin", "forxiga", "jardiance", "invokana", "steglatro", "steglujan", "trijardy", "synjardy", "xigduo", "glyxambi", "segluromet", "invokamet", "qtern", "inpefa"]}, "metformin": {"handling": "allow", "name_patterns": ["metformin", "glucophage", "glycomet", "diaformin"]}, "dpp4_inhibitor": {"handling": "allow", "name_patterns": ["gliptin", "sitagliptin", "vildagliptin", "linagliptin", "saxagliptin", "alogliptin", "januvia", "janumet", "galvus", "galvusmet", "trajenta", "jentadueto", "onglyza"]}, "glitazone": {"handling": "allow", "name_patterns": ["glitazone", "pioglitazone", "rosiglitazone", "actos"]}, "glp1_agonist": {"handling": "allow", "name_patterns": ["glutide", "liraglutide", "semaglutide", "dulaglutide", "exenatide", "lixisenatide", "tirzepatide", "victoza", "ozempic", "wegovy", "trulicity", "byetta", "saxenda", "mounjaro", "rybelsus"]}, "alpha_glucosidase_inhibitor": {"handling": "allow", "name_patterns": ["acarbose", "miglitol", "glucobay"]}}, "diabetes_markers": {"name_patterns": ["gli", "glu", "sulin", "tophy", "insulin", "diabet", "metformin", "formin", "glutide", "tirzepatide", "sulfonyl", "sulphonyl", "glucose", "sugar"], "indication_patterns": ["diabet", "sugar", "glucose", "dm2", "t2dm", "hyperglyc"]}}, "check_ins": {"glucose": {"per_week": 14, "max_gap_days": 2}, "ketones": {"per_week": 3, "max_gap_days": 4}, "weight": {"per_week": 1, "max_gap_days": 9}}, "safety": {"pause_glucose_below_mmol": 3.9, "pause_ketones_at_or_above_mmol": 3.0, "stop_after_pauses_in_30_days": 3, "stop_if_checkins_missed_days": 14}, "medicine_review": {"window_days": 7, "min_readings": 5, "avg_glucose_below_mmol": 7.0, "any_glucose_below_mmol": 4.4, "standing_review_days": 14}},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.10) and invariants INV-01, INV-02, INV-14; docs/design/S50b-lowcarb.md; supabase/migrations/*_s50b_lowcarb_t2d_programme.sql",
+  },
+  {
+    key: "care_gaps.rules",
+    // S90: the care gap rule thresholds (missed reading, no HbA1c or lipids in 12 months, rising trend, refill lapse, adherence lapse), the outreach ladder, the
+    // weekly cap and quiet hours, and the experiment scaffolding. The database holds it as `care_gap_rule_config` v1 (UNSIGNED, INACTIVE until the Chief Medical
+    // Officer signs on the sign-off hub; with it unsigned the engine runs in shadow mode and nobody is contacted). A test compares this value with the migration seed.
+    // Two numbers are null on purpose (a diabetes reading cadence and the systolic rise that makes a trend): the CMO supplies them, the engine invents none.
+    value: {
+      "verify_against_source": true,
+      "founder_position": "Values in the hypertension rules come from decision pack item 4.2 (CMO-approved 2026-10-07 as the founder's recorded position, pending independent review, not signed). Every number carries verify against source until the CMO confirms the guideline text was opened.",
+      "scope": {
+        "members_only": true,
+        "exclude_minors": true,
+        "conditions": [
+          "hypertension",
+          "diabetes"
+        ]
+      },
+      "rules": {
+        "missed_reading": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "hypertension_days_without_reading": 14,
+          "diabetes_days_without_reading": null,
+          "source": "Pack 4.2: a home reading every 7 days when uncontrolled or newly started, every 14 days when controlled, and overdue means 7 days past due. 14 is the uncontrolled cadence plus the overdue allowance. Control state is not read by this rule, so one line serves everyone with an active hypertension plan. Only usable readings count (the shared rule: no pharmacy machine entry, nothing flagged for validation).",
+          "cmo_to_supply": [
+            "diabetes_days_without_reading"
+          ],
+          "cmo_to_confirm": [
+            "hypertension_days_without_reading"
+          ],
+          "cmo_confirm_note": "For a controlled patient the pack's own overdue line is 21 days (14 plus 7), so this single line of 14 flags a controlled patient 7 days before the pack would. The rule reads only the value here and never infers control state; CMO to confirm 14 or supply a controlled line (OQ-S90-01).",
+          "cmo_note": "The pack gives no home glucose cadence for diabetes (item 4.5 gives targets and triggers only). Until the CMO supplies one, a missed glucose reading is not a gap and this rule is inert for diabetes."
+        },
+        "no_hba1c_12_months": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "lookback_days": 365,
+          "grace_days": 30,
+          "analyte_codes": [
+            "hba1c"
+          ],
+          "applies_to": [
+            "diabetes"
+          ],
+          "source": "Pack 4.2 annual labs and the 30 days past due line for labs; pack 4.5 names HbA1c for diabetes. A result on file counts from its own date; with none on file the plan start counts. Due is that date plus the lookback, and a gap opens only after the grace has passed, so a new plan is never flagged in its first year."
+        },
+        "no_lipids_12_months": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "lookback_days": 365,
+          "grace_days": 30,
+          "analyte_codes": [
+            "lipid_panel",
+            "lipid_profile",
+            "lipid",
+            "total_cholesterol",
+            "ldl",
+            "ldl_cholesterol",
+            "triglycerides"
+          ],
+          "applies_to": [
+            "hypertension",
+            "diabetes"
+          ],
+          "source": "Pack 4.2 annual labs list lipids; same 30 days past due line and same counting as the HbA1c rule. The analyte codes are the ones the lab ingestion uses today; a laboratory that sends a different code will not clear this gap until its code is added in a new version."
+        },
+        "rising_bp_trend": {
+          "enabled": true,
+          "owner_role": "clinician",
+          "patient_ladder": false,
+          "window_days": 14,
+          "min_readings_per_window": 3,
+          "min_rise_systolic_mmhg": null,
+          "source": "Compares the average of usable home blood pressure readings in the latest window with the window before it, through the existing private.bp_window_stats helper (so it follows the shared usable-reading rule). Nothing here changes a medicine; a gap is a task for a doctor to review.",
+          "cmo_to_supply": [
+            "min_rise_systolic_mmhg"
+          ],
+          "cmo_note": "The pack names the 7-day average and 3 readings on 2 days as the trigger (item 4.2) but gives no rise to call a trend. The engine invents none: with the rise left null this rule is inert. The window length and minimum readings are PROPOSED operational values for the CMO to confirm or change."
+        },
+        "medication_refill_lapse": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "days_past_due": 7,
+          "source": "PROPOSED, not in the pack. Uses the refill date the medicines module already holds (the same date that drives the refill reminder) and mirrors the 7 day overdue allowance for a reading. CMO to confirm or change."
+        },
+        "adherence_lapse": {
+          "enabled": true,
+          "owner_role": "care_coordinator",
+          "patient_ladder": true,
+          "signal_event": "adherence.below_line",
+          "within_days": 10,
+          "exclude_drug_name_patterns": [
+            "contracept",
+            "levonorgestrel",
+            "ethinylestradiol",
+            "norethisterone",
+            "medroxyprogesterone",
+            "etonogestrel",
+            "drospirenone",
+            "estradiol",
+            "sertraline",
+            "fluoxetine",
+            "escitalopram",
+            "citalopram",
+            "paroxetine",
+            "fluvoxamine",
+            "venlafaxine",
+            "duloxetine",
+            "amitriptyline",
+            "mirtazapine",
+            "bupropion",
+            "lithium"
+          ],
+          "exclude_indication_patterns": [
+            "contracept",
+            "family planning",
+            "fertility",
+            "menopaus",
+            "depress",
+            "anxiety",
+            "mental health",
+            "psychiat"
+          ],
+          "source": "Opens from the P6 adherence.below_line signal that the daily coverage sweep emits (the line itself, minPercent, lives in the signed or draft bp_care_triage rule set and is not copied here; it is recorded on the gap when it opens and the gap closes against that same line). The percentage is recomputed over the patient's hypertension and diabetes plan medicines only, so a contraceptive or a mental health medicine can neither raise nor hold a gap (reproductive and mental health stay out of this layer). 10 days matches the window P6 uses to avoid re-grading the same week.",
+          "cmo_to_confirm": [
+            "exclude_drug_name_patterns",
+            "exclude_indication_patterns"
+          ],
+          "cmo_confirm_note": "The two exclusion lists are PROPOSED privacy scope, not clinical thresholds. The main control is structural: only medicines linked to an active hypertension or diabetes plan are counted at all."
+        }
+      },
+      "ladder": {
+        "steps": [
+          "push",
+          "in_app",
+          "email",
+          "coordinator_call"
+        ],
+        "days_between_steps": 3,
+        "weekly_cap_per_patient": 2,
+        "quiet_hours": {
+          "start": "20:00",
+          "end": "08:00"
+        },
+        "coordinator_followup_days": 3,
+        "unreachable_after_staff_attempts": 2,
+        "reopen_after_manual_close_days": 30,
+        "doctor_review_days": 3,
+        "recheck_after_hours": 20,
+        "note": "PROPOSED operational values, not clinical. A doctor-owned gap (a judgement item) carries a review date this many days after it opens; unreviewed after that it goes to the Chief Medical Officer once, and an ops incident opens if it is still unreviewed (OQ-S90-05). An open gap is re-checked against the current rules at least every recheck_after_hours, sooner when a new reading, lab or medicine change arrives. The weekly cap counts messages actually sent to a patient across all gaps in a rolling 7 days. Quiet hours are Lagos time. A staff call is never capped. A person may mark a gap unreachable only after the stated number of logged staff attempts. A gap a person closed as declined, unreachable or wrong is not opened again for the stated number of days, so a patient who said no is not chased every night. A gap the system closed (the person left the programme, the medicine stopped, the rule changed) is never held back this way."
+      },
+      "ab": {
+        "enabled": false,
+        "outcome_days": 7,
+        "experiments": [
+          {
+            "key": "copy_variant",
+            "variants": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "key": "send_hour",
+            "variants": [
+              9,
+              17
+            ]
+          }
+        ],
+        "note": "Scaffolding only. Nothing is switched on: with enabled false every patient sees variant a and the normal window. Outcome means the gap was closed by a recorded signal within outcome_days of a send, never that a message was opened."
+      },
+      "notifications": {
+        "template_first": "care_gap_checkin",
+        "template_followup": "care_gap_checkin_followup",
+        "rule": "Neutral by design (INV-07): no condition, reading, result or medicine is ever named, and the payload carries no clinical key."
+      },
+      "notes": {
+        "closure": "A gap closes only when a recorded outcome appears (a reading or lab row, a refill, a recovered adherence line), or a person records declined, unreachable or wrong with a note. A message sent or opened never closes a gap. Every run checks each open gap against the rules as they stand now: if the rule is switched off or the person no longer meets it under the current numbers, the gap closes as superseded, with nothing sent and nothing held back.",
+        "institutions": "Institutions see counts of people by gap type, the gaps closed by a recorded outcome, and how the others closed (declined, unreachable, wrong), from the ledger, through the single minimum-cell rule, never an individual."
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S90.md; decision pack docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md item 4.2 (cadence, overdue lines, annual labs). Unsigned until the CMO signs.",
+  },
+  {
+    key: "outcomes.reliable_change_rules",
+    // D4: how many points on the PHQ-9 and the GAD-7 count as a RELIABLE change, shown beside the response (fall of 50 percent or more) and remission figures.
+    // The database holds it as `outcome_reliable_change_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).
+    // PROPOSED: the points are written from the published sources (see `source` in the value), not checked against the primary texts, and NOT validated for Nigeria.
+    // reliable-change-mirror.test.ts compares this value with the migration seed.
+    value: {
+      "instruments": {
+        "phq9": { "reliable_change_points": 6, "scale_points": 27 },
+        "gad7": { "reliable_change_points": 4, "scale_points": 21 }
+      },
+      "categories": [
+        { "code": "reliable_improvement", "label": "Reliable improvement", "definition": "The follow-up total is lower than the baseline total by at least the reliable change points for the instrument." },
+        { "code": "no_reliable_change", "label": "No reliable change", "definition": "Both totals are known and the difference is smaller than the reliable change points, in either direction. This is not a statement that nothing changed." },
+        { "code": "reliable_deterioration", "label": "Reliable deterioration", "definition": "The follow-up total is higher than the baseline total by at least the reliable change points for the instrument." },
+        { "code": "insufficient_data", "label": "No follow-up score", "definition": "No score near the day, or no baseline score. Shown as missing, never counted as not improved." }
+      ],
+      "group": "The same people the response and remission figures count: adults who are not excluded and whose baseline total was 5 or more. A person whose baseline total is below the reliable change points cannot show a reliable improvement, however well they are.",
+      "source": "Method: Jacobson NS, Truax P, J Consult Clin Psychol 1991;59:12-19 (the reliable change index). Points: the figures the English NHS Talking Therapies programme uses for reliable change, 6 points on the PHQ-9 and 4 points on the GAD-7. These were written from the published sources by the builder and have not been checked against the primary texts. They were derived in English-speaking clinical populations and are NOT validated for Nigeria or for self-completion in the app. The CMO confirms or changes them before signing; any change is a new version.",
+      "note": "These figures are descriptive, not causal. They show how scores moved for the people counted. They cannot show why, and they do not show that any service caused a change. A screening score is not a diagnosis."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/S75-outcome-measures.md (D4); supabase/migrations/*_d4_reliable_change_phq9_gad7.sql; Jacobson and Truax 1991; NHS Talking Therapies manual (reliable change points)",
+  },
+  {
+    key: "outcomes.adjustment_rules",
+    // D3: what counts as "a doctor adjusted the person's hypertension medicine" and over how many days, for the control-by-adjustment split. The database holds it
+    // as `outcome_adjustment_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before). Descriptive, not causal.
+    // adjustment-mirror.test.ts compares this value with the migration seed.
+    value: {
+      "condition": "hypertension",
+      "adjustment_window_days": 90,
+      "signals": {
+        "medication_amendment": {
+          "enabled": true,
+          "definition": "A clinician amended the person's hypertension medicine in the window: the prescription has a newer version written by a clinician."
+        },
+        "confirmed_plan_change": {
+          "enabled": true,
+          "actions": ["change", "start"],
+          "definition": "A signed medication change on the hypertension care plan, to change a medicine or to start one, was confirmed by the person and applied in the window."
+        }
+      },
+      "groups": [
+        { "code": "adjusted", "label": "Medicine adjusted by a doctor in the window", "definition": "On a recorded medicine, and at least one of the records above falls in the window ending on the day of the figures." },
+        { "code": "not_adjusted", "label": "No adjustment in the window", "definition": "On a recorded medicine, and none of the records above falls in the window." }
+      ],
+      "shown_separately": [
+        { "code": "not_on_recorded_medicine", "label": "Hypertension on record, not on a recorded medicine", "definition": "Diagnosed Members with no active medicine recorded under the hypertension care plan. They cannot be adjusted, so they are in neither group." },
+        { "code": "control_unknown", "label": "Control unknown", "definition": "On a recorded medicine, with fewer than the minimum number of cleared home readings in the last 7 days. Shown in each group as unknown, never as controlled or uncontrolled." }
+      ],
+      "limitations": "People who are not on a recorded medicine are shown separately and are in neither group. People on a medicine with no usable readings in the last 7 days are shown as control unknown, and stay in the figure. Doctors adjust medicine more often when blood pressure is high, so the two groups are not alike to start with and the figures cannot be compared as if they were. The record shows that a change was made, not whether the person took it.",
+      "note": "These figures are descriptive, not causal. They show how many people in each group have blood pressure under control on the day of the figures. They do not show that adjusting a medicine changed anyone's blood pressure, and no clinician is named or compared."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/S75-outcome-measures.md (D3); supabase/migrations/*_d3_bp_control_by_medicine_adjustment.sql; docs/design/WP3.md",
   },
 ];

@@ -132,6 +132,8 @@ begin
   v_teen := pg_temp.mkuser(v_org, 'teen', 'patient', (current_date - interval '16 years')::date, 'female'); v_teen_cg := pg_temp.mkuser(v_org, 'teen_cg', 'patient');
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('mum', v_mum); perform pg_temp.setf('other', v_other); perform pg_temp.setf('cg', v_cg);
   perform pg_temp.setf('cgcat', v_cg_cat); perform pg_temp.setf('clin', v_clin); perform pg_temp.setf('sup', v_sup); perform pg_temp.setf('teen', v_teen); perform pg_temp.setf('teencg', v_teen_cg);
+  -- S88: staff read the maternal tables only through a care relationship, so the clinician is on the mother's care team
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_mum, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
   -- caregivers: plain 'view' grant with no category; a reproductive_health category grant; and one on an adolescent (with the category)
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_mum, v_cg, 'view', v_mum);
   perform pg_temp.act(v_mum);
@@ -288,6 +290,7 @@ declare
 begin
   -- B: a loss
   v_b := pg_temp.mkuser(v_org, 'loss_mum', 'patient', (current_date - interval '31 years')::date, 'female');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_b, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- S88 tie
   perform pg_temp.act(v_b);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) select v_b, v_cgcat, 'view', v_b returning id into g;
   perform public.set_care_access_categories(g, array['reproductive_health']::public.care_access_category[]);
@@ -314,6 +317,7 @@ begin
 
   -- a clinician records for a patient: clinician_recorded
   v_c := pg_temp.mkuser(v_org, 'clin_pat', 'patient', (current_date - interval '33 years')::date, 'female');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_c, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- S88 tie
   perform pg_temp.q_as(v_clin, format($q$select public.record_lifecycle_event('pregnancy_confirmed', current_date, %L)$q$, v_c));
   perform pg_temp.q_as(v_clin, format($q$select public.record_lifecycle_event('pregnancy_loss_recorded', current_date, %L, 7, 'by the team')$q$, v_c));
   perform pg_temp.ck('a clinician-recorded event is marked so', 'clinician_recorded,clinician_recorded', (select string_agg(cause, ',') from public.lifecycle_events where patient_id = v_c));

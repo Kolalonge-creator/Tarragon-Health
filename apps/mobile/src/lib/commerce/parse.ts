@@ -30,6 +30,8 @@ export interface OrderRow {
   /** S72: only the buyer can ask for a refund; refundState is the state of any refund already asked for. */
   isBuyer: boolean;
   refundState: string | null;
+  /** The catalogue code, so a receipt can quote the refund window for the right kind of item (A3). null when the database did not send one. */
+  code: string | null;
 }
 export interface MembershipState {
   isMember: boolean;
@@ -90,6 +92,7 @@ export function parseOrders(data: unknown): OrderRow[] {
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,
       sponsorShareKobo: sponsorShare, sponsorName: str(r["sponsor_name"]) ? r["sponsor_name"] : null,
       isBuyer: r["is_buyer"] !== false, refundState: str(r["refund_state"]) ? r["refund_state"] : null,
+      code: str(r["code"]) ? r["code"] : null,
     });
   }
   return out;
