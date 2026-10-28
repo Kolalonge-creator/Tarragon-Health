@@ -1912,7 +1912,7 @@ export const en = {
   "titration.label.draft_note": "This is a draft for you to review. You can edit it, reject it with a reason, or sign it. The patient sees nothing until you sign.",
   "admin.members.title": "Members",
   // S25: catalogue items and the checkout screens.
-  "catalog.membership_annual.name": "Tarragon Membership",
+  "catalog.membership_annual.name": "Membership Plus",
   "catalog.membership_annual.description": "A year of care with your care team, on your phone. Medicines are not included: you take your prescription to any pharmacy and pay there.",
   "catalog.membership_annual.incl.1": "A yearly blood test, with your results held for your care team to review before you see them",
   "catalog.membership_annual.incl.2": "A video call with your care team every month, 12 in the year",

@@ -116,10 +116,10 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.queryByRole("button", { name: "Pay with Paystack" })).toBeNull();
   });
 
-  it("before the ladder is on, only the single Membership shows, with the old name", () => {
+  it("before the ladder is on, only the single Membership shows, named Membership Plus, the product it actually is", () => {
     catalogue = { data: [PLUS, UP], isSuccess: true };
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("Tarragon Membership")).toBeTruthy();
+    expect(screen.getByText("Membership Plus")).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
     expect(screen.queryByText("Move up to Membership Plus")).toBeNull();
   });

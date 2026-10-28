@@ -27,7 +27,7 @@ import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/servic
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipLadderPriceLabels, membershipLadderPublic, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
+import { MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipLadderPriceLabels, membershipLadderPublic, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -72,7 +72,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
       question: "Is Tarragon really free?",
       answer: ladder
         ? `Yes. The app is free, with no time limit and no card. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel.`
-        : `Yes. The app is free, with no time limit and no card. Membership is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
+        : `Yes. The app is free, with no time limit and no card. ${paidProductName()} is optional: ₦${price} a year, and it includes a yearly blood test collected for you and a video call with your care team every month. Anyone can also request the annual test bundle and pay the laboratory directly.`,
     },
     {
       question: "Do I need a diagnosis to join?",
@@ -85,7 +85,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
         "You get clear guidance and a specific next step straight away. If a dangerous reading goes unacknowledged, the person you named as next of kin is contacted too.",
     },
     {
-      question: "Does Membership renew by itself?",
+      question: ladder ? "Does Membership renew by itself?" : `Does ${paidProductName()} renew by itself?`,
       answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
   ];
@@ -224,7 +224,7 @@ export default async function MarketingHomePage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="What it costs"
-          title={ladderPrices ? "Free, Membership or Membership Plus" : "Free to start. Membership when you want a doctor involved."}
+          title={ladderPrices ? "Free, Membership or Membership Plus" : `Free to start. ${paidProductName()} when you want a doctor involved.`}
           description={
             ladderPrices
               ? "Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."

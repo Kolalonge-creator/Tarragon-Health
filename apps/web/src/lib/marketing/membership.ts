@@ -33,6 +33,14 @@ export function refundWindowDays(): number {
   return v.window_days;
 }
 
+/**
+ * The name of the one paid product on sale while the ladder is OFF. The single product is the catalogue's membership_annual, which
+ * includes the yearly blood panel, so it is "Membership Plus" (W-46). Ladder-OFF pages take its name from here, never a typed word.
+ */
+export function paidProductName(): string {
+  return t("catalog.membership_annual.name", "en");
+}
+
 /** What a Membership includes, in the words the catalogue itself uses. */
 export const MEMBERSHIP_INCLUDES = [
   t("catalog.membership_annual.incl.1", "en"),
