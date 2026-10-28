@@ -2,6 +2,10 @@
  * Plain constants for the go-live guards, with no imports at all: client components (the booking card) read them, and they must not
  * drag a server-only module (model.ts uses node:crypto) into the browser bundle.
  */
+/**
+ * A partial, hand-kept list of guard keys (about 25 of the guards in public.go_live_guards). It is NOT an allow-list: the go-live server actions no longer
+ * check against it (the database refuses an unknown guard). Do not add a check against it back; it has fallen behind every time a guard was added.
+ */
 export const GUARD_KEYS = [
   "clinical_operations_enabled",
   "on_call_cover_ok",
