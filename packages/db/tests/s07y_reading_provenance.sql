@@ -254,18 +254,20 @@ begin
   perform pg_temp.ck('real', 'F2 twelve pharmacy readings alone are not a protocol: nothing counted', 'false|0',
     (v_r ->> 'complete') || '|' || (v_r ->> 'readings'));
 
+  -- The 7-day home average deliberately drops the first Lagos calendar day when readings span more than one (the HBPM protocol discards day 1), so these fixtures sit at fixed Lagos
+  -- times on ONE day (yesterday, Lagos): a now()-relative stamp straddled Lagos midnight between 23:00 and 24:00 UTC and made F3/F5 and SABOTAGE 4 depend on the clock.
   v_c := pg_temp.mkuser(v_org, 'average patient', true);  perform pg_temp.setf('pc', v_c);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
-  values (v_org, v_c, 'blood_pressure', 120, 80, now() - interval '1 hour', 'device', 'seated', 'left');
+  values (v_org, v_c, 'blood_pressure', 120, 80, ((((now() at time zone 'Africa/Lagos')::date - 1)::text || ' 12:00:00+01')::timestamptz), 'device', 'seated', 'left');
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, client_recorded_at, source, entry_origin, position, arm)
-  values (v_org, v_c, 'blood_pressure', 200, 120, now() - interval '30 minutes', 'manual', 'pharmacy_machine', 'seated', 'left');
+  values (v_org, v_c, 'blood_pressure', 200, 120, ((((now() at time zone 'Africa/Lagos')::date - 1)::text || ' 12:30:00+01')::timestamptz), 'manual', 'pharmacy_machine', 'seated', 'left');
   perform pg_temp.ck('real', 'F3 the 7-day home average leaves a pharmacy reading out (1 reading, 120)', '1|120.0',
     (select n_readings || '|' || avg_systolic from private.hbpm_average(v_c)));
   select n, avg_sys::text into v_n, v_act from private.bp_window_stats(v_c, (now() at time zone 'Africa/Lagos')::date - 1, (now() at time zone 'Africa/Lagos')::date + 1);
   perform pg_temp.ck('real', 'F4 the window statistics leave a pharmacy reading out (1 reading, 120)', '1|120.0', v_n || '|' || v_act);
   v_b := pg_temp.mkuser(v_org, 'diary average', true);
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, client_recorded_at, source, entry_origin, position, arm)
-  values (v_org, v_b, 'blood_pressure', 140, 90, now() - interval '30 minutes', 'manual', 'paper_diary', 'seated', 'left');
+  values (v_org, v_b, 'blood_pressure', 140, 90, ((((now() at time zone 'Africa/Lagos')::date - 1)::text || ' 12:30:00+01')::timestamptz), 'manual', 'paper_diary', 'seated', 'left');
   perform pg_temp.ck('real', 'F5 a diary reading IS part of the general 7-day average (it is labelled, not hidden); OQ-S07YL-3 asks whether it should be', '1|140.0',
     (select n_readings || '|' || avg_systolic from private.hbpm_average(v_b)));
 
