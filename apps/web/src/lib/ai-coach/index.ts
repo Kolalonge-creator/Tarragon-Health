@@ -6,6 +6,7 @@ import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
 import { classifyDoseRequest, screenSensitiveResultQuestion } from "./reply-screen";
+import { asksSpecificOwnCareAdvice, resolveAdvisoryMode } from "./advisory";
 import { emitAssistantEvent } from "./events";
 import { buildEmergencyReply } from "./emergency-reply";
 import { COACH_UNAVAILABLE_REPLY, COACH_PROMPT_VERSION } from "./prompts";
@@ -93,6 +94,7 @@ function codeScreenName(message: string, result: { inputSnapshotForAudit?: Recor
   if (detectEmergencyKeywords(message)) return "emergency_screen";
   if (screenSensitiveResultQuestion(message)) return "inv04_sensitive_result_question";
   if (classifyDoseRequest(message) !== "none") return "dose_request_refusal";
+  if (asksSpecificOwnCareAdvice(message)) return "advisory_personal_advice_redirect";
   return "deterministic_screen";
 }
 
@@ -267,11 +269,16 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     subjectProfileId: profileId,
 
     run: async ({ config }) => {
+      // W-10: fail closed. An unreadable or unparsable governance config is treated as the restricted state (adds the fixed note and sends
+      // personal-advice questions to the care team; nothing is switched off and no safety behaviour is removed), and it is logged.
+      const advisory = resolveAdvisoryMode(config);
+      if (advisory.failedClosed) console.warn("ai-coach: AI-001 governance config unreadable, treating the coach as restricted (fail closed)");
       const graph = buildCoachGraph({
         supabase,
         getServiceRoleSupabase,
         model: params.model,
         systemPrompt: governedSystemPrompt(config) ?? undefined,
+        advisoryOnly: advisory.advisoryOnly,
       });
       const result = await graph.invoke({
         profileId,
@@ -308,6 +315,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         safetyClassification: tier,
         guardrailsTriggered: [
           ...(keywordEmergency ? ["emergency_keyword_escalation"] : []),
+          ...(advisory.advisoryOnly ? ["advisory_only_mode"] : []),
+          ...(advisory.failedClosed ? ["restriction_unreadable_failed_closed"] : []),
           ...(answeredByCode(result) ? [`answered_by_code:${codeScreenName(message, result)}`] : []),
         ],
         // No model was reached: a fixed refusal, a clarifying question or the emergency copy. Recorded as `none:code`, with no tokens or cost.
