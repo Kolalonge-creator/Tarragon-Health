@@ -5810,7 +5810,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Deliberately not covered (so lab collection that is live today keeps working): self-arranged orders (including `public.start_annual_bundle`, which inserts `self_arranged`), clinician-ordered tests, and inserts with no signed-in user. If the founder wants the guard to also stop self-arranged annual bundle starts, that is a separate decision: it would make Membership Plus collection depend on the guard.
 - Switching the guard on is a founder action through `set_go_live_guard`; nothing here flips it.
 
-### OQ-549 follow-up (2026-10-28): menstrual_cycles still readable by an untied clinician
+### Follow-up to OQ-549 (2026-10-28): menstrual_cycles still readable by an untied clinician
 
 - **Status:** open, founder-approved known gap (journey 4 keeps `menstrual_cycles` as its one shrink-only known leak, pending S39b). Not an S88 table; the nine S88 tables now fail journey 4 on any leak with no pending pass.
 - **What is known:** the live `menstrual_cycles_select` policy has an S39b `staff_may_read` arm plus emergency and `can_read_clinical` arms. Which arm admits an untied clinician in the CI replay is not traced (suspect `can_read_clinical`).
