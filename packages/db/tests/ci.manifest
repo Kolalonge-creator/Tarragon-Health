@@ -1625,3 +1625,5 @@ w02_override_reason_codes.sql
 w01_clinician_time_entries.sql
 # OQ-551 bp_care_triage v8: an unsigned draft where every red rule still pages and gains exactly one 24 hour follow-up task, no other rule changed. Sabotage: the page removed, a second task added; both must be caught.
 bp_care_triage_v8_red_follow_up.sql
+# Journey 1: my_membership_offer. A Free patient above target (the risk engine's own line) is offered Membership; a Member, a patient within target or with too few readings, and a real patient while checkout_enabled is off are not. Sabotage: member check and guard check each removed; both must flip.
+my_membership_offer_above_target.sql

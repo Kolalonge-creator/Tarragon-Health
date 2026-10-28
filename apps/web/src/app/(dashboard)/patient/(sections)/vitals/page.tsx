@@ -35,6 +35,7 @@ import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
 import { WeeklyCardsSection } from "@/app/(dashboard)/patient/weekly-cards-section";
+import { AboveTargetMembershipCard } from "@/app/(dashboard)/patient/above-target-membership-card";
 import { FollowWithDoctorCard } from "@/app/(dashboard)/patient/follow-with-doctor-card";
 import { membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
@@ -65,6 +66,8 @@ export default async function PatientVitalsPage() {
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       {/* W-53 / D-03: the calm-screen Membership offer. Price and refund window come from versioned config. */}
       {subjectId === profile.id ? <FollowWithDoctorCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
+      {/* Journey 1: above target for a week, the same offer with its own title. The database decides (Free, above target, checkout open). */}
+      {subjectId === profile.id ? <AboveTargetMembershipCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
       <VitalsTrendChart patientId={subjectId} />
       {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
       {/* Renders nothing until there is sensor glucose to show. */}

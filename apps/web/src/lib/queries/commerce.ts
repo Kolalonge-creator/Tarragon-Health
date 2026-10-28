@@ -68,6 +68,23 @@ export function useMyMembership() {
   });
 }
 
+/** The answer of public.my_membership_offer: an offer only when a Free patient's 7-day average is above target and checkout is open. Anything else is "no offer". */
+export type MembershipOffer = { status: "offer" | "not_open_yet" | "not_eligible"; reason?: string };
+
+/** Never throws: a failed read is "no offer", so a broken read can never show a sales message. */
+export function useMyMembershipOffer() {
+  return useQuery({
+    queryKey: ["commerce", "membershipOffer"] as const,
+    queryFn: async (): Promise<MembershipOffer> => {
+      const client = createClient() as unknown as { rpc(fn: string): PromiseLike<{ data: unknown; error: unknown }> };
+      const { data, error } = await client.rpc("my_membership_offer");
+      const status = (data as { status?: unknown } | null)?.status;
+      if (error || (status !== "offer" && status !== "not_open_yet" && status !== "not_eligible")) return { status: "not_eligible", reason: "unreadable" };
+      return { status, reason: (data as { reason?: string }).reason };
+    },
+  });
+}
+
 /**
  * Is automatic renewal switched on at all (public.membership_auto_renew_enabled)? While it is off nothing about renewal is offered and the
  * old "does not renew by itself" wording stays. A failed read counts as off: never promise a renewal that may not be running.

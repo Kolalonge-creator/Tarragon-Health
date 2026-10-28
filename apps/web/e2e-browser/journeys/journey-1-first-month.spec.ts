@@ -254,6 +254,24 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(ledger.length, "every award has a ledger row").toBeGreaterThanOrEqual(awarded.length);
     });
 
+    // Owner decision 2026-10-28: an above-target 7-day average gets a Free patient the Membership offer (my_membership_offer; test accounts pass the checkout guard).
+    await run.step("care-pack-offer-above-target", async () => {
+      // control: the readings logged above average about 141/88, which is inside the risk engine's above-target margin, so there is no offer yet
+      const before = await me.rpc("my_membership_offer");
+      expect(before.error, JSON.stringify(before.error)).toBeNull();
+      expect(before.data).toMatchObject({ status: "not_eligible", reason: "within_target" });
+      for (let i = 1; i <= 4; i++) {
+        sql(`insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
+             values (${lit(org)}, ${lit(patientId!)}, 'blood_pressure', 170, 108, now() - interval '${i * 20} minutes', 'device', 'seated', 'left');`);
+      }
+      const after = await me.rpc("my_membership_offer");
+      expect(after.error, JSON.stringify(after.error)).toBeNull();
+      expect(after.data).toMatchObject({ status: "offer", catalog_item: "membership_annual" });
+      // a signed-out client cannot ask
+      const signedOut = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).rpc("my_membership_offer");
+      expect(signedOut.error, "a signed-out client reached the offer").not.toBeNull();
+    });
+
     // ------------------------------------------------------------------ 15: her son joins her Care Circle (real sessions both sides)
     await run.step("son-joins-care-circle", async () => {
       const son = await createUser(runId, "son", { role: "patient", organisationId: org, fullName: "[s85] Son" });

@@ -4,9 +4,10 @@ import { FollowWithDoctorCard } from "./follow-with-doctor-card";
 import { markRedAcknowledgedThisSession } from "./red-session";
 
 const mockMembership = jest.fn();
+const mockOffer = jest.fn();
 const mockEmergency = jest.fn();
 const mockGuidance = jest.fn();
-jest.mock("@/lib/queries/commerce", () => ({ useMyMembership: () => ({ data: mockMembership() }) }));
+jest.mock("@/lib/queries/commerce", () => ({ useMyMembership: () => ({ data: mockMembership() }), useMyMembershipOffer: () => ({ data: mockOffer() }) }));
 jest.mock("@/lib/queries/emergency", () => ({ useActiveEmergency: () => ({ data: mockEmergency() }) }));
 jest.mock("@/lib/queries/free-red-checkin", () => ({ useFreeGuidance: () => ({ data: mockGuidance() }) }));
 
@@ -15,6 +16,7 @@ const ui = <FollowWithDoctorCard patientId="p1" priceLabel="84,000" refundDays={
 beforeEach(() => {
   window.sessionStorage.clear();
   mockMembership.mockReturnValue({ is_member: false });
+  mockOffer.mockReturnValue(undefined);
   mockEmergency.mockReturnValue(null);
   mockGuidance.mockReturnValue(null);
 });
@@ -27,6 +29,10 @@ describe("FollowWithDoctorCard (W-53 calm-screen Membership offer)", () => {
     expect(container.textContent).toContain("21 days");
     expect(screen.getByRole("link", { name: "See Membership" }).getAttribute("href")).toBe("/patient/membership");
     expect(container.textContent).not.toMatch(/hurry|limited|expires|—|–/i);
+  });
+  it("steps aside when the above-target card is showing the offer", () => {
+    mockOffer.mockReturnValue({ status: "offer" });
+    expect(render(ui).container.innerHTML).toBe("");
   });
   it("is hidden for a Member and while membership is still loading", () => {
     mockMembership.mockReturnValue({ is_member: true });

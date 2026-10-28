@@ -43,7 +43,7 @@ export const J1: JourneyDef = {
     { id: "daily-readings-graded", hazards: ["HZ-J1-03"], title: "She logs home blood pressure on several days; each reading is graded by the triage engine through the bus" },
     { id: "silence-nudge", hazards: ["HZ-J1-02"], title: "A silent week raises a re-engagement nudge", pending: { owner: "CMO confirms the silence sweep", reason: "P6 emits silence.detected (BP-A5, days read from the rule set) and a subscriber grades it, but the daily sweep is born off (triage_coverage_config.enabled = false) and a draft rule set only produces shadow results; switching either on is a human decision" } },
     { id: "health-points-awarded", title: "Health Points are awarded for logging readings (founder decision 2026-10-28: the per-log participation award, capped per day, is the consistency reward; a streak earns a badge only)" },
-    { id: "care-pack-offer-above-target", title: "Average above target leads to the hypertension care pack offer", pending: { owner: "S61", reason: "S61/S62 built the pathway engine, but no code makes an enrolment offer from a seven day average above target" } },
+    { id: "care-pack-offer-above-target", title: "A 7-day average above target leads to the Membership offer for a Free patient (owner decision 2026-10-28: the catalog has no care pack; the offer is membership_annual, behind the checkout guard)" },
     { id: "son-joins-care-circle", title: "Her son joins her Care Circle through an invite (real sessions for both)" },
     { id: "son-pays-for-pack", title: "Her son pays for the pack with his card", pending: { owner: "S29", reason: "the gift flow exists but needs Paystack test keys and a served order-checkout function, which the local stack job does not have" } },
   ],

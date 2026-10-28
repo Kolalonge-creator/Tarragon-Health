@@ -34,7 +34,7 @@ describe("journey definitions", () => {
 
   it("known-pending counts per journey (a change here is a deliberate edit to what the platform lacks)", () => {
     expect({ J1: knownPendingCount(J1), J2: knownPendingCount(J2), J3: knownPendingCount(J3), J4: knownPendingCount(J4) }).toEqual({
-      J1: 5,
+      J1: 4,
       J2: 1,
       J3: 12,
       J4: 2,

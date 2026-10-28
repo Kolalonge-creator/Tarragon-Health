@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { t } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMyMembership } from "@/lib/queries/commerce";
+import { useMyMembership, useMyMembershipOffer } from "@/lib/queries/commerce";
 import { useActiveEmergency } from "@/lib/queries/emergency";
 import { useFreeGuidance } from "@/lib/queries/free-red-checkin";
 import { redAcknowledgedThisSession } from "./red-session";
@@ -15,9 +15,11 @@ import { redAcknowledgedThisSession } from "./red-session";
  */
 export function FollowWithDoctorCard({ patientId, priceLabel, refundDays }: { patientId: string; priceLabel: string; refundDays: number }) {
   const membership = useMyMembership();
+  const offer = useMyMembershipOffer();
   const emergency = useActiveEmergency(patientId);
   const guidance = useFreeGuidance(patientId);
   if (membership.data?.is_member !== false) return null; // loading, error or already a Member: say nothing
+  if (offer.data?.status === "offer") return null; // the above-target card (same offer, its own title) is showing instead
   if (emergency.data || guidance.data || redAcknowledgedThisSession()) return null;
   return (
     <Card data-testid="follow-with-doctor">

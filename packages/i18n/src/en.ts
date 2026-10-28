@@ -5471,6 +5471,7 @@ export const en = {
   "freered.follow.title": "A doctor can follow this with you",
   "freered.follow.body": "Membership is \u20a6{price} for the year, and a doctor reviews your readings with you. You can ask for a full refund within {days} days.",
   "freered.follow.cta": "See Membership",
+  "freered.above.title": "Your readings this week are above your target",
   "freered.red.no_alert": "No doctor has been alerted about this reading. Please get care now.",
   "freered.reading.free_flag": "Your entry is saved. This reading is outside your usual range. If you feel unwell, please get care today.",
   "freered.urgent.free": "Based on what you've told us, you should be seen by a clinician soon. Please do not wait to hear from us.",
