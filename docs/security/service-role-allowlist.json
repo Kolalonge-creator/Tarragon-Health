@@ -779,6 +779,10 @@
    "category": "edge function (runs with no user session)"
   },
   {
+   "file": "supabase/functions/membership-renewal/index.ts",
+   "category": "edge function, shared-secret header check, fails closed without the secret (reviewed 2026-10-28)"
+  },
+  {
    "file": "supabase/functions/order-checkout/index.ts",
    "category": "edge function (runs with no user session)"
   },
