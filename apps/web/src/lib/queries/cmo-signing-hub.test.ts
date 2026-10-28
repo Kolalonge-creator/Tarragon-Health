@@ -270,6 +270,13 @@ describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-4
     readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "sign_new", version: 2 } });
     const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
     expect(line?.title).toMatch(/sign a new version/);
+    expect(line?.severity).toBe("draft_pending");
+  });
+  it("ranks a version already running with no signature as live_unsigned, the most urgent group", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "accept_in_force", version: 1 } });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
+    expect(line?.severity).toBe("live_unsigned");
   });
   it("adds no line when nothing waits, and names a failed read rather than reading as all clear", async () => {
     readSignoffQueue.mockResolvedValue(empty);
@@ -578,7 +585,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [] });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [], live: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
@@ -767,7 +774,9 @@ describe("unified red-event paging line (S19d)", () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: 1, failed: false });
     const hub = await readCmoSigningHub(supabase);
-    expect(hub.items.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+    expect(hub.live.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+    // Already signed and running: not counted as something to sign.
+    expect(hub.items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
   });
   it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
@@ -788,7 +797,9 @@ describe("legacy notice retirement line (S19f)", () => {
   it("keeps a switch-off line while a version is live", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: { version: 2 }, waiting: [], measurement: [], failed: false });
-    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.live.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+    expect(hub.items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
   });
   it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });

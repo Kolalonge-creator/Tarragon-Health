@@ -183,7 +183,7 @@ export default async function ClinicianClinicalSignoffPage({
   const checklistFailed = checklist.loadFailed;
 
   // Only fetch what an inline panel needs, and only when its line is on the list.
-  const keys = new Set(hub.items.map((i) => i.key));
+  const keys = new Set([...hub.items, ...hub.live].map((i) => i.key));
   const [blocksRes, releaseRes] = await Promise.all([
     keys.has("lpe_content_blocks")
       ? supabase
@@ -236,7 +236,7 @@ export default async function ClinicianClinicalSignoffPage({
     );
   }
 
-  for (const item of hub.items) {
+  for (const item of [...hub.items, ...hub.live]) {
     const table = item.key.startsWith("versioned:")
       ? item.key.slice("versioned:".length)
       : item.key.startsWith("versioned_draft:")
@@ -406,6 +406,17 @@ export default async function ClinicianClinicalSignoffPage({
         </Card>
       ) : (
         <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
+      )}
+
+      {hub.live.length > 0 && (
+        <details className="rounded-md border border-mist-grey/40 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+            Signed and running ({hub.live.length}): nothing to sign, open to switch off
+          </summary>
+          <div className="mt-4">
+            <SignoffQueueList items={hub.live} inlinePanels={inlinePanels} variant="live" />
+          </div>
+        </details>
       )}
 
       {hub.attention.length > 0 && (
