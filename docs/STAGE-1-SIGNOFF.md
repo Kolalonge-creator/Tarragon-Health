@@ -17,7 +17,7 @@ The gate does not pass today for these reasons, none of which is a failing autom
 | Level | Command | Result |
 |---|---|---|
 | Migration replay | `supabase db reset` on a fresh local stack | Pass. Every migration and the seed applied, twice (before and after the new migration). |
-| Database proofs | `scripts/run-db-proofs.sh` (486 scripts, 3 race proofs included) | **Pass: 486 of 486.** The six "FAIL" strings in the log are deliberate sabotage rows inside the S39 proofs, which the runner accepts. A second full run including the new proof is recorded in section 5. |
+| Database proofs | `scripts/run-db-proofs.sh` (race proofs included) | **Pass: 486 of 486** on a fresh replay, and **487 of 487** on a second fresh replay after the new migration and proof were added. The six "FAIL" strings in the first log are deliberate sabotage rows inside the S39 proofs, which the runner accepts. These proofs assume a fresh database like CI's: a run on a database that the E2E suite had already used (with `S85_FIXTURE_APPROVE_RULESET=1`) failed about 50 scripts on leftover state, so always reset first. |
 | Typecheck | `pnpm typecheck` | Pass. |
 | Unit, all packages except web | `pnpm test:ci` | Pass. shared 1,864, mobile 3,238, notifications 737, medicines 509, symptom-triage 282, queue 220, integrations 449 (1 skipped), clinical 1,434, others green. |
 | Unit, web | `jest` in `apps/web` | Pass: 1,054 suites, 9,037 tests. |
