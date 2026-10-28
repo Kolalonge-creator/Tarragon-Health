@@ -1,6 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import { parseCreatedPaymentRequest, parseEntitlements, parseNotIncluded, parsePaymentRequests, parsePriceChangeNotices, parseQuote, type CreatedPaymentRequest, type EntitlementView, type NotIncludedEntry, type PaymentRequestRow, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
+import { fallbackRefundPolicy, parseRefundPolicy, type RefundPolicy } from "@tarragon/shared";
+import { parseMyRefunds, type MyRefund } from "./refund-view";
 import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parsePlusStates, parseVerify, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "./parse";
 
 /** The patient side of S25 checkout. Only the item code and a retry key are ever sent; the price comes from the database. */
@@ -100,6 +102,21 @@ export async function requestRefund(orderId: string, reason: string): Promise<{ 
   if (error) return null;
   const r = (data as { result?: unknown } | null)?.result;
   return typeof r === "string" ? { result: r } : null;
+}
+
+/** The refund numbers (answer time, bank days, windows) from the same database answer the website reads. If it cannot be reached the shared registry values are used, never a typed number. */
+export async function loadRefundPolicy(): Promise<RefundPolicy> {
+  const { data, error } = await supabase.rpc("entitlement_policy_public");
+  return error ? fallbackRefundPolicy() : parseRefundPolicy(data);
+}
+
+/** Every refund the signed-in person asked for, with its steps (RLS limits this to their own). */
+export async function loadMyRefunds(): Promise<QueryResult<MyRefund[]>> {
+  const { data, error } = await supabase
+    .from("refunds")
+    .select("id, order_id, amount_kobo, state, decision_note, created_at, order:orders!refunds_order_id_fkey(catalog_item:catalog_items(code, name_key)), steps:refund_status_events(step, created_at)")
+    .order("created_at", { ascending: false });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseMyRefunds(data) };
 }
 
 /** Payment requests (S72, 19.13). The link's code is returned once, when it is made, and never listed again. */

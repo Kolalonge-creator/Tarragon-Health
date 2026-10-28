@@ -9,3 +9,4 @@ export * from "./payment-request.ts";
 export * from "./fund.ts";
 export * from "./tiers.ts";
 export * from "./price-transparency.ts";
+export * from "./split.ts";
