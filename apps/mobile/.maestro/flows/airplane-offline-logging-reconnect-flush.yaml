@@ -24,17 +24,31 @@ tags:
   - device-lab
   - android
 ---
+- clearKeychain
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Email"
+    visible: "Use email"
     timeout: 30000
 - tapOn: "Use email"
 - tapOn: "Email"
 - inputText: ${MOBILE_E2E_EMAIL}
 - tapOn: "Password"
 - inputText: ${MOBILE_E2E_PASSWORD}
-- tapOn: "Sign in"
+# "Sign in" is both the heading and the button; the button is the second match.
+- tapOn:
+    text: "Sign in"
+    index: 1
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+- runFlow:
+    when:
+      visible: "Unlock with your fingerprint or face?"
+    commands:
+      - tapOn: "Not now"
 - extendedWaitUntil:
     visible: "Today at a glance: your numbers, your care team, and recent activity."
     timeout: 30000

@@ -34,10 +34,10 @@ describe("journey definitions", () => {
 
   it("known-pending counts per journey (a change here is a deliberate edit to what the platform lacks)", () => {
     expect({ J1: knownPendingCount(J1), J2: knownPendingCount(J2), J3: knownPendingCount(J3), J4: knownPendingCount(J4) }).toEqual({
-      J1: 8,
-      J2: 2,
+      J1: 4,
+      J2: 1,
       J3: 12,
-      J4: 2,
+      J4: 1,
     });
   });
 });
@@ -116,24 +116,26 @@ describe("S85b: the web offline guidance step is a real assertion, not a pending
 describe("S85b review: a step is only enabled when its assertion measures the spec's own wording", () => {
   const j1 = readFileSync(join(ROOT, "apps", "web", "e2e-browser", "journeys", "journey-1-first-month.spec.ts"), "utf8");
 
-  it("the goal and Health Points steps carry the spec's own wording and stay pending, each with an accurate reason", () => {
-    const goal = J1.steps.find((s) => s.id === "goal-blood-pressure")!;
-    const points = J1.steps.find((s) => s.id === "health-points-awarded")!;
-    expect(goal.title).toBe("Onboarding records the goal 'blood pressure'");
-    expect(points.title).toBe("Health Points are awarded for consistency");
-    expect(goal.pending?.reason).toMatch(/no goal called blood pressure/);
-    expect(points.pending?.reason).toMatch(/participation reward/);
+  it("the goal, Health Points and result explanation steps carry the founder's 2026-10-28 wording and are no longer pending", () => {
+    for (const id of ["goal-blood-pressure", "health-points-awarded", "result-plain-language-explanation"]) {
+      const step = J1.steps.find((s) => s.id === id)!;
+      expect({ id, ok: /founder decision 2026-10-28/.test(step.title) }).toEqual({ id, ok: true });
+      expect({ id, pending: step.pending }).toEqual({ id, pending: undefined });
+    }
   });
 
-  it("the spec does not run either as a journey step (what exists is checked separately and is not counted as the step)", () => {
-    expect(j1).not.toContain('run.step("goal-blood-pressure"');
-    expect(j1).not.toContain('run.step("health-points-awarded"');
-    expect(j1).toContain("supporting check: onboarding saves her own goal and condition answers");
-    expect(j1).toContain("supporting check: logging readings earns capped Health Points through the bus");
+  const runsAsStep = (text: string, id: string) => text.includes(`run.step("${id}"`) && !text.includes("supporting check:");
+
+  it("the spec runs each of them as a journey step, not a supporting check", () => {
+    for (const id of ["goal-blood-pressure", "health-points-awarded", "result-plain-language-explanation"]) {
+      expect({ id, runs: runsAsStep(j1, id) }).toEqual({ id, runs: true });
+    }
   });
 
-  it("sabotage: a spec that ran the goal step again would be caught by the same scan", () => {
-    const damaged = j1.replace('test.step("supporting check: onboarding saves', 'run.step("goal-blood-pressure", async () => { /* ');
-    expect(damaged).toContain('run.step("goal-blood-pressure"');
+  it("sabotage: the same scan fails when a step is turned back into a supporting check, or dropped", () => {
+    const backToSupporting = j1.replace('run.step("goal-blood-pressure"', 'test.step("supporting check: goal"');
+    expect(runsAsStep(backToSupporting, "goal-blood-pressure")).toBe(false);
+    const dropped = j1.replace('run.step("result-plain-language-explanation"', 'run.step("something-else"');
+    expect(runsAsStep(dropped, "result-plain-language-explanation")).toBe(false);
   });
 });

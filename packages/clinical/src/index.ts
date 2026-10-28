@@ -1,6 +1,6 @@
 export { grade, recheckWindowMinutes } from "./engine";
 export { validateInput, validateRuleSet } from "./validate";
-export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4, BP_CARE_V5, BP_CARE_V6, BP_CARE_V7, SYMPTOM_ALONE_EMERGENCY } from "./rules";
+export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4, BP_CARE_V5, BP_CARE_V6, BP_CARE_V7, BP_CARE_V8, RED_FOLLOW_UP_ACTION, SYMPTOM_ALONE_EMERGENCY } from "./rules";
 export { actionToString } from "./actions";
 export { summarise, expectationWithDefaults, type ResultSummary } from "./summary";
 export { TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./messages";
