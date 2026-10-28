@@ -60,7 +60,7 @@ begin
   values (v, 's50b-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S50b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), v_adult, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set role = excluded.role, date_of_birth = excluded.date_of_birth, is_test = true, is_active = true;
   -- Registration is adult-only and compares against the UTC date, so any chosen date of birth (a minor, or an adult at the Lagos boundary) is set by UPDATE.
   if p_dob is not null and p_dob > (pg_temp.lagos_today() - interval '18 years')::date then
     update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = p_dob where id = v;
