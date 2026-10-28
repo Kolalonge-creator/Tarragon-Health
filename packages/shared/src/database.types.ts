@@ -51157,6 +51157,9 @@ export type Database = {
       bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       cascade_of_care_report: { Args: { p_condition: string; p_from?: string; p_to?: string }; Returns: Json };
       selection_panel_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      baseline_labs_override_attention: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
+      sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       admin_set_reward_rule: {
