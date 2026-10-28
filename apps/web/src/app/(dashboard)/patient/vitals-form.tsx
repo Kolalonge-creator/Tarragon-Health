@@ -22,6 +22,16 @@ import { useOnlineStatus } from "@/lib/network/use-online-status";
 import type { GlucoseUnit } from "@/lib/validation/vitals";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { crosscheckVital, type VitalCrosscheck } from "@/lib/vitals/plausibility";
+import {
+  gradeOfflineEmergency,
+  isEmergencyAloneSymptom,
+  offlineSymptomLabelKey,
+  OFFLINE_SYMPTOMS,
+  type OfflineGuidanceCode,
+  type OfflineSymptom,
+} from "@/lib/vitals/offline-emergency";
+import { forgetEmergency, rememberEmergency } from "@/lib/vitals/emergency-marker";
+import { OfflineEmergencyGuidance } from "./offline-emergency-guidance";
 import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +52,15 @@ type KetoneKind = "blood" | "urine";
  */
 const OFFLINE_BLOCKED_MESSAGE =
   "You're offline. Reconnect, then press Save reading again.";
+
+/**
+ * How long a submitted reading may go unanswered before the bundled emergency guidance is shown anyway (a connection that still reads as online
+ * but never answers, "lie-fi"). An engineering limit, not a clinical one. The request itself is left alone: a Server Action cannot be cancelled
+ * from here, and wrapping it to catch a failure would break this form's no-JS submission (docs/OFFLINE_RESILIENCE_AUDIT.md section 6).
+ */
+export const SUBMIT_UNANSWERED_MS = 8000;
+
+type GuidanceState = { code: OfflineGuidanceCode; variant: "offline" | "unconfirmed" } | null;
 
 export function VitalsForm({
   patientId,
@@ -69,12 +88,15 @@ export function VitalsForm({
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
   const [atPharmacy, setAtPharmacy] = useState(false);
   const [state, formAction, pending] = useActionState(logVital, undefined);
+  const [offlineGuidance, setOfflineGuidance] = useState<GuidanceState>(null);
   // S07y: the tick belongs to ONE reading. React clears the form's own inputs after a saved reading, but this tick is controlled state, so it is cleared here
   // (the supported "adjust state when a value changes" pattern, not an effect): otherwise the next home reading could go out labelled as a pharmacy one.
   const [seenState, setSeenState] = useState(state);
   if (state !== seenState) {
     setSeenState(state);
     if (state?.success) setAtPharmacy(false);
+    // The server answered: its own acknowledgement now says what happened, so an "unconfirmed" dialog has nothing left to say.
+    if (offlineGuidance?.variant === "unconfirmed") setOfflineGuidance(null);
   }
   const queryClient = useQueryClient();
 
@@ -101,6 +123,12 @@ export function VitalsForm({
   // exists to fix).
   const isOnline = useOnlineStatus();
   const [offlineBlocked, setOfflineBlocked] = useState(false);
+  // INV-06 on the web (S85b): with the network off the emergency guidance comes from bundled code. The ticks are not posted (no `name`): they
+  // exist only so the on-device check can see them, and are offered only while offline.
+  const [offlineSymptoms, setOfflineSymptoms] = useState<readonly OfflineSymptom[]>([]);
+  // Lie-fi: a reading that asked for emergency guidance was sent and nothing has answered yet. `pendingRef` lets the timer see the live value.
+  const pendingRef = useRef(false);
+  const unansweredTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Crosscheck nudge: when a reading lands outside the normal band we ask the
   // patient to confirm it before saving, and show how to take a cleaner
@@ -126,6 +154,41 @@ export function VitalsForm({
     }
   }, [state?.success, queryClient, patientId]);
 
+  // The request finished (or this form went away): stop waiting. Any answer from the server, good or bad, ends the "not confirmed saved" note.
+  useEffect(() => {
+    pendingRef.current = pending;
+    if (!pending && unansweredTimer.current) {
+      clearTimeout(unansweredTimer.current);
+      unansweredTimer.current = null;
+    }
+  }, [pending]);
+  useEffect(() => {
+    if (state !== undefined) forgetEmergency();
+  }, [state]);
+  useEffect(
+    () => () => {
+      if (unansweredTimer.current) clearTimeout(unansweredTimer.current);
+    },
+    [],
+  );
+
+  // A reading that asks for emergency guidance is about to be sent: if nothing answers within the limit, show the bundled guidance. Also leaves
+  // the marker so a request that fails outright (the error screen) or a reload with no network still shows it.
+  function watchForNoAnswer(code: OfflineGuidanceCode) {
+    rememberEmergency(code);
+    if (unansweredTimer.current) clearTimeout(unansweredTimer.current);
+    unansweredTimer.current = setTimeout(() => {
+      unansweredTimer.current = null;
+      if (pendingRef.current) setOfflineGuidance({ code, variant: "unconfirmed" });
+    }, SUBMIT_UNANSWERED_MS);
+  }
+
+  function bpFromForm(form: HTMLFormElement): { sys: number | null; dia: number | null } {
+    const raw = Object.fromEntries(new FormData(form).entries());
+    const onBp = raw.vital_type === "blood_pressure";
+    return { sys: onBp && raw.systolic !== "" ? Number(raw.systolic) : null, dia: onBp && raw.diastolic !== "" ? Number(raw.diastolic) : null };
+  }
+
   // What the last save said stops being true the moment the person edits the form, is blocked offline, or is asked to confirm a different value:
   // an old "Received" must never sit beside a reading that was not sent. A new result from the server shows again.
   // Held as "stale for THIS server result" so a new result is fresh without a reset effect (setState in an effect is a lint error).
@@ -150,23 +213,54 @@ export function VitalsForm({
       // resubmit the same reading a second time, since vitals_readings has
       // no dedup constraint.
       confirmedRef.current = false;
+      const { sys, dia } = bpFromForm(event.currentTarget);
+      const offlineGrade = gradeOfflineEmergency({ systolic: sys, diastolic: dia, symptoms: offlineSymptoms });
+      if (offlineGrade.emergency && offlineGrade.code) {
+        setOfflineGuidance({ code: offlineGrade.code, variant: "offline" });
+        rememberEmergency(offlineGrade.code);
+      }
       setOfflineBlocked(true);
       setStaleMark({ for: state });
       return;
     }
     if (offlineBlocked) setOfflineBlocked(false);
+    const sendsNow = (): void => {
+      // The reading is going out. If it asks for emergency guidance and nothing answers, the guidance still appears.
+      const { sys, dia } = bpFromForm(event.currentTarget);
+      const g = gradeOfflineEmergency({ systolic: sys, diastolic: dia, symptoms: offlineSymptoms });
+      if (g.emergency && g.code) watchForNoAnswer(g.code);
+    };
     if (confirmedRef.current) {
       confirmedRef.current = false; // consume the one-shot bypass, let the action run
+      sendsNow();
       return;
     }
     const raw = Object.fromEntries(new FormData(event.currentTarget).entries());
     const parsed = vitalsReadingSchema.safeParse(raw);
     // If it doesn't even parse, let the Server Action surface the field error.
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      sendsNow();
+      return;
+    }
     const result = crosscheckVital(parsed.data);
     if (result) {
       event.preventDefault();
       setCrosscheck(result);
+      return;
+    }
+    sendsNow();
+  }
+
+  function toggleOfflineSymptom(symptom: OfflineSymptom, on: boolean) {
+    const next = on ? [...offlineSymptoms.filter((x) => x !== symptom), symptom] : offlineSymptoms.filter((x) => x !== symptom);
+    setOfflineSymptoms(next);
+    // A ticked symptom that is an emergency on its own: the guidance shows at once, before anything is submitted.
+    if (on && isEmergencyAloneSymptom(symptom)) {
+      const g = gradeOfflineEmergency({ symptoms: next });
+      if (g.emergency && g.code) {
+        setOfflineGuidance({ code: g.code, variant: "offline" });
+        rememberEmergency(g.code);
+      }
     }
   }
 
@@ -454,6 +548,25 @@ export function VitalsForm({
             </div>
           )}
 
+          {!isOnline && (
+            <fieldset className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15" data-testid="offline-symptoms">
+              <legend className="px-1 text-sm font-medium">{t("vitals.symptoms.title")}</legend>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">You are offline. Tick anything you have right now and this screen will tell you what to do.</p>
+              {OFFLINE_SYMPTOMS.map((code) => (
+                <div key={code} className="flex items-center gap-2">
+                  <input
+                    id={`offline_symptom_${code}`}
+                    type="checkbox"
+                    checked={offlineSymptoms.includes(code)}
+                    onChange={(event) => toggleOfflineSymptom(code, event.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor={`offline_symptom_${code}`}>{t(offlineSymptomLabelKey(code))}</Label>
+                </div>
+              ))}
+            </fieldset>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="note">Note (optional)</Label>
             <Input
@@ -511,6 +624,7 @@ export function VitalsForm({
           )}
         </form>
       </CardContent>
+      {offlineGuidance && <OfflineEmergencyGuidance code={offlineGuidance.code} variant={offlineGuidance.variant} onClose={() => setOfflineGuidance(null)} />}
     </Card>
   );
 }

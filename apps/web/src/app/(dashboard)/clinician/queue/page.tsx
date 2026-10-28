@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SlaBadge } from "@/components/clinician/sla-badge";
 import { formatKobo } from "@/lib/format-money";
-import { blockedReasonKey, classCounts, escalatedTaskSchema, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
+import { blockedReasonKey, classCounts, escalatedTaskSchema, heldTaskSchema, minutesLeft, queueReasonKey, queueSummarySchema } from "@/lib/clinician/queue-console";
 import { ExtendForm, NextTaskForm } from "./forms";
 import { OpsModeBanner } from "@/components/capacity/ops-mode-banner";
 
@@ -138,6 +138,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                         {left === 0 ? t("queue.expired", "en") : t("queue.time_left", "en", { minutes: left })}
                       </span>
                     )}
+                    <span className="basis-full text-xs text-charcoal-ink/60">{t(queueReasonKey(task, now), "en")}</span>
                     <ExtendForm taskId={task.id} />
                     <Link href={`/clinician/tasks/${task.id}`} className="ml-auto text-sm font-medium text-brand-green underline">
                       {t("queue.open_task", "en")}
@@ -168,6 +169,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                       <span className="text-xs text-charcoal-ink/60">{t("queue.offered_window", "en", { time: dateTime(task.window_ends_at) })}</span>
                     )}
                     <SlaBadge dueAt={task.due_at} now={now} />
+                    <span className="basis-full text-xs text-charcoal-ink/60">{t(queueReasonKey({ ...task, state: null }, now), "en")}</span>
                   </li>
                 ))}
               </ul>
@@ -209,6 +211,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                     <span className="text-sm font-medium text-charcoal-ink">{task.type.replace(/_/g, " ")}</span>
                     {task.age_minutes !== null && <span className="text-xs text-charcoal-ink/60">{t("queue.escalated_age", "en", { minutes: task.age_minutes })}</span>}
                     <SlaBadge dueAt={task.due_at} now={now} />
+                    <span className="basis-full text-xs text-charcoal-ink/60">{t(queueReasonKey({ ...task, state: "escalated" }, now), "en")}</span>
                   </li>
                 ))}
               </ul>

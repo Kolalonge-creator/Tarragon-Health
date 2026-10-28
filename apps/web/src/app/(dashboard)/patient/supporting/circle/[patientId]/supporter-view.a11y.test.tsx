@@ -17,6 +17,12 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useSupporterView: () => view,
   useSupportedPeople: () => people,
   useRevokeMember: () => ({ mutateAsync, isPending: false }),
+  // S69b: the tools are off in these tests, so the digest and the shared jobs render nothing
+  useToolsStatus: () => ({ data: { digest: false, tasks: false, missed_dose: false, grace_minutes: null } }),
+  useWeeklyDigest: () => ({ isPending: false, isError: false, data: null }),
+  useCircleTasks: () => ({ isPending: false, isError: true, data: undefined }),
+  usePostTask: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useTaskAction: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
 const BASE = { patient_id: "p1", name: "Mama Eze", relationship: "Mother", permissions: [], shared_until: "2027-06-01T00:00:00Z" };

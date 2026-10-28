@@ -294,6 +294,7 @@ export * from "./cgm-events";
 export * from "./device-source";
 export * from "./causal-wording";
 export * from "./lock-screen-pass";
+export * from "./my-phones";
 export * from "./therapy-content/wave-a-drafts";
 export * from "./therapy-content/msk-drafts";
 export * from "./therapy-content/msk-illustrations";
@@ -312,6 +313,7 @@ export * from "./health-history";
 
 // S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
 export * from "./biomarker-trend";
+export * from "./care-circle-presets";
 
 // S43m: the emergency card field choices and the pure half of photo capture, shared by web and phone.
 export * from "./emergency-card-fields";
