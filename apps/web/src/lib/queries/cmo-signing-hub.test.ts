@@ -50,13 +50,13 @@ const readPendingVitalsTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise
 jest.mock("@/lib/queries/pending-vitals-task-type-signoff", () => ({
   readPendingVitalsTaskTypeSignoff: (...args: unknown[]) => readPendingVitalsTaskTypeSignoff(...args),
 }));
-type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
+type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; qualityRunningUnsigned?: boolean; credentialingRunningUnsigned?: boolean; failed: boolean };
 const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
 jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
   readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
-type CapacityPending = { opsDeskVersion?: number | null; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
+type CapacityPending = { opsDeskVersion?: number | null; capacityRunningUnsigned?: boolean; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
 const readPendingCapacityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<CapacityPending>>();
 jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
@@ -916,5 +916,23 @@ describe("readCmoSigningHub: reliable change and adjustment definitions (D4, D3)
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the reliable change and adjustment definitions");
+  });
+});
+
+describe("readCmoSigningHub: unsigned versions already running go to the urgent group", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("ranks the quality and licence line live_unsigned when the credentialing version in force has no signature, else draft_pending", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: 4, credentialingRunningUnsigned: true, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: 4, credentialingRunningUnsigned: false, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
+  });
+  it("ranks the capacity line live_unsigned only when the capacity version in force has no signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, capacityVersion: 2, capacityRunningUnsigned: true });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, capacityVersion: 2, capacityRunningUnsigned: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
   });
 });

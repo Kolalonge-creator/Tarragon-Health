@@ -352,12 +352,14 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
       qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
     ].filter(Boolean);
+    // A waiting draft exists AND the version now in force carries no signature: it is already driving behaviour unsigned.
+    const qualityRunning = (qualityConfigs.qualityVersion !== null && qualityConfigs.qualityRunningUnsigned === true) || (qualityConfigs.credentialingVersion !== null && qualityConfigs.credentialingRunningUnsigned === true);
     items.push({
       key: QUALITY_CONFIG_ITEM_KEY,
       title: "Quality and licence rules",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${qualityRunning ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: qualityRunning ? "live_unsigned" : "draft_pending",
       count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
     });
   }
@@ -395,12 +397,13 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
       capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (patient cap per lead)`,
     ].filter(Boolean);
+    const capacityRunning = capacityConfigs.capacityVersion !== null && capacityConfigs.capacityRunningUnsigned === true;
     items.push({
       key: CAPACITY_CONFIG_ITEM_KEY,
       title: "Capacity, rest and fire drills",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${capacityRunning ? " The capacity version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: capacityRunning ? "live_unsigned" : "draft_pending",
       count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
     });
   }

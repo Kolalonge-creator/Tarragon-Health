@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { newestWaiting } from "@/lib/queries/pending-quality-config-signoff";
+import { newestWaiting, runningUnsigned } from "@/lib/queries/pending-quality-config-signoff";
 
 /** The numbers the sign-off panel shows, read from the draft itself so the words the CMO signs against are the values that will apply. */
 export type CapacityRulesView = {
@@ -25,6 +25,8 @@ export type PendingCapacityConfigSignoff = {
   leadCapInForce: number | null;
   /** An unsigned, inactive ops_desk_config version newer than the one in force (the resilience checklist gate). */
   opsDeskVersion: number | null;
+  /** The capacity version now in force has no signature on record: it is already running unsigned. */
+  capacityRunningUnsigned?: boolean;
   /** The read failed: never render this as an all-clear. */
   failed: boolean;
 };
@@ -81,6 +83,7 @@ export async function readPendingCapacityConfigSignoff(supabase: SupabaseClient<
       leadCapDraft: leadVersion === null ? null : num(l.data.find((r) => r.version === leadVersion)?.rules, "max_lead_patients"),
       leadCapInForce: num(leadLive?.rules, "max_lead_patients"),
       opsDeskVersion: newestWaiting(o.data),
+      capacityRunningUnsigned: runningUnsigned(c.data),
       failed: false,
     };
   } catch {
