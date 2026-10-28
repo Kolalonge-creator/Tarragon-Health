@@ -24,6 +24,7 @@ import { ACTIVITY_KIND_CHOICES, parseActivityEntry } from "@/lib/activity-moveme
 import { queueActivity } from "@/lib/activity-movement";
 import { MovementGate, ReadinessCard, RouteRecorderCard, WeeklyGoalEditor } from "@/screens/sections/movement-extras";
 import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
+import { EatingPlansCard } from "@/screens/sections/eating-plans-card";
 import { loadGuidance, queueMeal } from "@/lib/food-diary";
 import { appendPhrase, type Guidance } from "@/lib/food-diary-model";
 import {
@@ -435,6 +436,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       {loadError ? <ErrorText>{loadError}</ErrorText> : null}
 
       <TargetsCard guidance={guidance} />
+      <EatingPlansCard patientId={patientId} />
 
       <Card style={{ gap: 12 }}>
         <View style={{ gap: 6 }}>

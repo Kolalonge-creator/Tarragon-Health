@@ -8772,4 +8772,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-28",
     source: "docs/design/baseline-labs-rule-proposal.md; supabase/migrations/20261028090417_baseline_labs_prescribing_check.sql. Unsigned until the CMO signs.",
   },
+  {
+    key: "nutrition.eating_plans_numbers",
+    // The only numbers in the eating plans and swaps (S50a, v5 6.8 and 6.9). Live value is `nutrition_guidance_config`.config.plans.*.numbers, seeded
+    // INACTIVE and unsigned; the CMO signs it through sign_nutrition_guidance_config. The kidney and pregnancy plans carry NO numbers (the database
+    // refuses a numbers block on either) and the weight plan has no calorie figure. The 5 g salt line is the WHO figure, a PLACEHOLDER for the CMO.
+    value: { hypertension_salt_g_max: 5 }, // band-ok: grams of salt a day for the eating plan, not a blood pressure band
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S50a.md; supabase/migrations/20261021182447_s50a_eating_plans_swaps.sql",
+  },
 ];
