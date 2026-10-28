@@ -456,6 +456,10 @@ jobs:
           # exercises the queue, page and Care Circle path. It is not a signature: the journey still reports d1-rule-approved as
           # pending (CMO) and the journey verdict as incomplete. See e2e-browser/journeys/README.md.
           S85_FIXTURE_APPROVE_RULESET: "1"
+          # Playwright's webServer runs `pnpm build`, whose Next type-check step died at Node's default ~4 GB heap
+          # ("JavaScript heap out of memory", 2026-10-28, on main-dev and on PRs alike), so no test ever started.
+          # Same ceiling the main CI job uses; ubuntu-latest has 16 GB.
+          NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm test:e2e-browser
 
       # S85: print every journey's step report (passed / pending / skipped / failed) so a reader sees what is pending.
@@ -477,6 +481,8 @@ jobs:
       - name: Run console browser E2E tests
         if: github.event_name != 'pull_request' || steps.changes.outputs.e2e == 'true'
         working-directory: apps/console
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm test:e2e-browser
 
       - name: Upload Playwright report
