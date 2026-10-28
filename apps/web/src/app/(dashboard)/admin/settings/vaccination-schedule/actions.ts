@@ -48,6 +48,20 @@ export async function createVaccinationScheduleDraftAction(
   if (latestError) return { error: latestError.message };
   const nextVersion = (latest?.version ?? 0) + 1;
 
+  // A version 2 or later cannot be activated without a schedule_config (CHECK vaccination_schedule_signoffs_v2_active_needs_config), so a
+  // draft created without one can never be signed. Carry forward the configuration of the version IN FORCE (signed), never a newer unsigned
+  // draft's, so a proposed configuration is not copied into a draft and signed under a catalogue review. A change to it is made by a migration.
+  const { data: configRow, error: configError } = await supabase
+    .from("vaccination_schedule_signoffs")
+    .select("schedule_config")
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (configError) return { error: configError.message };
+  if (!configRow?.schedule_config) {
+    return { error: "There is no schedule configuration to carry forward, so a draft made now could not be signed." };
+  }
+
   const sourceUrl = String(formData.get("source_url") ?? "").trim() || null;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
@@ -58,6 +72,7 @@ export async function createVaccinationScheduleDraftAction(
     notes,
     source_url: sourceUrl,
     catalog_snapshot: catalog,
+    schedule_config: configRow.schedule_config,
   });
   if (error) return { error: error.message };
 
