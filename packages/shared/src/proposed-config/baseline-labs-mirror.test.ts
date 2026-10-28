@@ -18,7 +18,7 @@ describe("prescribing.baseline_labs_rule mirrors the migration seed", () => {
   const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_baseline_labs_prescribing_rule.sql"));
   if (!file) throw new Error("baseline labs migration not found");
   const sql = readFileSync(join(MIGRATIONS, file), "utf8");
-  const cfg = getProposedConfig<Rule>("prescribing.baseline_labs_rule");
+  const cfg = getProposedConfig<Rule>("prescribing.baseline_labs_rule", "2026-10-27");   // version 1; version 2 (2026-10-28) has its own test
 
   it("is identical to the baseline_labs_rule_config v1 seed", () => {
     const match = /baseline-labs-rule-v1-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
@@ -27,7 +27,7 @@ describe("prescribing.baseline_labs_rule mirrors the migration seed", () => {
   });
 
   it("is PROPOSED and owned by the CMO, never signed in code", () => {
-    const e = PROPOSED_CONFIG.find((x) => x.key === "prescribing.baseline_labs_rule");
+    const e = PROPOSED_CONFIG.find((x) => x.key === "prescribing.baseline_labs_rule" && x.version === 1);
     expect(e?.status).toBe("proposed");
     expect(e?.owner).toBe("CMO");
   });

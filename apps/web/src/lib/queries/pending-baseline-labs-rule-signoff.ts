@@ -20,6 +20,10 @@ export type BaselineLabsRuleView = {
   bypassNote: string;
   membershipNote: string;
   proposedNote: string;
+  /** Version 2 and later: the tests each medicine class needs (the CMO's table). Empty for version 1, which has one list for every medicine. */
+  classRules: { label: string; tests: string; note: string | null }[];
+  /** Version 2 and later: the rules beyond the table, in plain words. */
+  extraRules: string[];
 };
 
 export type PendingBaselineLabsRuleSignoff = {
@@ -76,7 +80,36 @@ export function baselineLabsRuleView(config: unknown): BaselineLabsRuleView | nu
   if (typeof at.note !== "string" || typeof config.recency_window_days !== "number" || typeof config.recency_window_note !== "string") return null;
   if (typeof wm.message !== "string" || typeof wm.bypass_note !== "string" || wm.bypass_available !== true) return null;
   if (typeof info.membership !== "string" || typeof config.proposed_note !== "string" || typeof dmRec.note !== "string") return null;
+  const classRules: BaselineLabsRuleView["classRules"] = [];
+  if (Array.isArray(config.class_requirements)) {
+    for (const c of config.class_requirements) {
+      if (!isObj(c) || typeof c.label !== "string") return null;
+      const req = strings(c.requires);
+      if (!req) return null;
+      const tests = req.map(label);
+      if (tests.includes(null)) return null;
+      classRules.push({ label: c.label, tests: tests.length === 0 ? "no blood test required (statins: pregnancy question only)" : (tests as string[]).join(", "), note: typeof c.note === "string" ? c.note : null });
+    }
+  }
+  const extraRules: string[] = [];
+  const egfr = config.egfr_rules;
+  if (isObj(egfr)) {
+    if (typeof egfr.note !== "string") return null;
+    extraRules.push(egfr.note);
+  }
+  const preg = config.pregnancy;
+  if (isObj(preg)) {
+    if (typeof preg.note !== "string") return null;
+    extraRules.push(preg.note);
+  }
+  const exc = config.hba1c_exception;
+  if (isObj(exc)) {
+    if (typeof exc.note !== "string") return null;
+    extraRules.push(exc.note);
+  }
   return {
+    classRules,
+    extraRules,
     appliesTo: at.note,
     groups: [
       { label: bp.label, medicines: bpNames.map(plain) },

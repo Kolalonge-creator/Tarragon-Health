@@ -51481,6 +51481,8 @@ export type Database = {
       record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
+      mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
+      clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       admin_set_reward_rule: {
         Args: { p_active: boolean; p_caps: Json; p_code: string; p_points: number }

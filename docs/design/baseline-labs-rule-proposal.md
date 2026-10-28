@@ -2,6 +2,8 @@
 
 Status: PROPOSED for the CMO. Not signed. Nothing here is built as a rule yet. Sign through the CMO sign-off hub once the built check exists; an agent never signs it.
 
+Update 2026-10-28: the CMO answered the four questions below on 2026-10-27, all as drafted (thresholds as written; the prescribing doctor may start before results and records why; fasting glucose replaces HbA1c when the doctor marks it unreliable; a calcium channel blocker alone needs no test). The merged rule (PR #1334, `baseline_labs_rule_config` v1) differed from those answers, so **version 2** (`supabase/migrations/20261028110233_baseline_labs_rule_v2_cmo_answers.sql`) carries them: per-class tests, 12 months, a metformin kidney block (eGFR under 30, no override), the HbA1c exception, the pregnancy question, a 7-day follow-up. v2 is UNSIGNED and INACTIVE; the CMO signs it on the sign-off hub. Not enforced: the repeat creatinine and potassium after an ACE inhibitor or ARB, and "review the dose" for eGFR 30 to 44. Not built: a screen to mark HbA1c unreliable or to record the documented override.
+
 Why this exists: the 2026-10-21 membership decision names a baseline-labs prescribing rule as a condition before the lower tier is switched on. The aim is a rule that works with what is realistic in Nigeria: a partner or own lab, a blood draw, no special equipment.
 
 ## The rule (proposed wording)
