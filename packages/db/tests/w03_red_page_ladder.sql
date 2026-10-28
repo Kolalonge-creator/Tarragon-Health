@@ -270,7 +270,7 @@ begin
   delete from public.chain_canary_red_runs where judged_at is null;
   v_tick := private.chain_canary_red_tick();
   insert into results values ('sabotaged', 'without the enabled-at reference the old last run raises a stale alarm', '0', (select count(*)::text from public.ops_incidents where external_reference = 'chain_canary_red:stale' and status not in ('resolved', 'closed')));
-  update public.ops_incidents set status = 'resolved' where external_reference like 'chain_canary_red:%';
+  update public.ops_incidents set status = 'resolved', root_cause = 'W-03 proof' where external_reference like 'chain_canary_red:%';
   perform pg_temp.flip('red_lane', false);
 
   -- 3. DEAD LETTER ---------------------------------------------------------------------------------------------------------
@@ -352,7 +352,7 @@ begin
   -- subscriber-hour group would be a fourth, so it is appended to the newest open incident instead and nobody new is assigned
   select count(*) into v_before from public.ops_incidents where external_reference like 'page\_dead\_letter:%';
   select count(*) into v_cn from public.ops_desk_assignments where incident_id in (select id from public.ops_incidents where external_reference like 'page\_dead\_letter:%');
-  update public.ops_incidents set status = 'resolved' where id = (select incident_id from public.red_dead_letter_pages where delivery_id = v_dl);   -- the first group is closed: paging.on_red has no open group
+  update public.ops_incidents set status = 'resolved', root_cause = 'W-03 proof' where id = (select incident_id from public.red_dead_letter_pages where delivery_id = v_dl);   -- the first group is closed: paging.on_red has no open group
   insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
     values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-cap-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'paging.on_red', v_org, 'dead');
@@ -362,7 +362,7 @@ begin
     ',' || ((select count(*) from public.ops_desk_assignments where incident_id in (select id from public.ops_incidents where external_reference like 'page\_dead\_letter:%')) - v_cn)::text);
   -- SABOTAGE (g): the cap raised -> the same situation creates a fourth incident (the check flips)
   update public.chain_canary_red_config set dead_letter_max_incidents_per_hour = 20;
-  update public.ops_incidents set status = 'resolved' where external_reference like 'page\_dead\_letter:paging.on_red:%';
+  update public.ops_incidents set status = 'resolved', root_cause = 'W-03 proof' where external_reference like 'page\_dead\_letter:paging.on_red:%';
   insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
     values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-cap2-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'paging.on_red', v_org, 'dead');
