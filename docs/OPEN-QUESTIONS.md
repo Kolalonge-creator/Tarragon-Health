@@ -3374,6 +3374,11 @@ following are recorded in the system:
 ### OQ-GAP71-3 Who may enter an independent review, and what counts as one (raised by GAP-71, 2026-10-28)
 - Only a platform admin or the CMO can record a review (name, organisation, date, scope), as asked. Tarragon staff entering a review of Tarragon's own figures is a conflict of interest if no reviewer document is kept. Decide whether a reference to the reviewer's report (a document id or link) should be required before the record is accepted, and who checks it.
 - Decision: open (CMO and founder).
+### OQ-S71-CHANNELS Zap (QR) channel string is unverified and must be flipped by a human (raised by gap 71, 2026-10-28)
+- The checkout channel list is now configuration-driven (`checkout.payment_channels` in the proposed-config registry, mirrored in `supabase/functions/_shared/commerce/checkout-channels.ts`, drift-tested). The default is unchanged: `["card","bank_transfer","ussd"]`. An unknown or empty value falls back to that default.
+- Paystack added Zap (QR) to Checkout in late 2025. `PAYMENT_CHANNELS` lists `"qr"` but nothing sends it, and its exact channel string for Zap is UNVERIFIED. Do not add it to the config until the string is checked against the live Paystack account and current docs (see also OQ-401, where `bank_transfer` may need enabling in the dashboard).
+- Founder action: verify with the test key, then publish a new versioned registry entry and update the edge mirror in the same change. An agent must not flip it.
+- Decision: open.
 
 ### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
 - The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
