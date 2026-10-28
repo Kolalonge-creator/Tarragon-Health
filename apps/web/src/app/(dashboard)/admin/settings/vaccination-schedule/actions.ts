@@ -49,12 +49,12 @@ export async function createVaccinationScheduleDraftAction(
   const nextVersion = (latest?.version ?? 0) + 1;
 
   // A version 2 or later cannot be activated without a schedule_config (CHECK vaccination_schedule_signoffs_v2_active_needs_config), so a
-  // draft created without one can never be signed. Carry the newest configuration forward; a change to it is made by a migration, not here.
+  // draft created without one can never be signed. Carry forward the configuration of the version IN FORCE (signed), never a newer unsigned
+  // draft's, so a proposed configuration is not copied into a draft and signed under a catalogue review. A change to it is made by a migration.
   const { data: configRow, error: configError } = await supabase
     .from("vaccination_schedule_signoffs")
     .select("schedule_config")
-    .not("schedule_config", "is", null)
-    .order("version", { ascending: false })
+    .eq("is_active", true)
     .limit(1)
     .maybeSingle();
   if (configError) return { error: configError.message };

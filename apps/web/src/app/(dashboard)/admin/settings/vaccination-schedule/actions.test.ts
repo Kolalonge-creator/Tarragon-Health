@@ -1,7 +1,7 @@
 /**
  * Regression test (2026-10-28): createVaccinationScheduleDraftAction inserted a draft with a catalogue snapshot but no schedule_config.
  * The table's CHECK vaccination_schedule_signoffs_v2_active_needs_config refuses to activate any version 2 or later without one, so every
- * draft the button made (versions 3, 4 and 5 live) failed when the Chief Medical Officer pressed sign. The draft must carry the newest
+ * draft the button made (versions 3, 4 and 5 live) failed when the Chief Medical Officer pressed sign. The draft must carry the in-force
  * configuration forward, and must refuse to create an unsignable draft when there is none to carry.
  */
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
@@ -25,7 +25,7 @@ jest.mock("@/lib/supabase/server", () => ({
         select: (cols: string) =>
           cols === "version"
             ? { order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: { version: 2 }, error: null }) }) }) }
-            : { not: () => ({ order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: configRow, error: null }) }) }) }) },
+            : { eq: () => ({ limit: () => ({ maybeSingle: async () => ({ data: configRow, error: null }) }) }) },
         insert: (row: unknown) => {
           insert(row);
           return Promise.resolve({ error: null });
@@ -45,7 +45,7 @@ describe("createVaccinationScheduleDraftAction", () => {
     configRow = { schedule_config: { doses: { hpv: 2 } } };
   });
 
-  it("carries the newest schedule_config into the new draft, so it can be signed", async () => {
+  it("carries the in-force schedule_config into the new draft, so it can be signed", async () => {
     const res = await createVaccinationScheduleDraftAction(undefined, form());
     expect(res).toEqual({ success: true });
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ version: 3, schedule_config: { doses: { hpv: 2 } } }));
