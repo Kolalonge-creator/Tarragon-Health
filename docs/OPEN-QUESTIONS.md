@@ -2581,7 +2581,7 @@ Design note: `docs/design/S47-decisions-applied.md`. Everything below that needs
 - Decision: open.
 ### OQ-551 The approved bp_care_triage v3 names no follow-up task for a red reading (raised by S85, journey 2)
 - With v3 approved (test fixture, local database only), a 190/120 reading with severe headache grades red (BP-R1) with actions show_emergency_guidance and page_on_call only. No follow-up task is created and the page's own class 1 task is cancelled on acknowledgement. The journey's "follow-up task" and "next day follow-up consultation" steps are pending (S64). The CMO may want a follow-up task action on BP-R1.
-- Decision: open (CMO).
+- Decision: the owner chose on 2026-10-28 a clinician follow-up TASK due 24 hours after any red grade (urgent_bp_review), not an auto-booked consultation. Built as a DRAFT `bp_care_triage` v8 (page unchanged). Still open for the CMO: approve v8, and the lead time and task type, which are PROPOSED. Until v8 is signed nothing creates the task.
 ### OQ-552 Checkout is dormant on a fresh database, and the plan's "seed.sql does not exist" is a path error (raised by S85)
 - `catalog_items.membership_annual` is inactive on a fresh stack, so journey 1 cannot create an order and records it as pending. Separately `supabase/seed/seed.sql` exists (the config path); the README and the CI path filter named `supabase/seed.sql`, which never existed. Both docs and the filter are corrected in this PR.
 - Decision: informational.

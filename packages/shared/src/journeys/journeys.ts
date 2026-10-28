@@ -70,7 +70,7 @@ export const J2: JourneyDef = {
     { id: "clinician-acknowledges-and-records", title: "The paged clinician acknowledges and records the decision (real clinician session)" },
     { id: "audit-rows-written", title: "Audit rows exist for the reading, the grade, the page and the clinician's chart read (INV-10)" },
     { id: "followup-task-created", title: "A follow-up task is created" },
-    { id: "followup-consult-booked", hazards: ["HZ-J2-08"], title: "The next day a follow-up consultation is booked automatically", pending: { owner: "S64", reason: "the approved rule set names no follow-up task or booking for a red reading (OQ-551), so nothing books one; consultation booking itself exists from S64" } },
+    { id: "followup-consult-booked", hazards: ["HZ-J2-08"], title: "The next day a follow-up consultation is booked automatically", pending: { owner: "CMO signs bp_care_triage v8 (OQ-551)", reason: "owner decision 2026-10-28: after a red grade the doctor gets a follow-up TASK due in 24 hours, not an auto-booked consultation. Draft rule set v8 adds it; until the CMO signs v8 nothing creates it, and a booked consultation is not built, so the step as worded stays pending" } },
     { id: "outcomes-engine-logs-event", title: "The outcomes engine logs the event: the red grade is in the append-only triage log and the S38c risk computation counts it (founder decision 2026-10-28: no second copy of the event)" },
   ],
 };

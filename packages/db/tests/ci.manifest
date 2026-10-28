@@ -1623,3 +1623,5 @@ w02_override_reason_codes.sql
 # W-01 doctor-time capture: append-only own-rows time entries, consult trigger, CMO-only aggregate with no clinician column. Sabotage: claimed_by check and CMO check removed; both must flip.
 # W-01 doctor-time capture: owner-only append-only time entries (void, idempotent), consult trigger, CMO/finance aggregate over Members with zero-minute Members and consult-over-task overlap. Sabotage: relationship check, idempotency, voided filter, overlap, denominator each removed.
 w01_clinician_time_entries.sql
+# OQ-551 bp_care_triage v8: an unsigned draft where every red rule still pages and gains exactly one 24 hour follow-up task, no other rule changed. Sabotage: the page removed, a second task added; both must be caught.
+bp_care_triage_v8_red_follow_up.sql
