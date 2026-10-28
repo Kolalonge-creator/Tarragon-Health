@@ -49,10 +49,13 @@ create function pg_temp.try_as(p_uid uuid, p_sql text) returns text language plp
 $f$ declare v text;
 begin
   perform pg_temp.act(p_uid);
-  begin execute p_sql; v := 'ok'; exception when others then v := sqlstate; end;
+  begin execute p_sql; v := 'ok'; exception when others then v := sqlstate; raise notice 'try_as -> %: %', sqlstate, sqlerrm; end;
   perform pg_temp.back();
   return v;
 end $f$;
+-- read as its own statement (fresh snapshot): a call and the read of its effect inside ONE expression would see the state from before the call
+create function pg_temp.rd(p_sql text) returns text language plpgsql as
+$f$ declare r text; begin execute p_sql into r; return r; end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text) returns uuid language plpgsql as
 $f$ declare v uuid := gen_random_uuid();
 begin
@@ -192,7 +195,8 @@ begin
   perform pg_temp.res('switching it to the value it already has is refused', '23514', pg_temp.try_as(v_cmo, $q$select public.set_red_lane_enabled(true, 'switching it on a second time over')$q$));
   perform pg_temp.res('the ladder status shows the last change', 'true,drill window agreed with the founder today',
     ((pg_temp.q_as(v_admin, 'select public.red_ladder_status()')::jsonb) -> 'switch_changes' -> 'red_lane' ->> 'new_value') || ',' || ((pg_temp.q_as(v_admin, 'select public.red_ladder_status()')::jsonb) -> 'switch_changes' -> 'red_lane' ->> 'reason'));
-  perform pg_temp.res('the CMO switches it back off', 'ok,false', pg_temp.try_as(v_cmo, $q$select public.set_red_lane_enabled(false, 'back to off until the drill starts')$q$) || ',' || (select red_lane_enabled::text from public.chain_canary_red_config));
+  perform pg_temp.res('the CMO switches it back off', 'ok', pg_temp.try_as(v_cmo, $q$select public.set_red_lane_enabled(false, 'back to off until the drill starts')$q$));
+  perform pg_temp.res('and the lane is off', 'false', pg_temp.rd('select red_lane_enabled::text from public.chain_canary_red_config'));
 
   -- 2. RED LANE: the seeded failure -----------------------------------------------------------------------------------------
   perform pg_temp.flip('red_lane', true);
@@ -301,7 +305,7 @@ begin
     values (v_ev, 'paging.on_red', v_org, 'dead', (select dead_letter_paging_started_at from public.chain_canary_red_config) - interval '1 hour') on conflict (event_id, subscriber_key) do update set status = excluded.status, updated_at = excluded.updated_at returning id into v_dl5;
   perform pg_temp.res('BACKLOG: a delivery that went dead before paging was switched on is ignored', '0,0', (private.sweep_red_dead_letters() ->> 'paged') || ',' || (select count(*)::text from public.red_dead_letter_pages where delivery_id = v_dl5));
   update public.domain_event_deliveries set status = 'done', done_at = now() where id = v_dl;
-  perform pg_temp.res('a requeued and finished delivery closes the alarm', '1,resolved', (private.sweep_red_dead_letters() ->> 'resolved') || ',' || (select status::text from public.ops_incidents where id = v_inc));
+  perform pg_temp.res('a requeued and finished delivery closes the alarm', '1,resolved', (private.sweep_red_dead_letters() ->> 'resolved') || ',' || pg_temp.rd(format('select status::text from public.ops_incidents where id = %L', v_inc)));
 
   -- positive assignment: a named, verified ops person is on duty, so the dead letter reaches THEM (and nobody else) with the neutral notice
   v_ops := pg_temp.mkphoneuser(v_org, 'ops', 'admin', '+2348062541973');
@@ -333,7 +337,7 @@ begin
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_ct2;
   update public.ops_desk_contacts set is_test = false where id = v_ct2;
   perform pg_temp.res('PRIOR BEHAVIOUR: after an unacknowledged primary the deputy is assigned (primary_unacknowledged)', 'primary_unacknowledged,deputy',
-    (select reason || ',' || role from public.ops_desk_assignments where id = private.ops_desk_assign(v_inc4, 'deputy', v_ops)));
+    pg_temp.rd(format('select reason || '','' || role from public.ops_desk_assignments where id = %L', private.ops_desk_assign(v_inc4, 'deputy', v_ops))));
   update public.domain_event_deliveries set status = 'done', done_at = now() where id = v_dl4;
   perform private.sweep_red_dead_letters();
 
@@ -415,6 +419,9 @@ begin
     (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota'));
 
   -- SUNSET BITES: in a REAL (non-test) world, five credentialed clinicians where one holds on_call only because they granted it to themselves
+  -- real (non-test) clinicians need a recorded primary-source verification to count as eligible; this proof is about rota cover, not credentialing,
+  -- so the check is satisfied for the rest of this rolled-back transaction
+  create or replace function private.psv_satisfied(p_staff uuid, p_at timestamptz default now()) returns boolean language sql stable as $p$ select true $p$;
   insert into public.organisations (name, type) values ('W03 proof org four', 'clinic') returning id into v_org4;
   v_docs := '{}';
   for i in 1..5 loop
@@ -463,7 +470,7 @@ begin
     pg_temp.try(format('insert into public.sole_cmo_exceptions (organisation_id, competency_code, reason, signed_by, is_test) values (%L, ''on_call'', %L, %L, false)', v_org2, repeat('y', 45), v_cmo2)));
   update public.sole_cmo_exceptions set expires_at = now() - interval '1 hour' where id = v_exc;
   perform pg_temp.res('the sweep closes the lapsed real exception and audits it', '1,1', (private.sole_cmo_sunset_sweep() ->> 'closed') || ',' ||
-    (select count(*)::text from public.audit_log where action = 'sole_cmo_exception.expired' and entity_id = v_exc));
+    pg_temp.rd(format('select count(*)::text from public.audit_log where action = ''sole_cmo_exception.expired'' and entity_id = %L', v_exc)));
   insert into public.sole_cmo_exceptions (organisation_id, competency_code, reason, signed_by, is_test)
     values (v_org2, 'on_call', repeat('t', 45), v_cmo2, true);
   perform pg_temp.res('a test exception is exempt from the date (the older proofs cannot rot)', 'true',
