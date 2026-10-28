@@ -756,8 +756,9 @@ begin
   if pol.sole_cmo_exception_sunset is null then return jsonb_build_object('skipped', 'no sunset date'); end if;
   v_days := pol.sole_cmo_exception_sunset - (now() at time zone 'Africa/Lagos')::date;
 
-  for e in select id, organisation_id from public.sole_cmo_exceptions where revoked_at is null and not is_test and expires_at <= now() loop
-    update public.sole_cmo_exceptions set revoked_at = now(), revoke_reason = 'dated expiry reached (closed automatically)' where id = e.id;
+  for e in select id, organisation_id, signed_by from public.sole_cmo_exceptions where revoked_at is null and not is_test and expires_at <= now() loop
+    -- the table requires revoked_at, revoked_by and revoke_reason together; the system has no profile, so the signer is recorded and the reason says it was automatic
+    update public.sole_cmo_exceptions set revoked_at = now(), revoked_by = e.signed_by, revoke_reason = 'dated expiry reached (closed automatically)' where id = e.id;
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
       values (e.organisation_id, null, 'sole_cmo_exception.expired', 'sole_cmo_exception', e.id, jsonb_build_object('sunset', pol.sole_cmo_exception_sunset));
     v_closed := v_closed + 1;
