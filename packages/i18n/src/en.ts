@@ -2052,6 +2052,7 @@ export const en = {
   "circle.view.bp.lower": "Lower than the week before.",
   "circle.view.bp.steady": "About the same as the week before.",
   "circle.view.bp.none": "No readings in this period.",
+  "supporterview.bp.row_few": "Week of {date}: not enough readings yet to show an average.",
   "circle.view.appt.title": "Appointments",
   "circle.view.appt.next": "Next appointment: {date}",
   "circle.view.appt.none": "No appointment booked.",

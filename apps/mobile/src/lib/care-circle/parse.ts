@@ -34,7 +34,7 @@ export interface SupporterView {
   name: string;
   sharedUntil: string;
   adherence?: { taken: number; due: number; percent: number | null };
-  bpTrend?: { weeks: { weekStart: string; systolic: number; diastolic: number; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
+  bpTrend?: { weeks: { weekStart: string; systolic: number | null; diastolic: number | null; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
   appointments?: { nextAt: string | null; missed30d: number };
   /** S38d: month by month, each part only with the matching tick. */
   monthly?: CircleMonthlyRow[];
@@ -109,8 +109,8 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   const b = data["bp_trend"];
   if (isObj(b) && Array.isArray(b["weeks"])) {
     const weeks = b["weeks"].flatMap((w) =>
-      isObj(w) && str(w["week_start"]) && num(w["systolic"]) && num(w["diastolic"]) && num(w["readings"])
-        ? [{ weekStart: w["week_start"], systolic: w["systolic"], diastolic: w["diastolic"], readings: w["readings"] }]
+      isObj(w) && str(w["week_start"]) && num(w["readings"])
+        ? [{ weekStart: w["week_start"], systolic: num(w["systolic"]) ? w["systolic"] : null, diastolic: num(w["diastolic"]) ? w["diastolic"] : null, readings: w["readings"] }]
         : [],
     );
     const d = b["direction"];

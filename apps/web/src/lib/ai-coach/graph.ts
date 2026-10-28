@@ -31,6 +31,7 @@ import {
   screenSensitiveResultQuestion,
   screenSensitiveResultReply,
 } from "./reply-screen";
+import { applyAdvisoryNote, asksSpecificOwnCareAdvice, CARE_TEAM_REDIRECT_REPLY } from "./advisory";
 import { describesNewSymptoms } from "./symptom-handoff";
 import { looksLikeHealthInformationQuestion } from "./info-question";
 import { loadKnowledgeSources, toCoachSource } from "./knowledge-sources";
@@ -163,6 +164,12 @@ export interface CoachGraphDeps {
    * the single point of failure 40.18 exists to prevent.
    */
   systemPrompt?: string;
+  /**
+   * W-10: AI-001 is restricted to advisory display. Restricts the ANSWERS only: a model answer carries a fixed note, and a question that
+   * asks for specific advice about the patient's own medicines, doses or results goes to the care team instead of the model. Clinician
+   * alerts, the emergency path and the keyword guardrails are unchanged. See ai-coach/advisory.ts.
+   */
+  advisoryOnly?: boolean;
 }
 
 /**
@@ -309,6 +316,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         reply: DOSE_REFUSAL_REPLY,
         suggestedAction: "none" as const,
       };
+    }
+    // W-10: in advisory mode a question asking for specific advice about the patient's own medicines, doses or results is not answered by
+    // the model. Fixed reply to the care-team message flow, no model call, no clinician flag (it is not a safety signal).
+    if (deps.advisoryOnly === true && asksSpecificOwnCareAdvice(state.incomingMessage)) {
+      return { tier: "routine" as const, reply: CARE_TEAM_REDIRECT_REPLY, suggestedAction: "none" as const };
     }
     return {};
   }
@@ -673,7 +685,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       });
       return {
         tier: final.tier,
-        reply: final.reply,
+        // W-10: in advisory mode a model-written answer carries the fixed note (never an emergency, never code-written fixed copy)
+        reply: applyAdvisoryNote(final.reply, { advisoryOnly: deps.advisoryOnly === true, tier: final.tier, replacedByCode: final.replacedBy !== undefined }),
         suggestedAction: final.suggestedAction,
         selfHarm: final.selfHarm === true,
         modelId,

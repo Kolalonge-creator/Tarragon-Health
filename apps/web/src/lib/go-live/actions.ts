@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { findEntry, hashConfigValue, GUARD_KEYS, viewerOwns, type Viewer } from "./model";
+import { findEntry, hashConfigValue, viewerOwns, type Viewer } from "./model";
 import { setFlash } from "./flash";
 import type { RpcClient } from "./load";
 
@@ -25,7 +25,10 @@ const PATHS = { admin: "/admin/go-live", cmo: "/clinician/go-live" } as const;
 const HUB_PATH = "/clinician/clinical-signoff";
 const destination = (viewer: Viewer, formData: FormData): string => (viewer === "cmo" && formData.get("back") === "hub" ? HUB_PATH : PATHS[viewer]);
 const noteSchema = z.string().trim().max(1000).optional();
-const keySchema = z.enum(GUARD_KEYS);
+// Only the shape is checked here. The database is the real gate: set_go_live_guard and attest_go_live_condition raise 22023 "no such go-live guard"
+// for a key that does not exist. This used to be z.enum(GUARD_KEYS), a hand-kept copy of the guard list that fell behind (about 25 of 85 guards), so
+// every attestation for a newer guard (fast-sugar wording, the mental wellbeing wording, ...) was refused as "not recognised" before reaching it.
+const keySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
 
 type Back = { notice: string; detail?: string; failed: boolean };
 
@@ -89,7 +92,12 @@ export async function attestConditionAction(formData: FormData): Promise<void> {
   const key = keySchema.safeParse(formData.get("key"));
   const code = z.string().regex(/^[a-z][a-z0-9_]*$/).safeParse(formData.get("code"));
   const met = formData.get("met") === "1";
-  const note = z.string().trim().min(10).max(1000).safeParse(formData.get("note"));
+  // A wording attestation only counts while its note carries the current text fingerprint. The panels send the fingerprint as a hidden field
+  // and the person's own note stays optional, so nobody has to see or type "Text fingerprint ... Read in full." in a box.
+  const fingerprint = z.string().regex(/^[a-f0-9]{12}$/).safeParse(formData.get("fingerprint"));
+  const typed = String(formData.get("note") ?? "").trim();
+  const noteText = fingerprint.success ? `Text fingerprint ${fingerprint.data}. Read in full.${typed ? ` ${typed}` : ""}` : typed;
+  const note = z.string().trim().min(10).max(1000).safeParse(noteText);
   if (!key.success || !code.success || !note.success) return fail(viewer, "golive.error.input", undefined, path);
   const { error } = await (await client()).rpc("attest_go_live_condition", { p_key: key.data, p_code: code.data, p_met: met, p_note: note.data });
   if (error) {
