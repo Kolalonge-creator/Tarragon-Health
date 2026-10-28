@@ -72,7 +72,7 @@ begin
   select organisation_id, role::text, date_of_birth into v_org, v_role, v_dob from public.profiles where id = v_uid;
   if v_org is null or v_role <> 'patient' then raise exception 'only a patient can set this' using errcode = '42501'; end if;
   if p_opt_in then
-    if v_dob is null or v_dob > (current_date - interval '18 years')::date then raise exception 'adults_only' using errcode = '22023'; end if;
+    if v_dob is null or v_dob > (private.lagos_today() - interval '18 years')::date then raise exception 'adults_only' using errcode = '22023'; end if;
     if not private.go_live_open_patient('screening_sensitive_request_optin_enabled', v_uid) then raise exception 'not_available_yet' using errcode = '55000'; end if;
   end if;
   insert into public.screening_sensitive_request_optin (patient_id, organisation_id, opted_in, changed_at)

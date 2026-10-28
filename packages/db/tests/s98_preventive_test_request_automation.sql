@@ -286,8 +286,10 @@ begin
 
   -- a caregiver with view_results sees the non-sensitive request but never learns a sensitive screening has one
   cg := pg_temp.mkuser(pg_temp.f('org'), 'caregiver', 'patient', true);
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
-  values (pt, cg, 'manage', pt, array['view_results']::public.caregiver_permission[]);
+  perform set_config('request.jwt.claims', json_build_object('sub', pt)::text, true);
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions, clinical_access)
+  values (pt, cg, 'manage', pt, array['view_results']::public.caregiver_permission[], true);
+  perform set_config('request.jwt.claims', '', true);
   hivs := pg_temp.f('hiv');
   perform pg_temp.ck('control: the owner has a non-sensitive request on file', 'true', (private.open_screening_request_id(fer) is not null)::text);
   -- make sure the patient has a sensitive request (as the opted-in job would issue), then ask as the caregiver
