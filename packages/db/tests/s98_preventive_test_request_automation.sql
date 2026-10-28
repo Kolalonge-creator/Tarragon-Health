@@ -321,6 +321,7 @@ begin
   if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase, check_name;
+select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
+-- Sabotaged rows are asserted to differ inside the DO block above (they must) and are deliberately not printed: a printed sabotage row reads as FAIL to the runner.
 
 rollback;
