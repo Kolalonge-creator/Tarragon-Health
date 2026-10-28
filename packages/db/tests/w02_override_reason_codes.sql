@@ -97,7 +97,7 @@ begin
   values (v_org, gen_random_uuid(), v_pat, 'generated', 'w02-proof', '{}'::jsonb) returning id into v_brief;
   insert into public.case_briefs (organisation_id, clinician_alert_id, patient_id, status, model_id, input_snapshot)
   values (v_org, gen_random_uuid(), v_pat2, 'generated', 'w02-proof', '{}'::jsonb) returning id into v_brief2;
-  insert into public.clinician_alerts (organisation_id, patient_id, level, title) values (v_org, v_pat, 'clinician_review', 'W02 proof alert') returning id into v_alert;
+  insert into public.clinician_alerts (organisation_id, patient_id, level, category, type_code, title) values (v_org, v_pat, 'clinician_review', 'clinical', 'deterioration', 'W02 proof alert') returning id into v_alert;
   set local session_replication_role = origin;
   perform pg_temp.setf('task', v_task); perform pg_temp.setf('task2', v_task2); perform pg_temp.setf('brief', v_brief); perform pg_temp.setf('brief2', v_brief2); perform pg_temp.setf('alert', v_alert);
 end $$;
@@ -231,7 +231,7 @@ declare v_orig text; v_def text; r text; v_alert2 uuid; v_task3 uuid; v_alert1 u
 begin
   -- the real-phase twin of sabotage 1, on a fresh alert
   set local session_replication_role = replica;
-  insert into public.clinician_alerts (organisation_id, patient_id, level, title) values (pg_temp.f('org'), pg_temp.f('pat'), 'clinician_review', 'W02 real alert') returning id into v_alert1;
+  insert into public.clinician_alerts (organisation_id, patient_id, level, category, type_code, title) values (pg_temp.f('org'), pg_temp.f('pat'), 'clinician_review', 'clinical', 'deterioration', 'W02 real alert') returning id into v_alert1;
   set local session_replication_role = origin;
   perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.override_alert_level(%L, 'routine', 'real step', 'other')::text$q$, v_alert1));
   insert into results values ('real', 'the override function sets the level', 'routine', coalesce((select override_level::text from public.clinician_alerts where id = v_alert1), 'none'));
@@ -241,7 +241,7 @@ begin
   if v_def = v_orig then raise exception 'SABOTAGE 1 not applied'; end if;
   execute v_def;
   set local session_replication_role = replica;
-  insert into public.clinician_alerts (organisation_id, patient_id, level, title) values (pg_temp.f('org'), pg_temp.f('pat'), 'clinician_review', 'W02 sabotage alert') returning id into v_alert2;
+  insert into public.clinician_alerts (organisation_id, patient_id, level, category, type_code, title) values (pg_temp.f('org'), pg_temp.f('pat'), 'clinician_review', 'clinical', 'deterioration', 'W02 sabotage alert') returning id into v_alert2;
   set local session_replication_role = origin;
   perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.override_alert_level(%L, 'routine', 'sabotage step', 'other')::text$q$, v_alert2));
   insert into results values ('sabotaged', 'the override function sets the level', 'routine', coalesce((select override_level::text from public.clinician_alerts where id = v_alert2), 'none'));
