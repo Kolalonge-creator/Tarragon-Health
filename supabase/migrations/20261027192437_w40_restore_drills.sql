@@ -74,7 +74,7 @@ begin
     if old.voided_at is not null then
       raise exception 'restore drill % is already voided', old.id using errcode = '42501';
     end if;
-    if current_setting('tarragon.restore_drill_void', true) is distinct from 'on' or current_user <> 'postgres' then
+    if current_setting('tarragon.restore_drill_void', true) is distinct from 'on' or current_user::regrole <> (select p.proowner from pg_catalog.pg_proc p where p.oid = 'public.void_restore_drill(uuid,text)'::regprocedure) then
       raise exception 'restore drill void columns are written only by public.void_restore_drill' using errcode = '42501';
     end if;
     return new;

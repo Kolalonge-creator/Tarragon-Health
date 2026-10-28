@@ -26,7 +26,7 @@ begin
   perform set_config('request.jwt.claim.sub', p_uid::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
-  begin execute p_sql; get diagnostics r = row_count; r := 'ok ' || r; exception when others then r := 'ERR ' || sqlstate; end;
+  begin execute p_sql; get diagnostics r = row_count; r := 'ok ' || r; exception when others then r := 'ERR ' || sqlstate || ' ' || left(sqlerrm, 160); end;
   reset role;
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true); perform set_config('request.jwt.claim.role', '', true);
   return r;
@@ -37,7 +37,7 @@ $f$ declare r text;
 begin
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
   set local role anon;
-  begin execute p_sql; r := 'ok'; exception when others then r := 'ERR ' || sqlstate; end;
+  begin execute p_sql; r := 'ok'; exception when others then r := 'ERR ' || sqlstate || ' ' || left(sqlerrm, 160); end;
   reset role;
   perform set_config('request.jwt.claims', '', true);
   return r;
@@ -47,7 +47,7 @@ end $f$;
 create function pg_temp.as_owner(p_sql text) returns text language plpgsql as
 $f$ declare r text;
 begin
-  begin execute p_sql; get diagnostics r = row_count; r := 'ok ' || r; exception when others then r := 'ERR ' || sqlstate; end;
+  begin execute p_sql; get diagnostics r = row_count; r := 'ok ' || r; exception when others then r := 'ERR ' || sqlstate || ' ' || left(sqlerrm, 160); end;
   return r;
 end $f$;
 
