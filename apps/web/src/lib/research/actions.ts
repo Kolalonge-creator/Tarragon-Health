@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { createFormSchema, type Notice } from "./model";
+import { answerFormSchema, challengeFormSchema, createFormSchema, requestFormSchema, type Notice } from "./model";
 
 const back = (path: string, n: Notice): never => redirect(`${path}?n=${n}`);
 const deniedOrFailed = (e: { code?: string; message: string }): Notice => (e.code === "42501" || /not authorised/i.test(e.message) ? "denied" : "failed");
@@ -34,6 +34,41 @@ export async function approveResearchProtocolAction(formData: FormData): Promise
   const { error } = await loose(await createClient()).rpc("approve_research_protocol", { p_id: id });
   if (error) return back("/clinician/research", deniedOrFailed(error));
   return back("/clinician/research", "approved");
+}
+
+/** The Chief Medical Officer asks for an export. Nothing is released until a different person authorises it. */
+export async function requestResearchExportAction(formData: FormData): Promise<void> {
+  const parsed = requestFormSchema.safeParse({ protocol_id: formData.get("protocol_id"), note: formData.get("note") });
+  if (!parsed.success) return back("/clinician/research", "failed");
+  const { error } = await loose(await createClient()).rpc("request_research_export", { p_protocol_id: parsed.data.protocol_id, p_note: parsed.data.note });
+  if (error) return back("/clinician/research", deniedOrFailed(error));
+  return back("/clinician/research", "requested");
+}
+
+/** The second person (the data protection officer's admin route) authorises one export. The database refuses the requester. */
+export async function authoriseResearchExportAction(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return back("/admin/settings/research", "failed");
+  const { error } = await loose(await createClient()).rpc("authorise_research_export", { p_request_id: id });
+  if (error) return back("/admin/settings/research", deniedOrFailed(error));
+  return back("/admin/settings/research", "authorised");
+}
+
+/** A member asks a question about, or objects to, a research use. It reaches the data protection officer. */
+export async function raiseResearchChallengeAction(formData: FormData): Promise<void> {
+  const parsed = challengeFormSchema.safeParse({ protocol_id: String(formData.get("protocol_id") ?? ""), message: formData.get("message") });
+  if (!parsed.success) return back("/patient/research", "failed");
+  const { error } = await loose(await createClient()).rpc("raise_research_challenge", { p_protocol_id: parsed.data.protocol_id || null, p_message: parsed.data.message });
+  if (error) return back("/patient/research", deniedOrFailed(error));
+  return back("/patient/research", "raised");
+}
+
+export async function answerResearchChallengeAction(formData: FormData): Promise<void> {
+  const parsed = answerFormSchema.safeParse({ id: formData.get("id"), answer: formData.get("answer") });
+  if (!parsed.success) return back("/admin/settings/research", "failed");
+  const { error } = await loose(await createClient()).rpc("answer_research_challenge", { p_id: parsed.data.id, p_answer: parsed.data.answer });
+  if (error) return back("/admin/settings/research", deniedOrFailed(error));
+  return back("/admin/settings/research", "answered");
 }
 
 export async function confirmResearchProtocolDpoAction(formData: FormData): Promise<void> {
