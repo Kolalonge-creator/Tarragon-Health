@@ -66,6 +66,11 @@ test.describe("journey 2: a red reading at night", () => {
     await page.locator("#systolic").fill("190");
     await page.locator("#diastolic").fill("120");
     await page.getByRole("button", { name: "Save reading" }).click();
+    // 190/120 is out of range, so the form asks the patient to double-check it before saving (crosscheck prompt, 2026-07-19).
+    // Confirm it the way a patient would; without this click nothing is ever submitted and the poll below times out.
+    const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
+    await expect(confirm).toBeVisible({ timeout: 15_000 });
+    await confirm.click();
 
     const reading = await pollWithDrain(async () => {
       const { data } = await adminClient

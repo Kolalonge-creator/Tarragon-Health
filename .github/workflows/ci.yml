@@ -302,6 +302,11 @@ jobs:
     # real headroom; tighten once this job has actually run and its real
     # duration is known.
     timeout-minutes: 30
+    env:
+      # This job runs `next build` through the Playwright webServer, so it needs the same heap as the build job above.
+      # Without it, main-dev run 40714026820 died in "Running TypeScript" (JavaScript heap out of memory at ~4 GB) before a
+      # single test ran, with "Process from config.webServer was not able to start".
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
 
