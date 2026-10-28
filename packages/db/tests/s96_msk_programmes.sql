@@ -404,23 +404,27 @@ end $$;
 
 -- 4a. Server side: the S63 functions refuse the pain programmes; returned exercises obey the gate; unanswered warning sign; gate error audited -----
 do $$
-declare e uuid := pg_temp.f('e_back'); pat uuid := pg_temp.f('pat'); s jsonb; ej uuid; r jsonb; n_audit integer;
+declare e uuid := pg_temp.f('e_back'); pat uuid := pg_temp.f('pat'); s jsonb; ej uuid; ep uuid; r jsonb; n_audit integer;
 begin
   perform pg_temp.ck('the plain S63 start refuses a pain programme', 'true', (pg_temp.start_as(pat, e, 5, pg_temp.answers('pain_back')) ->> 'error' like '%pain programme path%')::text);
   perform pg_temp.ck('the plain S63 completion refuses a pain programme (no days-rule bypass)', 'true', (pg_temp.done_as(pat, e, 5, null) ->> 'error' like '%pain programme path%')::text);
-  perform pg_temp.ck('the plain S63 start still works for other programmes', 'ok', pg_temp.start_as(pg_temp.f('patE'), pg_temp.f('e_panic'), 1, pg_temp.answers('panic_breathing')) ->> 'status');
+  ep := pg_temp.clean_start(pg_temp.f('patE'), 'panic_breathing');
+  s := pg_temp.start_as(pg_temp.f('patE'), ep, 1, pg_temp.answers('panic_breathing'));
+  perform pg_temp.ck('the plain S63 start still works for other programmes (error text shown if not)', 'ok', coalesce(s ->> 'status', 'ERR: ' || coalesce(s ->> 'error', 'null')));
   -- a gentle-only gate: no moderate exercise is RETURNED
   create or replace function private.activity_gate_for(p_patient uuid, p_include_pregnancy boolean default true, p_now timestamptz default now())
   returns jsonb language sql stable as $f$ select '{"decision":"restrict","reason":"x","reasons":["x"],"max_intensity":"gentle","blocked_kinds":[]}'::jsonb $f$;
-  s := pg_temp.msk_start_as(pat, e, 6, pg_temp.answers('pain_back'));
-  perform pg_temp.ck('with a gentle-only gate the returned exercises are all gentle, and at least one', 'true',
-    (jsonb_array_length(s -> 'exercises') >= 1 and not exists (select 1 from jsonb_array_elements(s -> 'exercises') x where x ->> 'intensity' <> 'gentle'))::text);
+  s := pg_temp.msk_start_as(pat, e, 5, pg_temp.answers('pain_back'));
+  perform pg_temp.ck('with a gentle-only gate the returned exercises are all gentle, and at least one (error text shown if the start failed)', 'true',
+    case when s ->> 'status' = 'ok' then (jsonb_array_length(s -> 'exercises') >= 1 and not exists (select 1 from jsonb_array_elements(s -> 'exercises') x where x ->> 'intensity' <> 'gentle'))::text
+         else 'ERR: ' || coalesce(s ->> 'error', s ->> 'status', 'null') end);
   -- a gate that raises: gentle only, and the failure is written to the audit log
   create or replace function private.activity_gate_for(p_patient uuid, p_include_pregnancy boolean default true, p_now timestamptz default now())
   returns jsonb language plpgsql stable as $f$ begin raise exception 'gate down'; end $f$;
   select count(*) into n_audit from public.audit_log where action = 'therapy_programme.error' and event ->> 'step' = 'activity_gate';
-  s := pg_temp.msk_start_as(pat, e, 6, pg_temp.answers('pain_back'));
-  perform pg_temp.ck('a gate error fails closed to gentle only', 'restrict:gentle', (s -> 'activity_gate' ->> 'decision') || ':' || (s -> 'activity_gate' ->> 'max_intensity'));
+  s := pg_temp.msk_start_as(pat, e, 5, pg_temp.answers('pain_back'));
+  perform pg_temp.ck('a gate error fails closed to gentle only (error text shown if the start failed)', 'restrict:gentle',
+    coalesce((s -> 'activity_gate' ->> 'decision') || ':' || (s -> 'activity_gate' ->> 'max_intensity'), 'ERR: ' || coalesce(s ->> 'error', s ->> 'status', 'null')));
   perform pg_temp.ck('...and is written to the audit log', (n_audit + 1)::text,
     (select count(*)::text from public.audit_log where action = 'therapy_programme.error' and event ->> 'step' = 'activity_gate'));
   -- an unanswered non-paging warning sign behaves like a yes: stop, hospital-now route, 90 minute task, no page

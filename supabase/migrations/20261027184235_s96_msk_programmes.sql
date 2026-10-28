@@ -120,18 +120,18 @@ begin
   v_def := pg_get_functiondef('public.start_therapy_session(uuid, integer, jsonb)'::regprocedure);
   if v_def not like '%tarragon.msk_path%' then
     v_new := replace(v_def,
-      $q$  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$,
-      $q$  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes open through the pain programme path' using errcode = '22023'; end if;
-  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$);
+      $q$  if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;$q$,
+      $q$  if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;
+  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes open through the pain programme path' using errcode = '22023'; end if;$q$);
     if v_new = v_def then raise exception 'S96: start_therapy_session marker not found (definition drifted)'; end if;
     execute v_new;
   end if;
   v_def := pg_get_functiondef('public.complete_therapy_session(uuid, integer, jsonb)'::regprocedure);
   if v_def not like '%tarragon.msk_path%' then
     v_new := replace(v_def,
-      $q$  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$,
-      $q$  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes finish through the pain programme path' using errcode = '22023'; end if;
-  if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;$q$);
+      $q$  if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;$q$,
+      $q$  if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;
+  if p.code in ('pain_back', 'pain_neck', 'pain_knee', 'pain_hip') and coalesce(current_setting('tarragon.msk_path', true), '') <> 'on' then raise exception 'pain programmes finish through the pain programme path' using errcode = '22023'; end if;$q$);
     if v_new = v_def then raise exception 'S96: complete_therapy_session marker not found (definition drifted)'; end if;
     execute v_new;
   end if;
