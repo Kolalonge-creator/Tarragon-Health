@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { signLabPanels } from "./actions";
+import type { LabSignoffDraft } from "@/lib/lab-results/read-lab-panels";
 import type { PanelDefinition } from "@/lib/lab-results/structured";
 import { describeSexRanges, PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ function num(v: number | undefined): string {
   return v === undefined ? "" : String(v);
 }
 
-export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignoffRow | null; panels: PanelDefinition[]; canSign: boolean }) {
+export function LabPanelsView({ signoff, panels, canSign, draft = null }: { signoff: LabSignoffRow | null; panels: PanelDefinition[]; canSign: boolean; draft?: LabSignoffDraft | null }) {
   const [state, action, pending] = useActionState(signLabPanels, undefined);
   const signed = signoff?.approved_at != null;
   const cfg = (signoff?.config ?? {}) as { disclosure?: { maxAttempts?: number; escalateAfterHours?: number } };
@@ -84,7 +85,25 @@ export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignof
         </CardContent>
       </Card>
 
-      {canSign && signoff && !signed ? (
+      {canSign && draft ? (
+        <form action={action} className="space-y-3 rounded-lg border border-amber-300 p-4">
+          <input type="hidden" name="id" value={draft.id} />
+          <p className="text-sm font-medium text-charcoal-ink">Version {draft.version} is drafted and waiting for your signature to come into force.</p>
+          {draft.notes ? <p className="text-sm text-charcoal-ink/70">{draft.notes}</p> : null}
+          <p className="text-sm text-charcoal-ink/70">
+            Signing records that you reviewed every range, critical limit and the disclosure policy above, under your own name. It replaces the version in force.
+          </p>
+          <label className="flex items-start gap-2 text-sm">
+            <Input type="checkbox" name="reviewed" className="mt-1 h-5 w-5" />
+            <span>I have reviewed every range and critical limit and the disclosure policy.</span>
+          </label>
+          {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
+          {state?.success ? <p role="status" className="text-sm text-green-800">Signed.</p> : null}
+          <Button type="submit" className={TOUCH} disabled={pending}>Sign version {draft.version} of the lab ranges</Button>
+        </form>
+      ) : null}
+
+      {canSign && signoff && !signed && !draft ? (
         <form action={action} className="space-y-3 rounded-lg border p-4">
           <input type="hidden" name="id" value={signoff.id} />
           <p className="text-sm text-charcoal-ink/70">
