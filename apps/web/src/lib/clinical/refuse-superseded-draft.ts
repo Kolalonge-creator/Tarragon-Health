@@ -20,6 +20,7 @@ export type VersionedGovernedTable =
   | "lowcarb_protocol_config"
   | "nutrition_guidance_config"
   | "activity_safety_config"
+  | "fasting_safety_config"
   | "home_card_config"
   | "observation_limit_signoffs"
   | "home_bp_programme_signoffs"

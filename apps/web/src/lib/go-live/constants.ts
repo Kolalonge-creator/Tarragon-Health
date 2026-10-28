@@ -30,6 +30,9 @@ export const GUARD_KEYS = [
   "private_route_recording",
   // S50b: the supervised low-carbohydrate programme for type 2 diabetes. Born off; never marketed (S50-2).
   "low_carb_t2d_programme",
+  // S50b: the religious-fasting safety answer and the personal glucose-response insight. Both born off.
+  "fasting_safety",
+  "glucose_response_insights",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 

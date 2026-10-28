@@ -68,6 +68,7 @@ export const GOVERNED_CONFIG_TABLES = [
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
   { table: "lowcarb_protocol_config", title: "Low-carbohydrate programme rules", slug: "lowcarb-protocol-config" },
+  { table: "fasting_safety_config", title: "Fasting safety rules (Ramadan and Lent)", slug: "fasting-safety-config" },
   { table: "home_card_config", title: "Today screen cards, weekly summary and readiness", slug: "home-card-config" },
   { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ] as const;
