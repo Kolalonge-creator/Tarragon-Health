@@ -23,10 +23,13 @@ import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-no
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
+import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
+import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -84,6 +87,9 @@ export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 /** WP3: the cascade-of-care definitions (stages, the 140/90 and 7.0 percent control lines, the selection panel note). Nothing is counted anywhere until signed. */
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
+export { MSK_PROGRAMMES_ITEM_KEY };
+/** The baseline-labs prescribing rule (kidney function, potassium, glucose, HbA1c if diabetic before a BP or glucose-lowering start or dose increase). The check does nothing until signed. */
+export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 /** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
@@ -108,7 +114,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, aiMonitoring] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -136,7 +142,10 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingMentalWellbeingSignoff(supabase),
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
+    readPendingBaselineLabsRuleSignoff(supabase),
+    readBaselineLabsOverrideAttention(supabase),
     readPendingAiMonitoringSignoff(supabase),
+    readPendingMskProgrammesSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -212,6 +221,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  const overrideItem = baselineLabsOverrideItem(baselineOverrides);
+  if (overrideItem) attention.push(overrideItem);
   if (thresholds.reviewsOverdue > 0) {
     // Not a signature: the monthly review of a personal threshold is overdue. Kept out of `items` so the banner still counts only signatures.
     attention.push({
@@ -460,11 +471,34 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  // S96: the back, neck, knee and hip pain programmes. Draft content and entry lists to read and sign; signing switches nothing on.
+  if (mskProgrammes.waitingCount > 0) {
+    items.push({
+      key: MSK_PROGRAMMES_ITEM_KEY,
+      title: "Back, neck, knee and hip pain programmes",
+      detail: `${mskProgrammes.waitingCount} of 4 programmes have draft content or a draft entry list waiting for you (eight weekly sessions each, the red-flag questions, the exercises with their doses). Nothing is shown to a patient until you approve them, confirm the lists, attest clinician cover and the outcome thresholds, and switch the pain guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: mskProgrammes.waitingCount,
+    });
+  }
+
   if (cascadeConfig.version !== null) {
     items.push({
       key: CASCADE_CONFIG_ITEM_KEY,
       title: "Cascade of care definitions",
       detail: `Cascade definitions version ${cascadeConfig.version} (the five stages, the 140/90 and 7.0 percent control lines, what is shown as not available, and the selection panel note) are waiting for your signature. Nothing is counted on screen, in a file or in a sponsor pack until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (baselineLabs.version !== null) {
+    items.push({
+      key: BASELINE_LABS_ITEM_KEY,
+      title: "Baseline labs before a start or a dose increase",
+      detail: `The baseline-labs prescribing rule, version ${baselineLabs.version} (kidney function, potassium and glucose, plus HbA1c for people with diabetes, within a recent window, before a doctor starts or raises the dose of a blood-pressure-lowering or glucose-lowering medicine) is waiting for your signature. It is one of the conditions for switching on the lower Membership tier. Nothing is checked for anyone until you sign.`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,
@@ -504,9 +538,12 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
+    ...(baselineLabs.failed ? ["the baseline labs prescribing rule"] : []),
+    ...(baselineOverrides.failed ? ["the baseline labs overrides"] : []),
     ...(aiMonitoring.failed ? ["the AI monitoring rules"] : []),
     ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
+    ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
