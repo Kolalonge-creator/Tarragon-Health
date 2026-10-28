@@ -218,10 +218,10 @@ declare v_note uuid; r text; v_cnt integer;
 begin
   set local session_replication_role = replica;
   -- the attribution trigger needs the caller to be an active clinical-tier staff member of the note's organisation
-  perform set_config('request.jwt.claim.sub', pg_temp.f('doc')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', pg_temp.f('doc'), 'role', 'authenticated')::text, true);
   insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, authored_by_profile)
   values (pg_temp.f('org'), pg_temp.f('mem1'), 'video_consult', 'W01 proof', 'draft', pg_temp.f('doc')) returning id into v_note;
-  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claims', '', true);
   set local session_replication_role = origin;
   select count(*) into v_cnt from public.clinician_time_entries where source = 'consult' and source_ref = v_note;
   insert into results values ('real', 'no consult row while the call has not ended', '0', v_cnt::text);
