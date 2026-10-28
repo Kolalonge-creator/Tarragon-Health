@@ -7,6 +7,9 @@ export type PendingQualityConfigSignoff = {
   qualityVersion: number | null;
   /** An unsigned, inactive credentialing_config version newer than the one in force (S20 v2 licence notices and missing-date rule). */
   credentialingVersion: number | null;
+  /** The version now in force has no signature on record: it is already running unsigned, the most urgent kind. */
+  qualityRunningUnsigned?: boolean;
+  credentialingRunningUnsigned?: boolean;
   /** The read failed: never render this as an all-clear. */
   failed: boolean;
 };
@@ -21,6 +24,11 @@ export function newestWaiting(rows: Row[]): number | null {
   return waiting.length === 0 ? null : Math.max(...waiting);
 }
 
+/** True when a version is in force that carries no signature. */
+export function runningUnsigned(rows: Row[]): boolean {
+  return rows.some((r) => r.is_active && r.approved_at === null);
+}
+
 /**
  * What the S20 v2 configurations need from the Chief Medical Officer, for the sign-off hub and the banner. Nothing signs by itself: these are
  * drafts that stay inactive until the CMO presses the sign control. Never throws; a failed read says so.
@@ -33,7 +41,13 @@ export async function readPendingQualityConfigSignoff(supabase: SupabaseClient<D
       loose.from("credentialing_config").select("version, is_active, approved_at"),
     ]);
     if (q.error || c.error || !q.data || !c.data) return { qualityVersion: null, credentialingVersion: null, failed: true };
-    return { qualityVersion: newestWaiting(q.data), credentialingVersion: newestWaiting(c.data), failed: false };
+    return {
+      qualityVersion: newestWaiting(q.data),
+      credentialingVersion: newestWaiting(c.data),
+      qualityRunningUnsigned: runningUnsigned(q.data),
+      credentialingRunningUnsigned: runningUnsigned(c.data),
+      failed: false,
+    };
   } catch {
     return { qualityVersion: null, credentialingVersion: null, failed: true };
   }

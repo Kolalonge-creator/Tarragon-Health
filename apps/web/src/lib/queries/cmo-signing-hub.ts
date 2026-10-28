@@ -49,6 +49,11 @@ export type CmoSigningHub = {
    * on record). Kept apart from `items` on purpose: the banner counts `items` as "areas that need your signature".
    */
   attention: SignoffQueueItem[];
+  /**
+   * Lines that are already signed and running (a switch that is ON). They carry a panel to switch off but nothing to sign, so they are kept
+   * out of `items` and the "areas that need your signature" count, and shown in a collapsed list instead.
+   */
+  live: SignoffQueueItem[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
@@ -159,6 +164,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   ]);
 
   const items: SignoffQueueItem[] = [];
+  const live: SignoffQueueItem[] = [];
   let ruleCount = 0;
   const protocolDrafts: SignoffQueueItem[] = [];
   for (const item of queue.items) {
@@ -346,19 +352,21 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
       qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
     ].filter(Boolean);
+    // A waiting draft exists AND the version now in force carries no signature: it is already driving behaviour unsigned.
+    const qualityRunning = (qualityConfigs.qualityVersion !== null && qualityConfigs.qualityRunningUnsigned === true) || (qualityConfigs.credentialingVersion !== null && qualityConfigs.credentialingRunningUnsigned === true);
     items.push({
       key: QUALITY_CONFIG_ITEM_KEY,
       title: "Quality and licence rules",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${qualityRunning ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: qualityRunning ? "live_unsigned" : "draft_pending",
       count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
     });
   }
 
   if (unifiedRed.liveVersion !== null || unifiedRed.waitingVersion !== null) {
     const on = unifiedRed.liveVersion !== null;
-    items.push({
+    (on && unifiedRed.waitingVersion === null ? live : items).push({
       key: UNIFIED_RED_PAGING_ITEM_KEY,
       title: on ? "Unified red-event paging is ON (switch off here)" : "Unified red-event paging (off)",
       detail: on
@@ -372,7 +380,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   if (legacyRetire.liveVersion !== null || legacyRetire.waiting.length > 0) {
     const on = legacyRetire.liveVersion !== null;
-    items.push({
+    (on && legacyRetire.waiting.length === 0 ? live : items).push({
       key: LEGACY_NOTICE_RETIREMENT_ITEM_KEY,
       title: on ? "Older clinician-message retirement is ON (switch off here)" : "Older clinician-message retirement (off)",
       detail: on
@@ -389,12 +397,13 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
       capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (patient cap per lead)`,
     ].filter(Boolean);
+    const capacityRunning = capacityConfigs.capacityVersion !== null && capacityConfigs.capacityRunningUnsigned === true;
     items.push({
       key: CAPACITY_CONFIG_ITEM_KEY,
       title: "Capacity, rest and fire drills",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${capacityRunning ? " The capacity version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: capacityRunning ? "live_unsigned" : "draft_pending",
       count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
     });
   }
@@ -420,7 +429,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
           ? `Task layer configuration version ${ask.version} is a draft waiting for your signature. Signing it makes it the version in force; the old one stays on record.`
           : `Task layer configuration version ${ask.version} is already running (offer windows, who can take an escalated task, hand-back rules, completion codes, watchdog limits) but has never been signed. Signing records that you accept it and changes nothing else.`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      // Accepting the version in force is already running with no signature, which is the most urgent kind.
+      severity: ask.kind === "sign_new" ? "draft_pending" : "live_unsigned",
       count: 1,
     });
   }
@@ -429,9 +439,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: PAGING_DELIVERY_CONFIG_ITEM_KEY,
       title: "Pager readiness gate: activate version " + queuePaging.pagingVersion,
-      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.`,
+      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.${queuePaging.pagingRunningUnsigned === true ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: queuePaging.pagingRunningUnsigned === true ? "live_unsigned" : "draft_pending",
       count: 1,
     });
   }
@@ -590,10 +600,11 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
     ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
   ];
+  live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
-  const lineKeys = new Set(items.map((i) => i.key));
+  const lineKeys = new Set([...items, ...live].map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention };
+  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live };
 }

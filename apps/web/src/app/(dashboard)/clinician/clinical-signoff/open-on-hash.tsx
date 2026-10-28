@@ -12,6 +12,9 @@ export function OpenOnHash() {
       const id = window.location.hash.slice(1);
       if (!id) return;
       const el = document.getElementById(id);
+      if (!el) return;
+      // Also open every enclosing <details> (the "Signed and running" dropdown wraps its lines), or the target stays hidden.
+      for (let p = el.parentElement?.closest("details"); p; p = p.parentElement?.closest("details")) p.open = true;
       if (el instanceof HTMLDetailsElement) {
         el.open = true;
         el.scrollIntoView({ block: "start" });

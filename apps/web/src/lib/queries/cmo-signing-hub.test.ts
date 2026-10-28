@@ -50,19 +50,19 @@ const readPendingVitalsTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise
 jest.mock("@/lib/queries/pending-vitals-task-type-signoff", () => ({
   readPendingVitalsTaskTypeSignoff: (...args: unknown[]) => readPendingVitalsTaskTypeSignoff(...args),
 }));
-type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
+type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; qualityRunningUnsigned?: boolean; credentialingRunningUnsigned?: boolean; failed: boolean };
 const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
 jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
   readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
-type CapacityPending = { opsDeskVersion?: number | null; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
+type CapacityPending = { opsDeskVersion?: number | null; capacityRunningUnsigned?: boolean; capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
 const readPendingCapacityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<CapacityPending>>();
 jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
 }));
 const noCapacityConfig: CapacityPending = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: false };
-type QueuePagingPending = { taskLayer: { kind: "accept_in_force" | "sign_new"; version: number } | null; taskLayerRules: unknown; pagingVersion: number | null; pagingRules: unknown; pagingInForceRules: unknown; failed: boolean };
+type QueuePagingPending = { taskLayer: { kind: "accept_in_force" | "sign_new"; version: number } | null; taskLayerRules: unknown; pagingVersion: number | null; pagingRules: unknown; pagingInForceRules: unknown; pagingRunningUnsigned?: boolean; failed: boolean };
 const readPendingQueuePagingConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QueuePagingPending>>();
 jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
   readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
@@ -270,6 +270,13 @@ describe("readCmoSigningHub: task layer and paging delivery configurations (OQ-4
     readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "sign_new", version: 2 } });
     const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
     expect(line?.title).toMatch(/sign a new version/);
+    expect(line?.severity).toBe("draft_pending");
+  });
+  it("ranks a version already running with no signature as live_unsigned, the most urgent group", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, taskLayer: { kind: "accept_in_force", version: 1 } });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === TASK_LAYER_CONFIG_ITEM_KEY);
+    expect(line?.severity).toBe("live_unsigned");
   });
   it("adds no line when nothing waits, and names a failed read rather than reading as all clear", async () => {
     readSignoffQueue.mockResolvedValue(empty);
@@ -578,7 +585,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [] });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [], live: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
@@ -767,7 +774,9 @@ describe("unified red-event paging line (S19d)", () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: 1, failed: false });
     const hub = await readCmoSigningHub(supabase);
-    expect(hub.items.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+    expect(hub.live.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+    // Already signed and running: not counted as something to sign.
+    expect(hub.items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
   });
   it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
@@ -788,7 +797,9 @@ describe("legacy notice retirement line (S19f)", () => {
   it("keeps a switch-off line while a version is live", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readLegacyNoticeRetirementState.mockResolvedValue({ liveVersion: { version: 2 }, waiting: [], measurement: [], failed: false });
-    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.live.find((i) => i.key === "legacy_notice_retirement")?.title).toMatch(/ON/);
+    expect(hub.items.find((i) => i.key === "legacy_notice_retirement")).toBeUndefined();
   });
   it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
@@ -905,5 +916,34 @@ describe("readCmoSigningHub: reliable change and adjustment definitions (D4, D3)
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the reliable change and adjustment definitions");
+  });
+});
+
+describe("readCmoSigningHub: unsigned versions already running go to the urgent group", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("ranks the quality and licence line live_unsigned when the credentialing version in force has no signature, else draft_pending", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: 4, credentialingRunningUnsigned: true, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: 4, credentialingRunningUnsigned: false, failed: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
+  });
+  it("ranks the capacity line live_unsigned only when the capacity version in force has no signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, capacityVersion: 2, capacityRunningUnsigned: true });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingCapacityConfigSignoff.mockResolvedValue({ ...noCapacityConfig, capacityVersion: 2, capacityRunningUnsigned: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
+  });
+});
+
+describe("readCmoSigningHub: pager readiness gate running unsigned", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("ranks the pager readiness line live_unsigned only when the paging version in force has no signature", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, pagingVersion: 2, pagingRunningUnsigned: true });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY)?.severity).toBe("live_unsigned");
+    readPendingQueuePagingConfigSignoff.mockResolvedValue({ ...noQueuePaging, pagingVersion: 2, pagingRunningUnsigned: false });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === PAGING_DELIVERY_CONFIG_ITEM_KEY)?.severity).toBe("draft_pending");
   });
 });
