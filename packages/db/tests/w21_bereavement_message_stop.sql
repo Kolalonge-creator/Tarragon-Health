@@ -193,6 +193,7 @@ begin
   v_def := pg_get_functiondef('public.confirm_patient_death(uuid)'::regprocedure);
   execute replace(v_def, 'or r.requested_by = v_uid', 'or false');
   -- 8a already recorded `living` as deceased under its sabotage, so 8c uses a fresh patient
+  perform set_config('request.jwt.claim.sub', '', true); perform set_config('request.jwt.claims', '', true);
   v_rec := pg_temp.mkuser('patient', 'W21 Sabotage 8c Patient');
   perform pg_temp.as_user(adm1); execute 'set local role authenticated';
   req := public.request_patient_death(v_rec, 'sabotage evidence ref');
