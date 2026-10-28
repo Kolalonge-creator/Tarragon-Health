@@ -155,6 +155,25 @@ describe("attestConditionAction", () => {
   });
 });
 
+describe("attestConditionAction: the text fingerprint is added by the server, not typed into a box", () => {
+  beforeEach(() => {
+    role = "clinician";
+    cmo = true;
+  });
+  it("builds the note from a hidden fingerprint and keeps the person's own note optional", async () => {
+    await run(attestConditionAction(form({ viewer: "cmo", back: "hub", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", fingerprint: "53060e2f3813" })));
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", { p_key: "home_bp_programme", p_code: "c4_cuff_wording_signed", p_met: true, p_note: "Text fingerprint 53060e2f3813. Read in full." });
+    rpc.mockClear();
+    await run(attestConditionAction(form({ viewer: "cmo", back: "hub", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", fingerprint: "53060e2f3813", note: "Checked with the pharmacist." })));
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", { p_key: "home_bp_programme", p_code: "c4_cuff_wording_signed", p_met: true, p_note: "Text fingerprint 53060e2f3813. Read in full. Checked with the pharmacist." });
+  });
+  it("still needs a real note when there is no fingerprint, and rejects a malformed fingerprint", async () => {
+    await run(attestConditionAction(form({ viewer: "cmo", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", note: "ok" })));
+    await run(attestConditionAction(form({ viewer: "cmo", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", fingerprint: "zzz" })));
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("the sign-off hub return path", () => {
   it("records the C4 cuff wording attestation for the CMO and returns to the sign-off hub", async () => {
     role = "clinician";

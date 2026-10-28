@@ -23,13 +23,14 @@ function Attestation({ slot }: { slot: AttestationSlot }) {
         <input type="hidden" name="key" value={slot.guard} />
         <input type="hidden" name="code" value={slot.code} />
         <input type="hidden" name="met" value="1" />
+        {fp && <input type="hidden" name="fingerprint" value={fp} />}
         <label className="flex items-start gap-2 text-sm text-charcoal-ink">
           <input type="checkbox" name="read" required className="mt-1 h-5 w-5" />
           <span>I have read this in full. Recording it switches nothing on.</span>
         </label>
         <label className="block text-xs text-charcoal-ink">
-          Note (kept with your name and the time)
-          <input name="note" required minLength={10} maxLength={1000} defaultValue={fp ? `Text fingerprint ${fp}. Read in full.` : undefined} className={field} />
+          Note (optional, kept with your name and the time)
+          <input name="note" required={!fp} minLength={fp ? undefined : 10} maxLength={900} className={field} />
         </label>
         <button type="submit" className={btn}>Record this</button>
       </form>
