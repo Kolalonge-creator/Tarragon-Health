@@ -13,7 +13,10 @@ import {
   getPreventiveEnrolments,
   getPreventiveProgrammes,
   getRiskScores,
+  getScreeningRequests,
   getScreeningSchedules,
+  screeningRequestPhase,
+  type ScreeningRequestItem,
   getVaccinationRecords,
   getVaccinationSchedules,
   withdrawPreventiveProgramme,
@@ -28,6 +31,8 @@ import {
   type VaccinationRecordItem,
 } from "@/lib/prevention";
 import { todayIsoDate } from "@/lib/medications";
+import { getLabRequestPrintUrl } from "@/lib/lab-orders";
+import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
@@ -133,6 +138,8 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
 
   const [risk, setRisk] = useState<SectionState<RiskScoreItem[]>>(EMPTY_SECTION);
   const [screenings, setScreenings] = useState<SectionState<ScreeningItem[]>>(EMPTY_SECTION);
+  const [requests, setRequests] = useState<ScreeningRequestItem[]>([]);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [cancerScreening, setCancerScreening] = useState<SectionState<CancerScreeningGuidance>>(EMPTY_SECTION);
   const [vaccDue, setVaccDue] = useState<SectionState<VaccinationDueItem[]>>(EMPTY_SECTION);
   const [vaccHistory, setVaccHistory] = useState<SectionState<VaccinationRecordItem[]>>(EMPTY_SECTION);
@@ -178,6 +185,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
     setScreenings(
       screeningsRes.ok ? { data: screeningsRes.data, error: null } : { data: null, error: screeningsRes.error }
     );
+    // S98: the request is an addition; a failure here never hides the calendar itself
+    const requestsRes = await getScreeningRequests(patientId);
+    setRequests(requestsRes.ok ? requestsRes.data : []);
     setCancerScreening(
       cancerScreeningRes.ok
         ? { data: cancerScreeningRes.data, error: null }
@@ -451,6 +461,38 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   {item.status === "declined" && item.declinedReason ? (
                     <MutedText>You declined this: {item.declinedReason}</MutedText>
                   ) : null}
+                  {(() => {
+                    const req = requests.find((r) => r.scheduleId === item.id);
+                    const phase = screeningRequestPhase(req);
+                    if (!req || phase === "none") return null;
+                    if (phase === "awaiting_result") {
+                      return (
+                        <View style={{ gap: 6 }}>
+                          <MutedText>Your test request is ready. Take it to any lab, then upload your result under Labs.</MutedText>
+                          <SecondaryButton
+                            title="Open your test request"
+                            onPress={async () => {
+                              setRequestError(null);
+                              const res = await getLabRequestPrintUrl(req.labOrderId);
+                              if (!res.ok) {
+                                setRequestError(res.error);
+                                return;
+                              }
+                              await WebBrowser.openBrowserAsync(res.data);
+                            }}
+                          />
+                          {requestError ? <ErrorText>{requestError}</ErrorText> : null}
+                        </View>
+                      );
+                    }
+                    return (
+                      <MutedText>
+                        {phase === "reviewed"
+                          ? "Your care team has reviewed your result."
+                          : "Result received. Your care team will review it. It is your own upload, not yet checked by a doctor."}
+                      </MutedText>
+                    );
+                  })()}
                   {canDecline ? (
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <View style={{ flex: 1 }}>
