@@ -46,7 +46,7 @@ language sql as $$
   ),
   helper(re) as (
     -- reviewed helpers, called as private.<name>( ; list taken from the live read policies of patient_id tables, 2026-10-27
-    values ('private\.(staff_may_read|is_org_staff|can_read_clinical|has_emergency_access|is_admin|can_act_for|can_supporter_read_mental_health|maternal_staff_may_read|pregnancy_staff_may_read|pregnancy_caregiver_may_read|maternal_caregiver_may_read|can_credential_review|guardian_may_view_confidential_domain|encounter_visible|can_support_view|current_org_id|task_staff_reader|credential_is_cmo|clinician_has_patient_access|visit_summary_state_ok|is_correcting_clinician|can_read_record_correction|can_review_access_log|can_review_safeguarding_concern|follow_up_actor_is_clinician|is_analyst|is_complaints_handler|caller_org|is_insurance_admin|is_lab_liaison|lab_partner_provider|may_see_sensitive_lab_result|patient_result_blocked|profile_access_active|supporter_may_see_dose_reason|task_is_mine|timeline_staff_from_profile|visit_summary_caregiver_may|visit_summary_caregiver_ok)\(')
+    values ('private\.(care_gap_visible|staff_may_read|is_org_staff|can_read_clinical|has_emergency_access|is_admin|can_act_for|can_supporter_read_mental_health|maternal_staff_may_read|pregnancy_staff_may_read|pregnancy_caregiver_may_read|maternal_caregiver_may_read|can_credential_review|guardian_may_view_confidential_domain|encounter_visible|can_support_view|current_org_id|task_staff_reader|credential_is_cmo|clinician_has_patient_access|visit_summary_state_ok|is_correcting_clinician|can_read_record_correction|can_review_access_log|can_review_safeguarding_concern|follow_up_actor_is_clinician|is_analyst|is_complaints_handler|caller_org|is_insurance_admin|is_lab_liaison|lab_partner_provider|may_see_sensitive_lab_result|patient_result_blocked|profile_access_active|supporter_may_see_dose_reason|task_is_mine|timeline_staff_from_profile|visit_summary_caregiver_may|visit_summary_caregiver_ok)\(')
   ),
   owner(re) as (
     values ('patient_id[^a-z_]*=[^a-z_]*(select)?[^a-z_]*auth\.uid\(\)|auth\.uid\(\)[^a-z_]*(as uid)?[^a-z_]*=[^a-z_]*([a-z_]+\.)?patient_id|patient_id = \(select auth\.uid\(\)')
@@ -60,7 +60,9 @@ language sql as $$
       ('emergency_record_access_grants'),('entitlements'),('health_education_feedback'),('kick_counts'),('legacy_notice_holds'),('lifecycle_events'),
       ('lifecycle_states'),('medication_dose_reminders'),('medication_refill_reminder_rules'),('medication_refill_state'),('patient_reminder_group_members'),
       ('postnatal_baby_checks'),('pregnancies'),('pregnancy_loss_records'),('red_alert_watch'),('reputation_review_prompts'),
-      ('service_purchase_guarantee_claims'),('tracker_deletion_requests'),('triage_events'),('vitals_reminder_rules'),('vitals_reminder_state')
+      ('service_purchase_guarantee_claims'),('tracker_deletion_requests'),('triage_events'),('vitals_reminder_rules'),('vitals_reminder_state'),
+      -- baseline-labs prescribing rule: read limited to the CMO credential or an admin (reviewed 2026-10-28)
+      ('baseline_labs_overrides')
   ),
   readpol as (select * from pol where cmd in ('SELECT', 'ALL'))
   select 'rls_off', t from pt where not rls
@@ -75,7 +77,9 @@ language sql as $$
    where exists (select 1 from readpol r where r.t = pt.t)
      and not exists (select 1 from readpol r, helper h, owner w where r.t = pt.t and (r.q ~ h.re or r.q ~ w.re))
      -- baseline: owner-only by supporter_id = auth.uid() (a supporter reads their own acknowledgements); found live 2026-10-27, the only one
-     and pt.t <> 'care_circle_alert_acks'
+     and pt.t not in ('care_circle_alert_acks',
+                      -- S90: the read policy is an EXISTS over care_gaps, so it inherits care_gaps' own tied policy (reviewed 2026-10-28)
+                      'care_gap_attempts')
   union all
   select 'staff_read_not_registered', pt.t from pt
    where exists (select 1 from readpol r, staffy s where r.t = pt.t and r.q ~ s.re)
