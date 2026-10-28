@@ -153,7 +153,7 @@ begin
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, icd10_code, status)
   values (v_org, v_dm, 'Type 2 diabetes', 'E11', 'active');
 
-  select version into v_ver from public.baseline_labs_rule_config order by version desc limit 1;
+  select version into v_ver from public.baseline_labs_rule_config where version = 1;   -- this proof is about version 1; version 2 has its own proof (baseline_labs_rule_v2.sql)
 
   -- the draft is born unsigned and inactive
   perform pg_temp.rec('the seeded draft is unsigned and inactive', 'false/null', (select is_active::text || '/' || coalesce(approved_at::text, 'null') from public.baseline_labs_rule_config where version = v_ver));
