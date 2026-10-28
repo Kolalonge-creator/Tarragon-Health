@@ -3360,6 +3360,18 @@ following are recorded in the system:
 - Decision: open (product).
 ## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
 
+### OQ-GAP71-1 What "funded by" should say (raised by GAP-71, 2026-10-28)
+- The disclosure says the sponsor organisation on the programme "sponsors this programme and this report" and that Tarragon produced the figures. The database holds the sponsor organisation, not the payer of each invoice, so a programme paid for by a third party (a funder behind an NGO) is described as sponsored by the NGO. Confirm the wording, or add a funder field to `sponsor_cohorts`.
+- Decision: open (CMO and founder; the guard stays off until the wording is read).
+
+### OQ-GAP71-2 Date shown for the outcome measure sign-off (raised by GAP-71, 2026-10-28)
+- `outcome_config` records no signing date (activation is the sign-off). The block shows "Signed on <date>" only when a confirmed `proposed_config_signoffs` row exists for `outcomes.measure_rules`; otherwise "Signed (the date is not recorded in this report)". Decide whether to add an activation timestamp to `outcome_config`.
+- Decision: open (engineering, CMO).
+
+### OQ-GAP71-3 Who may enter an independent review, and what counts as one (raised by GAP-71, 2026-10-28)
+- Only a platform admin or the CMO can record a review (name, organisation, date, scope), as asked. Tarragon staff entering a review of Tarragon's own figures is a conflict of interest if no reviewer document is kept. Decide whether a reference to the reviewer's report (a document id or link) should be required before the record is accepted, and who checks it.
+- Decision: open (CMO and founder).
+
 ### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
 - The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
 - The other build (#1087) excluded them by reading item 9 and the crisis flag. Choose one: (a) accept the gap above, (b) let ONE function read the crisis flag solely to remove a person (and change the scan in `s75_outcome_measures.sql` check 7e to allow exactly that function), or (c) count a person as excluded when an escalation already exists for them. Until decided, v4 stays PROPOSED and inactive.

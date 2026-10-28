@@ -10,7 +10,8 @@
     "./sponsors/report": "./src/sponsors/report.ts",
     "./sponsors/staff-figures": "./src/sponsors/staff-figures.ts",
     "./sponsors/staff-export": "./src/sponsors/staff-export.ts",
-    "./sponsors/load-figures": "./src/sponsors/load-figures.ts"
+    "./sponsors/load-figures": "./src/sponsors/load-figures.ts",
+    "./sponsors/methods-disclosure": "./src/sponsors/methods-disclosure.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
