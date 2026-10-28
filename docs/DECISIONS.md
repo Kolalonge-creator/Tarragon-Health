@@ -575,3 +575,8 @@ Recorded in chat by the founder, who stated they are acting as CMO. These are fo
 | **How they were applied.** | Another session had already merged a baseline labs rule (PR #1334, v1) that asks kidney function, potassium and glucose for every blood pressure medicine within 90 days. The founder chose, 2026-10-28, to add VERSION 2 to that merged rule rather than run a second system. v2 is unsigned and inactive; v1 stays unsigned. A duplicate build (PR #1379) was closed unmerged. |
 | **Not enforced / not built.** | The repeat creatinine and potassium 1 to 2 weeks after an ACE inhibitor or ARB; "review the dose" for eGFR 30 to 44; a screen to mark HbA1c unreliable; a screen to record the documented override (the database functions exist). |
 
+## Founder decision, 2026-10-26 (three-tier launch conditions: independent CMO condition removed)
+
+| Decision | Ruling |
+|---|---|
+| **Launch condition (3) of the 2026-10-21 three-tier entry: "an independent, non-founder CMO engaged".** | Removed by the founder. The Chief Medical Officer of record signs the baseline-labs prescribing rule and the home blood pressure target; no separate independent CMO is required before the lower tier can be switched on. The other conditions stand: (2) the baseline-labs rule signed by the CMO on the sign-off hub and never by an agent; (4) one live Paystack payment and refund proven end to end and posted to the GL, together with the live guards `checkout_enabled` and `membership_billing_enabled` and the `membership_two_member_tiers` module. The ladder switch (`marketing.membership_ladder_public`) merges only after all of these. |

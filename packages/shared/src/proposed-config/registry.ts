@@ -3520,6 +3520,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (2026-10-21)",
   },
   {
+    key: "marketing.membership_ladder_public",
+    // Version 2: the three-card ladder (Free, Membership, Membership Plus) is public on /pricing, /gift and the homepage. Merge this ONLY once
+    // every launch condition in docs/DECISIONS.md (2026-10-21, amended 2026-10-26: no separate independent CMO) is met: CMO baseline-labs rule signed, one live
+    // Paystack payment and refund, and the checkout guards and membership_two_member_tiers switched on. Version 1 (enabled: false) is kept as the history.
+    value: { enabled: true },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-26",
+    source: "docs/DECISIONS.md (2026-10-21)",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
