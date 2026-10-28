@@ -156,6 +156,23 @@ begin
     on conflict (table_name) do nothing;
   end loop;
 end $$;
+
+-- the data registry (S39d A1: every public table with a patient_id must be listed). All four are restricted staff records; none is exported whole.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
+  ('death_records', 'patient_id', 'audit', 'review', false, 'W-21. Who recorded a death, on what basis, with the evidence reference. Never deleted; PROPOSED class, to be confirmed by the DPO.'),
+  ('death_record_requests', 'patient_id', 'audit', 'review', false, 'W-21. A next-of-kin death request awaiting a second person. PROPOSED class, to be confirmed by the DPO.'),
+  ('bereavement_sponsor_notices', 'patient_id', 'operational', 'review', false, 'W-21. The held, sent or cancelled message to each sponsor. Never deleted: a reversal cancels or corrects.'),
+  ('goodwill_refund_requests', 'patient_id', 'financial', 'review', false, 'W-21. A refund request for an undelivered item after a death, for finance to decide.')
+on conflict (table_name) do nothing;
+
+-- views over profiles pick up the new profile_status column (idempotent, a no-op when nothing is registered)
+do $rebuild$
+begin
+  if to_regprocedure('private.rebuild_analytics_clean_views()') is not null then
+    perform private.rebuild_analytics_clean_views();
+  end if;
+end
+$rebuild$;
 create policy death_records_read on public.death_records for select to authenticated
   using (organisation_id = (select private.current_org_id()) and (private.is_admin() or private.is_finance() or private.caller_is_cmo()));
 create policy death_record_requests_read on public.death_record_requests for select to authenticated

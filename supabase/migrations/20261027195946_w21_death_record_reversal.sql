@@ -40,6 +40,9 @@ select private.classify_minor_dependant_table('death_record_reversals', 'exempt'
 insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
 values ('death_record_reversals', 'org', 'patient_id', 'medical_history', 'W-21: read only by admin and the CMO of the same organisation; holds no clinical content')
 on conflict (table_name) do nothing;
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
+  ('death_record_reversals', 'patient_id', 'audit', 'review', false, 'W-21. A two-person request to undo a death record. Never deleted. PROPOSED class, to be confirmed by the DPO.')
+on conflict (table_name) do nothing;
 create policy death_record_reversals_read on public.death_record_reversals for select to authenticated
   using (organisation_id = (select private.current_org_id()) and (private.is_admin() or private.caller_is_cmo()));
 

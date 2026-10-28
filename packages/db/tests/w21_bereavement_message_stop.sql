@@ -192,8 +192,10 @@ begin
   perform pg_temp.ck('8b SABOTAGE: without the safety exemption a critical notice is suppressed (6c would FAIL)', 'suppressed', (select status::text from public.notifications where id = v_id));
   v_def := pg_get_functiondef('public.confirm_patient_death(uuid)'::regprocedure);
   execute replace(v_def, 'or r.requested_by = v_uid', 'or false');
+  -- 8a already recorded `living` as deceased under its sabotage, so 8c uses a fresh patient
+  v_rec := pg_temp.mkuser('patient', 'W21 Sabotage 8c Patient');
   perform pg_temp.as_user(adm1); execute 'set local role authenticated';
-  req := public.request_patient_death(living, 'sabotage evidence ref');
+  req := public.request_patient_death(v_rec, 'sabotage evidence ref');
   execute 'reset role';
   perform pg_temp.ck('8c SABOTAGE: without the function check the table CHECK still stops own-confirm but with a different error (2d would FAIL)', '23514',
     pg_temp.try_as(adm1, format('select public.confirm_patient_death(%L)', req)));
