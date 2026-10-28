@@ -21,6 +21,8 @@ grant all on w11_results to public;
 create function pg_temp.mkuser(p_name text, p_dob date default date '1970-01-01') returns uuid language plpgsql as $$
 declare v uuid := gen_random_uuid(); v_org uuid := (select id from public.organisations order by created_at limit 1);
 begin
+  -- a leftover JWT from view_as makes the is_test guard treat this insert as a non-admin write: clear it first
+  perform set_config('request.jwt.claim.sub', '', true); perform set_config('request.jwt.claims', '', true);
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 'w11-' || replace(v::text, '-', '') || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
@@ -88,6 +90,7 @@ begin
   -- 1 weekly rule. hA: current week n=1, previous n=3
   hA := pg_temp.mkuser('W11 Patient A'); sA := pg_temp.mkcircle(hA, 'W11 Sup A', array['weekly_bp_trend', 'adherence_summary'], true);
   perform pg_temp.rd(hA, 0, 120, 80); perform pg_temp.rd(hA, 1, 150, 90); perform pg_temp.rd(hA, 1, 152, 92); perform pg_temp.rd(hA, 1, 148, 88);
+  perform set_config('request.jwt.claim.sub', '', true); perform set_config('request.jwt.claims', '', true);
   insert into public.monthly_reports (organisation_id, patient_id, month, payload, config_version, is_test)
   values (v_org, hA, v_m, '{"enough_readings":true,"average":{"systolic":147,"diastolic":90,"versus_target":"above"},"direction_vs_last_month":"similar","adherence_pct":80}'::jsonb, v_cfg, true);
   v_view := pg_temp.view_as(sA, hA);
