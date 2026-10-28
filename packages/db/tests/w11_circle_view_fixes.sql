@@ -144,7 +144,7 @@ begin
   hM := pg_temp.mkuser('W11 Minor'); sM := pg_temp.mkcircle(hM, 'W11 Minor Sup', array['weekly_bp_trend', 'appointments']);
   insert into public.care_circle_invites (organisation_id, patient_id, invitee_kind, invitee_hash, invitee_hint, relationship, permissions, grant_days, token_hash, expires_at)
   values (v_org, hM, 'email', repeat('a', 64), 'x', 'aunt', array['appointments'], 30, repeat('b', 64), now() + interval '3 days');
-  update public.profiles set date_of_birth = (((now() at time zone 'Africa/Lagos')::date) - interval '10 years')::date where id = hM;
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = (((now() at time zone 'Africa/Lagos')::date) - interval '10 years')::date where id = hM;
   perform pg_temp.ck('4b the supporter view of an under-18 patient is refused', 'P0002', coalesce(pg_temp.view_as(sM, hM) ->> 'error', 'allowed'));
   perform pg_temp.ck('4c the weekly digest of an under-18 patient is refused (shared gate)', 'P0002', pg_temp.digest_as(sM, hM));
   begin
@@ -188,7 +188,7 @@ begin
   perform pg_temp.ck('5c SABOTAGE: without the minor clause in the shared gate the digest opens for an under-18 patient (4c would FAIL)', 'ok', pg_temp.digest_as(sM, hM));
   execute v_def;
   hM2 := pg_temp.mkuser('W11 Minor Two'); sM2 := pg_temp.mkcircle(hM2, 'W11 Minor Two Sup', array['appointments']);
-  update public.profiles set date_of_birth = (((now() at time zone 'Africa/Lagos')::date) - interval '9 years')::date where id = hM2;
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = (((now() at time zone 'Africa/Lagos')::date) - interval '9 years')::date where id = hM2;
   v_def := pg_get_functiondef('private.circle_revoke_minor_memberships()'::regprocedure);
   execute replace(v_def, 'where private.circle_patient_is_minor(p.id)', 'where false and private.circle_patient_is_minor(p.id)');
   v_n := private.circle_revoke_minor_memberships();
