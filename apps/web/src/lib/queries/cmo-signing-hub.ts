@@ -24,6 +24,7 @@ import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
 import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
 import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
 import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
@@ -90,6 +91,10 @@ export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
 /** S90: the care gap rule configuration (the lines each rule uses, the outreach ladder, the weekly cap, the quiet hours). Unsigned means shadow mode at most: nobody is contacted. */
 export const CARE_GAP_CONFIG_ITEM_KEY = "care_gap_config";
+/** D4: reliable change in points for the PHQ-9 and GAD-7. Nothing is counted anywhere until signed. */
+export const RELIABLE_CHANGE_ITEM_KEY = "reliable_change_config";
+/** D3: what counts as a doctor adjusting a hypertension medicine, and over how many days. Nothing is counted anywhere until signed. */
+export const ADJUSTMENT_CONFIG_ITEM_KEY = "adjustment_config";
 export { MSK_PROGRAMMES_ITEM_KEY };
 /** The baseline-labs prescribing rule (kidney function, potassium, glucose, HbA1c if diabetic before a BP or glucose-lowering start or dose increase). The check does nothing until signed. */
 export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
@@ -117,7 +122,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -146,6 +151,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
     readPendingCareGapConfigSignoff(supabase),
+    readPendingOutcomeDefinitionsSignoff(supabase),
     readPendingBaselineLabsRuleSignoff(supabase),
     readBaselineLabsOverrideAttention(supabase),
     readPendingAiMonitoringSignoff(supabase),
@@ -498,6 +504,28 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (outcomeDefinitions.reliableChange.version !== null) {
+    items.push({
+      key: RELIABLE_CHANGE_ITEM_KEY,
+      title: "Reliable change for the PHQ-9 and GAD-7",
+      detail: `Reliable change definition version ${outcomeDefinitions.reliableChange.version} (how many points on each score count as a real change, and where the figures come from) is waiting for your signature. Nothing is counted on screen or in a file until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (outcomeDefinitions.adjustment.version !== null) {
+    items.push({
+      key: ADJUSTMENT_CONFIG_ITEM_KEY,
+      title: "What counts as a doctor adjusting a blood pressure medicine",
+      detail: `Adjustment definition version ${outcomeDefinitions.adjustment.version} (the window in days and which records count) is waiting for your signature. Nothing is counted on screen or in a file until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (careGapConfig.version !== null) {
     items.push({
       key: CARE_GAP_CONFIG_ITEM_KEY,
@@ -554,6 +582,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
     ...(careGapConfig.failed ? ["the care gap rules"] : []),
+    ...(outcomeDefinitions.failed ? ["the reliable change and adjustment definitions"] : []),
     ...(baselineLabs.failed ? ["the baseline labs prescribing rule"] : []),
     ...(baselineOverrides.failed ? ["the baseline labs overrides"] : []),
     ...(aiMonitoring.failed ? ["the AI monitoring rules"] : []),

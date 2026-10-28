@@ -3664,6 +3664,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-436; supabase/migrations/20261019204512_oq436_deadman_status.sql; docs/PLATFORM_OUTAGE_RUNBOOK.md external dead-man's switch",
   },
   {
+    key: "ops.deadman_thresholds",
+    // v2: adds the safety-sweeper counts from public.deadman_status() (migration 20261027083719). Only a "down" verdict opens the incident
+    // issue (.github/scripts/deadman-check.sh); "degraded" is a log warning. So ONE silent safety sweeper (the 15 second re-page sweep, the
+    // recheck sweep) is "down": that failure looks like "no red events", which is exactly what the external switch exists to catch.
+    // A single failed run is only "degraded" (down at two), because a transient error that heals itself should not open an issue.
+    // A listed job with no active cron job is never "down": it means the allow-list names a job that was renamed or unscheduled, a
+    // configuration fault. The per-job allowance (max_silence_minutes) lives in public.critical_cron_jobs. PROPOSED by engineering;
+    // the founder confirms. Do not mark confirmed from an agent.
+    value: {
+      dbQueryTimeoutMs: 5000,
+      heartbeatDegradedSeconds: 90,
+      heartbeatDownSeconds: 180,
+      dueOlderThanSeconds: 300,
+      dueUnclaimedDegradedCount: 1,
+      dueUnclaimedDownCount: 10,
+      deadLetterDegradedCount: 1,
+      deadLetterDownCount: 25,
+      openSev1Sev2DegradedCount: 1,
+      openSev1Sev2DownCount: 5,
+      staleCriticalJobsDegradedCount: 1,
+      staleCriticalJobsDownCount: 1,
+      failingCriticalJobsDegradedCount: 1,
+      failingCriticalJobsDownCount: 2,
+      missingCriticalJobsDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027083719_deadman_status_safety_sweeper_heartbeats.sql; docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (heartbeats for the sweepers)",
+  },
+  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
@@ -3940,6 +3972,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-20",
     source: "docs/S06X_DEVICE_CHECKLIST.md; docs/plans/S06-S10-competitor-gap-and-build-plan.md S06x-c; docs/device-lab/RUNBOOK.md",
     guardPatterns: ["cold\\w*start\\w*(ms)?\\s*[=:]\\s*3_?000\\b", "installed\\w*size\\w*(mb)?\\s*[=:]\\s*40\\b"],
+  },
+  {
+    key: "visit.follow_up_prompt",
+    // PROPOSED: how many days after an after-visit summary is approved the app keeps a "questions about this visit? message your care team"
+    // prompt in front of the person. A prompt only: it creates no entitlement, changes no price, and promises no response time, and after it
+    // ends the person can still message their care team from Messages. The written-question follow-up window (async_question.behaviour
+    // followUpDays 7) is separate and unchanged. 7 days is a starting point (the same figure) for the founder to confirm.
+    // Read through loadVisitFollowUpConfig() in packages/shared, never as a literal.
+    value: {
+      days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (K Health 7 day reconnect); docs/design/AVS.md; docs/design/S22.md followUpDays",
+  },
+  {
+    key: "devices.sync_freshness",
+    // PROPOSED: how many days a paired device or connected wearable may go without syncing before the app adds a calm note that the newest
+    // reading the person sees may not be the latest one. Wording only: no clinical rule reads this (the rule engines window readings by
+    // their own signed or proposed rules), and a stale display never changes a grade. 7 days is a starting point for the founder to confirm.
+    // Read through loadDeviceSyncConfig() in packages/shared, never as a literal.
+    value: {
+      stale_after_days: 7,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "docs/research/S81-S85-competitor-gap-analysis-2026-10-22.md (last synced display; Swissmedic notice on a glucose app that kept showing the last value)",
+    guardPatterns: ["stale\\w*days?\\s*[=:]\\s*7\\b"],
   },
   {
     key: "offline.freshness",
@@ -9454,5 +9518,68 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-27",
     source: "docs/design/S90.md; decision pack docs/plans/S88-S100-decisions-and-cmo-signoff-pack.md item 4.2 (cadence, overdue lines, annual labs). Unsigned until the CMO signs.",
+  },
+  {
+    key: "outcomes.reliable_change_rules",
+    // D4: how many points on the PHQ-9 and the GAD-7 count as a RELIABLE change, shown beside the response (fall of 50 percent or more) and remission figures.
+    // The database holds it as `outcome_reliable_change_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before).
+    // PROPOSED: the points are written from the published sources (see `source` in the value), not checked against the primary texts, and NOT validated for Nigeria.
+    // reliable-change-mirror.test.ts compares this value with the migration seed.
+    value: {
+      "instruments": {
+        "phq9": { "reliable_change_points": 6, "scale_points": 27 },
+        "gad7": { "reliable_change_points": 4, "scale_points": 21 }
+      },
+      "categories": [
+        { "code": "reliable_improvement", "label": "Reliable improvement", "definition": "The follow-up total is lower than the baseline total by at least the reliable change points for the instrument." },
+        { "code": "no_reliable_change", "label": "No reliable change", "definition": "Both totals are known and the difference is smaller than the reliable change points, in either direction. This is not a statement that nothing changed." },
+        { "code": "reliable_deterioration", "label": "Reliable deterioration", "definition": "The follow-up total is higher than the baseline total by at least the reliable change points for the instrument." },
+        { "code": "insufficient_data", "label": "No follow-up score", "definition": "No score near the day, or no baseline score. Shown as missing, never counted as not improved." }
+      ],
+      "group": "The same people the response and remission figures count: adults who are not excluded and whose baseline total was 5 or more. A person whose baseline total is below the reliable change points cannot show a reliable improvement, however well they are.",
+      "source": "Method: Jacobson NS, Truax P, J Consult Clin Psychol 1991;59:12-19 (the reliable change index). Points: the figures the English NHS Talking Therapies programme uses for reliable change, 6 points on the PHQ-9 and 4 points on the GAD-7. These were written from the published sources by the builder and have not been checked against the primary texts. They were derived in English-speaking clinical populations and are NOT validated for Nigeria or for self-completion in the app. The CMO confirms or changes them before signing; any change is a new version.",
+      "note": "These figures are descriptive, not causal. They show how scores moved for the people counted. They cannot show why, and they do not show that any service caused a change. A screening score is not a diagnosis."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/S75-outcome-measures.md (D4); supabase/migrations/*_d4_reliable_change_phq9_gad7.sql; Jacobson and Truax 1991; NHS Talking Therapies manual (reliable change points)",
+  },
+  {
+    key: "outcomes.adjustment_rules",
+    // D3: what counts as "a doctor adjusted the person's hypertension medicine" and over how many days, for the control-by-adjustment split. The database holds it
+    // as `outcome_adjustment_config` v1 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub; nothing shows before). Descriptive, not causal.
+    // adjustment-mirror.test.ts compares this value with the migration seed.
+    value: {
+      "condition": "hypertension",
+      "adjustment_window_days": 90,
+      "signals": {
+        "medication_amendment": {
+          "enabled": true,
+          "definition": "A clinician amended the person's hypertension medicine in the window: the prescription has a newer version written by a clinician."
+        },
+        "confirmed_plan_change": {
+          "enabled": true,
+          "actions": ["change", "start"],
+          "definition": "A signed medication change on the hypertension care plan, to change a medicine or to start one, was confirmed by the person and applied in the window."
+        }
+      },
+      "groups": [
+        { "code": "adjusted", "label": "Medicine adjusted by a doctor in the window", "definition": "On a recorded medicine, and at least one of the records above falls in the window ending on the day of the figures." },
+        { "code": "not_adjusted", "label": "No adjustment in the window", "definition": "On a recorded medicine, and none of the records above falls in the window." }
+      ],
+      "shown_separately": [
+        { "code": "not_on_recorded_medicine", "label": "Hypertension on record, not on a recorded medicine", "definition": "Diagnosed Members with no active medicine recorded under the hypertension care plan. They cannot be adjusted, so they are in neither group." },
+        { "code": "control_unknown", "label": "Control unknown", "definition": "On a recorded medicine, with fewer than the minimum number of cleared home readings in the last 7 days. Shown in each group as unknown, never as controlled or uncontrolled." }
+      ],
+      "limitations": "People who are not on a recorded medicine are shown separately and are in neither group. People on a medicine with no usable readings in the last 7 days are shown as control unknown, and stay in the figure. Doctors adjust medicine more often when blood pressure is high, so the two groups are not alike to start with and the figures cannot be compared as if they were. The record shows that a change was made, not whether the person took it.",
+      "note": "These figures are descriptive, not causal. They show how many people in each group have blood pressure under control on the day of the figures. They do not show that adjusting a medicine changed anyone's blood pressure, and no clinician is named or compared."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/S75-outcome-measures.md (D3); supabase/migrations/*_d3_bp_control_by_medicine_adjustment.sql; docs/design/WP3.md",
   },
 ];

@@ -87,6 +87,10 @@ export interface DeviceTriage {
 
 export interface PendingRecheck {
   reading: Reading;
+  /** When the repeat is due (reading time plus the wait the rule set asked for). Absent on a recheck saved by an older build. */
+  dueAtMs?: number;
+  /** When the rule set's window for the repeat ends and the first reading is graded as if repeated. Absent on an older save. */
+  expiresAtMs?: number;
 }
 
 export interface DeviceTriageRequest {
@@ -261,16 +265,25 @@ export async function readPendingRecheck(subjectId: string): Promise<PendingRech
   try {
     const raw = await secureKvGet(RECHECK_KEY(subjectId));
     if (!raw) return null;
-    const v = JSON.parse(raw) as { reading?: Reading };
+    const v = JSON.parse(raw) as { reading?: Reading; dueAtMs?: unknown; expiresAtMs?: unknown };
     const r = v.reading;
-    return r && typeof r.systolic === "number" && typeof r.diastolic === "number" && Number.isFinite(Date.parse(r.takenAt)) ? { reading: r } : null;
+    if (!(r && typeof r.systolic === "number" && typeof r.diastolic === "number" && Number.isFinite(Date.parse(r.takenAt)))) return null;
+    const out: PendingRecheck = { reading: r };
+    if (typeof v.dueAtMs === "number" && Number.isFinite(v.dueAtMs)) out.dueAtMs = v.dueAtMs;
+    if (typeof v.expiresAtMs === "number" && Number.isFinite(v.expiresAtMs)) out.expiresAtMs = v.expiresAtMs;
+    return out;
   } catch {
     return null;
   }
 }
-async function savePendingRecheck(subjectId: string, reading: Reading, afterMinutes: number, nowMs: number): Promise<void> {
+async function savePendingRecheck(subjectId: string, reading: Reading, afterMinutes: number, nowMs: number, windowMinutes: number | null = null): Promise<void> {
+  // The due time and the end of the window are saved only so the screen can SHOW them (a countdown); grading never reads them.
+  const taken = Date.parse(reading.takenAt);
+  const stored: PendingRecheck = { reading };
+  if (Number.isFinite(taken) && afterMinutes > 0) stored.dueAtMs = taken + afterMinutes * 60_000;
+  if (Number.isFinite(taken) && windowMinutes !== null && windowMinutes > 0) stored.expiresAtMs = taken + windowMinutes * 60_000;
   // A failed save is recorded, and the reminder is still scheduled: being told to measure again matters more than the saved context.
-  if (!(await secureKvSet(RECHECK_KEY(subjectId), JSON.stringify({ reading })))) recordSyncError("offline_outbox", "triage:recheckSave", "The pending recheck could not be stored");
+  if (!(await secureKvSet(RECHECK_KEY(subjectId), JSON.stringify(stored)))) recordSyncError("offline_outbox", "triage:recheckSave", "The pending recheck could not be stored");
   // The reminder to measure again, at the time the rule set says (5 minutes, or 2 hours after a very high reading).
   await scheduleRecheckReminder(subjectId, Date.parse(reading.takenAt) + afterMinutes * 60_000, nowMs);
 }
@@ -382,7 +395,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
 
   // With no subject (the session could not be read in time) nothing is stored: a shared empty key would pair unrelated readings.
   if (req.subjectId) {
-    if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading, result.recheck?.afterMinutes ?? 0, nowMs);
+    if (result.status === "recheck_required") await savePendingRecheck(req.subjectId, reading, result.recheck?.afterMinutes ?? 0, nowMs, result.recheck?.windowMinutes ?? null);
     else if (result.status === "graded") await clearPendingRecheck(req.subjectId);
   }
   return triage;

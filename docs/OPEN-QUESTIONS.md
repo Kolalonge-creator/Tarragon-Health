@@ -3374,6 +3374,15 @@ following are recorded in the system:
 ### OQ-GAP71-3 Who may enter an independent review, and what counts as one (raised by GAP-71, 2026-10-28)
 - Only a platform admin or the CMO can record a review (name, organisation, date, scope), as asked. Tarragon staff entering a review of Tarragon's own figures is a conflict of interest if no reviewer document is kept. Decide whether a reference to the reviewer's report (a document id or link) should be required before the record is accepted, and who checks it.
 - Decision: open (CMO and founder).
+### OQ-D4-1 Reliable change points for PHQ-9 and GAD-7 (raised by gap 71 D4)
+- PROPOSED `outcomes.reliable_change_rules` v1: 6 points on the PHQ-9 and 4 points on the GAD-7, a change of at least that many in either direction. Written from the published sources (the Jacobson and Truax reliable change method; the points the English NHS Talking Therapies programme uses), NOT checked against the primary texts and NOT validated for Nigeria or app self-completion. A baseline under the points cannot show a reliable improvement; the group is the response group (baseline of 5 or more).
+- Options: (a) the CMO signs 6 and 4 after reading the sources (recommended as a start); (b) the CMO asks for a different number or a locally derived index; (c) wait for local data.
+- Decision:
+
+### OQ-D3-1 What counts as a doctor adjusting a blood pressure medicine (raised by gap 71 D3)
+- PROPOSED `outcomes.adjustment_rules` v1: in the 90 days up to the snapshot day, a clinician amended the hypertension medicine (a new version of the prescription), or a signed plan change (action change or start) was confirmed by the person and applied. A stop, a refill with no change, a change only proposed or signed, and a medicine the person added themselves do not count. Doctors adjust more often when blood pressure is high, so the report is descriptive, not causal and carries no comparison group.
+- Options: (a) sign as drafted; (b) change the window or the actions (a new version); (c) also count a stop.
+- Decision:
 ### OQ-S71-CHANNELS Zap (QR) channel string is unverified and must be flipped by a human (raised by gap 71, 2026-10-28)
 - The checkout channel list is now configuration-driven (`checkout.payment_channels` in the proposed-config registry, mirrored in `supabase/functions/_shared/commerce/checkout-channels.ts`, drift-tested). The default is unchanged: `["card","bank_transfer","ussd"]`. An unknown or empty value falls back to that default.
 - Paystack added Zap (QR) to Checkout in late 2025. `PAYMENT_CHANNELS` lists `"qr"` but nothing sends it, and its exact channel string for Zap is UNVERIFIED. Do not add it to the config until the string is checked against the live Paystack account and current docs (see also OQ-401, where `bank_transfer` may need enabling in the dashboard).
@@ -6040,4 +6049,22 @@ The request status function and the PDF routes now hide sensitive requests from 
 - A forgotten PIN is cleared with a code sent to the account's phone or email (the same recovery as the private section); only the PIN on that device is removed.
 - Option for later: let the PIN be combined with a biometric that does not fall back to the passcode (`disableDeviceFallback`). Not done, because it is a behaviour the device test in S66 never covered.
 - Not run on a real phone.
+
+### OQ-741 Joining an employer with an organisation code puts the person's name, phone and email on the employer's staff list (raised 2026-10-27)
+- Found while writing the "what your employer sees" text. `public.employer_join_with_code` (20260829093043) inserts or updates a row in `employer_roster_members` with the person's phone, email and full name, status `claimed`, and the trigger `employer_roster_members_sync_profile_org` moves the profile into the employer's organisation. Employer staff read that table (the roster manager selects every column).
+- Conflict: `programme.sponsor_sees_body` and `programme.share_body` say a sponsor "never sees your name". That is true for sponsor cohorts (`join_cohort`, frozen aggregate snapshots, spec I9) and NOT true for an employer joined by code or by roster, where the employer's own staff list shows who joined. The existing text was not changed here.
+- Done: the account page form where the code is entered now says it plainly before the code is typed (`employer.join.sees_body`), pinned by a test that reads the SQL function.
+- Options: (a) keep the roster model and the disclosure as written; (b) make a code join anonymous to the employer (count only, no roster row) and keep names for employer-invited rows only; (c) both models, chosen by the employer at set-up.
+- Recommendation: (a) now, decide (b) with counsel before the first real employer goes live, because a person who joins to use a benefit may not expect their employer to see that they did.
+- Counsel: whether the consent screen may imply anything about employment; no such wording was written.
+
+### OQ-742 Neutral app name and icon need a native build (raised 2026-10-27)
+- Discreet mode already makes push and email text generic (S04b-3) and an existing lint (`packages/notifications/src/inv07-lint.test.ts`) keeps every template free of condition, reading, medicine and result. The operating system still shows the app's own name on a notification and under the icon, and that cannot be changed from JavaScript.
+- A neutral name and icon is an alternate-icon and launcher-label change: a native dependency or config plugin, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build, and a test on a real iOS and Android phone. None of that was done: it cannot be verified here and a wrong native change breaks the over-the-air update path.
+- Decision needed: the neutral name (one word that tells nobody anything), and whether to spend a native build on it now or with the next unavoidable one.
+
+### OQ-743 A visit follow-up prompt, not a free follow-up (raised 2026-10-27)
+- The research suggested a free 7-day follow-up window. The written-question follow-up (`async_question.behaviour followUpDays 7`) already exists and does not use the monthly allowance. Messaging the care team (`start_care_thread`) has no allowance or charge, so a second window would change nothing.
+- Built: a prompt on the after-visit summary for 7 days (`visit.follow_up_prompt`, PROPOSED) linking to Messages. It creates no entitlement, changes no price and promises no reply time; the test blocks words such as free, hours and guarantee.
+- If the founder wants a real commercial promise (a follow-up that returns a spent written-message allowance, or a response time), that is a pricing decision, not a copy change.
 
