@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 import { LabOrderTestChecklist } from "@/screens/sections/lab-order-test-checklist";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
+import { OutputKindLabel } from "@/ui/output-kind-label";
 import {
   Card,
   ErrorText,
@@ -586,9 +587,7 @@ export function LabOrdersScreen() {
                           <MutedText>Preparing an automatic summary…</MutedText>
                         ) : doc.aiSummaryStatus === "flagged" ? (
                           <View style={{ backgroundColor: TONE.amber.bg, borderRadius: 10, padding: 10 }}>
-                            <Text style={{ fontSize: 12, fontWeight: "600", color: TONE.amber.text }}>
-                              Automated summary. Not a medical opinion.
-                            </Text>
+                            <OutputKindLabel kind="automated_information" note="Automated summary. Not a medical opinion." />
                             <Text style={{ fontSize: 12.5, color: colors.ink, marginTop: 2 }}>
                               {doc.aiFlaggedAnalytes.length > 0
                                 ? `${doc.aiFlaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${doc.aiFlaggedAnalytes

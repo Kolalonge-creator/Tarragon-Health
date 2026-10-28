@@ -216,4 +216,49 @@ describe("buildCoachHandoffSummary", () => {
     expect(summary).toContain("Medication: None on file");
     expect(summary).toContain("Relevant history: None on file");
   });
+
+  describe("the audit trail (audit G-07)", () => {
+    const messages = [{ id: "1", role: "user" as const, content: "chest tightness", created_at: "2026-08-30T00:00:00.000Z" }];
+    const logged = (sb: SupabaseClient<Database>) =>
+      (sb.rpc as unknown as jest.Mock).mock.calls.filter((c) => c[0] === "record_ai_interaction").map((c) => c[1] as Record<string, unknown>);
+
+    it("a successful model call leaves one completed interaction row, with a category and no patient words", async () => {
+      const sb = fakeSupabase(true);
+      const model = {
+        withStructuredOutput: () => ({ invoke: async () => ({ concern: "c", symptoms: "s", medication: "m", relevantHistory: "h" }) }),
+      } as unknown as ChatAnthropic;
+      await buildCoachHandoffSummary(input({ supabase: sb, recentMessages: messages }), model);
+      const rows = logged(sb);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ p_system_code: "AI-001", p_input_category: "care_team_handoff_summary", p_status: "completed" });
+      expect(JSON.stringify(rows[0])).not.toContain("chest tightness");
+    });
+
+    it("a failed model call leaves a fallback row that names no model, and still returns the template", async () => {
+      const sb = fakeSupabase(true);
+      const failing = { withStructuredOutput: () => ({ invoke: async () => { throw new Error("network error"); } }) } as unknown as ChatAnthropic;
+      const summary = await buildCoachHandoffSummary(input({ supabase: sb, recentMessages: messages }), failing);
+      const rows = logged(sb);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ p_status: "fallback", p_model_identifier: "none:fallback" });
+      expect(summary).toContain("Patient concern:");
+    });
+
+    it("when AI-001 is off the refusal is recorded as a fallback with no model named (same as runGovernedAi), and the model is never called", async () => {
+      const sb = fakeSupabase(false);
+      const invoke = jest.fn(async () => { throw new Error("must not run"); });
+      const model = { withStructuredOutput: () => ({ invoke }) } as unknown as ChatAnthropic;
+      await buildCoachHandoffSummary(input({ supabase: sb, recentMessages: messages }), model);
+      expect(invoke).not.toHaveBeenCalled();
+      const rows = logged(sb);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ p_status: "fallback", p_model_identifier: "none:fallback", p_resulting_action: "fallback_path_used" });
+    });
+
+    it("with no conversation there is nothing to summarise, no model call and no row", async () => {
+      const sb = fakeSupabase(true);
+      await buildCoachHandoffSummary(input({ supabase: sb, recentMessages: [] }));
+      expect(logged(sb)).toHaveLength(0);
+    });
+  });
 });
