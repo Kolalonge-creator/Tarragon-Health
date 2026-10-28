@@ -102,8 +102,8 @@ export const J4: JourneyDef = {
   steps: [
     { id: "institution-and-cohort-created", title: "An employer organisation and a cohort code are created through the admin RPC (real admin session)" },
     { id: "enrol-300-by-cohort-code", title: "300 staff join by the cohort code (join_cohort RPC, simulated authenticated sessions for volume)" },
-    { id: "institution-console-redemption", title: "Staff redeem the code in the institution console", pending: { owner: "S79", reason: "the institution console is not built (the RPC exists from S38e)" } },
-    { id: "sponsored-packs-as-entitlements", title: "Staff get sponsored care packs and consultations as entitlements", pending: { owner: "S79", reason: "sponsored entitlements through the institution console are S79" } },
+    { id: "institution-console-redemption", title: "A staff member redeems the code with the institution console's enter_enrolment_code (S79, #1341): refused while the module is off, accepted once it is on, a wrong code refused" },
+    { id: "sponsored-packs-as-entitlements", title: "Staff get sponsored care packs and consultations as entitlements", pending: { owner: "S79", reason: "S79 shipped the code redemption, usage statements and the procurement pack, but joining a cohort records membership of the cohort and creates no entitlement (join_cohort writes none), so staff do not yet receive sponsored packs or consultations as entitlements" } },
     { id: "institution-reads-no-patient-rows", hazards: ["HZ-J4-01"], title: "A real institution session reads zero rows from every patient table, with a control that the rows exist" },
     { id: "institution-view-aggregates-only", title: "The institution's own view returns aggregates only: no ids, no names, no lists" },
     { id: "small-cells-suppressed", title: "A cohort below the minimum cell is withheld whole, and a cut that would expose a small cell is suppressed" },

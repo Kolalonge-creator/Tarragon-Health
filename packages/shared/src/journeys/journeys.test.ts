@@ -37,7 +37,7 @@ describe("journey definitions", () => {
       J1: 4,
       J2: 1,
       J3: 12,
-      J4: 2,
+      J4: 1,
     });
   });
 });

@@ -195,6 +195,39 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     // ------------------------------------------------------------------ the institution session
     const inst = await signIn(instAdmin);
 
+    // S79 (#1341): a staff member redeems a code with the console's one entry point. The module ships OFF, so the step switches it on in this throwaway
+    // database only and restores it, with a control that the call is refused while it is off.
+    await run.step("institution-console-redemption", async () => {
+      const wasOn = sqlValue<string>(`select is_enabled::text from public.platform_modules where key = 'institution_console'`) === "true";
+      const redeemer = await createUser(runId, "console-redeemer", { role: "patient", organisationId: tenant });
+      sql(`update public.profiles set is_test = true, receives_care = true, date_of_birth = (current_date - interval '40 years')::date where id = ${lit(redeemer.id)};`);
+      const consoleCohort = await adminClient.rpc("admin_create_sponsor_cohort", {
+        p_sponsor_org: employer,
+        p_name: `S85 console ${runId}`,
+        p_valid_from: new Date().toISOString().slice(0, 10),
+        p_valid_to: new Date(Date.now() + 90 * 86400_000).toISOString().slice(0, 10),
+        p_max_uses: 10,
+      });
+      expect(consoleCohort.error, JSON.stringify(consoleCohort.error)).toBeNull();
+      const code = (consoleCohort.data as { code: string }).code;
+      const client = await signIn(redeemer);
+      try {
+        sql(`update public.platform_modules set is_enabled = false where key = 'institution_console';`);
+        const off = await client.rpc("enter_enrolment_code", { p_code: code });
+        expect(off.error, "the console accepted a code while the module was off").not.toBeNull();
+        sql(`update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = ${lit(admin.id)}, activation_note = 'S85 journey 4 local fixture' where key = 'institution_console';`);
+        const wrong = await client.rpc("enter_enrolment_code", { p_code: "ZZZZZZZZ" });
+        expect(wrong.error, JSON.stringify(wrong.error)).toBeNull();
+        expect(wrong.data).toMatchObject({ ok: false });
+        const ok = await client.rpc("enter_enrolment_code", { p_code: code });
+        expect(ok.error, JSON.stringify(ok.error)).toBeNull();
+        expect(ok.data).toMatchObject({ ok: true, kind: "programme" });
+        expect(Number(sqlValue<string>(`select count(*)::text from public.profile_cohorts where patient_id = ${lit(redeemer.id)} and left_at is null`))).toBe(1);
+      } finally {
+        sql(`update public.platform_modules set is_enabled = ${wasOn ? "true" : "false"} where key = 'institution_console';`);
+      }
+    });
+
     await run.step("institution-reads-no-patient-rows", async () => {
       const found: string[] = [];
       for (const t of PATIENT_TABLES) {

@@ -34,15 +34,15 @@ Test patients created on the local stack for the mobile runs were `is_test` rows
 
 ## 2. Journeys (S85)
 
-All three run end to end and report **INCOMPLETE** with no failed steps.
+All three run end to end and report **INCOMPLETE** with no failed steps. Counts below were measured on 2026-10-28 by running the three journey specs against the local stack on a production build (3 passed, 1.2 minutes); earlier counts were 6/9/1, 14/4/0 and 8/3/1.
 
 | Journey | Passed | Failed | Pending | Skipped |
 |---|---|---|---|---|
-| J1 a new user's first month | 9 (was 6; three steps reworded by the owner on 2026-10-28 now run) | 0 | 6 (was 9) | 1 |
-| J2 a red reading at night | 14 (15 when the rule set is approved: the outcomes step now runs) | 0 | 4 (3) | 0 |
-| J4 institution | 8 | 0 | 3 | 1 |
+| J1 a new user's first month | 10 | 0 | 5 | 1 |
+| J2 a red reading at night | 16 | 0 | 2 | 0 |
+| J4 institution | 9 | 0 | 2 | 1 |
 
-The pending steps are the human or later-stage items the journeys already name: the CMO signing the WHO CVD instrument, screening rules, `bp_care_triage` and the silence sweep; the founder's go-live of the membership catalogue and decisions on what "goal" and "consistency" mean; S64 follow-up booking after a red reading; S79 institution console; and OQ-549 (an untied clinician still reads `menstrual_cycles`, a known gap). A journey is not counted as passing while any step is pending.
+The pending steps now are: J1 the CMO's signatures on the WHO CVD instrument, the screening rules and the silence sweep, the paid order (checkout is dormant on a fresh database) and the son's card payment (needs a Paystack test key and a served checkout function), plus the skipped Paystack payment; J2 the CMO approval of the rule set (D1) and the next-day follow-up, which is now a draft `bp_care_triage` v8 awaiting the CMO's signature (OQ-551); J4 sponsored entitlements for staff (joining a cohort creates none) and one S88 tie step (OQ-549), plus the skipped aggregate over 300 test accounts. Built and now passing this session: the J1 goal, Health Points, result-explanation and Membership-offer steps, the J2 outcomes step and the J4 console code redemption. A journey is not counted as passing while any step is pending.
 
 ## 3. The 25 clinical safety cases
 
