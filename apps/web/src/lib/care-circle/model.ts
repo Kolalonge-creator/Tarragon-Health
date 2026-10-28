@@ -95,7 +95,7 @@ export const supporterViewSchema = z.object({
   adherence: z.object({ days: z.number(), taken: z.number(), due: z.number(), percent: z.number().nullable() }).optional(),
   bp_trend: z
     .object({
-      weeks: z.array(z.object({ week_start: z.string(), systolic: z.number(), diastolic: z.number(), readings: z.number() })),
+      weeks: z.array(z.object({ week_start: z.string(), systolic: z.number().nullable(), diastolic: z.number().nullable(), readings: z.number() })),
       direction: z.enum(["higher", "lower", "steady"]).nullable(),
     })
     .optional(),

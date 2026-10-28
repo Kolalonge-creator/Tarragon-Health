@@ -37,9 +37,13 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
       {view.bpTrend ? (
         <Card style={{ gap: 4 }}>
           <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.bp.title", locale)}</Text>
-          {view.bpTrend.weeks.length === 0 ? <MutedText>{t("circle.view.bp.none", locale)}</MutedText> : null}
-          {view.bpTrend.weeks.map((w) => (
-            <Text key={w.weekStart} style={{ color: colors.ink }}>{t("circle.view.bp.row", locale, { date: lagosDate(w.weekStart), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })}</Text>
+          {view.bpTrend.weeks.every((w) => w.readings === 0) ? <MutedText>{t("circle.view.bp.none", locale)}</MutedText> : null}
+          {view.bpTrend.weeks.filter((w) => w.readings > 0).map((w) => (
+            <Text key={w.weekStart} style={{ color: colors.ink }}>
+              {w.systolic !== null && w.diastolic !== null
+                ? t("circle.view.bp.row", locale, { date: lagosDate(w.weekStart), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })
+                : t("supporterview.bp.row_few", locale, { date: lagosDate(w.weekStart) })}
+            </Text>
           ))}
           {dir ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(`circle.view.bp.${dir}`, locale)}</Text> : null}
         </Card>
