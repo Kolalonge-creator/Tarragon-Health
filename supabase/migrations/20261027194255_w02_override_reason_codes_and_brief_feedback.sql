@@ -122,7 +122,7 @@ begin
   end if;
   select id, organisation_id, claimed_by, is_test into t from public.clinical_tasks where id = p_task;
   -- the caller held the claim at any time (history), so recording after the task was finished or handed back still works
-  if t.id is null or not (t.claimed_by = v_uid or exists (select 1 from public.task_claims c where c.task_id = t.id and c.clinician_id = v_uid)) then
+  if t.id is null or not (coalesce(t.claimed_by = v_uid, false) or exists (select 1 from public.task_claims c where c.task_id = t.id and c.clinician_id = v_uid)) then
     raise exception 'you did not hold this task' using errcode = '42501';
   end if;
   select coalesce(is_test, false) into v_test from public.profiles where id = v_uid;
