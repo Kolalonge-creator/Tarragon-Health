@@ -217,8 +217,8 @@ do $$
 declare v_note uuid; r text; v_cnt integer;
 begin
   set local session_replication_role = replica;
-  insert into public.clinical_encounter_notes (organisation_id, patient_id, note_type, title, status, authored_by_profile, is_test)
-  values (pg_temp.f('org'), pg_temp.f('mem1'), 'video_consult', 'W01 proof', 'draft', pg_temp.f('doc'), false) returning id into v_note;
+  insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, authored_by_profile)
+  values (pg_temp.f('org'), pg_temp.f('mem1'), 'video_consult', 'W01 proof', 'draft', pg_temp.f('doc')) returning id into v_note;
   set local session_replication_role = origin;
   select count(*) into v_cnt from public.clinician_time_entries where source = 'consult' and source_ref = v_note;
   insert into results values ('real', 'no consult row while the call has not ended', '0', v_cnt::text);
