@@ -65,6 +65,24 @@ begin
 end
 $rebuild$;
 
+-- the two private row views mirror every column of vitals_readings (a proof, s05b_d, fails when they drift). Append the new column the same way
+-- s07y did for entry_origin: read the live definition, add the column last, keep the owner-rights option. Idempotent.
+do $views$
+declare
+  v_cur text;
+  v_dia text;
+begin
+  if not exists (select 1 from pg_attribute where attrelid = 'private.vitals_readings_current'::regclass and attname = 'measurement_context' and not attisdropped) then
+    v_cur := regexp_replace(rtrim(pg_get_viewdef('private.vitals_readings_current'::regclass, true), E' ;\n'), '\sFROM\s', ', measurement_context FROM ');
+    execute 'create or replace view private.vitals_readings_current with (security_invoker = false) as ' || v_cur;
+  end if;
+  if not exists (select 1 from pg_attribute where attrelid = 'private.vitals_readings_diagnostic'::regclass and attname = 'measurement_context' and not attisdropped) then
+    v_dia := regexp_replace(rtrim(pg_get_viewdef('private.vitals_readings_diagnostic'::regclass, true), E' ;\n'), '\sFROM\s', ', measurement_context FROM ');
+    execute 'create or replace view private.vitals_readings_diagnostic with (security_invoker = false) as ' || v_dia;
+  end if;
+end
+$views$;
+
 -- 2. the governed target row ---------------------------------------------------------------------------------------------------------
 create table public.bp_target_config (
   id          uuid primary key default gen_random_uuid(),
