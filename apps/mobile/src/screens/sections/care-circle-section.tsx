@@ -142,6 +142,7 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
         <Card key={g.entitlementId} style={{ gap: 6 }}>
           <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.gift.title", locale)}</Text>
           <Text style={{ color: colors.ink }}>{t("circle.gift.body", locale, { item: Object.hasOwn(en, g.nameKey) ? t(g.nameKey as MessageKey, locale) : "" })}</Text>
+          <MutedText>{t("gift.payer_sees", locale)}</MutedText>
           <MutedText>{t("circle.gift.decide_by", locale, { date: lagosDate(g.decideBy) })}</MutedText>
           <PrimaryButton title={t("circle.gift.accept", locale)} onPress={() => void answer(g.entitlementId, true)} disabled={busy} />
           <SecondaryButton title={t("circle.gift.decline", locale)} onPress={() => decline(g.entitlementId)} disabled={busy} />
