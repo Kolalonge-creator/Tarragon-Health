@@ -7,7 +7,7 @@ import { t } from "@tarragon/i18n";
 import { BRIEF_FEEDBACK_LABEL_KEY, BRIEF_FEEDBACK_VALUES, type BriefFeedback } from "@/lib/clinician/override-reasons";
 
 /**
- * W-02: three buttons under an AI-drafted case brief (useful, not safe, missing something). Not mounted yet: it is added to the brief card
+ * W-02: three buttons under a case brief the assistant wrote (useful, not safe, missing something). Not mounted yet: it is added to the brief card
  * once the open PR that edits that card has merged, so the two changes do not collide.
  */
 export function CaseBriefFeedback({ briefId }: { briefId: string }) {
