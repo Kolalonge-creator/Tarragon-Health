@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
+import { enqueue, flushOutbox } from "./outbox";
+import { recordSyncError } from "./sync-diagnostics";
 import { en, t, type MessageKey } from "@tarragon/i18n";
 import { mergeMoodBpSleep, type MoodTrendDay, type WellbeingTag } from "@tarragon/shared";
 
@@ -141,6 +143,43 @@ export async function submitWellbeingCheckin(input: {
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
+}
+
+/**
+ * Saves a check-in on the phone first (the offline outbox) and gives the send a short chance to land, so the list is fresh when the
+ * screen reloads. A slow or missing signal never holds the person up: the check-in is already safe on the phone and goes later.
+ */
+export async function queueWellbeingCheckin(input: {
+  patientId: string;
+  organisationId: string;
+  moodScore: number;
+  stressScore: number;
+  sleepQuality: number;
+  activityLevel: number;
+  note?: string;
+  tags?: WellbeingTag[];
+}): Promise<QueryResult<{ queued: true }>> {
+  try {
+    await enqueue({
+      kind: "wellbeing_checkin",
+      subjectId: input.patientId,
+      payload: {
+        organisation_id: input.organisationId,
+        mood_score: input.moodScore,
+        stress_score: input.stressScore,
+        sleep_quality: input.sleepQuality,
+        activity_level: input.activityLevel,
+        note: input.note ?? null,
+        tags: input.tags ?? [],
+      },
+    });
+  } catch (error) {
+    // Could not even save it on the phone (not signed in, storage full): say so, never pretend it was saved.
+    return { ok: false, error: error instanceof Error ? error.message : "Could not save your check-in on this phone." };
+  }
+  const flush = flushOutbox().catch((e) => recordSyncError("offline_outbox", "flushAfterWellbeingCheckin", e));
+  await Promise.race([flush, new Promise<void>((resolve) => setTimeout(resolve, 3000))]);
+  return { ok: true, data: { queued: true } };
 }
 
 export async function updateWellbeingCheckinFrequency(
