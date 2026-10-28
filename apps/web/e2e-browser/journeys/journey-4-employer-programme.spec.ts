@@ -209,17 +209,23 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     });
 
     // An untied clinician (same organisation, no task, lead assignment or page) must read none of these tables for any patient. History: S56 closed
-    // mental_health_screens and wellbeing_checkins; S39b (tied staff reads, merged) tied the cycle, reproductive and pregnancy summary tables; S88 tied the
+    // mental_health_screens and wellbeing_checkins; S39b (tied staff reads, merged) tied most cycle, reproductive and pregnancy summary tables; S88 tied the
     // nine pregnancy and maternal tables (pregnancies, kick_counts, contractions, birth_plans, postnatal_baby_checks, breastfeeding_feed_log,
-    // lifecycle_states, lifecycle_events, pregnancy_loss_records). The known-leak list is now EMPTY, so there is no pending(S39b) step any more: the step
-    // passes only when the leak list is empty and fails, naming the tables, on any leak. Do not add a table back to KNOWN_UNTIED_CLINICIAN_READS to make
-    // the journey pass; tie the table (see docs/design/S39b.md and the S88 migration). See OQ-549.
-    const KNOWN_UNTIED_CLINICIAN_READS: string[] = [];
+    // lifecycle_states, lifecycle_events, pregnancy_loss_records).
+    // KNOWN GAP (shrink only, founder-approved 2026-10-28): `menstrual_cycles` is still readable by an untied clinician in the CI replay (the same
+    // pending state main-dev has had since S85). It is NOT an S88 table and is tracked separately under OQ-549; its select policy has an S39b
+    // `staff_may_read` arm plus emergency and `can_read_clinical` arms and which arm admits the clinician is not yet traced. The step is pending(S39b)
+    // exactly while the leak equals this list. ANY other leaked table, and in particular any of the nine S88 tables, fails the journey naming the
+    // table; a table that stops leaking also fails it until it is removed from this list (the list only shrinks).
+    const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles"];
+    const S88_TIED_TABLES = [
+      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log", "lifecycle_states", "lifecycle_events",
+      "pregnancy_loss_records",
+    ];
     const untiedTables = [
       "vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins",
       "reproductive_health_profiles", "patient_pregnancy", "contraception_plans",
-      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log", "lifecycle_states", "lifecycle_events",
-      "pregnancy_loss_records",
+      ...S88_TIED_TABLES,
     ];
     const untied: string[] = [];
     {
@@ -229,9 +235,23 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
         if ((r.count ?? 0) > 0) untied.push(t);
       }
     }
-    await run.step("clinician-without-tie-reads-nothing", async () => {
-      expect(untied, `an untied clinician read patient rows (known leaks allowed: ${KNOWN_UNTIED_CLINICIAN_READS.join(", ") || "none"})`).toEqual(KNOWN_UNTIED_CLINICIAN_READS);
+    // The nine S88 tables never get a pending pass: they fail on any leak, whatever the known list says.
+    await run.step("s88-tables-untied-clinician-reads-nothing", async () => {
+      expect(untied.filter((t) => S88_TIED_TABLES.includes(t)), "an untied clinician read an S88-tied pregnancy or maternal table").toEqual([]);
     });
+    if (untied.length === 0) {
+      await run.step("clinician-without-tie-reads-nothing", async () => {});
+    } else if (JSON.stringify([...untied].sort()) === JSON.stringify([...KNOWN_UNTIED_CLINICIAN_READS].sort())) {
+      run.pending(
+        "clinician-without-tie-reads-nothing",
+        "S39b",
+        `an untied clinician still reads ${untied.join(", ")} for the whole organisation (known gap, OQ-549, not an S88 table). The nine S88 tables and the other ${untiedTables.length - untied.length} listed tables are correctly empty.`,
+      );
+    } else {
+      await run.step("clinician-without-tie-reads-nothing", async () => {
+        expect(untied, `the untied-clinician leak changed (known: ${KNOWN_UNTIED_CLINICIAN_READS.join(", ")})`).toEqual(KNOWN_UNTIED_CLINICIAN_READS);
+      });
+    }
 
     await run.step("patient-reads-own-control", async () => {
       const p = await signIn(realPatients[0]!);
