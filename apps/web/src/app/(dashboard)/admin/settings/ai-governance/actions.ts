@@ -7,6 +7,7 @@ import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-p
 import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites, type EvalSuiteResult } from "@/lib/ai-governance/run-coach-eval-suites";
+import { runAiDocumentCaptureEvalSuites } from "@/lib/ai-governance/run-document-capture-eval-suites";
 import { runAiImagingReportEvalSuites } from "@/lib/ai-governance/run-imaging-eval-suites";
 import { runAiScribeEvalSuites } from "@/lib/ai-governance/run-scribe-eval-suites";
 
@@ -321,7 +322,7 @@ export type RunEvalSuitesState =
  * action able to drive either without duplicating the ~100 lines of
  * permission-check / version-lookup / incremental-recording logic below.
  */
-const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017"] as const;
+const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017", "AI-018"] as const;
 type SupportedEvalSystemCode = (typeof SUPPORTED_EVAL_SYSTEM_CODES)[number];
 
 async function runSuitesForSystem(
@@ -330,6 +331,7 @@ async function runSuitesForSystem(
 ): Promise<{ aiSystemId: string; suites: EvalSuiteResult[] }> {
   if (systemCode === "AI-001") return runAiCoachGovernanceSuites(options);
   if (systemCode === "AI-017") return runAiScribeEvalSuites(options);
+  if (systemCode === "AI-018") return runAiDocumentCaptureEvalSuites(options);
   return runAiImagingReportEvalSuites(options);
 }
 
@@ -340,7 +342,7 @@ const runEvalSuitesSchema = z.object({
 /**
  * Runs a registered AI system's governance evaluation suite(s) for real
  * (real model calls against the actual production code path -- the coach
- * graph for AI-001, extractImagingReport() for AI-016 -- never against
+ * graph for AI-001, extractImagingReport() for AI-016, extractDocumentSuggestions() for AI-018 -- never against
  * patient data, see run-coach-eval-suites.ts / run-imaging-eval-suites.ts)
  * and records one ai_evaluation_runs + its ai_evaluation_case_results rows
  * per suite as each suite completes, not batched at the end. That ordering
@@ -400,7 +402,8 @@ export async function runAiEvalSuitesAction(
     .maybeSingle();
   if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
-  const totalSuiteCount = systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 2 : 1;
+  const totalSuiteCount =
+    systemCode === "AI-001" ? 4 : systemCode === "AI-017" || systemCode === "AI-018" ? 2 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 
