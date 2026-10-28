@@ -17,7 +17,7 @@
 import { BIOMARKER_GRADE_BANDS } from "./biomarker-grade-bands";
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
 import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
-import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
+import { THERAPY_EXCLUSION_LISTS, THERAPY_EXCLUSION_LISTS_V1, THERAPY_PROGRAMME_CONFIG, THERAPY_PROGRAMME_CONFIG_V1 } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
@@ -2397,15 +2397,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
   {
     key: "therapy.exclusion_lists",
-    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
-    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
-    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
-    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    // Version 1 (S63): the lists the engine shipped with, the four pain programmes on one shared scaffold list. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_EXCLUSION_LISTS_V1 as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Version 1 (S63): pain programmes scored on one pain rating. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_PROGRAMME_CONFIG_V1 as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+  },
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1, except the four pain programmes which are at list version 2 (S96, msk-config-data.ts); a test fails if the
+    // migration seeds and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123, CG61, NG59 and NG226 style exclusions (to verify)",
   },
   {
     key: "therapy.programme_config",
@@ -2415,9 +2436,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md (config version 2: PEG and function goal for the pain programmes, MSK settings); docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
@@ -8559,6 +8580,210 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/WP3.md; WHO HEARTS / DHIS2 cascade terms; HEDIS CBP 140/90. Unsigned until the CMO signs.",
   },
   {
+    key: "prescribing.baseline_labs_rule",
+    // The baseline-labs prescribing rule: kidney function, potassium and glucose (plus HbA1c for every glucose-lowering medicine, and for blood-pressure medicines
+    // when diabetic) within a recent window before a doctor starts or raises the dose of a blood-pressure-lowering or glucose-lowering medicine, with a documented,
+    // audited, followed-up override. The database holds it as `baseline_labs_rule_config` v1 (UNSIGNED, INACTIVE
+    // until the Chief Medical Officer signs on the sign-off hub; until then the check does nothing). A test compares this value with the migration seed.
+    value: {
+      "applies_to": {
+        "start_new_medicine": true,
+        "dose_increase": true,
+        "sources_checked": [
+          "clinician",
+          "specialist"
+        ],
+        "sources_never_checked": [
+          "patient",
+          "fhir_import"
+        ],
+        "note": "Checked when a doctor starts one of these medicines, restarts a stopped one, changes a prescription to one of them, or raises its dose or how often it is taken. A person recording a medicine they already take, an imported record, a stopped medicine, and a dose or frequency that stays the same or goes down are never checked. Doses are compared by their amounts and units, so 1 g to 500 mg is a decrease."
+      },
+      "drug_classes": {
+        "bp_lowering": {
+          "label": "Blood-pressure-lowering medicines",
+          "name_patterns": [
+            "%losartan%",
+            "%telmisartan%",
+            "%valsartan%",
+            "%irbesartan%",
+            "%candesartan%",
+            "%olmesartan%",
+            "%azilsartan%",
+            "%sacubitril%",
+            "%ramipril%",
+            "%lisinopril%",
+            "%enalapril%",
+            "%perindopril%",
+            "%captopril%",
+            "%benazepril%",
+            "%fosinopril%",
+            "%quinapril%",
+            "%aliskiren%",
+            "%amlodipine%",
+            "%nifedipine%",
+            "%felodipine%",
+            "%lercanidipine%",
+            "%nitrendipine%",
+            "%diltiazem%",
+            "%verapamil%",
+            "%hydrochlorothiazide%",
+            "%hctz%",
+            "%indapamide%",
+            "%bendroflumethiazide%",
+            "%chlortalidone%",
+            "%chlorthalidone%",
+            "%spironolactone%",
+            "%amiloride%",
+            "%eplerenone%",
+            "%moduretic%",
+            "%furosemide%",
+            "%frusemide%",
+            "%bumetanide%",
+            "%torsemide%",
+            "%atenolol%",
+            "%bisoprolol%",
+            "%metoprolol%",
+            "%propranolol%",
+            "%carvedilol%",
+            "%nebivolol%",
+            "%labetalol%",
+            "%hydralazine%",
+            "%methyldopa%",
+            "%doxazosin%",
+            "%prazosin%",
+            "%terazosin%",
+            "%clonidine%"
+          ]
+        },
+        "glucose_lowering": {
+          "label": "Glucose-lowering medicines",
+          "name_patterns": [
+            "%metformin%",
+            "%gliclazide%",
+            "%glibenclamide%",
+            "%glimepiride%",
+            "%glipizide%",
+            "%tolbutamide%",
+            "%sitagliptin%",
+            "%vildagliptin%",
+            "%linagliptin%",
+            "%saxagliptin%",
+            "%alogliptin%",
+            "%empagliflozin%",
+            "%dapagliflozin%",
+            "%canagliflozin%",
+            "%ertugliflozin%",
+            "%pioglitazone%",
+            "%acarbose%",
+            "%repaglinide%",
+            "%nateglinide%",
+            "%insulin%",
+            "%liraglutide%",
+            "%semaglutide%",
+            "%dulaglutide%",
+            "%exenatide%",
+            "%tirzepatide%"
+          ]
+        },
+        "note": "Every class of blood-pressure medicine is covered: ACE inhibitors, ARBs, calcium channel blockers, diuretics (thiazide-type, potassium-sparing and loop), beta blockers, alpha blockers, hydralazine, methyldopa and clonidine. The glucose group covers the oral glucose-lowering medicines, the injectable GLP-1 and GIP medicines and every insulin. To add a medicine, the CMO asks for a new version."
+      },
+      "required_baseline": {
+        "for_every_medicine_in_both_groups": [
+          "kidney_function",
+          "potassium",
+          "glucose"
+        ],
+        "additionally_for_every_glucose_lowering_medicine": [
+          "hba1c"
+        ],
+        "additionally_if_diabetes_on_record": [
+          "hba1c"
+        ],
+        "analytes": {
+          "kidney_function": {
+            "label": "Kidney function (creatinine or eGFR)",
+            "analyte_codes": [
+              "creatinine"
+            ],
+            "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
+          },
+          "potassium": {
+            "label": "Potassium",
+            "analyte_codes": [
+              "potassium"
+            ]
+          },
+          "glucose": {
+            "label": "Glucose",
+            "analyte_codes": [
+              "fasting_glucose",
+              "random_glucose"
+            ],
+            "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
+          },
+          "hba1c": {
+            "label": "HbA1c",
+            "analyte_codes": [
+              "hba1c"
+            ]
+          }
+        },
+        "diabetes_on_record": {
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ],
+          "statuses": [
+            "active",
+            "controlled",
+            "uncontrolled"
+          ],
+          "note": "HbA1c is always required before starting or raising a glucose-lowering medicine, to set the baseline. For a blood-pressure-lowering medicine it is required when diabetes is on the patient's problem list (the same ICD-10 prefixes and statuses the cascade of care uses)."
+        }
+      },
+      "recency_window_days": 90,
+      "recency_window_note": "PROPOSED: 90 days. A result counts only if the specimen was collected (or the result dated) within this many days before the medicine is started or the dose is raised. A result dated in the future does not count. The CMO may change this by asking for a new version before signing.",
+      "when_labs_are_missing": {
+        "action": "refuse_unless_documented_override",
+        "bypass_available": true,
+        "message": "The start or increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file, or records a documented override.",
+        "override": {
+          "categories": [
+            {
+              "key": "emergency_treatment",
+              "label": "Emergency treatment: waiting for labs would put the patient at risk"
+            },
+            {
+              "key": "labs_ordered_results_pending",
+              "label": "Labs have been ordered and the results are pending"
+            },
+            {
+              "key": "labs_not_obtainable_documented",
+              "label": "Labs cannot be obtained now, and the reason is written down"
+            }
+          ],
+          "min_reason_length": 20,
+          "valid_minutes": 30,
+          "followup_hours": 48,
+          "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
+        },
+        "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine (however the prescriber words the name, for example insulin glargine or insulin glargine 100 units/ml), and can be used once. Every override is written to the audit log, and it puts a pending 'baseline labs' item on the patient's lab monitoring list, due in 48 hours, so the labs are not forgotten. If the labs are still outstanding after 48 hours, the item appears on this hub as something needing your attention."
+      },
+      "informational": {
+        "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
+      },
+      "proposed_note": "Every clinical value here is PROPOSED (the medicine groups, the required labs, the 90-day window, the documented override). Nothing applies until the Chief Medical Officer signs. No agent signs."
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-26",
+    source: "docs/DECISIONS.md 2026-10-21 (three-tier Membership ladder, go-live condition 2); supabase/migrations/20261026183108_baseline_labs_prescribing_rule.sql. Unsigned until the CMO signs.",
+  },
+  {
     key: "support.sla_targets",
     // S80d (Module 25.4): the support ticket clock. A ticket's first reply and its resolution are each due a number of minutes (hours for resolution)
     // after it was logged, by priority. A ticket flagged clinical has its own, shorter first-reply target. warn_fraction is how much of the target may
@@ -8737,6 +8962,270 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-27",
     source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
+  },
+  {
+    key: "nutrition.eating_plans_numbers",
+    // The only numbers in the eating plans and swaps (S50a, v5 6.8 and 6.9). Live value is `nutrition_guidance_config`.config.plans.*.numbers, seeded
+    // INACTIVE and unsigned; the CMO signs it through sign_nutrition_guidance_config. The kidney and pregnancy plans carry NO numbers (the database
+    // refuses a numbers block on either) and the weight plan has no calorie figure. The 5 g salt line is the WHO figure, a PLACEHOLDER for the CMO.
+    value: { hypertension_salt_g_max: 5 }, // band-ok: grams of salt a day for the eating plan, not a blood pressure band
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/design/S50a.md; supabase/migrations/20261021182447_s50a_eating_plans_swaps.sql",
+  },
+  {
+    key: "fasting.safety_rules",
+    // Religious fasting safety rules (S50b, spec 6.13, Ramadan and Lent only). PROPOSED, UNSIGNED, INACTIVE: the CMO owns every outcome, medicine name and
+    // condition match. Live values are the active, SIGNED row of `fasting_safety_config`.config.safety; fasting-mirror.test.ts fails if the migration seed
+    // and this value drift. Unlike the activity gate this one can answer "may fast with guidance", so unsigned rules never enforce (no signed row = unavailable).
+    //  outcomes: not_advised (a hard stop) or needs_clinician_plan. recent_red_event is not_advised and the database refuses any other value.
+    //  medicine_classes: insulin and sulfonylurea cannot start without a clinician-signed medicine timing plan (an S24 care_plan_changes row, INV-02).
+    value: {
+      "lookback": {
+        "red_hours": 72,
+        "amber_hours": 72
+      },
+      "min_age_years": 18,
+      "outcomes": {
+        "pregnancy": "not_advised",
+        "under_age": "not_advised",
+        "type1_diabetes": "not_advised",
+        "kidney_disease": "not_advised",
+        "eating_disorder": "not_advised",
+        "recent_red_event": "not_advised",
+        "recent_amber_event": "needs_clinician_plan",
+        "insulin": "needs_clinician_plan",
+        "sulfonylurea": "needs_clinician_plan",
+        "diabetes_medicines_unconfirmed": "needs_clinician_plan"
+      },
+      "matches": {
+        "type1_diabetes": {
+          "name_patterns": [
+            "type 1",
+            "type i diabetes",
+            "t1dm",
+            "insulin dependent",
+            "insulin-dependent",
+            "juvenile diabetes"
+          ],
+          "icd10_prefixes": [
+            "E10"
+          ]
+        },
+        "kidney_disease": {
+          "name_patterns": [
+            "kidney",
+            "renal",
+            "ckd",
+            "nephro",
+            "dialysis"
+          ],
+          "icd10_prefixes": [
+            "N17",
+            "N18",
+            "N19"
+          ]
+        },
+        "eating_disorder": {
+          "name_patterns": [
+            "anorexia",
+            "bulimia",
+            "eating disorder",
+            "binge eating"
+          ],
+          "icd10_prefixes": [
+            "F50"
+          ]
+        },
+        "diabetes": {
+          "name_patterns": [
+            "diabet"
+          ],
+          "icd10_prefixes": [
+            "E10",
+            "E11",
+            "E13",
+            "E14"
+          ]
+        }
+      },
+      "medicine_classes": {
+        "insulin": {
+          "name_patterns": [
+            "insulin",
+            "glargine",
+            "detemir",
+            "degludec",
+            "lispro",
+            "aspart",
+            "glulisine",
+            "humulin",
+            "mixtard",
+            "novomix",
+            "lantus",
+            "levemir",
+            "tresiba",
+            "novorapid",
+            "humalog",
+            "toujeo",
+            "novolin",
+            "novolog",
+            "admelog",
+            "lyumjev",
+            "semglee",
+            "actrapid",
+            "insulatard",
+            "protaphane",
+            "insuman",
+            "basaglar",
+            "apidra",
+            "fiasp",
+            "ryzodeg",
+            "xultophy",
+            "soliqua",
+            "isophane",
+            "biphasic"
+          ]
+        },
+        "sulfonylurea": {
+          "name_patterns": [
+            "glibenclamide",
+            "glyburide",
+            "glimepiride",
+            "gliclazide",
+            "glipizide",
+            "tolbutamide",
+            "chlorpropamide",
+            "daonil",
+            "amaryl",
+            "diamicron",
+            "glucotrol",
+            "euglucon",
+            "glibomet",
+            "glucovance",
+            "gliben",
+            "glyburide",
+            "glimiprid",
+            "glynase",
+            "minidiab",
+            "diabeta",
+            "micronase",
+            "glibenese"
+          ]
+        },
+        "other_diabetes": {
+          "name_patterns": [
+            "metformin",
+            "glucophage",
+            "pioglitazone",
+            "sitagliptin",
+            "vildagliptin",
+            "saxagliptin",
+            "linagliptin",
+            "gliptin",
+            "empagliflozin",
+            "dapagliflozin",
+            "canagliflozin",
+            "gliflozin",
+            "acarbose",
+            "repaglinide",
+            "nateglinide",
+            "liraglutide",
+            "semaglutide",
+            "dulaglutide",
+            "exenatide",
+            "tirzepatide",
+            "janumet",
+            "galvus",
+            "januvia",
+            "jardiance",
+            "forxiga"
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); docs/DECISIONS.md S50-2; supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "fasting.calendar",
+    // EXPECTED windows for Ramadan and Lent. Ramadan follows the moon and Lent follows Easter, so a person confirms the real dates locally; a year that is
+    // not listed is "unknown until a person confirms locally". Dates are a hint on the screen, never a gate.
+    value: {
+      "ramadan": [
+        {
+          "year": 2027,
+          "start": "2027-02-08",
+          "end": "2027-03-09"
+        },
+        {
+          "year": 2028,
+          "start": "2028-01-28",
+          "end": "2028-02-26"
+        }
+      ],
+      "lent": [
+        {
+          "year": 2027,
+          "start": "2027-02-10",
+          "end": "2027-03-27"
+        },
+        {
+          "year": 2028,
+          "start": "2028-03-01",
+          "end": "2028-04-15"
+        }
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.13); supabase/migrations/20261027184517_s50b_fasting_safety_and_glucose_response.sql",
+  },
+  {
+    key: "glucose_response.rules",
+    // Personal glucose-response insights (S50b, spec 6.11). PROPOSED. Deterministic pairing of a logged meal with the readings before it and about two hours
+    // after it; the screen shows RANGES AND SAMPLE COUNTS only, never labels a food good or bad, and shows nothing for a group under min_pairs_to_show.
+    //  before_window_minutes: a "before" reading is taken up to this long before the meal (and up to before_grace_minutes after it was logged).
+    //  after_window_minutes: the "after" reading is the one closest to after_target_minutes, inside min..max.
+    //  allowed_sources: fingerstick only today. A CGM series is added here later; the input already carries a source label.
+    value: {
+      min_pairs_to_show: 5,
+      max_age_days: 90,
+      before_window_minutes: 30,
+      before_grace_minutes: 10,
+      after_target_minutes: 120,
+      after_window_minutes: { min: 90, max: 150 },
+      plausible_mmol: { min: 1.5, max: 40 },
+      allowed_sources: ["fingerstick"],
+      before_contexts: ["fasting", "pre_meal", "random", "untagged"],
+      after_contexts: ["post_meal", "random", "untagged"],
+      skip_if_other_meal_between: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.11); docs/research/S46-S50-competitor-gap-and-build-plan.md S50b",
+  },
+  {
+    key: "lowcarb.protocol_rules",
+    // Low-carbohydrate type 2 diabetes programme (S50b part 2, spec 6.10, founder decision S50-2). PROPOSED, UNSIGNED, and the programme is dormant
+    // behind the go-live guard `low_carb_t2d_programme`. EVERY number below is a placeholder for the CMO: who is excluded, how often the patient
+    // checks in, the glucose and ketone lines that pause the programme, and when a doctor must look at medicines. Live values are the active, SIGNED
+    // row of `lowcarb_protocol_config`.config; lowcarb-mirror.test.ts fails if the migration seed and this value drift.
+    value: {"eligibility": {"min_age_years": 18, "postnatal_months": 12, "require_confirmed_type_2": true, "severe_hypo_below_mmol": 3.0, "hypo_lookback_days": 90, "triage_lookback_hours": 72, "condition_exclusions": {"type_1_diabetes": {"name_patterns": ["type 1", "type i diabetes", "lada"], "icd10_prefixes": ["E10"]}, "kidney_disease": {"name_patterns": ["kidney", "renal", "ckd", "nephr"], "icd10_prefixes": ["N17", "N18", "N19"]}, "pancreatitis": {"name_patterns": ["pancreatit"], "icd10_prefixes": ["K85", "K86"]}, "liver_disease": {"name_patterns": ["cirrho", "liver failure"], "icd10_prefixes": ["K70", "K72", "K74"]}, "ketoacidosis_history": {"name_patterns": ["ketoacidosis", "dka"], "icd10_prefixes": []}}, "medicine_groups": {"insulin": {"handling": "supervision", "name_patterns": ["insulin", "actrapid", "insulatard", "mixtard", "insuman", "insugen", "wosulin", "basalog", "glaritus", "xultophy", "soliqua", "lixilan", "humulin", "humalog", "novorapid", "novomix", "lantus", "abasaglar", "basaglar", "semglee", "levemir", "tresiba", "toujeo", "apidra", "fiasp", "lyumjev", "ryzodeg", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "isophane"]}, "sulfonylurea": {"handling": "supervision", "name_patterns": ["glibenclamide", "glyburide", "gliclazide", "glimepiride", "glipizide", "gliquidone", "tolbutamide", "chlorpropamide", "tolazamide", "daonil", "euglucon", "diamicron", "amaryl", "glucotrol", "minidiab", "glurenorm", "glucovance", "glibomet", "sulfonylurea", "sulphonylurea"]}, "meglitinide": {"handling": "supervision", "name_patterns": ["repaglinide", "nateglinide", "mitiglinide", "novonorm", "starlix"]}, "sglt2_inhibitor": {"handling": "exclude", "name_patterns": ["gliflozin", "dapagliflozin", "empagliflozin", "canagliflozin", "ertugliflozin", "sotagliflozin", "forxiga", "jardiance", "invokana", "steglatro", "steglujan", "trijardy", "synjardy", "xigduo", "glyxambi", "segluromet", "invokamet", "qtern", "inpefa"]}, "metformin": {"handling": "allow", "name_patterns": ["metformin", "glucophage", "glycomet", "diaformin"]}, "dpp4_inhibitor": {"handling": "allow", "name_patterns": ["gliptin", "sitagliptin", "vildagliptin", "linagliptin", "saxagliptin", "alogliptin", "januvia", "janumet", "galvus", "galvusmet", "trajenta", "jentadueto", "onglyza"]}, "glitazone": {"handling": "allow", "name_patterns": ["glitazone", "pioglitazone", "rosiglitazone", "actos"]}, "glp1_agonist": {"handling": "allow", "name_patterns": ["glutide", "liraglutide", "semaglutide", "dulaglutide", "exenatide", "lixisenatide", "tirzepatide", "victoza", "ozempic", "wegovy", "trulicity", "byetta", "saxenda", "mounjaro", "rybelsus"]}, "alpha_glucosidase_inhibitor": {"handling": "allow", "name_patterns": ["acarbose", "miglitol", "glucobay"]}}, "diabetes_markers": {"name_patterns": ["gli", "glu", "sulin", "tophy", "insulin", "diabet", "metformin", "formin", "glutide", "tirzepatide", "sulfonyl", "sulphonyl", "glucose", "sugar"], "indication_patterns": ["diabet", "sugar", "glucose", "dm2", "t2dm", "hyperglyc"]}}, "check_ins": {"glucose": {"per_week": 14, "max_gap_days": 2}, "ketones": {"per_week": 3, "max_gap_days": 4}, "weight": {"per_week": 1, "max_gap_days": 9}}, "safety": {"pause_glucose_below_mmol": 3.9, "pause_ketones_at_or_above_mmol": 3.0, "stop_after_pauses_in_30_days": 3, "stop_if_checkins_missed_days": 14}, "medicine_review": {"window_days": 7, "min_readings": 5, "avg_glucose_below_mmol": 7.0, "any_glucose_below_mmol": 4.4, "standing_review_days": 14}},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-21",
+    source: "docs/BUILD-SPEC-v5.md Module 6 (6.10) and invariants INV-01, INV-02, INV-14; docs/design/S50b-lowcarb.md; supabase/migrations/*_s50b_lowcarb_t2d_programme.sql",
   },
   {
     key: "care_gaps.rules",

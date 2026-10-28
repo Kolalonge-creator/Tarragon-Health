@@ -86,6 +86,87 @@ export type Database = {
         }
         Relationships: []
       }
+      fasting_safety_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      fasting_plans: {
+        Row: {
+          config_version: number
+          ended_at: string | null
+          ended_reason: string | null
+          ends_on: string
+          fast: string
+          gate_snapshot: Json
+          id: string
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          starts_on: string
+          status: string
+          timing_change_ids: string[]
+        }
+        Insert: {
+          config_version: number
+          ended_at?: string | null
+          ended_reason?: string | null
+          ends_on: string
+          fast: string
+          gate_snapshot: Json
+          id?: string
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          starts_on: string
+          status?: string
+          timing_change_ids?: string[]
+        }
+        Update: {
+          config_version?: number
+          ended_at?: string | null
+          ended_reason?: string | null
+          ends_on?: string
+          fast?: string
+          gate_snapshot?: Json
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          starts_on?: string
+          status?: string
+          timing_change_ids?: string[]
+        }
+        Relationships: []
+      }
       activity_routes: {
         Row: {
           activity_log_entry_id: string | null
@@ -116,6 +197,144 @@ export type Database = {
           recorded_by?: string | null
           route_geojson?: Json
           source?: Database["public"]["Enums"]["record_source"]
+        }
+        Relationships: []
+      }
+      lowcarb_enrolments: {
+        Row: {
+          accepted_at: string | null
+          config_version: number
+          created_at: string
+          id: string
+          is_test: boolean
+          last_medicine_review_at: string | null
+          no_recent_admission: boolean
+          offered_at: string
+          organisation_id: string
+          patient_id: string
+          pause_code: string | null
+          paused_at: string | null
+          recorded_by: string | null
+          source: Database["public"]["Enums"]["record_source"]
+          status: string
+          stop_code: string | null
+          stopped_at: string | null
+          supervision_accepted: boolean
+          supervision_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          config_version: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_medicine_review_at?: string | null
+          no_recent_admission: boolean
+          offered_at?: string
+          organisation_id: string
+          patient_id: string
+          pause_code?: string | null
+          paused_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          status?: string
+          stop_code?: string | null
+          stopped_at?: string | null
+          supervision_accepted?: boolean
+          supervision_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          config_version?: number
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          last_medicine_review_at?: string | null
+          no_recent_admission?: boolean
+          offered_at?: string
+          organisation_id?: string
+          patient_id?: string
+          pause_code?: string | null
+          paused_at?: string | null
+          recorded_by?: string | null
+          source?: Database["public"]["Enums"]["record_source"]
+          status?: string
+          stop_code?: string | null
+          stopped_at?: string | null
+          supervision_accepted?: boolean
+          supervision_note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lowcarb_programme_events: {
+        Row: {
+          actor_id: string | null
+          code: string | null
+          created_at: string
+          enrolment_id: string
+          id: number
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          code?: string | null
+          created_at?: string
+          enrolment_id: string
+          id?: number
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          code?: string | null
+          created_at?: string
+          enrolment_id?: string
+          id?: number
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
+      lowcarb_protocol_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -1046,6 +1265,39 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      nutrition_guidance_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -49685,6 +49937,9 @@ export type Database = {
           approved_at: string | null
           note: string | null
           created_at: string
+          not_physiotherapist_reviewed: boolean
+          physio_review_recorded_at: string | null
+          physio_review_ref: string | null
         }
         Insert: {
           programme_id: string
@@ -49694,6 +49949,9 @@ export type Database = {
           approved_at?: string | null
           note?: string | null
           created_at?: string
+          not_physiotherapist_reviewed?: boolean
+          physio_review_recorded_at?: string | null
+          physio_review_ref?: string | null
         }
         Update: {
           programme_id?: string
@@ -49703,6 +49961,9 @@ export type Database = {
           approved_at?: string | null
           note?: string | null
           created_at?: string
+          not_physiotherapist_reviewed?: boolean
+          physio_review_recorded_at?: string | null
+          physio_review_ref?: string | null
         }
         Relationships: []
       }
@@ -49719,6 +49980,7 @@ export type Database = {
           duration_seconds: number
           audio_bytes: number | null
           created_at: string
+          exercises: Json | null
         }
         Insert: {
           id?: string
@@ -49732,6 +49994,7 @@ export type Database = {
           duration_seconds: number
           audio_bytes?: number | null
           created_at?: string
+          exercises?: Json | null
         }
         Update: {
           id?: string
@@ -49744,6 +50007,58 @@ export type Database = {
           audio_clip_id?: string | null
           duration_seconds?: number
           audio_bytes?: number | null
+          created_at?: string
+          exercises?: Json | null
+        }
+        Relationships: []
+      }
+      therapy_msk_events: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          kind: string
+          ordinal: number | null
+          exercise_key: string | null
+          rating: number | null
+          pain_now: number | null
+          outcome: string | null
+          step_down_until: string | null
+          event_date: string
+          is_test: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          kind: string
+          ordinal?: number | null
+          exercise_key?: string | null
+          rating?: number | null
+          pain_now?: number | null
+          outcome?: string | null
+          step_down_until?: string | null
+          event_date?: string
+          is_test?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          enrolment_id?: string
+          kind?: string
+          ordinal?: number | null
+          exercise_key?: string | null
+          rating?: number | null
+          pain_now?: number | null
+          outcome?: string | null
+          step_down_until?: string | null
+          event_date?: string
+          is_test?: boolean
           created_at?: string
         }
         Relationships: []
@@ -49784,6 +50099,7 @@ export type Database = {
           threshold: number | null
           route: string
           unverified: boolean
+          non_paging: boolean
         }
         Insert: {
           id?: string
@@ -49796,6 +50112,7 @@ export type Database = {
           threshold?: number | null
           route: string
           unverified?: boolean
+          non_paging?: boolean
         }
         Update: {
           id?: string
@@ -49808,6 +50125,7 @@ export type Database = {
           threshold?: number | null
           route?: string
           unverified?: boolean
+          non_paging?: boolean
         }
         Relationships: []
       }
@@ -51043,9 +51361,18 @@ export type Database = {
       my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
       route_recording_status: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
+      sign_fasting_safety_config: { Args: { p_id: string }; Returns: string };
+      my_fasting_gate: { Args: { p_fast: string; p_starts_on?: string | null; p_ends_on?: string | null }; Returns: Json };
+      start_fasting_plan: { Args: { p_fast: string; p_starts_on: string; p_ends_on: string }; Returns: string };
+      end_fasting_plan: { Args: { p_reason?: string }; Returns: undefined };
+      my_fasting_plan: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_glucose_series: { Args: { p_days?: number }; Returns: Json };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       my_nutrition_target_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_nutrition_guidance: { Args: Record<PropertyKey, never>; Returns: Json }
+      nutrition_guidance_is_signed: { Args: Record<PropertyKey, never>; Returns: boolean }
+      sign_nutrition_guidance_config: { Args: { p_id: string }; Returns: string }
       my_home_card_config: { Args: Record<PropertyKey, never>; Returns: Json }
       sign_home_card_config: { Args: { p_id: string }; Returns: string }
       set_nutrition_target_hold: { Args: { p_hold: boolean; p_patient: string; p_reason?: string }; Returns: string }
@@ -51074,6 +51401,18 @@ export type Database = {
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }
+      // S50b (low-carbohydrate programme): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      sign_lowcarb_protocol_config: { Args: { p_id: string }; Returns: string }
+      lowcarb_eligibility: { Args: { p_patient: string; p_no_recent_admission?: boolean; p_supervision_accepted?: boolean }; Returns: Json }
+      offer_lowcarb_programme: { Args: { p_patient: string; p_no_recent_admission: boolean; p_supervision_accepted?: boolean; p_supervision_note?: string }; Returns: string }
+      respond_lowcarb_offer: { Args: { p_enrolment: string; p_accept: boolean }; Returns: string }
+      pause_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      resume_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      stop_lowcarb_programme: { Args: { p_enrolment: string }; Returns: undefined }
+      accept_lowcarb_supervision: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
+      complete_lowcarb_medicine_review: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
+      lowcarb_programme_for_patient: { Args: { p_patient: string }; Returns: Json }
+      my_lowcarb_gate: { Args: Record<PropertyKey, never>; Returns: Json }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
@@ -51316,6 +51655,9 @@ export type Database = {
       bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       cascade_of_care_report: { Args: { p_condition: string; p_from?: string; p_to?: string }; Returns: Json };
       selection_panel_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      baseline_labs_override_attention: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
+      sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       sign_care_gap_rule_config: { Args: { p_version: number }; Returns: undefined };
       log_care_gap_attempt: { Args: { p_gap: string; p_next_in_days?: number; p_note: string; p_result: string }; Returns: undefined };
@@ -57266,6 +57608,10 @@ export type Database = {
       enrol_in_therapy_programme: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
       confirm_therapy_exclusion_list: { Args: { p_programme_code: string; p_version: number }; Returns: Json }
       complete_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      start_msk_session: { Args: { p_enrolment: string; p_ordinal: number; p_recheck: Json }; Returns: Json }
+      record_msk_exercise_rating: { Args: { p_enrolment: string; p_exercise_key: string; p_ordinal: number; p_rating: number }; Returns: Json }
+      complete_msk_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      report_msk_flare_up: { Args: { p_enrolment: string; p_pain_now?: number; p_recheck: Json }; Returns: Json }
       approve_therapy_programme_version: { Args: { p_note?: string; p_programme_code: string; p_version: number }; Returns: Json }
       correct_health_report: {
         Args: { p_id: string; p_note: string }

@@ -51,6 +51,13 @@ export {
   type ActivityKindConfig, type ActivityRuleConfig, type ActivitySafetyConfig, type ActivityTriageEvent, type ConditionMatchConfig,
 } from "./activity-gate";
 export {
+  classifyLowCarbReading, coarsenLowCarbReasons, lowCarbCheckins, lowCarbConditionMatches, lowCarbEligibility, lowCarbNameMatches, lowCarbNormalise, lowCarbEditDistance, lowCarbTextHas, classifyLowCarbMedicine, lowCarbStopDraftArgs,
+  lowCarbStopCheck, parseLowCarbGate, proposeLowCarbMedicineReview, unavailableLowCarbGate, LOWCARB_REPRODUCTIVE_REASONS,
+  type LowCarbCheckinLine, type LowCarbCheckinStatus, type LowCarbConditionRecord, type LowCarbConfig, type LowCarbEligibilityDecision, type LowCarbEligibilityInput,
+  type LowCarbEligibilityResult, type LowCarbMedicine, type LowCarbMedicineClass, type LowCarbMedicineRecord, type LowCarbPatientGate, type LowCarbReadingClass, type LowCarbReviewInput, type LowCarbReviewProposal,
+  type LowCarbReviewResult, type LowCarbStep, type LowCarbStepTable, type LowCarbStopInput,
+} from "./lowcarb-programme";
+export {
   buildToday, parseHomeCardConfig, HomeCardConfigError, HOME_CARD_CODES, MAX_PRIMARY_ACTIONS,
   type HomeCardCode, type HomeCardConfig, type HomeCardDef, type HomeCardPick, type HomeCardRules, type HomeCardState, type TodayFacts, type TodayPlan,
 } from "./today-build";

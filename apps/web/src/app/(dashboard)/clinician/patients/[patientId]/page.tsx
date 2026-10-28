@@ -36,6 +36,7 @@ import { MedicationEffectivenessCard } from "@/components/medication-effectivene
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
 import { CarePlanChangesPanel } from "./care-plan-changes/care-plan-changes-panel";
+import { LowCarbProgrammePanel } from "./lowcarb-programme/lowcarb-programme-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -310,6 +311,8 @@ export default async function ClinicianPatientPage({
                 {/* S24: signed care plan changes. Hidden for a Care Coordinator (logistics only);
                     proposing and signing need prescribing authority, enforced in the DB. */}
                 {isClinicalTier(callerStaff) && <CarePlanChangesPanel patientId={patient.id} canAct={canPrescribe} />}
+                {/* S50b: dormant low-carbohydrate programme; renders nothing until its go-live guard is on. */}
+                {isClinicalTier(callerStaff) && <LowCarbProgrammePanel patientId={patient.id} />}
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled

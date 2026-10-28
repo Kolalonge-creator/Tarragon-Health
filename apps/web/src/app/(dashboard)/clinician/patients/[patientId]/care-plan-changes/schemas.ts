@@ -41,11 +41,27 @@ export const medicineItemSchema = z.object({
   instructions: optionalText(1000),
 });
 
+/**
+ * S50b (6.13): a medicine start or change that is the clinician's TIMING PLAN for a religious fast. A start is how the care team replaces a medicine the person
+ * typed in themselves with one it issues (a self-entered medicine can never be covered, because only an issued prescription carries a signature). It is an ordinary signed change (same signature, same patient
+ * confirmation, same safety checks); the "fasting" block only tags which fast it is for and the dates it covers, so the fasting gate can see that a
+ * clinician-signed plan exists. The platform never proposes a timing: the clinician types it into the medicine's schedule and instructions.
+ */
+export const fastingTagSchema = z
+  .object({
+    fast: z.enum(["ramadan", "lent"], { message: "Choose Ramadan or Lent" }),
+    valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the first day this plan covers"),
+    valid_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the last day this plan covers"),
+  })
+  .refine((f) => f.valid_to >= f.valid_from, { message: "The plan cannot end before it starts" })
+  .refine((f) => (Date.parse(f.valid_to) - Date.parse(f.valid_from)) / 86_400_000 <= 120, { message: "A fasting plan covers at most 120 days" });
+
 export const proposeMedicineChangeSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("start"),
     patientId: uuid,
     item: medicineItemSchema,
+    fasting: fastingTagSchema.optional(),
     rationale: rationaleSchema,
   }),
   z.object({
@@ -53,6 +69,7 @@ export const proposeMedicineChangeSchema = z.discriminatedUnion("action", [
     patientId: uuid,
     medicationId: uuid,
     item: medicineItemSchema,
+    fasting: fastingTagSchema.optional(),
     rationale: rationaleSchema,
   }),
   z.object({
@@ -65,12 +82,22 @@ export const proposeMedicineChangeSchema = z.discriminatedUnion("action", [
 export type ProposeMedicineChangeInput = z.input<typeof proposeMedicineChangeSchema>;
 type ParsedMedicineChange = z.output<typeof proposeMedicineChangeSchema>;
 
+/**
+ * A fasting timing plan replaces the medicine row for as long as the new row's supply lasts. If the supply is shorter than the fast, the person would
+ * have no active row for that medicine part-way through. Returns a sentence for the clinician, or null when the supply covers the whole window.
+ */
+export function fastingSupplyProblem(input: ParsedMedicineChange): string | null {
+  if (input.action === "stop" || !input.fasting) return null;
+  const days = Math.round((Date.parse(input.fasting.valid_to) - Date.parse(input.fasting.valid_from)) / 86_400_000) + 1;
+  return input.item.duration_days >= days ? null : `The supply must last at least ${days} days so it covers the whole fast. Raise the duration, or shorten the dates.`;
+}
+
 /** The `proposal` object propose_care_plan_change stores for a medicine change. */
 export function buildMedicineProposal(input: ParsedMedicineChange): Record<string, unknown> {
   if (input.action === "stop") return { action: "stop", medication_id: input.medicationId };
   const item = Object.fromEntries(Object.entries(input.item).filter(([, v]) => v !== undefined));
-  if (input.action === "change") return { action: "change", medication_id: input.medicationId, item };
-  return { action: "start", item };
+  if (input.action === "change") return { action: "change", medication_id: input.medicationId, item, ...(input.fasting ? { fasting: input.fasting } : {}) };
+  return { action: "start", item, ...(input.fasting ? { fasting: input.fasting } : {}) };
 }
 
 const settingKey = z
