@@ -56,8 +56,10 @@
  *    /patient/learn gated on `health_education`, which no free product granted.
  *    If you add a "free" line here, check that the gate is actually gone.
  *
- * The platform has two plans: Free and Membership. No other price is shown on the public site (decision 2026-10-13); the one
- * Membership price is read from versioned config by the pricing page.
+ * Updated 2026-10-27 (W-47): the platform has Free plus two paid tiers, Membership and Membership Plus (decision 2026-10-21, which
+ * superseded the 2026-10-13 "one Membership price" premise). The public site may show exactly those two member prices and the upgrade
+ * difference, each read from versioned config (commerce.membership_ladder; commerce.membership_prices while the ladder is off), and no
+ * other naira figure and no volume wording. no-public-prices.test.ts enforces this with the ladder off and on.
  */
 import { renewalCopy } from "@/lib/marketing/membership";
 
