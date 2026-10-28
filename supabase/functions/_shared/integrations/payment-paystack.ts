@@ -12,6 +12,8 @@ import {
   isValidTransferReference,
   type PaymentEvent,
   type PaymentProvider,
+  type SavedAuthorization,
+  type VerifiedTransaction,
   type RefundStatus,
   type SettlementSummary,
   type SettlementTransaction,
@@ -70,6 +72,46 @@ const TRANSFER_STATUS: Readonly<Record<string, TransferStatus>> = {
 const toTransactionStatus = (s: string | null): TransactionStatus => (s !== null ? TXN_STATUS[s] : undefined) ?? "pending";
 const toRefundStatus = (s: string | null): RefundStatus => (s !== null ? REFUND_STATUS[s] : undefined) ?? "pending";
 const toTransferStatus = (s: string | null): TransferStatus => (s !== null ? TRANSFER_STATUS[s] : undefined) ?? "needs_attention";
+
+/** The card details of a charge, or null when Paystack sent none. Never log the result: `code` can charge the card again. */
+function readAuthorization(raw: unknown): SavedAuthorization | null {
+  const a = asObject(raw);
+  const code = str(a?.["authorization_code"]);
+  if (!a || !code) return null;
+  return {
+    code,
+    reusable: a["reusable"] === true,
+    signature: str(a["signature"]),
+    brand: str(a["brand"]) ?? str(a["card_type"]),
+    last4: str(a["last4"]),
+    expMonth: str(a["exp_month"]),
+    expYear: str(a["exp_year"]),
+    channel: str(a["channel"]),
+  };
+}
+
+/** A transaction object as `verify` and `charge_authorization` both return it. */
+function readTransaction(data: unknown): ProviderResult<VerifiedTransaction> {
+  const d = asObject(data);
+  const amountKobo = int(d?.["amount"]);
+  const ref = str(d?.["reference"]);
+  const currency = str(d?.["currency"]);
+  if (!d || amountKobo === null || !ref || !currency) return bad("transaction");
+  return ok({
+    reference: ref,
+    status: toTransactionStatus(str(d["status"])),
+    amountKobo,
+    // Paystack reports the price we asked for and its fee separately; without them the whole amount is the price.
+    requestedAmountKobo: int(d["requested_amount"]) ?? amountKobo,
+    feesKobo: int(d["fees"]) ?? 0,
+    currency,
+    paidAt: str(d["paid_at"]),
+    customerEmail: str(asObject(d["customer"])?.["email"]),
+    metadata: asObject(d["metadata"]) ?? {},
+    authorization: readAuthorization(d["authorization"]),
+    customerCode: str(asObject(d["customer"])?.["customer_code"]),
+  });
+}
 
 /** Paystack's `meta` carries pageCount; without it a full page is taken to mean there may be another. */
 function hasMorePages(meta: Record<string, unknown> | null, page: number, got: number, perPage: number): boolean {
@@ -142,23 +184,24 @@ export function createPaystackPayment(config: PaystackConfig): PaymentProvider {
       if (!isValidChargeReference(reference)) return fail("invalid_input", "Reference is not a valid charge reference");
       const res = await call("GET", `/transaction/verify/${encodeURIComponent(reference)}`);
       if (!res.ok) return res;
-      const d = asObject(res.data);
-      const amountKobo = int(d?.["amount"]);
-      const ref = str(d?.["reference"]);
-      const currency = str(d?.["currency"]);
-      if (!d || amountKobo === null || !ref || !currency) return bad("transaction");
-      return ok({
-        reference: ref,
-        status: toTransactionStatus(str(d["status"])),
-        amountKobo,
-        // Paystack reports the price we asked for and its fee separately; without them the whole amount is the price.
-        requestedAmountKobo: int(d["requested_amount"]) ?? amountKobo,
-        feesKobo: int(d["fees"]) ?? 0,
-        currency,
-        paidAt: str(d["paid_at"]),
-        customerEmail: str(asObject(d["customer"])?.["email"]),
-        metadata: asObject(d["metadata"]) ?? {},
+      return readTransaction(res.data);
+    },
+
+    async chargeAuthorization(input) {
+      if (!isValidChargeReference(input.reference)) return fail("invalid_input", "Reference is not a valid charge reference");
+      if (!isValidEmail(input.email)) return fail("invalid_input", "Email is not valid");
+      if (!isValidKobo(input.amountKobo)) return fail("invalid_input", "Amount must be a positive whole number of kobo");
+      if (!str(input.authorizationCode)) return fail("invalid_input", "Authorization code is missing");
+      const res = await call("POST", "/transaction/charge_authorization", {
+        authorization_code: input.authorizationCode,
+        email: input.email,
+        amount: input.amountKobo,
+        currency: "NGN",
+        reference: input.reference,
+        metadata: input.metadata,
       });
+      if (!res.ok) return res;
+      return readTransaction(res.data);
     },
 
     async refund(input) {

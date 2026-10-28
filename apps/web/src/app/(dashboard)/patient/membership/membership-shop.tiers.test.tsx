@@ -28,6 +28,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => ({ data: null }),
     useSetMyPlusState: () => ({ mutate: setStateMutate, ...setStateResult }),
+    useAutoRenewEnabled: () => ({ data: false }),
   };
 });
 let plusStates: { state: string; display_name: string }[] = [{ state: "Lagos", display_name: "Lagos" }, { state: "Oyo", display_name: "Oyo" }];

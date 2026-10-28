@@ -104,6 +104,25 @@ export function parseMembership(data: unknown): MembershipState {
   return r.success ? r.data : { is_member: false, ends_at: null, source: null };
 }
 
+/**
+ * The patient's automatic-renewal status (public.my_membership_renewal). Never carries the card's authorization code: only brand, last 4 and
+ * expiry. A reply that does not parse is treated as "no renewal information", which shows nothing rather than a wrong promise.
+ */
+const renewalSchema = z.object({
+  enabled: z.boolean(),
+  has_membership: z.boolean(),
+  auto_renew: z.boolean().default(false),
+  ends_at: z.string().nullable().optional(),
+  cancelled_at: z.string().nullable().optional(),
+  amount_kobo: kobo.nullable().optional(),
+  card: z.object({ brand: z.string().nullable(), last4: z.string().nullable(), exp_month: z.string().nullable(), exp_year: z.string().nullable() }).nullable().optional(),
+});
+export type RenewalState = z.infer<typeof renewalSchema>;
+export function parseRenewal(data: unknown): RenewalState | null {
+  const r = renewalSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+
 /** Catalogue copy keys come from the database; an unknown key falls back to showing nothing rather than a raw key. */
 export function isMessageKey(key: string, known: Readonly<Record<string, string>>): key is MessageKey {
   return Object.hasOwn(known, key);

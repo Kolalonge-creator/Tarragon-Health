@@ -105,6 +105,32 @@ export function parseMembership(data: unknown): MembershipState {
   return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null, ...(tier ? { tier } : {}), ...(str(data["next_starts_at"]) ? { nextStartsAt: data["next_starts_at"] } : {}), ...(str(data["collection_state"]) ? { collectionState: data["collection_state"] } : {}) };
 }
 
+/**
+ * The person's automatic-renewal status (public.my_membership_renewal): on or off, the date, the amount, and only the card's last four
+ * digits. A reply that does not parse is "no information", which shows nothing rather than a wrong promise.
+ */
+export interface RenewalState {
+  enabled: boolean;
+  hasMembership: boolean;
+  autoRenew: boolean;
+  endsAt: string | null;
+  amountKobo: number | null;
+  cardLast4: string | null;
+}
+export function parseRenewal(data: unknown): RenewalState | null {
+  if (!isObj(data) || typeof data["enabled"] !== "boolean" || typeof data["has_membership"] !== "boolean") return null;
+  const card = isObj(data["card"]) ? data["card"] : null;
+  const amount = data["amount_kobo"];
+  return {
+    enabled: data["enabled"],
+    hasMembership: data["has_membership"],
+    autoRenew: data["auto_renew"] === true,
+    endsAt: str(data["ends_at"]) ? data["ends_at"] : null,
+    amountKobo: typeof amount === "number" && Number.isSafeInteger(amount) && amount > 0 ? amount : null,
+    cardLast4: card && str(card["last4"]) ? card["last4"] : null,
+  };
+}
+
 /** S71: a sponsor pays the whole order, so there is no checkout link and nothing to open. */
 export function parseCovered(data: unknown): { reference: string; sponsorName: string | null } | null {
   if (!isObj(data) || data["covered"] !== true || !str(data["reference"])) return null;

@@ -512,6 +512,14 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
 
 
+## Founder decision, 2026-10-26 (Membership auto-renewal reverses the 2026-10-21 "no auto-renew"; the price is 129,000)
+
+| Decision | Chosen |
+|---|---|
+| **Membership renews automatically, by consent, on a card.** | Reverses "no auto-renew, no auto-debit" in the 2026-10-21 three-tier decision above. The founder asked in chat for auto-renewal "if Nigerian banks and cards allow it", easy to cancel, and on cancelling the person keeps the year already paid for but is not renewed the next year. Built as: an explicit, UNTICKED consent box at card checkout; Paystack keeps a reusable card authorization (bank transfer and USSD cannot renew); one-tap cancel keeps the paid year and deletes the card; charge up to 3 days before the year ends, at most 3 tries a day apart; notices before every charge. Gifts, sponsor-paid orders, employer seats and vouchers never renew on a card. Shipped DARK behind `platform_modules.membership_auto_renew` (OFF), because Nigerian card eligibility and the fee behaviour on `charge_authorization` are unconfirmed with Paystack and the first real charge must be watched. The public copy follows the switch. Design and go-live checklist: `docs/design/MEMBERSHIP_AUTO_RENEW.md`. INV-09 (no stored balance) is not touched: a kept card is a payment token, not a balance. |
+| **The consent box starts unticked.** | Chosen as the conservative reading pending counsel. One constant (`RENEW_TICKED_BY_DEFAULT`) flips it after advice. |
+| **The individual Membership price is 129,000 naira.** | "Go with 129,000" (founder, chat). It matches the live `prices` row in force since 2026-10-21; the config and website said 120,000. `commerce.membership_prices` is now version 2. |
+
 ## Founder decision, 2026-10-26 (annual test bundle open to everyone; Membership Plus gated by state)
 
 | Decision | Chosen |

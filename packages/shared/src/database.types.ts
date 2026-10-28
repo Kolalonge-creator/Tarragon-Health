@@ -52792,6 +52792,10 @@ export type Database = {
       my_note_index: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_requests: { Args: Record<PropertyKey, never>; Returns: Json };
       my_membership: { Args: never; Returns: Json };
+      my_membership_renewal: { Args: never; Returns: Json };
+      cancel_membership_renewal: { Args: never; Returns: Json };
+      membership_auto_renew_enabled: { Args: never; Returns: boolean };
+      set_order_renewal_consent: { Args: { p_consent: boolean; p_order: string }; Returns: boolean };
       my_orders: { Args: never; Returns: Json };
       my_pending_auto_drafted_notes: {
         Args: never

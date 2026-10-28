@@ -1,5 +1,5 @@
 import { fail, ok, type ProviderResult } from "../../../../supabase/functions/_shared/integrations/result.ts";
-import type { MismatchInput, OpenOrder, OrderStore, RecordOutcome, RecordPaymentInput } from "../../../../supabase/functions/_shared/commerce/orders.ts";
+import type { MismatchInput, OpenOrder, OrderStore, RecordOutcome, RecordPaymentInput, SaveCardInput } from "../../../../supabase/functions/_shared/commerce/orders.ts";
 
 /**
  * In-memory stand-in for the database writers, with the same rules `record_order_payment` enforces in SQL (exact price,
@@ -14,6 +14,10 @@ export class MemoryStore implements OrderStore {
   readonly entitlements: string[] = [];
   readonly events: string[] = [];
   readonly mismatches: MismatchInput[] = [];
+  /** Cards offered after a paid order (the real database keeps one only with the buyer's consent). */
+  readonly savedCards: SaveCardInput[] = [];
+  /** Set to make every saveCard fail, to prove a failed save never undoes a payment. */
+  failSaveCard = false;
   failNext = false;
 
   add(o: Partial<MemOrder> & { reference: string; amountKobo: number }): MemOrder {
@@ -43,6 +47,12 @@ export class MemoryStore implements OrderStore {
     this.entitlements.push(o.id);
     this.events.push(`order.paid:${o.id}`);
     return ok({ result: "paid", orderId: o.id, reason: null });
+  }
+
+  async saveCard(i: SaveCardInput): Promise<ProviderResult<string>> {
+    if (this.failSaveCard) return fail("vendor_error", "save_membership_card failed", true);
+    this.savedCards.push(i);
+    return ok("saved");
   }
 
   async flagMismatch(i: MismatchInput): Promise<ProviderResult<RecordOutcome>> {

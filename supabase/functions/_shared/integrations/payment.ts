@@ -34,6 +34,22 @@ export interface InitializedTransaction {
   readonly accessCode: string;
 }
 
+/**
+ * What Paystack hands back about the card used in a payment (the `authorization` object). Only `code` is secret: it lets us charge
+ * the card again, so it goes to a service-role-only table and is never logged or put in `payments.raw`. `reusable` is Paystack's
+ * own flag; bank transfer and USSD payments, and some prepaid or virtual cards, are not reusable and can never be auto-renewed.
+ */
+export interface SavedAuthorization {
+  readonly code: string;
+  readonly reusable: boolean;
+  readonly signature: string | null;
+  readonly brand: string | null;
+  readonly last4: string | null;
+  readonly expMonth: string | null;
+  readonly expYear: string | null;
+  readonly channel: string | null;
+}
+
 export type TransactionStatus = "success" | "failed" | "abandoned" | "pending" | "reversed";
 export interface VerifiedTransaction {
   readonly reference: string;
@@ -48,6 +64,20 @@ export interface VerifiedTransaction {
   readonly paidAt: string | null;
   readonly customerEmail: string | null;
   readonly metadata: Readonly<Record<string, unknown>>;
+  /** The card that paid, when Paystack sent one. Absent for a mock or a payment with no card. */
+  readonly authorization?: SavedAuthorization | null;
+  /** Paystack's customer code, kept with a saved card. */
+  readonly customerCode?: string | null;
+}
+
+/** Charge a card the customer already agreed to keep (a renewal). The reference must be new and unique. */
+export interface ChargeAuthorizationInput {
+  readonly reference: string;
+  /** The email the authorization was created with; Paystack refuses any other. */
+  readonly email: string;
+  readonly amountKobo: Kobo;
+  readonly authorizationCode: string;
+  readonly metadata?: PaymentMetadata;
 }
 
 export interface RefundInput {
@@ -149,6 +179,8 @@ export interface PaymentProvider {
   readonly isMock: boolean;
   initializeTransaction(input: InitializeTransactionInput): Promise<ProviderResult<InitializedTransaction>>;
   verifyTransaction(reference: string): Promise<ProviderResult<VerifiedTransaction>>;
+  /** Charges a saved, reusable card. The outcome is the same shape as `verifyTransaction`; confirm it through the normal path before trusting it. */
+  chargeAuthorization(input: ChargeAuthorizationInput): Promise<ProviderResult<VerifiedTransaction>>;
   refund(input: RefundInput): Promise<ProviderResult<RefundReceipt>>;
   listBanks(): Promise<ProviderResult<readonly Bank[]>>;
   resolveAccount(input: { accountNumber: string; bankCode: string }): Promise<ProviderResult<ResolvedAccount>>;

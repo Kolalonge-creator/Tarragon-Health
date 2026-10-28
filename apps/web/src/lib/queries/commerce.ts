@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { parseCreatedPaymentRequest, parseDonations, parseEntitlements, parseFundSupport, parsePaymentRequests, parseQuote, type Quote } from "@tarragon/commerce";
-import { checkoutReplySchema, hmoReplySchema, parseCatalogue, parseHmoChecks, parseHmoPlans, parseMembership, parseOrders, verifyReplySchema } from "@/lib/commerce/model";
+import { checkoutReplySchema, hmoReplySchema, parseCatalogue, parseHmoChecks, parseHmoPlans, parseMembership, parseOrders, parseRenewal, verifyReplySchema } from "@/lib/commerce/model";
 
 export const commerceKeys = {
   catalogue: ["commerce", "catalogue"] as const,
   orders: ["commerce", "orders"] as const,
   membership: ["commerce", "membership"] as const,
   entitlements: ["commerce", "entitlements"] as const,
+  renewal: ["commerce", "renewal"] as const,
 };
 
 /** The shop window. Empty while checkout is closed; the database decides, the screen only shows what it is given. */
@@ -64,6 +65,46 @@ export function useMyMembership() {
       if (error) throw error;
       return parseMembership(data);
     },
+  });
+}
+
+/**
+ * Is automatic renewal switched on at all (public.membership_auto_renew_enabled)? While it is off nothing about renewal is offered and the
+ * old "does not renew by itself" wording stays. A failed read counts as off: never promise a renewal that may not be running.
+ */
+export function useAutoRenewEnabled() {
+  return useQuery({
+    queryKey: ["commerce", "renewalSwitch"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("membership_auto_renew_enabled");
+      if (error) return false;
+      return data === true;
+    },
+  });
+}
+
+/** The signed-in Member's renewal status: on or off, the date, the amount, the card's brand and last four digits. */
+export function useMyRenewal() {
+  return useQuery({
+    queryKey: commerceKeys.renewal,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_membership_renewal");
+      if (error) throw error;
+      return parseRenewal(data);
+    },
+  });
+}
+
+/** One tap: stop the next charge, delete the saved card, keep the year already paid for. */
+export function useCancelRenewal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await createClient().rpc("cancel_membership_renewal");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["commerce"] }),
   });
 }
 
@@ -212,12 +253,14 @@ export class CheckoutError extends Error {
  */
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; collectionState?: string; paymentRequest?: string }) => {
+    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; paymentRequest?: string; autoRenew?: boolean; collectionState?: string }) => {
       // S72 (19.13): paying from a supporter's link sends the link's code INSTEAD of an item code; the database decides the item, the person and the price
       const body = input.paymentRequest !== undefined ? { payment_request: input.paymentRequest, client_key: input.clientKey } : {
         code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary,
         // S73: the total the person was shown; the database refuses the order if it now computes a different one
         discount_code: input.discountCode, use_points: input.usePoints, expected_amount_kobo: input.expectedAmountKobo,
+        // the buyer's own tick, only ever true when they ticked it; the database ignores it for anything but their own Membership
+        auto_renew: input.autoRenew === true ? true : undefined,
         // Membership Plus only: the approved state chosen for blood collection (the database refuses a missing or unapproved one)
         collection_state: input.collectionState,
       };

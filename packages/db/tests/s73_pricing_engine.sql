@@ -586,10 +586,13 @@ begin
   perform pg_temp.ck('S73 added no subscription table: only the four older ones exist', 'push_subscriptions,subscription_add_ons,subscription_plans,subscriptions',
     (select string_agg(table_name, ',' order by table_name) from information_schema.tables where table_schema = 'public' and table_name like '%subscription%'));
   perform pg_temp.ck('the retired subscription plans stay retired: none is active', '0', (select count(*)::text from public.subscription_plans where is_active));
-  perform pg_temp.ck('no pricing or order column is about renewal or recurrence', '0',
+  -- Founder decision 2026-10-26 reversed "no auto-renew": orders carry exactly these four renewal columns (the buyer's consent, whether the card was kept, and
+  -- which membership/term a renewal order renews). No pricing table, and no other order column, is about renewal, recurrence or subscription.
+  perform pg_temp.ck('no pricing or order column is about renewal or recurrence, beyond the four approved renewal columns on orders', '0',
     (select count(*)::text from information_schema.columns where table_schema = 'public'
        and table_name in ('orders', 'catalog_items', 'prices', 'price_books', 'price_book_entries', 'discount_codes', 'discount_redemptions', 'pricing_config')
-       and column_name ~* '(auto_?renew|recurr|renew|subscri|interval_count|billing_cycle)'));
+       and column_name ~* '(auto_?renew|recurr|renew|subscri|interval_count|billing_cycle)'
+       and not (table_name = 'orders' and column_name in ('renewal_consent_at', 'renewal_card_result', 'renews_membership_id', 'renewal_term_ends_at'))));
   perform pg_temp.ck('every kobo column in the new tables is a bigint (INV-15)', '0',
     (select count(*)::text from information_schema.columns where table_schema = 'public'
        and table_name in ('price_book_entries', 'discount_codes', 'discount_redemptions') and column_name like '%kobo%' and data_type <> 'bigint'));
