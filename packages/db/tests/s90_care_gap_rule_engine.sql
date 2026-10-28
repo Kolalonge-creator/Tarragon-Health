@@ -194,7 +194,7 @@ $f$ declare m uuid; d date; begin
   insert into public.medications (organisation_id, patient_id, care_plan_id, drug_name, indication, is_active, schedule_times)
   values ((select organisation_id from public.profiles where id = p), p, p_plan, p_name, p_indication, true, '["08:00"]'::jsonb) returning id into m;
   set local session_replication_role = replica;
-  update public.medications set created_at = pg_temp.at_day(pg_temp.base() - 30, 6) where id = m;
+  update public.medications set created_at = pg_temp.at_day(pg_temp.base() - 30, 6), schedule_effective_from = pg_temp.at_day(pg_temp.base() - 30, 6) where id = m;  -- the real stamp trigger sets schedule_effective_from to now() on insert, which would hide every past dose
   set local session_replication_role = origin;
   if p_taken then
     for d in select generate_series(pg_temp.base() - 6, pg_temp.base(), interval '1 day')::date loop
