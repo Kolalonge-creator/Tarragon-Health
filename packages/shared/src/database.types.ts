@@ -86,6 +86,87 @@ export type Database = {
         }
         Relationships: []
       }
+      fasting_safety_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      fasting_plans: {
+        Row: {
+          config_version: number
+          ended_at: string | null
+          ended_reason: string | null
+          ends_on: string
+          fast: string
+          gate_snapshot: Json
+          id: string
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          starts_on: string
+          status: string
+          timing_change_ids: string[]
+        }
+        Insert: {
+          config_version: number
+          ended_at?: string | null
+          ended_reason?: string | null
+          ends_on: string
+          fast: string
+          gate_snapshot: Json
+          id?: string
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          starts_on: string
+          status?: string
+          timing_change_ids?: string[]
+        }
+        Update: {
+          config_version?: number
+          ended_at?: string | null
+          ended_reason?: string | null
+          ends_on?: string
+          fast?: string
+          gate_snapshot?: Json
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          starts_on?: string
+          status?: string
+          timing_change_ids?: string[]
+        }
+        Relationships: []
+      }
       activity_routes: {
         Row: {
           activity_log_entry_id: string | null
@@ -1046,6 +1127,39 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      nutrition_guidance_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -50865,9 +50979,18 @@ export type Database = {
       my_workout_plans: { Args: Record<PropertyKey, never>; Returns: Json };
       route_recording_status: { Args: Record<PropertyKey, never>; Returns: boolean };
       sign_activity_safety_config: { Args: { p_id: string }; Returns: string };
+      sign_fasting_safety_config: { Args: { p_id: string }; Returns: string };
+      my_fasting_gate: { Args: { p_fast: string; p_starts_on?: string | null; p_ends_on?: string | null }; Returns: Json };
+      start_fasting_plan: { Args: { p_fast: string; p_starts_on: string; p_ends_on: string }; Returns: string };
+      end_fasting_plan: { Args: { p_reason?: string }; Returns: undefined };
+      my_fasting_plan: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_glucose_series: { Args: { p_days?: number }; Returns: Json };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       my_nutrition_target_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_nutrition_guidance: { Args: Record<PropertyKey, never>; Returns: Json }
+      nutrition_guidance_is_signed: { Args: Record<PropertyKey, never>; Returns: boolean }
+      sign_nutrition_guidance_config: { Args: { p_id: string }; Returns: string }
       my_home_card_config: { Args: Record<PropertyKey, never>; Returns: Json }
       sign_home_card_config: { Args: { p_id: string }; Returns: string }
       set_nutrition_target_hold: { Args: { p_hold: boolean; p_patient: string; p_reason?: string }; Returns: string }
@@ -51138,6 +51261,9 @@ export type Database = {
       bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       cascade_of_care_report: { Args: { p_condition: string; p_from?: string; p_to?: string }; Returns: Json };
       selection_panel_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      baseline_labs_override_attention: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
+      sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       admin_set_reward_rule: {

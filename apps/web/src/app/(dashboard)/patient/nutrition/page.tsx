@@ -7,6 +7,7 @@ import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
 import { LifestyleLogCard } from "../lifestyle-log-card";
+import { GlucoseResponseCard } from "../glucose-response-card";
 import { readExtendedObservationsEnabled } from "@/lib/vitals/extended-observations";
 
 export default async function NutritionPage() {
@@ -48,6 +49,7 @@ export default async function NutritionPage() {
         activeConditions={activeConditions}
         mealPlanGenerationConfigured={isMealPlanGenerationConfigured()}
       />
+      <GlucoseResponseCard />
     </div>
   );
 }

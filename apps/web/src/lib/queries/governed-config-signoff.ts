@@ -57,6 +57,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Nutrition targets and meal summary",
     slug: "nutrition-targets-config",
   },
+  { table: "nutrition_guidance_config", title: "Eating plans and food swaps", slug: "nutrition-guidance-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   {
     // S46d: not a single-active-row table. The signable thing is the anti-HBs threshold on the one ACTIVE rule (status = 'active'), read through its own branch below.
@@ -66,6 +67,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },
+  { table: "fasting_safety_config", title: "Fasting safety rules (Ramadan and Lent)", slug: "fasting-safety-config" },
   { table: "home_card_config", title: "Today screen cards, weekly summary and readiness", slug: "home-card-config" },
   { table: "bp_cuff_guidance_signoffs", title: "Home blood pressure cuff sizes", slug: "cuff-guidance" },
 ] as const;

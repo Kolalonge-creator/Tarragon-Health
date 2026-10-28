@@ -9,6 +9,7 @@ import { parseSafetyError, type SafetyError } from "@/lib/prescriptions/parse-sa
 import { parseStaffCareChanges, staffIdsIn, type StaffCareChange } from "./change-model";
 import {
   buildMedicineProposal,
+  fastingSupplyProblem,
   buildScheduleProposal,
   buildTargetProposal,
   patientIdSchema,
@@ -140,6 +141,8 @@ async function propose(
 export async function proposeMedicineChange(input: ProposeMedicineChangeInput): Promise<CareChangeActionResult> {
   const parsed = proposeMedicineChangeSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const supplyProblem = fastingSupplyProblem(parsed.data);
+  if (supplyProblem) return { ok: false, error: supplyProblem };
   return propose(parsed.data.patientId, "medication", buildMedicineProposal(parsed.data), parsed.data.rationale);
 }
 

@@ -5075,6 +5075,29 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
 
+### OQ-S50A-1 The swaps, the five plans and the 5 g salt line are PROPOSED and unsigned (raised by the S50a build, 2026-10-21)
+- `nutrition_guidance_config` v1 is seeded inactive. The CMO (with a dietitian if one is available) should read every swap, every plan and the one number (`plans.hypertension.numbers.salt_g_max = 5`, the WHO figure, a placeholder), then sign through the sign-off hub item "Eating plans and food swaps". Kidney and pregnancy carry no numbers by design; if the CMO wants numbers there they need a new validator rule, not just a new config.
+- Decision: open (CMO).
+
+### OQ-S50A-2 Booking a dietitian visit does not move the nutrition referral on its own (raised by the S50a build, 2026-10-21)
+- 6.14 is wired as a link into the existing S64 per-item booking flow, shown only while a dietitian visit can be booked and paid for (the price is set; it is not today). `nutrition_referrals.status` is still moved by staff. A trigger from a confirmed dietitian appointment to `scheduled` would close that, but it touches the appointments tables and was not built blind (no database test stack here).
+- Decision: open (product).
+
+### OQ-S50A-3 Phone keeps an offline copy of the plan for 7 days (raised by the S50a build, 2026-10-21)
+- Unlike targets (never cached), the plan is readable offline for up to 7 days, is erased the moment the server answers "unavailable", and the pregnancy plan is shown but NEVER saved (so pregnancy is not held at rest on the phone). A server failure is a 503, which keeps the saved copy rather than erasing it. A sign-out does not delete the saved copy (no clean hook was found); it is kept per account and read only for the owner. If a person becomes pregnant, is put under a hold or is screened positive while offline, the old plan stays visible until the phone next reaches the server or 7 days pass. The number 7 is a judgement call; a shorter value or no offline copy is a one-line change (`CACHE_MAX_AGE_DAYS`).
+- Decision: open (CMO/DPO).
+
+### OQ-S50A-4 The pregnancy plan's existence is visible to the patient on a shared phone (raised by the S50a build, 2026-10-21)
+- A pregnant patient is shown a card whose title is "Eating well in pregnancy". On her own unlocked phone that is expected, but anyone holding it can see it. If the CMO prefers a neutral title ("Eating well right now") it is a text change in the config; the gate already tells nobody else.
+- Decision: open (CMO).
+
+### OQ-S50A-5 No dietitian rota or price exists, so the booking link is not live (raised by the S50a build, 2026-10-21)
+- `dietitian_consult_credit` is inactive with a zero price (S64), so `bookable` is false and the link does not show. The plans' care-team prompt still stands. Needs a dietitian, a price and declared times.
+- Decision: open (founder).
+
+### OQ-S50A-6 Until the swaps are signed, withheld people still get the older built-in swap hint (raised by the S50a build, 2026-10-21)
+- The brief says the old swap code stays as the fallback until the config is signed. That code is unchanged and already reaches everyone today, including pregnant patients, under-18s and people with a positive eating-disorder screen, because the identical-answer rule means the app cannot tell who is withheld. Once a version is signed the old hint stops for everybody and the signed table follows the withheld rule. If the CMO wants the old hint switched off sooner, the one-line change is to treat `signed: false` as "show nothing" in `nutrition-flow.tsx`.
+- Decision: open (CMO).
 ### OQ-S47B-1 Signing the Today screen configuration switches on four things at once (raised by S47b, 2026-10-21)
 - `home_card_config` v1 is unsigned and inactive. One CMO signature (`/clinician/home-card-config`, also a line on the sign-off hub) turns on the new Today plan (two main actions, the rest under "More for today"), the days-logged card, the weekly summary cards and the wearable readiness line. There is no separate go-live guard: the signature is the gate. If the founder wants each to switch on separately, split the config into per-feature switches before signing.
 - The CMO is asked to confirm: card order, the weekly minimum of 3 blood pressure readings, and every readiness threshold (sleep and HRV 15 percent under usual, HRV 5 percent over usual, resting heart rate 5 beats over usual, at least 5 earlier days, at least 2 of 3 signals, data under 36 hours old). These numbers are PROPOSED engineering defaults, not clinical guidance.
@@ -5130,6 +5153,30 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Update 2026-10-21: the line was corrected in `audio-scripts.ts` and `audio/manifest.json` (new `script_hash`) in the OQ-714 pull request. The generated files are "do not hand-edit", so the Production List .docx must carry the same words, or the next importer run restores the old line.
 - Earlier note, before that update: `audio-scripts.ts` and `audio/manifest.json` are generated from the Production List .docx by `scripts/audio/import-production-list.py` ("do not hand-edit"), and the .docx is not in the repository. A hand edit would also have to move the clip's `script_hash`.
 - Options: (a) change the HLP-017 line in the Production List to "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." and re-run the importer before the clip is recorded (recommended); (b) record it as is and re-record later (not recommended).
+- Decision: open (founder or whoever owns the Production List): update the .docx line to match.
+### OQ-S50B-1 Who may clear a non-medicine fasting stop, and how (raised by S50b, 2026-10-21)
+- The gate has two outcomes for a stop: `not_advised` (a hard stop) and `needs_clinician_plan`. For insulin and sulfonylureas the plan is a signed medicine timing plan. For pregnancy, type 1 diabetes, kidney disease, a positive eating-disorder screen and age, the proposed config makes them hard stops that nothing in the app can clear: the person is sent to their care team. If the CMO wants any of them to be `needs_clinician_plan` there is no clinician-signed artefact that clears it yet (a timing plan needs a medicine). Needed: the CMO's rule for which of these a doctor may ever clear, and what the doctor signs.
+- Decision: open (CMO).
+
+### OQ-S50B-2 Every number, name and match in the fasting rules is the CMO's (raised by S50b, 2026-10-21)
+- `fasting_safety_config` v1 is PROPOSED and unsigned: the 72 hour red and amber windows, minimum age 18, the outcome for each situation, the insulin and sulfonylurea name lists (including brand names), the condition name and ICD-10 matches, and diabetes-with-no-medicines needing a clinician. Not included and for the CMO to decide: SGLT2 inhibitors, diuretics, anticoagulants, and anyone on dialysis or with heart failure; gestational diabetes outside pregnancy; and whether a diet-controlled adult with diabetes and no medicine recorded should really need a clinician (today they do, because we cannot tell whether insulin is taken).
+- Decision: open (CMO). Sign at /clinician/clinical-signoff. Signing does not show the screen; the `fasting_safety` go-live guard is a separate switch.
+
+### OQ-S50B-3 Medicine timing after the fast ends (raised by S50b, 2026-10-21)
+- The timing plan is applied through the S24 engine as a change to the medicine, which means the fasting schedule stays on the person's medicine record after the fast unless a second signed change reverts it. Nothing reverts it automatically (INV-02: no change without a signature). Needed: a care team habit or a task that prompts the clinician to propose the revert when the fast ends (a new task type needs CMO sign-off, S16b pattern), or a product decision to model the plan as a separate dated schedule instead of a medicine change.
+- Decision: open (CMO and product).
+
+### OQ-S50B-4 Fasting wording, the existing diabetes paragraph and the calendar (raised by S50b, 2026-10-21)
+- The wording on `/patient/fasting` and the mobile screen is draft and not reviewed by the CMO; it is hidden behind the guard but the "unavailable" line is shown even while the guard is OFF (it only says to talk to the care team). The older static paragraph in `diabetes-guidance.tsx` tells a person with diabetes to "break the fast" on a low or very high reading or if unwell. That is emergency-style guidance written before this module; I left it as it was, but the CMO should decide whether it stays now that a signed-plan route exists. Calendar dates for 2027 and 2028 are expected windows only (Ramadan follows the moon; Lent follows Easter) and a person always confirms them; years beyond 2028 are "unknown until confirmed locally".
+- Decision: open (CMO).
+
+### OQ-S50B-6 A medicine the patient typed in themselves can never be covered (raised by S50b, 2026-10-21)
+- Coverage needs the signed change to have been applied to the medicine row the person has now. Only a Tarragon-issued prescription carries a signature, so a self-entered insulin or sulfonylurea row stays uncovered. The clinician form lets a timing plan ride a START as well as a change, so the care team can issue the medicine itself with the fasting timing; the patient's own entry then needs stopping by them (the form says so). Medicine detection is by name (generic and common brand names); an unlisted brand typed free-text is not recognised, which is why a diabetes diagnosis with no recognised diabetes medicine needs a clinician, but a person with metformin recorded and an unlisted insulin brand would not be caught. Needed: use the medicines ingredient map (S08y) for detection once it is live, and decide whether a self-entered insulin should itself block a fast until a clinician reviews the list.
+- Decision: open (CMO and product).
+
+### OQ-S50B-5 Glucose-response numbers have no sign-off panel (raised by S50b, 2026-10-21)
+- `glucose_response.rules` (minimum 5 paired meals, 30 minute before window, 90 to 150 minute after window, plausible range 1.5 to 40 mmol/L, fingerstick only) lives in the PROPOSED registry in code, not in a signed database table, so the CMO has no hub line for it. The `glucose_response_insights` guard is the control. Needed: either accept a registry-only entry (changed by a reviewed PR) or give it a governed table and a hub panel like the fasting rules. Also for a dietitian: foods are grouped by the matched food in the meal, so a mixed plate counts under each of its foods (a stated limit, not a cause).
+- Decision: open (CMO and product).
 - Decision (founder, 2026-10-21): wording chosen: "Choose a verified pharmacy to collect your medicine from, or take your prescription to any pharmacy you like. You pay the pharmacy when you collect." The repo carries it (`audio-scripts.ts`, manifest hash). DONE 2026-10-21: the Production List .docx (v1.0, in the company folder; original kept as `...v1.0.before-OQ-719.docx`) carries the same words, and the importer run against it leaves HLP-017's script and hash unchanged. CLOSED.
 
 ### OQ-S43m-4 A care team target has no unit, so a trend can be drawn against a target in another unit (raised by the S43m build, 2026-10-20)

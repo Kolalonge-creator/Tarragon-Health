@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./nutrition-actions";
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
+import { EatingPlansCard, signedSwapMessage, useEatingGuidance } from "./eating-plans-card";
+import { swapsForFood } from "@tarragon/shared";
 import {
   BarcodeEntry,
   DailyTargetsCard,
@@ -73,6 +75,7 @@ export function NutritionFlow({
     <div className="space-y-6">
       <LogMealSection patientId={patientId} visionConfigured={visionConfigured} />
       <DailyTargetsCard />
+      <EatingPlansCard />
       <RepeatSection patientId={patientId} />
       <MealHistorySection patientId={patientId} activeConditions={activeConditions} />
       <NutritionSupportCard patientId={patientId} activeConditions={activeConditions} />
@@ -318,6 +321,7 @@ function GuidanceBlock({
     () => getConditionNutritionGuidance(activeConditions, analysis),
     [activeConditions, analysis],
   );
+  const { data: eating } = useEatingGuidance();
 
   const watchOnSodium = messages.some((m) => m.condition === "hypertension" && m.tone === "watch");
   const watchOnCarbs = messages.some((m) => m.condition === "diabetes" && m.tone === "watch");
@@ -325,10 +329,16 @@ function GuidanceBlock({
   const substitution = useMemo(() => {
     if (!items || catalogue.length === 0 || (!watchOnSodium && !watchOnCarbs)) return null;
     const metric = watchOnSodium ? "sodium" : "carbs";
+    // S50a: until a clinician-signed swap table exists the older built-in hint is the fallback. Once one is signed it is the only source, and a
+    // person the signed table withholds gets no swap (never the old hint): `eating` says which of the three it is.
+    if (!eating) return null;
     const foodCode = pickDominantContributor(items, catalogue, metric);
     if (!foodCode) return null;
-    return suggestSubstitution({ foodCode, concern: metric, catalogue });
-  }, [items, catalogue, watchOnSodium, watchOnCarbs]);
+    if (!eating.signed) return suggestSubstitution({ foodCode, concern: metric, catalogue });
+    if (eating.guidance.state !== "ok") return null;
+    const signedSwap = swapsForFood(eating.guidance.swaps, foodCode, [metric === "sodium" ? "hypertension" : "diabetes"])[0];
+    return signedSwap ? { message: signedSwapMessage(signedSwap, catalogue), alternativeFoodCodes: signedSwap.toFoodCodes } : null;
+  }, [items, catalogue, watchOnSodium, watchOnCarbs, eating]);
 
   if (messages.length === 0) return null;
 

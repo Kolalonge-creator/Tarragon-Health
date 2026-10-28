@@ -83,6 +83,8 @@ export const AI_REGISTRY_FILE = `${WEB}/lib/ai-governance/system-codes.ts`;
  * `surfaces`. A stale entry (no longer a candidate) also fails, so this list tracks the code.
  */
 export const AI_SURFACE_REVIEWED: Readonly<Record<string, string>> = {
+  [`${WEB}/app/(dashboard)/patient/eating-plans-card.tsx`]:
+    "S50a: only shares the nutrition actions file with the AI-008 meal photo call site. It shows CMO-signed plan text and swaps read from nutrition_guidance_config through my_nutrition_guidance(); no model-written prose.",
   "apps/mobile/src/screens/photo-reading-screen.tsx": "AI-022: proposes the numbers on a cuff display; the person confirms or edits them. No model-written prose.",
   "apps/mobile/src/screens/sections/tracker-screens.tsx": "AI-008 meal photo estimate: structured food items and nutrient numbers the person confirms; no model-written prose.",
   [`${WEB}/app/(dashboard)/patient/check-my-pack.tsx`]:
