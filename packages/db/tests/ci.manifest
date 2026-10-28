@@ -1404,8 +1404,6 @@ s46d_health_report_completion.sql
 
 # S49a: food logging foundation. 100+ estimated foods flagged for review, wrap/ladle portions, food_logs view + food.logged event, favourites private, targets config born unsigned and gated (pregnancy in each place it is held, postnatal year, clinician hold, eating-disorder screen, under 18 all withheld with no reason), barcodes. Sabotage: the withheld rule removed and the diary trigger removed; both must flip.
 s49a_food_logging_foundation.sql
-# S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
-s48a_activity_safety_gate.sql
 # S50a: eating plans and food swaps. Guidance config born unsigned and inactive, CMO-only signing, kidney and pregnancy plans refuse any numbers block, identical bare answer for everyone before signing and for every withheld person after, pregnancy plan only from the patient's own record and never under a hold or positive eating-disorder screen. Sabotage: pregnancy reader forced true and the withheld rule removed; both must flip.
 s50a_eating_plans_swaps.sql
 # S48b: activity client_id makes an offline retry a duplicate; workout sessions must be 10 to 20 minutes, chair-based classes gentle, audio ids only on reviewed plans; route_recording_status is true only with the guard AND the person's switch on, never for anon. Sabotage: minutes CHECK dropped, client_id index dropped, always-yes status; each must flip.
