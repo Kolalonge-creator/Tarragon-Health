@@ -5,6 +5,17 @@ import { renderPageText } from "@/lib/marketing/render-server-page";
 import PricingPage from "./page";
 import HomePage from "../page";
 
+// The committed default for marketing.membership_ladder_public is now ON (#1333), so this test forces it OFF itself rather than reading the default.
+jest.mock("@tarragon/shared", () => {
+  const actual = jest.requireActual("@tarragon/shared");
+  return {
+    ...actual,
+    getProposedConfig: (key: string, ...rest: unknown[]) =>
+      key === "marketing.membership_ladder_public"
+        ? { ...actual.getProposedConfig(key, ...rest), value: { enabled: false } }
+        : actual.getProposedConfig(key, ...rest),
+  };
+});
 jest.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/", useRouter: () => ({ push: jest.fn() }) }));
 
 /** W-46: while marketing.membership_ladder_public is OFF the one paid product is "Membership Plus"; the bare word may not name it. */
