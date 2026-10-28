@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { EscalationLevel } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
+import { OVERRIDE_REASON_CODES, OVERRIDE_REASON_LABEL_KEY, type OverrideReasonCode } from "@/lib/clinician/override-reasons";
 
 const LEVEL_OPTIONS: EscalationLevel[] = ["routine", "clinician_review", "urgent_escalation", "emergency"];
 
@@ -39,6 +41,7 @@ export function AlertOverrideControl({
   const [isOpen, setIsOpen] = useState(false);
   const [level, setLevel] = useState<EscalationLevel>("clinician_review");
   const [reason, setReason] = useState("");
+  const [code, setCode] = useState<OverrideReasonCode | "">("");
   const override = useOverrideAlertLevel();
   const clear = useClearAlertOverride();
 
@@ -93,6 +96,16 @@ export function AlertOverrideControl({
           </option>
         ))}
       </Select>
+      <p className="text-sm font-medium text-charcoal-ink">{t("override.why", "en")}</p>
+      <Select aria-label={t("override.why", "en")} value={code} onChange={(e) => setCode(e.target.value as OverrideReasonCode | "")}>
+        <option value="">{t("override.choose", "en")}</option>
+        {OVERRIDE_REASON_CODES.map((c) => (
+          <option key={c} value={c}>
+            {t(OVERRIDE_REASON_LABEL_KEY[c], "en")}
+          </option>
+        ))}
+      </Select>
+      <p className="text-xs text-charcoal-ink/60">{t("override.helper", "en")}</p>
       <Input
         placeholder="Reason for the override"
         value={reason}
@@ -107,7 +120,7 @@ export function AlertOverrideControl({
           disabled={override.isPending || reason.trim().length === 0}
           onClick={() =>
             override.mutate(
-              { alertId, overrideLevel: level, overrideReason: reason.trim() },
+              { alertId, overrideLevel: level, overrideReason: reason.trim(), overrideReasonCode: code === "" ? null : code },
               {
                 onSuccess: () => {
                   setIsOpen(false);
