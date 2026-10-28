@@ -178,7 +178,8 @@ begin
   v_view := pg_temp.view_as(sA, hA);
   perform pg_temp.ck('5a SABOTAGE: without the n >= 3 rule a single reading shows as an average (1b would FAIL)', '120', pg_temp.wk(v_view, 0) ->> 'systolic');
   execute v_def;   -- restore
-  execute replace(v_def, '(v_bp -> -2 ->> ''systolic'')::numeric', '(v_bp -> -3 ->> ''systolic'')::numeric');
+  execute replace(replace(v_def, '(v_bp -> -2 ->> ''systolic'')::numeric', '(v_bp -> -3 ->> ''systolic'')::numeric'),
+                  '(v_bp -> -2 ->> ''readings'')::integer', '(v_bp -> -3 ->> ''readings'')::integer');
   v_view := pg_temp.view_as(sD, hD);
   perform pg_temp.ck('5b SABOTAGE: comparing non-adjacent weeks gives a direction across a gap (1i would FAIL)', 'higher', coalesce(v_view #>> '{bp_trend,direction}', 'null'));
   execute v_def;
