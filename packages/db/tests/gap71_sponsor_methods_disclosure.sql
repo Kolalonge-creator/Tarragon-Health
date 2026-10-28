@@ -257,7 +257,9 @@ begin
   perform pg_temp.ck('4h the sponsor role reads no member profile', '0', coalesce(pg_temp.q_as(pg_temp.f('st'), format('select count(*)::text from public.profiles where id = any(%L::uuid[])', v_ids)), 'null'));
   perform pg_temp.ck('4i the sponsor role reads no member reading', '0', coalesce(pg_temp.q_as(pg_temp.f('st'), format('select count(*)::text from public.vitals_readings where patient_id = any(%L::uuid[])', v_ids)), 'null'));
   perform pg_temp.ck('4j the sponsor role reads no member''s programme row', '0', coalesce(pg_temp.q_as(pg_temp.f('st'), format('select count(*)::text from public.profile_cohorts where patient_id = any(%L::uuid[])', v_ids)), 'null'));
-  perform pg_temp.ck('4k ... and the same fixture IS visible to the admin (so the zeros above are refusals, not an empty fixture)', '3', coalesce(pg_temp.q_as(pg_temp.f('admin'), format('select count(*)::text from public.vitals_readings where patient_id = any(%L::uuid[])', v_ids)), 'null'));
+  -- the fixture is counted by the proof's own privileged session: since the S39 tied-reads change an admin cannot read a member's readings
+  -- either (that is the design), so an admin read would show a refusal, not whether the fixture exists
+  perform pg_temp.ck('4k ... and the fixture exists (so the zeros above are refusals, not an empty fixture)', '3', (select count(*)::text from public.vitals_readings where patient_id = any(v_ids)));
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------------
