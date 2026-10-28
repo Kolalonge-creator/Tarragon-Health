@@ -109,6 +109,7 @@ export const J4: JourneyDef = {
     { id: "small-cells-suppressed", title: "A cohort below the minimum cell is withheld whole, and a cut that would expose a small cell is suppressed" },
     { id: "aggregate-figures-over-300-people", title: "A real aggregate figure is produced over the 300 (rates, counts) and still carries no individual" },
     { id: "no-reproductive-or-mental-health", title: "No reproductive health or mental health figure or row reaches the institution, though such rows exist" },
+    { id: "s88-tables-untied-clinician-reads-nothing", title: "A real clinician session with no tie reads none of the nine S88 pregnancy and maternal tables (INV-12, never a pending pass)" },
     { id: "clinician-without-tie-reads-nothing", title: "A real clinician session with no task, lead or page reads none of the cohort's records (INV-12)" },
     { id: "patient-reads-own-control", title: "Control: a real patient session reads their own rows, so empty results elsewhere are not an empty fixture" },
   ],

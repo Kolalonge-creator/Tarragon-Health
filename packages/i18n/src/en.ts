@@ -5063,6 +5063,8 @@ export const en = {
   "sponsor.done.title": "This is covered",
   "sponsor.done.body": "You do not need to pay anything. Your care team will see it in the app.",
   "sponsor.part": "{name} pays {amount} of this.",
+  "sponsor.split": "You pay {you}. {name} pays {amount}.",
+  "sponsor.name_generic": "Your sponsor",
   "sponsor.budget_short": "The cover for this has run out, so you pay the usual price.",
   "sponsor.history_covered": "Covered by {name}",
   "shop.error.sponsor_budget_exhausted": "The cover for this has run out for now. Please check the price again or ask your care team.",

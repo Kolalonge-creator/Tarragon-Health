@@ -11,6 +11,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "@/lib/commerce/plus-state-setup";
 import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
+import { RefundRuleBlock } from "./refund-blocks";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "@/lib/commerce/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -378,6 +379,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                 <MutedText>{tr("checkout.points.explain")}</MutedText>
               </View>
             ) : null}
+            <RefundRuleBlock kind={item.kind} />
             <MutedText>{tr("shop.no_renew")}</MutedText>
             {blocked ? null : (
               <PrimaryButton
