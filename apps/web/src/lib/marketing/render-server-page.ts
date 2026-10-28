@@ -18,8 +18,8 @@ export async function renderPageText(page: () => Promise<ReactNode> | ReactNode)
   }
   const html = chunks.join("");
   return html
-    .replace(/<script[\s\S]*?<\/script>/g, " ")
-    .replace(/<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<script\b[\s\S]*?<\/script[^>]*>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style[^>]*>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&#x27;|&#39;/g, "'")
     .replace(/&amp;/g, "&")
