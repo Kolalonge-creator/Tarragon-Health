@@ -1609,3 +1609,5 @@ clinical_change_requests.sql
 research_governance_hardening.sql
 # S40 gate finding: native push registration upserts on expo_push_token; the partial unique index made every registration fail with 42P10 (HTTP 400). Proves insert then re-register is one row, web rows with a null token coexist, and a sabotage step restores the partial index and confirms the upsert fails again.
 push_subscriptions_expo_token_upsert.sql
+# S40 review follow-up: one phone, two accounts. Simulated signed-in sessions (RLS applies): A registers, B registers the same token and the row moves to B, B cannot switch off A, sign-out disables the leaver, anon cannot execute, bad input refused; sabotage shows a non-moving register would fail the takeover check.
+push_token_register_takeover.sql

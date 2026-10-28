@@ -19,7 +19,9 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import { keepSessionIfSame } from "@/lib/auth/keep-session";
+import { eventMayChangeIdentity, IDENTITY_REFRESH_MIN_GAP_MS, nextIdentity } from "@/lib/identity-refresh";
 import { supabase } from "@/lib/supabase";
+import { signOutOfThisPhone } from "@/lib/sign-out";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
 import { loadLowDataPreference } from "@/lib/low-data";
@@ -92,6 +94,9 @@ function AppContent() {
   const [offerBiometric, setOfferBiometric] = useState(false);
   // A clinician who is also a patient or a carer can open their own record (S19e); the choice lasts until the app restarts or they sign out.
   const [openOwnRecord, setOpenOwnRecord] = useState(false);
+  // Bumped by auth events after which the server-side identity may have changed; see the quiet re-read below.
+  const [identityRefreshTick, setIdentityRefreshTick] = useState(0);
+  const lastIdentityRefreshAt = useRef(0);
   const offerCheckedFor = useRef<string | null>(null);
   const postSignInFor = useRef<string | null>(null);
 
@@ -106,6 +111,7 @@ function AppContent() {
     } = supabase.auth.onAuthStateChange((event, newSession) => {
       // Same person, same token: keep the object so nothing keyed on the session restarts (see keep-session.ts).
       setSession((previous) => keepSessionIfSame(previous, newSession));
+      if (newSession && eventMayChangeIdentity(event)) setIdentityRefreshTick((tick) => tick + 1);
       // A fresh login is its own authentication; the lock guards a resumed
       // session. Clearing on SIGNED_OUT (never on the initial null) also
       // releases a patient who used the lock screen's "Sign out" escape
@@ -246,6 +252,21 @@ function AppContent() {
       .catch(() => setIdentity(null));
     // `session` is read here only to tell signed-out (null) from still-loading (undefined).
   }, [sessionUserId, session === null, retryToken]);
+
+  // The identity effect above runs once per person, so a role, organisation or name changed on the server while the app stays open would
+  // never show. Re-read it quietly after the auth events that can follow such a change: no reset to the splash, a failed read keeps what is
+  // held, an unchanged read keeps the same object (nothing keyed on identity restarts), and at most one read a minute.
+  useEffect(() => {
+    if (identityRefreshTick === 0 || !sessionUserId) return;
+    const now = Date.now();
+    if (now - lastIdentityRefreshAt.current < IDENTITY_REFRESH_MIN_GAP_MS) return;
+    lastIdentityRefreshAt.current = now;
+    // No cancel flag: a later tick inside the minute returns early above, and cancelling this read on that cleanup would lose the update.
+    loadPatientIdentity(sessionUserId)
+      .then((reloaded) => setIdentity((previous) => (previous === undefined ? previous : nextIdentity(previous, reloaded))))
+      .catch(() => {});
+    // Only the tick starts a re-read; the person is whoever is signed in when it fires.
+  }, [identityRefreshTick]);
 
   // A cold start (session, identity, or the app-lock preference all read
   // from native storage / network) has no upper bound on its own — any one
@@ -404,7 +425,7 @@ function AppContent() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
         <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
-        <SponsorHome onSignOut={() => void supabase.auth.signOut()} />
+        <SponsorHome onSignOut={() => void signOutOfThisPhone()} />
       </SafeAreaView>
     );
   }
@@ -413,7 +434,7 @@ function AppContent() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }} edges={["top", "left", "right"]}>
         <StatusBar barStyle={scheme === "dark" ? "light-content" : "dark-content"} />
-        <ClinicianHome onSignOut={() => void supabase.auth.signOut()} onOpenOwnRecord={() => setOpenOwnRecord(true)} />
+        <ClinicianHome onSignOut={() => void signOutOfThisPhone()} onOpenOwnRecord={() => setOpenOwnRecord(true)} />
       </SafeAreaView>
     );
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
-import { supabase } from "@/lib/supabase";
+import { signOutOfThisPhone } from "@/lib/sign-out";
 import type { SectionId } from "@/lib/sections";
 import { expoNotificationTapPort, startNotificationTaps } from "@/lib/notification-tap";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
@@ -434,7 +434,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         initials={initials}
         onOpenDrawer={() => setDrawerOpen(true)}
         onOpenSettings={() => setSection("settings")}
-        onSignOut={() => supabase.auth.signOut()}
+        onSignOut={() => signOutOfThisPhone()}
         onNavigate={handleSelect}
       />
 
@@ -482,7 +482,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onClose={() => setDrawerOpen(false)}
         onSignOut={() => {
           setDrawerOpen(false);
-          void supabase.auth.signOut();
+          void signOutOfThisPhone();
         }}
       />
     </View>

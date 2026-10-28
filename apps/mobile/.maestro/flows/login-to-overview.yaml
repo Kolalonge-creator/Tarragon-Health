@@ -49,22 +49,23 @@ tags:
     text: "Sign in"
     index: 1
 
-# The signed-in home (S07 Today layout) no longer shows the old "Today at a glance" subtitle. A signed-in patient is
-# proven by the bottom navigation of the patient shell, which renders regardless of which account is used. iOS may
-# offer to save the password first; dismiss it if it appears.
+# iOS may offer to save the password first; dismiss it if it appears.
 - runFlow:
     when:
       visible: "Not Now"
     commands:
       - tapOn: "Not Now"
-# S03 then offers biometric unlock in an in-app sheet that hides the tab bar; decline it if it appears.
+# S03 then offers biometric unlock in an in-app sheet that covers the screen; decline it if it appears.
 - runFlow:
     when:
       visible: "Unlock with your fingerprint or face?"
     commands:
       - tapOn: "Not now"
+
+# The static subtitle, not the header ("<FirstName>'s overview") — stays the same regardless of which account MOBILE_E2E_EMAIL points
+# at. It renders only once OverviewScreen's data calls succeed, so it proves the overview actually loaded, not just that the tab bar
+# is there. Known limitation: a transient post-login fetch failure renders a "couldn't load / tap to retry" card instead and this step
+# times out on it, looking like a login failure.
 - extendedWaitUntil:
-    visible: "Vitals"
+    visible: "Today at a glance: your numbers, your care team, and recent activity."
     timeout: 30000
-- assertVisible: "Messages"
-- assertVisible: "Meds"

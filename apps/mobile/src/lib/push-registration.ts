@@ -20,6 +20,8 @@ import { criticalAlertsRequested } from "@/lib/paging/critical-alerts";
  * gets a fully working app — just no remote push.
  */
 let reportingOpens = false;
+/** The Expo token this app run registered, so sign-out can switch that one row off (never another phone's). */
+let lastRegisteredToken: string | null = null;
 
 /** The id a push carries in its data (send-pending-notifications puts it there), or null. */
 export function notificationIdFromData(data: unknown): string | null {
@@ -72,31 +74,35 @@ export async function registerPushToken(userId: string, organisationId: string, 
     const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : null;
     if (!platform) return; // web push goes through the browser subscribe flow instead, not this path
 
-    // Upserts on the token itself, same as a web subscribe re-upserting on
-    // `endpoint` — a device re-registering (reinstall, permission re-grant)
-    // overwrites its own prior row rather than accumulating duplicates. See
-    // push_subscriptions_expo_push_token_key (20260809195100).
-    // urgent_channel_ready is not in the generated types yet (S13 R4 migration), hence the cast.
-    const base = {
-      organisation_id: organisationId,
-      profile_id: userId,
-      platform,
-      expo_push_token: data,
-      last_seen_at: new Date().toISOString(),
-      disabled_at: null,
-      // the sender names the `urgent` channel only for a phone that has created it
-      urgent_channel_ready: urgentChannelReady,
-    };
-    // page_channel_ready is sent only by a clinician's phone (S19e). If the column is not there yet the write is retried without it,
-    // so a registration can never be lost to the new field.
-    const withPage = options.clinician === true ? { ...base, page_channel_ready: pageChannelReady } : base;
-    const first = await supabase.from("push_subscriptions").upsert(withPage as never, { onConflict: "expo_push_token" });
-    // Only a missing column justifies the retry; any other error (network, auth, policy) is not made to look like success by a second write.
-    if (first.error && options.clinician === true && (first.error.code === "42703" || /page_channel_ready/i.test(first.error.message))) {
-      await supabase.from("push_subscriptions").upsert(base as never, { onConflict: "expo_push_token" });
-    }
+    // The token belongs to the PHONE, and a phone has one signed-in account: register_native_push_token moves the row to whoever is
+    // signed in now (a plain upsert was refused by the owner-only update policy when a second account used the phone, and a
+    // signed-out account's row kept receiving pushes). `userId` and `organisationId` are no longer sent: the database reads them
+    // from the session. The page channel is sent only by a clinician's phone (S19e).
+    lastRegisteredToken = data;
+    // The function is newer than the generated types, hence the cast.
+    await (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => PromiseLike<unknown>)("register_native_push_token", {
+      p_token: data,
+      p_platform: platform,
+      p_urgent_channel_ready: urgentChannelReady,
+      p_page_channel_ready: options.clinician === true ? pageChannelReady : null,
+    });
   } catch {
     // Best-effort only — a push-registration failure must never surface to
     // the patient or block anything else in the app from working.
   }
+}
+
+/** Switches this phone's push row off for the account that is leaving. Best effort and bounded: it must never hold up a sign-out. */
+export async function unregisterPushToken(): Promise<void> {
+  const token = lastRegisteredToken;
+  if (!token) return;
+  try {
+    await Promise.race([
+      Promise.resolve((supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => PromiseLike<unknown>)("unregister_native_push_token", { p_token: token })),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
+    ]);
+  } catch {
+    // best effort: the next account to register this phone takes the row over
+  }
+  lastRegisteredToken = null;
 }

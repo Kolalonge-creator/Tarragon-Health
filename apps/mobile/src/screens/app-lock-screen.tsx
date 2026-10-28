@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authenticate } from "@/lib/app-lock";
 import { lockAppPinForGate, usePrivateLock } from "@/lib/private-lock";
 import { UnlockCard } from "@/ui/private-section";
-import { supabase } from "@/lib/supabase";
+import { signOutOfThisPhone } from "@/lib/sign-out";
 import { colors, radius, spacing } from "@/ui/theme";
 import { useTheme } from "@/ui/design";
 import logoMarkWhite from "../../assets/logo-mark-white.png";
@@ -128,7 +128,7 @@ export function AppLockScreen({ accountId, onUnlocked }: AppLockScreenProps) {
         )}
         <Pressable
           accessibilityRole="button"
-          onPress={() => void supabase.auth.signOut()}
+          onPress={() => void signOutOfThisPhone()}
           style={({ pressed }) => ({ marginTop: 20, padding: 8, opacity: pressed ? 0.6 : 1 })}
         >
           <Text style={{ color: mutedColor, fontSize: 14, fontWeight: "600" }}>

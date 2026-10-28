@@ -19,7 +19,7 @@ import { AppPinSetting } from "@/screens/sections/app-pin-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { readLowDataEnabled, writeLowDataEnabled } from "@/lib/low-data";
-import { supabase } from "@/lib/supabase";
+import { signOutOfThisPhone } from "@/lib/sign-out";
 import type { SectionId } from "@/lib/sections";
 
 const NOTIF_PREFS_KEY = "settings-notification-prefs-v1";
@@ -284,7 +284,7 @@ export function SettingsScreen({ patientName, initials, accountId, onNavigate }:
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => void supabase.auth.signOut()}
+        onPress={() => void signOutOfThisPhone()}
         style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
       >
         <Ionicons name="log-out-outline" size={18} color={colors.ink} />
