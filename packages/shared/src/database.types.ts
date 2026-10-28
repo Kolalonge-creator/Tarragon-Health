@@ -1049,6 +1049,39 @@ export type Database = {
         }
         Relationships: []
       }
+      home_card_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       nutrition_target_config: {
         Row: {
           approved_at: string | null
@@ -1133,6 +1166,36 @@ export type Database = {
           organisation_id?: string
           profile_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pharmacy_counter_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_doses: number
+          organisation_id: string
+          profile_id: string
+          share_id: string
+          weeks: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_doses?: number
+          organisation_id?: string
+          profile_id?: string
+          share_id?: string
+          weeks?: Json
         }
         Relationships: []
       }
@@ -49108,6 +49171,7 @@ export type Database = {
           id: string
           invite_id: string | null
           is_test: boolean
+          missed_dose_alert: boolean
           monthly_report_shared: boolean
           monthly_report_shared_at: string | null
           notice_final_for: string | null
@@ -49129,6 +49193,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          missed_dose_alert?: boolean
           monthly_report_shared?: boolean
           monthly_report_shared_at?: string | null
           notice_final_for?: string | null
@@ -49150,6 +49215,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          missed_dose_alert?: boolean
           monthly_report_shared?: boolean
           monthly_report_shared_at?: string | null
           notice_final_for?: string | null
@@ -49163,6 +49229,42 @@ export type Database = {
           state?: string
           supporter_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_missed_dose_alerts: {
+        Row: {
+          id: string
+          medication_id: string
+          member_id: string
+          notified: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          medication_id: string
+          member_id: string
+          notified?: boolean
+          organisation_id: string
+          patient_id: string
+          scheduled_for_date: string
+          scheduled_time: string
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          medication_id?: string
+          member_id?: string
+          notified?: boolean
+          organisation_id?: string
+          patient_id?: string
+          scheduled_for_date?: string
+          scheduled_time?: string
+          sent_at?: string
         }
         Relationships: []
       }
@@ -49196,6 +49298,81 @@ export type Database = {
           pause_alerts?: boolean
           paused_until?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tasks: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string
+          done_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          needed_by: string | null
+          organisation_id: string
+          patient_id: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          needed_by?: string | null
+          organisation_id: string
+          patient_id: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string
+          done_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          needed_by?: string | null
+          organisation_id?: string
+          patient_id?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_tools_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
         }
         Relationships: []
       }
@@ -50674,6 +50851,8 @@ export type Database = {
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
       attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       my_nutrition_target_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_home_card_config: { Args: Record<PropertyKey, never>; Returns: Json }
+      sign_home_card_config: { Args: { p_id: string }; Returns: string }
       set_nutrition_target_hold: { Args: { p_hold: boolean; p_patient: string; p_reason?: string }; Returns: string }
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
@@ -52162,6 +52341,12 @@ export type Database = {
         Returns: undefined;
       };
       queue_next: { Args: { p_types?: string[] }; Returns: Json };
+      queue_my_reoffers: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_clinician_loop_config: { Args: { p_note: string; p_version: number }; Returns: undefined };
+      threshold_blast_radius_preview: {
+        Args: { p_current: number; p_direction: string; p_include_test?: boolean; p_metric: string; p_proposed: number };
+        Returns: Json;
+      };
       queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       confirm_offline_device_wipe: { Args: { p_danger?: number; p_device: string; p_reason?: string; p_unsent: number }; Returns: boolean }
       offline_device_checkin: { Args: { p_device: string; p_platform: string }; Returns: Json }
@@ -53599,6 +53784,14 @@ export type Database = {
         Returns: boolean
       }
       confirm_lab_code_mapping: { Args: { p_id: string }; Returns: Json }
+      create_pharmacy_counter_snapshot: {
+        Args: { p_weeks: Json; p_min_doses: number; p_expires_in_hours?: number }
+        Returns: Json
+      }
+      pharmacy_snapshot_by_token: {
+        Args: { p_token: string; p_pin?: string; p_client_key?: string }
+        Returns: Json
+      }
       create_record_share: {
         Args: {
           p_sections: string[]
@@ -56987,6 +57180,18 @@ export type Database = {
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      // S69b (spliced by hand from supabase/migrations/20261027183410_s69b_*.sql; not a wholesale regeneration)
+      decline_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      circle_tools_status: { Args: never; Returns: Json };
+      set_circle_missed_dose_alert: { Args: { p_member: string; p_on: boolean }; Returns: boolean };
+      post_circle_task: { Args: { p_kind: string; p_needed_by?: string; p_patient: string }; Returns: Json };
+      circle_tasks: { Args: { p_patient: string }; Returns: Json };
+      claim_circle_task: { Args: { p_task: string }; Returns: boolean };
+      release_circle_task: { Args: { p_task: string }; Returns: boolean };
+      complete_circle_task: { Args: { p_task: string }; Returns: boolean };
+      cancel_circle_task: { Args: { p_task: string }; Returns: boolean };
+      circle_weekly_digest: { Args: { p_patient: string }; Returns: Json };
+      circle_recent_nudges: { Args: never; Returns: Json };
       circle_check_in_pending: { Args: never; Returns: Json };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };

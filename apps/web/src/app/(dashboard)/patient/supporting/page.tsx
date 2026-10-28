@@ -6,6 +6,7 @@ import { NAV_ICON } from "@/lib/icons";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { SupportedPeople } from "./supported-people";
 import { CircleSupporting } from "./circle-supporting";
+import { NudgesCard } from "@/components/care-circle/nudges-card";
 import { CaregiverCallInvites } from "./caregiver-call-invites";
 import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
@@ -48,15 +49,17 @@ export default async function SupportingPage() {
         }
       />
 
+      {/* First, because Paystack returns the payer here: a paid reservation's claim link is the next thing they need (no SMS goes to the person). Renders nothing when there is none. */}
+      <ReservationsSent />
+
       <RecoveryDutiesCard />
 
       <CaregiverCallInvites locale={uiLanguage} />
 
+      <NudgesCard locale={uiLanguage} />
       <CircleSupporting locale={uiLanguage} />
 
       <SupportedPeople />
-
-      <ReservationsSent />
 
       {/* The other half of the same relationship, on the same page on purpose.
           Someone who both supports a person and is supported BY one should be

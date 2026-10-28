@@ -26,6 +26,10 @@ export interface TodayLoad {
   partial: boolean;
   /** True when tasks or doses are the copy kept on the phone (S06y): the screen then says how old it is. */
   fromPhone: boolean;
+  /** Whether a reading was logged today (this phone's unsent ones included). S47b reads it for the readings card. */
+  bpLoggedToday: boolean;
+  /** Whether this person has ever logged blood pressure on this account (among the recent readings read). Used so the readings card is for people who log it. */
+  bpHistory: boolean;
 }
 
 /** PostgREST and Postgres codes for "that table or view is not there". */
@@ -75,5 +79,7 @@ export async function loadToday(patientId: string, nowMs: number = Date.now()): 
     list: buildTodayList({ nowMs, tasks: tasks.tasks, doses, bpLoggedToday }),
     partial: tasks.partial || !dosesOk,
     fromPhone: tasks.fromPhone || dosesFromPhone,
+    bpLoggedToday,
+    bpHistory: bpRes.status === "fulfilled" && bpRes.value.length > 0,
   };
 }

@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/dashboard/corporate", label: "Overview", exact: true },
   { href: "/dashboard/corporate/eligibility", label: "Eligibility & benefits", exact: false },
+  { href: "/dashboard/corporate/eligibility/upload", label: "Upload a list", exact: false },
+  { href: "/dashboard/corporate/configuration", label: "Programme configuration", exact: false },
+  { href: "/dashboard/corporate/usage", label: "Usage statements", exact: false },
+  { href: "/dashboard/corporate/enrolment-sheet", label: "Sign-up code sheet", exact: false },
   { href: "/dashboard/corporate/campaigns", label: "Campaigns & messages", exact: false },
   { href: "/dashboard/corporate/billing", label: "Billing", exact: false },
   { href: "/dashboard/corporate/pilot", label: "Seat pilot", exact: false },

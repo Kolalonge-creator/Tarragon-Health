@@ -78,6 +78,10 @@ jest.mock("@/lib/queries/pending-post-checkin-signoff", () => ({
   readPendingPostCheckinSignoff: (...args: unknown[]) => readPendingPostCheckinSignoff(...args),
 }));
 const noPostCheckin: PostCheckinPending = { version: null, rules: null, failed: false };
+const readPendingAiMonitoringSignoff = jest.fn<(...args: unknown[]) => Promise<{ version: number | null; rules: null; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-ai-monitoring-signoff", () => ({
+  readPendingAiMonitoringSignoff: (...args: unknown[]) => readPendingAiMonitoringSignoff(...args),
+}));
 const readPendingCascadeConfigSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
 jest.mock("@/lib/queries/pending-cascade-config-signoff", () => ({
   readPendingCascadeConfigSignoff: (...args: unknown[]) => readPendingCascadeConfigSignoff(...args),
@@ -182,6 +186,8 @@ beforeEach(() => {
   readPendingQueuePagingConfigSignoff.mockResolvedValue(noQueuePaging);
   readPendingPostCheckinSignoff.mockReset();
   readPendingPostCheckinSignoff.mockResolvedValue(noPostCheckin);
+  readPendingAiMonitoringSignoff.mockReset();
+  readPendingAiMonitoringSignoff.mockResolvedValue({ version: null, rules: null, failed: false });
   readPendingCascadeConfigSignoff.mockReset();
   readPendingCascadeConfigSignoff.mockResolvedValue(noPostCheckin);
   readPendingBaselineLabsRuleSignoff.mockReset();
@@ -791,5 +797,25 @@ describe("readCmoSigningHub: symptom checker assessment wording and timing (S59c
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the symptom checker assessment wording and timing");
+  });
+});
+
+describe("readCmoSigningHub: AI monitoring rules (S80d)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line on the hub, under /clinician, for an unsigned draft", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingAiMonitoringSignoff.mockResolvedValue({ version: 1, rules: null, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "ai_monitoring");
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "ai_monitoring")).toBeUndefined();
+    readPendingAiMonitoringSignoff.mockResolvedValue({ version: null, rules: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the AI monitoring rules");
   });
 });

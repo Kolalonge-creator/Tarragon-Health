@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { AiLabel } from "@/components/ai/ai-label";
+import { useMemo, useState } from "react";
 import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { editTelemetryFromPairs, type EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { splitEntities } from "@/lib/scribe/entity-highlight";
+import { matchSentences, sentenceKey, visitLines, type SentenceSupport } from "@/lib/scribe/support-match";
+import { ProblemReportForm, type ProblemReportInput } from "./problem-report-form";
 import { afterEdit, canUseDraft, isEmptySection, setConfirmed, unconfirmed, type Confirmations, type DraftSectionKey } from "@/lib/scribe/draft-review";
 
 const WARNING_KEYS = {
@@ -35,19 +38,57 @@ interface DraftReviewPanelProps {
   patientSummary: string;
   /** Deterministic checks the server ran on a draft written from confirmed facts (uncited text, unknown ids, invented numbers). */
   warnings?: readonly { section: string; kind: string; detail?: string }[];
-  onUse: (draft: DraftSection, patientSummary: string) => void;
+  /** What the clinician typed about the visit. When given, the screen is split: the visit text on the left, the draft on the right, and any draft sentence with no support in the visit text is marked. */
+  sourceText?: string;
+  /** Records a "report a problem" submission; returns true when it was recorded. */
+  onReport?: (report: ProblemReportInput) => Promise<boolean>;
+  /** The third argument is the browser-side edit-rate figure for this review (S89): computed from what the clinician changed, never sent by this panel. */
+  onUse: (draft: DraftSection, patientSummary: string, telemetry: EditTelemetry) => void;
+  /** S89: the clinician must tick "I reviewed this draft against the record" before using the draft. Default true. */
+  requireAttestation?: boolean;
   onDiscard: () => void;
+}
+
+/** Removes the first occurrence of a sentence from a section's text and tidies the whitespace left behind. */
+function removeSentence(text: string, sentence: string): string {
+  return text.replace(sentence, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /**
  * The AI draft, held in the browser only. "Use in note" hands it to the note form, which is where the clinician edits,
  * saves and signs it. Nothing is written to the patient record from here (INV-11).
  */
-export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, onDiscard }: DraftReviewPanelProps) {
+export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceText, onReport, onUse, onDiscard, requireAttestation = true }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
   const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
+  const [attested, setAttested] = useState(false);
   const remaining = unconfirmed(confirmed).length;
+  const original = { ...draft, patientSummary };
+
+  /** Not reviewed: still exactly the model's text and not confirmed. Edited: changed from the model's text. Confirmed: ticked as read. */
+  function sectionState(key: keyof typeof fields): "not_reviewed" | "edited" | "confirmed" | "empty" {
+    if (isEmptySection(fields[key]) && !confirmed[key]) return "empty";
+    if (confirmed[key]) return "confirmed";
+    return fields[key] === original[key] ? "not_reviewed" : "edited";
+  }
+  // Sentences the clinician decided to keep on purpose, keyed by section and sentence text. Editing a sentence changes its key, so a kept
+  // decision never carries over to different words.
+  const [kept, setKept] = useState<Record<string, true>>({});
+  const [focusLine, setFocusLine] = useState<number | null>(null);
+  const hasSource = typeof sourceText === "string" && sourceText.trim() !== "";
+  const lines = useMemo(() => (hasSource ? visitLines(sourceText as string) : []), [hasSource, sourceText]);
+  const flaggedBySection = useMemo(() => {
+    const out: Partial<Record<DraftSectionKey, SentenceSupport[]>> = {};
+    if (!hasSource) return out;
+    for (const key of Object.keys(fields) as DraftSectionKey[]) {
+      const f = matchSentences(fields[key], sourceText as string).filter((x) => x.support === "unsupported");
+      if (f.length) out[key] = f;
+    }
+    return out;
+  }, [fields, hasSource, sourceText]);
+  const unresolvedIn = (key: DraftSectionKey) => (flaggedBySection[key] ?? []).filter((x) => !kept[`${key}|${sentenceKey(x.text)}`]).length;
+  const unresolvedTotal = (Object.keys(flaggedBySection) as DraftSectionKey[]).reduce((n, k) => n + unresolvedIn(k), 0);
 
   const sections: Array<{ key: keyof typeof fields; label: string }> = [
     { key: "history", label: t("scribe.draft.history", "en") },
@@ -63,7 +104,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">{t("scribe.draft.heading", "en")}</CardTitle>
-          <Badge variant="amber">Draft</Badge>
+          <AiLabel variant={remaining === 0 ? "drafted" : "unreviewed"} tone="amber" />
         </div>
         <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.disclaimer", "en")}</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink">{t("scribe.review.look_for", "en")}</p>
@@ -78,20 +119,80 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={hasSource ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
+        {hasSource && (
+          <aside className="space-y-1 rounded-md border border-charcoal-ink/15 p-2 text-xs md:sticky md:top-2 md:max-h-[70vh] md:self-start md:overflow-y-auto" data-testid="visit-text">
+            <p className="font-medium">{t("scribeui.support.heading", "en")}</p>
+            {lines.map((l, i) => (
+              <p key={i} data-line={i} data-focused={focusLine === i ? "true" : "false"} className={focusLine === i ? "rounded bg-amber-100 p-1" : "p-1"}>
+                {l}
+              </p>
+            ))}
+          </aside>
+        )}
+        <div className="space-y-4">
+        <p className="inline-block rounded border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800" data-testid="watermark">{t("scribeui.watermark", "en")}</p>
         {sections.map(({ key, label }) => (
           <div key={key}>
-            <Label>{label}</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor={`scribe-section-${key}`}>{label}</Label>
+              {/* The state is a word as well as a colour, so it never depends on colour to be understood. */}
+              <span className="text-xs text-charcoal-ink/70" data-section-state={sectionState(key)}>
+                {sectionStateWord(sectionState(key))}
+              </span>
+            </div>
             <Textarea
+              id={`scribe-section-${key}`}
               value={fields[key]}
               onChange={(e) => {
                 setFields((prev) => ({ ...prev, [key]: e.target.value }));
                 if (confirmed[key]) setEdited((prev) => ({ ...prev, [key]: true }));
                 setConfirmedState((prev) => afterEdit(prev, key));
+                setAttested(false);
               }}
+              // Text still exactly as the model wrote it and not yet confirmed: marked as AI-inserted and unreviewed.
+              className={sectionState(key) === "not_reviewed" ? "ring-1 ring-amber-300 bg-amber-50/50" : undefined}
               rows={key === "patientSummary" ? 4 : 3}
             />
             <EntityCheck text={fields[key]} />
+            {(flaggedBySection[key] ?? []).map((sentence) => {
+              const id = `${key}|${sentenceKey(sentence.text)}`;
+              const isKept = Boolean(kept[id]);
+              return (
+                <div key={id} className="mt-1 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-charcoal-ink" data-testid="unsupported-sentence" onMouseEnter={() => setFocusLine(sentence.sourceLine)}>
+                  <p>
+                    <span className="mr-2 rounded bg-red-600 px-1 py-0.5 font-semibold text-white">{t("scribeui.support.badge", "en")}</span>
+                    {sentence.text}
+                  </p>
+                  <p className="mt-1 text-charcoal-ink/70">
+                    {sentence.sourceLine === null ? t("scribeui.support.no_evidence", "en") : `${t("scribeui.support.evidence", "en")} ${lines[sentence.sourceLine]}`}
+                  </p>
+                  {isKept ? (
+                    <p className="mt-1 font-medium">{t("scribeui.support.kept", "en")}</p>
+                  ) : (
+                    <>
+                      <p className="mt-1">{t("scribeui.support.explain", "en")}</p>
+                      <div className="mt-1 flex gap-2">
+                        <Button size="sm" variant="outline" type="button" onClick={() => setKept((prev) => ({ ...prev, [id]: true }))}>
+                          {t("scribeui.support.keep", "en")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          onClick={() => {
+                            setFields((prev) => ({ ...prev, [key]: removeSentence(prev[key], sentence.text) }));
+                            setConfirmedState((prev) => afterEdit(prev, key));
+                          }}
+                        >
+                          {t("scribeui.support.remove", "en")}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
             {isEmptySection(fields[key]) && (
               <p className="mt-1 text-xs text-amber-700">{t(key === "patientSummary" ? "scribe.review.empty_summary" : "scribe.review.empty_flag", "en")}</p>
             )}
@@ -101,6 +202,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
             <label className="mt-1 flex items-center gap-2 text-xs text-charcoal-ink">
               <input
                 type="checkbox"
+                disabled={unresolvedIn(key) > 0}
                 checked={Boolean(confirmed[key])}
                 onChange={(e) => {
                   setConfirmedState((prev) => setConfirmed(prev, key, e.target.checked));
@@ -109,6 +211,19 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
               />
               {isEmptySection(fields[key]) ? t("scribe.review.confirm_empty", "en") : t("scribe.review.confirm_read", "en")}
             </label>
+            {!isEmptySection(fields[key]) && (
+              <button
+                type="button"
+                className="mt-1 text-xs text-red-700 underline"
+                onClick={() => {
+                  setFields((prev) => ({ ...prev, [key]: "" }));
+                  setConfirmedState((prev) => setConfirmed(prev, key, true));
+                  setEdited((prev) => ({ ...prev, [key]: false }));
+                }}
+              >
+                {t("scribeui.section.reject", "en")}
+              </button>
+            )}
           </div>
         ))}
 
@@ -118,10 +233,21 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
         <p role="status" className="text-xs text-charcoal-ink/70">
           {remaining === 0 ? t("scribe.review.all_done", "en") : t("scribe.review.remaining", "en", { count: remaining })}
         </p>
+        {unresolvedTotal > 0 && (
+          <p role="status" className="text-xs font-medium text-red-700">
+            {t("scribeui.support.unresolved", "en", { count: unresolvedTotal })}
+          </p>
+        )}
+        {requireAttestation && (
+          <label className="flex items-center gap-2 text-xs text-charcoal-ink">
+            <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
+            I reviewed this draft against the record
+          </label>
+        )}
         <div className="flex gap-3">
           <Button
             size="sm"
-            disabled={!canUseDraft(confirmed)}
+            disabled={!canUseDraft(confirmed) || unresolvedTotal > 0 || (requireAttestation && !attested)}
             onClick={() =>
               onUse(
                 {
@@ -131,7 +257,8 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
                   plan: fields.plan,
                   followUp: fields.followUp,
                 },
-                fields.patientSummary
+                fields.patientSummary,
+                editTelemetryFromPairs((Object.keys(original) as (keyof typeof original)[]).map((k) => ({ original: original[k], final: fields[k] }))),
               )
             }
           >
@@ -141,9 +268,15 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, 
             {t("scribe.draft.discard", "en")}
           </Button>
         </div>
+        {onReport && <ProblemReportForm onSubmit={onReport} />}
+        </div>
       </CardContent>
     </Card>
   );
+}
+
+function sectionStateWord(state: "not_reviewed" | "edited" | "confirmed" | "empty"): string {
+  return { not_reviewed: "AI text, not reviewed", edited: "Edited, not yet confirmed", confirmed: "Confirmed", empty: "Empty, not yet confirmed" }[state];
 }
 
 /**
