@@ -25,15 +25,35 @@ export function BaselineLabsRulePanel({ version, rule }: { version: number | nul
             </ul>
             <p className="mt-1 text-charcoal-ink/80">{rule.groupsNote}</p>
           </div>
-          <div>
-            <p className="font-medium">Labs that must be on file (proposed)</p>
-            <ul className="list-disc pl-5 text-charcoal-ink/80">
-              <li>For every medicine above: {rule.requiredForAll.join(", ")}.</li>
-              <li>Also, for every glucose-lowering medicine: {rule.requiredForGlucoseLowering.join(", ")}.</li>
-              <li>Also, for a blood-pressure-lowering medicine when diabetes is on the patient&apos;s problem list: {rule.requiredIfDiabetes.join(", ")}.</li>
-            </ul>
-            <p className="mt-1 text-charcoal-ink/80">{rule.diabetesNote}</p>
-          </div>
+          {rule.classRules.length > 0 ? (
+            <div>
+              <p className="font-medium">Labs that must be on file, by medicine (proposed)</p>
+              <table className="mt-1 w-full text-left">
+                <thead><tr><th className="py-1 pr-3 font-medium">Medicine</th><th className="py-1 font-medium">Results needed</th></tr></thead>
+                <tbody>
+                  {rule.classRules.map((c) => (
+                    <tr key={c.label} className="border-t border-charcoal-ink/10 align-top">
+                      <td className="py-1 pr-3">{c.label}</td>
+                      <td className="py-1">{c.tests}{c.note ? <span className="block text-charcoal-ink/70">{c.note}</span> : null}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-charcoal-ink/80">
+                {rule.extraRules.map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div>
+              <p className="font-medium">Labs that must be on file (proposed)</p>
+              <ul className="list-disc pl-5 text-charcoal-ink/80">
+                <li>For every medicine above: {rule.requiredForAll.join(", ")}.</li>
+                <li>Also, for every glucose-lowering medicine: {rule.requiredForGlucoseLowering.join(", ")}.</li>
+                <li>Also, for a blood-pressure-lowering medicine when diabetes is on the patient&apos;s problem list: {rule.requiredIfDiabetes.join(", ")}.</li>
+              </ul>
+              <p className="mt-1 text-charcoal-ink/80">{rule.diabetesNote}</p>
+            </div>
+          )}
           <p><span className="font-medium">How recent (proposed): {rule.windowDays} days.</span> {rule.windowNote}</p>
           <p><span className="font-medium">If a lab is missing.</span> {rule.whenMissing}</p>
           <div>
@@ -53,7 +73,7 @@ export function BaselineLabsRulePanel({ version, rule }: { version: number | nul
       )}
       <label className="flex items-start gap-2 text-sm text-charcoal-ink">
         <input type="checkbox" name="understood" className="mt-1" required disabled={!rule} />
-        <span>I have read the medicines, the labs, the {rule?.windowDays ?? "proposed"}-day window, the refusal and the documented override, and I sign baseline labs rule version {version}. Until I do, nothing is checked.</span>
+        <span>I have read the medicines, the labs for each, the {rule?.windowDays ?? "proposed"}-day window, the refusal and the documented override, and I sign baseline labs rule version {version}. Until I do, nothing is checked.</span>
       </label>
       <button type="submit" className={btn} disabled={!rule}>Sign baseline labs rule version {version}</button>
     </form>

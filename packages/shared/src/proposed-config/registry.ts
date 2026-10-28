@@ -9328,6 +9328,384 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/BUILD-SPEC-v5.md Module 6 (6.10) and invariants INV-01, INV-02, INV-14; docs/design/S50b-lowcarb.md; supabase/migrations/*_s50b_lowcarb_t2d_programme.sql",
   },
   {
+    key: "prescribing.baseline_labs_rule",
+    // Version 2 of the baseline labs rule: the CMO's answers of 2026-10-27 on top of v1 (`prescribing.baseline_labs_rule`). The database holds it as
+    // `baseline_labs_rule_config` v2 (UNSIGNED, INACTIVE until the Chief Medical Officer signs on the sign-off hub). A test compares this value with the migration seed.
+    value: {
+  "applies_to": {
+    "start_new_medicine": true,
+    "dose_increase": true,
+    "sources_checked": [
+      "clinician",
+      "specialist"
+    ],
+    "sources_never_checked": [
+      "patient",
+      "fhir_import"
+    ],
+    "note": "Checked when a doctor starts one of these medicines, restarts a stopped one, changes a prescription to one of them, or raises its dose or how often it is taken. A person recording a medicine they already take, an imported record, a stopped medicine, and a dose or frequency that stays the same or goes down are never checked. Doses are compared by their amounts and units, so 1 g to 500 mg is a decrease."
+  },
+  "drug_classes": {
+    "bp_lowering": {
+      "label": "Blood-pressure-lowering medicines",
+      "name_patterns": [
+        "%losartan%",
+        "%telmisartan%",
+        "%valsartan%",
+        "%irbesartan%",
+        "%candesartan%",
+        "%olmesartan%",
+        "%azilsartan%",
+        "%sacubitril%",
+        "%ramipril%",
+        "%lisinopril%",
+        "%enalapril%",
+        "%perindopril%",
+        "%captopril%",
+        "%benazepril%",
+        "%fosinopril%",
+        "%quinapril%",
+        "%aliskiren%",
+        "%hydrochlorothiazide%",
+        "%hctz%",
+        "%indapamide%",
+        "%bendroflumethiazide%",
+        "%chlortalidone%",
+        "%chlorthalidone%",
+        "%spironolactone%",
+        "%amiloride%",
+        "%eplerenone%",
+        "%moduretic%",
+        "%furosemide%",
+        "%frusemide%",
+        "%bumetanide%",
+        "%torsemide%",
+        "%hydralazine%",
+        "%methyldopa%",
+        "%doxazosin%",
+        "%prazosin%",
+        "%terazosin%",
+        "%clonidine%"
+      ]
+    },
+    "glucose_lowering": {
+      "label": "Glucose-lowering medicines",
+      "name_patterns": [
+        "%metformin%",
+        "%gliclazide%",
+        "%glibenclamide%",
+        "%glimepiride%",
+        "%glipizide%",
+        "%tolbutamide%",
+        "%sitagliptin%",
+        "%vildagliptin%",
+        "%linagliptin%",
+        "%saxagliptin%",
+        "%alogliptin%",
+        "%empagliflozin%",
+        "%dapagliflozin%",
+        "%canagliflozin%",
+        "%ertugliflozin%",
+        "%pioglitazone%",
+        "%acarbose%",
+        "%repaglinide%",
+        "%nateglinide%",
+        "%insulin%",
+        "%liraglutide%",
+        "%semaglutide%",
+        "%dulaglutide%",
+        "%exenatide%",
+        "%tirzepatide%"
+      ]
+    },
+    "note": "CMO answers 2026-10-27: a calcium channel blocker or a beta blocker alone needs no blood test, so those medicines are NOT covered (amlodipine, nifedipine, felodipine, lercanidipine, nitrendipine, diltiazem, verapamil, atenolol, bisoprolol, metoprolol, propranolol, carvedilol, nebivolol, labetalol). Every other class of blood-pressure and glucose-lowering medicine is covered. Statins are covered only for the pregnancy question.",
+    "statins": {
+      "label": "Statins (checked only for pregnancy)",
+      "name_patterns": [
+        "%atorvastatin%",
+        "%simvastatin%",
+        "%rosuvastatin%",
+        "%pravastatin%",
+        "%lovastatin%"
+      ]
+    }
+  },
+  "required_baseline": {
+    "for_every_medicine_in_both_groups": [],
+    "additionally_for_every_glucose_lowering_medicine": [],
+    "additionally_if_diabetes_on_record": [],
+    "analytes": {
+      "kidney_function": {
+        "label": "Kidney function (creatinine or eGFR)",
+        "analyte_codes": [
+          "creatinine"
+        ],
+        "note": "Creatinine is the stored kidney-function result; eGFR is calculated from it, so a recent creatinine counts."
+      },
+      "potassium": {
+        "label": "Potassium",
+        "analyte_codes": [
+          "potassium"
+        ]
+      },
+      "glucose": {
+        "label": "Glucose",
+        "analyte_codes": [
+          "fasting_glucose",
+          "random_glucose"
+        ],
+        "note": "A laboratory glucose result (fasting or random). A glucose the patient logged at home does not count."
+      },
+      "hba1c": {
+        "label": "HbA1c",
+        "analyte_codes": [
+          "hba1c"
+        ]
+      },
+      "sodium": {
+        "label": "Sodium",
+        "analyte_codes": [
+          "sodium"
+        ]
+      },
+      "glucose_or_hba1c": {
+        "label": "Fasting glucose or HbA1c",
+        "analyte_codes": [
+          "fasting_glucose",
+          "random_glucose",
+          "hba1c"
+        ],
+        "note": "Either result counts. Where the doctor has marked HbA1c as unreliable for the patient, only a glucose result counts."
+      }
+    },
+    "diabetes_on_record": {
+      "icd10_prefixes": [
+        "E10",
+        "E11",
+        "E13",
+        "E14"
+      ],
+      "statuses": [
+        "active",
+        "controlled",
+        "uncontrolled"
+      ],
+      "note": "Version 2 sets the tests for each medicine class in class_requirements, so this version does not ask for extra tests because diabetes is on the problem list."
+    }
+  },
+  "recency_window_days": 365,
+  "recency_window_note": "CMO answer 2026-10-27: 12 months. A result counts only if the specimen was collected (or the result dated) within 365 days before the medicine is started or the dose is raised. A result dated in the future does not count.",
+  "when_labs_are_missing": {
+    "action": "refuse_unless_documented_override",
+    "bypass_available": true,
+    "message": "The start or increase is refused and the doctor sees which labs are missing. The doctor orders them and tries again once the results are on file, or records a documented override.",
+    "override": {
+      "categories": [
+        {
+          "key": "emergency_treatment",
+          "label": "Emergency treatment: waiting for labs would put the patient at risk"
+        },
+        {
+          "key": "labs_ordered_results_pending",
+          "label": "Labs have been ordered and the results are pending"
+        },
+        {
+          "key": "labs_not_obtainable_documented",
+          "label": "Labs cannot be obtained now, and the reason is written down"
+        }
+      ],
+      "min_reason_length": 20,
+      "valid_minutes": 30,
+      "followup_hours": 168,
+      "who": "A doctor with prescribing authority, for one patient and one medicine, used once by the same doctor."
+    },
+    "bypass_note": "A doctor can record a documented override: one of three reasons plus a written reason of at least 20 characters. It is valid for 30 minutes, for that doctor, that patient and that medicine, and is used once. The missing tests are then put on the patient's lab list due in 7 days (CMO answer 2026-10-27: the doctor may start before results and records why)."
+  },
+  "informational": {
+    "membership": "Membership includes doctor-ordered baseline labs at the member price, paid separately. This note changes nothing in the check."
+  },
+  "proposed_note": "Every clinical value here is PROPOSED (the medicines, the tests for each class, the 12-month window, the kidney and pregnancy rules, the documented override). Nothing applies until the Chief Medical Officer signs. No agent signs. Version 2 carries the CMO's answers of 2026-10-27 into the merged baseline labs rule.",
+  "class_requirements": [
+    {
+      "key": "acei_arb",
+      "label": "ACE inhibitor or ARB",
+      "name_patterns": [
+        "%losartan%",
+        "%telmisartan%",
+        "%valsartan%",
+        "%irbesartan%",
+        "%candesartan%",
+        "%olmesartan%",
+        "%azilsartan%",
+        "%sacubitril%",
+        "%ramipril%",
+        "%lisinopril%",
+        "%enalapril%",
+        "%perindopril%",
+        "%captopril%",
+        "%benazepril%",
+        "%fosinopril%",
+        "%quinapril%",
+        "%aliskiren%"
+      ],
+      "requires": [
+        "kidney_function",
+        "potassium",
+        "sodium"
+      ],
+      "note": "Repeat creatinine and potassium 1 to 2 weeks after starting or raising the dose. That repeat is part of the rule's wording but is not enforced or scheduled by the system."
+    },
+    {
+      "key": "thiazide",
+      "label": "Thiazide-type diuretic",
+      "name_patterns": [
+        "%hydrochlorothiazide%",
+        "%hctz%",
+        "%indapamide%",
+        "%bendroflumethiazide%",
+        "%chlortalidone%",
+        "%chlorthalidone%"
+      ],
+      "requires": [
+        "kidney_function",
+        "potassium",
+        "sodium",
+        "glucose_or_hba1c"
+      ]
+    },
+    {
+      "key": "other_bp",
+      "label": "Other blood-pressure medicines (not in the CMO's table: same tests as an ACE inhibitor)",
+      "name_patterns": [
+        "%spironolactone%",
+        "%amiloride%",
+        "%eplerenone%",
+        "%moduretic%",
+        "%furosemide%",
+        "%frusemide%",
+        "%bumetanide%",
+        "%torsemide%",
+        "%hydralazine%",
+        "%methyldopa%",
+        "%doxazosin%",
+        "%prazosin%",
+        "%terazosin%",
+        "%clonidine%"
+      ],
+      "requires": [
+        "kidney_function",
+        "potassium",
+        "sodium"
+      ]
+    },
+    {
+      "key": "metformin",
+      "label": "Metformin",
+      "name_patterns": [
+        "%metformin%"
+      ],
+      "requires": [
+        "kidney_function",
+        "glucose_or_hba1c"
+      ]
+    },
+    {
+      "key": "sulfonylurea_insulin",
+      "label": "Sulfonylurea or insulin",
+      "name_patterns": [
+        "%gliclazide%",
+        "%glibenclamide%",
+        "%glimepiride%",
+        "%glipizide%",
+        "%tolbutamide%",
+        "%insulin%"
+      ],
+      "requires": [
+        "kidney_function",
+        "hba1c",
+        "glucose"
+      ]
+    },
+    {
+      "key": "other_glucose_lowering",
+      "label": "Other glucose-lowering medicines (not in the CMO's table: same tests as a sulfonylurea)",
+      "name_patterns": [
+        "%sitagliptin%",
+        "%vildagliptin%",
+        "%linagliptin%",
+        "%saxagliptin%",
+        "%alogliptin%",
+        "%empagliflozin%",
+        "%dapagliflozin%",
+        "%canagliflozin%",
+        "%ertugliflozin%",
+        "%pioglitazone%",
+        "%acarbose%",
+        "%repaglinide%",
+        "%nateglinide%",
+        "%liraglutide%",
+        "%semaglutide%",
+        "%dulaglutide%",
+        "%exenatide%",
+        "%tirzepatide%"
+      ],
+      "requires": [
+        "kidney_function",
+        "hba1c",
+        "glucose"
+      ]
+    },
+    {
+      "key": "statin",
+      "label": "Statin",
+      "name_patterns": [
+        "%atorvastatin%",
+        "%simvastatin%",
+        "%rosuvastatin%",
+        "%pravastatin%",
+        "%lovastatin%"
+      ],
+      "requires": []
+    }
+  ],
+  "required_baseline_note": "Each medicine class lists its own tests in class_requirements (the CMO's table of 2026-10-27). The three lists above are empty in this version.",
+  "egfr_rules": {
+    "name_patterns": [
+      "%metformin%"
+    ],
+    "do_not_start_below": 30,
+    "review_dose_below": 45,
+    "formula": "CKD-EPI 2021 from the latest creatinine inside the window",
+    "note": "Metformin is refused, with no override, when the eGFR worked out from the latest creatinine is under 30. Between 30 and 44 the doctor should review the dose; the system does not enforce that."
+  },
+  "pregnancy": {
+    "classes": [
+      "acei_arb",
+      "statin"
+    ],
+    "age_from": 12,
+    "age_to": 50,
+    "negative_test_valid_days": 30,
+    "analyte_code": "pregnancy_test",
+    "label": "Pregnancy excluded (a negative pregnancy test in the last 30 days)",
+    "note": "For a woman aged 12 to 50, or with sex or date of birth not on record, starting or raising an ACE inhibitor, ARB or statin needs a negative pregnancy test on file. Without it the start is refused unless the doctor records a documented override."
+  },
+  "hba1c_exception": {
+    "conditions": [
+      "sickle cell trait or disease",
+      "recent transfusion",
+      "anaemia"
+    ],
+    "note": "A doctor with prescribing authority can mark a patient's HbA1c as unreliable. Fasting or random glucose then stands in for HbA1c for that patient."
+  }
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/baseline-labs-rule-proposal.md; supabase/migrations/20261028110233_baseline_labs_rule_v2_cmo_answers.sql. Unsigned until the CMO signs.",
+  },
+  {
     key: "care_gaps.rules",
     // S90: the care gap rule thresholds (missed reading, no HbA1c or lipids in 12 months, rising trend, refill lapse, adherence lapse), the outreach ladder, the
     // weekly cap and quiet hours, and the experiment scaffolding. The database holds it as `care_gap_rule_config` v1 (UNSIGNED, INACTIVE until the Chief Medical

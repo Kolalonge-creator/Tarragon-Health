@@ -51679,6 +51679,8 @@ export type Database = {
       record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
+      mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
+      clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };
       mental_health_reliable_change_report: { Args: { p_day: number; p_from?: string; p_instrument: string; p_to?: string }; Returns: Json };
       sign_outcome_reliable_change_config: { Args: { p_version: number }; Returns: undefined };
       bp_control_by_adjustment_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
