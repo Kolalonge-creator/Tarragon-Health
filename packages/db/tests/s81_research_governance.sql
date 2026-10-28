@@ -6,7 +6,15 @@ begin;
 -- Research hardening: every export now needs a request by the CMO that a different admin has authorised, used once. The proof opens one
 -- authorised request before each export it expects to succeed (and before the refusal that must come from the participant minimum rather than
 -- from a missing authorisation). Any request left unused by a refused run is cleared first so the one-open-request index never gets in the way.
+-- open_auth also forgets the previous release's participant keys, so the subtraction guard (a release differing from the last by fewer than the
+-- minimum cell size is held back) does not fire between the proof's deliberately different exports; open_auth_keep leaves them, to test the guard.
+create function pg_temp.open_auth_keep(p uuid, cmo uuid, adm uuid, org uuid) returns void language sql as $f$
+  delete from public.research_export_requests where protocol_id = p and consumed_at is null and cancelled_at is null;
+  insert into public.research_export_requests (protocol_id, organisation_id, requested_by, note, authorised_by, authorised_at)
+  values (p, org, cmo, 'S81 proof request', adm, now());
+$f$;
 create function pg_temp.open_auth(p uuid, cmo uuid, adm uuid, org uuid) returns void language sql as $f$
+  update public.research_exports set participant_keys = null where protocol_id = p;
   delete from public.research_export_requests where protocol_id = p and consumed_at is null and cancelled_at is null;
   insert into public.research_export_requests (protocol_id, organisation_id, requested_by, note, authorised_by, authorised_at)
   values (p, org, cmo, 'S81 proof request', adm, now());
@@ -17,7 +25,7 @@ declare
   v_org uuid; v_admin uuid := gen_random_uuid(); v_cmo uuid := gen_random_uuid(); v_pat uuid;
   v_ver uuid; v_ver_dp uuid; v_bp text; v_ts text;
   v_good uuid[] := '{}'; v_withdrawn uuid; v_noresearch uuid; v_test uuid; v_nodp uuid; v_u uuid; v_future uuid; v_rare uuid; v_future_hash text; v_res2 jsonb;
-  v_p uuid; v_p2 uuid; v_ok boolean; v_res jsonb; v_n int; v_status public.research_protocol_status; v_i int;
+  v_msg text; v_p uuid; v_p2 uuid; v_ok boolean; v_res jsonb; v_n int; v_status public.research_protocol_status; v_i int;
   v_fields text[] := array['pathway_code','day','bp_status','adherence_pct','enrolment_month','computed_month'];
 begin
   select id into v_org from public.organisations limit 1;
@@ -144,6 +152,13 @@ begin
 
   -- control: it is the consent DATE that keeps the late consenter out. Move their consent into the past and their data appears; put it back.
   update public.patient_consents set created_at = now() - interval '3 days' where patient_id = v_future and consent_type = 'research';
+  -- subtraction guard: this release would differ from the one just made by exactly one person, so it is held back and nothing is released
+  perform pg_temp.open_auth_keep(v_p, v_cmo, v_admin, v_org);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
+  set local role authenticated;
+  begin perform public.run_research_export(v_p); v_ok := true; exception when others then v_ok := false; v_msg := sqlerrm; end;
+  reset role;
+  if v_ok or v_msg not like 'held back%' then raise exception 'FAIL: a release one person different from the last was not held back (ok %, message %)', v_ok, v_msg; end if;
   perform pg_temp.open_auth(v_p, v_cmo, v_admin, v_org);
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
   set local role authenticated;
