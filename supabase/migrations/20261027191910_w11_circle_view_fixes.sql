@@ -140,7 +140,7 @@ begin
       from (select (date_trunc('week', v_today::timestamp)::date - 7 * i) as wk from generate_series(0, v_weeks - 1) i) k
       left join (select (date_trunc('week', taken_at at time zone 'Africa/Lagos'))::date wk, round(avg(systolic))::integer sys,
                         round(avg(diastolic))::integer dia, count(*)::integer n
-                   from public.vitals_readings
+                   from private.vitals_readings_current
                   where patient_id = p_patient and vital_type = 'blood_pressure' and systolic is not null and diastolic is not null
                     and coalesce(validation_status::text, '') <> 'rejected'
                     and taken_at >= (date_trunc('week', v_today::timestamp)::date - 7 * (v_weeks - 1))::timestamp at time zone 'Africa/Lagos'

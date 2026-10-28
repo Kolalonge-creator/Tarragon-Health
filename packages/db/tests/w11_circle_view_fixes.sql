@@ -100,7 +100,7 @@ begin
   v_txt := (v_view #> '{monthly,0}')::text;
   perform pg_temp.ck('2b module off: average kept, no versus_target, no direction', '147/false/false',
     coalesce(v_view #>> '{monthly,0,average,systolic}', 'none') || '/' || (v_txt ~ 'versus_target')::text || '/' || (v_txt ~ 'direction')::text);
-  update public.platform_modules set is_enabled = true where key = 'sponsor_outcome_surfaces';
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = (select id from public.profiles order by created_at limit 1) where key = 'sponsor_outcome_surfaces';
   v_view := pg_temp.view_as(sA, hA);
   perform pg_temp.ck('2c module on: versus_target and direction present', 'above/similar',
     coalesce(v_view #>> '{monthly,0,average,versus_target}', 'none') || '/' || coalesce(v_view #>> '{monthly,0,direction}', 'none'));
@@ -136,7 +136,7 @@ begin
   perform pg_temp.ck('3c an expired supporter is refused', 'P0002', coalesce(pg_temp.view_as(sExp, hA) ->> 'error', 'allowed'));
 
   -- 4 under 18
-  update public.platform_modules set is_enabled = true where key = 'care_circle_digest';
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = (select id from public.profiles order by created_at limit 1) where key = 'care_circle_digest';
   perform pg_temp.ck('4a an adult supporter can open the digest (control)', 'ok', pg_temp.digest_as(sA, hA));
   hM := pg_temp.mkuser('W11 Minor'); sM := pg_temp.mkcircle(hM, 'W11 Minor Sup', array['weekly_bp_trend', 'appointments']);
   insert into public.care_circle_invites (organisation_id, patient_id, invitee_kind, invitee_hash, invitee_hint, relationship, permissions, grant_days, token_hash, expires_at)

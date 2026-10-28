@@ -105,7 +105,7 @@ begin
   insert into s38d_results values ('2b the average is whole numbers with enough_readings; no direction while the outcome module is off', (v_view #>> '{monthly,0,average,systolic}') || '/' || (v_view #>> '{monthly,0,enough_readings}') || '/' || coalesce(v_view #>> '{monthly,0,direction}', 'none'),
     '147/true/none', case when (v_view #>> '{monthly,0,average,systolic}') = '147' and (v_view #>> '{monthly,0,enough_readings}') = 'true' and v_view #>> '{monthly,0,direction}' is null then 'PASS' else 'FAIL' end);
   -- separate step: the module ON shows the direction (switched back off straight after)
-  update public.platform_modules set is_enabled = true where key = 'sponsor_outcome_surfaces';
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = (select id from public.profiles order by created_at limit 1) where key = 'sponsor_outcome_surfaces';
   execute 'set local role authenticated';
   v_rep := public.circle_supporter_view(h);
   execute 'reset role';
