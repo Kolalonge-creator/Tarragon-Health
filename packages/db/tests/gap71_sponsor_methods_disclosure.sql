@@ -113,7 +113,7 @@ begin
   update public.consent_versions set is_current = true where consent_type = 'sponsor_reporting' and version = '2026-10-07-draft';
   select id into v_ver from public.consent_versions where consent_type = 'sponsor_reporting' and is_current limit 1;
   insert into public.sponsor_cohorts (organisation_id, sponsor_org_id, name, code, valid_from, valid_to, max_uses)
-    values (v_org, v_sp, 'GAP71 programme', 'GAP71AA2', current_date - 400, current_date + 30, 100) returning id into v_coh;
+    values (v_org, v_sp, 'GAP71 programme', 'GAPQ7AA2', current_date - 400, current_date + 30, 100) returning id into v_coh;
   perform pg_temp.setf('cohort', v_coh);
   -- three members who agreed to share (so a real member id exists to look for)
   for i in 1 .. 3 loop
