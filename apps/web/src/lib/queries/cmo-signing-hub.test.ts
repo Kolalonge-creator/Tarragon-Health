@@ -62,7 +62,7 @@ jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
 }));
 const noCapacityConfig: CapacityPending = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: false };
-type QueuePagingPending = { taskLayer: { kind: "accept_in_force" | "sign_new"; version: number } | null; taskLayerRules: unknown; pagingVersion: number | null; pagingRules: unknown; pagingInForceRules: unknown; failed: boolean };
+type QueuePagingPending = { taskLayer: { kind: "accept_in_force" | "sign_new"; version: number } | null; taskLayerRules: unknown; pagingVersion: number | null; pagingRules: unknown; pagingInForceRules: unknown; pagingRunningUnsigned?: boolean; failed: boolean };
 const readPendingQueuePagingConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QueuePagingPending>>();
 jest.mock("@/lib/queries/pending-queue-paging-config-signoff", () => ({
   readPendingQueuePagingConfigSignoff: (...args: unknown[]) => readPendingQueuePagingConfigSignoff(...args),
