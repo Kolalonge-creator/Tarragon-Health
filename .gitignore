@@ -101,3 +101,8 @@ audio/masters/
 /audio/s32/
 /audio/voice/
 *.whl
+
+# W-40 load tests: doctor session tokens must never be committed (see scripts/load/README.md)
+scripts/load/**/sessions*.json
+scripts/load/**/*.jwt
+*.jwt
