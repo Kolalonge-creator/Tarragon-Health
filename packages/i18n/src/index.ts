@@ -26,6 +26,7 @@ export * from "./monthly-report";
 export * from "./cycle-copy";
 export * from "./care-circle-tools-copy";
 export * from "./employer-pilot-copy";
+export * from "./care-gap-copy";
 export * from "./maternal-child";
 export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_KEYS, GLUCOSE_WORDING_SIGNED, type GlucoseWordingCode } from "./glucose-wording";
 export { activeVitalsWording, VITALS_WORDING_CODES, VITALS_WORDING_DATA, VITALS_WORDING_KEYS, VITALS_WORDING_SIGNED, type VitalsWordingCode } from "./vitals-wording";

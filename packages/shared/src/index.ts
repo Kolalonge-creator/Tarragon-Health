@@ -319,3 +319,6 @@ export * from "./care-circle-presets";
 // S43m: the emergency card field choices and the pure half of photo capture, shared by web and phone.
 export * from "./emergency-card-fields";
 export * from "./document-suggestions";
+
+// S71 A3: the refund and cancellation rule numbers and lines, shared by web and phone.
+export * from "./refund-rule";

@@ -23,6 +23,7 @@ import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-no
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
 import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
 import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
 import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
@@ -88,6 +89,8 @@ export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 /** WP3: the cascade-of-care definitions (stages, the 140/90 and 7.0 percent control lines, the selection panel note). Nothing is counted anywhere until signed. */
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
+/** S90: the care gap rule configuration (the lines each rule uses, the outreach ladder, the weekly cap, the quiet hours). Unsigned means shadow mode at most: nobody is contacted. */
+export const CARE_GAP_CONFIG_ITEM_KEY = "care_gap_config";
 /** D4: reliable change in points for the PHQ-9 and GAD-7. Nothing is counted anywhere until signed. */
 export const RELIABLE_CHANGE_ITEM_KEY = "reliable_change_config";
 /** D3: what counts as a doctor adjusting a hypertension medicine, and over how many days. Nothing is counted anywhere until signed. */
@@ -119,7 +122,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, outcomeDefinitions] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -147,11 +150,12 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingMentalWellbeingSignoff(supabase),
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
+    readPendingCareGapConfigSignoff(supabase),
+    readPendingOutcomeDefinitionsSignoff(supabase),
     readPendingBaselineLabsRuleSignoff(supabase),
     readBaselineLabsOverrideAttention(supabase),
     readPendingAiMonitoringSignoff(supabase),
     readPendingMskProgrammesSignoff(supabase),
-    readPendingOutcomeDefinitionsSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -522,6 +526,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (careGapConfig.version !== null) {
+    items.push({
+      key: CARE_GAP_CONFIG_ITEM_KEY,
+      title: "Care gap rules",
+      detail: `Care gap rules version ${careGapConfig.version} (the six gap rules and their lines, the outreach ladder, the weekly cap, the quiet hours and the experiment scaffolding) are waiting for your signature. Two numbers are left for you to supply and those rules stay inert until you do. Until you sign, nobody is contacted about a care gap; signing does not switch the engine on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (baselineLabs.version !== null) {
     items.push({
       key: BASELINE_LABS_ITEM_KEY,
@@ -566,6 +581,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
+    ...(careGapConfig.failed ? ["the care gap rules"] : []),
     ...(outcomeDefinitions.failed ? ["the reliable change and adjustment definitions"] : []),
     ...(baselineLabs.failed ? ["the baseline labs prescribing rule"] : []),
     ...(baselineOverrides.failed ? ["the baseline labs overrides"] : []),

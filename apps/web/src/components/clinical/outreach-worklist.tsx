@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { lagosShortDate } from "@/lib/care-gaps/gap-model";
 
 export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   high_risk_score: "High risk score",
@@ -34,6 +35,11 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   medication_engagement_barrier: "Struggling to take medication as prescribed",
   engagement_decline: "Newly at risk of disengaging",
   disengagement_risk: "Falling behind on engagement",
+  // S90: the call step of the care gap engine (the gap itself, with its "why", is in the Care gaps section above the worklist)
+  gap_missed_reading: "Missed reading (care gap)",
+  gap_lab_overdue: "Yearly lab overdue (care gap)",
+  gap_refill_lapse: "Refill overdue (care gap)",
+  gap_adherence_lapse: "Adherence below the line (care gap)",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -69,6 +75,17 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
         .filter(Boolean)
         .join(" · ") || null
     );
+  }
+  if (
+    task.trigger_type === "gap_missed_reading" ||
+    task.trigger_type === "gap_lab_overdue" ||
+    task.trigger_type === "gap_refill_lapse" ||
+    task.trigger_type === "gap_adherence_lapse"
+  ) {
+    const due = typeof detail.due_date === "string" ? lagosShortDate(detail.due_date) : null;
+    return due
+      ? `Care gap engine, due ${due}. Open the care gap above to see why it is open.`
+      : "Care gap engine. Open the care gap above to see why it is open.";
   }
   const condition =
     typeof detail.condition_or_type === "string" ? detail.condition_or_type : null;
