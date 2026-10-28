@@ -825,10 +825,14 @@ begin
   -- Test clinicians are exempt from the guard (the chain canary's synthetic clinician has no licence to record), so the blocking cases below use one
   -- REAL clinician with no date: the first fixture clinician is made non-test here and put back after the two refusals.
   select id into v_real_sid from public.clinical_staff where is_test and active and license_expires_at is null order by id limit 1;
+  if v_real_sid is null then raise exception 'proof fixture: no active test clinician without a licence date to use as the real blocker'; end if;
+  -- private.guard_is_test_flag lets only an admin or a service context change is_test: clear any session identity left by an earlier step.
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   update public.clinical_staff set is_test = false where id = v_real_sid;
   perform pg_temp.ck('the legacy no-date rows block the switch (nobody is stranded)', '23514',
     pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 4$q$));
   perform pg_temp.ck('signing is refused while an active clinician has no licence date', 'true', (pg_temp.q_as(v_cmo, 'select public.sign_credentialing_config(4)') like 'ERR:record the licence expiry date%')::text);
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   update public.clinical_staff set is_test = true where id = v_real_sid;
   -- Only test clinicians lack a date now: activation must NOT be refused (rolled back in a sub-block, so the proof's own flow is untouched).
   begin
