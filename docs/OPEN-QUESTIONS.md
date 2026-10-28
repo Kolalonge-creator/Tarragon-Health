@@ -3363,6 +3363,15 @@ following are recorded in the system:
 - Decision: open (product).
 ## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
 
+### OQ-D4-1 Reliable change points for PHQ-9 and GAD-7 (raised by gap 71 D4)
+- PROPOSED `outcomes.reliable_change_rules` v1: 6 points on the PHQ-9 and 4 points on the GAD-7, a change of at least that many in either direction. Written from the published sources (the Jacobson and Truax reliable change method; the points the English NHS Talking Therapies programme uses), NOT checked against the primary texts and NOT validated for Nigeria or app self-completion. A baseline under the points cannot show a reliable improvement; the group is the response group (baseline of 5 or more).
+- Options: (a) the CMO signs 6 and 4 after reading the sources (recommended as a start); (b) the CMO asks for a different number or a locally derived index; (c) wait for local data.
+- Decision:
+
+### OQ-D3-1 What counts as a doctor adjusting a blood pressure medicine (raised by gap 71 D3)
+- PROPOSED `outcomes.adjustment_rules` v1: in the 90 days up to the snapshot day, a clinician amended the hypertension medicine (a new version of the prescription), or a signed plan change (action change or start) was confirmed by the person and applied. A stop, a refill with no change, a change only proposed or signed, and a medicine the person added themselves do not count. Doctors adjust more often when blood pressure is high, so the report is descriptive, not causal and carries no comparison group.
+- Options: (a) sign as drafted; (b) change the window or the actions (a new version); (c) also count a stop.
+- Decision:
 ### OQ-S71-CHANNELS Zap (QR) channel string is unverified and must be flipped by a human (raised by gap 71, 2026-10-28)
 - The checkout channel list is now configuration-driven (`checkout.payment_channels` in the proposed-config registry, mirrored in `supabase/functions/_shared/commerce/checkout-channels.ts`, drift-tested). The default is unchanged: `["card","bank_transfer","ussd"]`. An unknown or empty value falls back to that default.
 - Paystack added Zap (QR) to Checkout in late 2025. `PAYMENT_CHANNELS` lists `"qr"` but nothing sends it, and its exact channel string for Zap is UNVERIFIED. Do not add it to the config until the string is checked against the live Paystack account and current docs (see also OQ-401, where `bank_transfer` may need enabling in the dashboard).

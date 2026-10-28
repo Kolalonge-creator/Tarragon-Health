@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -57,6 +57,8 @@ import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitor
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
 import { CareGapConfigPanel } from "../_signoff-panels/care-gap-config-panel";
 import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { AdjustmentConfigPanel, ReliableChangeConfigPanel } from "../_signoff-panels/outcome-definitions-panel";
+import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
 import { MentalWellbeingPanel } from "../_signoff-panels/mental-wellbeing-panel";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
@@ -300,6 +302,11 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(CARE_GAP_CONFIG_ITEM_KEY)) {
     const pendingCareGap = await readPendingCareGapConfigSignoff(supabase);
     inlinePanels[CARE_GAP_CONFIG_ITEM_KEY] = <CareGapConfigPanel version={pendingCareGap.version} rules={pendingCareGap.rules} />;
+  }
+  if (keys.has(RELIABLE_CHANGE_ITEM_KEY) || keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) {
+    const pendingOutcomes = await readPendingOutcomeDefinitionsSignoff(supabase);
+    if (keys.has(RELIABLE_CHANGE_ITEM_KEY)) inlinePanels[RELIABLE_CHANGE_ITEM_KEY] = <ReliableChangeConfigPanel version={pendingOutcomes.reliableChange.version} view={pendingOutcomes.reliableChange.view} />;
+    if (keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) inlinePanels[ADJUSTMENT_CONFIG_ITEM_KEY] = <AdjustmentConfigPanel version={pendingOutcomes.adjustment.version} view={pendingOutcomes.adjustment.view} />;
   }
   if (keys.has(BASELINE_LABS_ITEM_KEY)) {
     const pendingBaseline = await readPendingBaselineLabsRuleSignoff(supabase);

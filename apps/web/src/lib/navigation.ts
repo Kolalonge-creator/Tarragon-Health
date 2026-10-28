@@ -822,6 +822,8 @@ export function getNavSections(
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
             { label: "Cascade of care", href: "/admin/outcomes/cascade", icon: "analytics" },
+            { label: "Reliable change (PHQ-9, GAD-7)", href: "/admin/outcomes/reliable-change", icon: "analytics" },
+            { label: "Control by medicine adjustment", href: "/admin/outcomes/control-by-adjustment", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
