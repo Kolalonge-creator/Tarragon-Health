@@ -57,7 +57,8 @@ begin
           (current_date - make_interval(years => p_age, days => 30))::date, 'female'::public.sex, p_test,
           p_age < 18, case when p_age < 18 then 'minor_child'::public.dependent_kind end)
   on conflict (id) do update set role = excluded.role, is_test = p_test, is_active = true, phone = excluded.phone,
-     date_of_birth = excluded.date_of_birth, sex = excluded.sex;
+     date_of_birth = excluded.date_of_birth, sex = excluded.sex,
+     is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   return v;
 end $f$;
 create function pg_temp.sched(p_pat uuid, p_code text, p_due date, p_rule uuid default null) returns uuid language plpgsql as

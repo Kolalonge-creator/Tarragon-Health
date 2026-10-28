@@ -271,7 +271,7 @@ end $$;
 
 -- 8. Replaced documents, and someone acting for the patient
 do $$
-declare p uuid := pg_temp.f('real2'); s2 uuid := pg_temp.f('s2'); a uuid; b uuid; v_up text; cg uuid; pt uuid := pg_temp.f('test'); fer uuid := pg_temp.f('fer'); hivs uuid;
+declare p uuid := pg_temp.f('real2'); s2 uuid := pg_temp.f('s2'); a uuid; b uuid; v_up text; cg uuid; pa uuid; pt uuid := pg_temp.f('test'); fer uuid := pg_temp.f('fer'); hivs uuid;
 begin
   v_up := pg_get_functiondef('private.screening_result_uploaded(uuid)'::regprocedure);
   select d.id into a from public.lab_result_documents d join public.lab_orders o on o.id = d.lab_order_id where o.screening_schedule_id = s2 limit 1;
@@ -286,9 +286,12 @@ begin
 
   -- a caregiver with view_results sees the non-sensitive request but never learns a sensitive screening has one
   cg := pg_temp.mkuser(pg_temp.f('org'), 'caregiver', 'patient', true);
+  -- the grant is the patient's own act: the labs_results category carries view_results (private.category_permissions), and the category row
+  -- is inserted as the patient (the consent trigger demands the patient as the acting user)
   perform set_config('request.jwt.claims', json_build_object('sub', pt)::text, true);
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions, clinical_access)
-  values (pt, cg, 'manage', pt, array['view_results']::public.caregiver_permission[], true);
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
+  values (pt, cg, 'manage', pt, array['view_results']::public.caregiver_permission[]) returning id into pa;
+  insert into public.profile_access_categories (profile_access_id, category) values (pa, 'labs_results'::public.care_access_category);
   perform set_config('request.jwt.claims', '', true);
   hivs := pg_temp.f('hiv');
   perform pg_temp.ck('control: the owner has a non-sensitive request on file', 'true', (private.open_screening_request_id(fer) is not null)::text);
