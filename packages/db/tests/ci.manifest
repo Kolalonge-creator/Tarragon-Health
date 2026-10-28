@@ -1404,7 +1404,8 @@ s46d_health_report_completion.sql
 
 # S49a: food logging foundation. 100+ estimated foods flagged for review, wrap/ladle portions, food_logs view + food.logged event, favourites private, targets config born unsigned and gated (pregnancy in each place it is held, postnatal year, clinician hold, eating-disorder screen, under 18 all withheld with no reason), barcodes. Sabotage: the withheld rule removed and the diary trigger removed; both must flip.
 s49a_food_logging_foundation.sql
-# S48a: activity safety gate (red event in 48h = rest, enforced on enrolment incl. re-activation), kinds/goals/events, unreviewed workout plans hidden, owner-only private routes. Sabotage: trigger dropped, gate ignoring red, staff route policy; each must flip.
+# S50a: eating plans and food swaps. Guidance config born unsigned and inactive, CMO-only signing, kidney and pregnancy plans refuse any numbers block, identical bare answer for everyone before signing and for every withheld person after, pregnancy plan only from the patient's own record and never under a hold or positive eating-disorder screen. Sabotage: pregnancy reader forced true and the withheld rule removed; both must flip.
+s50a_eating_plans_swaps.sql
 # S48b: activity client_id makes an offline retry a duplicate; workout sessions must be 10 to 20 minutes, chair-based classes gentle, audio ids only on reviewed plans; route_recording_status is true only with the guard AND the person's switch on, never for anon. Sabotage: minutes CHECK dropped, client_id index dropped, always-yes status; each must flip.
 s48b_activity_offline_plans_route_status.sql
 s27h_lab_lifecycle_and_quality.sql
@@ -1543,6 +1544,8 @@ membership_ladder_review_fixes.sql
 # The Membership ladder survives the remove-instalments migration (2026-10-26): after full replay the final function bodies still carry the tier, upgrade, refund, ledger and gate changes, and no function names a removed instalment object. Sabotage: a removed clause must be detected.
 membership_ladder_survives_instalment_removal.sql
 
+# Baseline-labs prescribing rule (CMO-owned, 2026-10-26): only the CMO signs (admin, senior doctor, patient, anon refused) and the signing is audited; with no signed rule a start or dose increase is untouched; with the rule active a start or increase is refused when kidney function, potassium or glucose (plus HbA1c for every glucose-lowering medicine and for diabetics on blood-pressure medicines) is missing or older than 90 days, a decrease and a same-dose amendment are allowed, patient self-reports and imports never blocked; a documented override (one doctor, patient and medicine, once, audited, with a 48 hour lab follow-up) is the only way past a refusal; units are compared by amount. Sabotage: trigger function emptied must flip the refusal check.
+baseline_labs_rule.sql
 # Queued Membership year (2026-10-26): a Membership payment or accepted gift onto a running Plus year is queued to start when it ends (same and higher tier still extend); roll at natural end, activation when the Plus year ends early, a refund of a queued order cancels only that row, reminders skip a queued person, my_membership shows the next year. Sabotage: activation trigger dropped and refund cancel clause disabled must flip.
 membership_queued_year.sql
 # Membership Plus checkout state (2026-10-26): create_order needs an approved state for Plus and the upgrade while the tier module is on (ignored when off, and for Membership); stored on the order, copied to the membership, shown by my_membership; FK, anon closed, old signature gone. Sabotage: the approved-state check removed must flip.

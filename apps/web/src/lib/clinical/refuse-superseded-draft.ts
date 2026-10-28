@@ -17,6 +17,7 @@ export type VersionedGovernedTable =
   | "medicine_interaction_rule_sets"
   | "my_health_config"
   | "nutrition_target_config"
+  | "nutrition_guidance_config"
   | "activity_safety_config"
   | "home_card_config"
   | "observation_limit_signoffs"
