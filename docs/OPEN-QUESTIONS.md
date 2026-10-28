@@ -5104,6 +5104,28 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 
 ### OQ-S50B-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
 - The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's. A urine-strip ketone result (`ketone_urine`) does not pause the programme: only a blood ketone number does. Medicine name lists (insulin, sulfonylurea, SGLT2 brands) are placeholders and will miss products; an unlisted diabetes medicine is not screened, so the CMO or a pharmacist must complete them.
+### OQ-S50A-1 The swaps, the five plans and the 5 g salt line are PROPOSED and unsigned (raised by the S50a build, 2026-10-21)
+- `nutrition_guidance_config` v1 is seeded inactive. The CMO (with a dietitian if one is available) should read every swap, every plan and the one number (`plans.hypertension.numbers.salt_g_max = 5`, the WHO figure, a placeholder), then sign through the sign-off hub item "Eating plans and food swaps". Kidney and pregnancy carry no numbers by design; if the CMO wants numbers there they need a new validator rule, not just a new config.
+- Decision: open (CMO).
+
+### OQ-S50A-2 Booking a dietitian visit does not move the nutrition referral on its own (raised by the S50a build, 2026-10-21)
+- 6.14 is wired as a link into the existing S64 per-item booking flow, shown only while a dietitian visit can be booked and paid for (the price is set; it is not today). `nutrition_referrals.status` is still moved by staff. A trigger from a confirmed dietitian appointment to `scheduled` would close that, but it touches the appointments tables and was not built blind (no database test stack here).
+- Decision: open (product).
+
+### OQ-S50A-3 Phone keeps an offline copy of the plan for 7 days (raised by the S50a build, 2026-10-21)
+- Unlike targets (never cached), the plan is readable offline for up to 7 days, is erased the moment the server answers "unavailable", and the pregnancy plan is shown but NEVER saved (so pregnancy is not held at rest on the phone). A server failure is a 503, which keeps the saved copy rather than erasing it. A sign-out does not delete the saved copy (no clean hook was found); it is kept per account and read only for the owner. If a person becomes pregnant, is put under a hold or is screened positive while offline, the old plan stays visible until the phone next reaches the server or 7 days pass. The number 7 is a judgement call; a shorter value or no offline copy is a one-line change (`CACHE_MAX_AGE_DAYS`).
+- Decision: open (CMO/DPO).
+
+### OQ-S50A-4 The pregnancy plan's existence is visible to the patient on a shared phone (raised by the S50a build, 2026-10-21)
+- A pregnant patient is shown a card whose title is "Eating well in pregnancy". On her own unlocked phone that is expected, but anyone holding it can see it. If the CMO prefers a neutral title ("Eating well right now") it is a text change in the config; the gate already tells nobody else.
+- Decision: open (CMO).
+
+### OQ-S50A-5 No dietitian rota or price exists, so the booking link is not live (raised by the S50a build, 2026-10-21)
+- `dietitian_consult_credit` is inactive with a zero price (S64), so `bookable` is false and the link does not show. The plans' care-team prompt still stands. Needs a dietitian, a price and declared times.
+- Decision: open (founder).
+
+### OQ-S50A-6 Until the swaps are signed, withheld people still get the older built-in swap hint (raised by the S50a build, 2026-10-21)
+- The brief says the old swap code stays as the fallback until the config is signed. That code is unchanged and already reaches everyone today, including pregnant patients, under-18s and people with a positive eating-disorder screen, because the identical-answer rule means the app cannot tell who is withheld. Once a version is signed the old hint stops for everybody and the signed table follows the withheld rule. If the CMO wants the old hint switched off sooner, the one-line change is to treat `signed: false` as "show nothing" in `nutrition-flow.tsx`.
 - Decision: open (CMO).
 ### OQ-S47B-1 Signing the Today screen configuration switches on four things at once (raised by S47b, 2026-10-21)
 - `home_card_config` v1 is unsigned and inactive. One CMO signature (`/clinician/home-card-config`, also a line on the sign-off hub) turns on the new Today plan (two main actions, the rest under "More for today"), the days-logged card, the weekly summary cards and the wearable readiness line. There is no separate go-live guard: the signature is the gate. If the founder wants each to switch on separately, split the config into per-feature switches before signing.

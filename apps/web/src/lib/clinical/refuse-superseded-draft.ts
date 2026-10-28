@@ -18,6 +18,7 @@ export type VersionedGovernedTable =
   | "my_health_config"
   | "nutrition_target_config"
   | "lowcarb_protocol_config"
+  | "nutrition_guidance_config"
   | "activity_safety_config"
   | "home_card_config"
   | "observation_limit_signoffs"

@@ -57,6 +57,7 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Nutrition targets and meal summary",
     slug: "nutrition-targets-config",
   },
+  { table: "nutrition_guidance_config", title: "Eating plans and food swaps", slug: "nutrition-guidance-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   {
     // S46d: not a single-active-row table. The signable thing is the anti-HBs threshold on the one ACTIVE rule (status = 'active'), read through its own branch below.

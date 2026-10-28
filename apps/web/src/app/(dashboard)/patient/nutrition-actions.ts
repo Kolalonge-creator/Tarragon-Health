@@ -22,6 +22,7 @@ import { suggestBudgetAlternative } from "@/lib/nutrition/substitutions";
 import { generateMealPlan, type MealPlanGenerationResult } from "@/lib/nutrition/meal-plan-generate";
 import { insertMeal, analyseDescriptionWith } from "@/lib/nutrition/meal-log";
 import { loadNutritionGuidance, type NutritionGuidance } from "@/lib/nutrition/guidance";
+import { loadEatingGuidance, type EatingView } from "@/lib/nutrition/eating-plans";
 import { parseBarcodeLookup, isValidGtin, normaliseBarcode, type BarcodeLookup } from "@tarragon/shared";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
@@ -537,6 +538,15 @@ export async function loadNutritionGuidanceAction(): Promise<NutritionGuidance> 
   const ctx = await currentPatient();
   if ("error" in ctx) return { state: "hidden", mode: "words" };
   return loadNutritionGuidance(ctx.supabase, ctx.userId);
+}
+
+/** Swaps and eating plans (S50a). `unavailable` is rendered as nothing at all; `signed: false` keeps the older built-in swap hints working. */
+export async function loadEatingGuidanceAction(): Promise<EatingView> {
+  const ctx = await currentPatient();
+  if ("error" in ctx) return { signed: true, guidance: { state: "unavailable" }, raw: null, failed: true };
+  // the raw gate answer is for the phone; the web needs only what it renders
+  const view = await loadEatingGuidance(ctx.supabase);
+  return { ...view, raw: null };
 }
 
 export type BarcodeActionState = (BarcodeLookup & { ok: true }) | { ok: false; error: string };

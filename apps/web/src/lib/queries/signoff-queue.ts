@@ -48,6 +48,7 @@ type VersionedTableName =
   | "my_health_config"
   | "nutrition_target_config"
   | "lowcarb_protocol_config"
+  | "nutrition_guidance_config"
   | "activity_safety_config"
   | "home_card_config"
   | "observation_limit_signoffs"
@@ -82,6 +83,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
   { table: "nutrition_target_config", title: "Nutrition targets and meal summary", slug: "nutrition-targets-config" },
   { table: "lowcarb_protocol_config", title: "Low-carbohydrate programme rules", slug: "lowcarb-protocol-config" },
+  { table: "nutrition_guidance_config", title: "Eating plans and food swaps", slug: "nutrition-guidance-config" },
   { table: "health_report_config_versions", title: "Yearly Health Report settings", slug: "health-report-config" },
   { table: "observation_limit_signoffs", title: "Limits for typed numbers (water, sleep, mood, inhaler)", slug: "observation-limits" },
   { table: "activity_safety_config", title: "Activity safety rules", slug: "activity-safety-config" },

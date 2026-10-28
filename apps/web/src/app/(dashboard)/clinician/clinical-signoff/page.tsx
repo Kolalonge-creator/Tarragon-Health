@@ -32,6 +32,7 @@ import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
 import { LowCarbProtocolConfigPanel } from "../_signoff-panels/lowcarb-protocol-config-panel";
+import { NutritionGuidanceConfigPanel } from "../_signoff-panels/nutrition-guidance-config-panel";
 import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
 import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
@@ -116,6 +117,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   my_health_config: () => <MyHealthConfigPanel />,
   nutrition_target_config: () => <NutritionTargetsConfigPanel />,
   lowcarb_protocol_config: () => <LowCarbProtocolConfigPanel />,
+  nutrition_guidance_config: () => <NutritionGuidanceConfigPanel />,
   health_report_config_versions: () => <HealthReportConfigPanel />,
   serology_rule_versions: () => <SerologyRulesPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
