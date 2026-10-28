@@ -331,7 +331,7 @@ begin
     (pg_temp.q_as(v_ins, 'select public.my_fasting_gate(''ramadan'')::jsonb -> ''timing_plans'' -> 0 ->> ''summary''')) like 'Take your morning tablet%')::text);
   v_txt := pg_temp.q_as(v_ins, format('select public.start_fasting_plan(''ramadan'', %L, %L)::text', v_ps, v_pe));
   if v_txt ~ '^ERR' then
-    raise exception 'DIAG start refused: % | gate for the same dates: % | today % ps % pe %', v_txt, pg_temp.q_as(v_ins, format('select public.my_fasting_gate(''ramadan'', %L, %L)::text', v_ps, v_pe)), v_today, v_ps, v_pe;
+    raise exception 'DIAG start refused: % | private gate: % | gate for the same dates: % | today % ps % pe %', v_txt, private.fasting_gate_for(v_ins, 'ramadan', v_ps, v_pe, now())::text, pg_temp.q_as(v_ins, format('select public.my_fasting_gate(''ramadan'', %L, %L)::text', v_ps, v_pe)), v_today, v_ps, v_pe;
   end if;
   v_id := v_txt::uuid;
   perform pg_temp.ck('plan: a plan covering only part of the fast does not let her start for the whole of it', 'true',
