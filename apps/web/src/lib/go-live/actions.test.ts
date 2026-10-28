@@ -62,8 +62,21 @@ describe("switchGuardAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("refuses a key that is not one of the eight guards before calling the database", async () => {
-    const msg = await run(switchGuardAction(form({ viewer: "admin", key: "made_up", on: "1", note: "x" })));
+  it("passes a guard added after the old hand-kept list (fast-sugar wording) to the database instead of refusing it as not recognised", async () => {
+    role = "clinician";
+    cmo = true;
+    await run(switchGuardAction(form({ viewer: "cmo", key: "glucose_fast_sugar_wording", on: "0", note: "off" })));
+    expect(rpc).toHaveBeenCalledWith("set_go_live_guard", expect.objectContaining({ p_key: "glucose_fast_sugar_wording" }));
+  });
+
+  it("lets the database refuse a well-formed key that is not a guard, and shows its message", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "no such go-live guard: made_up", code: "22023" } });
+    await run(switchGuardAction(form({ viewer: "admin", key: "made_up", on: "0", note: "x" })));
+    expect(flash).toHaveBeenCalledWith(expect.objectContaining({ ok: false, detail: "no such go-live guard: made_up" }));
+  });
+
+  it("refuses a malformed key before calling the database", async () => {
+    const msg = await run(switchGuardAction(form({ viewer: "admin", key: "Made Up; drop", on: "1", note: "x" })));
     expect(msg).toBe("REDIRECT:/admin/go-live?n=n-1");
     expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));
     expect(rpc).not.toHaveBeenCalled();
@@ -120,6 +133,15 @@ describe("switchGuardAction", () => {
     const msg = await run(switchGuardAction(form({ viewer: "cmo", key: "prescribing_enabled", on: "1", confirm: "on", note: "signed off" })));
     expect(msg).toBe("REDIRECT:/clinician/go-live?n=n-1");
     expect(rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("attestConditionAction with a guard added after the old list", () => {
+  it("records the fast-sugar wording attestation instead of refusing the key as not recognised", async () => {
+    role = "clinician";
+    cmo = true;
+    await run(attestConditionAction(form({ viewer: "cmo", back: "hub", key: "glucose_fast_sugar_wording", code: "fast_sugar_wording_signed", met: "1", note: "Read both messages in full." })));
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", { p_key: "glucose_fast_sugar_wording", p_code: "fast_sugar_wording_signed", p_met: true, p_note: "Read both messages in full." });
   });
 });
 
