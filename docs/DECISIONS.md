@@ -558,3 +558,12 @@ Recorded in chat by the founder, who stated they are acting as CMO. These are fo
 | **No independent CMO.** | The founder, 2026-10-27, in chat: there is no independent, non-founder CMO. The founder is the CMO and signs the CMO items. This closes the question left open on 2026-10-26 about whether the founder's own statement satisfies the 2026-10-21 condition for an independent CMO: it is not required. An agent still never signs a clinical protocol or rule. |
 | **Membership and Membership Plus switched on.** | The founder, 2026-10-27, in chat. `membership_two_member_tiers` was switched on in the live database by the admin account, with the reason recorded in the audit log. Plus now needs an admin-approved collection state at checkout (Lagos, Oyo, Osun and Ogun approved); Membership and Free are never limited by state. |
 | **Launch conditions knowingly open at switch-on.** | (1) The baseline-labs prescribing rule is drafted (`docs/design/baseline-labs-rule-proposal.md`) but unsigned and its check is not built; it waits for the CMO's answers to its four questions, then a build, then the CMO signs on the sign-off hub. (2) No live Paystack payment and refund has been run for the new tiers yet. The founder chose to proceed without either. |
+
+## CMO decisions, 2026-10-28 (baseline labs prescribing rule)
+
+| Decision | Chosen |
+|---|---|
+| **The four questions in `docs/design/baseline-labs-rule-proposal.md`.** | The CMO (the founder), 2026-10-27, in chat: (1) thresholds as drafted (eGFR 30 and 45, repeat at 1 to 2 weeks, 12-month freshness, 7 days to complete tests after starting without results); (2) the prescribing doctor may start before results are back and records why; (3) fasting glucose replaces HbA1c when the doctor marks the patient's HbA1c as unreliable; (4) a calcium channel blocker alone needs no baseline blood test. |
+| **Built, not signed.** | The check is built and off. It becomes active only when the CMO signs `baseline_labs_config` v1 on the sign-off hub. An agent does not sign it. |
+| **Not built yet.** | Scheduling or enforcing the repeat creatinine and potassium after an ACE inhibitor or ARB; a screen button for marking HbA1c unreliable. |
+

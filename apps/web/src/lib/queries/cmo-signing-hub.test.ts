@@ -86,6 +86,10 @@ const readPendingCascadeConfigSignoff = jest.fn<(...args: unknown[]) => Promise<
 jest.mock("@/lib/queries/pending-cascade-config-signoff", () => ({
   readPendingCascadeConfigSignoff: (...args: unknown[]) => readPendingCascadeConfigSignoff(...args),
 }));
+const readPendingBaselineLabsSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
+jest.mock("@/lib/queries/pending-baseline-labs-signoff", () => ({
+  readPendingBaselineLabsSignoff: (...args: unknown[]) => readPendingBaselineLabsSignoff(...args),
+}));
 type SymptomUxPending = { waiting: { kind: string; version: number; rules: unknown }[]; failed: boolean };
 const readPendingSymptomUxSignoff = jest.fn<(...args: unknown[]) => Promise<SymptomUxPending>>();
 jest.mock("@/lib/queries/pending-symptom-ux-signoff", () => ({
@@ -181,6 +185,8 @@ beforeEach(() => {
   readPendingAiMonitoringSignoff.mockResolvedValue({ version: null, rules: null, failed: false });
   readPendingCascadeConfigSignoff.mockReset();
   readPendingCascadeConfigSignoff.mockResolvedValue(noPostCheckin);
+  readPendingBaselineLabsSignoff.mockReset();
+  readPendingBaselineLabsSignoff.mockResolvedValue(noPostCheckin);
   readPendingSymptomUxSignoff.mockReset();
   readPendingSymptomUxSignoff.mockResolvedValue(noSymptomUx);
   readPendingMentalWellbeingSignoff.mockReset();
@@ -347,6 +353,26 @@ describe("readCmoSigningHub: cascade of care definitions (WP3)", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the cascade of care definitions");
+  });
+});
+
+describe("readCmoSigningHub: baseline labs prescribing rule", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line on the hub, under /clinician, for an unsigned draft, and says nothing applies until signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingBaselineLabsSignoff.mockResolvedValue({ version: 1, rules: null, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "baseline_labs_rule");
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/applies nothing until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "baseline_labs_rule")).toBeUndefined();
+    readPendingBaselineLabsSignoff.mockResolvedValue({ version: null, rules: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the baseline labs prescribing rule");
   });
 });
 

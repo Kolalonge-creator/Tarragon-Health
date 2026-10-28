@@ -33,7 +33,9 @@ export function SafetyFindingsPrompt({
   if (error.kind === "blocked") {
     return (
       <div role="alert" className="rounded-md border border-red-200 bg-red-50/60 p-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-        {CONTROLLED_MEDICINE_MESSAGE} It cannot be signed here.
+        {error.findings?.some((f) => f.code === "metformin_egfr_below_30")
+          ? <>{error.findings.filter((f) => f.code === "metformin_egfr_below_30").map((f) => describeFinding(f)).join(" ")} It cannot be signed here.</>
+          : <>{CONTROLLED_MEDICINE_MESSAGE} It cannot be signed here.</>}
       </div>
     );
   }

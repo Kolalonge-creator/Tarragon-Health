@@ -23,6 +23,7 @@ import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-no
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { readPendingBaselineLabsSignoff } from "@/lib/queries/pending-baseline-labs-signoff";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
@@ -84,6 +85,8 @@ export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 /** WP3: the cascade-of-care definitions (stages, the 140/90 and 7.0 percent control lines, the selection panel note). Nothing is counted anywhere until signed. */
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
+/** The baseline labs prescribing rule (blood pressure and glucose medicines). The check adds nothing until the CMO signs. */
+export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 /** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
@@ -108,7 +111,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, aiMonitoring] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, baselineLabs, aiMonitoring] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -136,6 +139,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingMentalWellbeingSignoff(supabase),
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
+    readPendingBaselineLabsSignoff(supabase),
     readPendingAiMonitoringSignoff(supabase),
   ]);
 
@@ -482,6 +486,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (baselineLabs.version !== null) {
+    items.push({
+      key: BASELINE_LABS_ITEM_KEY,
+      title: "Baseline labs prescribing rule",
+      detail: `Baseline labs rule version ${baselineLabs.version} (the tests needed before starting or raising a blood pressure or glucose medicine, the kidney thresholds, the pregnancy check) is waiting for your signature. The prescribing check applies nothing until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -504,6 +519,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
+    ...(baselineLabs.failed ? ["the baseline labs prescribing rule"] : []),
     ...(aiMonitoring.failed ? ["the AI monitoring rules"] : []),
     ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),

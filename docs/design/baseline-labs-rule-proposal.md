@@ -1,6 +1,6 @@
 # Baseline labs before starting or increasing a blood pressure or glucose-lowering medicine
 
-Status: PROPOSED for the CMO. Not signed. Nothing here is built as a rule yet. Sign through the CMO sign-off hub once the built check exists; an agent never signs it.
+Status: BUILT 2026-10-28, NOT SIGNED. The CMO answered the four questions on 2026-10-27 (all as drafted: thresholds as written; the prescribing doctor may start before results and records why; fasting glucose replaces HbA1c when the doctor marks it unreliable; a calcium channel blocker alone needs no test). The check exists (`supabase/migrations/20261028090417_baseline_labs_prescribing_check.sql`, config `baseline_labs_config` v1) and is OFF until the CMO signs it on the sign-off hub (`/clinician/clinical-signoff`, line "Baseline labs prescribing rule"). An agent never signs it.
 
 Why this exists: the 2026-10-21 membership decision names a baseline-labs prescribing rule as a condition before the lower tier is switched on. The aim is a rule that works with what is realistic in Nigeria: a partner or own lab, a blood draw, no special equipment.
 
@@ -33,6 +33,14 @@ Supporting checks that help but do not block: urine test strip for protein and g
 3. Whether HbA1c can be omitted where a patient has an unreliable HbA1c (sickle cell trait or disease, recent transfusion, anaemia) and fasting glucose should be used; this is relevant in Nigeria.
 4. Whether a calcium channel blocker alone really needs no baseline in your protocol.
 
-## Build notes (for the later session, not this one)
+## What was built (2026-10-28)
+
+- The check adds findings to the existing prescribing safety check, so `prescribe_medication`, `amend_medication` and `sign_care_plan_change` all get it. Missing or stale tests need the doctor's reason (kept on the prescription, with a 7-day due date). Metformin with eGFR under 30 is blocked with no override.
+- An amendment is checked only when the dose or the medicine changes.
+- A result counts only if it is a numeric value filed in `lab_results` within 12 months and not withdrawn or superseded. A picture or an unfiled draft is missing.
+- Doctors mark a patient's HbA1c unreliable with `mark_hba1c_unreliable` (database function only so far; there is no screen button yet).
+- NOT built: the repeat creatinine and potassium 1 to 2 weeks after starting an ACE inhibitor or ARB is in the wording but not scheduled or enforced; "pregnancy excluded" is recorded as the doctor's reason or a filed negative pregnancy test, not a separate form.
+
+## Original build notes
 
 A prescribing check on the existing sign-off hub (`lib/queries/cmo-signing-hub.ts`), versioned config under `packages/shared/src/proposed-config`, a proof script that a start without the tests is refused and a start with them passes, and a sabotage step. Nothing in this file is active until signed.

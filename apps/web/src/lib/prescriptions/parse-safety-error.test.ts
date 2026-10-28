@@ -4,6 +4,8 @@ import {
   needsAllergyConfirmation,
   needsOverrideReason,
   parseSafetyError,
+  type SafetyError,
+  type SafetyFinding,
 } from "./parse-safety-error";
 
 const findingsError = (hint: string, key: "details" | "detail" = "details") => ({
@@ -30,7 +32,7 @@ describe("parseSafetyError", () => {
   });
 
   it("recognises a controlled medicine as blocked", () => {
-    expect(parseSafetyError({ code: "P0001", details: "SAFETY_BLOCKED", hint: "[]", message: "x" })).toEqual({ kind: "blocked" });
+    expect(parseSafetyError({ code: "P0001", details: "SAFETY_BLOCKED", hint: "[]", message: "x" })).toEqual({ kind: "blocked", findings: [] });
   });
 
   it("returns null for any other error", () => {
@@ -105,5 +107,36 @@ describe("isSafetyResubmitReady", () => {
 
   it("a blocked medicine is never ready, whatever is supplied", () => {
     expect(isSafetyResubmitReady({ kind: "blocked" }, { allergiesConfirmed: true, overrideReason: "please" })).toBe(false);
+  });
+});
+
+describe("baseline labs findings (CMO rule)", () => {
+  const err = (detail: string, hint: unknown) => ({ code: "P0001", details: detail, hint: JSON.stringify(hint), message: "x" });
+
+  it("reads a missing-tests finding and says which tests, in plain words", () => {
+    const e = parseSafetyError(err("SAFETY_FINDINGS", [{ code: "baseline_labs_missing", drug_class: "arb", missing: ["creatinine", "potassium", "fasting_glucose_or_hba1c"] }]));
+    expect(e).toEqual({ kind: "findings", findings: [{ code: "baseline_labs_missing", missing: ["creatinine", "potassium", "fasting_glucose_or_hba1c"] }] });
+    const text = describeFinding((e as { findings: SafetyFinding[] }).findings[0]!);
+    expect(text).toMatch(/creatinine \(kidney function\), potassium, fasting glucose or HbA1c/);
+    expect(text).toMatch(/within 7 days/);
+  });
+
+  it("keeps the eGFR on a metformin block, and a block carries its findings", () => {
+    const e = parseSafetyError(err("SAFETY_BLOCKED", [{ code: "metformin_egfr_below_30", blocking: true, egfr: 21 }]));
+    expect(e).toEqual({ kind: "blocked", findings: [{ code: "metformin_egfr_below_30", egfr: 21 }] });
+    expect(describeFinding({ code: "metformin_egfr_below_30", egfr: 21 })).toMatch(/under 30.*must not be started/);
+  });
+
+  it("a baseline finding needs the doctor's reason, like any other finding", () => {
+    const e = parseSafetyError(err("SAFETY_FINDINGS", [{ code: "pregnancy_not_excluded" }])) as SafetyError;
+    expect(needsOverrideReason(e)).toBe(true);
+    expect(isSafetyResubmitReady(e, { allergiesConfirmed: false, overrideReason: "" })).toBe(false);
+    expect(isSafetyResubmitReady(e, { allergiesConfirmed: false, overrideReason: "Pregnancy excluded: test negative today" })).toBe(true);
+  });
+
+  it("a finding it does not know is still a finding that needs a reason, never a pass", () => {
+    const e = parseSafetyError(err("SAFETY_FINDINGS", [{ code: "something_new" }])) as SafetyError;
+    expect(e.kind).toBe("findings");
+    expect(needsOverrideReason(e)).toBe(true);
   });
 });

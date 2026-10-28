@@ -8738,4 +8738,38 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-27",
     source: "docs/design/S89.md. Unsigned clinical lists: the CMO owns the class membership, the condition list and the wording. Flags only; nothing here decides or blocks.",
   },
+  {
+    key: "prescribing.baseline_labs_rule",
+    // The baseline labs prescribing rule (CMO answers 2026-10-27/28). The database holds it as `baseline_labs_config` v1 (UNSIGNED, INACTIVE until the
+    // Chief Medical Officer signs on the sign-off hub; until then the prescribing check adds nothing). A test compares this value with the migration seed.
+    value: {
+  "freshness_months": 12,
+  "tests_due_days": 7,
+  "repeat_after_start_days": { "from": 7, "to": 14, "tests": ["creatinine", "potassium"], "applies_to": ["acei", "arb"], "enforced": false },
+  "egfr": { "metformin_do_not_start_below": 30, "metformin_review_dose_below": 45 },
+  "pregnancy": { "classes": ["acei", "arb", "statin"], "age_from": 12, "age_to": 50, "negative_test_valid_days": 30 },
+  "classes": {
+    "acei": { "label": "ACE inhibitor", "requires": ["creatinine", "potassium", "sodium"] },
+    "arb": { "label": "ARB", "requires": ["creatinine", "potassium", "sodium"] },
+    "thiazide": { "label": "Thiazide-type diuretic", "requires": ["creatinine", "potassium", "sodium", "glucose_or_hba1c"] },
+    "ccb": { "label": "Calcium channel blocker", "requires": [] },
+    "beta_blocker": { "label": "Beta blocker", "requires": [] },
+    "metformin": { "label": "Metformin", "requires": ["creatinine", "glucose_or_hba1c"] },
+    "sulfonylurea": { "label": "Sulfonylurea", "requires": ["creatinine", "hba1c", "fasting_glucose"] },
+    "insulin": { "label": "Insulin", "requires": ["creatinine", "hba1c", "fasting_glucose"] },
+    "statin": { "label": "Statin", "requires": [] }
+  },
+  "hba1c_unreliable_conditions": ["sickle cell trait or disease", "recent transfusion", "anaemia"],
+  "notes": {
+    "unreadable": "A result that cannot be read (a picture, or a draft a doctor has not filed) counts as missing, never as passed.",
+    "emergency": "The check never blocks emergency care and never applies to the Free-tier safety guidance.",
+    "ccb_alone": "A calcium channel blocker alone needs no blood test; blood pressure and pulse checks as usual."
+  }
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/design/baseline-labs-rule-proposal.md; supabase/migrations/20261028090417_baseline_labs_prescribing_check.sql. Unsigned until the CMO signs.",
+  },
 ];
