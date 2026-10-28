@@ -75,6 +75,10 @@ export default async function PrivacyCentrePage() {
 
       <SensitiveRequestOptinCard />
 
+      <p className="text-sm">
+        <a href="/patient/research" className="font-semibold text-brand-green underline">{t("res.ledger.link")}</a>
+      </p>
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ConsentStatusPanel patientId={profile.id} />
         <ConnectedDevicesSummary patientId={profile.id} />

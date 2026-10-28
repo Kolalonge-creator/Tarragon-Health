@@ -9,7 +9,7 @@ import {
   type InAppNotification,
 } from "@/lib/notifications";
 import type { SectionId } from "@/lib/sections";
-import { useLegacyColors } from "./design";
+import { MAX_FONT_SCALE, useLegacyColors } from "./design";
 
 interface TopBarProps {
   userId: string;
@@ -76,7 +76,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
         <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onOpenDrawer} hitSlop={8}>
           <Ionicons name="menu-outline" size={22} color={colors.ink} />
         </Pressable>
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={{ fontWeight: "700", fontSize: 16, color: colors.navy, flexShrink: 1 }}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} numberOfLines={1} style={{ fontWeight: "700", fontSize: 16, color: colors.navy, flexShrink: 1 }}>
           TarragonHealth
         </Text>
       </View>

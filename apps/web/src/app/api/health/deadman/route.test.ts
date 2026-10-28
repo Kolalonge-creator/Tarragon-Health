@@ -39,7 +39,14 @@ describe("GET /api/health/deadman", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.verdict).toBe("ok");
-    expect(body.status).toEqual(good);
+    // The four original keys pass through untouched; a database without the sweeper migration reads the new counts as zero.
+    expect(body.status).toEqual({
+      ...good,
+      stale_critical_cron_jobs: 0,
+      failing_critical_cron_jobs: 0,
+      missing_critical_cron_jobs: 0,
+      critical_cron_job_problems: { stale: [], failing: [], missing: [] },
+    });
     expect(rpc).toHaveBeenCalledWith("deadman_status", { p_due_older_than_seconds: expect.any(Number) });
   });
   it("a bearer token also works", async () => {

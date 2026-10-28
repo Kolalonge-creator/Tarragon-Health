@@ -102,7 +102,24 @@ export interface ActivityPayload {
   logged_on: string;
 }
 
+/**
+ * D.1: a wellbeing check-in saved on the phone first. The table has no client id column, so the check-in time (the outbox row's recorded
+ * time) is the idempotency key: a retry after a lost reply finds the row it already wrote and sends nothing. Scores are the same 1 to 5
+ * the database CHECKs; tags are the fixed list. This is the check-in only. The mental health screening questionnaires stay online, because
+ * they trigger follow-up and a crisis route that must not wait in a queue unseen.
+ */
+export interface WellbeingCheckinPayload {
+  organisation_id: string;
+  mood_score: number;
+  stress_score: number;
+  sleep_quality: number;
+  activity_level: number;
+  note: string | null;
+  tags: string[];
+}
+
 export type OutboxPayload =
+  | WellbeingCheckinPayload
   | AnchorTimesPayload
   | DayShiftPayload
   | DayShiftEndPayload
@@ -635,6 +652,31 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         distance_m: p.distance_m,
         logged_on: p.logged_on,
         client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "wellbeing_checkin") {
+      const p = item.payload as WellbeingCheckinPayload;
+      // Already sent (a lost reply last time)? Then this is a duplicate, not a second check-in.
+      const existing = await supabase
+        .from("wellbeing_checkins")
+        .select("id")
+        .eq("patient_id", item.subjectId)
+        .eq("checked_in_at", item.clientRecordedAt)
+        .limit(1);
+      if (existing.error) return asFailure(existing.error);
+      if (existing.data && existing.data.length > 0) return { ok: true };
+      const { error } = await supabase.from("wellbeing_checkins").insert({
+        organisation_id: p.organisation_id,
+        patient_id: item.subjectId,
+        mood_score: p.mood_score,
+        stress_score: p.stress_score,
+        sleep_quality: p.sleep_quality,
+        activity_level: p.activity_level,
+        note: p.note,
+        tags: p.tags,
+        checked_in_at: item.clientRecordedAt,
       });
       return error ? asFailure(error) : { ok: true };
     }

@@ -22,7 +22,8 @@ jobs:
     timeout-minutes: 30
     env:
       # A runaway worker fails with a clear out-of-memory message instead of a silent runner kill.
-      NODE_OPTIONS: --max-old-space-size=4096
+      # 6144 (was 4096): next build's type check on main-dev plus the S90 files hit the 4 GB heap limit twice (same sha, 5 to 6 minutes in, GC thrash).
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
 

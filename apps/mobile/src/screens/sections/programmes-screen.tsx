@@ -66,6 +66,14 @@ export function ProgrammesScreen({ acting = false }: { acting?: boolean }) {
           {t("programme.sponsor_sees_body", locale, { minimum: sponsorMinimumGroupSize() })}
         </AppText>
       </Card>
+      <Card style={{ gap: space.xs }}>
+        <AppText variant="body" heading>
+          {t("programme.who_pays_title", locale)}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {t("programme.who_pays_body", locale)}
+        </AppText>
+      </Card>
       <Card style={{ gap: space.md }}>
         <Field label={t("programme.code_label", locale)} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} maxLength={20} />
         <Button
