@@ -405,7 +405,10 @@ alter table public.hba1c_exceptions enable row level security;
 revoke all on public.hba1c_exceptions from public, anon, authenticated;
 grant select on public.hba1c_exceptions to authenticated;
 create policy hba1c_exceptions_read on public.hba1c_exceptions for select to authenticated
-  using (private.is_org_staff(organisation_id) and private.clinician_has_patient_access(patient_id));
+  using (private.staff_may_read(patient_id, organisation_id, 'medical_history'::public.care_access_category));
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason) values
+  ('hba1c_exceptions', 'tied', 'patient_id', 'medical_history', null)
+on conflict (table_name) do nothing;
 
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
 select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
