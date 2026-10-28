@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { findEntry, hashConfigValue, GUARD_KEYS, viewerOwns, type Viewer } from "./model";
+import { findEntry, hashConfigValue, viewerOwns, type Viewer } from "./model";
 import { setFlash } from "./flash";
 import type { RpcClient } from "./load";
 
@@ -25,7 +25,10 @@ const PATHS = { admin: "/admin/go-live", cmo: "/clinician/go-live" } as const;
 const HUB_PATH = "/clinician/clinical-signoff";
 const destination = (viewer: Viewer, formData: FormData): string => (viewer === "cmo" && formData.get("back") === "hub" ? HUB_PATH : PATHS[viewer]);
 const noteSchema = z.string().trim().max(1000).optional();
-const keySchema = z.enum(GUARD_KEYS);
+// Only the shape is checked here. The database is the real gate: set_go_live_guard and attest_go_live_condition raise 22023 "no such go-live guard"
+// for a key that does not exist. This used to be z.enum(GUARD_KEYS), a hand-kept copy of the guard list that fell behind (about 25 of 85 guards), so
+// every attestation for a newer guard (fast-sugar wording, the mental wellbeing wording, ...) was refused as "not recognised" before reaching it.
+const keySchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
 
 type Back = { notice: string; detail?: string; failed: boolean };
 
