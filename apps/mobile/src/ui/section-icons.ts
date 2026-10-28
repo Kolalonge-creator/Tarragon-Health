@@ -80,6 +80,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   symptomJournal: Activity,
   shareRecords: Share2,
   myPhones: Smartphone,
+  lowCarb: Leaf,
   womensHealth: User,
   sexualHealth: Heart,
   wellbeing: Smile,

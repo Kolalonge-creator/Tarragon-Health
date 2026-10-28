@@ -1434,6 +1434,11 @@ oq192_profile_access_permission_tightening.sql
 # a suspicious top-up for a person; a late line is netted once. Eight sabotage steps (dispute guard, ledger guard, withholding guard, activity check, withholding period filter, back-dating rule, raced-duplicate handler).
 s30b_earnings_disputes_withholding_pilot.sql
 money_reconciliation_screen.sql
+
+# --- Added 2026-10-21 (S50b part 2) ---------------------------------------------------
+# S50b: the low-carbohydrate type 2 diabetes programme, built end to end with its guard OFF. 26 shared eligibility cases (same ids as packages/clinical lowcarb-programme.test.ts), unsigned config never live, only the CMO signs, a patient cannot self-enrol, an untied or non-prescribing staff member cannot offer, a real patient is refused while the guard is off, one unavailable answer on the patient door, a low glucose / high ketones / red triage event pauses, a resume re-runs the screen, the third pause in 30 days stops, sugars falling raises one review task, the sweep pauses on pregnancy and stops on lapsed check-ins, a draft step table drives a proposal for a test patient only and a proposal changes no medicine, the guard conditions and attestations, no patient or coordinator read, append-only history. Sabotage: the reading trigger dropped, an always-eligible function, the transition guard dropped; all three must flip.
+s50b_lowcarb_t2d_programme.sql
+
 # --- Added 2026-10-21 (S47b) ---------------------------------------------------
 # S47b: home_card_config (Today cards, weekly summary gates, wearable readiness). Born unsigned and inactive, nothing served until the CMO signs, only the CMO signs, a ceiling above two primary actions and malformed configs cannot be stored, anon reaches nothing, a patient reads only through my_home_card_config(). Sabotage: validator accepting everything, a reader ignoring the signature, a grant to anon; all three must flip.
 s47b_home_cards_and_readiness.sql
