@@ -30,12 +30,20 @@ export interface OrderRow {
   /** S72: only the buyer can ask for a refund; refundState is the state of any refund already asked for. */
   isBuyer: boolean;
   refundState: string | null;
+  /** The catalogue code, so a receipt can quote the refund window for the right kind of item (A3). null when the database did not send one. */
+  code: string | null;
 }
 export interface MembershipState {
   isMember: boolean;
   endsAt: string | null;
   /** Set only in the 14 day grace after the year ended: the person keeps Member access but may renew, so the screen does not block a purchase. */
   graceEndsAt?: string;
+  /** Membership (no annual blood panel) or plus (with it), only while the year is running. */
+  tier?: "evergreen" | "plus";
+  /** When a year is already paid for and waits to start (a Membership bought onto a running Plus year). */
+  nextStartsAt?: string;
+  /** Membership Plus only: the state fixed when it was bought, where blood is collected. */
+  collectionState?: string;
 }
 
 const KINDS = ["consultation", "care_pack", "lab_panel", "membership", "home_kit"] as const;
@@ -84,6 +92,7 @@ export function parseOrders(data: unknown): OrderRow[] {
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,
       sponsorShareKobo: sponsorShare, sponsorName: str(r["sponsor_name"]) ? r["sponsor_name"] : null,
       isBuyer: r["is_buyer"] !== false, refundState: str(r["refund_state"]) ? r["refund_state"] : null,
+      code: str(r["code"]) ? r["code"] : null,
     });
   }
   return out;
@@ -92,7 +101,8 @@ export function parseOrders(data: unknown): OrderRow[] {
 export function parseMembership(data: unknown): MembershipState {
   if (!isObj(data) || data["is_member"] !== true) return { isMember: false, endsAt: null };
   if (data["in_grace"] === true) return { isMember: false, endsAt: null, ...(str(data["grace_ends_at"]) ? { graceEndsAt: data["grace_ends_at"] } : {}) };
-  return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null };
+  const tier = data["tier"] === "evergreen" || data["tier"] === "plus" ? data["tier"] : undefined;
+  return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null, ...(tier ? { tier } : {}), ...(str(data["next_starts_at"]) ? { nextStartsAt: data["next_starts_at"] } : {}), ...(str(data["collection_state"]) ? { collectionState: data["collection_state"] } : {}) };
 }
 
 /**
@@ -145,7 +155,9 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   payment_unavailable: "shop.error.payment_unavailable", checkout_link_lost: "shop.error.checkout_link_lost", already_paid: "shop.error.already_paid",
   order_closed: "shop.error.order_closed", order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed", gift_item_not_allowed: "shop.error.gift_item_not_allowed",
   // S73 and S71: the pricing engine and sponsor cover
-  membership_not_open: "shop.error.membership_not_open", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
+  membership_not_open: "shop.error.membership_not_open", upgrade_not_available: "shop.error.upgrade_not_available", upgrade_already_open: "shop.error.upgrade_already_open",
+  plus_state_required: "shop.error.plus_state_required", plus_state_not_available: "shop.error.plus_state_not_available",
+  plus_state_changed: "shop.error.plus_state_changed", plus_needs_direct_checkout: "shop.error.plus_needs_direct_checkout", checkout_updating: "shop.error.checkout_updating", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered", discount_code_invalid: "shop.error.discount_code_invalid", discount_code_rate_limited: "shop.error.discount_code_rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted", sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
   // S72: paying from a supporter's link
@@ -163,3 +175,14 @@ const STATE_KEYS: Readonly<Record<OrderRow["state"], MessageKey>> = {
   refunded: "shop.history.state.refunded", cancelled: "shop.history.state.cancelled",
 };
 export const orderStateKey = (s: OrderRow["state"]): MessageKey => STATE_KEYS[s];
+
+/** The states an admin has approved for Membership Plus blood collection (public.plus_collection_states). A row that is not a state is dropped. */
+export interface PlusState { state: string; displayName: string }
+export function parsePlusStates(data: unknown): PlusState[] {
+  if (!Array.isArray(data)) return [];
+  const out: PlusState[] = [];
+  for (const r of data) {
+    if (isObj(r) && str(r["state"]) && str(r["display_name"])) out.push({ state: r["state"], displayName: r["display_name"] });
+  }
+  return out;
+}

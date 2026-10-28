@@ -7,6 +7,8 @@ export * from "./supabase-store.ts";
 export * from "./entitlements.ts";
 export * from "./payment-request.ts";
 export * from "./fund.ts";
+export * from "./tiers.ts";
 export * from "./price-transparency.ts";
 export * from "./renewal.ts";
 export * from "./renewal-consent.ts";
+export * from "./split.ts";

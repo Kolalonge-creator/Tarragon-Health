@@ -1,3 +1,4 @@
+import { unsealKv } from "@/lib/secure-kv";
 import { flushOutbox } from "@/lib/outbox";
 import { runDeviceCheckThrottled } from "@/lib/device-lease";
 import { startReconnectWatcher } from "@/lib/reachability";
@@ -33,6 +34,7 @@ import { runPostSignIn } from "@/lib/auth/post-sign-in";
 import { BiometricOfferScreen } from "@/screens/biometric-offer-screen";
 import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
+import { PrivacyCover } from "@/ui/privacy-cover";
 import { HomeShell } from "@/screens/home-shell";
 import { SponsorHome } from "@/screens/sponsor-home";
 import { ClinicianHome } from "@/screens/clinician-home";
@@ -123,6 +125,7 @@ function AppContent() {
         // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
         void purgeAllDownloads().catch(() => {});
       }
+      if (event === "SIGNED_IN") unsealKv(); // a wipe seals the on-device queues; a new sign-in opens them again
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;
         postSignInFor.current = userId;
@@ -387,7 +390,7 @@ function AppContent() {
   // The shell is gated behind the lock, not overlaid by it: while locked, no
   // patient data mounts at all, so nothing can leak under or behind the gate.
   if (lockState === "locked") {
-    return <AppLockScreen onUnlocked={() => setLockState("unlocked")} />;
+    return <AppLockScreen accountId={session.user.id} onUnlocked={() => setLockState("unlocked")} />;
   }
 
   if (shellForRole(identity.role) === "sponsor") {
@@ -491,6 +494,7 @@ export default function App() {
         <ThemeProvider>
           <ToastProvider>
             <AppContent />
+            <PrivacyCover />
           </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>

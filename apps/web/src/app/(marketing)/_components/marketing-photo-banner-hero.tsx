@@ -110,7 +110,10 @@ export function PhotoBannerHero({
               {description}
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Button asChild size="lg">
+              {/* Sprout Gold, not the default green: Tarragon Green is the site's
+                  brand colour, and a green button on a dark photo gradient is the
+                  weakest contrast on the page. One accent per view. */}
+              <Button asChild size="lg" variant="accent">
                 <Link href={primaryHref}>{primaryLabel}</Link>
               </Button>
               {secondaryHref && secondaryLabel ? (

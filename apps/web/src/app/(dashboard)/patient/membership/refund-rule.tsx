@@ -16,13 +16,13 @@ export function RefundRule({ locale, membership, pack, id }: { locale: Locale; m
   // Until the database answers, the shared registry values are used, so the rule is on the screen from the first paint.
   const lines = refundRuleLines(policy ?? fallbackRefundPolicy(), { membership, pack });
   return (
-    <section aria-labelledby={`refund-rule-${id}`} className="space-y-1">
+    <div role="group" aria-labelledby={`refund-rule-${id}`} className="space-y-1">
       <h3 id={`refund-rule-${id}`} className="font-medium">{t("refund.rule.title", locale)}</h3>
       <ul className={`list-disc space-y-1 pl-5 text-sm ${MUTED}`}>
         {lines.map((l) => (
           <li key={l.key}>{t(l.key as MessageKey, locale, { ...l.params })}</li>
         ))}
       </ul>
-    </section>
+    </div>
   );
 }

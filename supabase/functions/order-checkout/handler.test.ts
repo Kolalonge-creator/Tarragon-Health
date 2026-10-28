@@ -282,3 +282,42 @@ Deno.test("a supporter paying from a payment request can never set a renewal", a
   await handleCheckout(req({ payment_request: "pr_" + "a".repeat(24), client_key: KEY, auto_renew: true }), d);
   assertEquals(calls.some((c) => c.fn === "set_order_renewal_consent"), false);
 });
+
+// Membership Plus: the state the buyer chose for blood collection is passed on as a parameter; the database decides if it is approved.
+Deno.test("Plus: the chosen collection state goes to create_order as p_collection_state, trimmed", async () => {
+  const { d, seen } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: " Lagos " }), d);
+  assertEquals(res.status, 200);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY, p_collection_state: "Lagos" });
+});
+
+Deno.test("Plus: without a state nothing extra is sent, and a null state is the same as none", async () => {
+  const { d, seen } = deps();
+  await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: null }), d);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
+});
+
+Deno.test("Plus: a malformed state is refused before anything is created, and a payment request carries none", async () => {
+  const { d, seen } = deps();
+  for (const bad of [5, "", "1; drop table", "x".repeat(60), "<b>Lagos</b>"]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: bad }), d);
+    assertEquals(res.status, 400);
+  }
+  const viaRequest = await handleCheckout(req({ payment_request: "pr_" + "a".repeat(24), client_key: KEY, collection_state: "Lagos" }), d);
+  assertEquals(viaRequest.status, 400);
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("Plus: the database's refusals have their own codes", async () => {
+  for (const [msg, status] of [["plus_state_required", 422], ["plus_state_not_available", 422], ["plus_state_changed", 409], ["plus_needs_direct_checkout", 409], ["upgrade_not_available", 409], ["upgrade_already_open", 409]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});
+
+Deno.test("Plus: a database that does not have the new argument yet is a plain 503 'checkout_updating', not an unknown failure", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "Could not find the function public.create_order(p_code, p_client_key, p_collection_state) in the schema cache" } }) });
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: "Lagos" }), d);
+  assertEquals([res.status, (await res.json()).error], [503, "checkout_updating"]);
+});

@@ -57,3 +57,19 @@ Status key: MET, PARTIAL, MISSING, N/A (superseded by a recorded decision). Seve
 6. Low-data mode is a sync-size switch only: media policy has no callers, `profiles.low_data_mode` is never written, no Wi-Fi-only download path (items 13 to 15).
 7. Touch targets under 44pt in legacy buttons and `SmallGhostButton`, and the scan cannot see them; text scaling capped at 1.2 in the top bar, drawer and tab labels (items 23, 24).
 8. Hard-coded English strings in screens and no reading-grade gate (item 22).
+
+## Status update, 2026-10-27 (delivery gaps; re-checked against `origin/main-dev`)
+
+| Item | Status now | Evidence |
+|---|---|---|
+| 3 offline queue: wellbeing check-ins | **Built here** | outbox kind `wellbeing_checkin`, check-in time as the idempotency key (no migration), 8 tests |
+| 4 and 5 lifestyle trackers, cycle logs | Open | OQ-746 (cycle needs a privacy decision; lifestyle is plain follow-up) |
+| 19 "What is this?" per screen | **Partly built here** | a one-line row on 11 screens, using the written script of each clip; OQ-734 for the rest |
+| 20 first-use tab tour | **Built here** | offered once per bottom tab, never autoplayed; the four tabs the app really has |
+| 13 and 15 low-data mode media policy | No change needed | The app has no remote images or automatic downloads for the policy to gate. The switch already controls the sync budget. Wire the policy when the first remote media or audio download lands |
+| 14 `profiles.low_data_mode` never written | No change needed | No server code reads the column; writing it would be dead weight |
+| 23 touch targets under 44 pt | **Closed here** | secondary button, choice chip and the medicine cabinet's small button now have a 44 point minimum; a static test pins them |
+| 24 text scaling caps | Partly closed | the top-bar title scales fully; the rest are OQ-747 |
+| 17 and 18 audio recorded and wired | Open, gated | recording needs a voice audition and CMO sign-off; the listen button appears only when a clip is recorded |
+| 10 drafts, 22 reading grade, 26 traffic-light shapes, 21 deny-list for internal names | Open | not started |
+

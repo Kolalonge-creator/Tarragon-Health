@@ -7,7 +7,7 @@
  * Only switch a whole file at a time: mixing these with the static `colors` in one screen
  * gives dark text on a dark card.
  */
-import { MAX_FONT_SCALE, useLegacyColors } from "./design";
+import { MAX_FONT_SCALE, MIN_TARGET, useLegacyColors } from "./design";
 import { Children, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -67,6 +67,8 @@ export function SecondaryButton({ title, onPress, disabled, loading }: ButtonPro
         borderColor: colors.border,
         borderRadius: radius.control,
         paddingVertical: 13,
+        // At least 44 points tall (WCAG 2.2 and Apple's minimum); the 13 point padding alone came to about 33.
+        minHeight: MIN_TARGET,
         alignItems: "center",
         justifyContent: "center",
         opacity: disabled ? 0.5 : 1,
@@ -95,6 +97,9 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
+        // At least 44 points tall; a chip is a tap target like any button.
+        minHeight: MIN_TARGET,
+        justifyContent: "center",
         opacity: disabled ? 0.5 : 1,
       })}
     >

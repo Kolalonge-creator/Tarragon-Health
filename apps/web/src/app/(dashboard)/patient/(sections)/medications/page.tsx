@@ -11,6 +11,7 @@ import { MedicationEffectivenessCard } from "@/components/medication-effectivene
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { MyDayCard } from "@/app/(dashboard)/patient/my-day-card";
 import { CareChangeCard } from "@/app/(dashboard)/patient/care-change-card";
+import { LowCarbLink } from "@/app/(dashboard)/patient/lowcarb/lowcarb-link";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { loadMyCareChanges } from "@/lib/care-changes/load";
 import { t } from "@tarragon/i18n";
@@ -29,6 +30,7 @@ export default async function PatientMedicationsPage() {
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         <div className="space-y-4">
+          {!acting && <LowCarbLink />}
           {careChanges?.ok === true && <CareChangeCard changes={careChanges.changes} locale={uiLanguage} />}
           {careChanges?.ok === false && <LoadErrorCard title={t("careChange.title", uiLanguage)} what="your care team's changes" />}
           <MedicationsList

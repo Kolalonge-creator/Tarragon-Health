@@ -1,5 +1,6 @@
 import type { PaymentChannel, PaymentProvider } from "../integrations/payment.ts";
 import type { OrderStore } from "./orders.ts";
+import { CONFIGURED_CHECKOUT_CHANNELS, resolveCheckoutChannels } from "./checkout-channels.ts";
 
 /**
  * Starting a checkout (S25). The order is created in the database AS THE SIGNED-IN PATIENT (so the database decides who may
@@ -10,7 +11,7 @@ export const ORDER_ERROR_CODES = [
   "checkout_not_open", "item_not_available", "already_member", "no_capacity", "too_many_open_orders",
   "order_beneficiary_not_allowed", "gift_item_not_allowed", "order_not_authorised",
   // S73: the pricing engine
-  "membership_not_open", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
+  "membership_not_open", "upgrade_not_available", "upgrade_already_open", "plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
   // S71: sponsor-paid items and HMO eligibility
   "sponsor_budget_exhausted", "sponsor_payment_not_open",
   // S72: payment requests (the supporter's link)
@@ -22,7 +23,7 @@ export const ORDER_ERROR_CODES = [
  * follows the Paystack dashboard defaults. Bank transfer and USSD settle late: a person is told "waiting for your bank", never "failed".
  * The exact strings Paystack accepts were taken from its published API reference and are still to be proved with the founder's test key (OQ-401).
  */
-export const DEFAULT_CHECKOUT_CHANNELS: readonly PaymentChannel[] = ["card", "bank_transfer", "ussd"];
+export const DEFAULT_CHECKOUT_CHANNELS: readonly PaymentChannel[] = resolveCheckoutChannels(CONFIGURED_CHECKOUT_CHANNELS);
 export type OrderErrorCode = (typeof ORDER_ERROR_CODES)[number];
 
 export function mapOrderError(message: string): OrderErrorCode | "unknown" {
@@ -45,6 +46,8 @@ export interface OrderExtras {
   readonly discountCode?: string;
   readonly usePoints?: boolean;
   readonly expectedAmountKobo?: number;
+  /** Membership Plus only: the approved state the buyer chose for blood collection. The database refuses an unapproved or missing one. */
+  readonly collectionState?: string;
 }
 export interface OrderCreator {
   create(code: string, clientKey: string, beneficiary?: string, extras?: OrderExtras): Promise<{ readonly ok: true; readonly order: CreatedOrder } | { readonly ok: false; readonly code: OrderErrorCode | "unknown" }>;
@@ -65,6 +68,7 @@ export async function startCheckout(
     ...(args.discountCode ? { discountCode: args.discountCode } : {}),
     ...(args.usePoints ? { usePoints: true } : {}),
     ...(args.expectedAmountKobo !== undefined ? { expectedAmountKobo: args.expectedAmountKobo } : {}),
+    ...(args.collectionState ? { collectionState: args.collectionState } : {}),
   };
   const created = await deps.orders.create(args.code, args.clientKey, args.beneficiary, extras);
   if (!created.ok) return { ok: false, code: created.code };

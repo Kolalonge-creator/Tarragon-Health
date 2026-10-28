@@ -108,6 +108,18 @@ export function useCancelRenewal() {
   });
 }
 
+/** A Plus member whose state was never set (employer seat, grant made earlier, older row) chooses it once; the database refuses a second change. */
+export function useSetMyPlusState() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (state: string) => {
+      const { error } = await createClient().rpc("set_my_plus_collection_state", { p_state: state });
+      if (error) throw error;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: commerceKeys.membership }),
+  });
+}
+
 /** What the person has, from the database's own view (S72, 19.12): where each came from, uses left and days left. */
 export function useMyEntitlements() {
   return useQuery({
@@ -241,7 +253,7 @@ export class CheckoutError extends Error {
  */
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; paymentRequest?: string; autoRenew?: boolean }) => {
+    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number; paymentRequest?: string; autoRenew?: boolean; collectionState?: string }) => {
       // S72 (19.13): paying from a supporter's link sends the link's code INSTEAD of an item code; the database decides the item, the person and the price
       const body = input.paymentRequest !== undefined ? { payment_request: input.paymentRequest, client_key: input.clientKey } : {
         code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary,
@@ -249,6 +261,8 @@ export function useStartCheckout() {
         discount_code: input.discountCode, use_points: input.usePoints, expected_amount_kobo: input.expectedAmountKobo,
         // the buyer's own tick, only ever true when they ticked it; the database ignores it for anything but their own Membership
         auto_renew: input.autoRenew === true ? true : undefined,
+        // Membership Plus only: the approved state chosen for blood collection (the database refuses a missing or unapproved one)
+        collection_state: input.collectionState,
       };
       const { data, error } = await createClient().functions.invoke("order-checkout", { body });
       if (error) throw new CheckoutError(await errorCodeOf(error));

@@ -187,6 +187,32 @@ describe("the repeat reading flow", () => {
     expect(await readPendingRecheck(SUBJECT)).toBeNull();
   });
 
+  it("the pending repeat keeps the due time the rule set asked for (5 minutes, or 2 hours after a very high reading) so the screen can show a countdown", async () => {
+    const first = await gradeOnDevice({ subjectId: SUBJECT, systolic: 182, diastolic: 112, symptoms: [], nowMs: NOW });
+    const pending = await readPendingRecheck(SUBJECT);
+    const taken = Date.parse(pending!.reading.takenAt);
+    expect(pending!.dueAtMs).toBe(taken + (first.result.recheck?.afterMinutes ?? NaN) * 60_000);
+    expect(pending!.dueAtMs! - taken).toBe(5 * 60_000);
+    expect(pending!.expiresAtMs).toBe(taken + (first.result.recheck?.windowMinutes ?? NaN) * 60_000);
+    expect(pending!.expiresAtMs!).toBeGreaterThan(pending!.dueAtMs!);
+
+    await clearPendingRecheck(SUBJECT);
+    await gradeOnDevice({ subjectId: SUBJECT, systolic: 205, diastolic: 100, symptoms: [], symptomsAnswered: true, nowMs: NOW });
+    const veryHigh = await readPendingRecheck(SUBJECT);
+    expect(veryHigh!.dueAtMs! - Date.parse(veryHigh!.reading.takenAt)).toBe(120 * 60_000);
+  });
+
+  it("a pending repeat saved by an older build (no stored times) still reads, with no countdown to show", async () => {
+    await AsyncStorage.setItem(
+      `@tarragon/triage/pending-recheck/v1:${SUBJECT}`,
+      JSON.stringify({ reading: { systolic: 182, diastolic: 112, takenAt: new Date(NOW).toISOString() } }),
+    );
+    const pending = await readPendingRecheck(SUBJECT);
+    expect(pending?.reading).toMatchObject({ systolic: 182, diastolic: 112 });
+    expect(pending?.dueAtMs).toBeUndefined();
+    expect(pending?.expiresAtMs).toBeUndefined();
+  });
+
   it("a repeat that is too soon asks again and keeps waiting", async () => {
     await gradeOnDevice({ subjectId: SUBJECT, systolic: 182, diastolic: 112, symptoms: [], nowMs: NOW });
     const soon = await gradeOnDevice({ subjectId: SUBJECT, systolic: 181, diastolic: 111, symptoms: [], nowMs: NOW + 60_000 });

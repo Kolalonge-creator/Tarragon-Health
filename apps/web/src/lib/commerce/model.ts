@@ -51,6 +51,13 @@ export const membershipSchema = z.object({
   /** The year has ended but the 14 day grace has not: still a Member, and may renew. */
   in_grace: z.boolean().optional(),
   grace_ends_at: z.string().nullable().optional(),
+  /** Membership (no annual blood panel) or plus (with it); null when Free. */
+  tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  /** A year already paid for that starts when this one ends (a Membership bought onto a running Plus year). */
+  next_tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  next_starts_at: z.string().nullable().optional(),
+  /** Membership Plus only: the state fixed when it was bought, where blood is collected. */
+  collection_state: z.string().nullable().optional(),
 });
 export type MembershipState = z.infer<typeof membershipSchema>;
 
@@ -137,6 +144,13 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
   gift_item_not_allowed: "shop.error.gift_item_not_allowed",
   membership_not_open: "shop.error.membership_not_open",
+  upgrade_not_available: "shop.error.upgrade_not_available",
+  upgrade_already_open: "shop.error.upgrade_already_open",
+  plus_state_required: "shop.error.plus_state_required",
+  plus_state_changed: "shop.error.plus_state_changed",
+  plus_needs_direct_checkout: "shop.error.plus_needs_direct_checkout",
+  checkout_updating: "shop.error.checkout_updating",
+  plus_state_not_available: "shop.error.plus_state_not_available",
   quote_changed: "shop.error.quote_changed",
   sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered",

@@ -22,7 +22,8 @@ jobs:
     timeout-minutes: 30
     env:
       # A runaway worker fails with a clear out-of-memory message instead of a silent runner kill.
-      NODE_OPTIONS: --max-old-space-size=4096
+      # 6144 (was 4096): next build's type check on main-dev plus the S90 files hit the 4 GB heap limit twice (same sha, 5 to 6 minutes in, GC thrash).
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
 
@@ -567,6 +568,15 @@ jobs:
           for d in resend-webhook zoom-webhook settlement-reconcile provider-event-drain; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
+
+      # OQ-727: the clinician page (abnormal-result-handler) and a typecheck of the notification sender. send-pending-notifications is not
+      # linted yet, but it is type-checked: a call to a helper deleted in S85-D3 (platformDisabledChannel) sat in main-dev for weeks because
+      # nothing compiled this file.
+      - name: Test and typecheck clinician paging and the notification sender
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          (cd supabase/functions/abnormal-result-handler && deno test --no-config --allow-read . && deno lint --no-config . && deno check --no-config index.ts)
+          (cd supabase/functions/send-pending-notifications && deno check --no-config index.ts)
 
       # S03: the auth Send SMS hook. Clean under deno lint from day one, so it is widened in directory by directory.
       - name: Test auth SMS hook

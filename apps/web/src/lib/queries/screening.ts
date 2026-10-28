@@ -244,3 +244,38 @@ export function useAcceptOptionalScreening() {
     },
   });
 }
+
+/** S98: what the patient may know about the test request issued for each screening (no document content; an uploaded result stays hidden until reviewed). */
+export type ScreeningRequestState = {
+  schedule_id: string;
+  lab_order_id: string;
+  order_status: string;
+  requested_at: string;
+  upload_count: number;
+  last_uploaded_at: string | null;
+  doctor_reviewed: boolean;
+};
+
+export function useMyScreeningRequests(patientId: string) {
+  return useQuery({
+    queryKey: ["screening-requests", patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_screening_requests", { p_patient: patientId });
+      if (error) throw error;
+      return (data ?? []) as ScreeningRequestState[];
+    },
+  });
+}
+
+export type ScreeningRequestPhase = "none" | "awaiting_result" | "result_received" | "reviewed";
+
+/** The state a patient sees for a screening that has a request. Pure so it is testable. */
+export function screeningRequestPhase(
+  r: Pick<ScreeningRequestState, "upload_count" | "doctor_reviewed"> | undefined,
+): ScreeningRequestPhase {
+  if (!r) return "none";
+  if (r.upload_count <= 0) return "awaiting_result";
+  return r.doctor_reviewed ? "reviewed" : "result_received";
+}

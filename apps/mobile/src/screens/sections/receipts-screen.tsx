@@ -13,8 +13,10 @@ import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { formatNaira } from "@tarragon/commerce";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadMyOrders, requestRefund } from "@/lib/commerce/api";
-import { orderStateKey, type OrderRow } from "@/lib/commerce/parse";
+import { loadCatalogue, loadMyOrders, requestRefund } from "@/lib/commerce/api";
+import { orderSplit } from "@/lib/commerce/refund-view";
+import { RefundRuleBlock, RefundStatusCard } from "./refund-blocks";
+import { orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/parse";
 import { radius, spacing } from "@/ui/theme";
 import { placeholderColorFor, useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton } from "@/ui/legacy-kit";
@@ -76,6 +78,7 @@ function OrdersAndRefunds() {
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [kinds, setKinds] = useState<ReadonlyMap<string, CatalogueItem["kind"]>>(new Map());
   const [open, setOpen] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [notice, setNotice] = useState<MessageKey | null>(null);
@@ -84,6 +87,8 @@ function OrdersAndRefunds() {
   const refresh = useCallback(async () => {
     const r = await loadMyOrders();
     if (r.ok) setOrders(r.data);
+    const c = await loadCatalogue();
+    if (c.ok) setKinds(new Map(c.data.map((i) => [i.code, i.kind])));
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -96,11 +101,13 @@ function OrdersAndRefunds() {
   }
 
   if (orders.length === 0) return null;
+  const paidRow = orders.find((o) => o.state === "paid") ?? null;
   return (
     <Card>
       <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tr("receipts.orders.title")}</Text>
       {orders.map((o) => {
         const covered = o.amountKobo === 0 && o.sponsorShareKobo > 0;
+        const split = orderSplit(o);
         const canAsk = o.state === "paid" && o.amountKobo > 0 && o.isBuyer && o.refundState === null;
         return (
           <View key={o.orderId} style={{ paddingVertical: 8, gap: 6 }}>
@@ -108,6 +115,7 @@ function OrdersAndRefunds() {
               <Text style={{ color: colors.ink, flexShrink: 1 }}>{isKey(o.nameKey) ? t(o.nameKey, locale) : ""}</Text>
               <Text style={{ color: colors.ink }}>{covered ? (o.sponsorName ? tr("sponsor.history_covered", { name: o.sponsorName }) : tr("sponsor.covered_generic")) : `\u20A6${formatNaira(o.totalKobo ?? o.amountKobo)}`}</Text>
             </View>
+            {split ? <MutedText>{tr("sponsor.split", { you: `\u20A6${formatNaira(split.youKobo)}`, name: split.sponsorName ?? tr("sponsor.name_generic"), amount: `\u20A6${formatNaira(split.sponsorKobo)}` })}</MutedText> : null}
             <MutedText>{tr(orderStateKey(o.state))}</MutedText>
             {o.refundState !== null ? <MutedText>{tr(REFUND_STATE_KEY[o.refundState] ?? "receipts.refund.pending")}</MutedText> : null}
             {canAsk && open !== o.orderId ? <SecondaryButton title={tr("refund.request.button")} onPress={() => { setOpen(o.orderId); setNotice(null); }} /> : null}
@@ -127,6 +135,8 @@ function OrdersAndRefunds() {
         );
       })}
       {notice ? <MutedText>{tr(notice)}</MutedText> : null}
+      {/* The same plain-words rule the checkout shows, for the most recent paid order (A3). */}
+      {paidRow ? <RefundRuleBlock kind={(paidRow.code ? kinds.get(paidRow.code) : undefined) ?? "consultation"} /> : null}
     </Card>
   );
 }
@@ -176,6 +186,7 @@ export function ReceiptsScreen() {
       )}
 
       <OrdersAndRefunds />
+      <RefundStatusCard />
 
       {receipts.length > 0 && (
         <GroupedList>

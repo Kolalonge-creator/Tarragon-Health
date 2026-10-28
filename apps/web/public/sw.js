@@ -6,6 +6,10 @@
  * platform, so every navigation goes to the network and the cache is
  * consulted only when the network itself is unreachable.
  *
+ * The one page it does keep, /offline.html, carries the signed emergency wording (EMG-001, EMG-001L) as static text, hidden unless this tab holds
+ * a note that an emergency-graded reading was not confirmed saved, so a reload with no network still tells that person what to do (INV-06, S85b).
+ * That is fixed wording, not patient data. src/lib/vitals/offline-page.test.ts keeps the page's words identical to the signed wording.
+ *
  * The push half (2026-07-30) shows whatever send-pending-notifications sent
  * and reports back when the user actually opens it — that open is the real
  * delivery-confirmation signal the forced-channel escalation engine
@@ -13,7 +17,10 @@
  * the next channel. It never touches the notification's content beyond
  * display — no clinical data is cached or stored by this file either way.
  */
-const OFFLINE_CACHE = "th-offline-v1";
+// The cache name carries the first 12 hex digits of the sha256 of offline.html, so an edit to that page (it holds the emergency wording, INV-06)
+// cannot ship while installed workers keep serving the old copy. src/lib/vitals/offline-page.test.ts fails until this value matches the page:
+//   shasum -a 256 apps/web/public/offline.html | cut -c1-12
+const OFFLINE_CACHE = "th-offline-v3-41714484ba8b";
 const OFFLINE_URL = "/offline.html";
 const OFFLINE_ASSETS = [OFFLINE_URL, "/icon-192.png"];
 

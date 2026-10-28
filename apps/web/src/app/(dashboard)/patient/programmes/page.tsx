@@ -43,6 +43,10 @@ export default async function ProgrammesPage({ searchParams }: { searchParams: P
         <h2 id="sponsor-sees" className="font-medium">{t("programme.sponsor_sees_title", uiLanguage)}</h2>
         <p className="text-sm">{t("programme.sponsor_sees_body", uiLanguage, { minimum: sponsorMinimumGroupSize() })}</p>
       </section>
+      <section aria-labelledby="who-pays" className="space-y-1 rounded border p-3">
+        <h2 id="who-pays" className="font-medium">{t("programme.who_pays_title", uiLanguage)}</h2>
+        <p className="text-sm">{t("programme.who_pays_body", uiLanguage)}</p>
+      </section>
       <form action={joinProgrammeAction} className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-sm">{t("programme.code_label", uiLanguage)}</span>

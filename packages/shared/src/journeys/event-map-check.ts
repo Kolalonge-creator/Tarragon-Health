@@ -6,7 +6,7 @@
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { EVENT_MAP, SPINE_SUBSCRIBERS, type Component, type EventMapRow } from "./event-map";
+import { EVENT_MAP, SPINE_SUBSCRIBERS, type Component, type EventMapRow, type KindEvidence } from "./event-map";
 
 export interface Sources {
   readonly migrations: ReadonlyArray<{ readonly name: string; readonly text: string }>;
@@ -107,6 +107,40 @@ export function rpcDefined(src: Sources, name: string): boolean {
   return src.migrations.some((m) => re.test(m.text));
 }
 
+/** The body of the LATEST definition of `private.<name>` across the migrations (a later migration may replace it), from its first $$ to the closing $$. */
+export function latestPrivateFunctionBody(src: Sources, name: string): string | null {
+  const re = new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+private\\.${name}\\s*\\(`, "i");
+  let body: string | null = null;
+  for (const m of src.migrations) {
+    const at = m.text.search(re);
+    if (at < 0) continue;
+    const open = m.text.indexOf("$$", at);
+    const close = open < 0 ? -1 : m.text.indexOf("$$", open + 2);
+    if (open >= 0 && close > open) body = m.text.slice(open + 2, close);
+  }
+  return body;
+}
+
+/** True when a migration creates a trigger that executes `private.<name>()`. */
+export function triggerExecutes(src: Sources, name: string): boolean {
+  const re = new RegExp(`create\\s+trigger[\\s\\S]{0,600}?execute\\s+function\\s+private\\.${name}\\s*\\(`, "i");
+  return src.migrations.some((m) => re.test(m.text));
+}
+
+/** Does the emitter for this KIND exist: defined, emits the event type with this kind in its payload, and attached to a table by a trigger. */
+export function kindEmitterPresent(src: Sources, eventType: string, ev: KindEvidence): boolean {
+  const body = latestPrivateFunctionBody(src, ev.emitterFunction);
+  if (body === null) return false;
+  const emitsType = new RegExp(`emit_domain_event\\(\\s*'${eventType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`).test(body);
+  const carriesKind = new RegExp(`'kind'\\s*,\\s*'${ev.kind}'`).test(body);
+  return emitsType && carriesKind && triggerExecutes(src, ev.emitterFunction);
+}
+
+/** Does the handler tell this kind apart from the others (so the effect RPC named for the row is the one this kind reaches)? */
+export function handlerRoutesKind(src: Sources, kind: string): boolean {
+  return new RegExp(`payload\\["kind"\\]\\s*===\\s*"${kind}"`).test(src.sharedTs);
+}
+
 export interface RowEvaluation {
   readonly row: EventMapRow;
   readonly missing: readonly Component[];
@@ -116,7 +150,10 @@ export function evaluateRow(row: EventMapRow, src: Sources): RowEvaluation {
   const missing: Component[] = [];
   const types = seededEventTypes(src);
   if (!types.has(row.eventType)) missing.push("event_type");
-  if (!emittedEventTypes(src).has(row.eventType)) missing.push("emitter");
+  const ev = row.kindEvidence;
+  // A row for one kind of a shared event type needs that kind's own emitter; the type being emitted by another kind is not evidence for it.
+  const emitterOk = ev ? kindEmitterPresent(src, row.eventType, ev) : emittedEventTypes(src).has(row.eventType);
+  if (!emitterOk) missing.push("emitter");
 
   const wanted = SPINE_SUBSCRIBERS[row.id];
   const subs = registeredSubscribers(src).filter(
@@ -130,7 +167,8 @@ export function evaluateRow(row: EventMapRow, src: Sources): RowEvaluation {
     row.effectRpc !== undefined &&
     live.length > 0 &&
     rpcDefined(src, row.effectRpc) &&
-    new RegExp(`["'\`]${row.effectRpc}["'\`]`).test(src.portsTs);
+    new RegExp(`["'\`]${row.effectRpc}["'\`]`).test(src.portsTs) &&
+    (!ev || !ev.handlerRoutesKind || handlerRoutesKind(src, ev.kind));
   if (!effectOk) missing.push("effect");
   return { row, missing };
 }

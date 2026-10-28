@@ -15,6 +15,7 @@ import { loadOpenAlerts, loadUnanswered } from "@/lib/care-circle/api";
 import { CheckInCard } from "@/screens/sections/care-circle-section";
 import { needsAttentionCount } from "@/lib/care-circle/parse";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
+import { ScreenHelp } from "@/ui/screen-help";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { useTheme } from "@/ui/design";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
@@ -55,6 +56,8 @@ import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { RecordShareScreen } from "@/screens/sections/record-share-screen";
 import { MyPhonesScreen } from "@/screens/sections/my-phones-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { LowCarbScreen } from "@/screens/sections/lowcarb-screen";
+import { FastingScreen } from "@/screens/sections/fasting-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { DirectoryScreen } from "@/screens/sections/directory-screen";
@@ -313,6 +316,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         patientId={subjectId}
         organisationId={organisationId}
         subjectName={acting?.fullName ?? undefined}
+        onNavigate={handleSelect}
       />
     ),
     labs: () => <LabsScreen />,
@@ -329,6 +333,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           organisationId={organisationId}
           onOpenVideoVisit={setOpenVideoVisitId}
           onOpenConsultation={setOpenConsultationId}
+          onOpenMessages={() => handleSelect("messages")}
         />
       ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
@@ -343,6 +348,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     symptomJournal: () => <SymptomJournalScreen subjectId={subjectId} acting={acting != null} onNavigate={handleSelect} />,
     myPhones: () => <MyPhonesScreen userId={userId} acting={acting != null} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
+    // The programme is the person's own (their own yes), so nothing is shown while acting for someone else.
+    lowCarb: () => <LowCarbScreen patientId={userId} acting={acting != null} onNavigate={handleSelect} />,
+    fasting: () => <FastingScreen acting={acting != null} onNavigate={handleSelect} />,
     devices: () =>
       openDevice ? (
         <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
@@ -378,7 +386,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     ),
     emergency: () => <EmergencyCardScreen patientId={userId} organisationId={organisationId} />,
     settings: () => (
-      <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+      <SettingsScreen patientName={patientName} initials={initials} accountId={userId} onNavigate={handleSelect} />
     ),
     womensHealth: () => (
       <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
@@ -396,7 +404,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
     lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
-    meals: () => <MealsScreen patientId={subjectId} />,
+    meals: () => <MealsScreen patientId={subjectId} acting={acting != null} />,
     sleep: () => <SleepScreen patientId={subjectId} />,
     activity: () => <ActivityScreen patientId={subjectId} organisationId={organisationId} />,
     smoking: () => <SmokingScreen patientId={subjectId} />,
@@ -441,6 +449,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
 
       {/* S29e: a supporter asked for a check-in; the patient's own account only, and only while a question waits. */}
       {acting === null ? <CheckInCard /> : null}
+
+      {/* D.2: "What is this?" for the screen and a one-time offer of a short tour on the four bottom tabs. Words only; nothing autoplays. */}
+      <ScreenHelp section={section} />
 
       <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 

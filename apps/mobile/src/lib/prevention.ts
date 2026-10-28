@@ -524,3 +524,40 @@ export function daysLabel(dateStr: string): string {
   if (days === 0) return "today";
   return `${-days} day${days === -1 ? "" : "s"} overdue`;
 }
+
+export interface ScreeningRequestItem {
+  scheduleId: string;
+  labOrderId: string;
+  uploadCount: number;
+  doctorReviewed: boolean;
+}
+
+export type ScreeningRequestPhase = "none" | "awaiting_result" | "result_received" | "reviewed";
+
+/** The state the patient sees for a screening that has a test request. Mirrors the web calendar. */
+export function screeningRequestPhase(
+  r: Pick<ScreeningRequestItem, "uploadCount" | "doctorReviewed"> | undefined
+): ScreeningRequestPhase {
+  if (!r) return "none";
+  if (r.uploadCount <= 0) return "awaiting_result";
+  return r.doctorReviewed ? "reviewed" : "result_received";
+}
+
+/** S98: the test request the preventive engine issued for each screening (no document content; an uploaded result stays hidden until reviewed). */
+export async function getScreeningRequests(patientId: string): Promise<QueryResult<ScreeningRequestItem[]>> {
+  try {
+    const { data, error } = await supabase.rpc("my_screening_requests", { p_patient: patientId });
+    if (error) return { ok: false, error: error.message };
+    return {
+      ok: true,
+      data: (data ?? []).map((r) => ({
+        scheduleId: r.schedule_id,
+        labOrderId: r.lab_order_id,
+        uploadCount: r.upload_count,
+        doctorReviewed: r.doctor_reviewed,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}

@@ -36,6 +36,7 @@ import { MedicationEffectivenessCard } from "@/components/medication-effectivene
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
 import { CarePlanChangesPanel } from "./care-plan-changes/care-plan-changes-panel";
+import { LowCarbProgrammePanel } from "./lowcarb-programme/lowcarb-programme-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -50,6 +51,7 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
+import { BpControlRatePanel } from "./bp-control-rate-panel";
 import { ThresholdOverrideCard } from "./threshold-override-card";
 import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
 import { CuffCheckPanel } from "./cuff-check-panel";
@@ -309,6 +311,8 @@ export default async function ClinicianPatientPage({
                 {/* S24: signed care plan changes. Hidden for a Care Coordinator (logistics only);
                     proposing and signing need prescribing authority, enforced in the DB. */}
                 {isClinicalTier(callerStaff) && <CarePlanChangesPanel patientId={patient.id} canAct={canPrescribe} />}
+                {/* S50b: dormant low-carbohydrate programme; renders nothing until its go-live guard is on. */}
+                {isClinicalTier(callerStaff) && <LowCarbProgrammePanel patientId={patient.id} />}
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
@@ -384,6 +388,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <BpControlRatePanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
                 {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}

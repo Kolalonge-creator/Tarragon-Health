@@ -1,31 +1,33 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChannelHero } from "./_components/channel-hero";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
 import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
-import { MarketingMediaFrame } from "./_components/marketing-media-frame";
 import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
 import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
 import { DoctorTestimonialsSection } from "./_components/doctor-testimonials-section";
-import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { PhoneMockup } from "./_components/phone-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
 import { PartnerLogoStrip } from "./_components/partner-logo-strip";
-import { MARKETING_MEDIA } from "./_content/media";
 import { StepsExplorer } from "./_components/steps-explorer";
-import { StaggeredReveal } from "./_components/staggered-reveal";
-import { HOME_HOW_IT_WORKS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
+import { FaqAccordion } from "./_components/marketing-faq-accordion";
+import { HomeEntryChips } from "./_components/home-entry-chips";
+import { HomeLadderCompare } from "./_components/home-ladder-compare";
+import { HomePlanCompare } from "./_components/home-plan-compare";
+import { ladderCards } from "./_content/pricing-ladder";
+import { HomeBusinessDoor } from "./_components/home-business-door";
+import { MARKETING_MEDIA } from "./_content/media";
+import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
-import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipLadderPriceLabels, membershipLadderPublic, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -43,10 +45,7 @@ export const metadata: Metadata = {
     title: HOME_TITLE,
     // Kept <= 160 chars: apps/web/src/lib/marketing/page-metadata.test.ts
     // enforces MAX_DESCRIPTION = 160 as a hard stop across every marketing
-    // page (Google truncates a listing there). The original 202-char draft
-    // cut off mid-sentence; a first trim to 161 still failed that test by
-    // one character, caught only in CI because this file's test run never
-    // covers src/lib/marketing/ (only src/app/(marketing)/).
+    // page (Google truncates a listing there).
     description:
       "Free to join. Tarragon watches your blood pressure, sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
     path: "/",
@@ -56,30 +55,72 @@ export const metadata: Metadata = {
 
 /**
  * ISR, not per-request rendering. The only live data on this page is the
- * testimonials block (anon key, published rows only), and an hour-stale
+ * testimonials blocks (anon key, published rows only), and an hour-stale
  * quote is fine; docs/MARKETING_SITE_SPEC.md §4 requires marketing pages to
  * be static or ISR.
  */
 export const revalidate = 3600;
 
+/**
+ * Four questions a first-time visitor actually has, answered with the same
+ * facts /pricing and /services state. FAQPage structured data is emitted for
+ * them below. Redesign 2026-10-26: the homepage previously had no FAQ at all.
+ */
+function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder: { evergreen: string; evergreenPlus: string } | null) {
+  return [
+    {
+      question: "Is Tarragon really free?",
+      answer: ladder
+        ? `Yes. The app is free, with no time limit and no card. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel.`
+        : `Yes. The app is free, with no time limit and no card. Membership is optional: ₦${price} a year, and it adds a yearly blood test and a video call with your care team every month.`,
+    },
+    {
+      question: "Do I need a diagnosis to join?",
+      answer:
+        "No. Many people join to stay well: you get a screening and vaccination calendar built for you and a yearly health check. If you do have a condition, we follow it between your doctor visits.",
+    },
+    {
+      question: "What happens if a reading is dangerous?",
+      answer:
+        "You get clear guidance and a specific next step straight away. If a dangerous reading goes unacknowledged, the person you named as next of kin is contacted too.",
+    },
+    {
+      question: "Does Membership renew by itself?",
+      answer: renewalCopy(autoRenews, refundDays).faqAnswer,
+    },
+  ];
+}
+
 export default async function MarketingHomePage() {
   const { homepage } = MARKETING_MEDIA;
   const { walkthroughVideo } = homepage;
+  const price = membershipPriceLabel();
+  const refundDays = refundWindowDays();
+  const autoRenews = await membershipAutoRenews();
+  const ladderPrices = membershipLadderPublic() ? membershipLadderPriceLabels() : null;
+  const faq = homeFaq(price, refundDays, autoRenews, ladderPrices);
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  };
 
   return (
     <>
-      {/* dohealth.co-style full-bleed photo hero: real photography with
-          overlaid text, spanning the full viewport width (rendered outside
-          Section on purpose — see the component's own header comment).
-          Replaces the old text-beside-a-photo-card MarketingHero layout for
-          this slot (kept for product pages with no real photo sourced yet —
-          see product-page-template.tsx).
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
+      />
 
-          Hero copy is channel-gated: `?channel=hmo|employer|diaspora` swaps
-          the headline/CTA for that traffic source (see _content/channel-
-          heroes.ts); everything below the fold is the same page for every
-          visitor. An unknown or missing value falls back to the copy every
-          other visitor sees. */}
+      {/* Full-bleed photo hero, rendered outside Section on purpose (see the
+          component's own header comment). Hero copy is channel-gated:
+          `?channel=hmo|employer|diaspora` swaps the headline/CTA for that
+          traffic source (see _content/channel-heroes.ts); everything below
+          the fold is the same page for every visitor. */}
       <Suspense
         fallback={
           <PhotoBannerHero
@@ -104,30 +145,22 @@ export default async function MarketingHomePage() {
           videoSrc={homepage.hero.videoSrc}
         />
       </Suspense>
-      <Section className="py-8 sm:py-10">
-        <ContinuityPath />
-        <div className="mt-10 grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+
+      {/* 2. Something to do in the first screen-and-a-half. */}
+      <HomeEntryChips />
+
+      {/* 3. The four commitments, then the care path they sit on. */}
+      <Section className="py-6 sm:py-8">
+        <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
           {PROOF_STATS.map((stat) => (
-            <Card
-              key={stat.label}
-              variant="soft"
-              className="border-0 shadow-none transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-sm"
-            >
+            <Card key={stat.label} variant="soft" className="border-0 shadow-none">
               <CardContent className="p-5">
-                {/* Deliberately NOT AnimatedNumber, unlike the other stat
-                    tiles on this site. That component renders "prefix + 0 +
-                    suffix" until an IntersectionObserver fires, so the "12
-                    hrs" contact-SLA promise served as "0 hrs on a critical
-                    result" in the server-rendered HTML, and stayed that way
-                    for anyone with JavaScript blocked or a throttled
-                    observer. A count-up flourish is fine over a headcount;
-                    it is not fine over a clinical commitment a visitor is
-                    being asked to trust. */}
+                {/* Deliberately NOT AnimatedNumber: that component serves
+                    "0 hrs on a critical result" in the server HTML for
+                    anyone without JavaScript. A count-up flourish is fine
+                    over a headcount; it is not fine over a clinical
+                    commitment a visitor is being asked to trust. */}
                 <p className="font-heading text-3xl font-bold text-brand-green">{stat.value}</p>
-                {/* Deliberately not a heading. These four stat labels used to
-                    be <h2>s, which put "priority programmes" / "escalation
-                    levels" ahead of the page's first real section heading in
-                    every outline and screen-reader heading list. */}
                 <p className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
                   {stat.label}
                 </p>
@@ -136,60 +169,13 @@ export default async function MarketingHomePage() {
             </Card>
           ))}
         </div>
-      </Section>
-
-      {/* Two front doors, the same shared record, entered from either side.
-          Healthy visitors must see themselves within the first screen-and-a-
-          half, not at section six (prevention-first repositioning). */}
-      <Section>
-        <SectionHeading
-          eyebrow="Start where you are"
-          title="Two ways in, one record"
-          description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
-        />
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-          <Card
-            asChild
-            className="rounded-2xl border-brand-green/25 hover:border-brand-green/50 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-          >
-            <Link href={MARKETING_ROUTES.prevention} className="group block p-8 focus-visible:outline-none">
-              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I&apos;m healthy
-              </p>
-              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Stay that way <span aria-hidden>→</span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                A screening and vaccination calendar built for you, plus a yearly health check.
-              </p>
-            </Link>
-          </Card>
-          <Card
-            asChild
-            className="rounded-2xl hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-          >
-            <Link href={MARKETING_ROUTES.chronicCare} className="group block p-8 focus-visible:outline-none">
-              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I&apos;m managing a condition
-              </p>
-              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Get followed up properly <span aria-hidden>→</span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                Hypertension, diabetes, weight: monitored between visits, escalated to a doctor
-                when needed.
-              </p>
-            </Link>
-          </Card>
+        <div className="mt-10">
+          <ContinuityPath />
         </div>
       </Section>
 
+      {/* 4. The gap. */}
       <Section variant="sage">
-        {/* Rewritten 2026-09-22. This used to read "Chronic disease is
-            poorly followed up between doctor visits", which is a true
-            sentence about a disease category rather than about the person
-            reading it. The visitor's own experience is the more persuasive
-            version of the same fact, and it costs nothing in accuracy. */}
         <StoryPanel
           eyebrow="The gap"
           title="You were fine when you left the hospital. Then what?"
@@ -198,13 +184,8 @@ export default async function MarketingHomePage() {
         />
       </Section>
 
-      {/* The spec's numbered "how it works" sequence (§3.1.5). Rewritten
-          2026-09-22: the heading used to be "Tarragon monitors, reminds,
-          reviews, coordinates, and escalates" — five system verbs in a row,
-          a description of what the software does rather than of what the
-          visitor gets. The six-stage HOW_IT_WORKS_STEPS pipeline it rendered
-          moved to /services, where someone has already opted into that level
-          of detail; the homepage now uses the three-step HOME_HOW_IT_WORKS. */}
+      {/* 5. How it works, with the phone. The old separate "Take Tarragon
+          with you" section is folded into the note under the steps. */}
       <Section>
         <SectionHeading
           eyebrow="How it works"
@@ -225,100 +206,103 @@ export default async function MarketingHomePage() {
             showNotch
           />
         </div>
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Button asChild variant="outline">
-            <Link href={MARKETING_ROUTES.services}>See the full walkthrough</Link>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link href={MARKETING_ROUTES.about}>About Tarragon</Link>
-          </Button>
-        </div>
-      </Section>
-
-      {/* Added 2026-09-22. The free app plus pay-per-service model (founder
-          decision 2026-09-02) is this platform's single clearest advantage in
-          a market where people expect a health subscription to bill them
-          quietly, and it previously appeared for the first time around the
-          eighth section of the page. Every line below is checked against
-          _content/pricing.ts and the live service_products catalogue: no
-          figure is quoted here, so this block cannot drift out of step with
-          the prices the pricing page reads at request time. */}
-      <Section variant="sage">
-        <SectionHeading
-          eyebrow="What it costs"
-          title="The app is free. You pay for a doctor, not a subscription."
-          description="No monthly fee, nothing charged twice, and no bill you did not agree to first."
-        />
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
-          {[
-            {
-              title: "Free, always",
-              body: "Tracking, reminders, your personal screening and vaccination calendar, the education library, and the AI coach.",
-            },
-            {
-              title: "Paid, per piece of work",
-              body: "A doctor reading your result, a consultation, a medication review, or a standing watch on the readings you log.",
-            },
-            {
-              title: "You approve every naira",
-              body: "You see the exact price and confirm it before anything is charged. Nothing renews by itself.",
-            },
-          ].map((item) => (
-            <Card key={item.title} variant="soft" className="border-0 shadow-none">
-              <CardContent className="p-6">
-                <h3 className="font-heading text-base font-semibold text-charcoal-ink">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="mt-8 flex justify-center">
-          <Button asChild variant="outline">
-            <Link href={MARKETING_ROUTES.pricing}>See the full price list</Link>
-          </Button>
-        </div>
-      </Section>
-
-      <Section className="py-10 sm:py-14">
-        <SectionHeading
-          eyebrow="Chronic care programmes"
-          title="Hypertension, diabetes, and weight, managed with follow-up"
-          description="A structured, doctor-reviewed programme for each, on one shared record."
-        />
-        <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3">
-          {SERVICE_CARDS.filter((card) =>
-            ["hypertension", "diabetes", "obesity"].includes(card.key)
-          ).map((service) => (
-            <Link
-              key={service.key}
-              href={service.href}
-              className="group rounded-full border border-charcoal-ink/10 bg-white px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-brand-green/40 hover:text-brand-green"
-            >
-              {service.title}
-              <span
-                aria-hidden
-                className="ml-1.5 inline-block transition-transform group-hover:translate-x-0.5"
-              >
-                →
-              </span>
-            </Link>
-          ))}
-        </div>
-        <p className="mt-6 text-center">
-          <Link
-            href={MARKETING_ROUTES.chronicCare}
-            className="text-sm font-medium text-deep-forest hover:underline"
-          >
-            How chronic care works at Tarragon <span aria-hidden>→</span>
+        {/* Truthful about the apps: no store listing is confirmed (see
+            docs/PLAY_STORE_SUBMISSION.md), so the web app is the product and
+            the native apps are "coming". Do not add store badges until a
+            listing is confirmed live. */}
+        <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+          Tarragon works in any phone browser. Add it to your home screen and it opens like an app,
+          with the same secure record and your care team in your pocket. Native apps for iPhone and
+          Android are coming.{" "}
+          <Link href={MARKETING_ROUTES.services} className="font-medium text-brand-green hover:underline">
+            See the full walkthrough
           </Link>
         </p>
       </Section>
 
-      {/* Same rule the product pages already follow (see PRODUCT_VIDEOS in
-          _content/media.ts: "empty youtubeId = section not rendered"). The
-          homepage was the one exception, shipping a play button that opened a
-          tap-through mockup captioned "Full video walkthrough coming soon" as
-          a live section. Set walkthroughVideo.youtubeId to bring it back. */}
+      {/* 6. What it costs: Free vs Membership, price from config. */}
+      <Section variant="sage">
+        <SectionHeading
+          eyebrow="What it costs"
+          title={ladderPrices ? "Free, Membership or Membership Plus" : "Free to start. Membership when you want a doctor involved."}
+          description={
+            ladderPrices
+              ? "Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
+              : "Two plans, nothing in between. Everything you can do yourself costs nothing."
+          }
+        />
+        {ladderPrices ? (
+          <HomeLadderCompare cards={ladderCards(ladderPrices)} refundDays={refundDays} autoRenews={autoRenews} />
+        ) : (
+          <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
+        )}
+      </Section>
+
+      {/* 7. Two ways in, then the three programmes as cards. */}
+      <Section>
+        <SectionHeading
+          eyebrow="Start where you are"
+          title="Two ways in, one record"
+          description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
+        />
+        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
+          <Card
+            asChild
+            className="rounded-2xl border-brand-green/25 hover:border-brand-green/50 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
+          >
+            <Link href={MARKETING_ROUTES.prevention} className="group block p-8 focus-visible:outline-none">
+              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+                I&apos;m healthy
+              </p>
+              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+                Stay that way <span aria-hidden>→</span>
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+                A screening and vaccination calendar built for you, plus a yearly health check. You
+                don&apos;t need a diagnosis to belong here.
+              </p>
+            </Link>
+          </Card>
+          <Card
+            asChild
+            className="rounded-2xl hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
+          >
+            <Link href={MARKETING_ROUTES.chronicCare} className="group block p-8 focus-visible:outline-none">
+              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+                I&apos;m managing a condition
+              </p>
+              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+                Get followed up properly <span aria-hidden>→</span>
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+                Monitored between visits, and escalated to a doctor when a result needs one.
+              </p>
+            </Link>
+          </Card>
+        </div>
+        <div className="mx-auto mt-6 grid max-w-4xl gap-4 sm:grid-cols-3">
+          {SERVICE_CARDS.filter((card) => ["hypertension", "diabetes", "obesity"].includes(card.key)).map(
+            (service) => (
+              <Card
+                key={service.key}
+                asChild
+                variant="soft"
+                className="border-0 shadow-none hover:shadow-sm focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
+              >
+                <Link href={service.href} className="group block p-6 focus-visible:outline-none">
+                  <h3 className="font-heading text-base font-semibold text-charcoal-ink group-hover:text-brand-green">
+                    {service.title} <span aria-hidden>→</span>
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{service.description}</p>
+                </Link>
+              </Card>
+            )
+          )}
+        </div>
+      </Section>
+
+      {/* Same rule the product pages follow (see PRODUCT_VIDEOS in
+          _content/media.ts: "empty youtubeId = section not rendered"). */}
       {walkthroughVideo.youtubeId.trim() ? (
         <Section variant="sage">
           <MarketingVideo
@@ -330,166 +314,12 @@ export default async function MarketingHomePage() {
         </Section>
       ) : null}
 
-      {/* The "beyond the numbers" habit framing (competitive-teardown addition,
-          2026-08-20): five daily-habit areas keyed 1:1 to the Lifestyle
-          Programme Engine's lpe_module enum (see _content/pillars.ts), so
-          this copy never drifts from what the product actually tracks. Text
-          only, no icons, matching TrustPillars' card pattern rather than
-          inventing a new visual language for one section. */}
-      <Section>
-        <SectionHeading
-          eyebrow={PILLARS_SECTION_COPY.eyebrow}
-          title={PILLARS_SECTION_COPY.title}
-          description={PILLARS_SECTION_COPY.description}
-        />
-        <StaggeredReveal className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
-          {PILLARS.map((pillar) => (
-            <div
-              key={pillar.module}
-              className="relative h-full bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
-            >
-              <h3 className="font-heading text-base font-semibold text-charcoal-ink">{pillar.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{pillar.body}</p>
-            </div>
-          ))}
-        </StaggeredReveal>
-      </Section>
+      {/* 8. The B2B front door. */}
+      <HomeBusinessDoor />
 
-      <Section>
-        <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-brand-green/20 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
-          <MarketingMediaFrame
-            media={homepage.preventionCallout}
-            className="rounded-none border-0 shadow-none lg:min-h-full"
-          />
-          <div className="p-8 sm:p-10">
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              If you are well
-            </p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
-              {PREVENTION_CALLOUT.title}
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              {PREVENTION_CALLOUT.body}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button asChild variant="outline">
-                <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
-              </Button>
-              <Button asChild variant="ghost">
-                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check <span aria-hidden>→</span></Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      <Section>
-        <div className="mx-auto grid max-w-5xl items-center gap-8 overflow-hidden rounded-2xl border border-brand-green/20 bg-white p-8 shadow-sm sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12 lg:p-12">
-          <AppDashboardMockup className="relative mx-auto" />
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              On your phone
-            </p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
-              Take Tarragon with you
-            </h2>
-            {/* Corrected 2026-09-22 (launch-scope audit reconciliation) —
-                still no live App Store/Google Play listing as of this pass
-                (see docs/PLAY_STORE_SUBMISSION.md: a 2026-09-17
-                icon-impersonation rejection has a same-day fix commit, but
-                whether the resubmission was actually approved is not
-                confirmable from the repository — flagged to the founder as
-                an action item, not assumed either way), so "are coming"
-                stays honest rather than claiming a listing that may or may
-                not exist yet. Also softened the wearables-sync claim: the
-                Apple Health / Android Health Connect bridges are real,
-                built code, but per CLAUDE.md's Device & Wearable
-                Integration section neither has ever run on a real device or
-                a Health Connect-capable emulator, and none of the 5
-                cloud-OAuth wearable providers (Oura/WHOOP/Garmin/Fitbit/
-                Dexcom) has real developer credentials configured yet — so a
-                blanket "automatic sync from...wearables" overclaims
-                reliability for something largely unverified in practice. */}
-            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Tarragon works in any phone browser, and you can add it to your home screen so it
-              opens like an app: the same secure record you use on the web, with your care team
-              in your pocket. Native apps for iPhone and Android are coming.
-            </p>
-            <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-              {[
-                "Track BP, glucose, and weight trends at a glance",
-                "Get reminders for medication, screenings, and reviews",
-                "Message your care team any time, right in the app",
-                "Share your Health Passport with any doctor",
-                "Sync from Apple Health or Android Health Connect where your phone supports it",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup">Get started</Link>
-              </Button>
-            </div>
-            <p className="mt-3 text-sm text-charcoal-ink/65">
-              Already have an account? Sign in on your phone browser, then use your browser&apos;s
-              &quot;Add to Home Screen&quot; option to keep Tarragon one tap away.
-            </p>
-          </div>
-        </div>
-      </Section>
-
-      <Section>
-        <SectionHeading
-          eyebrow="Explore"
-          title="Find the care that fits you"
-          description="Whether you're managing a condition, staying ahead of one, or looking after someone else, there's a place to start."
-        />
-        <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              href: MARKETING_ROUTES.prevention,
-              title: "Prevention",
-              body: "Healthy and staying that way: screenings, vaccines, yearly checks.",
-            },
-            {
-              href: MARKETING_ROUTES.services,
-              title: "Services",
-              body: "Everything Tarragon helps you manage, and how it fits together.",
-            },
-            {
-              href: MARKETING_ROUTES.whoItsFor,
-              title: "Who it's for",
-              body: "For you, for families, for employers, and for HMOs.",
-            },
-            {
-              href: MARKETING_ROUTES.pricing,
-              title: "Pricing",
-              body: "The app is free. See exactly what a doctor's time costs.",
-            },
-          ].map((item) => (
-            <Card
-              key={item.href}
-              asChild
-              className="hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-            >
-              <Link href={item.href} className="group block p-6 focus-visible:outline-none">
-                <h3 className="font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
-                  {item.title}
-                  <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
-                    →
-                  </span>
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
-              </Link>
-            </Card>
-          ))}
-        </div>
-      </Section>
-
+      {/* 9. Trust, then proof. Partners and testimonials render only real,
+          consented, published entries (see their component headers); until
+          there are any, they leave no gap. */}
       <Section variant="navy">
         <SectionHeading
           eyebrow="Why people trust Tarragon"
@@ -506,10 +336,22 @@ export default async function MarketingHomePage() {
 
       <DoctorTestimonialsSection />
 
+      {/* 10. FAQ. */}
+      <Section>
+        <SectionHeading eyebrow="Questions" title="Before you sign up" />
+        <FaqAccordion items={faq} variant="minimal" />
+        <p className="mt-6 text-center text-sm">
+          <Link href={MARKETING_ROUTES.faq} className="font-medium text-brand-green hover:underline">
+            More questions and answers
+          </Link>
+        </p>
+      </Section>
+
       <Section>
         <EmergencyNotice />
       </Section>
 
+      {/* 11. Closing call to action. */}
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"

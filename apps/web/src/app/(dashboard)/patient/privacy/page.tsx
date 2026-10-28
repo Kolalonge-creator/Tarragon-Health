@@ -14,6 +14,7 @@ import { parseConsentMatrix, CONSENT_DATA_TYPES, CONSENT_PURPOSES } from "@tarra
 import { t } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { ConsentMatrixPanel, type ConsentHistoryItem } from "./consent-matrix-panel";
+import { SensitiveRequestOptinCard } from "./sensitive-request-optin-card";
 import { ProxyArrangementsCard, type ProxyArrangement } from "../family/proxy-arrangements-card";
 
 /**
@@ -71,6 +72,12 @@ export default async function PrivacyCentrePage() {
       )}
 
       <ProxyArrangementsCard arrangements={arrangements} />
+
+      <SensitiveRequestOptinCard />
+
+      <p className="text-sm">
+        <a href="/patient/research" className="font-semibold text-brand-green underline">{t("res.ledger.link")}</a>
+      </p>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ConsentStatusPanel patientId={profile.id} />

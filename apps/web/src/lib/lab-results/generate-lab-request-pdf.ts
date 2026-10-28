@@ -6,7 +6,7 @@ import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/d
 
 export type GenerateLabRequestPdfResult =
   | { ok: true; buffer: Buffer; filename: string; orderNumber: string | null }
-  | { ok: false; error: "not_found" };
+  | { ok: false; error: "not_found" | "panel_unavailable" };
 
 /**
  * Builds the take-anywhere test request PDF for one lab order.
@@ -34,15 +34,29 @@ export type GenerateLabRequestPdfResult =
 export async function generateLabRequestPdf(
   supabase: SupabaseClient<Database>,
   orderId: string,
+  /**
+   * S98: the signed-in caller on the two patient-facing routes. A caller who is not the order's patient (a caregiver with view_results)
+   * is refused, as "not found", for a self-service request that holds a SENSITIVE test: the PDF names it. Omitted by the service-key route.
+   */
+  viewerId?: string,
 ): Promise<GenerateLabRequestPdfResult> {
   const { data: order } = await supabase
     .from("lab_orders")
     .select(
-      "id, order_number, ordered_at, patient_id, ordered_by, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
+      "id, order_number, ordered_at, patient_id, ordered_by, origin, clinical_indication, panel_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
     )
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { ok: false, error: "not_found" };
+  if (viewerId && viewerId !== order.patient_id && order.origin === "patient_initiated") {
+    const codes = order.panel_bundle?.test_codes ?? [];
+    if (codes.length > 0) {
+      const { data: sensitive } = await supabase.from("screen_types").select("code").eq("sensitive", true).in("code", codes);
+      // fail closed: a failed or empty lookup for a non-owner is treated as "cannot tell", which is a refusal only when something sensitive was found;
+      // the catalogue read is a plain select, so an error here returns null data and we refuse.
+      if (sensitive === null || sensitive.length > 0) return { ok: false, error: "not_found" };
+    }
+  }
 
   const { data: patient } = await supabase
     .from("profiles")
@@ -65,6 +79,35 @@ export async function generateLabRequestPdf(
     testNames = Array.from(
       new Set(testCodes.map((code) => nameByCode.get(code)).filter((n): n is string => !!n)),
     );
+  }
+
+  // The annual bundle is a signed panel (lab_panel_versions), not a panel_bundles row: its tests are the
+  // active version's analytes. Optional analytes are marked so the lab only runs them if asked.
+  let annualPanelName: string | null = null;
+  if (order.panel_code && testNames.length === 0) {
+    const { data: version, error: versionError } = await supabase
+      .from("lab_panel_versions")
+      .select("analytes")
+      .eq("panel_code", order.panel_code)
+      .eq("is_active", true)
+      .maybeSingle();
+    // A request with no list of tests is worse than no request: the lab cannot tell what to run. Fail, and say why in the log.
+    if (versionError || !version) {
+      console.error("annual bundle request: the active panel version could not be read", { panel: order.panel_code, error: versionError?.message });
+      return { ok: false, error: "panel_unavailable" };
+    }
+    const analytes = Array.isArray(version.analytes) ? version.analytes : [];
+    testNames = analytes.flatMap((a) => {
+      if (!a || typeof a !== "object" || Array.isArray(a)) return [];
+      const label = typeof a.label === "string" ? a.label : null;
+      if (!label) return [];
+      return [a.optional === true ? `${label} (only if the doctor asks)` : label];
+    });
+    if (testNames.length === 0) {
+      console.error("annual bundle request: the active panel version lists no tests", { panel: order.panel_code });
+      return { ok: false, error: "panel_unavailable" };
+    }
+    annualPanelName = "Annual health check bundle";
   }
 
   // Null-gated attribution, exactly like ReviewedByDoctor: a name is printed
@@ -98,7 +141,7 @@ export async function generateLabRequestPdf(
     sex: patient.sex,
     orderNumber: order.order_number,
     orderedAt: order.ordered_at,
-    panelName: order.panel_bundle?.name ?? "Requested tests",
+    panelName: order.panel_bundle?.name ?? annualPanelName ?? "Requested tests",
     panelDescription: order.panel_bundle?.description ?? null,
     testNames,
     requestedByName,
