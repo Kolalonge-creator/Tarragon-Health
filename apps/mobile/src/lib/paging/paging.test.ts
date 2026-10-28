@@ -355,7 +355,7 @@ describe("guard rails", () => {
     const src = readFileSync("src/lib/push-registration.ts", "utf8");
     expect(src).toContain("options.clinician === true ? await ensurePageChannel() : false");
     expect(src).toContain("criticalAlertsRequested()");
-    expect(src).toContain("page_channel_ready: pageChannelReady");
+    expect(src).toContain("p_page_channel_ready: options.clinician === true ? pageChannelReady : null");
   });
   it("the page push is never sent as an SMS or voice route by this app and no WhatsApp appears in the paging code", () => {
     const all = ["page-api", "page-native", "page-surface", "on-call-model"].map((f) => readFileSync(`src/lib/paging/${f}.ts`, "utf8")).join("\n");

@@ -691,6 +691,20 @@ export async function fetchWithTimeoutAndRetry(url: string, init: RequestInit): 
   }
 }
 
+// Many requests can hit a 401 at once (a screen fires several calls). Each one
+// refreshing separately emits a TOKEN_REFRESHED storm and can invalidate the
+// token another request just obtained, so they share one refresh in flight.
+let refreshInFlight: ReturnType<typeof supabase.auth.refreshSession> | null = null;
+
+function refreshSessionOnce(): ReturnType<typeof supabase.auth.refreshSession> {
+  if (!refreshInFlight) {
+    refreshInFlight = supabase.auth.refreshSession().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function request<T>(
   path: string,
   method: "GET" | "POST",
@@ -729,7 +743,7 @@ async function request<T>(
   // otherwise a stale-but-not-yet-refreshed token surfaces as a confusing
   // "Request failed (401)" instead of either succeeding or signing out.
   if (response.status === 401 && !isRetry) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    const { data: refreshed, error: refreshError } = await refreshSessionOnce();
     if (!refreshError && refreshed.session) {
       return request<T>(path, method, body, true, noRetry, timeoutMs);
     }
