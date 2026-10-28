@@ -7,6 +7,7 @@ import {
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
+import { TimeCapture } from "@/components/clinician/time-capture";
 import { AgpDisclosure } from "@/components/agp-disclosure";
 import { CareMessageTemplateManager } from "@/components/care-message-template-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,7 @@ function when(iso: string): string {
   });
 }
 
-function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
+function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatient; focusedId: string | null; onFocus: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const close = useCloseThread();
   // "Unread" here means the patient (or their sponsor) spoke last and no
@@ -51,7 +52,10 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
         <button
           type="button"
           className="text-left"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            if (!open) onFocus(thread.id);
+            setOpen((v) => !v);
+          }}
         >
           <span
             className={
@@ -79,7 +83,9 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
         </span>
       </div>
       {open && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-3" onFocusCapture={() => onFocus(thread.id)} onPointerDownCapture={() => onFocus(thread.id)}>
+          {/* W-01: with several threads expanded, only the one in focus is timed */}
+          <TimeCapture source="message" sourceRef={thread.id} patientId={thread.patient_id} showNotice={false} active={focusedId === thread.id} />
           <AgpDisclosure patientId={thread.patient_id} />
           <CareMessageThread
             threadId={thread.id}
@@ -109,6 +115,7 @@ export function ClinicianMessagesWorklist() {
   const { data: threads, isLoading, isError } = useOrgCareThreads();
   const [showTemplates, setShowTemplates] = useState(false);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   // useOrgCareThreads already returns threads ranked longest-waiting first;
   // splitting open from closed preserves that order inside each group.
   const allOpen = (threads ?? []).filter((t) => t.status === "open");
@@ -158,7 +165,7 @@ export function ClinicianMessagesWorklist() {
         {open.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {open.map((thread) => (
-              <ThreadRow key={thread.id} thread={thread} />
+              <ThreadRow key={thread.id} thread={thread} focusedId={focusedId} onFocus={setFocusedId} />
             ))}
           </ul>
         )}
@@ -172,7 +179,7 @@ export function ClinicianMessagesWorklist() {
             </p>
             <ul className="divide-y divide-charcoal-ink/10">
               {closed.map((thread) => (
-                <ThreadRow key={thread.id} thread={thread} />
+                <ThreadRow key={thread.id} thread={thread} focusedId={focusedId} onFocus={setFocusedId} />
               ))}
             </ul>
           </>

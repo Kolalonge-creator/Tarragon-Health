@@ -220,6 +220,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Learning creator credentials", href: "/clinician/learning-creator", group: "Learning Centre", hint: "If you were invited to write for the Learning Centre, send your MDCN number and evidence." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Care team time", href: "/clinician/time", group: "Clinical governance", hint: "Minutes of doctor time per Member per month by kind of work and membership, for planning and pricing (clinician_time_entries, member_month_minutes)." },
   { label: "Testing-day results", href: "/clinician/poc-results", group: "Clinical queue", hint: "Read ECG traces and release urine and HbA1c results from testing days and employer visits." },
   { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
   { label: "Learning content review list", href: "/clinician/learning-review", group: "Clinical governance", hint: "Learning content coming up for its review date in 30, 14 and 7 days, who owns it and what is already hidden." },
