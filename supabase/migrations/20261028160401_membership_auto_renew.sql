@@ -689,3 +689,15 @@ begin
     raise exception 'auto-renew: the public copy cannot read the switch';
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- 9. The data registry (S39d): membership_cards holds a patient's saved card authorization
+-- ---------------------------------------------------------------------------
+-- Operational, deleted when the card is (a cancel, a refund or a lapse removes it) and NOT in the member's data export: the authorization code is a token
+-- that can charge the card, so it must never travel in an export file. The person sees the brand, last four digits and expiry through
+-- my_membership_renewal() instead. Awaiting CMO and DPO review like every other row.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select 'membership_cards', 'patient_id', 'operational', 'delete', false,
+       'Saved Paystack card authorization for Membership auto-renewal. A charge token, so never exported; shown to the person only as brand, last four digits and expiry. Deleted on cancel, refund or lapse; awaiting review.'
+ where to_regclass('public.membership_cards') is not null
+on conflict (table_name) do nothing;
