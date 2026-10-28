@@ -2,7 +2,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleQuote } from "./handler.ts";
 
-Deno.serve((req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("price-quote", (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const asUser = (authorization: string) =>
     createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
@@ -13,4 +14,4 @@ Deno.serve((req) => {
     },
     rpcAsUser: (authorization, fn, args) => asUser(authorization).rpc(fn, args),
   });
-});
+}));

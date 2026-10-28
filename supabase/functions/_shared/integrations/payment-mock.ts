@@ -11,6 +11,7 @@ import {
   normalisePage,
   type PaymentChannel,
   type PaymentProvider,
+  type SavedAuthorization,
   type SettlementSummary,
   type SettlementTransaction,
   type TransactionStatus,
@@ -36,6 +37,14 @@ export interface MockPaymentControl {
   signedRaw(rawBody: string): Promise<{ rawBody: string; signature: string }>;
   /** The processor's fee, passed on to the customer, as Paystack does when fee pass-through is on. Set before settling. */
   setCustomerFee(reference: string, feeKobo: number): void;
+  /** The card Paystack would report for this charge once it succeeds (what the app saves when the customer consented to renewal). */
+  setAuthorization(reference: string, authorization: SavedAuthorization): void;
+  /** How the next `chargeAuthorization` calls end: a decline, still pending, or a success (the default). */
+  setChargeOutcome(status: Exclude<TransactionStatus, "abandoned" | "reversed">): void;
+  /** Makes the next renewal charges come back with this processing fee ADDED to the amount and no separate requested amount (the worst case). */
+  setRenewalFee(feeKobo: number): void;
+  /** Every `chargeAuthorization` the mock received, in order, so a test can assert what was charged. */
+  readonly chargeCalls: readonly { reference: string; email: string; amountKobo: number; authorizationCode: string }[];
   /** Makes the next call of any kind fail the way a dropped connection does. */
   failNextCall(): void;
   /** Adds a settlement (what the processor pays out to the bank) with the charges in it. */
@@ -54,6 +63,9 @@ interface Charge {
   paidAt: string | null;
   metadata: Record<string, unknown>;
   channels: readonly PaymentChannel[] | undefined;
+  authorization: SavedAuthorization | null;
+  /** True when Paystack reports no separate requested amount: the whole amount looks like the price. */
+  hideRequested?: boolean;
 }
 
 export function createMockPayment(now: () => number = () => Date.now()): PaymentProvider & MockPaymentControl {
@@ -65,6 +77,9 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
   const settlements = new Map<number, { totalKobo: number; feesKobo: number; lines: SettlementTransaction[] }>();
   let failNext = false;
   let seq = 0;
+  let renewalFee = 0;
+  let chargeOutcome: "success" | "failed" | "pending" = "success";
+  const chargeCalls: { reference: string; email: string; amountKobo: number; authorizationCode: string }[] = [];
 
   const dropped = () => {
     if (!failNext) return null;
@@ -82,6 +97,18 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
     isMock: true,
     secret,
 
+    chargeCalls,
+    setRenewalFee(feeKobo) {
+      renewalFee = feeKobo;
+    },
+    setAuthorization(reference, authorization) {
+      const c = charges.get(reference);
+      if (!c) throw new Error("unknown reference");
+      c.authorization = authorization;
+    },
+    setChargeOutcome(status) {
+      chargeOutcome = status;
+    },
     channelsFor(reference) {
       return charges.get(reference)?.channels;
     },
@@ -141,6 +168,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
         paidAt: null,
         metadata: { ...(input.metadata ?? {}) },
         channels: input.channels,
+        authorization: null,
       });
       return ok({ reference: input.reference, authorizationUrl: `https://checkout.mock.invalid/${input.reference}`, accessCode: `mock_${input.reference}` });
     },
@@ -155,14 +183,54 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
         reference: c.reference,
         status: c.status,
         amountKobo: c.amountKobo + c.feeKobo,
-        requestedAmountKobo: c.amountKobo,
+        requestedAmountKobo: c.hideRequested ? c.amountKobo + c.feeKobo : c.amountKobo,
         feesKobo: c.feeKobo,
         currency: "NGN",
         paidAt: c.paidAt,
         customerEmail: c.email,
         metadata: c.metadata,
+        authorization: c.status === "success" ? c.authorization : null,
+        customerCode: c.authorization ? `CUS_${c.email}` : null,
       };
       return ok(v);
+    },
+
+    async chargeAuthorization(input) {
+      const d = dropped();
+      if (d) return d;
+      if (!isValidChargeReference(input.reference)) return fail("invalid_input", "Reference is not a valid charge reference");
+      if (!isValidEmail(input.email)) return fail("invalid_input", "Email is not valid");
+      if (!isValidKobo(input.amountKobo)) return fail("invalid_input", "Amount must be a positive whole number of kobo");
+      if (charges.has(input.reference)) return fail("conflict", "Reference already used", false);
+      chargeCalls.push({ reference: input.reference, email: input.email, amountKobo: input.amountKobo, authorizationCode: input.authorizationCode });
+      const card = [...charges.values()].find((c) => c.authorization?.code === input.authorizationCode)?.authorization ?? null;
+      if (!card || !card.reusable) return fail("vendor_error", "Authorization is not reusable", false);
+      charges.set(input.reference, {
+        reference: input.reference,
+        email: input.email,
+        amountKobo: input.amountKobo,
+        feeKobo: renewalFee,
+        hideRequested: renewalFee > 0,
+        status: chargeOutcome,
+        paidAt: chargeOutcome === "success" ? new Date(now()).toISOString() : null,
+        metadata: { ...(input.metadata ?? {}) },
+        channels: undefined,
+        authorization: card,
+      });
+      const c = charges.get(input.reference)!;
+      return ok({
+        reference: c.reference,
+        status: c.status,
+        amountKobo: c.amountKobo + c.feeKobo,
+        requestedAmountKobo: c.hideRequested ? c.amountKobo + c.feeKobo : c.amountKobo,
+        feesKobo: c.feeKobo,
+        currency: "NGN",
+        paidAt: c.paidAt,
+        customerEmail: c.email,
+        metadata: c.metadata,
+        authorization: card,
+        customerCode: `CUS_${c.email}`,
+      });
     },
 
     async refund(input) {

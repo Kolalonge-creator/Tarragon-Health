@@ -1,11 +1,12 @@
 import { en } from "@tarragon/i18n";
 import { arrangeItems } from "@tarragon/commerce";
-import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify } from "./parse";
+import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parsePlusStates, parseVerify } from "./parse";
 
 const mockInvoke = jest.fn();
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPriceChangeNotices, startCheckout, verifyOrder } from "./api";
+import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, setMyPlusState, startCheckout, verifyOrder } from "./api";
+import { needsPlusStateSetup, plusStateSetupErrorKey } from "./plus-state-setup";
 
 const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
 
@@ -227,5 +228,68 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     // a current Plus member sees no card to buy
     const current = parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z" });
     expect(arrangeItems(items, { tier: current.tier ?? null, isMember: current.isMember, inGrace: false, forSomeoneElse: false }).tierCards).toEqual([]);
+  });
+
+  it("keeps when a queued year starts, and ignores a malformed value", () => {
+    expect(parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z", next_tier: "evergreen", next_starts_at: "2027-08-01T00:00:00Z" })).toEqual({ isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus", nextStartsAt: "2027-08-01T00:00:00Z" });
+    expect(parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z", next_starts_at: 5 })).toEqual({ isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus" });
+  });
+
+  it("Plus: parses the approved states, drops rows that are not states, and keeps the member's fixed state", () => {
+    expect(parsePlusStates([{ state: "Lagos", display_name: "Lagos" }, { state: 5 }, null, { state: "Oyo", display_name: "Oyo" }])).toEqual([{ state: "Lagos", displayName: "Lagos" }, { state: "Oyo", displayName: "Oyo" }]);
+    expect(parsePlusStates("nope")).toEqual([]);
+    expect(parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z", collection_state: "Ogun" })).toEqual({ isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus", collectionState: "Ogun" });
+  });
+
+  it("Plus: the new refusals have copy, never a raw code", () => {
+    for (const code of ["plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "upgrade_already_open", "upgrade_not_available"]) {
+      const key = checkoutErrorKey(code);
+      expect(Object.hasOwn(en, key)).toBe(true);
+      expect(key).not.toBe("shop.error.unknown");
+    }
+  });
+
+  it("Plus: the chosen state is sent with the order only when there is one, and a failed read of the states is null, not an empty list", async () => {
+    mockInvoke.mockResolvedValue({ data: { order_id: "o", reference: "r", amount_kobo: 12900000, checkout_url: "https://checkout.paystack.com/x" }, error: null });
+    await startCheckout("membership_annual", "k1", undefined, { collectionState: "Lagos" });
+    expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).toMatchObject({ code: "membership_annual", collection_state: "Lagos" });
+    await startCheckout("membership_annual_no_panel", "k2");
+    expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).not.toHaveProperty("collection_state");
+    mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect(await loadPlusStates()).toBeNull();   // a failed read is not the same as "none approved"
+    mockRpc.mockResolvedValue({ data: [{ state: "Osun", display_name: "Osun" }], error: null });
+    expect(await loadPlusStates()).toEqual([{ state: "Osun", displayName: "Osun" }]);
+  });
+});
+
+describe("the Plus state card for a member with no state (OQ-PLUS-1)", () => {
+  const plus = { isMember: true, endsAt: "2027-08-01T00:00:00Z", tier: "plus" as const };
+  const base = { ladder: true, forSomeoneElse: false, tier: "plus", membership: plus };
+
+  it("shows only for the member's own live Plus with no state, while the ladder is on", () => {
+    expect(needsPlusStateSetup(base)).toBe(true);
+    expect(needsPlusStateSetup({ ...base, membership: { ...plus, collectionState: "Oyo" } })).toBe(false);   // already set
+    expect(needsPlusStateSetup({ ...base, ladder: false })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, forSomeoneElse: true })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, tier: "evergreen" })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, tier: null })).toBe(false);
+    expect(needsPlusStateSetup({ ...base, membership: { isMember: false, endsAt: null } })).toBe(false);
+  });
+
+  it("gives every refusal copy that exists, never a raw code", () => {
+    for (const message of ["plus_state_not_available", "plus_state_already_set", "network down", ""]) {
+      const key = plusStateSetupErrorKey(message);
+      expect(Object.hasOwn(en, key)).toBe(true);
+    }
+    expect(plusStateSetupErrorKey("P0001: plus_state_not_available")).toBe("shop.error.plus_state_not_available");
+    expect(plusStateSetupErrorKey("plus_state_already_set")).toBe("shop.plus.state.already_set");
+  });
+
+  it("saves through the database function and reports a refusal as a message, not a throw", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    expect(await setMyPlusState("Oyo")).toEqual({ ok: true });
+    expect(mockRpc).toHaveBeenLastCalledWith("set_my_plus_collection_state", { p_state: "Oyo" });
+    mockRpc.mockResolvedValue({ data: null, error: { message: "plus_state_already_set" } });
+    expect(await setMyPlusState("Lagos")).toEqual({ ok: false, message: "plus_state_already_set" });
   });
 });

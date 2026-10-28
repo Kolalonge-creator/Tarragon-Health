@@ -21,6 +21,8 @@ const renew = jest.fn();
 const pause = jest.fn();
 const resume = jest.fn();
 const setShare = jest.fn();
+const setNudge = jest.fn();
+let tools: { digest: boolean; tasks: boolean; missed_dose: boolean; grace_minutes: number | null };
 let previewMember: { data: unknown; isPending: boolean; isError: boolean };
 let previewPerms: { data: unknown; isPending: boolean; isError: boolean };
 jest.mock("@/lib/queries/care-circle", () => {
@@ -37,6 +39,11 @@ jest.mock("@/lib/queries/care-circle", () => {
     usePauseCircle: () => ({ mutateAsync: pause, isPending: false }),
     useResumeCircle: () => ({ mutateAsync: resume, isPending: false }),
     useSetMonthlyShare: () => ({ mutate: setShare, isPending: false }),
+    useToolsStatus: () => ({ data: tools }),
+    useSetMissedDoseAlert: () => ({ mutateAsync: setNudge, isPending: false }),
+    useCircleTasks: () => ({ isPending: false, isError: true, data: undefined }),
+    usePostTask: () => ({ mutateAsync: jest.fn(), isPending: false }),
+    useTaskAction: () => ({ mutateAsync: jest.fn(), isPending: false }),
     usePreviewMember: () => previewMember,
     usePreviewPermissions: () => previewPerms,
     usePendingGifts: () => ({ data: [] }),
@@ -46,6 +53,8 @@ jest.mock("@/lib/queries/care-circle", () => {
 
 beforeEach(() => {
   circle = { data: { members: [MEMBER], invites: [INVITE], pause: null, pause_days: 7 }, isSuccess: true };
+  tools = { digest: false, tasks: false, missed_dose: false, grace_minutes: null };
+  setNudge.mockReset();
   previewMember = { data: undefined, isPending: true, isError: false };
   previewPerms = { data: undefined, isPending: true, isError: false };
   log = { data: [{ viewer: "Ngozi Eze", at: "2026-10-06T10:00:00Z" }], isSuccess: true };
@@ -210,6 +219,60 @@ describe("CareCircleManager", () => {
     const soon = new Date(Date.now() + 5 * 86_400_000).toISOString();
     circle = { data: { members: [{ ...MEMBER, expires_at: soon }], invites: [INVITE], pause: { paused_until: "2026-10-14T00:00:00Z", pause_alerts: true }, pause_days: 7 }, isSuccess: true };
     previewMember = { data: { patient_id: "p", name: "Me", relationship: "Daughter", permissions: ["red_alerts"], shared_until: soon, preview: true, alert_sample: true }, isPending: false, isError: false };
+    await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
+  });
+
+  it("S69b: two named presets fill the permissions, and the plain-language preview follows them", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    const summary = () => screen.getAllByTestId("permission-summary")[0]!;
+    expect(summary().textContent).toMatch(/Nothing is shared yet/);
+    fireEvent.click(screen.getAllByLabelText("Can see and help")[1]!);
+    expect(summary().textContent).toMatch(/Pay for care/);
+    expect(summary().textContent).toMatch(/small shared jobs/);
+    fireEvent.click(screen.getAllByLabelText("Can see")[1]!);
+    expect(summary().textContent).not.toMatch(/Pay for care/);
+    expect(summary().textContent).toMatch(/Whether medicines were taken/);
+  });
+
+  it("S69b: an invite made from 'Can see and help' sends exactly the five permissions of that preset", async () => {
+    create.mockResolvedValue({ invite_id: "i2", token: "t".repeat(43), expires_at: "2026-10-09T10:00:00Z", grant_days: 365 });
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    fireEvent.change(screen.getByLabelText("Their email or phone number"), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText(/How are they related/), { target: { value: "Daughter" } });
+    fireEvent.click(screen.getAllByLabelText("Can see and help")[1]!);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Make invite link" })));
+    expect(create).toHaveBeenCalledWith({ kind: "email", contact: "ada@example.com", relationship: "Daughter", permissions: ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care"], days: 365 , });
+  });
+
+  it("S69b: a waiting invite says 'Waiting for them' and never the word declined", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText("Waiting for them")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/declin/i);
+  });
+
+  it("S69b: the nudge switch is hidden while the tool is off, and shown (with the configured wait) when on", () => {
+    const { unmount } = render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.queryByLabelText(/gentle nudge/)).toBeNull();
+    unmount();
+    tools = { digest: false, tasks: false, missed_dose: true, grace_minutes: 30 };
+    circle = { data: { members: [{ ...MEMBER, permissions: ["adherence_summary"], missed_dose_alert: false }], invites: [], pause: null, pause_days: 7 }, isSuccess: true };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    const box = screen.getByLabelText(/gentle nudge/) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(screen.getByText(/After about 30 minutes/)).toBeTruthy();
+    fireEvent.click(box);
+    expect(setNudge).toHaveBeenCalledWith({ memberId: "m1", on: true });
+  });
+
+  it("S69b: the nudge switch is disabled when the supporter cannot see the medicines count", () => {
+    tools = { digest: false, tasks: false, missed_dose: true, grace_minutes: 30 };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect((screen.getByLabelText(/gentle nudge/) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(/Share the medicines count with Ngozi Eze first/)).toBeTruthy();
+  });
+
+  it("S69b: is axe-clean with the presets, the preview and the nudge switch on screen", async () => {
+    tools = { digest: true, tasks: true, missed_dose: true, grace_minutes: 30 };
     await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
   });
 });

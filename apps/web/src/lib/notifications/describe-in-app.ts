@@ -155,6 +155,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_checkin_nudge") {
     return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
   }
+  // S90: neutral previews for the care gap engine (INV-07). Nothing names a condition, a reading, a result, a medicine or a number.
+  if (n.template === "care_gap_checkin") {
+    return {
+      text: payload.copy_variant === "b" ? "A short step from your care team is waiting in the app. It takes a minute or two" : "Something small is waiting for you in the app. Open it when you have a minute",
+      href: "/patient",
+    };
+  }
+  if (n.template === "care_gap_checkin_followup") {
+    return { text: "A short step from your care team is waiting in the app. It takes a minute or two", href: "/patient" };
+  }
   // S59c: neutral previews for the follow-up after a symptom check (INV-07). Nothing names a symptom, a result or a person.
   if (n.template === "symptom_checkback_due") {
     return { text: "Your care team would like to know how you are getting on. Open the app to answer", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
@@ -319,6 +329,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : `${String(payload.sponsor_name ?? "Someone")} is now paying for your ${planName}`,
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
     };
+  }
+  if (n.template === "sponsored_reservation_ready") {
+    // From the Paystack webhook (OQ-727, no SMS): the person the sponsor paid for is not texted, so the sponsor is told the
+    // claim link is ready to share. Fixed neutral line: no name, service or price (INV-07).
+    return { text: "The care you paid for is ready to share. Copy the link and give it to them yourself", href: "/patient/supporting" };
   }
   if (n.template === "care_message_safety_flag") {
     // From private.after_care_message_insert_safety_screen() (17.12) — a
@@ -632,6 +647,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your preventive review is due", href: "/patient/prevention" };
   }
   if (n.template === "screening_due") {
+    // S98: when the preventive engine has already issued the test request, say so (generic text, INV-07: no test name).
+    if (typeof payload.lab_order_id === "string" && payload.lab_order_id !== "") {
+      return { text: "Your test request is ready to download", href: "/patient/prevention" };
+    }
     return { text: "A reminder is due", href: "/patient/prevention" };
   }
   if (n.template === "vaccination_due") {
@@ -706,6 +725,21 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "community_update") {
     // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
     return { text: "Your group has an update", href: "/patient/cohorts" };
+  }
+  if (n.template === "circle_digest") {
+    // S69b: the weekly note for a supporter. The content is built when they open it, from the permissions the patient gave (INV-07).
+    return { text: "Your Care Circle weekly update is ready", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_gentle_nudge") {
+    // S69b: the gentle nudge. Says nothing about doses, medicines or readings; the screen shows only a first name.
+    return { text: "Someone in your Care Circle may like a friendly call", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_task_update") {
+    // S69b: a shared job changed. No name, no kind of job, nothing medical. A notice to a helper carries only whose circle it is (a uuid,
+    // never echoed in the text) so it opens that person's page; the patient's own notice opens their Care Circle.
+    const pid = typeof payload["patient_id"] === "string" ? payload["patient_id"] : null;
+    const isUuid = pid !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+    return { text: "Your circle has an update", href: isUuid ? `/patient/supporting/circle/${pid}` : "/patient/care-circle" };
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
@@ -949,9 +983,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated
     // siblings of screening_due above, same payload shape.
+    const hasRequest = typeof payload.lab_order_id === "string" && payload.lab_order_id !== "";
     const label =
       n.template === "screening_upcoming" ? "A reminder is coming up soon"
-      : n.template === "screening_overdue" ? "A reminder is still waiting"
+      : n.template === "screening_overdue" ? (hasRequest ? "Your test request is waiting for you" : "A reminder is still waiting")
+      : hasRequest ? "Your test request is waiting: your care team may follow up"
       : "A reminder is still waiting: your care team may follow up";
     return { text: label, href: "/patient/prevention" };
   }

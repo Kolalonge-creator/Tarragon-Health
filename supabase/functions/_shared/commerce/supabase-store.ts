@@ -1,5 +1,5 @@
 import { fail, ok, type ProviderResult } from "../integrations/result.ts";
-import type { MismatchInput, OpenOrder, OrderStore, RecordOutcome, RecordPaymentInput, RecordResult } from "./orders.ts";
+import type { MismatchInput, OpenOrder, OrderStore, RecordOutcome, RecordPaymentInput, RecordResult, SaveCardInput } from "./orders.ts";
 
 /** The slice of a Supabase client this store needs (a service-role client). Structural so tests need no vendor package. */
 export interface RpcClient {
@@ -36,6 +36,15 @@ export function supabaseOrderStore(client: RpcClient): OrderStore {
         p_total_kobo: i.totalKobo, p_currency: i.currency, p_status: "success", p_source: i.source, p_event_key: i.eventKey, p_paid_at: i.paidAt, p_raw: i.raw,
       });
       return r.ok ? toOutcome(r.data) : r;
+    },
+    async saveCard(i: SaveCardInput) {
+      const a = i.authorization;
+      const r = await call("save_membership_card", {
+        p_reference: i.reference, p_authorization_code: a.code, p_reusable: a.reusable, p_signature: a.signature, p_brand: a.brand,
+        p_last4: a.last4, p_exp_month: a.expMonth, p_exp_year: a.expYear, p_customer_code: i.customerCode, p_email: i.email,
+      });
+      if (!r.ok) return r;
+      return ok(isObj(r.data) && typeof r.data["result"] === "string" ? r.data["result"] : "unknown");
     },
     async flagMismatch(i: MismatchInput) {
       const r = await call("flag_order_payment_mismatch", {

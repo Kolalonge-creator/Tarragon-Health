@@ -92,7 +92,7 @@ begin
   r := pg_temp.q_as(fr, format($q$select public.create_order('membership_upgrade_plus', gen_random_uuid(), %L)::text$q$, ev));
   if r not like 'ERR:%' then raise exception 'FAIL a gift of the upgrade was accepted: %', r; end if;
 
-  r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid())::text$q$);
+  r := pg_temp.q_as(ev, $q$select public.create_order('membership_upgrade_plus', gen_random_uuid(), null, null, false, null, 'Oyo')::text$q$);
   if r like 'ERR:%' then raise exception 'FAIL the Membership holder could not create the upgrade order: %', r; end if;
   o := r::jsonb;
   if (o ->> 'amount_kobo')::bigint <> 4500000 then raise exception 'FAIL upgrade charged %', o ->> 'amount_kobo'; end if;

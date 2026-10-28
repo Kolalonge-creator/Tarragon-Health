@@ -226,3 +226,98 @@ Deno.test("the request refusals map to stable codes and statuses", async () => {
     assertEquals([res.status, (await res.json()).error], [status, code]);
   }
 });
+
+// ---- Membership auto-renewal: the buyer's tick is recorded on the order before they reach the payment page ----
+function consentDeps(consent: (args: Record<string, unknown>) => { data: unknown; error: { message: string } | null } | "throw" = () => ({ data: true, error: null })) {
+  const calls: { fn: string; args: Record<string, unknown> }[] = [];
+  const out = deps({
+    rpc: (fn, args) => {
+      calls.push({ fn, args });
+      if (fn === "set_order_renewal_consent") {
+        const r = consent(args);
+        if (r === "throw") throw new Error("db down");
+        return r;
+      }
+      return { data: { order_id: "o1", reference: REF, amount_kobo: 12_900_000, state: "created", checkout_url: null }, error: null };
+    },
+  });
+  return { ...out, calls };
+}
+
+Deno.test("auto_renew true records consent on the order, as the patient, after the order exists", async () => {
+  const { d, calls } = consentDeps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: true }), d);
+  assertEquals(res.status, 200);
+  assertEquals(calls.map((c) => c.fn), ["create_order", "set_order_renewal_consent"]);
+  assertEquals(calls[1]!.args, { p_order: "o1", p_consent: true });
+});
+
+Deno.test("no tick (absent, false or null) means no consent call at all", async () => {
+  for (const body of [{}, { auto_renew: false }, { auto_renew: null }]) {
+    const { d, calls } = consentDeps();
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, ...body }), d);
+    assertEquals(res.status, 200);
+    assertEquals(calls.map((c) => c.fn), ["create_order"]);
+  }
+});
+
+Deno.test("a failed or throwing consent call never fails the checkout (the order just carries no consent)", async () => {
+  for (const consent of [() => ({ data: null, error: { message: "boom" } }), () => "throw" as const]) {
+    const { d } = consentDeps(consent);
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: true }), d);
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).order_id, "o1");
+  }
+});
+
+Deno.test("a non-boolean auto_renew is refused before anything is created", async () => {
+  const { d, calls } = consentDeps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: "yes" }), d);
+  assertEquals(res.status, 400);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("a supporter paying from a payment request can never set a renewal", async () => {
+  const { d, calls } = consentDeps();
+  await handleCheckout(req({ payment_request: "pr_" + "a".repeat(24), client_key: KEY, auto_renew: true }), d);
+  assertEquals(calls.some((c) => c.fn === "set_order_renewal_consent"), false);
+});
+
+// Membership Plus: the state the buyer chose for blood collection is passed on as a parameter; the database decides if it is approved.
+Deno.test("Plus: the chosen collection state goes to create_order as p_collection_state, trimmed", async () => {
+  const { d, seen } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: " Lagos " }), d);
+  assertEquals(res.status, 200);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY, p_collection_state: "Lagos" });
+});
+
+Deno.test("Plus: without a state nothing extra is sent, and a null state is the same as none", async () => {
+  const { d, seen } = deps();
+  await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: null }), d);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
+});
+
+Deno.test("Plus: a malformed state is refused before anything is created, and a payment request carries none", async () => {
+  const { d, seen } = deps();
+  for (const bad of [5, "", "1; drop table", "x".repeat(60), "<b>Lagos</b>"]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: bad }), d);
+    assertEquals(res.status, 400);
+  }
+  const viaRequest = await handleCheckout(req({ payment_request: "pr_" + "a".repeat(24), client_key: KEY, collection_state: "Lagos" }), d);
+  assertEquals(viaRequest.status, 400);
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("Plus: the database's refusals have their own codes", async () => {
+  for (const [msg, status] of [["plus_state_required", 422], ["plus_state_not_available", 422], ["plus_state_changed", 409], ["plus_needs_direct_checkout", 409], ["upgrade_not_available", 409], ["upgrade_already_open", 409]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});
+
+Deno.test("Plus: a database that does not have the new argument yet is a plain 503 'checkout_updating', not an unknown failure", async () => {
+  const { d } = deps({ rpc: () => ({ data: null, error: { message: "Could not find the function public.create_order(p_code, p_client_key, p_collection_state) in the schema cache" } }) });
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: "Lagos" }), d);
+  assertEquals([res.status, (await res.json()).error], [503, "checkout_updating"]);
+});

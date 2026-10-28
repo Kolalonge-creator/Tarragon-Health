@@ -29,6 +29,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyMembership: () => membership,
     useMyOrders: () => orders,
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
+    useAutoRenewEnabled: () => ({ data: false }),
     useQuote: (input: unknown) => { useQuoteSpy(input); return quote; },
   };
 });

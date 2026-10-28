@@ -2,7 +2,8 @@
 
 import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 import { useState } from "react";
-import { useScreeningSchedules } from "@/lib/queries/screening";
+import { useScreeningSchedules, useMyScreeningRequests, screeningRequestPhase } from "@/lib/queries/screening";
+import { PatientResultUpload } from "@/components/patient-result-upload";
 import { todayIsoDate } from "@/lib/queries/medications";
 import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
@@ -33,6 +34,8 @@ export function PreventiveScreeningCalendar({
   bookingEnabled: boolean;
 }) {
   const { data, isLoading, isError } = useScreeningSchedules(patientId);
+  const { data: requests } = useMyScreeningRequests(patientId);
+  const requestBySchedule = new Map((requests ?? []).map((r) => [r.schedule_id, r]));
   const { data: bundles } = useLabCatalogue();
   const createOrder = useCreateLabOrder();
   const [printError, setPrintError] = useState<string | null>(null);
@@ -80,6 +83,9 @@ export function PreventiveScreeningCalendar({
                 schedule.status === "booked" ||
                 schedule.status === "overdue";
 
+              const request = requestBySchedule.get(schedule.id);
+              const phase = screeningRequestPhase(request);
+
               return (
                 <li key={schedule.id} className="space-y-2 py-3">
                   <div className="flex items-center gap-2">
@@ -102,7 +108,32 @@ export function PreventiveScreeningCalendar({
                       You declined this: {schedule.declined_reason}
                     </p>
                   )}
-                  {isDue && canBook && bundle && (
+                  {request && phase === "awaiting_result" && (
+                    <div className="space-y-2" data-testid="screening-request-ready">
+                      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Your test request is ready.</p>
+                      <a
+                        href={`/api/patient/lab-order/${request.lab_order_id}/request`}
+                        className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+                      >
+                        Download the request (PDF)
+                      </a>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        Take it to any laboratory you like and pay them directly, then upload your result here.
+                      </p>
+                      <PatientResultUpload labOrderId={request.lab_order_id} label="Upload your result" />
+                    </div>
+                  )}
+                  {request && phase === "result_received" && (
+                    <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70" data-testid="screening-result-received">
+                      Result received. Your care team will review it. It is your own upload, not yet checked by a doctor.
+                    </p>
+                  )}
+                  {request && phase === "reviewed" && (
+                    <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70" data-testid="screening-result-reviewed">
+                      Your care team has reviewed your result.
+                    </p>
+                  )}
+                  {isDue && canBook && bundle && !request && (
                     <div className="space-y-2">
                       <Button
                         type="button"

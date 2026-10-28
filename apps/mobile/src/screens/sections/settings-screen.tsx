@@ -15,6 +15,7 @@ import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
 import { BackupCodesSection } from "@/screens/sections/backup-codes-section";
 import { DataUseSection } from "@/screens/sections/data-use-section";
+import { AppPinSetting } from "@/screens/sections/app-pin-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { readLowDataEnabled, writeLowDataEnabled } from "@/lib/low-data";
@@ -34,10 +35,12 @@ const DEFAULT_PREFS: NotifPrefs = { refill: true, careTeam: true, education: fal
 interface SettingsScreenProps {
   patientName: string;
   initials: string;
+  /** The signed-in account, for the optional app PIN (kept per account on this phone). */
+  accountId: string;
   onNavigate: (section: SectionId) => void;
 }
 
-export function SettingsScreen({ patientName, initials, onNavigate }: SettingsScreenProps) {
+export function SettingsScreen({ patientName, initials, accountId, onNavigate }: SettingsScreenProps) {
   const colors = useLegacyColors();
   const firstName = patientName.split(/\s+/)[0] ?? patientName;
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -234,6 +237,19 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
             }
           />
         </GroupedList>
+        {/* Always shown: a PIN needs no fingerprint or face, so a phone with only a passcode can use it. Setting one switches App lock on. */}
+        <AppPinSetting
+          accountId={accountId}
+          appLockEnabled={appLockEnabled}
+          onPinSet={() => {
+            setAppLockEnabled(true);
+            void writeAppLockEnabled(true).catch(() => {
+              readAppLockEnabled()
+                .then(setAppLockEnabled)
+                .catch(() => {});
+            });
+          }}
+        />
       </View>
 
       <SectionDivider />

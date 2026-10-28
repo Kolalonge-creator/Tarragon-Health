@@ -61,6 +61,7 @@ const ROUTINE_TEMPLATES = new Set<string>([
   "sponsor_care_reviewed",
   "sponsor_person_quiet",
   "sponsored_plan_started",
+  "sponsored_reservation_ready",
   "region_now_available",
   "wellness_challenge_ending",
   "second_condition_needs_upgrade",

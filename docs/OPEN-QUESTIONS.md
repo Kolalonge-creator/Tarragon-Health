@@ -1216,6 +1216,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The scribe panel, the note editor and signing live in the note editor (`clinical-encounter-notes-section.tsx`, reached from the video-visit page), which is where a draft becomes a signed note (INV-11). The consultation room links to it ("Notes, scribe and prescribing"). `consultation_room_view` returns no patient id, so the room cannot open the audited summary, and `consultation_prep_bundle` still keys on `video_consultations.id`, not `encounters.id` (S22 design says build on `clinical_encounters`).
 - Options: (a) add the patient id to the room view for the participating clinician only, then mount the summary and the scribe panel in the room (recommended, a small migration plus a component move); (b) leave the link.
 - Decision: open.
+- Partial resolution (S76-S80 clinician app pass, code only, no migration): the live red-flag prompts (23.7, S77) are now mounted in the room page (`clinician/consultation/[encounterId]/page.tsx`) with the typed or pasted text box, shown only while `go_live_guard_is_open('live_redflag_prompts_enabled')` is true (the guard is off, so nothing renders today). This needs only the encounter id, so it did not need option (a). The scribe panel and the audited summary still are not in the room; that part of the question stays open. 23.4: `clinician_patient_summary` still omits assistant interactions (the S76 migration says it needs a governed read design: which conversations a clinician may read, consent, and audit). The data exists in the AI Coach tables, so this is a design decision for the CMO and DPO, not missing data; nothing was added.
 
 ### OQ-211 Two scribe consents (raised by S35)
 - `consultation_scribe_consents` (S21, answered by the patient, read by `scribe_may_start`) and `scribe_consents` (S23, inserted by the clinician, the only one `scribe-draft` and `attach_scribe_draft_to_note` check) are unrelated. The edge function never reads the patient-answered row, so a patient who declines in the room does not stop a clinician recording consent on their behalf. Spec 9.3 has the patient answering in the app.
@@ -2572,7 +2573,8 @@ Design note: `docs/design/S47-decisions-applied.md`. Everything below that needs
 ### OQ-549 An untied clinician can read reproductive and mental health rows for a whole organisation (raised by S85, journey 4)
 - On main-dev, a real clinician session with no task, lead assignment or page reads `menstrual_cycles`, `mental_health_screens` and `wellbeing_checkins` for every patient in the organisation (300 rows each in the journey fixture). `vitals_readings`, `symptoms`, `lab_results`, `menstrual_daily_logs`, `reproductive_health_profiles`, `patient_pregnancy` and `contraception_plans` were correctly empty. INV-12 says a clinician sees only tied patients.
 - S39b (PR 997, tied staff reads, 128 tables) is the planned fix and is not on main-dev. Journey 4 holds this as `pending(S39b)` only while the leak is exactly those three tables; a new leaked table fails the journey, and a table that stops leaking fails it until the list is shrunk.
-- Decision: pending (merge S39b).
+- **Update 2026-10-27 (S88): CLOSED.** S39b is on main-dev and live (the three tables named here were tied by S39b and S56; journey 4's known-leak list is now empty and the step is a plain assertion). The same sweep found nine pregnancy and maternal tables S39b never reached; they are tied by the S88 migration (see OQ-362, OQ-588).
+- Decision: closed (S88).
 ### OQ-550 The web app has no offline emergency guidance (raised by S85, journey 2)
 - INV-06 is met on the phone (bundled rules, on-device red). On the web, with the network off, the vitals form only refuses to save and says so; no emergency guidance is shown and `offline.html` has none. Journey 2 records `guidance-with-network-off-web` as pending. Options: add static emergency text to the offline page and the service worker (recommended), or declare INV-06 phone only in the spec.
 - Related finding: the phone's bundled fallback rules are `BP_CARE_V1` while the database holds v3; the journey asserts the device grade is never weaker than the server grade on the same facts.
@@ -2652,7 +2654,8 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 - Decision: open.
 ### OQ-362 Staff reads of the new tables use `is_org_staff` today (raised by S68)
 - Until S39b (tied staff reads, #997) lands, any staff member of the organisation can read the S68 tables through `private.maternal_staff_may_read`, which is one function. S39b must register the nine new tables (growth columns, baby checks, feed log, lifecycle, loss records, deletion receipts) in `staff_read_scope` as tied and change that one function.
-- Decision: open (S39b follow-up).
+- **Closed 2026-10-27 (S88, `20261027175050_s88_tie_staff_reads_pregnancy_and_maternal_tables.sql`):** `private.maternal_staff_may_read` now calls `private.staff_may_read(patient, org, 'reproductive_health')`, the five S68 tables are registered tied, and their two write policies with a literal staff arm use `staff_may_write`. Proof `s88_tied_staff_reads_maternal_tables.sql`. Not yet applied to the live project. S68 growth columns on `child_growth_measurements` and the deletion receipts were already covered or not patient-readable by staff (S39b tied `child_growth_measurements`); no separate action.
+- Decision: closed (S88), pending apply and `/code-review ultra`.
 ### OQ-363 Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (raised by S68; INV-05)
 - The severe route uses the existing alert and `enqueue_critical_notification` loop (as the red-flag symptom handler does), not `create_red_page`, because that function takes a triage event from a BP rule set. A child nutrition triage rule set would be needed to feed the on-call page and its escalation timer.
 - Decision: open (CMO, S11/S19 owners).
@@ -2706,7 +2709,7 @@ The S86 gate refuses to enable a language unless the registry (`i18n.language_re
 - Blocks: nothing. `supabase/functions/paystack-webhook/handler.ts` (around line 756) handles `metadata.kind = "platform_credit_topup"` by refunding and reconciling. Platform Credit was removed from the schema on 2026-09-30 (0 balances, 0 ledger entries, 0 top-ups), so the branch can only fire for a charge started before removal.
 - Options: (a) keep the branch for 30 days as a safety net, then delete it; (b) delete it now.
 - Recommend (a), then delete and remove the Part C allowlist entry. Deploy order: code first, nothing in the schema depends on it.
-- Decision: pending.
+- Decision (S87 scan extension, 2026-10-27): option (b) taken after evidence. Live `payment_transactions` has 3 rows in total, none with `platform_credit` in the payload, 0 unprocessed, 0 in the last 30 days; removal was 2026-09-30. The branch and its allowlist entry are deleted; a stray late charge now reaches the unrecognised-kind failure and is marked failed (still loud, tested). Deploy: code only, nothing in the schema depends on it; needs the `paystack-webhook` redeploy.
 
 ### OQ-574 Employer roster invitations can be sent by SMS (raised by S87)
 - Blocks: nothing. `dashboard/corporate/roster-manager.tsx` offers an "SMS" invitation channel for roster members. It is not a verification code or clinician paging, so it is outside the SMS rule (OQ-05, D3 draft of 2026-10-07).
@@ -2819,7 +2822,8 @@ The S86 gate refuses to enable a language unless the registry (`i18n.language_re
 ### OQ-588 New pregnancy tables use `is_org_staff`, not the S39b tied-staff rule (raised by S67)
 - INV-12 says a clinician sees only patients they hold a task, lead or page for. S39b (#997) ties 128 tables to that rule but is not on this branch's base, so the new tables read staff access through one helper (`private.pregnancy_staff_may_read`). After S39b merges, retarget that one function and add the new tables to its list and to the S39b proof.
 - Options: (a) retarget the helper after S39b merges (recommended); (b) copy the S39b predicate into each policy now.
-- Decision: open.
+- **Closed 2026-10-27 (S88):** `private.pregnancy_staff_may_read(org)` takes no patient so it cannot be tied in place; instead the four S67 SELECT policies now call `private.maternal_staff_may_read(patient_id, organisation_id)` (tied, `reproductive_health`, so break-glass, audited openings and, after the S88 review, support view-as never open them) and `private.pregnancy_may_write` uses `staff_may_write`. The one-argument helper stays defined but no policy calls it. Option (a) in spirit, with one helper for both groups.
+- Decision: closed (S88), pending apply.
 
 ### OQ-346 Patient screens for the counter, timer, birth plan, week card and schedule are not built (raised by S67)
 - Built and tested: rules, storage, RLS, the offline outbox path, the phone's cached facts, the cards' wording, the offline danger guide and the PIN-lock seam. Not built: the web and mobile screens, the clinician view of sessions, the antenatal reminder notification template and cron, retiring the old `antenatal_booking` route, and wiring `maternal_enabled` into the screens. Nothing was run in a simulator or browser.
@@ -3333,6 +3337,57 @@ following are recorded in the system:
 
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
+
+### OQ-S79-1 Employer-funded rewards pool is a requested number only
+- S79 records a rewards budget the sponsor would like to set aside (`institution_programme_configs.rewards_budget_kobo`, capped by `institution.rules`). No pool, balance, per-person cap or checkout discount is built: OQ-S58-06 is informational, INV-09 forbids a stored balance, and the legal vehicle for an employer-funded pool is undecided. Build the pool only after a founder decision.
+- Decision: open (founder).
+
+### OQ-S79-2 Module 24 events are audit rows, not outbox events
+- `cohort.enrolled` and `sponsor.report_generated` exist only as audit actions (`sponsor.cohort_joined`, `sponsor.staff_exported`, `sponsor.pack_exported`). Registering them as outbox events needs a consumer to exist first.
+- Decision: open (product).
+
+### OQ-S79-3 The pathway list a sponsor may choose from is a proposal
+- `institution.rules.programme_pathways` = hypertension, diabetes, prevention_screening, nutrition_and_activity. Reproductive, pregnancy and mental health are deliberately absent. The CMO should confirm the list before the switch is turned on.
+- Decision: open (CMO).
+
+### OQ-S79-4 A usage statement must itemise for audit, and itemising can single a person out
+- Statement lines used by fewer people than the minimum are folded into "other services" (amount only). Finance may need the folded detail to reconcile an invoice; that must go through Tarragon finance, not the sponsor view. If a sponsor's contract requires itemised proof, counsel and the DPO must say how.
+- Decision: open (finance, DPO).
+
+### OQ-S79-5 Second approver for eligibility files that end access
+- A file that ends anyone needs a second person (or Tarragon); a file ending 30% or more of the active list needs Tarragon (`institution.rules`). A one-person HR team cannot approve its own removal file. Confirm the 30% and whether a solo employer should be allowed to confirm by email instead.
+- Decision: open (founder).
+
+### OQ-S79-6 Where the single code entry appears for members
+- `enter_enrolment_code` exists and is tested but is not wired into the patient web or mobile join screens (those still use `join_cohort` and the employer code path). Wire it when the module is switched on.
+- Decision: open (product).
+## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
+
+### OQ-GAP71-1 What "funded by" should say (raised by GAP-71, 2026-10-28)
+- The disclosure says the sponsor organisation on the programme "sponsors this programme and this report" and that Tarragon produced the figures. The database holds the sponsor organisation, not the payer of each invoice, so a programme paid for by a third party (a funder behind an NGO) is described as sponsored by the NGO. Confirm the wording, or add a funder field to `sponsor_cohorts`.
+- Decision: open (CMO and founder; the guard stays off until the wording is read).
+
+### OQ-GAP71-2 Date shown for the outcome measure sign-off (raised by GAP-71, 2026-10-28)
+- `outcome_config` records no signing date (activation is the sign-off). The block shows "Signed on <date>" only when a confirmed `proposed_config_signoffs` row exists for `outcomes.measure_rules`; otherwise "Signed (the date is not recorded in this report)". Decide whether to add an activation timestamp to `outcome_config`.
+- Decision: open (engineering, CMO).
+
+### OQ-GAP71-3 Who may enter an independent review, and what counts as one (raised by GAP-71, 2026-10-28)
+- Only a platform admin or the CMO can record a review (name, organisation, date, scope), as asked. Tarragon staff entering a review of Tarragon's own figures is a conflict of interest if no reviewer document is kept. Decide whether a reference to the reviewer's report (a document id or link) should be required before the record is accepted, and who checks it.
+- Decision: open (CMO and founder).
+### OQ-D4-1 Reliable change points for PHQ-9 and GAD-7 (raised by gap 71 D4)
+- PROPOSED `outcomes.reliable_change_rules` v1: 6 points on the PHQ-9 and 4 points on the GAD-7, a change of at least that many in either direction. Written from the published sources (the Jacobson and Truax reliable change method; the points the English NHS Talking Therapies programme uses), NOT checked against the primary texts and NOT validated for Nigeria or app self-completion. A baseline under the points cannot show a reliable improvement; the group is the response group (baseline of 5 or more).
+- Options: (a) the CMO signs 6 and 4 after reading the sources (recommended as a start); (b) the CMO asks for a different number or a locally derived index; (c) wait for local data.
+- Decision:
+
+### OQ-D3-1 What counts as a doctor adjusting a blood pressure medicine (raised by gap 71 D3)
+- PROPOSED `outcomes.adjustment_rules` v1: in the 90 days up to the snapshot day, a clinician amended the hypertension medicine (a new version of the prescription), or a signed plan change (action change or start) was confirmed by the person and applied. A stop, a refill with no change, a change only proposed or signed, and a medicine the person added themselves do not count. Doctors adjust more often when blood pressure is high, so the report is descriptive, not causal and carries no comparison group.
+- Options: (a) sign as drafted; (b) change the window or the actions (a new version); (c) also count a stop.
+- Decision:
+### OQ-S71-CHANNELS Zap (QR) channel string is unverified and must be flipped by a human (raised by gap 71, 2026-10-28)
+- The checkout channel list is now configuration-driven (`checkout.payment_channels` in the proposed-config registry, mirrored in `supabase/functions/_shared/commerce/checkout-channels.ts`, drift-tested). The default is unchanged: `["card","bank_transfer","ussd"]`. An unknown or empty value falls back to that default.
+- Paystack added Zap (QR) to Checkout in late 2025. `PAYMENT_CHANNELS` lists `"qr"` but nothing sends it, and its exact channel string for Zap is UNVERIFIED. Do not add it to the config until the string is checked against the live Paystack account and current docs (see also OQ-401, where `bank_transfer` may need enabling in the dashboard).
+- Founder action: verify with the test key, then publish a new versioned registry entry and update the edge mirror in the same change. An agent must not flip it.
+- Decision: open.
 
 ### OQ-S75X-1 PHQ-9 item 9 below the score line (raised by S75 exclusions; RESOLVED 2026-10-14, DECISIONS S75-9: option (a), the gap is accepted)
 - The exclusion keeps a person out of every outcome report if their PHQ-9 TOTAL reached 20 (config v4 `safeguarding.score_from`). A person who answered item 9 above zero but scored under 20 is NOT excluded by this rule, because the S75 proof forbids any function on the outcomes path from reading item answers or the crisis flag (a positive item 9 follows the red pathway, not analytics). Their score is therefore in the mental-health figures, which only an admin, an analyst or the CMO read as suppressed aggregates.
@@ -5049,6 +5104,82 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
 
+### OQ-S50B2-1 Every number in the low-carbohydrate programme is a placeholder (raised by S50b, 2026-10-21)
+- Eligibility exclusions (type 1, kidney disease, pancreatitis, liver disease, ketoacidosis history, a positive eating-disorder screen, pregnancy and 12 months postnatal, SGLT2 inhibitors), the 90-day look-back for a severe low (3.0 mmol/L), the 72-hour red or amber wait, the check-in cadence (sugar 14 a week, ketones 3, weight 1), the pause lines (sugar below 3.9, ketones 3.0 or more), the stop rules (3 pauses in 30 days, 14 days silent) and the review lines (average below 7.0 over 7 days with 5 readings, any reading below 4.4, a standing review every 14 days) are all the build agent's placeholders in `lowcarb.protocol_rules`.
+- Needed: the CMO reviews each in the sign-off hub line "Low-carbohydrate programme rules" and signs. Also whether insulin and sulfonylurea users are ever in scope (the build lets a doctor accept supervision with a note) and whether SGLT2 inhibitors are excluded outright (euglycaemic ketoacidosis).
+- Decision: open (CMO).
+
+### OQ-S50B2-2 The diabetes step table has to be written, and the editor cannot yet (raised by S50b, 2026-10-21)
+- The shipped `t2d_lowcarb_deprescribing` v1 is a DRAFT marked `placeholder`; `approve_protocol` refuses a placeholder, so it can never go live unchanged. The existing titration protocol page validates the blood pressure shape (`validateProtocolDefinition`), so the CMO cannot author a glucose step table there. `save_protocol_draft` itself only needs `params` and `steps`.
+- Needed: a diabetes step-table editor (or a second validator keyed by code) and the CMO's real steps. The platform proposes a stop only; a dose change is a note and the doctor sets the dose.
+- Decision: open (CMO, then a small build).
+
+### OQ-S50B2-3 The check-in sweep is now scheduled (raised by S50b, 2026-10-21; scheduled in the follow-up the same day)
+- `private.lowcarb_sweep()` is registered with pg_cron as `lowcarb-checkin-sweep`, every 15 minutes, by name (re-running the migration replaces the job). It returns at once while nobody is enrolled, so it costs one existence check. It turns nothing on. The migration fails if the job is not registered.
+- Still open: the go-live condition `check_in_sweep_scheduled` stays as an attestation, so a person confirms the job is actually running healthily (cron.job_run_details) before the guard is switched on.
+- Not verified here: nothing was run against a database in this round (no production access by instruction, no Docker). CI's migration replay is the first real run of the `cron.schedule` statement and the self-check.
+- Decision: open (ops, at go-live).
+
+### OQ-S50B2-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
+- The guard needs a recorded doctor and dietitian rota and a recorded decision on the cost of ketone testing (who pays for strips, how many a week, whether a Member gets them). Neither exists and neither was attested.
+- The patient screen says only: follow the low sugar advice your care team gave you, and go to the nearest hospital if very unwell. It gives no fast-sugar instruction on purpose (that wording is the CMO's, see the `glucose_fast_sugar_wording` guard).
+- Decision: open (founder, CMO).
+
+### OQ-S50B2-5 Phone screen built; device and offline behaviour not tried (raised by S50b, 2026-10-21; built in the follow-up)
+- Built: `LowCarbScreen` (hidden from the drawer; reached by a quiet link on the Medicines screen shown only to someone who has been offered the programme), using the same doors as the web. A closed gate shows nothing; a failed load is its own error state; the Stop button and the low-sugar card stay for anyone on the programme, even when the rules are not live or the numbers cannot be read (they degrade to no number; only an answer with no id or status is an error with a retry); the low-sugar card has no fast-sugar instruction and opens the existing emergency guidance. Readings are logged on the existing Vitals screen (the offline outbox). Answering and stopping are never queued and nothing clinical is cached.
+- Not verified: the mobile Jest suite is logic only (no rendering), so the screen was type-checked and its decisions unit-tested (`lowCarbPanels`), never run on a device or simulator. The medicines link shows only once the network answers.
+- Open: whether the offer should also reach the phone as a push (the notice is neutral and exists; there is no deep link into the screen).
+- Decision: open (product), device test before go-live.
+
+### OQ-S50B2-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
+- The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's. A urine-strip ketone result (`ketone_urine`) does not pause the programme: only a blood ketone number does. Medicine name lists (insulin, sulfonylurea, SGLT2 brands) are placeholders and will miss products; an unlisted diabetes medicine is not screened, so the CMO or a pharmacist must complete them.
+### OQ-S50A-1 The swaps, the five plans and the 5 g salt line are PROPOSED and unsigned (raised by the S50a build, 2026-10-21)
+- `nutrition_guidance_config` v1 is seeded inactive. The CMO (with a dietitian if one is available) should read every swap, every plan and the one number (`plans.hypertension.numbers.salt_g_max = 5`, the WHO figure, a placeholder), then sign through the sign-off hub item "Eating plans and food swaps". Kidney and pregnancy carry no numbers by design; if the CMO wants numbers there they need a new validator rule, not just a new config.
+- Decision: open (CMO).
+
+### OQ-S50A-2 Booking a dietitian visit does not move the nutrition referral on its own (raised by the S50a build, 2026-10-21)
+- 6.14 is wired as a link into the existing S64 per-item booking flow, shown only while a dietitian visit can be booked and paid for (the price is set; it is not today). `nutrition_referrals.status` is still moved by staff. A trigger from a confirmed dietitian appointment to `scheduled` would close that, but it touches the appointments tables and was not built blind (no database test stack here).
+- Decision: open (product).
+
+### OQ-S50A-3 Phone keeps an offline copy of the plan for 7 days (raised by the S50a build, 2026-10-21)
+- Unlike targets (never cached), the plan is readable offline for up to 7 days, is erased the moment the server answers "unavailable", and the pregnancy plan is shown but NEVER saved (so pregnancy is not held at rest on the phone). A server failure is a 503, which keeps the saved copy rather than erasing it. A sign-out does not delete the saved copy (no clean hook was found); it is kept per account and read only for the owner. If a person becomes pregnant, is put under a hold or is screened positive while offline, the old plan stays visible until the phone next reaches the server or 7 days pass. The number 7 is a judgement call; a shorter value or no offline copy is a one-line change (`CACHE_MAX_AGE_DAYS`).
+- Decision: open (CMO/DPO).
+
+### OQ-S50A-4 The pregnancy plan's existence is visible to the patient on a shared phone (raised by the S50a build, 2026-10-21)
+- A pregnant patient is shown a card whose title is "Eating well in pregnancy". On her own unlocked phone that is expected, but anyone holding it can see it. If the CMO prefers a neutral title ("Eating well right now") it is a text change in the config; the gate already tells nobody else.
+- Decision: open (CMO).
+
+### OQ-S50A-5 No dietitian rota or price exists, so the booking link is not live (raised by the S50a build, 2026-10-21)
+- `dietitian_consult_credit` is inactive with a zero price (S64), so `bookable` is false and the link does not show. The plans' care-team prompt still stands. Needs a dietitian, a price and declared times.
+- Decision: open (founder).
+
+### OQ-S50A-6 Until the swaps are signed, withheld people still get the older built-in swap hint (raised by the S50a build, 2026-10-21)
+- The brief says the old swap code stays as the fallback until the config is signed. That code is unchanged and already reaches everyone today, including pregnant patients, under-18s and people with a positive eating-disorder screen, because the identical-answer rule means the app cannot tell who is withheld. Once a version is signed the old hint stops for everybody and the signed table follows the withheld rule. If the CMO wants the old hint switched off sooner, the one-line change is to treat `signed: false` as "show nothing" in `nutrition-flow.tsx`.
+- Decision: open (CMO).
+### OQ-S47B-1 Signing the Today screen configuration switches on four things at once (raised by S47b, 2026-10-21)
+- `home_card_config` v1 is unsigned and inactive. One CMO signature (`/clinician/home-card-config`, also a line on the sign-off hub) turns on the new Today plan (two main actions, the rest under "More for today"), the days-logged card, the weekly summary cards and the wearable readiness line. There is no separate go-live guard: the signature is the gate. If the founder wants each to switch on separately, split the config into per-feature switches before signing.
+- The CMO is asked to confirm: card order, the weekly minimum of 3 blood pressure readings, and every readiness threshold (sleep and HRV 15 percent under usual, HRV 5 percent over usual, resting heart rate 5 beats over usual, at least 5 earlier days, at least 2 of 3 signals, data under 36 hours old). These numbers are PROPOSED engineering defaults, not clinical guidance.
+- Decision: open (CMO, founder).
+
+### OQ-S47B-2 Goals and pathways are not read on the phone, so a card rule that names one hides that card (raised by S47b, 2026-10-21)
+- `home_cards.rules` supports `goals_any` and `pathways_any`, but the phone has no single source for a person's goals or pathways yet, so it passes empty lists. v1 uses no such rule. If the CMO adds one, the card hides for everyone until a source is wired (fail closed).
+- Decision: open (product).
+
+### OQ-S47B-3 The streak counts any logged vital, and freezes live on the phone only (raised by S47b, 2026-10-21)
+- A day counts when any vital was logged (blood pressure, glucose, weight and so on; a wearable-synced sample counts too). Freeze events are kept in the phone's storage, not the server, so a second phone shows its own streak. The per-person "turn this off" from the S07 design is not built; the CMO can switch the card off for everyone (`streak.enabled`).
+- Decision: open (product).
+
+### OQ-S47B-4 No notifications were added for the streak, goal or weekly summary (raised by S47b, 2026-10-21)
+- The brief says these notifications must stay neutral (INV-07). None was built, so there is nothing to word. If the founder wants a weekly "your week is ready" push, it needs a keyed neutral template that names no condition or reading, reviewed like the others.
+- Decision: open (founder).
+
+### OQ-S47B-5 Mobile glucose and weight charts are new, online only, and use the profile height (raised by S47b, 2026-10-21)
+- The phone had no glucose or weight chart, so one was added (plain views, no native module) with the same bands as the web (`trend_target_bands` module, adult, not pregnant). It reads the server directly, so it shows nothing offline. The weight band uses `profiles.height_cm` only; the web also reconciles a questionnaire height. A person with no profile height gets no weight band.
+- Decision: open (product).
+
+### OQ-S47B-6 Readiness is phone-only, uses wearable sleep and HRV plus pulse readings from a wearable, and was never run on real data (raised by S47b, 2026-10-21)
+- Resting heart rate comes from `vitals_readings` (pulse, source wearable), because the ingest path routes it there, not to `wearable_readings`. No provider has live credentials, so the line has never shown for a real person. Voice logging (4.4) is dropped by the founder and was not built.
+- Decision: open (founder, after real device data exists).
 ### OQ-S48B-1 Private route recording needs `expo-location`, a new native build and the same privacy review (raised by S48b, 2026-10-21)
 - The recorder, its owner-only store, the screen card and tests with a stubbed location source are built, and sit behind the guard `private_route_recording` (off) plus each person's own switch (off). `expo-location` is not in `apps/mobile/package.json`, so `getLocationSource()` returns null and the card (when it ever shows) says recording needs a newer app. Adding it means a new EAS build, the iOS when-in-use location text, Android foreground location permission and a `runtimeVersion` bump. `runtimeVersion` was not touched.
 - Still open from OQ-S48A-3: the privacy review (home and workplace inference), a retention period, counsel's view, and whether the owner may download their own route. Until those are answered the guard stays off. A route is held in memory until the person taps "Stop and save"; if the save fails (offline) it is not kept, and the screen says so. Whether a route should instead wait encrypted on the phone is a question for the privacy review.
@@ -5080,6 +5211,38 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Update 2026-10-21: the line was corrected in `audio-scripts.ts` and `audio/manifest.json` (new `script_hash`) in the OQ-714 pull request. The generated files are "do not hand-edit", so the Production List .docx must carry the same words, or the next importer run restores the old line.
 - Earlier note, before that update: `audio-scripts.ts` and `audio/manifest.json` are generated from the Production List .docx by `scripts/audio/import-production-list.py` ("do not hand-edit"), and the .docx is not in the repository. A hand edit would also have to move the clip's `script_hash`.
 - Options: (a) change the HLP-017 line in the Production List to "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." and re-run the importer before the clip is recorded (recommended); (b) record it as is and re-record later (not recommended).
+- Decision: open (founder or whoever owns the Production List): update the .docx line to match.
+
+### OQ-S50B2-7 What a pharmacist and the CMO must review in the medicine lists (raised by S50b follow-up, 2026-10-21)
+- Group lists (config `eligibility.medicine_groups`): insulin (human, analogues, premixes, with Mixtard, Actrapid, Insulatard, Insuman, Humulin, Humalog, NovoRapid, NovoMix, Lantus, Abasaglar, Basaglar, Semglee, Levemir, Tresiba, Toujeo, Apidra, Fiasp, Lyumjev, Ryzodeg, Xultophy, Soliqua, Insugen, Wosulin, Basalog, Glaritus), sulfonylureas (glibenclamide/glyburide, gliclazide, glimepiride, glipizide, gliquidone, tolbutamide, chlorpropamide, tolazamide; Daonil, Euglucon, Diamicron, Amaryl, Glucotrol, Minidiab, Glurenorm, Glucovance, Glibomet), meglitinides, SGLT2 inhibitors (excluded: includes Forxiga, Jardiance, Invokana, Steglatro, Steglujan, Trijardy, Synjardy, Xigduo, Glyxambi, Segluromet, Invokamet, Qtern), and the recognised-no-extra-step groups (metformin, DPP-4, glitazones, GLP-1, acarbose). These were written without a pharmacist. Glyvenol is NOT a sulfonylurea (it is a venotonic) and is deliberately absent.
+- Needed: a Nigerian pharmacist confirms every name, adds missing local brands, and the CMO decides: whether GLP-1 and DPP-4 medicines are really "no extra step" on this programme; whether meglitinides need supervision; whether SGLT2 inhibitors are excluded outright.
+- How the screen fails safe (so a missing name is not a missing safeguard): any medicine that matches no group but whose name contains a marker (gli, glu, sulin, tophy, insulin, diabet, metformin, formin, glutide, tirzepatide, sulfonyl, glucose, sugar) or whose recorded reason mentions diabetes or sugar, any medicine with a blank name, and any name holding a letter the code cannot read (for example full-width letters) needs a doctor to accept supervision by name. Matching tolerates capitals, accents, invisible characters, strengths and doses attached to the name, combination products, a brand split in two words, one slip (two for long names) and two letters swapped. A false match only asks for a supervision note, so common supplements such as glucosamine will ask too.
+- Known limit: this is name matching, not classification by ATC code, because the platform's `medicine_catalogue` holds no ATC data. A diabetes medicine whose name matches no list and no marker, with no recorded reason, would still pass. Adding ATC (A10A, A10BB, A10BK and the rest) to the catalogue is the real fix.
+- A doctor must accept supervision of each such medicine by name (`accept_lowcarb_supervision`); a medicine that appears after enrolment pauses the programme until they do.
+- Decision: open (pharmacist, CMO).
+### OQ-S50B-1 Who may clear a non-medicine fasting stop, and how (raised by S50b, 2026-10-21)
+- The gate has two outcomes for a stop: `not_advised` (a hard stop) and `needs_clinician_plan`. For insulin and sulfonylureas the plan is a signed medicine timing plan. For pregnancy, type 1 diabetes, kidney disease, a positive eating-disorder screen and age, the proposed config makes them hard stops that nothing in the app can clear: the person is sent to their care team. If the CMO wants any of them to be `needs_clinician_plan` there is no clinician-signed artefact that clears it yet (a timing plan needs a medicine). Needed: the CMO's rule for which of these a doctor may ever clear, and what the doctor signs.
+- Decision: open (CMO).
+
+### OQ-S50B-2 Every number, name and match in the fasting rules is the CMO's (raised by S50b, 2026-10-21)
+- `fasting_safety_config` v1 is PROPOSED and unsigned: the 72 hour red and amber windows, minimum age 18, the outcome for each situation, the insulin and sulfonylurea name lists (including brand names), the condition name and ICD-10 matches, and diabetes-with-no-medicines needing a clinician. Not included and for the CMO to decide: SGLT2 inhibitors, diuretics, anticoagulants, and anyone on dialysis or with heart failure; gestational diabetes outside pregnancy; and whether a diet-controlled adult with diabetes and no medicine recorded should really need a clinician (today they do, because we cannot tell whether insulin is taken).
+- Decision: open (CMO). Sign at /clinician/clinical-signoff. Signing does not show the screen; the `fasting_safety` go-live guard is a separate switch.
+
+### OQ-S50B-3 Medicine timing after the fast ends (raised by S50b, 2026-10-21)
+- The timing plan is applied through the S24 engine as a change to the medicine, which means the fasting schedule stays on the person's medicine record after the fast unless a second signed change reverts it. Nothing reverts it automatically (INV-02: no change without a signature). Needed: a care team habit or a task that prompts the clinician to propose the revert when the fast ends (a new task type needs CMO sign-off, S16b pattern), or a product decision to model the plan as a separate dated schedule instead of a medicine change.
+- Decision: open (CMO and product).
+
+### OQ-S50B-4 Fasting wording, the existing diabetes paragraph and the calendar (raised by S50b, 2026-10-21)
+- The wording on `/patient/fasting` and the mobile screen is draft and not reviewed by the CMO; it is hidden behind the guard but the "unavailable" line is shown even while the guard is OFF (it only says to talk to the care team). The older static paragraph in `diabetes-guidance.tsx` tells a person with diabetes to "break the fast" on a low or very high reading or if unwell. That is emergency-style guidance written before this module; I left it as it was, but the CMO should decide whether it stays now that a signed-plan route exists. Calendar dates for 2027 and 2028 are expected windows only (Ramadan follows the moon; Lent follows Easter) and a person always confirms them; years beyond 2028 are "unknown until confirmed locally".
+- Decision: open (CMO).
+
+### OQ-S50B-6 A medicine the patient typed in themselves can never be covered (raised by S50b, 2026-10-21)
+- Coverage needs the signed change to have been applied to the medicine row the person has now. Only a Tarragon-issued prescription carries a signature, so a self-entered insulin or sulfonylurea row stays uncovered. The clinician form lets a timing plan ride a START as well as a change, so the care team can issue the medicine itself with the fasting timing; the patient's own entry then needs stopping by them (the form says so). Medicine detection is by name (generic and common brand names); an unlisted brand typed free-text is not recognised, which is why a diabetes diagnosis with no recognised diabetes medicine needs a clinician, but a person with metformin recorded and an unlisted insulin brand would not be caught. Needed: use the medicines ingredient map (S08y) for detection once it is live, and decide whether a self-entered insulin should itself block a fast until a clinician reviews the list.
+- Decision: open (CMO and product).
+
+### OQ-S50B-5 Glucose-response numbers have no sign-off panel (raised by S50b, 2026-10-21)
+- `glucose_response.rules` (minimum 5 paired meals, 30 minute before window, 90 to 150 minute after window, plausible range 1.5 to 40 mmol/L, fingerstick only) lives in the PROPOSED registry in code, not in a signed database table, so the CMO has no hub line for it. The `glucose_response_insights` guard is the control. Needed: either accept a registry-only entry (changed by a reviewed PR) or give it a governed table and a hub panel like the fasting rules. Also for a dietitian: foods are grouped by the matched food in the meal, so a mixed plate counts under each of its foods (a stated limit, not a cause).
+- Decision: open (CMO and product).
 - Decision (founder, 2026-10-21): wording chosen: "Choose a verified pharmacy to collect your medicine from, or take your prescription to any pharmacy you like. You pay the pharmacy when you collect." The repo carries it (`audio-scripts.ts`, manifest hash). DONE 2026-10-21: the Production List .docx (v1.0, in the company folder; original kept as `...v1.0.before-OQ-719.docx`) carries the same words, and the importer run against it leaves HLP-017's script and hash unchanged. CLOSED.
 
 ### OQ-S43m-4 A care team target has no unit, so a trend can be drawn against a target in another unit (raised by the S43m build, 2026-10-20)
@@ -5269,6 +5432,31 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Checked while reconciling S61 to S65 against current `main-dev`. `book-video-visit.tsx` says "If nobody can take it, you get a full refund". That path (`video_visit_requests`) takes a real Paystack payment, holds it, and `/api/cron/video-visit-refunds` refunds it in cash through the Paystack Refunds API when no doctor accepts within 48 hours. So the sentence describes what happens; it is not a credit-versus-cash mix-up.
 - No code was changed. The open question is still the founder one in OQ-S64-4 and OQ-133: whether this older path should stay as cash or move to the credit basis used elsewhere. Nigeria's FCCPC digital-markets guidance expects cancellation and refund terms to be clear and not misleading (U, from a law-firm summary), so whichever is chosen, the screen should state it plainly before payment.
 - Also noted: `docs/design/htn-hearts-alignment-note.md` lists where the draft hypertension step table may differ from the national HEARTS-based protocol, for the CMO. Nothing in it is decided.
+
+### OQ-S69b-1 Consent wording for the presets and the plain-language preview needs CMO and DPO review (raised by S69b, 2026-10-22)
+- The lines a person reads before they agree to share or to receive ("They will see ... Never shared: single readings, medicine names, results, notes or messages") are consent wording. They are in `packages/i18n/src/care-circle-tools-copy.ts` under the prefix `cctools.`, marked `pending_cmo_review` (also DPO). They sit outside the `circle.` prefix on purpose, so the reviewed-strings ledger (whose baseline may only shrink) does not grow; this is the same trade CGJ made (OQ-CGJ-5) and it means the ledger does NOT yet cover them. Decision wanted: keep them under `cctools.` and review them by this marker, or move them under `circle.` and add ledger entries as unreviewed baseline (which raises the ceiling).
+
+### OQ-S69b-2 What "help" means in "Can see and help" (raised by S69b)
+- The brief said map the presets onto the existing permissions and add no role. There is no existing permission that means "may take on a job". This build uses `pay_for_care` as the marker: "Can see" = adherence_summary, weekly_bp_trend, appointments, red_alerts; "Can see and help" = those plus pay_for_care, and a supporter holding pay_for_care may post, claim and complete shared jobs. Consequences to decide: (1) a supporter in another organisation can never hold pay_for_care (S29e), so they can see the jobs but never take one; (2) a patient who wants someone to run errands but not pay cannot say so; (3) the preview tells the person plainly that "help" includes paying. A cleaner answer is a sixth named permission (`help_with_tasks`), which changes `private.circle_permissions_valid` (a CHECK on two tables) and needs the overload-ambiguity sweep this project already learned to do. Not done here without an ask.
+- `attend_consultation` (CGJ) is in neither preset on purpose; a set that includes it reads as "Choose one by one".
+
+### OQ-S69b-3 The gentle nudge: grace period, window, and whether it may ship (raised by S69b)
+- PROPOSED in `care_circle.supporter_tools`: nudge a supporter 30 minutes after a scheduled dose slot has had no answer at all (taken, late, skipped, missed or not available all count as an answer), only inside the next 60 minutes, at most 3 a day per supporter, one per time slot. The 30 minutes matches what Medisafe Medfriend is reported to wait (U: from the reference product's public description, not re-verified). The CMO must rule on the numbers and on whether any supporter should be told about a missed dose at all; module `care_circle_missed_dose_alert` is OFF and nothing here sets it on.
+- It is opt-in per supporter by the patient, needs the supporter to hold adherence_summary, is cleared by a trigger if that permission is removed, never reads a page, triage event or emergency event, and is routine priority so quiet hours may hold the push. The in-app list shows a first name and nothing else. If the patient-first window (`care_circle_checkin_window`, OQ-700) is on, the nudge waits the extra window minutes as well.
+- Known limits: a slot within `grace + window` minutes of local midnight is not nudged across the date boundary; the sweep runs every 5 minutes so the real wait is 30 to 35 minutes; a patient who has no `schedule_times` on a medicine gets no nudge for it.
+
+### OQ-S69b-4 "Waiting for them" hides a refusal from the sender: is that the right trade? (raised by S69b)
+- A supporter can now answer an invite with "Not now". The sender is never told and their list keeps saying "Waiting for them" until the invite runs out (72 hours, PROPOSED), then it disappears like any unanswered invite. This follows the brief and avoids the conflict or coercion a visible "declined" can cause at home. The cost: a sender cannot tell "has not looked" from "does not want to", and the supporter's screen says only "Nothing has been shared with you". Please confirm this is the intended balance; it is a one-line change in `my_care_circle` to show something different.
+
+### OQ-S69b-5 Shared jobs: retention, and who is told (raised by S69b)
+- Jobs carry a fixed kind and an optional date, no text. Finished and removed jobs are deleted after 30 days (PROPOSED `task_keep_days`); open jobs more than 7 days past their date are cancelled by the hourly sweep. Notices are in-app only, neutral ("Your circle has an update"), and the helpers are told when the patient adds a job. Registered in the data registry as operational, not exported. To confirm with the CMO and DPO like the other circle tables (OQ-S69b-1 class).
+
+### OQ-S69b-6 What was not run, and what a reviewer must still do (raised by S69b)
+- The migration `20261027183410_s69b_care_circle_presets_digest_tasks_nudge.sql` and its proof `packages/db/tests/s69b_care_circle_presets_digest_tasks_nudge.sql` were written on a branch with nothing applied to any live project. Before it is applied: `list_migrations` on the live project for anything recent, `pg_get_functiondef` of `public.my_care_circle` (this file restates it) and `private.circle_member_for`, and redeploy `send-pending-notifications` (three new templates). `packages/shared/src/database.types.ts` was spliced by hand (eleven function signatures and one member column), not regenerated.
+
+### OQ-S69b-7 Review fixes: what was changed, and two points where the review was only partly right (raised by S69b, 2026-10-22)
+- Changed: the nudge sweep now reads slots through `private.medication_slots_on` (dates, every-n-days, weekdays, taper) and ignores a slot before the schedule took effect; "Not now" no longer changes the invite's state (it stays `pending` and counts in the invite cap, the sender cannot read `attempts`); jobs and the digest's job counts need a view permission or pay_for_care; the nudge list leaves once the dose is logged; a poster who dropped to "Can see" can no longer cancel; the 90, 7 and 7 day figures are config (`task_max_days_ahead`, `task_stale_days`, `task_done_visible_days`).
+- Not quite as reported: (1) the audited reads do not write a line on every refetch, because `private.log_care_access` already keeps one line per person, per kind and surface, per hour. The consequence the review did not mention is the reverse: a second kind of look inside the hour (digest after jobs) adds no second line, so the patient's list shows that the supporter looked, not which blocks. The screens no longer poll or refetch on focus for these reads. Decision wanted: is one line per hour enough for "who looked", or should the digest, jobs and nudge reads each get their own surface name in `care_access_events_scope_known`? (2) A supporter in another organisation who holds a view permission still reads the jobs, as they read every other block they were given; only a member with no view permission and no pay_for_care (red_alerts-only or attend_consultation-only) is refused. Say if cross-organisation supporters should never see jobs at all.
 
 ### OQ-S43m-7 A share link's medicines and conditions sections do not hold back reproductive or mental health items, unlike the emergency card (raised by the S43m review, 2026-10-20)
 - The emergency card removes contraceptives, antidepressants and conditions that look reproductive or mental health unless their own switch is on (S47). The share link's `medications` and `conditions` sections list everything. The phone now says so beside those two switches ("tick them only if you are happy for the person to see all of it"); web has no such sentence. Needed: decide whether the share viewer applies the same rule as the card (a database change in `record_share_by_token`), or keeps the warning only. OQ-S43-4 is the earlier, wider form of this question.
@@ -5598,3 +5786,300 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Left out: MED-SER-FAITH (the CMO writes faith-compatible content, a named faith leader reviews it) and MED-BRE-001 to 005 (breathing is a script item with steps and a pattern behind `wellbeing_library_clinical_scripts`; the CMO decides how spoken guides are catalogued).
 - Not built: the phone app has no audio library player (OQ line 3640: needs an audio engine and a runtimeVersion bump), so stream-only holds on the web only until that exists.
 - Decision: open (CMO for the breathing guides and the faith item).
+
+### OQ-QUEUED-1 A queued year's revenue schedule is not re-based when the year starts early (raised 2026-10-26)
+- Built: a Membership year bought onto a running Plus year is queued and starts when the Plus year ends (`docs/DECISIONS.md`, 2026-10-26). Its revenue schedule is built at payment and starts on the queued start date.
+- Gap: if the Plus year is refunded or ended early, the queued year starts at once, but a schedule already built keeps the later start. Nothing in finance re-bases a recognition schedule, and the difference is only timing of recognition for a rare case.
+- Options: (a) add a finance function that moves a schedule's start; (b) accept the timing difference and say so in the finance notes; (c) build the schedule only when the year actually starts.
+- Recommendation: (b) until a finance owner asks, because the case needs a race and the amounts are small.
+- Decision (founder, 2026-10-26, "do what is best"): option (b). The queued year's recognition keeps its later start; only the timing of recognition differs, the amounts are small and the case needs a race. Finance can ask for (a) later. Nothing to build.
+
+### OQ-BUNDLE-1 An annual-bundle result the patient uploads (raised 2026-10-26, RESOLVED 2026-10-27: no new build needed)
+- Question: is a result uploaded for the annual bundle just a document, or is it read into platform values?
+- Founder decision (2026-10-26): the upload stays a plain document and AI in the background reads it into platform values.
+- Finding (2026-10-27, read from the code): this already exists. The bundle upload in "Your test requests" is the same patient upload (`uploadPatientResult` in `lib/lab-results/actions.ts`) that every patient result uses, and it calls `runLabReportExtraction` after saving. That is the registered system AI-005 (`labReportExtraction`, live, kill switch honoured, every outcome in `ai_interaction_log`). It reads the report into a DRAFT for a doctor to file from the clinician panel (`lab-report-extraction-panel.tsx`), so values reach `lab_results` only after a doctor confirms (INV-03). The earlier gap text in this entry was wrong. No new AI system, evaluation or approval is needed.
+- Left as is: filing is a doctor action, so values appear in trends and the cascade of care after a doctor confirms, not instantly. A bundle result with no readable values stays a document and the doctor enters them by hand.
+
+### OQ-PLUS-1 Membership Plus given without a checkout carries no collection state (raised 2026-10-26)
+- Built: Membership Plus and the upgrade to it need an admin-approved state at checkout (`create_order`), stored on the order and copied to the membership, fixed after payment, shown to the member. Only while the module `membership_two_member_tiers` is on.
+- Covered since the checkout review: a gift accepted later and a sponsor-covered Plus order carry the state the buyer chose (copied from the order); Plus cannot be requested through a supporter's payment link while the module is on.
+- Gap: Plus can still arrive without any checkout: an employer seat (`grant_org_seat`, which maps a seat to Plus), an admin grant (`grant_membership_tier`), a legacy conversion, and the grandfathered rows. Those memberships have `collection_state` null, so Tarragon cannot tell where to arrange their blood collection.
+- Options: (a) require a state when an employer registers a Plus seat or an admin grants Plus (a field on the roster row and on the grant form); (b) ask the member to choose from the approved list on first use of the collection flow; (c) leave null and let the care team arrange it by hand.
+- Recommendation: (b) for legacy rows, (a) for seats and grants, because the employer and the admin already know the person's state.
+- Decision (founder, 2026-10-26): Plus given without a checkout needs a collection state. Built: (a) an admin grant of Plus needs an approved state while the module is on (`grant_membership_tier`, a state field on the grant form); (b) a Plus member whose state is empty chooses it once from the approved list (`set_my_plus_collection_state`, web and mobile), which also covers employer seats and older rows. Not built: a state field on the employer roster row, because the member already chooses on first use and the employer rarely knows it; add it if an employer pilot asks.
+
+### OQ-S90-01 Care gap definitions and thresholds need the CMO (raised 2026-10-27)
+- Built: six rules with their lines in `care_gap_rule_config` v1 (PROPOSED, unsigned): hypertension missed reading 14 days (pack 4.2: 7-day cadence plus 7-day overdue); HbA1c and lipids 365 days plus 30 days grace; refill 7 days past due; adherence signal within 10 days; trend windows of 14 days with 3 readings.
+- Gap: two numbers the pack does not give are left **null**, so those rules do nothing: a home glucose cadence for diabetes, and the systolic rise that counts as a trend. The refill line (7) and the trend window are not in the pack either. Every pack number still says "verify against source", and item 4.2 still needs the independent clinical reviewer (gate G1).
+- Options: (a) the CMO supplies the numbers in a v2 draft and signs; (b) keep the two rules off. Recommendation: (a) after the source check; the panel on the sign-off hub shows exactly what is not supplied.
+- Added after the strict review (2026-10-27): (1) the single hypertension line of 14 days is the pack's uncontrolled cadence (7) plus the 7-day overdue allowance, so a CONTROLLED patient (pack cadence 14, overdue line 21) is flagged 7 days before the pack's own overdue line. The rule reads only the config value and never infers control state, so no clinical number was changed; recorded in the config as `cmo_to_confirm` for the CMO to confirm 14 or supply a controlled line. (2) The adherence rule excludes medicines that are not on a hypertension or diabetes plan structurally, and reproductive and mental health medicines by two PROPOSED name and indication lists (`exclude_drug_name_patterns`, `exclude_indication_patterns`); these are privacy scope, not clinical thresholds, listed as `cmo_to_confirm`. (3) A lab gap is now due on the last matching result (or the plan start) plus 365 days and opens only after the 30 days grace, not 30 days after the plan start.
+- Related: S88 holds the pack text as `clinical_config_versions` kind `hypertension_care_gap_rules`. The engine reads its own config, so the same numbers now live in two places. Recommendation: keep both until the S88 kind is signed, then add a drift test between them rather than merge two governance ledgers.
+
+### OQ-S90-02 This slice was built ahead of the S40 gate (raised 2026-10-27)
+- The plan says nothing past S87 starts without a waiver (decision F2). This slice was built on instruction, local only, unpushed, unapplied. Founder: confirm the waiver (or hold the merge) before it is pushed.
+
+### OQ-S90-03 Free patients and the S90 items not built (raised 2026-10-27)
+- The engine looks only at current Members with an active hypertension or diabetes plan (the P6 rule), because Free consumes no care-team time. Not built: silent-patient re-engagement as its own trigger, the patient "today" card and private streak (CMO gate), outcome nudges from a patient's own trend (CMO signs the rules). Founder: confirm Members only.
+
+### OQ-S90-04 Employer reports need the 50-person floor (raised 2026-10-27)
+- Pack 4.6 says employer reports are shown only for groups of 50 or more enrolled staff. The institution ledger uses `greatest(platform minimum, organisations.min_cohort_size)`, the same rule every other aggregate uses, and the corporate dashboard's own cohort gate; the 50 floor is not wired for employer organisations. Recommendation: wire it in the follow-up that moves all employer aggregates to one function, rather than special-casing this one.
+
+### OQ-S90-05 Doctor-owned gaps and the clinical task layer (raised 2026-10-27, revised the same day)
+- A rising trend gap is owned by a doctor. After the strict review it is no longer a bare list: it carries a **review clock** on the gap itself (`review_due_at`, `ladder.doctor_review_days` = 3, PROPOSED): unreviewed past that date it goes once to the Chief Medical Officer with a new date, and if it is still unreviewed (or there is no CMO) an ops incident `care-gap-review-overdue` opens. The date shows on the doctor's care gap list. It closes by itself when the CMO nulls the rise (superseded by the configuration), when the patient stops logging (trend stale) or when the trend clears.
+- Deliberately NOT created: a `care_tasks` row (that table is the patient's own care-plan task list, owner role patient or clinician, readable by the patient, so staff-only wording about a blood pressure trend must not go there) and an S16 `clinical_tasks` row (needs a CMO-signed task type, `task_types`). A clock on the gap gives the response deadline and an escalation path without deciding either.
+- Options still open: (a) keep the clock; (b) also create a clinical task with a task type the CMO signs. Recommendation: (b) once the trend rise is supplied (OQ-S90-01), because the S16 layer already has claim, hand-back and its own escalation ladder; the clock then becomes redundant and is removed.
+
+### OQ-S90-06 Operational values and experiments (raised 2026-10-27)
+- The weekly cap (2), step spacing (3 days), quiet hours (20:00 to 08:00 Lagos), the 30-day no-reopen after a person closes a gap, and "unreachable after 2 staff attempts" are operational PROPOSED values, signed with the config. Experiments (copy variant, send hour) are scaffolding only and switched off; the evidence base has no randomised study of re-engaging silent patients, so the founder should decide what consent or notice an experiment needs before any is switched on.
+
+### OQ-S90-07 Who owns care gaps in an organisation with no coordinator (raised 2026-10-27)
+- Live today there is no active care coordinator in the Tarragon organisation. The engine now falls back, in order: the least-loaded available coordinator of the SAME organisation, then the least-loaded eligible doctor of that organisation (same eligibility as the escalation picker, load counted in open gaps plus pushed clinical tasks), then nobody, which opens an immediate sev2 incident `care-gap-unowned` and lets an admin of the organisation read those gaps (`/admin/ops/care-gaps`). A judgement item never goes to a coordinator.
+- Founder decision wanted: is a doctor holding logistics gaps (a missed reading call) acceptable as the fallback, or should a coordinator be hired first and logistics gaps stay unowned (visible to ops only) until then? Recommendation: accept the fallback while the programme is small; it moves back to a coordinator by itself on the next run once one exists.
+
+### OQ-S88-1 The plan said 8 untied clinical tables; the live sweep found 9, and two reminder tables were left (raised by S88)
+- Live `pg_policies` sweep on 2026-10-27 (SELECT only): every `patient_id` table outside `staff_read_scope` whose policy admits staff by role or organisation. Result: the nine maternal tables fixed by S88, plus `vitals_reminder_rules` (any clinician of the organisation reads every patient's reminder frequency per condition) and `patient_reminder_group_members` (any clinician reads group membership). Neither is a clinical record, so S88 left them. `ai_conversations` already limits staff to conversations with a raised alert or escalation; `clinical_tasks`, `pages`, `lead_assignments`, `encounters` and the caregiver-model tables already use ties of their own.
+- Options: (a) tie both with `staff_may_read` (reminder frequency by condition reveals the condition; recommended); (b) register them as `org` with a reason (work queue).
+- Decision: open.
+
+### OQ-S88-2 Journey 4 proves the nine tables only if the fixture seeds them (raised by S88)
+- The journey's untied-clinician step lists the nine maternal tables; with an empty fixture a zero read proves nothing.
+- **Closed 2026-10-27 (S88 review follow-up):** option (b) was taken. The journey now seeds rows in all nine tables for its two real patients (owner connection, is_test accounts) and asserts each table holds at least one row before the untied-clinician step runs. The DB proof `s88_tied_staff_reads_maternal_tables.sql` still carries the real-RLS control rows.
+- Decision: closed.
+
+### OQ-S88-3 The Chief Medical Officer and an on-call doctor with no care tie cannot read the nine maternal tables by any audited route (raised by S88 strict review; founder decision needed)
+- After S88 a clinician reads pregnancies, kick counts, contractions, birth plans, baby checks, feed logs, lifecycle stage and loss records only with a care relationship to that woman (care-team assignment, an open escalation or alert routed to them, a consultation, a task, an acknowledged page, an assigned referral). Break-glass (`private.has_emergency_access`) and the audited S39c opening (`private.staff_has_open`) both refuse `reproductive_health` by design, and S88 also refuses a support view-as session. So the CMO, and an on-call doctor who is paged for a woman they have not yet acknowledged, have NO route to these rows until a tie exists. The patient-facing safety net (emergency guidance, emergency contacts) does not depend on a clinician reading them, and a paged clinician who acknowledges the page gains the tie (S19), so the gap is narrow: oversight and a doctor who must see a woman's pregnancy record before they hold any task for her.
+- Nothing was invented in S88. Options: (a) assign a tie through a clinical care task (the existing S16 task layer, CMO pushes a task to the doctor; recommended, no new access route, fully audited by the task); (b) a CMO-only audited opening for `reproductive_health` on these nine tables (a new route: per-read audit, reason, expiry, patient told; needs a founder and DPO decision because it is the first exception to "never opened by anything but a tie"); (c) none, accept the gap and rely on (a) in practice.
+- Decision: open (founder, CMO, DPO).
+
+### OQ-S96-1 The CMO must read, change or reject every MSK draft (raised by S96)
+- Back, neck, knee and hip: 4 x 8 weekly sessions, 22 exercises with steps and doses, the 68 entry questions with their routes, config version 2 (PEG plus function goal, the rise of 2 that pauses, the daily cap of 3, 3 different days to finish a week, a 3 day step-down). Every dose, hold time, repeat count and rule of thumb is PROPOSED and was written from NICE NG59 and NG226 style guidance and general self-management guidance that the CMO must verify against the source. Items marked unverified (low defences, steroids or thin bones, first pain over 50, pregnancy or recent birth, TB, sickle cell bone pain, HIV, hip pain with steroids or alcohol) are local additions.
+- Where: `/clinician/clinical-signoff`, line "Back, neck, knee and hip pain programmes". Nothing is shown to a patient until content is approved, the newest list (version 2) is confirmed, clinician cover and the outcome thresholds are attested, and `therapy_pain_enabled` is switched on. Decision: open.
+
+### OQ-S96-2 Who reviews exercise content without a physiotherapist (raised by S96) - DECIDED (founder, 2026-10-27)
+- Decision: no physiotherapist now; the Chief Medical Officer alone approves exercise doses and progressions. The content carries an INTERNAL marker so it can be re-reviewed when a physiotherapist is hired.
+- Built (in `20261027184235_s96_msk_programmes.sql`, not applied; the earlier s96b file was merged into it): `therapy_programme_versions.not_physiotherapist_reviewed` (true on the four pain versions, never patient-visible, no reviewer name anywhere), shown on the CMO sign-off hub panel. The clearing hook is two nullable columns, `physio_review_recorded_at` and `physio_review_ref`; setting the first clears the marker (a table check forbids both at once). No physiotherapist role, screen or function exists. A new content version does not inherit a cleared marker: record the review against the version it covers.
+
+### OQ-S96-3 Routes chosen for the pain red flags (raised by S96) - DECIDED (founder, 2026-10-27)
+- Routes as built: same-day clinician for cauda equina signs, trauma, fever, spreading weakness, cancer or weight loss, night pain, low defences, cannot weight-bear, hot swollen knee, calf pain or swelling, groin pain after a fall; review first within 2 days for steroids or thin bones, first pain over 50, pregnancy or recent birth, knee locking.
+- Decision for possible heart or stroke warning signs (chest or arm pain, sudden worst headache, speech or swallowing or face problems, breathless with leg pain): the patient sees "go to the nearest hospital now" and the programme stops, but the on-call clinician is NOT paged. Only a normal clinician task (`symptom_review`) is raised, due in 90 minutes (founder decision 2026-10-27; `route_due_minutes.crisis_non_paging`, config version 2, PROPOSED).
+- Built: a per-rule flag `therapy_exclusion_rules.non_paging` (valid only on a `crisis` rule) carried in the screen result and read by `private.therapy_route_stop`; the six pain crisis items in list version 2 carry it. The mental-health crisis path (`therapy_raise_crisis`, page, class 1 task) is untouched: those rules have the flag off. A screen with any paging crisis item still pages. TS twin: `nonPaging`, `stopPagesOnCall`. The flag is seeded in the same migration as list version 2 (one file, so they can never apply separately). An unanswered warning-sign item behaves exactly like answering yes (the flag comes from the rule row for every stop). A repeated report on a plan already stopped returns the same stopped status and route.
+
+### OQ-S96-4 The function goal item has no wording of a named goal (raised by S96)
+- The fourth outcome item asks how hard "one everyday thing your pain gets in the way of" was in the last week. The app does not store which thing the person chose, so the score is comparable only if they keep the same goal. Options: (a) keep as built; (b) store the goal text on the device (never uploaded); (c) store it in the database with the enrolment. Recommendation: (b) first. Decision: open.
+
+### OQ-S96-5 Clinician view of the MSK trend is not built (raised by S96)
+- The tied clinician sees a worsening only as a task. The consent-gated audited read returns the scores, but there is no screen showing the PEG trend, difficulty ratings or flare-ups. The task does not say which red flag fired (OQ-S63-3 still applies). Decision: open (build when clinician cover is confirmed).
+
+### OQ-S96-6 A queued offline completion skips the days gate (raised by S96) - CLOSED (review fix, 2026-10-27)
+- Fixed: `start_therapy_session` and `complete_therapy_session` now refuse the four pain programmes unless called through `start_msk_session` / `complete_msk_session` (a transaction-local flag), so neither a direct call nor an old queue can bypass the activity gate or the days rule. The offline queue stores the programme code and sends a pain week through `complete_msk_session`; a "not enough days" answer keeps it queued and the phone and web tell the patient plainly. Queue items saved before this change have no code and would be refused by the database as permanent: the app then drops them as not sendable; no such item can exist because the guard has never been on.
+
+### OQ-S96-7 A day counts when one exercise is rated (raised by S96)
+- The completion gate counts different days with at least one difficulty rating, not a full set. The screens ask for a rating after each exercise, but the database cannot know which exercises the activity gate or a step-down hid on that day. Options: keep; or store the day's shown exercises with the rating. Decision: open.
+
+### OQ-S96-8 The pain guard's description is out of date (raised by S96)
+- `go_live_guards.blocks` for `therapy_pain_enabled` still says "scaffolds: no content exists yet". The guard table has its own change trigger and this build did not touch the row (not verified whether a text-only update is allowed outside the switch function). The four conditions are sufficient and unchanged. Decision: update the wording when the guard is next touched.
+
+### OQ-S96-9 Pregnancy in the back programme (raised by S96)
+- "Pregnant or gave birth in the last six weeks" routes back-pain patients to a clinician review first (plan adjusted by a clinician; lying on the back late in pregnancy is not covered by the written exercises). The activity gate also lowers intensity for pregnancy. Whether a pregnancy-specific back plan is wanted is a product question. Decision: open.
+
+### OQ-S96-10 Drawings were drawn by the build and have not been looked at by a clinician (raised by S96)
+- The 22 line drawings are simple original stick figures. They were checked by tests (accessible, tiny, no external file) and not by eye on a device or by a clinician for form. Someone should look at them on a phone and in dark mode before the guard is switched on. Decision: open.
+### OQ-S98-1 Which calendar items may the engine issue a request for without a person? (raised 2026-10-27)
+Built: only items from a SIGNED screening rule set, only tests with `screen_types.sensitive = false` and an active single-test bundle. Calendar items written by the app from the risk questionnaire (no `rule_set_id`) are NOT auto-issued; the patient still has "Get & print". Options: (a) keep (fail closed until the CMO signs); (b) also auto-issue questionnaire items. Recommendation: (a). Owner: CMO.
+
+### OQ-S98-2 Sensitive tests (HIV, hepatitis B/C, cervical smear, FIT, PSA, imaging) and automatic requests (raised 2026-10-27, DECIDED by founder 2026-10-27)
+Decision: a sensitive test MAY get an automatic request, but only for a patient who has opted in. Built (S98b): per-patient revocable opt-in (`screening_sensitive_request_optin`, own row, audited RPC, adults only), new guard `screening_sensitive_request_optin_enabled` (OFF) on top of `screening_request_automation_enabled`; the job needs both guards, the opt-in, a signed rule set and a passing insert (a trigger refusal is skipped and logged, never bypassed). Notification payloads, reminder payloads and the audit entry no longer name a sensitive test. Withdrawing stops new requests and keeps existing ones.
+STILL OWED before the guard is switched on: CMO review (which tests count, how a reactive result is disclosed, wording) and DPO review (consent basis, retention class `consent` is PROPOSED in the data registry). The opt-in switch is hidden from patients while the guard is off. Side effect to confirm: reminders for every `screen_types.sensitive` test (cervical smear, FIT, PSA, imaging as well as infections) now carry the neutral name "a screening test" in the payload; the email body never named the test.
+
+### OQ-S98-3 Two messages on the due day (raised 2026-10-27)
+The request insert sends the existing "your test request" email (PDF attached) and a notice on the patient's channel; the 06:35 `screening_due` reminder follows with a link to the same request. Options: (a) accept (the reminder ladder must keep running if the patient does nothing); (b) suppress the first `screening_due` when a request was issued the same day. Recommendation: (a) now, revisit with real usage.
+
+### OQ-S98-4 An uploaded result does not close the calendar item (raised 2026-10-27)
+The upload is kept as a document, shown to the patient as "result received" and to the clinician as "Patient-uploaded, not lab-verified"; the schedule row stays `booked` until a clinician records the result (existing `refresh_screening_schedule_on_result`), or the patient confirms it done. Reminders stop at upload. No OCR or value extraction was built. Decide whether a clinician "record result from this document" shortcut is wanted.
+
+### OQ-S98-6 The manual "Get & print" button fails for self-bookable single tests (raised 2026-10-27)
+Found in review: `useCreateLabOrder` links the schedule, and the live trigger refuses that for a self-bookable bundle (HIV, hepatitis B and C, FIT, ferritin, vitamin B12, cervical smear bundles). The automatic job has its own narrow exception; the patient button does not. Options: (a) leave (the patient can still order these from the front-door catalogue without a schedule link); (b) make the button order without the link for self-bookable bundles (the result trigger already matches by patient and screen type). Recommendation: (b), as a separate small change.
+
+### OQ-S98-7 A caregiver with view_results can still read the order row (raised 2026-10-27)
+The request status function and the PDF routes now hide sensitive requests from non-owners, but `lab_orders_select` still admits a caregiver with `view_results` (bundle id, order number). Narrowing it for sensitive bundles is a wider RLS change. Recommendation: do it with the next lab-orders RLS pass, proved with a simulated caregiver.
+
+### OQ-S98-5 Edge Function wording (raised 2026-10-27)
+`send-pending-notifications` templates for `screening_due` do not yet mention the request (not redeployed here). The in-app line does. Update and redeploy the template if wanted.
+## S89 first slice (2026-10-27)
+
+### OQ-S89-01: where the edit-rate figures and the sign attestation are stored
+- Gap: `record_scribe_review` stores per-section outcomes and a draft hash only. The word-level edit rate (`ai-spans.ts`) and the "I reviewed this draft against the record" attestation are computed in the browser and not persisted; the shadow-measurement plan in `docs/design/S89.md` needs both.
+- Options: (a) a new table keyed by note id and review id; (b) add columns to the existing review record; (c) keep browser-only and measure from the section outcomes already stored.
+- Recommendation: (b), one migration, null-gated, applied only after the CMO approves the measurement plan. Not built in this slice.
+
+### OQ-S89-02: access signals for reproductive health and sensitive-positive rows in the pre-visit summary
+- Gap: the summary confirms only mental-health access (the existing refused-read signal). Reproductive-health and sensitive-positive rows are therefore always left out of the brief and the omission panel, even for a clinician who is allowed to see them.
+- Update 2026-10-27 (review pass): the same applies to mental health. "The mental-health read did not error" was being used as an access signal, but row-level security answers a refused read with empty rows, so it was fail-open. All three categories now stay denied in the pre-visit summary. No client-callable category access check exists (only `has_emergency_access` / `can_read_clinical` in the `private` schema, not exposed). The brief is also off by default (`copilot.previsit_brief_enabled`). Legacy cards in the same summary (care gaps, care plans, medication count) are not category-filtered and predate this slice.
+- Options: (a) leave them out until a category-scoped access check is exposed to the client; (b) add a server-side check and pass the result down.
+- Recommendation: (b) in a later slice, writing the category-scoped check fresh and proving a refused session, per the reproductive-health rule in CLAUDE.md.
+
+### OQ-S89-03: CMO sign-off for copilot config
+- `copilot.omission_rules`, `copilot.omission_panel_enabled` (OFF), `copilot.previsit_brief_rules` and `copilot.previsit_brief_enabled` (OFF) are PROPOSED, unsigned. The panel and the brief stay off until the CMO signs the rules.
+- Review pass 2026-10-27 extended the unsigned lists a lot: sensitive terms per category (whole-word, with drug names such as ARVs, contraceptives, antidepressants and antipsychotics), non-sensitive care-plan, consultation and medicine lists, allergy classes with brand names, synonym groups, non-drug allergens, spelling aliases and follow-up context words. **The CMO owns every one of these lists.** Decisions needed: is "alcohol" and "benzodiazepine*" mental health; is tuberculosis sensitive-positive; is "cervical" reproductive; which medicines may be called non-sensitive; whether a specialist consultation is ever non-sensitive by default.
+
+## S85b: web offline emergency guidance and the journeys refresh (raised 2026-10-27)
+
+### OQ-S85B-1 The offline web guidance uses wording the founder signed, not the CMO
+- Built: with the network off, the web vitals form shows the EMG-001 wording read through `activeWording("EMG-001")`, the same gate the online page and the phone use. No web-only clinical text was written.
+- Gap: `clinical-wording.json` records the signature as the founder's, on the founder's own chat instruction (2026-10-07), and says the CMO may re-sign. The offline page (`apps/web/public/offline.html`) and the dialog carry exactly that text, and a test keeps them equal, so a CMO re-signature changes both with one edit and one test update.
+- Decision needed (CMO): confirm EMG-001 is acceptable as the offline wording on the web, including for someone who ticks a symptom with no reading (the text says "your reading and how you feel").
+- Recommendation: confirm as is; if the CMO wants a symptom-only variant, EMG-001L-style, add it to the wording file and the same test.
+
+### OQ-S85B-2 The offline web check shows guidance on a wider set than the server grades red (updated after review, 2026-10-27)
+- Built: the check is never weaker than the server and is deliberately wider. It shows the guidance for an engine red, for a reading at or above the rule set's question line (the web cannot ask the symptom question), for the crisis band, for a ticked symptom that is an emergency on its own, and, new after review, for any reading the engine would grade red or ask guidance for if the person were PREGNANT OR POSTPARTUM. The web has no pregnancy flag on the device, so every reading is graded twice with the same bundled engine (ordinary adult, then pregnant); the severe pregnancy lines come from the rule set's own `params.pregnancy`, nothing is written in the web code. Example: 165/105 is red on the server for a pregnant patient (BP-P3) and now shows guidance offline for everyone. It uses the bundled draft rule set `BP_CARE_V5`, the same fallback the phone uses.
+- Also new after review: the symptom ticks are derived from the engine's groups (red-flag, low-pressure, pre-eclampsia, obstetric emergency, and version 7's symptom-alone group) instead of a hand list of five, so chest pain, weakness or numbness, trouble speaking, a fit, passing out, fainting and sudden swelling are offered. The code shown is the engine's own (EMG-001L, with its signed wording, for a low reading with fainting, confusion or chest pain). A reading sent while the browser still says it is online but never answered shows the same guidance after a time limit (`SUBMIT_UNANSWERED_MS`, an engineering limit) with words that say the save could not be confirmed, and the guidance survives a failed request or an offline reload through a code-only note in the tab (sessionStorage, never sent).
+- Known gap: `epigastric_pain` is an emergency only beside a raised reading in pregnancy (BP-P4) and is NOT offered, because no patient-facing label for it exists anywhere (the phone's question list leaves it out too). No wording was invented. A pregnant person with upper abdominal pain and a raised, non-severe reading is therefore not caught offline by that symptom (the other pre-eclampsia symptoms and every severe reading are).
+- Remaining gap: a person on a lower personal target, or under 18, is graded on the standard adult facts offline (no cached target or date of birth on the web), so the offline answer can differ from the later server grade on the lower bands; it cannot be weaker for a red.
+- Decision needed (CMO): is over-showing guidance acceptable offline (including to non-pregnant people on the pregnancy-severe lines), what patient label should epigastric pain carry, and should the web cache the person's target and pregnancy flag as the phone does?
+- Recommendation: accept over-showing; approve a label for epigastric pain; cache the target and pregnancy flag in a later pass only if the offline check is used often.
+
+### OQ-S85B-3 The offline web form refuses to save and keeps no outbox
+- Built: nothing new is queued. The web has no outbox (the phone's outbox is native storage plus a sync engine). The form keeps the typed numbers, says the reading was not saved, and asks the person to press Save reading again when back online.
+- Decision needed (founder): is a browser-side outbox (IndexedDB, replay on reconnect, one idempotency key per reading) wanted for the web? It changes what "Received" means and needs its own safety review.
+- Recommendation: not now; the phone is the offline surface.
+
+### OQ-S85B-4 Journey steps that cannot be switched on, corrected from the S85 to S90 analysis
+- The analysis of 2026-10-22 listed the symptom checker steps of journey 3 as "enable". Read against the code they cannot be: the checker is behind the `symptom_checker_enabled` go-live guard (off), the seeded pathways are headache, chest pain and breathlessness only (no urinary complaint), and by founder decision it never returns possible causes. Journey 1 steps for the screening calendar, the risk questionnaire and the silence nudge wait on CMO signatures or a sweep that is born off. Each step's pending reason now says exactly this.
+- Decision needed (founder): whether journey 3 should be re-scripted around a complaint that has a pathway (for example headache), since "likely causes with how common each is" is excluded by a standing decision.
+
+### OQ-S85B-5 Two journey 1 steps stay pending because what exists is not what the spec step says (review, 2026-10-27)
+- `goal-blood-pressure`: the spec says onboarding records the goal "blood pressure". The live onboarding stores goals from a fixed list (manage a condition, stay ahead, screening check, family care, not sure) and a separate conditions list; hypertension is a condition answer, not a goal. The journey spec still checks that her own answers are saved and read back, as a supporting check that is not counted as the step.
+- `health-points-awarded`: the spec says points are awarded "for consistency". S58 awards a capped amount a day for the act of logging, through the bus; a streak is only a badge condition and carries no points. The per-log award is checked as a supporting check, not as the step.
+- Decision needed (founder): either accept these as meeting the steps (then reword the step in the spec, not in the test) or build what the steps say.
+
+### OQ-S85B-6 The offline page now shows the signed wording only when this tab holds a note (review, 2026-10-27)
+- `offline.html` used to show the emergency wording to everyone, with a heading nobody had signed. It now shows nothing but its original neutral text, and reveals the signed EMG-001 or EMG-001L wording only when this tab's sessionStorage holds the code-only note that an emergency-graded reading was not confirmed saved. The one inline script reads that key and makes no request. A test checks that every visible string on the page is either the neutral text it had before or the signed wording.
+- Gap: a person who never typed a reading in this tab sees the neutral page, which is right, but also gets no guidance on a cold offline load; a static page cannot know their last reading.
+
+
+### OQ-727 Clinician-paging SMS and voice code still exists in two Edge Functions (raised by S87 scan extension) - CLOSED 2026-10-27
+- Blocks: nothing. D3 (S87-1) and the CMO decision of 2026-10-07 say no page to a clinician goes by SMS (final fallback: in-console alarm plus a named ops person phoning). `supabase/functions/abnormal-result-handler/index.ts` sent a Termii SMS to clinicians when the clinician alert row was missing, and `supabase/functions/send-pending-notifications/index.ts` held the Termii SMS and voice senders (routine SMS was refused by `decide()`, voice was a channel value).
+- Options: (a) delete the SMS fallback in `abnormal-result-handler` and the SMS and voice senders in the pipeline; (b) record a founder exception for clinician paging.
+- Decision (founder, 2026-10-27): **option (a), delete the Termii SMS and voice paging of clinicians.** Red-event pages to clinicians use in-app, push and email only; the final fallback is the in-console alarm and a phone call by a named ops person; SMS is for verification codes only, sent by Supabase phone auth (`auth-send-sms-hook`, unchanged). Built on branch `s87/scan-rules-sms-allowlist` (code only, no schema change, nothing pushed, deployed or applied): both Termii senders and their callers are gone; the missing-alert-row case now enqueues the same tracked critical notification (tightest ladder) instead of a direct SMS; and when no page can be queued at all (no clinician in the organisation, or every enqueue fails) the handler opens a sev1 `ops_incidents` row with reference `page_nobody_reachable:abnormal_result:<screening result id>`, which the ops desk trigger hands to the named ops primary to phone (no longer only an audit row). If even that insert fails the function returns HTTP 500 so the failure is loud. The two `patient-sms` allowlist entries are deleted. Follow-ups are OQ-730 to OQ-732. The CMO confirmation the earlier text asked for on "the voice leg" is moot: no voice leg remains.
+
+### OQ-728 Marketing testimonial and claims review needs a person (raised by S87 scan extension)
+- Blocks: nothing. The new scan rules `marketing-claim`, `doctor-led-headline`, `testimonial-hardcoded` and `trial-copy` find 0 hits outside debunking copy ("miracle cures", "marketed as cancer cures that aren't"). A line scan cannot judge implied claims (for example "reverse", "eliminate") or whether `patient_testimonials` rows carry a real consent record.
+- Options: (a) CMO and marketing read the public pages once before launch and add any phrase they dislike to the rule; (b) rely on the scan alone.
+- Recommend (a).
+- Decision: pending.
+
+### OQ-729 Cancellation is "nothing to cancel" for packs; Membership refund window is the only exit (raised by S87 reachability test)
+- Blocks: nothing. `packages/shared/src/part-c-scan/exit-paths-reachable.test.ts` proves account deletion (`/patient/privacy`, reviewed at `/admin/data-rights`) and a refund request (`/patient/financial-profile`, rule beside every purchase) are reachable from the app's own navigation, and that the pricing, terms and services pages say what a person can do. No gap found, nothing built. The open point is wording only: packs say "nothing to cancel" and a Membership has the refund window; a person who wants to stop a Membership after the window has no stated path.
+- Options: (a) add one sentence to the Membership screen saying that after the refund window the Membership simply ends at the year's end and is not renewed unless the person chooses; (b) leave as is.
+- Recommend (a) once the renewal decision of 2026-10-26 is reflected in copy.
+- Decision: pending.
+
+### OQ-730 `escalation_slas` still names `sms` in the clinician channel sequences (raised by OQ-727 closeout)
+- Blocks: nothing today. `private.normalize_escalation_channels` drops `sms` and `voice` (20261015231209_fu_notify_no_sms_clinician_ladder_and_contact_copies.sql), so the live ladder is push, then email, then the exhausted-ladder alarm. But the CMO-signed active `public.escalation_slas` row (config `channel_sequence` entries per pathway and tier) was not edited and still lists `sms` literals. A reader of the row, or any future function that reads it without normalising, would be misled. Read the live row with a SELECT before writing anything.
+- Options: (a) a new signed `escalation_slas` version whose sequences are push, email only, signed at the CMO sign-off hub (an agent never signs); (b) leave the literals and rely on the normaliser.
+- Recommend (a), at the next time the CMO signs an SLA version anyway. Config-only, so no code depends on it.
+- Decision: pending.
+
+### OQ-731 An exhausted clinician-page ladder alarms admins in-app only, not the ops desk phone fallback (raised by OQ-727 closeout)
+- Blocks: nothing. When every rung of a clinician's critical ladder (push, then email) fails or goes unopened, `private.escalate_unconfirmed_critical_notifications()` writes `notification_escalation_failures` and one `critical_notification_escalation_exhausted` in-app notification to every admin. It does not open a `page_nobody_reachable:` / `page_expired:` ops incident, so the named-ops-person phone call (S16-S20 decision 10) is triggered for a red-event page (S19 pages table) but not for a screening-result clinician alert whose ladder ran out. The abnormal-result handler now opens that incident itself only when nothing could be queued.
+- Options: (a) a migration that makes the exhausted branch of `private.escalate_unconfirmed_critical_notifications()` call `private.page_incident(<org>, 'page_nobody_reachable:ladder:' || <notification id>, ...)` for a staff recipient, with a BEGIN/ROLLBACK proof and a sabotage step; (b) accept admin in-app as the alarm for screening alerts.
+- Recommend (a). Needs the live function definition (`pg_get_functiondef`) pulled first and a real-clock migration timestamp.
+- Decision: pending.
+
+### OQ-732 The `sms` and `voice` enum values, the `sms_enabled` preference and the `notifications_suppress_sms_voice` trigger remain (raised by OQ-727 closeout)
+- Blocks: nothing. Code first, schema second: with the senders deleted, nothing reads the `sms` or `voice` legs. Still present: `public.notification_channel` values `sms` and `voice`; the INV-08 trigger `notifications_suppress_sms_voice` and the page-specific check from 20261015004127_s19c_pager_delivery_hardening.sql (both correct to keep until the values are dropped); `profiles.notification_channel_preference` (check still allows `sms`) and `profiles.preferred_reminder_channel` (`voice`, vestigial since 20260930094618_remove_whatsapp.sql); `patient_notification_preferences.sms_enabled`; the `sms`/`voice` literals in `private.patient_critical_channels`. `private.patient_reminder_channel` is already email, push or in-app only.
+- Options: (a) a removal migration following the CLAUDE.md pattern (count rows first, delete the enum VALUES, rewrite dependents, end in a DO block of assertions, reconcile `seed.sql`); (b) keep the values as a permanently refused channel.
+- Recommend (a), after the code in this change is deployed (the deployed `send-pending-notifications` must not query a dropped value).
+- Decision: pending.
+
+### OQ-733 The lifestyle nudge text (AI-002) reaches people as a notification, not a labelled screen (raised by the S87 review fixes)
+- Blocks: nothing. `AI_SYSTEM_SURFACES` (`packages/shared/src/part-c-scan/ai-surfaces.ts`) now makes every registered AI system say where a person sees its output. AI-002 (`lib/lifestyle/coaching-proposer.ts`) writes a short in-app nudge for a patient who has gone quiet on a lifestyle programme; it passes the tone guard and the neutral notification lint, then goes out through the notification pipeline. There is no screen of its own to carry the shared `AiLabel`, so the entry says `noText` and points here.
+- Options: (a) add one fixed line to the in-app rendering of that template ("Written by AI") through the template mechanism, so the notification bell says it; (b) leave it, because the nudge is a coaching reminder the tone guard already limits and no clinical content reaches it.
+- Recommend (a) once the CMO has read a sample of real nudges, because an unlabelled model-written message to a patient is the case the `ai-label` rule exists for.
+- Decision: pending.
+
+## S88: lab_booking_enabled is already enforced (no change made)
+- **OQ-S88-01 (information, no decision needed unless the founder disagrees).** The S88 plan and the S85-S90 gap analysis list `lab_booking_enabled` as "defined, no call site". That is stale. Migration `20261007222755_s37_enforce_prescribing_lab_booking_guards.sql` (S37, OQ-184) added `private.enforce_lab_booking_guard` and the `lab_orders_a0_go_live_guard` BEFORE INSERT trigger on `public.lab_orders`: a patient-initiated, `fulfilment = 'partner'` order by a signed-in user is refused with `lab_booking_guard_off` unless the guard is on or the patient is a test account. Proof: `packages/db/tests/s37b_guard_enforcement_prescribing_lab_payouts.sql` (in `ci.manifest`). Checked read-only on the live project 2026-10-27: trigger present, guard `is_on = false`, `enforced_in` filled, 0 rows in `lab_orders`, so enforcing it affects no real patient today. No new migration was written.
+- Deliberately not covered (so lab collection that is live today keeps working): self-arranged orders (including `public.start_annual_bundle`, which inserts `self_arranged`), clinician-ordered tests, and inserts with no signed-in user. If the founder wants the guard to also stop self-arranged annual bundle starts, that is a separate decision: it would make Membership Plus collection depend on the guard.
+- Switching the guard on is a founder action through `set_go_live_guard`; nothing here flips it.
+
+### Follow-up to OQ-549 (2026-10-28): menstrual_cycles still readable by an untied clinician
+
+- **Status:** open, founder-approved known gap (journey 4 keeps `menstrual_cycles` as its one shrink-only known leak, pending S39b). Not an S88 table; the nine S88 tables now fail journey 4 on any leak with no pending pass.
+- **What is known:** the live `menstrual_cycles_select` policy has an S39b `staff_may_read` arm plus emergency and `can_read_clinical` arms. Which arm admits an untied clinician in the CI replay is not traced (suspect `can_read_clinical`).
+- **Decision needed:** trace and tie it in a separate PR (reproductive_health category, written fresh, with a simulated untied-clinician proof), or accept.
+
+### OQ-739 Journey testing: `dose.recorded` and `dose.missed` are registered on the new event bus and nothing emits them (raised by the journey-testing pass)
+- Gap: dose logging and missed doses feed the older `clinical_rule_events` bus (S08), not `domain_events`, so the two names seeded by S10 have no producer and no subscriber (audit D.7 finding F-3, event-map rows `dose-recorded` and `dose-missed`).
+- Not built here on purpose: a bridge emitter would add outbox rows that nothing reads, could not be proved without a real database replay, and the choice between "emit on the new bus" and "retire the names" changes what S53/S54 subscribe to.
+- Options: (a) emit both from the existing S08 triggers and add the adherence and refill subscribers in the same change; (b) retire the two names and keep one bus for doses; (c) leave as is.
+- Recommendation: (a) when S53/S54 are next worked, so a subscriber lands with the producer.
+
+### OQ-740 Journey testing: the Android Maestro workflow needs an Android test build, a test backend and two secrets before it can run (raised by the journey-testing pass)
+- `.github/workflows/mobile-maestro-android.yml` is manual only and has never run. It needs: an EAS preview build of the Android app (`apps/mobile/android` is not committed, so CI cannot build one); a non-production backend; repository secrets `MOBILE_E2E_EMAIL` and `MOBILE_E2E_PASSWORD` for an `is_test` account. Several flows still carry iOS app ids or unconfirmed selectors; run one flow by hand first.
+- A person decides: which backend the test account lives on, and who builds and uploads the APK.
+
+### OQ-746 Cycle logs and lifestyle trackers are still online-only (raised 2026-10-27)
+- Built: wellbeing check-ins now save on the phone first (outbox kind `wellbeing_checkin`). Not built: cycle and daily logs, alcohol, smoking and sleep-goal trackers.
+- Cycle data is in the protected reproductive category. A queued row sits in the phone's encrypted store until it sends, and the held-rows notices list what is waiting. Whether a waiting cycle log may appear there by name, whether it should sit behind the private-section lock, and how discreet mode treats it are decisions the S66 design did not make. Queueing it without that decision could show a reproductive entry on a shared phone's sync banner.
+- The lifestyle trackers have no such privacy question; they are plain follow-up work (an outbox kind each, with the same pattern as the check-in).
+- Decision needed: how queued cycle entries are shown (recommend: never by name; the generic "something is waiting to send" line only), then build both.
+
+### OQ-747 Some text sizes are still capped below 200 percent (raised 2026-10-27)
+- WCAG 2.2 asks for text to be usable at 200 percent. The top-bar title now scales fully. Still capped at 1.2 on purpose: the initials in a fixed circle, the unread-count badge, the drawer label and the five bottom-tab labels (`TAB_LABEL_MAX_SCALE`). Raising them without a device would risk clipped text on a narrow phone.
+- Needs a pass on a real small Android phone at the largest text setting; the tab bar probably needs to wrap or stack its labels rather than just lift the cap.
+
+### OQ-734 The "What is this?" help covers 11 screens; the rest have none (raised 2026-10-27)
+- The help text is the written script of the planned audio clip, so the words and the recording cannot differ. A screen is mapped only where its script clearly describes it (`lib/screen-help.ts`). 41 scripts exist for about 79 screens, and several scripts describe features the app does not have (a feature-phone short code, USSD payment, a PIN on discreet mode). Those were left unmapped on purpose.
+- Needs: scripts for the other screens, written and reviewed (they are patient-facing words), and the audio itself. Recording stays gated on a voice audition on drug names with Nigerian listeners and the CMO's sign-off on the clinical clips.
+
+
+### OQ-735 Queued wellbeing check-ins have no client id and take the phone clock (raised 2026-10-27)
+- The check-in table has no client id column, so the queue de-duplicates by looking up an existing row for the same person and check-in time. That lookup is allowed only for the patient or a supporter with mental-health read access, so for a helper acting for someone without that permission a retry after a lost reply could store a second check-in. The fix is a `client_id` column with a unique index, which is a migration (the activity log already works this way).
+- A queued check-in is stamped with the phone clock. Vitals have a back-date window and the server clock as the cap; check-ins do not. A phone with a wrong clock stores a wrong check-in time. Option: clamp to the server time on send when the recorded time is in the future.
+
+### OQ-744 Screenshot blocking and the Android app-switcher cover need a native change (raised 2026-10-27)
+- Built: a privacy cover that hides the app in the app switcher for anyone with App lock or discreet mode on (`lib/privacy-cover.ts`, `ui/privacy-cover.tsx`). On iOS the snapshot is taken as the app goes inactive and React draws the cover in that window, so this works. On Android the system takes the recents thumbnail as the activity pauses, before JavaScript can react, so the React cover is not reliable there.
+- Also not covered even on iOS: anything shown inside a React Native `Modal` (the emergency guidance, consent and several sheets). A Modal is a separate native window, so a cover drawn by the app sits underneath it. If the app is backgrounded with one open, the snapshot shows that Modal.
+- Not built: blocking screenshots and screen recording, and a dependable Android thumbnail. Both need the window's secure flag (`FLAG_SECURE`) through a native module such as `expo-screen-capture`, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build and a test on real phones. iOS cannot block a screenshot at all, only notice it.
+- Decision needed: which screens get the secure flag (the whole app, or only reproductive health, HIV, mental health and the private section), and whether to spend a native build on it now.
+
+### OQ-745 The app PIN has no biometric on purpose (raised 2026-10-27)
+- The optional app PIN (Settings, under App lock) is PIN only. The device biometric prompt falls back to the phone's own passcode, which is exactly what an app PIN exists to stop: anyone who knows the phone's passcode would get in. It reuses the tested private-section controller (lockout after repeated wrong tries, hashed PIN in the keystore) with its own stored record, so a PIN for one lock never opens the other.
+- A forgotten PIN is cleared with a code sent to the account's phone or email (the same recovery as the private section); only the PIN on that device is removed.
+- Option for later: let the PIN be combined with a biometric that does not fall back to the passcode (`disableDeviceFallback`). Not done, because it is a behaviour the device test in S66 never covered.
+- Not run on a real phone.
+
+### OQ-741 Joining an employer with an organisation code puts the person's name, phone and email on the employer's staff list (raised 2026-10-27)
+- Found while writing the "what your employer sees" text. `public.employer_join_with_code` (20260829093043) inserts or updates a row in `employer_roster_members` with the person's phone, email and full name, status `claimed`, and the trigger `employer_roster_members_sync_profile_org` moves the profile into the employer's organisation. Employer staff read that table (the roster manager selects every column).
+- Conflict: `programme.sponsor_sees_body` and `programme.share_body` say a sponsor "never sees your name". That is true for sponsor cohorts (`join_cohort`, frozen aggregate snapshots, spec I9) and NOT true for an employer joined by code or by roster, where the employer's own staff list shows who joined. The existing text was not changed here.
+- Done: the account page form where the code is entered now says it plainly before the code is typed (`employer.join.sees_body`), pinned by a test that reads the SQL function.
+- Options: (a) keep the roster model and the disclosure as written; (b) make a code join anonymous to the employer (count only, no roster row) and keep names for employer-invited rows only; (c) both models, chosen by the employer at set-up.
+- Recommendation: (a) now, decide (b) with counsel before the first real employer goes live, because a person who joins to use a benefit may not expect their employer to see that they did.
+- Counsel: whether the consent screen may imply anything about employment; no such wording was written.
+
+### OQ-742 Neutral app name and icon need a native build (raised 2026-10-27)
+- Discreet mode already makes push and email text generic (S04b-3) and an existing lint (`packages/notifications/src/inv07-lint.test.ts`) keeps every template free of condition, reading, medicine and result. The operating system still shows the app's own name on a notification and under the icon, and that cannot be changed from JavaScript.
+- A neutral name and icon is an alternate-icon and launcher-label change: a native dependency or config plugin, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build, and a test on a real iOS and Android phone. None of that was done: it cannot be verified here and a wrong native change breaks the over-the-air update path.
+- Decision needed: the neutral name (one word that tells nobody anything), and whether to spend a native build on it now or with the next unavoidable one.
+
+### OQ-743 A visit follow-up prompt, not a free follow-up (raised 2026-10-27)
+- The research suggested a free 7-day follow-up window. The written-question follow-up (`async_question.behaviour followUpDays 7`) already exists and does not use the monthly allowance. Messaging the care team (`start_care_thread`) has no allowance or charge, so a second window would change nothing.
+- Built: a prompt on the after-visit summary for 7 days (`visit.follow_up_prompt`, PROPOSED) linking to Messages. It creates no entitlement, changes no price and promises no reply time; the test blocks words such as free, hours and guarantee.
+- If the founder wants a real commercial promise (a follow-up that returns a spent written-message allowance, or a response time), that is a pricing decision, not a copy change.
+
+
+### OQ-736 Research governance: who is the "second person" while the data protection officer and the admin route are one human (raised by the research-governance hardening)
+- Gap: an export now needs a request by the Chief Medical Officer and an authorisation by a different signed-in admin (`authorise_research_export`; the database refuses the requester). Today the data protection officer is the founder's admin account, so in practice the second person is one named human. If the CMO and the admin account are ever the same person, nobody can authorise and every export stays blocked (safe, but stuck).
+- Options: (a) leave it: blocked is the right failure; (b) name a second admin (an independent reviewer) before the first export; (c) let the research ethics committee's secretary hold an admin login for authorising only.
+- Recommendation: (b) before the guard `research_export_enabled` is switched on. This is a people decision, not code.
+
+### OQ-737 Research governance: a successor and insolvency clause for research data is drafted but not reviewed by counsel (raised by the research-governance hardening)
+- Gap: the platform now bars insurers, HMOs, employers, pharma, advertisers and data brokers by name, but nothing says what happens to research data if Tarragon is sold, merged or wound up. A draft clause is at `docs/legal/research-data-successor-clause.md`, marked DRAFT.
+- Needed from a person: Nigerian counsel to confirm the wording and where it sits (data-sharing agreements, privacy notice, terms). Until then do not tell members a successor rule exists.
+
+### OQ-738 Research governance: the recipient bar is a name list, so a renamed or front company passes it (raised by the research-governance hardening)
+- Gap: `private.research_recipient_barred` matches word starts of a seeded term list (`research_barred_recipient_terms`). It stops the obvious cases (an insurer, an HMO named in CLAUDE.md, pharma, a data broker) and nothing more. A research partner that is a subsidiary of an insurer under a neutral name would pass.
+- Mitigation in place: the recipient type is restricted to five kinds, ethics approval and a data-sharing agreement are required, the CMO and data protection officer both approve, and every release is audited and listed publicly in the ledger.
+- Options: (a) accept, the human approvals are the real control; (b) add a required "ultimate owner" field the officer must check; (c) have counsel review each recipient.
+- Recommendation: (b) at the first real protocol.

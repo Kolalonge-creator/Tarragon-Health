@@ -53,6 +53,11 @@ export const membershipSchema = z.object({
   grace_ends_at: z.string().nullable().optional(),
   /** Membership (no annual blood panel) or plus (with it); null when Free. */
   tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  /** A year already paid for that starts when this one ends (a Membership bought onto a running Plus year). */
+  next_tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  next_starts_at: z.string().nullable().optional(),
+  /** Membership Plus only: the state fixed when it was bought, where blood is collected. */
+  collection_state: z.string().nullable().optional(),
 });
 export type MembershipState = z.infer<typeof membershipSchema>;
 
@@ -99,6 +104,25 @@ export function parseMembership(data: unknown): MembershipState {
   return r.success ? r.data : { is_member: false, ends_at: null, source: null };
 }
 
+/**
+ * The patient's automatic-renewal status (public.my_membership_renewal). Never carries the card's authorization code: only brand, last 4 and
+ * expiry. A reply that does not parse is treated as "no renewal information", which shows nothing rather than a wrong promise.
+ */
+const renewalSchema = z.object({
+  enabled: z.boolean(),
+  has_membership: z.boolean(),
+  auto_renew: z.boolean().default(false),
+  ends_at: z.string().nullable().optional(),
+  cancelled_at: z.string().nullable().optional(),
+  amount_kobo: kobo.nullable().optional(),
+  card: z.object({ brand: z.string().nullable(), last4: z.string().nullable(), exp_month: z.string().nullable(), exp_year: z.string().nullable() }).nullable().optional(),
+});
+export type RenewalState = z.infer<typeof renewalSchema>;
+export function parseRenewal(data: unknown): RenewalState | null {
+  const r = renewalSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+
 /** Catalogue copy keys come from the database; an unknown key falls back to showing nothing rather than a raw key. */
 export function isMessageKey(key: string, known: Readonly<Record<string, string>>): key is MessageKey {
   return Object.hasOwn(known, key);
@@ -121,6 +145,12 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   gift_item_not_allowed: "shop.error.gift_item_not_allowed",
   membership_not_open: "shop.error.membership_not_open",
   upgrade_not_available: "shop.error.upgrade_not_available",
+  upgrade_already_open: "shop.error.upgrade_already_open",
+  plus_state_required: "shop.error.plus_state_required",
+  plus_state_changed: "shop.error.plus_state_changed",
+  plus_needs_direct_checkout: "shop.error.plus_needs_direct_checkout",
+  checkout_updating: "shop.error.checkout_updating",
+  plus_state_not_available: "shop.error.plus_state_not_available",
   quote_changed: "shop.error.quote_changed",
   sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered",

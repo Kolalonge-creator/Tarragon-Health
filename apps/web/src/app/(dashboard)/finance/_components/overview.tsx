@@ -179,6 +179,8 @@ export function FinanceOverview() {
             <Link href="/finance/ledger" className="text-xs font-medium text-brand-green hover:underline">General ledger →</Link>
             <Link href="/finance/statements" className="text-xs font-medium text-brand-green hover:underline">Statements →</Link>
             <Link href="/finance/reconciliation" className="text-xs font-medium text-brand-green hover:underline">Reconciliation →</Link>
+            <Link href="/finance/money-reconciliation" className="text-xs font-medium text-brand-green hover:underline">Money reconciliation →</Link>
+            <Link href="/finance/settlement-tieout" className="text-xs font-medium text-brand-green hover:underline">Settlement tie-out →</Link>
             <Link href="/finance/payables" className="text-xs font-medium text-brand-green hover:underline">Payables →</Link>
             <Link href="/finance/compliance" className="text-xs font-medium text-brand-green hover:underline">Compliance calendar →</Link>
             <Link href="/finance/approvals" className="text-xs font-medium text-brand-green hover:underline">Approvals →</Link>

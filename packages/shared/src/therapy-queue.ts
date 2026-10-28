@@ -23,6 +23,8 @@ export interface QueuedCompletion {
   ordinal: number;
   scores: Record<string, number> | null;
   queuedAt: string;
+  /** S96: the programme code, so a pain-programme week is sent through complete_msk_session (the days rule) and not the plain completion. */
+  programmeCode?: string;
 }
 
 const QUEUE_KEY = "tarragon.therapy.queue.v1";
@@ -109,6 +111,8 @@ export interface CachedSession {
   checkpoint: boolean;
   instruments: string[];
   cachedAt: string;
+  /** S96: the exercises of a pain programme session, kept so they can be read again with no signal. */
+  msk?: import("./msk-programmes").MskStartExtras | null;
 }
 
 export async function cacheSession(store: AsyncStore, enrolmentId: string, s: CachedSession): Promise<void> {

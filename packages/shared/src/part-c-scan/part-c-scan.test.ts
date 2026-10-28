@@ -40,7 +40,7 @@ describe("Part C conformance scan (S87)", () => {
 
   it("covers every rule with at least one test case below", () => {
     expect(PART_C_RULES.map((r) => r.id).sort()).toEqual(
-      ["auto-renew", "contraception-claim", "fasting-timer", "fertile-window-label", "patient-sms", "public-social", "removed-name", "stored-balance", "whatsapp"].sort(),
+      ["auto-renew", "contraception-claim", "doctor-led-headline", "fasting-timer", "fertile-window-label", "marketing-claim", "patient-sms", "paystack-recurring", "public-social", "removed-name", "stored-balance", "testimonial-hardcoded", "tracker-script", "trial-copy", "whatsapp"].sort(),
     );
   });
 });

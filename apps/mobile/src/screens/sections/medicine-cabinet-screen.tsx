@@ -716,7 +716,7 @@ function SmallGhostButton({ title, onPress, disabled }: { title: string; onPress
       accessibilityState={{ disabled }}
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => ({ opacity: disabled ? 0.5 : pressed ? 0.6 : 1, paddingVertical: 6 })}
+      style={({ pressed }) => ({ opacity: disabled ? 0.5 : pressed ? 0.6 : 1, paddingVertical: 6, minHeight: 44, justifyContent: "center" })}
     >
       <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>{title}</Text>
     </Pressable>

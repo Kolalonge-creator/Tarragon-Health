@@ -10,6 +10,7 @@ import { FundSupportCard } from "./fund-support-card";
 import { MembershipShop } from "./membership-shop";
 import { showMonthlyEquivalent } from "./monthly-switch";
 import { RefundStatusCard } from "./refund-status-card";
+import { RenewalCard } from "./renewal-card";
 
 export const metadata = { title: "Membership" };
 
@@ -25,6 +26,7 @@ export default async function MembershipPage() {
     <div className="space-y-6">
       <PageHeader title="Membership" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient", label: "Dashboard" }} />
       <EntitlementsCard locale={uiLanguage} />
+      <RenewalCard locale={uiLanguage} />
       <RefundStatusCard locale={uiLanguage} />
       <FundSupportCard locale={uiLanguage} />
       <MembershipShop locale={uiLanguage} fee={fee} notIncluded={parseNotIncluded(notIncluded.data)} priceNotices={parsePriceChangeNotices(notices.data)} showMonthly={showMonthlyEquivalent()} />

@@ -18,6 +18,7 @@ import {
 } from "@/lib/privacy";
 import { OptionalConsentControls, ConsentReceiptsCard } from "./privacy-consent-controls";
 import { ConsentMatrixCard } from "@/screens/sections/consent-matrix-card";
+import { SensitiveRequestOptinCard } from "@/screens/sections/sensitive-request-optin-card";
 import { ProxyReviewCard } from "@/screens/sections/proxy-review-card";
 import { ProxyArrangementsCard } from "@/screens/sections/proxy-section";
 import { DeletionRequestCard, ExportRequestCard } from "./privacy-data-cards";
@@ -166,6 +167,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
 
       <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
       <ConsentMatrixCard />
+      <SensitiveRequestOptinCard />
 
       <ProxyReviewCard />
       <ProxyArrangementsCard />

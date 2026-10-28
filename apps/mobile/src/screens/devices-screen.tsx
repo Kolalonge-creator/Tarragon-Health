@@ -14,6 +14,9 @@ import { PhotoReadingScreen } from "@/screens/photo-reading-screen";
 import { loadDeviceFlags, NO_DEVICE_FLAGS, type DeviceFlags } from "@/lib/device-flags";
 import { loadReadingSubjects, type ManagedDevice, type ReadingSubject } from "@/lib/reading-subject";
 import { loadManagedDevices, pairDeviceFor } from "@/lib/managed-devices";
+import { asLocale } from "@tarragon/i18n";
+import { deviceSyncLine } from "@/lib/device-sync-line";
+import { useUiLanguage } from "@/lib/ui-language";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import {
@@ -66,6 +69,7 @@ function deviceIcon(deviceType: string): keyof typeof Ionicons.glyphMap {
 export function DevicesScreen({ patientId, organisationId, onOpenDevice }: DevicesScreenProps) {
   const colors = useLegacyColors();
   const { scheme } = useTheme();
+  const locale = asLocale(useUiLanguage());
   const [devices, setDevices] = useState<PatientDevice[]>([]);
   const [loading, setLoading] = useState(true);
   // A failed device query must not render "No devices paired yet" — that
@@ -289,9 +293,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
               <GroupedListRow
                 key={item.id}
                 title={item.nickname ?? item.model ?? deviceLabel(item.device_type)}
-                subtitle={`${deviceLabel(item.device_type)} · Last synced: ${
-                  item.last_synced_at ? new Date(item.last_synced_at).toLocaleDateString() : "never"
-                }`}
+                subtitle={`${deviceLabel(item.device_type)} · ${deviceSyncLine(item.last_synced_at, Date.now(), locale).text}`}
                 onPress={() => onOpenDevice(item)}
                 leading={
                   <View
@@ -351,7 +353,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
               <GroupedListRow
                 key={item.id}
                 title={`${item.personName}: ${item.nickname ?? item.model ?? deviceLabel(item.deviceType)}`}
-                subtitle={`${deviceLabel(item.deviceType)} · Last synced: ${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleDateString() : "never"}`}
+                subtitle={`${deviceLabel(item.deviceType)} · ${deviceSyncLine(item.lastSyncedAt, Date.now(), locale).text}`}
                 onPress={() =>
                   onOpenDevice({
                     id: item.id,

@@ -1,5 +1,6 @@
 import type { Json } from "./database.types";
 import { THERAPY_ROUTE_PRIORITY, type TherapyRoute } from "./therapy-programmes";
+import { readMskExtras, type MskStartExtras } from "./msk-programmes";
 
 /**
  * Typed readings of what the S63 database functions return. The functions return Json; a screen must never trust its shape, so each
@@ -82,6 +83,8 @@ export interface SessionContent {
   checkpoint: boolean;
   instruments: string[];
   draftContent: boolean;
+  /** S96: the day's exercises, the activity gate answer and any running step-down (pain programmes only). */
+  msk: MskStartExtras | null;
 }
 
 export type StartOutcome =
@@ -119,6 +122,7 @@ export function readStartOutcome(raw: unknown): StartOutcome {
           checkpoint: raw.checkpoint === true,
           instruments: Array.isArray(raw.instruments) ? raw.instruments.filter((i): i is string => typeof i === "string") : [],
           draftContent: raw.draft_content === true,
+          msk: readMskExtras(raw),
         },
       };
     }

@@ -1,8 +1,8 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { prepareForAppointmentAction } from "@/lib/appointment-prep/actions";
 
@@ -55,7 +55,7 @@ export function AppointmentPrepHelper({
 
   return (
     <div className="space-y-2 rounded-md border border-mist-grey/60 dark:border-night-ink/20 bg-mist-grey/20 dark:bg-night-ink/10 p-3">
-      <Badge variant="grey">AI-drafted: questions to consider, not medical advice</Badge>
+      <AiLabel variant="questions" />
 
       {isPending && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Thinking about what might be useful to ask…</p>}
 
