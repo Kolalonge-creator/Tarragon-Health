@@ -4278,6 +4278,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S72.md; docs/DECISIONS.md S72-3; OQ-323; OQ-420",
   },
   {
+    key: "checkout.payment_channels",
+    // The Paystack channels the hosted checkout page offers (gap 71, OQ-401). Mirrored in supabase/functions/_shared/commerce/checkout-channels.ts
+    // (a Deno function cannot import this package); a test fails on drift. Every member must be in PAYMENT_CHANNELS. DO NOT add "qr" (Paystack Zap) or
+    // any new channel until a human has verified its exact string against the live Paystack account/docs (OQ-S71-CHANNELS); an unknown or empty value
+    // falls back to this default, never to an empty list.
+    value: ["card", "bank_transfer", "ussd"],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-28",
+    source: "docs/OPEN-QUESTIONS.md OQ-401, OQ-S71-CHANNELS",
+  },
+  {
     key: "payment_requests.rules",
     // Payment requests (S72, function 19.13). The `payment_requests` object of the active `checkout_extras_config` row. expiry_days: how long a link works.
     // max_open_per_person and creates_per_day: how many a person may have open and make in a day. lookups_per_hour: how many times one visitor may open
