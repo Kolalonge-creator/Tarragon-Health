@@ -24,7 +24,7 @@ jest.mock("@tarragon/shared", () => {
 jest.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/", useRouter: () => ({ push: jest.fn() }) }));
 
 /** Every naira figure in a text, as digits only: "₦129,000", "NGN 5,000", "5,000 naira". */
-export function nairaFigures(text: string): string[] {
+function nairaFigures(text: string): string[] {
   const out = new Set<string>();
   for (const m of text.matchAll(/(?:₦|NGN)\s?([\d,]+)/gi)) out.add(m[1].replace(/,/g, ""));
   for (const m of text.matchAll(/\b([\d,]{4,})\s*naira\b/gi)) out.add(m[1].replace(/,/g, ""));
@@ -58,10 +58,11 @@ describe("naira figures a visitor can read", () => {
       const page = (await load()).default as () => Promise<React.ReactNode>;
       const l = ladder();
       const allowed = new Set([kobo(l.evergreen_kobo), kobo(l.evergreen_plus_kobo), kobo(l.upgrade_kobo)]);
-      const figures = nairaFigures(await renderPageText(page));
+      const text = await renderPageText(page);
+      const figures = nairaFigures(text);
       expect(figures.length).toBeGreaterThan(0);
       expect(figures.filter((f) => !allowed.has(f))).toEqual([]);
-      expect(await renderPageText(page)).not.toMatch(/\b(?:volume|bulk) (?:price|pricing|discount)\b/i);
+      expect(text).not.toMatch(/\b(?:volume|bulk) (?:price|pricing|discount)\b/i);
     });
   });
 

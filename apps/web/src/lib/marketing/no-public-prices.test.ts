@@ -25,7 +25,8 @@ const NAIRA_TEMPLATE_ALLOWED: Record<string, string> = {
 
 /** Public offers that are banned (the Membership is one yearly payment; no family or volume pricing). */
 const OFFER = /\b(?:pay(?:ing)?\s+(?:it\s+|them\s+)?(?:in|by)\s+instal?ments?|in\s+instal?ments|by\s+instal?ments|instal?ment\s+plans?|monthly\s+payments?|family\s+plans?\s+from|bulk\s+discounts?|volume\s+discounts?)\b/gi;
-const NEGATION = /\b(?:no|not|never|without|nor|neither|cannot|can't|don't)\b[^.]{0,30}$/i;
+// A negation counts only when nothing ends the clause between it and the offer (no full stop, no comma): "no fees, or pay in instalments" is NOT negated.
+const NEGATION = /\b(?:no|not|never|without|nor|neither|cannot|can't|don't)\b[^.,]{0,30}$/i;
 
 /** Every banned offer in a text, ignoring one that is explicitly negated just before it ("there are no instalments"). */
 function findOffers(text: string): string[] {
@@ -40,8 +41,8 @@ function findOffers(text: string): string[] {
 
 /**
  * Files allowed to mention paying a Care Voucher in parts. Care Voucher layaway (payTowardVoucher, voucher-checkout p_instalment_kobo) is
- * still a live feature, separate from the Membership, which has had no instalments since 2026-10-21. Open founder decision: keep voucher
- * layaway or retire it (docs/OPEN-QUESTIONS.md, OQ-GAP-VOUCHER-LAYAWAY).
+ * still a live feature, separate from the Membership, which has had no instalments since 2026-10-21. Open founder decision, not yet recorded
+ * in docs/OPEN-QUESTIONS.md: keep voucher layaway or retire it. When it is decided, delete this allowance or record the question and cite it.
  */
 const VOUCHER_LAYAWAY_ALLOWED = ["app/(marketing)/_content/products.ts"];
 
@@ -118,6 +119,8 @@ describe("public prices: exactly two member prices plus the upgrade difference, 
         "A family plan from ₦5",
         "Ask about a bulk discount",
         "Enjoy a volume discount",
+        // a negation that ends before the offer (a comma) does not cancel it
+        "There is no setup fee, or pay in instalments",
       ]) expect(findOffers(t)).not.toEqual([]);
     });
 
