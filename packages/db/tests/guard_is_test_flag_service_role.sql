@@ -20,6 +20,7 @@ declare
   v_admin uuid := gen_random_uuid();
   v_state text;
   v_failed boolean;
+  v_msg text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
@@ -50,10 +51,12 @@ begin
   v_failed := false;
   begin
     update public.profiles set is_test = true where id = v_pat;
-  exception when sqlstate '42501' then v_failed := true;
+  exception when sqlstate '42501' then
+    get stacked diagnostics v_msg = message_text;
+    v_failed := v_msg like '%is_test can only be changed%';
   end;
   execute 'reset role';
-  if not v_failed then raise exception 'FAIL 2: a non-admin flagged themselves'; end if;
+  if not v_failed then raise exception 'FAIL 2: a non-admin flagged themselves (or was refused for another reason: %)', v_msg; end if;
 
   -- 3. a signed-in admin can
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
@@ -77,7 +80,9 @@ begin
   v_failed := false;
   begin
     update public.profiles set is_test = true where id = v_pat;
-  exception when sqlstate '42501' then v_failed := true;
+  exception when sqlstate '42501' then
+    get stacked diagnostics v_msg = message_text;
+    v_failed := v_msg like '%schema private%';
   end;
   execute 'reset role';
   if not v_failed then

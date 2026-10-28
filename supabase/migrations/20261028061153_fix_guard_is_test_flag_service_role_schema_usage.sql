@@ -15,8 +15,8 @@
 -- unchanged: no signed-in caller (service role, migrations, cron) may set the flag; a signed-in caller needs private.is_admin();
 -- a non-admin still cannot set or change it. No schema grant is widened. No data changes.
 --
--- Not applied to production by this file's author; apply through the normal path.
--- Sibling invoker trigger functions that mention private.* were listed in the PR description, not changed here.
+-- Not applied to production by this file's author. When applied, pin schema_migrations.version to this filename's timestamp.
+-- Other SECURITY INVOKER trigger functions mention private.* and were not audited or changed here; see the PR description.
 
 create or replace function private.guard_is_test_flag()
 returns trigger
@@ -59,9 +59,6 @@ begin
     select 1 from pg_proc where oid = 'private.guard_is_test_flag()'::regprocedure and not prosecdef
   ) then
     raise exception 'guard_is_test_flag must stay SECURITY INVOKER';
-  end if;
-  if has_schema_privilege('service_role', 'private', 'USAGE') then
-    raise exception 'this fix assumes service_role has no USAGE on schema private; the premise changed';
   end if;
 end
 $$;
