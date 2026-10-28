@@ -66,6 +66,9 @@ test.describe("journey 2: a red reading at night", () => {
     await page.locator("#systolic").fill("190");
     await page.locator("#diastolic").fill("120");
     await page.getByRole("button", { name: "Save reading" }).click();
+    // A reading this high is held for a "please double-check" crosscheck (vitals-form.tsx), so nothing is saved until
+    // the patient confirms it. Without this click the form never submits and the poll below times out.
+    await page.getByRole("button", { name: "Yes, this reading is correct: save it" }).click();
 
     const reading = await pollWithDrain(async () => {
       const { data } = await adminClient

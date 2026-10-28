@@ -75,7 +75,9 @@ begin
       if (select auth.uid()) is null or private.is_admin() then return new; end if;
       return new;
     end $b$ $f$;
-  update public.profiles set is_test = false where id = v_pat;
+  -- Do NOT run the sabotaged function as postgres first: plpgsql caches the parsed plan per session, so a first run
+  -- as a role that has USAGE on schema private would hide the refusal from the service_role call below.
+  -- The flag is already true from check 3; an UPDATE OF is_test trigger fires even when the value is unchanged.
   execute 'set local role service_role';
   v_failed := false;
   begin
