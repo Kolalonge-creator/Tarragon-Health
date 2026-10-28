@@ -850,7 +850,7 @@ begin
       if coalesce((new.rules ->> 'missing_licence_date_ineligible')::boolean, false) then
         select count(*) into v_n from public.clinical_staff where active and status = 'active' and profile_id is not null and license_expires_at is null;
         if v_n > 0 then raise exception 'record the licence expiry date of % active clinician(s)', v_n using errcode = '23514'; end if;
-      end if; return new; end; $b$$sab$;
+      end if; return new; end; $b$ $sab$;
   begin
     update public.credentialing_config set is_active = false where is_active;
     update public.credentialing_config set is_active = true where version = 4;
@@ -865,7 +865,7 @@ begin
       if coalesce((new.rules ->> 'missing_licence_date_ineligible')::boolean, false) then
         select count(*) into v_n from public.clinical_staff where active and status = 'active' and profile_id is not null and license_expires_at is null and not coalesce(is_test, false);
         if v_n > 0 then raise exception 'record the licence expiry date of % active clinician(s) before a missing date counts as ineligible', v_n using errcode = '23514'; end if;
-      end if; return new; end; $b$$fix$;
+      end if; return new; end; $b$ $fix$;
   update public.clinical_staff set license_expires_at = now() + interval '400 days' where is_test and license_expires_at is null;
   perform pg_temp.ck('only the chief medical officer can sign a credentialing version', 'ERR:only the chief medical officer can sign the credentialing rules', pg_temp.q_as(v_oth, 'select public.sign_credentialing_config(4)'));
   perform pg_temp.ck('...and anon cannot', 'false', has_function_privilege('anon', 'public.sign_credentialing_config(integer)', 'EXECUTE')::text);
