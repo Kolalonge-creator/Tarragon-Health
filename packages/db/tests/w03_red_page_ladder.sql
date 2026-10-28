@@ -275,12 +275,12 @@ begin
 
   -- 3. DEAD LETTER ---------------------------------------------------------------------------------------------------------
   perform pg_temp.flip('dead_letter', true);
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-dl-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-dl-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'paging.on_red', v_org, 'dead') returning id into v_dl;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'points.award.vitals_logged', v_org, 'dead') returning id into v_dl2;
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-dl-t-' || gen_random_uuid(), true) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-dl-t-' || gen_random_uuid(), true) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'queue.create_from_triage', v_org, 'dead') returning id into v_dl3;
 
   v_tick := private.sweep_red_dead_letters();
@@ -295,8 +295,8 @@ begin
   perform pg_temp.res('a second sweep pages nothing new', '0', private.sweep_red_dead_letters() ->> 'paged');
   perform pg_temp.res('PRIOR BEHAVIOUR: with nobody on duty the loud uncovered alarm is raised', '1', (select count(*)::text from public.ops_incidents where external_reference = 'ops_desk_uncovered:' || v_inc and severity = 'sev1'));
   -- BACKLOG: a delivery that died BEFORE paging was switched on is never paged
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-old-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-old-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status, updated_at)
     values (v_ev, 'paging.on_red', v_org, 'dead', (select dead_letter_paging_started_at from public.chain_canary_red_config) - interval '1 hour') returning id into v_dl5;
   perform pg_temp.res('BACKLOG: a delivery that went dead before paging was switched on is ignored', '0,0', (private.sweep_red_dead_letters() ->> 'paged') || ',' || (select count(*)::text from public.red_dead_letter_pages where delivery_id = v_dl5));
@@ -310,8 +310,8 @@ begin
     values (v_org, v_ct, extract(isodow from now() at time zone 'Africa/Lagos')::int, time '00:00', time '23:59');
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_ct;
   update public.ops_desk_contacts set is_test = false where id = v_ct;      -- the dead letter below is a real-world event
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-dl4-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-dl4-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'queue.create_from_triage', v_org, 'dead') returning id into v_dl4;
   perform pg_temp.res('with an ops person on duty the dead letter is paged', '1', private.sweep_red_dead_letters() ->> 'paged');
   select incident_id into v_inc4 from public.red_dead_letter_pages where delivery_id = v_dl4;
@@ -339,8 +339,8 @@ begin
 
   -- GROUPING: four more dead letters of one subscriber become ONE incident whose summary carries the count
   for i in 1..4 loop
-    insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-      values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-grp-' || i || gen_random_uuid(), false) returning id into v_ev;
+    insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+      values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-grp-' || i || gen_random_uuid(), false) returning id into v_ev;
     insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'triage.grade_observation', v_org, 'dead');
   end loop;
   v_r := private.sweep_red_dead_letters();
@@ -353,8 +353,8 @@ begin
   select count(*) into v_before from public.ops_incidents where external_reference like 'page\_dead\_letter:%';
   select count(*) into v_cn from public.ops_desk_assignments where incident_id in (select id from public.ops_incidents where external_reference like 'page\_dead\_letter:%');
   update public.ops_incidents set status = 'resolved', root_cause = 'W-03 proof' where id = (select incident_id from public.red_dead_letter_pages where delivery_id = v_dl);   -- the first group is closed: paging.on_red has no open group
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-cap-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-cap-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'paging.on_red', v_org, 'dead');
   v_r := private.sweep_red_dead_letters();
   perform pg_temp.res('CAP: the fourth group in the hour is appended to an open incident: no new incident, no new assignment', '1,1,0,0',
@@ -363,8 +363,8 @@ begin
   -- SABOTAGE (g): the cap raised -> the same situation creates a fourth incident (the check flips)
   update public.chain_canary_red_config set dead_letter_max_incidents_per_hour = 20;
   update public.ops_incidents set status = 'resolved', root_cause = 'W-03 proof' where external_reference like 'page\_dead\_letter:paging.on_red:%';
-  insert into public.domain_events (event_type, organisation_id, payload, priority, idempotency_key, is_test)
-    values ('triage.graded', v_org, '{}'::jsonb, 'urgent', 'w03-cap2-' || gen_random_uuid(), false) returning id into v_ev;
+  insert into public.domain_events (event_type, event_version, organisation_id, payload, priority, idempotency_key, is_test)
+    values ('triage.graded', 1, v_org, '{}'::jsonb, 'urgent', 'w03-cap2-' || gen_random_uuid(), false) returning id into v_ev;
   insert into public.domain_event_deliveries (event_id, subscriber_key, organisation_id, status) values (v_ev, 'paging.on_red', v_org, 'dead');
   v_r := private.sweep_red_dead_letters();
   insert into results values ('sabotaged', 'with the cap raised the flood still creates no new incident', '0', (v_r ->> 'incidents'));
