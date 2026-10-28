@@ -411,6 +411,15 @@ grant execute on function public.approve_research_protocol(uuid) to authenticate
 grant execute on function public.confirm_research_protocol_dpo(uuid) to authenticated;
 grant execute on function public.run_research_export(uuid) to authenticated;
 
+-- The S39d data registry refuses any table with a uuid patient_id and no registry row (the two-tier replay assertion). A member's own questions are
+-- theirs: they go in the member's data export, and the default class is kept until the CMO and DPO review it (reviewed stays false).
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select 'research_challenges', 'patient_id', private.retention_class_for('research_challenges'),
+       case when private.retention_class_for('research_challenges') = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for('research_challenges') <> 'audit',
+       'Registered with the default S39d classification when the research objection route was added; awaiting review.'
+on conflict (table_name) do nothing;
+
 do $$
 declare f text;
 begin
