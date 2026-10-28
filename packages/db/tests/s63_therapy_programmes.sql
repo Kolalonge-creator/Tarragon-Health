@@ -209,7 +209,9 @@ begin
   perform pg_temp.ck('...and returns the same-day clinician route (urgent guidance)', 'same_day_clinician', o ->> 'route');
   perform pg_temp.ck('...and a clinician task exists (never only a notification)', '1', pg_temp.tasks_for(pg_temp.f('pat'), 'symptom_review'));
   perform pg_temp.ck('...and nothing is active', '0', (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('pat') and state = 'active'));
-  perform pg_temp.ck('a pain programme with clean answers is not open while its guard is off', 'not_open_yet', pg_temp.enrol_as(pg_temp.f('patB'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
+  -- S96: pain_back is now a DRAFT programme (it was a scaffold, 'not_available'). S63 lets a TEST account use a draft while its guard is off, so the
+  -- test patients here could enrol; the REAL patient is the one the guard holds back.
+  perform pg_temp.ck('a pain programme with clean answers is not open to a real patient while its guard is off', 'not_open_yet', pg_temp.enrol_as(pg_temp.f('real'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
   -- the pure check shows guidance and writes nothing
   perform pg_temp.ck('the pure screen writes nothing', 'same_day_clinician',
     pg_temp.q_as(pg_temp.f('patB'), format($q$select (public.therapy_check_entry_screen('pain_back', %L::jsonb))->>'route'$q$, pg_temp.answers('pain_back', 'saddle_numbness')::text)));
