@@ -2670,6 +2670,6 @@ Tests and documents only; no migration, nothing applied.
 ## Delivery gaps from the S81-S85 review (2026-10-27, branch `worktree-delivery-gaps`)
 - **Built:** wellbeing check-ins save on the phone first and de-duplicate on retry; a "What is this?" row on 11 screens and a one-time tour offer on the four bottom tabs (words only, from the clips' written scripts); a 44 point minimum on the legacy secondary button, choice chip and the medicine cabinet's small button, pinned by a test; the top-bar title scales to 200 percent.
 - **Checked and left alone:** low-data mode (no remote media or server reader exists, OQ not needed), audio recording (gated).
-- **Not built:** cycle logs and lifestyle trackers offline (OQ-732), the other text-size caps (OQ-733), help for the remaining screens (OQ-734), the six missing event producers (database work, its own PR), drafts on every form, a reading-grade gate, traffic-light shapes.
+- **Not built:** cycle logs and lifestyle trackers offline (OQ-746), the other text-size caps (OQ-747), help for the remaining screens (OQ-734), the six missing event producers (database work, its own PR), drafts on every form, a reading-grade gate, traffic-light shapes.
 - **Proof:** mobile Jest including 8 outbox tests, 8 screen-help tests and the touch target scan; `tsc` clean. Not run: any phone. No migration.
 

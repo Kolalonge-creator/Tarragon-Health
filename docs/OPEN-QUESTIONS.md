@@ -5941,13 +5941,13 @@ The request status function and the PDF routes now hide sensitive requests from 
 - `.github/workflows/mobile-maestro-android.yml` is manual only and has never run. It needs: an EAS preview build of the Android app (`apps/mobile/android` is not committed, so CI cannot build one); a non-production backend; repository secrets `MOBILE_E2E_EMAIL` and `MOBILE_E2E_PASSWORD` for an `is_test` account. Several flows still carry iOS app ids or unconfirmed selectors; run one flow by hand first.
 - A person decides: which backend the test account lives on, and who builds and uploads the APK.
 
-### OQ-732 Cycle logs and lifestyle trackers are still online-only (raised 2026-10-27)
+### OQ-746 Cycle logs and lifestyle trackers are still online-only (raised 2026-10-27)
 - Built: wellbeing check-ins now save on the phone first (outbox kind `wellbeing_checkin`). Not built: cycle and daily logs, alcohol, smoking and sleep-goal trackers.
 - Cycle data is in the protected reproductive category. A queued row sits in the phone's encrypted store until it sends, and the held-rows notices list what is waiting. Whether a waiting cycle log may appear there by name, whether it should sit behind the private-section lock, and how discreet mode treats it are decisions the S66 design did not make. Queueing it without that decision could show a reproductive entry on a shared phone's sync banner.
 - The lifestyle trackers have no such privacy question; they are plain follow-up work (an outbox kind each, with the same pattern as the check-in).
 - Decision needed: how queued cycle entries are shown (recommend: never by name; the generic "something is waiting to send" line only), then build both.
 
-### OQ-733 Some text sizes are still capped below 200 percent (raised 2026-10-27)
+### OQ-747 Some text sizes are still capped below 200 percent (raised 2026-10-27)
 - WCAG 2.2 asks for text to be usable at 200 percent. The top-bar title now scales fully. Still capped at 1.2 on purpose: the initials in a fixed circle, the unread-count badge, the drawer label and the five bottom-tab labels (`TAB_LABEL_MAX_SCALE`). Raising them without a device would risk clipped text on a narrow phone.
 - Needs a pass on a real small Android phone at the largest text setting; the tab bar probably needs to wrap or stack its labels rather than just lift the cap.
 

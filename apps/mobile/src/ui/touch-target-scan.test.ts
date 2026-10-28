@@ -46,7 +46,7 @@ describe("text scaling (WCAG 2.2: usable at 200 percent)", () => {
   it("the top bar title scales fully; the smaller caps that remain are listed so they are decided, not forgotten", () => {
     const top = read("top-bar.tsx");
     expect(top).toMatch(/maxFontSizeMultiplier=\{MAX_FONT_SCALE\} numberOfLines=\{1\}/);
-    // Still capped at 1.2 on purpose (a fixed circle and a count badge that cannot grow without clipping); tracked in OQ-732.
+    // Still capped at 1.2 on purpose (a fixed circle and a count badge that cannot grow without clipping); tracked in OQ-746.
     expect((top.match(/maxFontSizeMultiplier=\{1\.2\}/g) ?? []).length).toBe(2);
   });
 });
