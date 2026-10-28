@@ -284,6 +284,10 @@ export * from "./cycle";
 export * from "./private-section";
 export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
+export { assessDeviceSync, loadDeviceSyncConfig, SYNC_CLOCK_SKEW_TOLERANCE_MS } from "./device-sync-freshness";
+export { loadVisitFollowUpConfig, visitFollowUpOpen } from "./visit-follow-up";
+export type { VisitFollowUpConfig } from "./visit-follow-up";
+export type { DeviceSyncConfig, DeviceSyncFreshness, DeviceSyncLevel, DeviceSyncMessageKey } from "./device-sync-freshness";
 
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
@@ -293,6 +297,7 @@ export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
 export * from "./causal-wording";
+export * from "./reliable-change";
 export * from "./lock-screen-pass";
 export * from "./my-phones";
 export * from "./therapy-content/wave-a-drafts";
@@ -318,3 +323,6 @@ export * from "./care-circle-presets";
 // S43m: the emergency card field choices and the pure half of photo capture, shared by web and phone.
 export * from "./emergency-card-fields";
 export * from "./document-suggestions";
+
+// S71 A3: the refund and cancellation rule numbers and lines, shared by web and phone.
+export * from "./refund-rule";

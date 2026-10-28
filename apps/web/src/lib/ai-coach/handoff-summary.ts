@@ -3,7 +3,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CoachChatMessage, Database } from "@tarragon/shared";
-import { AI_SYSTEMS, decideAiGovernance } from "@/lib/ai-governance";
+import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 
 const MODEL_ID = "claude-haiku-4-5";
 
@@ -90,8 +90,20 @@ export async function buildCoachHandoffSummary(
   // produces a complete, useful handoff and the escalation it is attached to
   // is never blocked.
   const governance = await decideAiGovernance(input.supabase, AI_SYSTEMS.coach.code);
-  if (!governance.allow) return fallback();
+  if (!governance.allow) {
+    // Same as runGovernedAi: a refused call is recorded as a fallback, so the audit trail shows the system was off, not silent.
+    await recordAiInteraction(input.supabase, {
+      systemCode: AI_SYSTEMS.coach.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "care_team_handoff_summary",
+      status: "fallback",
+      fallbackReason: governance.message,
+      resultingAction: "fallback_path_used",
+    });
+    return fallback();
+  }
 
+  const startedAt = Date.now();
   try {
     const chatModel =
       model ??
@@ -119,9 +131,28 @@ export async function buildCoachHandoffSummary(
       new HumanMessage(`Recent conversation:\n${conversationText}\n\n${snapshotText}`),
     ]);
 
+    // Audit finding G-07: this model call used to leave no ai_interaction_log row at all. Never throws, and records a category, not words.
+    await recordAiInteraction(input.supabase, {
+      systemCode: AI_SYSTEMS.coach.code,
+      modelIdentifier: MODEL_ID,
+      inputCategory: "care_team_handoff_summary",
+      status: "completed",
+      resultingAction: "handoff_summary_drafted",
+      latencyMs: Date.now() - startedAt,
+    });
     return formatHandoffSummary(result, input.aiAction);
   } catch (error) {
     console.error("ai-coach: buildCoachHandoffSummary failed, using template fallback", error);
+    await recordAiInteraction(input.supabase, {
+      systemCode: AI_SYSTEMS.coach.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "care_team_handoff_summary",
+      status: "fallback",
+      fallbackReason: "The model call failed; the templated handoff was used.",
+      errorMessage: error instanceof Error ? error.message.slice(0, 500) : "unknown error",
+      resultingAction: "fallback_path_used",
+      latencyMs: Date.now() - startedAt,
+    });
     return fallback();
   }
 }

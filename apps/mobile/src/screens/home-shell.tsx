@@ -333,6 +333,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           organisationId={organisationId}
           onOpenVideoVisit={setOpenVideoVisitId}
           onOpenConsultation={setOpenConsultationId}
+          onOpenMessages={() => handleSelect("messages")}
         />
       ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,

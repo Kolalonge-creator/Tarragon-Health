@@ -90,7 +90,7 @@ export async function generateOutcomeReport(
       analytics,
       contractPerformance,
       careGaps: careGaps
-        ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, closedLast90Days: careGaps.closedLast90Days }
+        ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, ledger: careGaps.ledger }
         : null,
       medicationOutcomes,
     } as unknown as Json,

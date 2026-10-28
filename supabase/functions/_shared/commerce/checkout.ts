@@ -1,5 +1,6 @@
 import type { PaymentChannel, PaymentProvider } from "../integrations/payment.ts";
 import type { OrderStore } from "./orders.ts";
+import { CONFIGURED_CHECKOUT_CHANNELS, resolveCheckoutChannels } from "./checkout-channels.ts";
 
 /**
  * Starting a checkout (S25). The order is created in the database AS THE SIGNED-IN PATIENT (so the database decides who may
@@ -22,7 +23,7 @@ export const ORDER_ERROR_CODES = [
  * follows the Paystack dashboard defaults. Bank transfer and USSD settle late: a person is told "waiting for your bank", never "failed".
  * The exact strings Paystack accepts were taken from its published API reference and are still to be proved with the founder's test key (OQ-401).
  */
-export const DEFAULT_CHECKOUT_CHANNELS: readonly PaymentChannel[] = ["card", "bank_transfer", "ussd"];
+export const DEFAULT_CHECKOUT_CHANNELS: readonly PaymentChannel[] = resolveCheckoutChannels(CONFIGURED_CHECKOUT_CHANNELS);
 export type OrderErrorCode = (typeof ORDER_ERROR_CODES)[number];
 
 export function mapOrderError(message: string): OrderErrorCode | "unknown" {

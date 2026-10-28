@@ -1,4 +1,5 @@
 import { OutreachWorklist } from "@/components/clinical/outreach-worklist";
+import { CareGapSection } from "@/components/clinical/care-gap-section";
 
 export default function ClinicianOutreachPage() {
   return (
@@ -9,6 +10,7 @@ export default function ClinicianOutreachPage() {
           Proactive outreach tasks to close panel gaps.
         </p>
       </div>
+      <CareGapSection />
       <OutreachWorklist />
     </div>
   );

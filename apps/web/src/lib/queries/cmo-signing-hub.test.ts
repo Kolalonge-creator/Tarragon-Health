@@ -82,9 +82,18 @@ const readPendingAiMonitoringSignoff = jest.fn<(...args: unknown[]) => Promise<{
 jest.mock("@/lib/queries/pending-ai-monitoring-signoff", () => ({
   readPendingAiMonitoringSignoff: (...args: unknown[]) => readPendingAiMonitoringSignoff(...args),
 }));
+const readPendingOutcomeDefinitionsSignoff = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+jest.mock("@/lib/queries/pending-outcome-definitions-signoff", () => ({
+  readPendingOutcomeDefinitionsSignoff: (...args: unknown[]) => readPendingOutcomeDefinitionsSignoff(...args),
+}));
+const noOutcomeDefinitions = { reliableChange: { version: null, view: null }, adjustment: { version: null, view: null }, failed: false };
 const readPendingCascadeConfigSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
 jest.mock("@/lib/queries/pending-cascade-config-signoff", () => ({
   readPendingCascadeConfigSignoff: (...args: unknown[]) => readPendingCascadeConfigSignoff(...args),
+}));
+const readPendingCareGapConfigSignoff = jest.fn<(...args: unknown[]) => Promise<PostCheckinPending>>();
+jest.mock("@/lib/queries/pending-care-gap-config-signoff", () => ({
+  readPendingCareGapConfigSignoff: (...args: unknown[]) => readPendingCareGapConfigSignoff(...args),
 }));
 const readPendingBaselineLabsRuleSignoff = jest.fn<(...args: unknown[]) => Promise<{ version: number | null; rule: unknown; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-baseline-labs-rule-signoff", () => ({
@@ -195,8 +204,12 @@ beforeEach(() => {
   readPendingPostCheckinSignoff.mockResolvedValue(noPostCheckin);
   readPendingAiMonitoringSignoff.mockReset();
   readPendingAiMonitoringSignoff.mockResolvedValue({ version: null, rules: null, failed: false });
+  readPendingOutcomeDefinitionsSignoff.mockReset();
+  readPendingOutcomeDefinitionsSignoff.mockResolvedValue(noOutcomeDefinitions);
   readPendingCascadeConfigSignoff.mockReset();
   readPendingCascadeConfigSignoff.mockResolvedValue(noPostCheckin);
+  readPendingCareGapConfigSignoff.mockReset();
+  readPendingCareGapConfigSignoff.mockResolvedValue(noPostCheckin);
   readPendingBaselineLabsRuleSignoff.mockReset();
   readPendingBaselineLabsRuleSignoff.mockResolvedValue({ version: null, rule: null, failed: false });
   readBaselineLabsOverrideAttention.mockReset();
@@ -347,6 +360,27 @@ describe("readCmoSigningHub: mental wellbeing (S56b)", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the mental wellbeing sign-offs");
+  });
+});
+
+describe("readCmoSigningHub: care gap rules (S90)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line on the hub, under /clinician, for an unsigned draft, and says signing does not switch the engine on", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingCareGapConfigSignoff.mockResolvedValue({ version: 1, rules: null, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "care_gap_config");
+    expect(line?.count).toBe(1);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/nobody is contacted/);
+    expect(line?.detail).toMatch(/does not switch the engine on/);
+  });
+  it("adds no line when nothing waits, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "care_gap_config")).toBeUndefined();
+    readPendingCareGapConfigSignoff.mockResolvedValue({ version: null, rules: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the care gap rules");
   });
 });
 
@@ -844,5 +878,32 @@ describe("readCmoSigningHub: AI monitoring rules (S80d)", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the AI monitoring rules");
+  });
+});
+
+describe("readCmoSigningHub: reliable change and adjustment definitions (D4, D3)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line each on the hub, under /clinician, for an unsigned draft", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingOutcomeDefinitionsSignoff.mockResolvedValue({ reliableChange: { version: 1, view: null }, adjustment: { version: 2, view: null }, failed: false });
+    const items = (await readCmoSigningHub(supabase)).items;
+    const rc = items.find((i) => i.key === "reliable_change_config");
+    const adj = items.find((i) => i.key === "adjustment_config");
+    expect(rc?.count).toBe(1);
+    expect(adj?.count).toBe(1);
+    expect(rc?.href.startsWith("/clinician/")).toBe(true);
+    expect(adj?.href.startsWith("/clinician/")).toBe(true);
+    expect(rc?.detail).toMatch(/until you sign/);
+    expect(adj?.detail).toMatch(/until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    const items = (await readCmoSigningHub(supabase)).items;
+    expect(items.find((i) => i.key === "reliable_change_config")).toBeUndefined();
+    expect(items.find((i) => i.key === "adjustment_config")).toBeUndefined();
+    readPendingOutcomeDefinitionsSignoff.mockResolvedValue({ reliableChange: { version: null, view: null }, adjustment: { version: null, view: null }, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the reliable change and adjustment definitions");
   });
 });

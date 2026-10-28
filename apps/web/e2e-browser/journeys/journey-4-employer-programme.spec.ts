@@ -152,6 +152,46 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
     };
     expect(seeded.vitals, "the fixture must contain rows, or every later 'zero rows' check is vacuous").toBeGreaterThan(0);
 
+    // S88: the nine pregnancy and maternal tables must hold rows for the two real patients, or the untied-clinician step below reads zero rows from EMPTY
+    // tables and proves nothing. The owner connection (psql) inserts them; the lifecycle rows are written directly because the hook would otherwise decide
+    // by stage whether to record anything. These are is_test fixture rows on is_test accounts, never anyone's real record.
+    const maternalTables = [
+      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log",
+      "lifecycle_states", "lifecycle_events", "pregnancy_loss_records",
+    ] as const;
+    {
+      const ids = realPatients.map((p) => lit(p.id)).join(", ");
+      sql(`
+        begin;
+        insert into public.pregnancies (organisation_id, patient_id, pregnancy_number, lmp, edd, source, is_test)
+          select ${lit(tenant)}, p, 0, current_date - 140, current_date + 140, 'system', true from unnest(array[${ids}]::uuid[]) p;
+        insert into public.kick_counts (organisation_id, patient_id, pregnancy_id, client_id, started_at, result, config_version, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, gen_random_uuid(), now(), 'target_reached', 1, 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.contractions (organisation_id, patient_id, pregnancy_id, client_id, started_at, pattern, result, config_version, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, gen_random_uuid(), now(), 'standard', 'keep_timing', 1, 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.birth_plans (organisation_id, patient_id, pregnancy_id, place_of_birth, source, is_test)
+          select ${lit(tenant)}, g.patient_id, g.id, 'S88 journey hospital', 'patient', true from public.pregnancies g where g.patient_id in (${ids});
+        insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type)
+          select ${lit(tenant)}, p, 'formula' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.lifecycle_states (patient_id, organisation_id, stage) select p, ${lit(tenant)}, 'pregnant' from unnest(array[${ids}]::uuid[]) p
+          on conflict (patient_id) do update set stage = 'pregnant';
+        insert into public.lifecycle_events (organisation_id, patient_id, kind, from_stage, to_stage, occurred_on, cause, config_version)
+          select ${lit(tenant)}, p, 'pregnancy_confirmed', 'tracking', 'pregnant', current_date - 30, 'self_confirmed', 1 from unnest(array[${ids}]::uuid[]) p;
+        insert into public.pregnancy_loss_records (organisation_id, patient_id, occurred_on, gestation_weeks, note, source)
+          select ${lit(tenant)}, p, current_date - 60, 8, 'S88 journey fixture note', 'patient_entered' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.postnatal_profiles (organisation_id, patient_id, delivery_date, delivery_mode)
+          select ${lit(tenant)}, p, current_date - 3, 'vaginal' from unnest(array[${ids}]::uuid[]) p;
+        insert into public.postnatal_baby_checks (organisation_id, patient_id, postnatal_profile_id, check_window, scheduled_date)
+          select ${lit(tenant)}, pp.patient_id, pp.id, 'week_1', current_date + 4 from public.postnatal_profiles pp where pp.patient_id in (${ids})
+          on conflict (postnatal_profile_id, check_window) do nothing;
+        commit;
+      `);
+      for (const t of maternalTables) {
+        const n = Number(sqlValue<string>(`select count(*)::text from public.${t} where patient_id in (${ids})`));
+        expect(n, `the fixture must hold rows in ${t}, or the untied-clinician zero read below is vacuous`).toBeGreaterThan(0);
+      }
+    }
+
     // ------------------------------------------------------------------ the institution session
     const inst = await signIn(instAdmin);
 
@@ -168,13 +208,25 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
       expect(seeded.vitals).toBeGreaterThan(0);
     });
 
-    // KNOWN GAP (shrink only). On this branch a clinician in the same organisation, with no task, lead assignment or page, can
-    // read these tables for every patient in the organisation. S56 (PR 1004, per-patient access for mental wellbeing) closed
-    // mental_health_screens and wellbeing_checkins, so the list shrank to the one table still open. S39b ("tied staff reads", PR 997, 128 tables) closes it and is
-    // not on main-dev yet. The step is pending(S39b) exactly while the leak equals this list; any NEW leaked table fails the journey;
-    // a table that stops leaking fails it too until it is removed from this list (the list only shrinks). See OQ-341.
+    // An untied clinician (same organisation, no task, lead assignment or page) must read none of these tables for any patient. History: S56 closed
+    // mental_health_screens and wellbeing_checkins; S39b (tied staff reads, merged) tied most cycle, reproductive and pregnancy summary tables; S88 tied the
+    // nine pregnancy and maternal tables (pregnancies, kick_counts, contractions, birth_plans, postnatal_baby_checks, breastfeeding_feed_log,
+    // lifecycle_states, lifecycle_events, pregnancy_loss_records).
+    // KNOWN GAP (shrink only, founder-approved 2026-10-28): `menstrual_cycles` is still readable by an untied clinician in the CI replay (the same
+    // pending state main-dev has had since S85). It is NOT an S88 table and is tracked separately under OQ-549; its select policy has an S39b
+    // `staff_may_read` arm plus emergency and `can_read_clinical` arms and which arm admits the clinician is not yet traced. The step is pending(S39b)
+    // exactly while the leak equals this list. ANY other leaked table, and in particular any of the nine S88 tables, fails the journey naming the
+    // table; a table that stops leaking also fails it until it is removed from this list (the list only shrinks).
     const KNOWN_UNTIED_CLINICIAN_READS = ["menstrual_cycles"];
-    const untiedTables = ["vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins", "reproductive_health_profiles", "patient_pregnancy", "contraception_plans"];
+    const S88_TIED_TABLES = [
+      "pregnancies", "kick_counts", "contractions", "birth_plans", "postnatal_baby_checks", "breastfeeding_feed_log", "lifecycle_states", "lifecycle_events",
+      "pregnancy_loss_records",
+    ];
+    const untiedTables = [
+      "vitals_readings", "symptoms", "lab_results", "menstrual_cycles", "menstrual_daily_logs", "mental_health_screens", "wellbeing_checkins",
+      "reproductive_health_profiles", "patient_pregnancy", "contraception_plans",
+      ...S88_TIED_TABLES,
+    ];
     const untied: string[] = [];
     {
       const doc = await signIn(clinician);
@@ -183,13 +235,17 @@ test.describe("Journey 4: an employer programme (privacy)", () => {
         if ((r.count ?? 0) > 0) untied.push(t);
       }
     }
+    // The nine S88 tables never get a pending pass: they fail on any leak, whatever the known list says.
+    await run.step("s88-tables-untied-clinician-reads-nothing", async () => {
+      expect(untied.filter((t) => S88_TIED_TABLES.includes(t)), "an untied clinician read an S88-tied pregnancy or maternal table").toEqual([]);
+    });
     if (untied.length === 0) {
       await run.step("clinician-without-tie-reads-nothing", async () => {});
     } else if (JSON.stringify([...untied].sort()) === JSON.stringify([...KNOWN_UNTIED_CLINICIAN_READS].sort())) {
       run.pending(
         "clinician-without-tie-reads-nothing",
         "S39b",
-        `tied staff reads (PR 997) are not on main-dev: an untied clinician reads ${untied.join(", ")} for the whole organisation. Everything else listed (${untiedTables.length - untied.length} tables) is correctly empty.`,
+        `an untied clinician still reads ${untied.join(", ")} for the whole organisation (known gap, OQ-549, not an S88 table). The nine S88 tables and the other ${untiedTables.length - untied.length} listed tables are correctly empty.`,
       );
     } else {
       await run.step("clinician-without-tie-reads-nothing", async () => {
