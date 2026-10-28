@@ -24,6 +24,9 @@ export const COPY_RULES: readonly CopyRule[] = [
   { id: "free-healthcare", pattern: /free health ?care/i, reason: "overpromises; patients pay for a clinician's time" },
   { id: "your-doctor", pattern: /\byour doctor\b/i, reason: 'care is delivered by a team; say "your care team"' },
   { id: "em-dash", pattern: /—/, reason: "no em dashes in user-facing copy" },
+  // Only an en dash a person can read: inside a string literal or in JSX text. A legitimate numeric range carries a trailing
+  // `// copy-lint-allow en-dash: <reason>` comment (see ALLOW_MARKER).
+  { id: "en-dash", pattern: /(["'`])[^"'`\n]*–|>[^<>{}\n]*–[^<>{}\n]*</, reason: 'no en dashes in user-facing copy; write "9 to 14" or use a colon or full stop' },
 ];
 
 export interface CopyViolation {
@@ -36,6 +39,9 @@ export interface CopyViolation {
 export type CopyLintMode = "warn" | "enforce";
 export const copyLintMode = (): CopyLintMode => (process.env.COPY_LINT_ENFORCE === "1" ? "enforce" : "warn");
 
+/** A trailing `// copy-lint-allow en-dash: <reason>` exempts that line from the en-dash rule only (for example a real numeric range). */
+export const ALLOW_MARKER = /\/\/\s*copy-lint-allow en-dash\b/;
+
 const COMMENT_LINE = /^\s*(\/\/|\/\*|\*|\{\s*\/\*)/;
 
 export function scanText(file: string, content: string): CopyViolation[] {
@@ -46,6 +52,7 @@ export function scanText(file: string, content: string): CopyViolation[] {
     // Drop a trailing line comment so prose after `//` is not flagged.
     const code = text.replace(/\s\/\/\s.*$/, "");
     for (const rule of COPY_RULES) {
+      if (rule.id === "en-dash" && ALLOW_MARKER.test(text)) continue;
       if (rule.pattern.test(code)) out.push({ file, line: i + 1, rule: rule.id, text: text.trim().slice(0, 160) });
     }
   });
@@ -76,7 +83,14 @@ export function countSourceFiles(repoRoot: string, roots: readonly string[] = DE
   return n;
 }
 
-export const DEFAULT_ROOTS = ["apps/web/src", "apps/mobile/src", "packages/notifications/src", "packages/i18n/src"] as const;
+// W-59: the deployed email/push/in-app templates (edge function) are user-facing copy too, so they are in scope.
+export const DEFAULT_ROOTS = [
+  "apps/web/src",
+  "apps/mobile/src",
+  "packages/notifications/src",
+  "packages/i18n/src",
+  "supabase/functions/send-pending-notifications",
+] as const;
 
 export function scanRepo(repoRoot: string, roots: readonly string[] = DEFAULT_ROOTS): CopyViolation[] {
   const out: CopyViolation[] = [];
