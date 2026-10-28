@@ -1,6 +1,6 @@
 -- Baseline labs prescribing rule, VERSION 2: the CMO's answers of 2026-10-27 carried into the merged rule (migration 20261026183108, PR #1334).
 --
--- v1 (unsigned, inactive, left untouched) asks kidney function, potassium and glucose for EVERY blood pressure and glucose-lowering medicine, within 90 days,
+-- v1 (left untouched; it may already be signed and active, which this migration never changes) asks kidney function, potassium and glucose for EVERY blood pressure and glucose-lowering medicine, within 90 days,
 -- with no kidney block for metformin, no HbA1c exception and no pregnancy question. The CMO's answers (docs/design/baseline-labs-rule-proposal.md, recorded in
 -- docs/DECISIONS.md): thresholds as drafted; the prescribing doctor may start before results are back and records why; fasting glucose replaces HbA1c when the doctor
 -- marks it unreliable; a calcium channel blocker alone (and a beta blocker) needs no blood test.
@@ -588,7 +588,7 @@ end $$;
 -- Self-check
 do $$
 begin
-  if exists (select 1 from public.baseline_labs_rule_config where is_active or approved_at is not null) then raise exception 'baseline labs v2: a version is signed or active by a migration'; end if;
+  if exists (select 1 from public.baseline_labs_rule_config where version = 2 and (is_active or approved_at is not null)) then raise exception 'baseline labs v2: version 2 is signed or active by a migration'; end if;
   if (select count(*) from public.baseline_labs_rule_config where version = 2) <> 1 then raise exception 'baseline labs v2: version 2 missing'; end if;
   if pg_get_functiondef('private.enforce_baseline_labs_rule()'::regprocedure) not ilike '%baseline_labs_egfr%' then raise exception 'baseline labs v2: the kidney rule is not in the trigger'; end if;
   if has_function_privilege('anon', 'public.mark_hba1c_unreliable(uuid,text)', 'EXECUTE') or has_function_privilege('anon', 'public.clear_hba1c_unreliable(uuid)', 'EXECUTE')

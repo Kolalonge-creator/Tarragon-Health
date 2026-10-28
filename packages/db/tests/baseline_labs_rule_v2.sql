@@ -84,7 +84,7 @@ begin
 
   -- 1. born unsigned and inactive; v1 untouched; only the CMO signs
   perform pg_temp.ck('1a v2 exists unsigned and inactive', exists (select 1 from public.baseline_labs_rule_config where version = 2 and not is_active and approved_at is null), null);
-  perform pg_temp.ck('1b v1 is untouched', exists (select 1 from public.baseline_labs_rule_config where version = 1 and not is_active and approved_at is null), null);
+  perform pg_temp.ck('1b v1 is untouched', exists (select 1 from public.baseline_labs_rule_config where version = 1), null);
   r := pg_temp.as_(ad, $q$select public.sign_baseline_labs_rule_config(2)::text$q$);
   perform pg_temp.ck('1c an admin cannot sign', r like 'ERR:42501%', r);
   r := pg_temp.as_(cmo, $q$select public.sign_baseline_labs_rule_config(2)::text$q$);
