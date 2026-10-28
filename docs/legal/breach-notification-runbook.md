@@ -8,7 +8,7 @@
 
 A "personal data breach" is any confirmed or reasonably suspected unauthorised access to, disclosure of, loss of, or destruction of personal data we hold — not only a technical hack. On this platform, the categories most likely to trigger this runbook are:
 
-- A live RLS/authorization bug that let one patient, partner, or organisation read another's data (this codebase's own history has real examples — see e.g. the 2026-07-29 `is_org_staff` finding, the 2026-07-27 `lab_partner`/`pharmacist` cross-tenant read, and the 2026-07-30 wallet-compliance work referenced in `cover-memo-to-counsel.md`).
+- A live RLS/authorization bug that let one patient, partner, or organisation read another's data (this codebase's own history has real examples — see e.g. the 2026-07-29 `is_org_staff` finding, the 2026-07-27 `lab_partner`/`pharmacist` cross-tenant read).
 - A leaked or compromised credential (a service-role key, an admin password, a Supabase project token) that could have been used to read patient data.
 - A partner organisation (a lab, pharmacy, employer, or HMO) reporting that data we sent them was mishandled or exposed on their end.
 - A lost or stolen device belonging to a clinician or coordinator with cached patient data.
@@ -23,7 +23,7 @@ The clock starts at **the moment TarragonHealth becomes aware** of the incident 
 ## Roles
 
 - **Whoever notices first** (any employee, contractor, or a report from a partner/patient) — escalates immediately to the founder and to whoever holds the Data Protection Officer role. Do not sit on it to "confirm first."
-- **Data Protection Officer** [name/contact — to be appointed and confirmed, see `docs/legal/cover-memo-to-counsel.md`] — owns the incident once logged: drives containment, decides severity, drafts the NDPC notification, decides whether patients need individual notification.
+- **Data Protection Officer** [DPO name and contact: FOUNDER INPUT NEEDED. NDPC registration is approved and the DPO appointment was accepted by the NDPC on 15 September 2026; registration reference: FOUNDER INPUT NEEDED. See `docs/legal/cover-memo-to-counsel.md`] — owns the incident once logged: drives containment, decides severity, drafts the NDPC notification, decides whether patients need individual notification.
 - **Founder / engineering** — technical containment (revoke the credential, patch the RLS gap, take down the exposed export) and produces the facts the DPO needs: what data, how many people, over what window, confirmed or suspected.
 - **Outside counsel** — reviewed before the NDPC notification is sent wherever the 72-hour window allows it; if counsel cannot be reached in time, send the notification anyway (a late-but-thorough legal review is not a reason to miss the statutory window) and loop counsel in immediately after.
 
@@ -36,7 +36,7 @@ The moment an incident is logged:
 - Assign a severity:
   - **Low** — no sensitive/health data involved, or exposure was to a single trusted party under confidentiality obligations already (e.g. a partner lab that already had legitimate access to that record).
   - **Medium** — sensitive/health data of a small, boundable number of patients, contained quickly, low likelihood of misuse.
-  - **High** — sensitive/health data of a larger group, or data that could enable identity theft or financial fraud (a wallet/payment detail), or the exposure window is long or unclear.
+  - **High** — sensitive/health data of a larger group, or data that could enable identity theft or financial fraud (a payment detail; the platform holds no wallet or stored balance, and card details stay with Paystack), or the exposure window is long or unclear.
   - **Critical** — an active, ongoing exposure; a large number of patients; anything touching a minor's data; anything that reached outside the organisation (e.g. posted publicly, sent to the wrong external party).
 
 ### 2. Contained — assess and notify NDPC
@@ -48,8 +48,8 @@ Once the immediate exposure is stopped:
 
 ### 3. Notified — assess patient notification
 Separately from the NDPC notification, decide whether affected patients need to be told directly. [The exact threshold under the Act for when individual notification is required, versus notification to the NDPC alone being sufficient, is a counsel question — until confirmed, default to notifying affected patients directly whenever the incident is Medium severity or above.] If patient notification is needed:
-- Never send it over WhatsApp or SMS carrying any specific detail of what was exposed — per this platform's own non-negotiable content rule (`I1`, `notifications.content_class`), that channel never carries anything that could be mistaken for clinical or personally identifying content. Use email or an in-app notification, or a phone call for anyone without reliable digital access.
-- Be honest and specific: what was exposed, when, what we've done about it, and what the patient can do (e.g. watch their wallet activity, change a password).
+- Never put the specific detail of what was exposed in a push notification or an SMS (SMS is used only for phone verification codes; WhatsApp no longer exists on the platform). Per this platform's own non-negotiable content rule (`I1`, `notifications.content_class`), a notification never carries anything that could be mistaken for clinical or personally identifying content. Use email or an in-app message, or a phone call for anyone without reliable digital access.
+- Be honest and specific: what was exposed, when, what we've done about it, and what the patient can do (e.g. check the payment history on their Paystack receipt emails, change a password).
 - Record `patients_notified_at`.
 
 ### 4. Closed

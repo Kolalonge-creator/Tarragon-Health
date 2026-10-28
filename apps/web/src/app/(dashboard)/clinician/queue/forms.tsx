@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { OVERRIDE_REASON_CODES, OVERRIDE_REASON_LABEL_KEY } from "@/lib/clinician/override-reasons";
 import { HANDBACK_REASONS } from "@/lib/clinician/written-questions";
 import { completeTask, extendClaim, handBack, takeNextTask, type QueueActionState } from "./actions";
 
@@ -103,6 +104,19 @@ export function CompleteForm({ taskId, options, locale = "en" }: { taskId: strin
       <div>
         <Label htmlFor="complete-note">{t("task.outcome_note_optional", locale)}</Label>
         <Textarea id="complete-note" name="note" rows={3} maxLength={options.noteMaxChars} />
+      </div>
+      {/* W-02: optional, default empty, never blocks finishing. Your reason helps us check our own rules; it is never used to rate you. */}
+      <div>
+        <Label htmlFor="complete-override-reason">{t("override.task_prompt", locale)}</Label>
+        <Select id="complete-override-reason" name="override_reason" defaultValue="">
+          <option value="">{t("override.choose", locale)}</option>
+          {OVERRIDE_REASON_CODES.map((c) => (
+            <option key={c} value={c}>
+              {t(OVERRIDE_REASON_LABEL_KEY[c], locale)}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-charcoal-ink/60">{t("override.helper", locale)}</p>
       </div>
       <Err text={state?.error} />
       <Button type="submit" disabled={pending}>

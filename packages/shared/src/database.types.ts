@@ -59450,6 +59450,12 @@ export type Database = {
         | "authorisation_officer"
         | "claims_officer"
         | "analyst"
+      override_reason_code:
+        | "system_too_high"
+        | "system_too_low"
+        | "context_known"
+        | "data_error"
+        | "other"
       payer_network_provider_type:
         | "facility"
         | "lab_provider"
@@ -61914,6 +61920,13 @@ export const Constants = {
         "authorisation_officer",
         "claims_officer",
         "analyst",
+      ],
+      override_reason_code: [
+        "system_too_high",
+        "system_too_low",
+        "context_known",
+        "data_error",
+        "other",
       ],
       payer_network_provider_type: [
         "facility",

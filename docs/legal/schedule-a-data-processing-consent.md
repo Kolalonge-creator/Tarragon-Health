@@ -1,3 +1,4 @@
+<!-- PROPOSED EDIT, 2026-10-27 (W-55), NOT APPROVED. This is a consent document. Changing its text needs a consent version bump (the next version after 2026-08-12-v1) and CMO, DPO and counsel approval before it is re-synced to the live consent content. Only the DPO/NDPC line below changed. -->
 # Schedule A — Data Processing Consent
 
 *Draft for legal review — not yet approved by counsel. Version 2026-08-12-v1 (this source file had fallen out of sync with the live database: it still described the "Health Wallet," which was deleted 2026-07-31 and replaced by Care Vouchers — `terms_of_service` got the equivalent rewrite the same week, this document was simply missed and stayed missed through a later, unrelated republish on 2026-08-10; corrected here, see the 2026-08-12 marketing-site audit). This text is the canonical source for the `data_processing` consent content and for any future public/patient-facing rendering of it; edit here first, then re-sync wherever it's reused.*
@@ -8,7 +9,7 @@ This is TarragonHealth's Data Processing Consent, Schedule A of our legal docume
 ## Who we are
 Tarragon Health Ltd (RC 9702108) ("TarragonHealth", "we", "us") operates a digital-first chronic disease, preventive health, and care-coordination platform in Nigeria, connecting patients with doctors, labs, pharmacies, specialists, employers, and HMOs. We are the data controller for the personal data described in this notice.
 
-Data Protection Officer: [DPO name and contact, to be appointed and confirmed]. Nigeria Data Protection Commission (NDPC) registration status: [to be confirmed with counsel].
+Data Protection Officer: [DPO name and contact: founder to supply; the NDPC has accepted the appointment]. Nigeria Data Protection Commission (NDPC) registration: approved [registration reference: founder to supply; counsel to confirm wording].
 
 If you have questions about this notice or how we handle your data, contact us at privacy@tarragonhealth.ng, or write to our Data Protection Officer at the address above.
 

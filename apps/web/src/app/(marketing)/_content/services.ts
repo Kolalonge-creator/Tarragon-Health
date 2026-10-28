@@ -1,5 +1,6 @@
 import type { MarketingRouteKey } from "@/lib/marketing/routes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { paidProductName } from "@/lib/marketing/membership";
 
 export type ServiceCard = {
   key: MarketingRouteKey;
@@ -90,7 +91,7 @@ export const PROOF_STATS = [
   {
     value: "Free",
     label: "to join",
-    detail: "The app is free, with no time limit. Membership adds a yearly blood test and a monthly video call with your care team.",
+    detail: `The app is free, with no time limit. ${paidProductName()} includes a yearly blood test collected for you and a monthly video call with your care team.`,
   },
   {
     value: "12 hrs",
@@ -335,7 +336,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How much does it cost?",
     answer:
-      "The app is free, with no time limit. Membership is one price for a year and adds a yearly blood test and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the Membership price.",
+      `The app is free, with no time limit. ${paidProductName()} is one price for a year and includes a yearly blood test collected for you and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the ${paidProductName()} price.`,
   },
   {
     category: "general",

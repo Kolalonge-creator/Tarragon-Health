@@ -10,7 +10,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { membershipPriceLabel } from "@/lib/marketing/membership";
+import { membershipPriceLabel, paidProductName } from "@/lib/marketing/membership";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -29,7 +29,7 @@ function ladderIsPublic(): boolean {
 
 /** What is being given, in words. With the ladder public there are two yearly gifts, each priced from versioned config. */
 function givingSummary(price: string): string {
-  if (!ladderIsPublic()) return `A year of Membership, \u20A6${price}`;
+  if (!ladderIsPublic()) return `A year of ${paidProductName()}, \u20A6${price}`;
   const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
   return `A year of Membership (\u20A6${formatNaira(v.evergreen_kobo)}) or Membership Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
 }
@@ -55,7 +55,7 @@ function giftFaq(price: string): FaqItem[] {
       question: "What exactly am I giving?",
       answer: ladderIsPublic()
         ? `${givingSummary(price)}. Both are the same care: a video call with their care team every month, written questions between calls and prescriptions their care team signs. The only difference is the yearly blood panel. Medicines are not included.`
-        : `A year of Membership, ₦${price}. It is the same Membership anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
+        : `A year of ${paidProductName()}, ₦${price}. It is the same product anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
     },
     {
       question: "Who can I give it to?",
@@ -117,7 +117,7 @@ export default function GiftPage() {
         title="Give the Gift of Health"
         description={ladderIsPublic()
           ? `${givingSummary(price)}. A video call with their care team every month. Theirs to accept, nothing to renew.`
-          : `Give someone a year of Membership, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
+          : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
         primaryHref="/signup?intent=support"
         primaryLabel="Give a year of Membership"
         secondaryHref="/login"

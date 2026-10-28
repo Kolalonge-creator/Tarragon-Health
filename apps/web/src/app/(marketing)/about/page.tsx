@@ -9,6 +9,7 @@ import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { paidProductName } from "@/lib/marketing/membership";
 import { pageMetadata } from "@/lib/marketing/site";
 
 /**
@@ -38,7 +39,7 @@ const ABOUT_COMMITMENTS = [
     value: "Free",
     label: "the app itself is free",
     detail:
-      "Everything you can do yourself costs nothing, with no time limit. Membership adds a yearly blood test and a video call with your care team every month, for one price you see before you pay.",
+      `Everything you can do yourself costs nothing, with no time limit. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month, for one price you see before you pay.`,
   },
   {
     value: "Built to scale",

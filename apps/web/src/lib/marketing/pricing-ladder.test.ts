@@ -74,8 +74,8 @@ describe("the Membership ladder pricing content", () => {
     expect(JSON.stringify(v).toLowerCase()).not.toMatch(/volume|bracket|seat/);
   });
 
-  it("stays off until the launch conditions are met: the public switch is false in this change", () => {
-    expect((getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled).toBe(false);
+  it("the public switch is on in this change, which merges only once the launch conditions in docs/DECISIONS.md (2026-10-21) are met", () => {
+    expect((getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled).toBe(true);
   });
 
   it("the refund window in the FAQ is the one passed in, never typed", () => {

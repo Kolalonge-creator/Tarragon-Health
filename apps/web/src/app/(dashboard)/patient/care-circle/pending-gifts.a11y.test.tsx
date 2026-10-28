@@ -24,7 +24,7 @@ describe("PendingGifts", () => {
   it("says what was paid for, that nothing starts until yes, and by when to answer", async () => {
     render(<PendingGifts locale="en" />);
     expect(screen.getByText("Someone has paid for care for you")).toBeTruthy();
-    expect(screen.getByText(/Tarragon Membership\. Nothing starts until you say yes\./)).toBeTruthy();
+    expect(screen.getByText(/Membership Plus\. Nothing starts until you say yes\./)).toBeTruthy();
     expect(screen.getByText(/Please answer by/)).toBeTruthy();
     cleanup();
     await expectNoA11yViolations(<PendingGifts locale="en" />);

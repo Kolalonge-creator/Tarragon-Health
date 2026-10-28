@@ -16,7 +16,7 @@ const ITEM = {
 describe("IncludedView", () => {
   it("names the item, lists what is included, gives the price, the length, no renewal and the refund route", async () => {
     render(<IncludedView item={ITEM} yourPriceKobo={10_000_000} locale="en" />);
-    expect(screen.getByRole("heading", { name: "Tarragon Membership" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Membership Plus" })).toBeTruthy();
     expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
     expect(screen.getByText("₦100,000")).toBeTruthy();
     expect(screen.getByText("It lasts 365 days from the day you pay.")).toBeTruthy();

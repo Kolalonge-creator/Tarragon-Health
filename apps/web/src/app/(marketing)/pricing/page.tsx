@@ -3,7 +3,7 @@ import Link from "next/link";
 import { formatNaira } from "@tarragon/commerce";
 import { t } from "@tarragon/i18n";
 import { getProposedConfig } from "@tarragon/shared";
-import { MEMBERSHIP_INCLUDES, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
+import { MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingLabelBadge } from "../_components/pricing-label";
@@ -20,7 +20,7 @@ import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "Two plans: Free, and Membership. Membership adds a yearly blood test and a monthly video call with your care team, in naira.",
+    "Free, and a paid year of care with a monthly video call with your care team, in naira. You see the price before you pay.",
   path: MARKETING_ROUTES.pricing,
 });
 
@@ -38,19 +38,21 @@ function ladderPriceKobo(): { evergreen: number; evergreenPlus: number } {
 }
 
 function pricingFaq(price: string, refundDays: number, autoRenews: boolean) {
+  // Ladder OFF: the one product on sale is the catalogue's membership_annual (it includes the blood panel), named as the catalogue names it.
+  const product = paidProductName();
   return [
     {
       question: "What are the two plans?",
-      answer: `Free and Membership. Free is the app: tracking, reminders, education and guidance, with no time limit and no card. Membership is ₦${price} a year and adds a yearly blood test and a video call with your care team every month.`,
+      answer: `Free and ${product}. Free is the app: tracking, reminders, education and guidance, with no time limit and no card. ${product} is ₦${price} a year. It includes a yearly blood test collected for you and a video call with your care team every month. Anyone, on any plan, can also request the annual test bundle and pay the laboratory directly.`,
     },
     {
-      question: "Does Membership renew by itself?",
+      question: `Does ${product} renew by itself?`,
       answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
     {
       question: "Can I get a refund?",
       answer:
-        `Yes, within ${refundDays} days of buying your Membership. After ${refundDays} days it cannot be refunded. If a refund is approved your Member access ends straight away. A Membership that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.`,
+        `Yes, within ${refundDays} days of buying your ${product}. After ${refundDays} days it cannot be refunded. If a refund is approved your Member access ends straight away. A ${product} year that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.`,
     },
     {
       question: "Are medicines included?",
@@ -171,8 +173,8 @@ export default async function PricingPage() {
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title="Free, or Membership. Nothing in between."
-          description="Everything you can do yourself costs nothing, with no time limit and no card required. Membership adds a yearly blood test and a video call with your care team every month."
+          title={`Free, or ${paidProductName()}. Nothing in between.`}
+          description={`Everything you can do yourself costs nothing, with no time limit and no card required. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month.`}
         />
         <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
         <PricingFreeFeatures />
@@ -195,8 +197,8 @@ export default async function PricingPage() {
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="Membership"
-          title={`${t("catalog.membership_annual.name", "en")}: ₦${price} a year`}
+          eyebrow={paidProductName()}
+          title={`${paidProductName()}: ₦${price} a year`}
           description={t("catalog.membership_annual.description", "en")}
         />
         <div className="mx-auto max-w-2xl rounded-xl border border-brand-green/20 bg-white p-6">

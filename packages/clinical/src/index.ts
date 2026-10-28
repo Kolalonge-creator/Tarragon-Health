@@ -30,6 +30,10 @@ export {
   classifyPair, evaluateCuffCheck, homeMeanAround, pairDifference, parseCuffCheckConfig,
   type BpValue, type CuffCheckConfig, type CuffCheckResult, type CuffFlagKind, type PairClass, type PairDifference, type TimedBp,
 } from "./cuff-check";
+export {
+  countRepeatReadings, gradeBpReading, isPlausibleBp, isUnderTarget, parseBpTargetConfig, targetFor, targetKindForContext,
+  type BpTargetConfig, type BpTargetPair, type MeasurementContext, type ReadingGrade, type ReadingGradeConfig, type ReadingGradeInput, type TargetKind,
+} from "./reading-grade";
 export { GLUCOSE_CARE_V1, VITALS_CARE_V1 } from "./rules";
 export {
   gradeGlucose, validateGlucoseInput, validateGlucoseRuleSet, buildGlucoseContext, GLUCOSE_RULE_SET_CODE, GLUCOSE_CONTEXTS, GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, GLUCOSE_CONTEXT_FIELDS,
