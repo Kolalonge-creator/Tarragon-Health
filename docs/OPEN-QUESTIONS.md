@@ -5972,7 +5972,7 @@ The request status function and the PDF routes now hide sensitive requests from 
 - Option for later: let the PIN be combined with a biometric that does not fall back to the passcode (`disableDeviceFallback`). Not done, because it is a behaviour the device test in S66 never covered.
 - Not run on a real phone.
 
-### OQ-727 Joining an employer with an organisation code puts the person's name, phone and email on the employer's staff list (raised 2026-10-27)
+### OQ-741 Joining an employer with an organisation code puts the person's name, phone and email on the employer's staff list (raised 2026-10-27)
 - Found while writing the "what your employer sees" text. `public.employer_join_with_code` (20260829093043) inserts or updates a row in `employer_roster_members` with the person's phone, email and full name, status `claimed`, and the trigger `employer_roster_members_sync_profile_org` moves the profile into the employer's organisation. Employer staff read that table (the roster manager selects every column).
 - Conflict: `programme.sponsor_sees_body` and `programme.share_body` say a sponsor "never sees your name". That is true for sponsor cohorts (`join_cohort`, frozen aggregate snapshots, spec I9) and NOT true for an employer joined by code or by roster, where the employer's own staff list shows who joined. The existing text was not changed here.
 - Done: the account page form where the code is entered now says it plainly before the code is typed (`employer.join.sees_body`), pinned by a test that reads the SQL function.
@@ -5980,12 +5980,12 @@ The request status function and the PDF routes now hide sensitive requests from 
 - Recommendation: (a) now, decide (b) with counsel before the first real employer goes live, because a person who joins to use a benefit may not expect their employer to see that they did.
 - Counsel: whether the consent screen may imply anything about employment; no such wording was written.
 
-### OQ-728 Neutral app name and icon need a native build (raised 2026-10-27)
+### OQ-742 Neutral app name and icon need a native build (raised 2026-10-27)
 - Discreet mode already makes push and email text generic (S04b-3) and an existing lint (`packages/notifications/src/inv07-lint.test.ts`) keeps every template free of condition, reading, medicine and result. The operating system still shows the app's own name on a notification and under the icon, and that cannot be changed from JavaScript.
 - A neutral name and icon is an alternate-icon and launcher-label change: a native dependency or config plugin, a `runtimeVersion` bump (currently `0.1.0-native8`), an EAS build, and a test on a real iOS and Android phone. None of that was done: it cannot be verified here and a wrong native change breaks the over-the-air update path.
 - Decision needed: the neutral name (one word that tells nobody anything), and whether to spend a native build on it now or with the next unavoidable one.
 
-### OQ-729 A visit follow-up prompt, not a free follow-up (raised 2026-10-27)
+### OQ-743 A visit follow-up prompt, not a free follow-up (raised 2026-10-27)
 - The research suggested a free 7-day follow-up window. The written-question follow-up (`async_question.behaviour followUpDays 7`) already exists and does not use the monthly allowance. Messaging the care team (`start_care_thread`) has no allowance or charge, so a second window would change nothing.
 - Built: a prompt on the after-visit summary for 7 days (`visit.follow_up_prompt`, PROPOSED) linking to Messages. It creates no entitlement, changes no price and promises no reply time; the test blocks words such as free, hours and guarantee.
 - If the founder wants a real commercial promise (a follow-up that returns a spent written-message allowance, or a response time), that is a pricing decision, not a copy change.

@@ -37,7 +37,7 @@ describe("employer join copy", () => {
     const text = t("employer.join.sees_body", "en");
     expect(text).toMatch(/group totals only/);
     expect(text).toMatch(/does not see your readings, your results, your medicines or your messages/);
-    // Not asserted, because it was not verified for every employer screen: that small groups are hidden everywhere (see OQ-727).
+    // Not asserted, because it was not verified for every employer screen: that small groups are hidden everywhere (see OQ-741).
     expect(text).not.toMatch(/small group/);
     // It must not claim "never your name": the staff list shows the name (see the first test).
     expect(text).not.toMatch(/never see your name/i);
