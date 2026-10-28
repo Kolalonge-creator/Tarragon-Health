@@ -83,6 +83,8 @@ import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
 import { S06S10Banner } from "./s06-s10-banner";
 import { OpenOnHash } from "./open-on-hash";
+import { AdvanceToNext } from "./advance-to-next";
+import { signoffAnchorId } from "@/lib/signoff-anchor";
 import { readFlash } from "@/lib/go-live/flash";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { t } from "@tarragon/i18n";
@@ -381,6 +383,7 @@ export default async function ClinicianClinicalSignoffPage({
 
       <S06S10Banner snapshot={hub.s06s10} />
       <OpenOnHash />
+      <AdvanceToNext lineIds={hub.items.map((i) => signoffAnchorId(i.key))} />
 
       {/* Never an all-clear when a read failed: say so, and keep whatever did load. */}
       {hub.failed && (
