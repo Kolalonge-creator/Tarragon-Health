@@ -78,7 +78,7 @@ begin
   v_coord := pg_temp.mkdoc(v_org, 'coord', 'care_coordinator', v_admin);
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
   v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient');
-  perform pg_temp.setf('org', v_org); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('other', v_other); perform pg_temp.setf('cmo', v_cmo);
+  perform pg_temp.setf('org', v_org); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('other', v_other); perform pg_temp.setf('cmo', v_cmo);
   perform pg_temp.setf('coord', v_coord); perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('pat2', v_pat2);
   -- the doctor is on pat's care team (a real relationship); nobody is on pat2's
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_pat, v_doc, now());
