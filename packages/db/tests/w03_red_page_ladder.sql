@@ -63,7 +63,7 @@ begin
   values (v, 'w03-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'W03 ' || p_label, (current_date - interval '50 years')::date, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true, is_active = true;
   return v;
 end $f$;
 
