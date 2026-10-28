@@ -5,12 +5,11 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { ClaimCard } from "./claim-card";
 
 /**
- * Where the neutral invite SMS points (Termii, sent from the paystack-webhook
- * Edge Function once the sponsor's payment lands — see
- * sponsored_service_reservations.invite_token). Deliberately requires the
+ * Where the claim link points. The sponsor shares it themselves from
+ * /patient/supporting (their own share sheet); no SMS is sent (Part C, D3) —
+ * see sponsored_service_reservations.invite_token. Deliberately requires the
  * visitor's OWN account, signed up the normal app/web way: this is not a
- * SMS-driven signup path, just a link
- * that happens to arrive by SMS. claim_sponsored_service_reservation itself
+ * message-driven signup path, just a link. claim_sponsored_service_reservation itself
  * re-checks that the signed-in caller's phone matches the reservation's
  * recipient_phone, so there's nothing to authorise here beyond "are they
  * signed in at all" — everything else fails closed inside the RPC.

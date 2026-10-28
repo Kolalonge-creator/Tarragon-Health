@@ -48,6 +48,13 @@ export async function draftHash(original: DraftFields, subtle: Pick<SubtleCrypto
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** sha256 of the visit text the draft was made from, normalised for whitespace so the same notes always give the same hash. */
+export async function textHash(text: string, subtle: Pick<SubtleCrypto, "digest"> = globalThis.crypto.subtle): Promise<string> {
+  const bytes = new TextEncoder().encode(normalised(text));
+  const digest = await subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 // ---------------------------------------------------------------------------
 // The CMO's quality figures (public.scribe_edit_rates, public.scribe_audit_sample). Parsed with Zod: a figure that cannot be
 // read is shown as a load error, never as zero.
@@ -63,6 +70,15 @@ const sectionCounts = z.object({
   flagged_empty: z.number(),
 });
 export const editRatesSchema = z.object({ reviews: z.number(), sections: z.record(z.string(), sectionCounts) });
+const diffSectionCounts = z.object({ drafts_changed: z.number(), draft_words: z.number(), words_added: z.number(), words_removed: z.number() });
+/** public.scribe_diff_edit_rates: counts only, no text. */
+export const diffRatesSchema = z.object({
+  drafts: z.number(),
+  draft_words: z.number(),
+  words_added: z.number(),
+  words_removed: z.number(),
+  sections: z.record(z.string(), diffSectionCounts),
+});
 export const auditSampleSchema = z.array(
   z.object({ note_id: z.string().uuid(), finalized_at: z.string().nullable(), author_profile_id: z.string().uuid().nullable(), has_hash: z.boolean() }),
 );
