@@ -5075,34 +5075,34 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - On low power, or in low-data mode off Wi-Fi, the background task skips the health-store read as well as the upload. A read without an upload cannot advance the server cursor (it moves only past uploaded pages), so the next run would read and queue the same samples again, growing the queue toward its cap with duplicates. Nothing is lost; the samples are read on the next run that may upload. Splitting read from upload needs de-duplication in health-sync.ts. The Devices Sync now button and a foreground sync are the patient asking and still upload.
 - Decision: open (product).
 
-### OQ-S50B-1 Every number in the low-carbohydrate programme is a placeholder (raised by S50b, 2026-10-21)
+### OQ-S50B2-1 Every number in the low-carbohydrate programme is a placeholder (raised by S50b, 2026-10-21)
 - Eligibility exclusions (type 1, kidney disease, pancreatitis, liver disease, ketoacidosis history, a positive eating-disorder screen, pregnancy and 12 months postnatal, SGLT2 inhibitors), the 90-day look-back for a severe low (3.0 mmol/L), the 72-hour red or amber wait, the check-in cadence (sugar 14 a week, ketones 3, weight 1), the pause lines (sugar below 3.9, ketones 3.0 or more), the stop rules (3 pauses in 30 days, 14 days silent) and the review lines (average below 7.0 over 7 days with 5 readings, any reading below 4.4, a standing review every 14 days) are all the build agent's placeholders in `lowcarb.protocol_rules`.
 - Needed: the CMO reviews each in the sign-off hub line "Low-carbohydrate programme rules" and signs. Also whether insulin and sulfonylurea users are ever in scope (the build lets a doctor accept supervision with a note) and whether SGLT2 inhibitors are excluded outright (euglycaemic ketoacidosis).
 - Decision: open (CMO).
 
-### OQ-S50B-2 The diabetes step table has to be written, and the editor cannot yet (raised by S50b, 2026-10-21)
+### OQ-S50B2-2 The diabetes step table has to be written, and the editor cannot yet (raised by S50b, 2026-10-21)
 - The shipped `t2d_lowcarb_deprescribing` v1 is a DRAFT marked `placeholder`; `approve_protocol` refuses a placeholder, so it can never go live unchanged. The existing titration protocol page validates the blood pressure shape (`validateProtocolDefinition`), so the CMO cannot author a glucose step table there. `save_protocol_draft` itself only needs `params` and `steps`.
 - Needed: a diabetes step-table editor (or a second validator keyed by code) and the CMO's real steps. The platform proposes a stop only; a dose change is a note and the doctor sets the dose.
 - Decision: open (CMO, then a small build).
 
-### OQ-S50B-3 The check-in sweep is now scheduled (raised by S50b, 2026-10-21; scheduled in the follow-up the same day)
+### OQ-S50B2-3 The check-in sweep is now scheduled (raised by S50b, 2026-10-21; scheduled in the follow-up the same day)
 - `private.lowcarb_sweep()` is registered with pg_cron as `lowcarb-checkin-sweep`, every 15 minutes, by name (re-running the migration replaces the job). It returns at once while nobody is enrolled, so it costs one existence check. It turns nothing on. The migration fails if the job is not registered.
 - Still open: the go-live condition `check_in_sweep_scheduled` stays as an attestation, so a person confirms the job is actually running healthily (cron.job_run_details) before the guard is switched on.
 - Not verified here: nothing was run against a database in this round (no production access by instruction, no Docker). CI's migration replay is the first real run of the `cron.schedule` statement and the self-check.
 - Decision: open (ops, at go-live).
 
-### OQ-S50B-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
+### OQ-S50B2-4 Ketone testing cost, rota, and what a low-sugar reading means in this programme (raised by S50b, 2026-10-21)
 - The guard needs a recorded doctor and dietitian rota and a recorded decision on the cost of ketone testing (who pays for strips, how many a week, whether a Member gets them). Neither exists and neither was attested.
 - The patient screen says only: follow the low sugar advice your care team gave you, and go to the nearest hospital if very unwell. It gives no fast-sugar instruction on purpose (that wording is the CMO's, see the `glucose_fast_sugar_wording` guard).
 - Decision: open (founder, CMO).
 
-### OQ-S50B-5 Phone screen built; device and offline behaviour not tried (raised by S50b, 2026-10-21; built in the follow-up)
+### OQ-S50B2-5 Phone screen built; device and offline behaviour not tried (raised by S50b, 2026-10-21; built in the follow-up)
 - Built: `LowCarbScreen` (hidden from the drawer; reached by a quiet link on the Medicines screen shown only to someone who has been offered the programme), using the same doors as the web. A closed gate shows nothing; a failed load is its own error state; the Stop button and the low-sugar card stay for anyone on the programme, even when the rules are not live or the numbers cannot be read (they degrade to no number; only an answer with no id or status is an error with a retry); the low-sugar card has no fast-sugar instruction and opens the existing emergency guidance. Readings are logged on the existing Vitals screen (the offline outbox). Answering and stopping are never queued and nothing clinical is cached.
 - Not verified: the mobile Jest suite is logic only (no rendering), so the screen was type-checked and its decisions unit-tested (`lowCarbPanels`), never run on a device or simulator. The medicines link shows only once the network answers.
 - Open: whether the offer should also reach the phone as a push (the notice is neutral and exists; there is no deep link into the screen).
 - Decision: open (product), device test before go-live.
 
-### OQ-S50B-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
+### OQ-S50B2-6 Pausing on ketones alone, and symptoms (raised by S50b, 2026-10-21)
 - The spec says "a high ketone reading with symptoms". The build pauses on the number alone (no symptom entry needed), the more careful direction. Whether symptoms should also lower the line, and whether a pause should wait for a clinician to look first, is the CMO's. A urine-strip ketone result (`ketone_urine`) does not pause the programme: only a blood ketone number does. Medicine name lists (insulin, sulfonylurea, SGLT2 brands) are placeholders and will miss products; an unlisted diabetes medicine is not screened, so the CMO or a pharmacist must complete them.
 ### OQ-S50A-1 The swaps, the five plans and the 5 g salt line are PROPOSED and unsigned (raised by the S50a build, 2026-10-21)
 - `nutrition_guidance_config` v1 is seeded inactive. The CMO (with a dietitian if one is available) should read every swap, every plan and the one number (`plans.hypertension.numbers.salt_g_max = 5`, the WHO figure, a placeholder), then sign through the sign-off hub item "Eating plans and food swaps". Kidney and pregnancy carry no numbers by design; if the CMO wants numbers there they need a new validator rule, not just a new config.
@@ -5184,7 +5184,7 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 - Options: (a) change the HLP-017 line in the Production List to "Choose a verified pharmacy to collect your medicine from. You pay the pharmacy when you collect." and re-run the importer before the clip is recorded (recommended); (b) record it as is and re-record later (not recommended).
 - Decision: open (founder or whoever owns the Production List): update the .docx line to match.
 
-### OQ-S50B-7 What a pharmacist and the CMO must review in the medicine lists (raised by S50b follow-up, 2026-10-21)
+### OQ-S50B2-7 What a pharmacist and the CMO must review in the medicine lists (raised by S50b follow-up, 2026-10-21)
 - Group lists (config `eligibility.medicine_groups`): insulin (human, analogues, premixes, with Mixtard, Actrapid, Insulatard, Insuman, Humulin, Humalog, NovoRapid, NovoMix, Lantus, Abasaglar, Basaglar, Semglee, Levemir, Tresiba, Toujeo, Apidra, Fiasp, Lyumjev, Ryzodeg, Xultophy, Soliqua, Insugen, Wosulin, Basalog, Glaritus), sulfonylureas (glibenclamide/glyburide, gliclazide, glimepiride, glipizide, gliquidone, tolbutamide, chlorpropamide, tolazamide; Daonil, Euglucon, Diamicron, Amaryl, Glucotrol, Minidiab, Glurenorm, Glucovance, Glibomet), meglitinides, SGLT2 inhibitors (excluded: includes Forxiga, Jardiance, Invokana, Steglatro, Steglujan, Trijardy, Synjardy, Xigduo, Glyxambi, Segluromet, Invokamet, Qtern), and the recognised-no-extra-step groups (metformin, DPP-4, glitazones, GLP-1, acarbose). These were written without a pharmacist. Glyvenol is NOT a sulfonylurea (it is a venotonic) and is deliberately absent.
 - Needed: a Nigerian pharmacist confirms every name, adds missing local brands, and the CMO decides: whether GLP-1 and DPP-4 medicines are really "no extra step" on this programme; whether meglitinides need supervision; whether SGLT2 inhibitors are excluded outright.
 - How the screen fails safe (so a missing name is not a missing safeguard): any medicine that matches no group but whose name contains a marker (gli, glu, sulin, tophy, insulin, diabet, metformin, formin, glutide, tirzepatide, sulfonyl, glucose, sugar) or whose recorded reason mentions diabetes or sugar, any medicine with a blank name, and any name holding a letter the code cannot read (for example full-width letters) needs a doctor to accept supervision by name. Matching tolerates capitals, accents, invisible characters, strengths and doses attached to the name, combination products, a brand split in two words, one slip (two for long names) and two letters swapped. A false match only asks for a supervision note, so common supplements such as glucosamine will ask too.

@@ -26,7 +26,7 @@ Built end to end, **live for nobody**. The go-live guard `low_carb_t2d_programme
 - A resume is a clinician's act and re-runs the whole screen (a new red result blocks it). After a low sugar or ketone pause it also needs a medicine review recorded since the pause.
 - The patient door keeps answering `ok` for anyone already on the programme even if the guard is switched off, so the low-sugar card and the Stop button never vanish; the guard hides only an unanswered offer. An offer lapses after 14 days.
 - A clinician the category-scoped path does not entitle to reproductive health sees one vague reason for every `not_eligible`, so the answer cannot reveal a pregnancy.
-- Three pauses in 30 days, or 14 days without a check-in, STOP it. A stop always opens a medicine review. The check-in sweep (`private.lowcarb_sweep()`) is written and proven but not scheduled (OQ-S50B-3).
+- Three pauses in 30 days, or 14 days without a check-in, STOP it. A stop always opens a medicine review. The check-in sweep (`private.lowcarb_sweep()`) is written and proven but not scheduled (OQ-S50B2-3).
 - Triggers swallow their own errors by design (a reading must still save) but every failure opens a `sev2` ops incident (`lowcarb_programme_safety`). A failed review task never undoes a pause.
 
 ## Medicines (INV-02)
@@ -38,5 +38,5 @@ Built end to end, **live for nobody**. The go-live guard `low_carb_t2d_programme
 - Clinician: `LowCarbProgrammePanel` on the patient chart (renders nothing until the guard is on or an enrolment exists), with offer, pause, resume, stop, "Check the medicines", and "Record the review". Drafts appear in the existing Care plan changes panel.
 - Patient: `/patient/lowcarb` (offer with equal yes and no buttons, today's check-in, what to do if low, reach your care team, stop). Reachable through a link on the medicines page that exists only for someone who has been offered it.
 - CMO: `/clinician/lowcarb-protocol-config` and the sign-off hub line. Admin read-only copy at `/admin/settings/lowcarb-protocol-config`.
-- Phone: `LowCarbScreen` (not in the drawer; a quiet link on Medicines for someone who was offered it). Logging goes to the existing Vitals screen and its offline outbox. See OQ-S50B-5.
-- Medicine classification: groups in the config, fuzzy match, and a fail-safe (an unrecognised diabetes-looking medicine needs supervision). See OQ-S50B-6.
+- Phone: `LowCarbScreen` (not in the drawer; a quiet link on Medicines for someone who was offered it). Logging goes to the existing Vitals screen and its offline outbox. See OQ-S50B2-5.
+- Medicine classification: groups in the config, fuzzy match, and a fail-safe (an unrecognised diabetes-looking medicine needs supervision). See OQ-S50B2-6.
