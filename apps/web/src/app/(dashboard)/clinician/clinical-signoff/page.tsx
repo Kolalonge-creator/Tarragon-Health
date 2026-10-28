@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -58,6 +58,8 @@ import { MentalWellbeingPanel } from "../_signoff-panels/mental-wellbeing-panel"
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { SymptomUxPanel } from "../_signoff-panels/symptom-ux-panel";
+import { MskProgrammesPanel } from "../_signoff-panels/msk-programmes-panel";
+import { readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { LegacyNoticeRetirementPanel } from "../_signoff-panels/legacy-notice-retirement-panel";
@@ -282,6 +284,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(MENTAL_WELLBEING_ITEM_KEY)) {
     const pendingWellbeing = await readPendingMentalWellbeingSignoff(supabase);
     inlinePanels[MENTAL_WELLBEING_ITEM_KEY] = <MentalWellbeingPanel worklistVersion={pendingWellbeing.worklistVersion} worklistRules={pendingWellbeing.worklistRules} attestations={pendingWellbeing.attestations} />;
+  }
+  if (keys.has(MSK_PROGRAMMES_ITEM_KEY)) {
+    const pendingMsk = await readPendingMskProgrammesSignoff(supabase);
+    inlinePanels[MSK_PROGRAMMES_ITEM_KEY] = <MskProgrammesPanel programmes={pendingMsk.programmes} />;
   }
   if (keys.has(CASCADE_CONFIG_ITEM_KEY)) {
     const pendingCascade = await readPendingCascadeConfigSignoff(supabase);

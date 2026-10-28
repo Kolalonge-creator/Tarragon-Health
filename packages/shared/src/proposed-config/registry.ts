@@ -17,7 +17,7 @@
 import { BIOMARKER_GRADE_BANDS } from "./biomarker-grade-bands";
 import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
 import { OBSERVATION_LIMITS_V1 } from "./observation-limits-data";
-import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
+import { THERAPY_EXCLUSION_LISTS, THERAPY_EXCLUSION_LISTS_V1, THERAPY_PROGRAMME_CONFIG, THERAPY_PROGRAMME_CONFIG_V1 } from "./therapy-config-data";
 
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
@@ -2397,15 +2397,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
   {
     key: "therapy.exclusion_lists",
-    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
-    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
-    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
-    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    // Version 1 (S63): the lists the engine shipped with, the four pain programmes on one shared scaffold list. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_EXCLUSION_LISTS_V1 as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Version 1 (S63): pain programmes scored on one pain rating. Kept as history; version 2 (S96) is in force.
+    value: THERAPY_PROGRAMME_CONFIG_V1 as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+  },
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1, except the four pain programmes which are at list version 2 (S96, msk-config-data.ts); a test fails if the
+    // migration seeds and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123, CG61, NG59 and NG226 style exclusions (to verify)",
   },
   {
     key: "therapy.programme_config",
@@ -2415,9 +2436,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
     owner: "CMO",
     status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
+    version: 2,
+    effectiveFrom: "2026-10-27",
+    source: "docs/design/S63.md; docs/design/S96.md (config version 2: PEG and function goal for the pain programmes, MSK settings); docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
