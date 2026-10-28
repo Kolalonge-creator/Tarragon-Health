@@ -116,6 +116,11 @@ const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ wait
 jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
   readUnifiedRedPagingState: (...args: unknown[]) => readUnifiedRedPagingState(...args),
 }));
+const readPendingMskProgrammesSignoff = jest.fn<(...args: unknown[]) => Promise<{ programmes: unknown[]; waitingCount: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-msk-programmes-signoff", () => ({
+  MSK_PROGRAMMES_ITEM_KEY: "msk_programmes",
+  readPendingMskProgrammesSignoff: (...args: unknown[]) => readPendingMskProgrammesSignoff(...args),
+}));
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
@@ -147,6 +152,8 @@ function item(key: string, severity: SignoffQueueItem["severity"], count?: numbe
 }
 
 beforeEach(() => {
+  readPendingMskProgrammesSignoff.mockReset();
+  readPendingMskProgrammesSignoff.mockResolvedValue({ programmes: [], waitingCount: 0, failed: false });
   readPendingBpDeviceReview.mockReset();
   readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
@@ -797,6 +804,26 @@ describe("readCmoSigningHub: symptom checker assessment wording and timing (S59c
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the symptom checker assessment wording and timing");
+  });
+});
+
+describe("readCmoSigningHub: back, neck, knee and hip pain programmes (S96)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line under /clinician counting the programmes with draft content or a draft list, and says nothing is shown until signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingMskProgrammesSignoff.mockResolvedValue({ programmes: [], waitingCount: 4, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "msk_programmes");
+    expect(line?.count).toBe(4);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/Nothing is shown to a patient until/);
+  });
+  it("adds no line when nothing waits, and names a failed read instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "msk_programmes")).toBeUndefined();
+    readPendingMskProgrammesSignoff.mockResolvedValue({ programmes: [], waitingCount: 0, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the back, neck, knee and hip pain programmes");
   });
 });
 

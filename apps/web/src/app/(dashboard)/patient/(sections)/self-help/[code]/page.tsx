@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { isTherapyProgrammeCode } from "@tarragon/shared";
+import { isMskProgrammeCode, isTherapyProgrammeCode } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +10,7 @@ import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
 import { SharedPhoneSettings } from "@/components/mental-health/shared-phone-settings";
 import { TherapyEntryScreen } from "@/components/therapy/entry-screen";
 import { TherapySessionPlayer } from "@/components/therapy/session-player";
+import { MskFlareUp } from "@/components/therapy/msk-flare-up";
 import { TherapyShareConsentCard } from "@/components/therapy/share-consent-card";
 
 /**
@@ -54,6 +55,7 @@ export default async function PatientProgrammePage({ params }: { params: Promise
         ) : (
           <>
             <TherapySessionPlayer enrolmentId={enrolment.id} programmeCode={code} ordinal={enrolment.completed_count + 1} />
+            {isMskProgrammeCode(code) && <MskFlareUp enrolmentId={enrolment.id} programmeCode={code} />}
             <TherapyShareConsentCard enrolmentId={enrolment.id} />
           </>
         )}

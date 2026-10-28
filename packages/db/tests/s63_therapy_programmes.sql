@@ -184,13 +184,15 @@ do $$
 declare r record; o jsonb; n_rules integer := 0; n_refused integer := 0;
 begin
   for r in select programme_code, item_code, route from public.therapy_exclusion_rules
-            where list_version = 1 and programme_code <> 'pulmonary_rehab' order by programme_code, ordinal loop
+            where programme_code <> 'pulmonary_rehab'
+              and list_version = (select max(l.version) from public.therapy_exclusion_list_versions l where l.programme_code = therapy_exclusion_rules.programme_code)
+            order by programme_code, ordinal loop
     n_rules := n_rules + 1;
     o := pg_temp.enrol_as(pg_temp.f('pat2'), r.programme_code, pg_temp.answers(r.programme_code, r.item_code));
     if (o ->> 'enrolled') = 'false' and (o ->> 'route') = r.route and (o -> 'stop_codes') = jsonb_build_array(r.item_code) then n_refused := n_refused + 1; end if;
   end loop;
   perform pg_temp.ck('every exclusion item refuses enrolment with its own route (' || n_rules || ' items)', n_rules::text, n_refused::text);
-  perform pg_temp.ck('...and the rule count is the seeded lists (81)', '81', n_rules::text);
+  perform pg_temp.ck('...and the rule count is the seeded lists (S96 replaced the four pain lists with list version 2: 101 items)', '101', n_rules::text);
   perform pg_temp.ck('no active enrolment exists for the patient who tripped them all', '0',
     (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('pat2') and state in ('active', 'paused')));
   perform pg_temp.ck('a missing answer refuses (fail closed)', 'blocked',
@@ -207,7 +209,9 @@ begin
   perform pg_temp.ck('...and returns the same-day clinician route (urgent guidance)', 'same_day_clinician', o ->> 'route');
   perform pg_temp.ck('...and a clinician task exists (never only a notification)', '1', pg_temp.tasks_for(pg_temp.f('pat'), 'symptom_review'));
   perform pg_temp.ck('...and nothing is active', '0', (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('pat') and state = 'active'));
-  perform pg_temp.ck('a scaffold programme with clean answers is not available', 'not_available', pg_temp.enrol_as(pg_temp.f('patB'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
+  -- S96: pain_back is now a DRAFT programme (it was a scaffold, 'not_available'). S63 lets a TEST account use a draft while its guard is off, so the
+  -- test patients here could enrol; the REAL patient is the one the guard holds back.
+  perform pg_temp.ck('a pain programme with clean answers is not open to a real patient while its guard is off', 'not_open_yet', pg_temp.enrol_as(pg_temp.f('real'), 'pain_back', pg_temp.answers('pain_back')) ->> 'reason');
   -- the pure check shows guidance and writes nothing
   perform pg_temp.ck('the pure screen writes nothing', 'same_day_clinician',
     pg_temp.q_as(pg_temp.f('patB'), format($q$select (public.therapy_check_entry_screen('pain_back', %L::jsonb))->>'route'$q$, pg_temp.answers('pain_back', 'saddle_numbness')::text)));
@@ -413,7 +417,7 @@ begin
   perform pg_temp.ck('...and the programme is still active', 'active', (select state from public.therapy_enrolments where id = e));
   update public.therapy_programme_config set is_active = false;
   perform pg_temp.ck('with no active config a session will not open (fails closed)', 'true', (pg_temp.start_as(pat, e, 5, pg_temp.answers('panic_breathing')) ->> 'error' like '%not configured%')::text);
-  update public.therapy_programme_config set is_active = true where version = 1;
+  update public.therapy_programme_config set is_active = true where version = (select max(version) from public.therapy_programme_config);
   perform pg_temp.ck('...an untied clinician cannot resume', 'true', (pg_temp.try_as(pg_temp.f('docuntied'), format($q$select public.resume_therapy_enrolment(%L, 'trying to resume it')$q$, e)) like '%not authorised%')::text);
 end $$;
 
