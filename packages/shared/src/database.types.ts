@@ -54063,6 +54063,14 @@ export type Database = {
         Args: { p_draft_id: string }
         Returns: string
       }
+      confirm_my_lab_report: {
+        Args: {
+          p_extraction_id: string
+          p_readings: Json
+          p_report_date: string
+        }
+        Returns: number
+      }
       confirm_lab_report_extraction: {
         Args: {
           p_extraction_id: string
@@ -55805,6 +55813,10 @@ export type Database = {
           score: number
           status: Database["public"]["Enums"]["reference_concept_status"]
         }[]
+      }
+      my_lab_report_drafts: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       mark_care_message_thread_read: {
         Args: { p_thread_id: string }
