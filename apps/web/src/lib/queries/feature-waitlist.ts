@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
 /** The features a patient can ask to hear about. Must match the check constraint on public.feature_waitlist. */
-export type WaitlistFeature = "consultations" | "membership" | "directory";
+export type WaitlistFeature = "consultations" | "membership" | "directory" | "community" | "course";
 
 const key = (feature: WaitlistFeature) => ["feature-waitlist", feature] as const;
 

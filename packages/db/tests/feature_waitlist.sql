@@ -1,4 +1,4 @@
--- Proves 20261029233636_feature_waitlist.sql: a patient can put themselves on the waitlist for a closed feature, can see and remove
+-- Proves 20261029233636_feature_waitlist.sql and its widening migration (community, course): a patient can put themselves on the waitlist for a closed feature, can see and remove
 -- only their own rows, cannot write for someone else, and cannot name a feature that does not exist.
 --
 --   npx supabase db query --linked -f packages/db/tests/feature_waitlist.sql
@@ -53,6 +53,14 @@ begin
     insert into results values ('an unknown feature key is refused', 'refused', 'allowed');
   exception when others then
     insert into results values ('an unknown feature key is refused', 'refused', 'refused');
+  end;
+  begin
+    insert into public.feature_waitlist (organisation_id, patient_id, feature_key)
+    select (select v from ids where k='org'), (select v from ids where k='ada'), k from unnest(array['community', 'course']) as k;
+    insert into results values ('community and course can be joined', 'allowed', 'allowed');
+    delete from public.feature_waitlist where feature_key in ('community', 'course');
+  exception when others then
+    insert into results values ('community and course can be joined', 'allowed', 'refused');
   end;
   begin
     insert into public.feature_waitlist (organisation_id, patient_id, feature_key)
