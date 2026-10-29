@@ -7,7 +7,7 @@ import { discardHeldReading, loadHeldReadings, type HeldReading } from "@/lib/he
 import { loadRecommendedDevices, type RecommendedDevice } from "@/lib/recommended-devices";
 import { loadSevereLowMessage } from "@/lib/cgm-safety";
 import { readEcgClassifications, syncEcgResults } from "@/lib/healthkit-ecg";
-import { useLegacyColors, textStyles } from "@/ui/design";
+import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { AppText } from "@/ui/kit/AppText";
@@ -81,7 +81,7 @@ export function CgmSafetySection({ patientId }: { patientId: string }) {
         <Ionicons name="alert-circle" size={22} color={colors.danger} />
         <AppText variant="bodyStrong">Please read this now</AppText>
       </View>
-      <Text style={{ color: colors.ink, ...textStyles.bodyLarge }}>{message}</Text>
+      <AppText variant="bodyLarge">{message}</AppText>
     </Card>
   );
 }

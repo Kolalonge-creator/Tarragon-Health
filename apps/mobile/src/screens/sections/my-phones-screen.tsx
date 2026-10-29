@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, TextInput, View } from "react-native";
 import { cleanPhoneName, PHONE_NAME_MAX, type PhoneView } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import { lastTryAndCount, loadPhones, removePhone, savePhoneDetails, type ThisPhoneUnsent } from "@/lib/my-phones";
 import { probeReachable } from "@/lib/reachability";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, textStyles } from "@/ui/design";
+import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const formatWhen = (value: string) =>
   new Date(value).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -137,26 +138,26 @@ export function MyPhonesScreen({ userId, acting }: Props) {
               const manageable = p.status === "active" || p.status === "lapsed";
               return (
                 <Card key={p.deviceId}>
-                  <Text accessibilityRole="header" style={{ ...ink, ...textStyles.bodyLargeStrong }}>
+                  <AppText accessibilityRole="header" variant="bodyLargeStrong">
                     {p.name}
                     {p.isThisPhone ? `  (${t("my_phones.this_phone")})` : ""}
                     {p.shared ? `  (${t("my_phones.shared_badge")})` : ""}
-                  </Text>
+                  </AppText>
                   <MutedText>{t(`my_phones.status.${p.status}`)}</MutedText>
-                  <Text style={ink}>{t("my_phones.last_seen", "en", { when: formatWhen(p.lastSeenAt) })}</Text>
+                  <AppText variant="body">{t("my_phones.last_seen", "en", { when: formatWhen(p.lastSeenAt) })}</AppText>
                   {p.status === "active" ? <MutedText>{t("my_phones.lease", "en", { when: formatWhen(p.leaseExpiresAt) })}</MutedText> : null}
                   {p.status === "wiped" && p.unsentAtWipe !== null ? (
-                    <Text style={ink}>
+                    <AppText variant="body">
                       {p.unsentAtWipe === 0 ? t("my_phones.wiped_count_none") : t("my_phones.wiped_count", "en", { n: String(p.unsentAtWipe) })}
                       {p.urgentAtWipe ? ` ${t("my_phones.wiped_count_urgent", "en", { u: String(p.urgentAtWipe) })}` : ""}
-                    </Text>
+                    </AppText>
                   ) : null}
 
                   {manageable ? (
                     <View style={{ gap: 12, marginTop: 12 }}>
                       {editing === p.deviceId ? (
                         <View style={{ gap: 8 }}>
-                          <Text style={ink}>{t("my_phones.rename_label")}</Text>
+                          <AppText variant="body">{t("my_phones.rename_label")}</AppText>
                           <TextInput
                             value={draft}
                             onChangeText={setDraft}
@@ -178,7 +179,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
                       )}
 
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
-                        <Text style={{ ...ink, flex: 1, marginRight: 12 }}>{t("my_phones.shared_toggle")}</Text>
+                        <AppText variant="body" style={{ flex: 1, marginRight: 12 }}>{t("my_phones.shared_toggle")}</AppText>
                         <Switch
                           value={p.shared}
                           disabled={busy}
@@ -190,31 +191,31 @@ export function MyPhonesScreen({ userId, acting }: Props) {
 
                       {removing?.id === p.deviceId ? (
                         <View accessibilityRole="alert" style={{ gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12 }}>
-                          <Text style={{ ...ink, fontWeight: "600" }}>{t("my_phones.remove_title")}</Text>
-                          <Text style={ink}>{t("my_phones.remove_body")}</Text>
-                          <Text style={ink}>{t("my_phones.remove_last_try")}</Text>
-                          <Text style={ink}>{t("my_phones.remove_urgent")}</Text>
-                          {p.shared ? <Text style={ink}>{t("my_phones.remove_shared_warning")}</Text> : null}
+                          <AppText variant="bodyStrong">{t("my_phones.remove_title")}</AppText>
+                          <AppText variant="body">{t("my_phones.remove_body")}</AppText>
+                          <AppText variant="body">{t("my_phones.remove_last_try")}</AppText>
+                          <AppText variant="body">{t("my_phones.remove_urgent")}</AppText>
+                          {p.shared ? <AppText variant="body">{t("my_phones.remove_shared_warning")}</AppText> : null}
                           {removing.isThis ? (
                             <>
                               {removing.counts ? (
                                 <>
-                                  <Text style={{ ...ink, fontWeight: "600" }}>
+                                  <AppText variant="bodyStrong">
                                     {removing.counts.unsent === 0
                                       ? t("my_phones.remove_this_unsent_none")
                                       : t("my_phones.remove_this_unsent", "en", { n: String(removing.counts.unsent) })}
-                                  </Text>
+                                  </AppText>
                                   {removing.counts.urgent > 0 ? (
-                                    <Text style={ink}>{t("my_phones.remove_this_urgent", "en", { u: String(removing.counts.urgent) })}</Text>
+                                    <AppText variant="body">{t("my_phones.remove_this_urgent", "en", { u: String(removing.counts.urgent) })}</AppText>
                                   ) : null}
                                   {removing.counts.others > 0 ? (
-                                    <Text style={ink}>{t("my_phones.remove_this_others", "en", { n: String(removing.counts.others) })}</Text>
+                                    <AppText variant="body">{t("my_phones.remove_this_others", "en", { n: String(removing.counts.others) })}</AppText>
                                   ) : null}
                                 </>
                               ) : (
-                                <Text style={{ ...ink, fontWeight: "600" }}>{t("my_phones.remove_this_unknown")}</Text>
+                                <AppText variant="bodyStrong">{t("my_phones.remove_this_unknown")}</AppText>
                               )}
-                              <Text style={ink}>{t("my_phones.remove_this_signout")}</Text>
+                              <AppText variant="body">{t("my_phones.remove_this_signout")}</AppText>
                             </>
                           ) : null}
                           <PrimaryButton title={t("my_phones.remove_confirm")} onPress={() => void confirmRemove()} disabled={busy} />

@@ -57,17 +57,17 @@ export function EmergencyBlock({ patientId }: { patientId: string }) {
               {guidance.title}
             </AppText>
             {guidance.lines.map((line) => (
-              <Text key={line} style={{ ...textStyles.bodyLarge, color: colors.ink }}>
+              <AppText key={line} variant="bodyLarge">
                 {line}
-              </Text>
+              </AppText>
             ))}
             <AppText variant="bodyLargeStrong" accessibilityRole="header" style={{ marginTop: 8 }}>
               {SELF_HARM_GUIDANCE.title}
             </AppText>
             {SELF_HARM_GUIDANCE.lines.map((line) => (
-              <Text key={line} style={{ ...textStyles.bodyLarge, color: colors.ink }}>
+              <AppText key={line} variant="bodyLarge">
                 {line}
-              </Text>
+              </AppText>
             ))}
             {extra ? <AppText variant="body">{extra}</AppText> : null}
           </ScrollView>
