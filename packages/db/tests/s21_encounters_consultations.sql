@@ -149,6 +149,10 @@ begin
   v_minor := pg_temp.mkuser(v_org, 'minor', 'patient', (current_date - interval '15 years')::date);
   v_nodob := pg_temp.mkuser(v_org, 'no-dob', 'patient', null);
   v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient', (current_date - interval '33 years')::date);
+  -- a paid consultation is for paid Members (decision 2026-10-29): these patients are Members, so the age and licence checks below are what refuse
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
+  select v_org, p, 'granted', 'active', now() - interval '1 day', v_admin, 'S21 fixture membership', true
+    from unnest(array[v_adult, v_adult2, v_adult3, v_adult4, v_minor, v_nodob, v_stranger]) p;
 
   -- fixture: the two doctors need a clinical_staff row (booking checks the licence); the booking lead time is 5 minutes and the horizon 21 days in this
   -- transaction only, so a consultation 10 minutes away can be booked
@@ -161,7 +165,7 @@ begin
   perform pg_temp.rec('exactly one consultation policy is active (v2 since S21g, which adds the chart access cap)', '1/2', (select count(*)::text || '/' || max(version)::text from public.consultation_policy_config where is_active));
   perform pg_temp.rec('the policy has a 2 hour window and a minimum age of 18', '2/18',
     (select (config ->> 'cancelWindowHours') || '/' || (config ->> 'minAgeYears') from public.consultation_policy_config where is_active));
-  perform pg_temp.rec('a consultation costs NGN 10,000 (1,000,000 kobo, OQ-130)', '1000000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
+  perform pg_temp.rec('an extra online meeting costs NGN 5,000 (500,000 kobo; decision 2026-10-29, was NGN 10,000 under OQ-130)', '500000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
   perform pg_temp.rec('five S21 encounter event types exist', '5', (select count(*)::text from public.event_types where owner_section = 'S21' and event_type like 'encounter.%'));
 
   -- 2. Adults only --------------------------------------------------------------------------------------------
@@ -696,7 +700,7 @@ begin
     (select count(*)::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
        and c.relname in ('encounters', 'encounter_rooms', 'encounter_events', 'consultation_scribe_consents', 'consultation_policy_config') and not c.relrowsecurity));
   perform pg_temp.act(v_adult);
-  perform pg_temp.rec('a patient sees the rule and the price before paying', '1000000/2/18',
+  perform pg_temp.rec('a patient sees the rule and the price before paying', '500000/2/18',
     (select (r ->> 'price_kobo') || '/' || (r ->> 'cancel_window_hours') || '/' || (r ->> 'min_age_years') from (select public.my_consultation_rule() as r) x));
   perform pg_temp.back();
 

@@ -19,11 +19,14 @@ export function coordinatorTermsLines(args: { patientName: string; isMember: boo
         ? "This visit has no price set yet, so it cannot be booked."
         : `This visit costs ₦${koboToNaira(terms.price_kobo).toLocaleString("en-NG")}, paid for each visit.`,
     );
+  } else if (!isMember) {
+    // an extra meeting is for paid Members (decision 2026-10-29); the included monthly meeting is a Member's too
+    lines.push(`Extra meetings are for paid Members. ${patientName} needs to join Membership first.`);
+  } else if (terms.price_kobo === null) {
+    lines.push("An extra meeting cannot be booked yet because no price is set.");
   } else {
     lines.push(
-      isMember
-        ? `A doctor visit is part of ${patientName}'s Membership.`
-        : `A doctor visit is not part of the Free plan. ${patientName} needs to join Membership first.`,
+      `An extra online meeting costs ₦${koboToNaira(terms.price_kobo).toLocaleString("en-NG")}, paid for each meeting. ${patientName}'s monthly meeting is included in Membership and is booked above, not here.`,
     );
   }
   lines.push(

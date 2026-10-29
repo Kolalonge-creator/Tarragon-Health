@@ -33,7 +33,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
 jest.mock("@/lib/paystack/transactions", () => ({ verifyTransactionDetail: (r: string) => verifyTransactionDetail(r) }));
 jest.mock("@/lib/billing/purchase-service-product", () => ({ purchaseServiceProduct: (a: unknown) => purchaseServiceProduct(a) }));
 
-import { createPayLink, findPatients, getPayLink, retryConfirm } from "./actions";
+import { createPayLink, findPatients, getMonthlyMeeting, getPayLink, pickMonthlySlot, retryConfirm } from "./actions";
 
 const APPT = "11111111-1111-4111-8111-111111111111";
 const waiting = {
@@ -227,5 +227,64 @@ describe("getPayLink", () => {
     maybeSingle.mockResolvedValue({ data: { ...waiting, booked_by: "coord-2" }, error: null });
     expect(await getPayLink(APPT)).toEqual({ error: expect.stringContaining("you made yourself") });
     expect(await getPayLink("nope")).toEqual({ error: expect.any(String) });
+  });
+});
+
+describe("the included monthly meeting", () => {
+  const PATIENT = "22222222-2222-4222-8222-222222222222";
+  const SLOT = "33333333-3333-4333-8333-333333333333";
+  const OFFER = "44444444-4444-4444-8444-444444444444";
+  const meeting = {
+    entitlement: { current: { month_index: 1, state: "available", period_end: "2026-11-30T00:00:00Z", appointment_id: null }, consumed: 0, lapsed: 0, remaining: 12 },
+    offers: [
+      { offer_id: OFFER, expires_at: "2026-10-30T08:00:00Z", call_minutes: 15, kind: "monthly", longer_requested: false, slots: [{ slot_id: SLOT, starts_at: "2026-10-30T09:00:00Z", ends_at: "2026-10-30T09:15:00Z" }] },
+    ],
+  };
+
+  it("reads the offers made to that patient, asking for the patient by id", async () => {
+    rpc.mockResolvedValue({ data: meeting, error: null });
+    const r = await getMonthlyMeeting(PATIENT);
+    expect(rpc).toHaveBeenCalledWith("my_followups", { p_patient: PATIENT });
+    expect(r).toEqual({ meeting: expect.objectContaining({ offers: [expect.objectContaining({ offer_id: OFFER })] }) });
+  });
+
+  it("refuses a malformed patient id without calling the database", async () => {
+    expect(await getMonthlyMeeting("nope")).toEqual({ error: expect.any(String) });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("says so, in plain words, when the read fails or returns something unexpected", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    expect(await getMonthlyMeeting(PATIENT)).toEqual({ error: expect.stringContaining("Could not load") });
+    rpc.mockResolvedValueOnce({ data: { nonsense: true }, error: null });
+    expect(await getMonthlyMeeting(PATIENT)).toEqual({ error: expect.stringContaining("Could not read") });
+  });
+
+  it("picks a time through the same function the patient uses, never asking for a longer call", async () => {
+    rpc.mockResolvedValue({ data: { status: "booked", appointment_id: APPT, starts_at: "2026-10-30T09:00:00Z" }, error: null });
+    const r = await pickMonthlySlot(SLOT);
+    expect(rpc).toHaveBeenCalledWith("pick_followup_slot", { p_slot: SLOT, p_ask_longer: false });
+    expect(r).toEqual({ message: expect.stringContaining("Booked for") });
+    expect(r).toEqual({ message: expect.stringContaining("appointments now") });
+  });
+
+  it("treats a taken or expired time as a normal outcome with a plain message", async () => {
+    rpc.mockResolvedValueOnce({ data: { status: "unavailable" }, error: null });
+    expect(await pickMonthlySlot(SLOT)).toEqual({ error: expect.stringContaining("just taken") });
+    rpc.mockResolvedValueOnce({ data: { status: "expired" }, error: null });
+    expect(await pickMonthlySlot(SLOT)).toEqual({ error: expect.stringContaining("expired") });
+  });
+
+  it("shows the database's own refusal (for example the patient is not a Member) and hides anything else", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: "P0001", message: "monthly check-ins are part of Membership" } });
+    expect(await pickMonthlySlot(SLOT)).toEqual({ error: "monthly check-ins are part of Membership" });
+    rpc.mockResolvedValueOnce({ data: null, error: { code: "XX000", message: "internal detail that must not reach the screen" } });
+    const r = await pickMonthlySlot(SLOT);
+    expect(JSON.stringify(r)).not.toContain("internal detail");
+  });
+
+  it("refuses a malformed slot id without calling the database", async () => {
+    expect(await pickMonthlySlot("nope")).toEqual({ error: expect.any(String) });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

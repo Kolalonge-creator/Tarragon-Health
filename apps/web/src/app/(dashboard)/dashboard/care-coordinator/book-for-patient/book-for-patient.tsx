@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { BookAppointment } from "@/app/(dashboard)/patient/appointments/book-appointment";
 import { findPatients, type FoundPatient } from "./actions";
 import { CoordinatorTermsNote } from "./coordinator-terms-note";
+import { MonthlyMeeting } from "./monthly-meeting";
 import { PayLinkPanel } from "./pay-link-panel";
 import { PhoneBookingsList } from "./phone-bookings-list";
 
@@ -102,8 +103,10 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
         <div className="space-y-3">
           <p className="text-sm text-charcoal-ink dark:text-night-ink">
             Booking for <strong>{selected.fullName}</strong>
-            {selected.membershipTier ? "" : ". This patient is on the Free plan, so a paid extra needs them to join Membership first."}
+            {selected.membershipTier ? "" : ". This patient is on the Free plan, so a meeting needs them to join Membership first."}
           </p>
+          <MonthlyMeeting key={`monthly-${selected.patientId}`} patientId={selected.patientId} patientName={selected.fullName} isMember={selected.membershipTier !== null} />
+          <h2 className="pt-2 text-base font-semibold text-charcoal-ink dark:text-night-ink">Extra meeting (₦5,000, paid Members only)</h2>
           <BookAppointment
             key={selected.patientId}
             organisationId={organisationId}

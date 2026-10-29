@@ -21,18 +21,25 @@ const text = (args: { isMember: boolean; type?: string; terms?: BookingTerms }) 
   coordinatorTermsLines({ patientName: "Mama Adaeze", isMember: args.isMember, appointmentType: args.type ?? "telemedicine", terms: args.terms ?? terms() }).join("\n");
 
 describe("coordinatorTermsLines", () => {
-  it("says a doctor visit is part of a Member's Membership, naming the patient", () => {
-    const t = text({ isMember: true });
-    expect(t).toContain("A doctor visit is part of Mama Adaeze's Membership.");
+  const PRICED = terms({ price_kobo: 500000 });
+
+  it("prices an extra meeting for a Member and points to the monthly meeting for the included one, naming the patient", () => {
+    const t = text({ isMember: true, terms: PRICED });
+    expect(t).toContain("An extra online meeting costs ₦5,000");
+    expect(t).toContain("Mama Adaeze's monthly meeting is included in Membership");
     expect(t).not.toMatch(/\byour\b/i);
   });
 
-  it("does NOT say a doctor visit is included for a Free patient; it says they need Membership first", () => {
-    const t = text({ isMember: false });
-    expect(t).toContain("not part of the Free plan");
+  it("does NOT offer an extra meeting to a Free patient; it says they need Membership first", () => {
+    const t = text({ isMember: false, terms: PRICED });
+    expect(t).toContain("Extra meetings are for paid Members");
     expect(t).toContain("Mama Adaeze needs to join Membership first");
-    expect(t).not.toContain("is part of");
+    expect(t).not.toContain("costs");
     expect(t).not.toMatch(/\byour\b/i);
+  });
+
+  it("says an extra meeting cannot be booked while no price is set", () => {
+    expect(text({ isMember: true, terms: terms({ price_kobo: null }) })).toContain("no price is set");
   });
 
   it("states the live cancel window and the adult age from the terms, not constants", () => {

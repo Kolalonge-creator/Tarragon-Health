@@ -54037,6 +54037,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      sponsorable_service_products: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Tables"]["service_products"]["Row"][]
+      }
       coordinator_find_patient: {
         Args: { p_query: string }
         Returns: {
