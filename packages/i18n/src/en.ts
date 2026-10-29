@@ -572,7 +572,7 @@ export const en = {
   "home.score.eyebrow.evening": "Good evening. Here's how this week is going.",
   "home.score.title": "How you're doing",
   "home.score.error": "Your Health Score is taking a moment to load. Pull to refresh to try again.",
-  "home.score.empty": "Your score appears here once we have a few days of your readings. It builds from the everyday numbers you already track.",
+  "home.score.empty": "Your score appears here after your next blood pressure or weight reading. It builds from the everyday numbers you already track.",
   "home.score.word.low": "Stable",
   "home.score.word.moderate": "Improving",
   "home.score.word.high": "Needs attention",
