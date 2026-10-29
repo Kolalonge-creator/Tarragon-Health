@@ -1,4 +1,4 @@
--- Tarragon Health: no governed configuration can be live without a signature (migration 20261029204600).
+-- Tarragon Health: no governed configuration can be live without a signature (migration 20261029213217).
 --
 -- Proves, on every guarded table:
 --   1. inserting a row that is active and unsigned is refused (SQLSTATE 23514, "cannot be live without a signature");
@@ -156,7 +156,7 @@ begin
    where c.relkind = 'r' and 3 = (select count(*) from pg_attribute a where a.attrelid = c.oid and not a.attisdropped and a.attname in ('is_active', 'approved_by', 'approved_at'));
   foreach v_t in array v_shape loop
     if not (v_t = any (v_guarded)) and not (v_t = any (v_allow)) then
-      raise exception 'FAIL 5: public.% has is_active, approved_by and approved_at but is neither guarded nor on the allowlist. Add the triggers (migration 20261029204600 shows how) or name why not in this proof.', v_t;
+      raise exception 'FAIL 5: public.% has is_active, approved_by and approved_at but is neither guarded nor on the allowlist. Add the triggers (migration 20261029213217 shows how) or name why not in this proof.', v_t;
     end if;
   end loop;
   foreach v_t in array v_allow loop

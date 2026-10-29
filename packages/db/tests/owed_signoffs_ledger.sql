@@ -1,4 +1,4 @@
--- Owed sign-offs ledger proof (migration 20261029204700). One rolled-back transaction, own org and own is_test fixtures.
+-- Owed sign-offs ledger proof (migration 20261029213238). One rolled-back transaction, own org and own is_test fixtures.
 --   * only the organisation's Chief Medical Officer can read the ledger; a plain clinician, an admin and anon see nothing;
 --   * sign_owed_signoff: only the CMO, the word SIGN, a note of at least 20 characters, and only a row that is still waiting;
 --   * signing records who and when, writes one audit entry, and a second signature on the same row is refused;
