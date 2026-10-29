@@ -143,7 +143,7 @@ begin
   perform pg_temp.chk('4d it is never labelled A or B on rest it does not have', 'rest_not_recorded', (select reading_grade from private.v_bp_readings_all where reading_id = v_rid));
 
   -- 5. UNSIGNED: no control figure anywhere
-  v_json := private.bp_outcome_stratified(current_date - 30, current_date);
+  v_json := private.bp_outcome_stratified((now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date);
   perform pg_temp.chk('5a unsigned: target_signed false', 'false', (v_json ->> 'target_signed'));
   perform pg_temp.chk('5b unsigned: the reason is stated', 'target_unsigned', (v_json ->> 'control_withheld_reason'));
   perform pg_temp.chk('5c unsigned: no stratum carries a control count', '0', (select count(*)::text from jsonb_array_elements(v_json -> 'strata') s where s ? 'controlled' or s ? 'uncontrolled'));
@@ -158,9 +158,9 @@ begin
   execute replace(v_def, 'where is_active and approved_by is not null', 'order by version desc limit 1');
   if private.bp_target_config_active() is null then raise exception 'sabotage setup FAIL: the replaced accessor still returns nothing'; end if;
   perform pg_temp.chk('8 sabotage: an accessor that ignores the signature makes the unsigned config look signed (so check 5a would have failed)', 'true',
-    ((private.bp_outcome_stratified(current_date - 30, current_date) ->> 'target_signed') = 'true')::text);
+    ((private.bp_outcome_stratified((now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date) ->> 'target_signed') = 'true')::text);
   execute v_def;   -- restore
-  perform pg_temp.chk('8 restored: back to unsigned', 'false', (private.bp_outcome_stratified(current_date - 30, current_date) ->> 'target_signed'));
+  perform pg_temp.chk('8 restored: back to unsigned', 'false', (private.bp_outcome_stratified((now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date) ->> 'target_signed'));
 
   -- 6. SIGNED (rolled back): a cohort sized from the floor, home mean 138/88 (uncontrolled on 135/85), clinic readings 138/88 (controlled on 140/90)
   for i in 1..v_n loop
@@ -179,7 +179,7 @@ begin
   -- means are 138 / 88: 138 < 140 and 88 < 90 under the clinic line; 138 >= 135 over the home line.
 
   update public.bp_target_config set approved_by = v_staff, approved_at = now(), is_active = true where version = 1;
-  v_json := private.bp_outcome_stratified(current_date - 1, current_date);
+  v_json := private.bp_outcome_stratified((now() at time zone 'Africa/Lagos')::date - 1, (now() at time zone 'Africa/Lagos')::date);
   perform pg_temp.chk('6a signed: target_signed true', 'true', (v_json ->> 'target_signed'));
   select s into v_row from jsonb_array_elements(v_json -> 'strata') s where s ->> 'context' = 'home_self' and s ->> 'source' = 'manual' and not (s ? 'suppressed') limit 1;
   perform pg_temp.chk('6b the home stratum is judged on the HOME line: all uncontrolled', '0/' || v_n, (v_row ->> 'controlled') || '/' || (v_row ->> 'uncontrolled'));
