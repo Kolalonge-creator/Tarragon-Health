@@ -27,7 +27,10 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
     const result = await createPayLink({ appointmentId, payerEmail: email });
     setBusy(false);
     if ("error" in result) setError(result.error);
-    else if ("checkoutUrl" in result) setLink(result.checkoutUrl);
+    else if ("checkoutUrl" in result) {
+      setLink(result.checkoutUrl);
+      if (result.reused) setError(null);
+    }
     else setActivated(true);
   }
 
@@ -71,7 +74,7 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
                 {copied ? "Copied" : "Copy link"}
               </Button>
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                Send this link to the payer. They can pay by card or bank transfer on the page that opens. Only one link can be out at a time, so keep this page open until you have sent it. If you lose it, the booking appears in the list below with what to do next.
+                Send this link to the payer. They can pay by card or bank transfer on the page that opens. If you lose it, open &ldquo;Show payment link&rdquo; on the booking in the list below to see the same link again.
               </p>
             </div>
           )}

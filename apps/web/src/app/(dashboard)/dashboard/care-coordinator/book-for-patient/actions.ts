@@ -40,22 +40,19 @@ export async function findPatients(
   };
 }
 
+const appointmentIdSchema = z.string().uuid();
+
 const payLinkSchema = z.object({
-  appointmentId: z.string().uuid(),
+  appointmentId: appointmentIdSchema,
   payerEmail: z.string().trim().email("Enter the email address of the person who will pay"),
 });
 
-export type PayLinkResult = { checkoutUrl: string } | { activated: true } | { error: string };
+export type PayLinkResult = { checkoutUrl: string; reused?: boolean } | { activated: true } | { error: string };
 
-/**
- * Makes the Paystack link for a phone booking that is waiting on payment. The coordinator never takes card details: they send the
- * link to the patient or a relative (card or bank transfer is chosen on the Paystack page). Only the coordinator who made the booking
- * can make its link, and only while it is still waiting. When the payment lands the database confirms the booking by itself.
- */
-export async function createPayLink(input: z.input<typeof payLinkSchema>): Promise<PayLinkResult> {
-  const parsed = payLinkSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the details and try again" };
+type WaitingBooking = { userId: string; patientId: string; productCode: string };
 
+/** The booking must be this coordinator's own phone booking, and still waiting for payment. */
+async function loadWaitingBooking(appointmentId: string): Promise<WaitingBooking | { error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,7 +62,7 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   const { data: appt, error } = await supabase
     .from("appointments")
     .select("id, patient_id, status, payment_status, appointment_type, booked_via, booked_by")
-    .eq("id", parsed.data.appointmentId)
+    .eq("id", appointmentId)
     .maybeSingle();
   if (error) return { error: error.message };
   if (!appt) return { error: "That appointment could not be found" };
@@ -77,29 +74,59 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   }
   const productCode = PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type];
   if (!productCode) return { error: "This kind of appointment has nothing to pay for" };
+  return { userId: user.id, patientId: appt.patient_id, productCode };
+}
 
-  // One payment link at a time. The patient's pending purchase for this product is shared and holds a single payment reference, so a
-  // second link would replace the first: a payer who already used the first link would be charged with nothing to match it to. A link
-  // older than the 24 hour hold no longer counts, so a lost link cannot block the patient for ever.
-  const { data: outstanding, error: outstandingError } = await createServiceRoleClient()
+type OutstandingLink = { found: false } | { found: true; checkoutUrl: string | null };
+
+/**
+ * The payment link already made for this patient and item in the last 24 hours (the length of the hold), if any. The patient's pending
+ * purchase for a product is shared and holds ONE payment reference: Paystack cannot cancel a started transaction, so a second link
+ * would replace the first and a payer who then used the first would be charged with nothing to match it to. So an existing link is
+ * shown again, never replaced. A link older than the hold no longer counts, so a lost one cannot block the patient for ever.
+ */
+async function findOutstandingLink(patientId: string, productCode: string): Promise<OutstandingLink | { error: string }> {
+  const { data, error } = await createServiceRoleClient()
     .from("service_purchases")
-    .select("id, service_product:service_products!inner(code)")
-    .eq("patient_id", appt.patient_id)
+    .select("id, pending_payment_checkout_url, service_product:service_products!inner(code)")
+    .eq("patient_id", patientId)
     .eq("status", "pending_payment")
     .not("pending_payment_provider_ref", "is", null)
     .gt("updated_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .eq("service_product.code", productCode)
+    .order("updated_at", { ascending: false })
     .limit(1);
-  if (outstandingError) return { error: outstandingError.message };
-  if (outstanding && outstanding.length > 0) {
-    return { error: "A payment link made in the last 24 hours is still out for this patient. Ask the payer to use it; a new one can be made once it has lapsed." };
+  if (error) return { error: error.message };
+  const row = data?.[0];
+  return row ? { found: true, checkoutUrl: row.pending_payment_checkout_url } : { found: false };
+}
+
+/**
+ * Makes the Paystack link for a phone booking that is waiting on payment, or shows the one already made. The coordinator never takes
+ * card details: they send the link to the patient or a relative (card or bank transfer is chosen on the Paystack page). Only the
+ * coordinator who made the booking can use it, and only while it is still waiting. When the payment lands the database confirms the
+ * booking by itself.
+ */
+export async function createPayLink(input: z.input<typeof payLinkSchema>): Promise<PayLinkResult> {
+  const parsed = payLinkSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the details and try again" };
+
+  const booking = await loadWaitingBooking(parsed.data.appointmentId);
+  if ("error" in booking) return booking;
+
+  const outstanding = await findOutstandingLink(booking.patientId, booking.productCode);
+  if ("error" in outstanding) return outstanding;
+  if (outstanding.found) {
+    if (outstanding.checkoutUrl) return { checkoutUrl: outstanding.checkoutUrl, reused: true };
+    // made before links were kept: it cannot be shown again, and replacing it could orphan a payment
+    return { error: "A payment link was made for this patient in the last 24 hours but cannot be shown again. Ask the payer to use it; a new one can be made once it has lapsed." };
   }
 
   const result = await purchaseServiceProduct({
-    serviceProductCode: productCode,
-    patientId: appt.patient_id,
+    serviceProductCode: booking.productCode,
+    patientId: booking.patientId,
     callbackPath: "/payment-received",
-    caller: { id: user.id, email: parsed.data.payerEmail },
+    caller: { id: booking.userId, email: parsed.data.payerEmail },
   });
   if (!result) return { error: "Could not start the payment" };
   if (result.error) return { error: result.error };
@@ -108,12 +135,24 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   return { error: "Could not start the payment" };
 }
 
+/** Shows again the link already made for a waiting phone booking (a lost link). Never makes a new one. */
+export async function getPayLink(appointmentId: string): Promise<{ checkoutUrl: string } | { error: string }> {
+  if (!appointmentIdSchema.safeParse(appointmentId).success) return { error: "That appointment could not be found" };
+  const booking = await loadWaitingBooking(appointmentId);
+  if ("error" in booking) return booking;
+  const outstanding = await findOutstandingLink(booking.patientId, booking.productCode);
+  if ("error" in outstanding) return outstanding;
+  if (!outstanding.found) return { error: "No payment link has been made for this booking yet. Open Book for a patient and make one." };
+  if (!outstanding.checkoutUrl) return { error: "That link was made before links were kept, so it cannot be shown again. Ask the payer to use it." };
+  return { checkoutUrl: outstanding.checkoutUrl };
+}
+
 /**
  * Try to confirm a phone booking again, for the case where the payment arrived but the automatic confirmation did not (it is listed
  * with its reason). Same rules as any confirm: the database refuses it if the slot is gone or the booking was not paid for.
  */
 export async function retryConfirm(appointmentId: string): Promise<{ ok: true; status: string } | { error: string }> {
-  if (!z.string().uuid().safeParse(appointmentId).success) return { error: "That appointment could not be found" };
+  if (!appointmentIdSchema.safeParse(appointmentId).success) return { error: "That appointment could not be found" };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("confirm_appointment_booking", { p_appointment_id: appointmentId });
   if (error) return { error: error.message };

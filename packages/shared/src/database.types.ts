@@ -42507,6 +42507,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref: string | null
+          pending_payment_checkout_url: string | null
           pending_payment_provider_ref: string | null
           purchased_at: string | null
           purchaser_profile_id: string | null
@@ -42535,6 +42536,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref?: string | null
+          pending_payment_checkout_url?: string | null
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
@@ -42563,6 +42565,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref?: string | null
+          pending_payment_checkout_url?: string | null
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
