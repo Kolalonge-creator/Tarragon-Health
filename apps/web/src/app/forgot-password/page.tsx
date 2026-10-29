@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export default async function ForgotPasswordPage({
@@ -16,7 +17,7 @@ export default async function ForgotPasswordPage({
             Reset your password
           </h1>
           <p className="mt-1 text-sm text-charcoal-ink/60">
-            We&apos;ll send a reset link to your email, or a code to your phone.
+            {TEXT_CODES_ENABLED ? "We'll send a reset link to your email, or a code to your phone." : "We'll send a reset link to your email."}
           </p>
         </div>
         {/* Both spellings are accepted rather than only the canonical one:
