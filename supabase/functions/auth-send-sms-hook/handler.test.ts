@@ -352,6 +352,16 @@ Deno.test("a first-time number add (no current phone, number in the pending fiel
   const body = JSON.stringify({ user: { id: "u-9", phone: "", new_phone: "2348066665555", phone_change_sent_at: iso(1) }, sms: { otp: OTP } });
   assertEquals((await handleHookRequest(await signedRequest({ body }), d)).status, 200);
   assertEquals(d.provider.sent[0].to, "+2348066665555");
+  // Auth stamps phone_change_sent_at only after the hook answers, so a real first-time add carries no stamp at all
+  const unstamped = JSON.stringify({ user: { id: "u-9", phone: "", new_phone: "447700900123" }, sms: { otp: OTP } });
+  const d2 = deps();
+  assertEquals((await handleHookRequest(await signedRequest({ body: unstamped }), d2)).status, 200);
+  assertEquals(d2.provider.sent[0].to, "+447700900123");
+  // an account that already has a number is NOT redirected to the pending one without proof it is a change code
+  const d3 = deps();
+  const hasPhone = JSON.stringify({ user: { id: "u-9", phone: PHONE, new_phone: "447700900123" }, sms: { otp: OTP } });
+  assertEquals((await handleHookRequest(await signedRequest({ body: hasPhone }), d3)).status, 200);
+  assertEquals(d3.provider.sent[0].to, PHONE.startsWith("+") ? PHONE : `+${PHONE}`);
   // with neither a current phone nor a provable change code there is nowhere to send
   const none = JSON.stringify({ user: { id: "u-9", phone: "" }, sms: { otp: OTP } });
   assertEquals((await handleHookRequest(await signedRequest({ body: none }), deps())).status, 400);

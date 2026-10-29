@@ -196,7 +196,10 @@ export async function handleHookRequest(req: Request, deps: HookDeps): Promise<R
   const current = asE164(payload.user?.phone);
   const pendingTo = asE164(payload.user ? pendingNumber(payload.user) : undefined);
   const changeCode = isPhoneChangeCode(payload.user ?? {}, now);
-  const to = changeCode && pendingTo ? pendingTo : current;
+  // An account with NO current phone can only be asking for a code to the pending number (a sign-in or reauthentication code needs a
+  // phone on the account). Auth stamps phone_change_sent_at only after the hook answers, so on a first-time add the stamp is missing
+  // and changeCode is false: without this fallback the hook answered 400 and the first number could never be added.
+  const to = changeCode && pendingTo ? pendingTo : current ?? pendingTo;
   if (!to) return hookError(400, "invalid_payload");
   const userId = payload.user?.id ?? null;
 
