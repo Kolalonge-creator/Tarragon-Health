@@ -20,6 +20,8 @@
 -- anon's EXECUTE on private.is_admin() is deliberately NOT granted; the closing block asserts it.
 
 drop policy if exists marketing_resources_public_select on public.marketing_resources;
+drop policy if exists marketing_resources_anon_select on public.marketing_resources;
+drop policy if exists marketing_resources_authenticated_select on public.marketing_resources;
 
 create policy marketing_resources_anon_select on public.marketing_resources
   for select to anon

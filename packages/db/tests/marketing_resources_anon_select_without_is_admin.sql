@@ -100,6 +100,9 @@ begin
     raise exception 'sabotage did not bite: anon read succeeded under the old combined policy, so this proof does not discriminate';
   exception when insufficient_privilege then
     reset role;
+    if sqlerrm not like '%is_admin%' then
+      raise exception 'sabotage failed for the wrong reason: %', sqlerrm;
+    end if;
   end;
 end $$;
 
