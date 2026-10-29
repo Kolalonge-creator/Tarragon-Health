@@ -1657,3 +1657,4 @@ vaccination_schedule_signoff.sql
 # --- Added 2026-10-29 (screening go-live): the outside-lab path end to end, scheduler to request to upload to filed result to trend ---
 screening_outside_lab_upload_to_trend.sql
 patient_reported_lab_values.sql
+screening_result_chase_task.sql

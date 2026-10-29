@@ -51,8 +51,7 @@ begin
   values
     (v_patient, 'outside-lab-patient@example.invalid', 'x', now(), '{}', '{}'),
     (v_other, 'outside-lab-other@example.invalid', 'x', now(), '{}', '{}'),
-    (v_doctor, 'outside-lab-doctor@example.invalid', 'x', now(), '{}', '{}'),
-    (v_stranger, 'outside-lab-stranger@example.invalid', 'x', now(), '{}', '{}');
+    (v_doctor, 'outside-lab-doctor@example.invalid', 'x', now(), '{}', '{}');
 
   -- is_test lets the scheduler and the request job run for this patient before their go-live guards are on.
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Outside Lab Patient',
@@ -60,12 +59,10 @@ begin
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Outside Lab Other',
          sex = 'male', date_of_birth = date '1980-01-15', is_test = true where id = v_other;
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Outside Lab Doctor', is_test = true where id = v_doctor;
-  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Outside Lab Stranger', is_test = true where id = v_stranger;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number,
                                      indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_doctor, v_org, 'Outside Lab Doctor', 'senior_medical_officer', true, 'MDCN', 'OUTSIDELAB-001', true, v_verifier, v_verifier, now()),
-         (v_stranger, v_org, 'Outside Lab Stranger', 'senior_medical_officer', true, 'MDCN', 'OUTSIDELAB-002', true, v_verifier, v_verifier, now());
+  values (v_doctor, v_org, 'Outside Lab Doctor', 'senior_medical_officer', true, 'MDCN', 'OUTSIDELAB-001', true, v_verifier, v_verifier, now());
 
   -- Staff access is tied to the patient (private.clinician_has_patient_access); without this the doctor reads nothing.
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
@@ -128,9 +125,16 @@ begin
   reset role;
   if v_n <> 0 then raise exception 'FAIL 5: another patient can see this patient''s uploaded result'; end if;
 
-  -- The upload alert names the other on-call doctor as its backup, and a backup is deliberately given access. Take that
-  -- automatic backup off so the clinician below really has no route to this patient.
-  update public.clinician_alerts set backup_clinician_id = null where id = v_alert;
+  -- The untied clinician is created only now, after the upload alert has been assigned. The alert names its responsible and backup
+  -- doctor automatically (least-loaded), and a backup is deliberately given access; a clinician who did not exist yet cannot have been
+  -- picked, so this one is untied on every run.
+  perform set_config('request.jwt.claims', null, true);
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_stranger, 'outside-lab-stranger@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Outside Lab Stranger', is_test = true where id = v_stranger;
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number,
+                                     indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_stranger, v_org, 'Outside Lab Stranger', 'senior_medical_officer', true, 'MDCN', 'OUTSIDELAB-002', true, v_verifier, v_verifier, now());
 
   -- A clinician with no care-team tie and no alert of their own for this patient must not read it. This is the check that
   -- makes the doctor assertions above mean something: uploading raises an alert for the responsible doctor, which is itself
