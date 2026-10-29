@@ -9,6 +9,8 @@ import { ta } from "@/lib/auth/auth-locale";
 import { requestPhoneCode, signInWithPhonePassword } from "@/lib/auth/auth-flow";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
+import { lightPalette } from "@/ui/design/tokens";
+import { fontFamily } from "@/ui/design/typography";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 import { SignUpScreen } from "@/screens/signup-screen";
@@ -132,7 +134,7 @@ export function LoginScreen() {
     // ScrollView keeps everything reachable when even that isn't enough.
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: lightPalette.canvas }}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -149,7 +151,7 @@ export function LoginScreen() {
             style={{ width: 72, height: 72, borderRadius: 18, marginBottom: 12 }}
             accessibilityIgnoresInvertColors
           />
-          <Text style={{ fontSize: 26, fontWeight: "700", color: colors.brand }}>
+          <Text style={{ fontSize: 28, fontFamily: fontFamily.headingBold, color: colors.brand }}>
             TarragonHealth
           </Text>
           <MutedText>Care that stays with you.</MutedText>
@@ -167,7 +169,7 @@ export function LoginScreen() {
           />
         ) : (
         <>
-        <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>
+        <Text style={{ fontSize: 20, fontFamily: fontFamily.headingSemi, color: colors.ink }}>
           {ta("auth.signin.title", locale)}
         </Text>
         <View

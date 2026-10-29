@@ -12,6 +12,8 @@ import { VerifyCodeStep } from "@/screens/verify-code-step";
 import appIcon from "../../assets/icon.png";
 import { DobField } from "@/screens/signup-dob-field";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { lightPalette } from "@/ui/design/tokens";
+import { fontFamily } from "@/ui/design/typography";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
@@ -270,7 +272,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
 
   if (verifyPhone) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: lightPalette.canvas }}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 12 }}
@@ -287,7 +289,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
 
   if (success) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flex: 1, backgroundColor: lightPalette.canvas }}>
         <ScrollView contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 16, flexGrow: 1, justifyContent: "center" }}>
           <View style={{ alignItems: "center", gap: 10 }}>
             <View
@@ -313,7 +315,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: lightPalette.canvas }}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 12 }}
@@ -335,7 +337,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             style={{ width: 56, height: 56, borderRadius: 14 }}
             accessibilityIgnoresInvertColors
           />
-          <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
+          <Text style={{ fontSize: 24, fontFamily: fontFamily.headingBold, color: colors.ink }}>
             {ta("auth.signup.title", locale)}
           </Text>
           <MutedText>A couple of minutes to set up. Your care team takes it from there.</MutedText>

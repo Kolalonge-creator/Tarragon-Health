@@ -21,6 +21,7 @@ import {
   enforcePhoneRecoveryHold,
   recoverWithBackupCodeRemote,
 } from "@/lib/auth/recovery-routes";
+import { lightPalette } from "@/ui/design/tokens";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
@@ -269,7 +270,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: lightPalette.canvas }}>
       <ScrollView contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 16 }}>
         <SecondaryButton title="Close" onPress={onClose} />
 
