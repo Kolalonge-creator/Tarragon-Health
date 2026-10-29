@@ -5,6 +5,7 @@ import type { Tables } from "@tarragon/shared";
 export type ExerciseProgramme = Tables<"exercise_programmes">;
 export type ExerciseReadinessScreen = Tables<"exercise_readiness_screens">;
 export type ExerciseEnrollment = Tables<"patient_exercise_enrollments">;
+export type ExerciseSessionLog = Tables<"exercise_session_logs">;
 
 export function useExerciseProgrammes() {
   return useQuery({
@@ -70,4 +71,24 @@ export function clearsForModerate(screen: ExerciseReadinessScreen | null | undef
 /** A vigorous programme always needs explicit clinician clearance. */
 export function clearsForVigorous(screen: ExerciseReadinessScreen | null | undefined): boolean {
   return !!screen?.cleared_for_intensive;
+}
+
+/** The person's logged sessions, newest first. 120 covers the 30-day logging window many times over and any programme's length. */
+export function useExerciseSessions(patientId: string) {
+  return useQuery({
+    queryKey: ["exercise-sessions", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("exercise_session_logs")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("performed_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(120);
+      if (error) throw error;
+      return data as ExerciseSessionLog[];
+    },
+    enabled: !!patientId,
+  });
 }

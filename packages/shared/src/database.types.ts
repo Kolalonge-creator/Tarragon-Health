@@ -18570,6 +18570,73 @@ export type Database = {
           },
         ]
       }
+      exercise_session_logs: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          effort: string | null
+          enrollment_id: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          performed_on: string
+          symptom_during: boolean
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes: number
+          effort?: string | null
+          enrollment_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          performed_on: string
+          symptom_during?: boolean
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          effort?: string | null
+          enrollment_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          performed_on?: string
+          symptom_during?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_session_logs_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_exercise_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_session_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_session_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exposure_retest_rules: {
         Row: {
           basis: string

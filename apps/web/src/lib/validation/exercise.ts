@@ -32,3 +32,38 @@ export const enrollExerciseProgrammeSchema = z.object({
   programme_id: z.string().uuid(),
 });
 export type EnrollExerciseProgrammeInput = z.infer<typeof enrollExerciseProgrammeSchema>;
+
+export const EXERCISE_KINDS = ["walking", "mobility", "strength", "cardio", "other"] as const;
+export const EXERCISE_KIND_LABELS: Record<(typeof EXERCISE_KINDS)[number], string> = {
+  walking: "Walking",
+  mobility: "Stretching & mobility",
+  strength: "Strength",
+  cardio: "Cardio",
+  other: "Something else",
+};
+export const EXERCISE_EFFORTS = ["easy", "moderate", "hard"] as const;
+export const EXERCISE_EFFORT_LABELS: Record<(typeof EXERCISE_EFFORTS)[number], string> = {
+  easy: "Easy",
+  moderate: "Steady",
+  hard: "Hard",
+};
+
+/** A blank optional field posts "": treat it as not given rather than as an invalid value. */
+const blankToUndefined = (v: unknown) => (v === "" || v === null ? undefined : v);
+
+/**
+ * One session done. The date window (not future, at most 30 days back) and "that programme is yours" are enforced by the database trigger
+ * private.exercise_session_log_guard; this schema only shapes the input.
+ */
+export const logExerciseSessionSchema = z.object({
+  performed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the day you exercised"),
+  duration_minutes: z.coerce.number().int("Minutes must be a whole number").min(1, "Enter at least 1 minute").max(600, "That is more than 10 hours, please check"),
+  kind: z.enum(EXERCISE_KINDS),
+  effort: z.preprocess(blankToUndefined, z.enum(EXERCISE_EFFORTS).optional()),
+  symptom_during: checkbox,
+  enrollment_id: z.preprocess(blankToUndefined, z.string().uuid().optional()),
+  note: z.preprocess(blankToUndefined, z.string().trim().max(300).optional()),
+});
+export type LogExerciseSessionInput = z.infer<typeof logExerciseSessionSchema>;
+
+export const deleteExerciseSessionSchema = z.object({ id: z.string().uuid() });
