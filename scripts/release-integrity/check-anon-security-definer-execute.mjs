@@ -86,6 +86,15 @@ const ALLOWLIST = new Set([
   // 20261007153127_s55_review_fixes_shared_article_and_creator_writes.sql -- a shared learning article opens signed out by its code. It serves
   // only an item with a named reviewer, a review date and a future next-review date, and the migration asserts anon EXECUTE must stay on.
   "public.learn_shared_article(p_code text)",
+  // 20261020182343_pharmacy_counter_adherence_snapshot.sql -- its own DO block asserts anon can
+  // execute it: a pharmacist opens a patient's medicine report at /share/counter/[token] with a
+  // link and PIN, no sign-in. Only answers for a token that has a snapshot row; PIN attempts are
+  // rate-limited (packages/db/tests/pharmacy_counter_snapshot.sql).
+  "public.pharmacy_snapshot_by_token(p_token text, p_pin text, p_client_key text)",
+  // 20261028160401_membership_auto_renew.sql -- readable by anon on purpose so ISR marketing pages
+  // and the mobile app can follow the platform switch; returns a single boolean, no patient data
+  // (packages/db/tests/membership_auto_renew.sql).
+  "public.membership_auto_renew_enabled()",
 ]);
 
 const QUERY = `
