@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   loadMyNavigationRequests,
@@ -57,6 +57,7 @@ import {
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
+import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import {
   Badge,
@@ -123,6 +124,18 @@ interface CareSupportScreenProps {
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
+/** A quiet placeholder while a section loads, in place of a bare spinner. */
+function LoadingRows() {
+  return (
+    <SkeletonGroup label="Loading">
+      <View style={{ gap: 8 }}>
+        <Skeleton height={64} radius={16} />
+        <Skeleton height={64} radius={16} />
+      </View>
+    </SkeletonGroup>
+  );
+}
+
 export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation, onOpenMessages }: CareSupportScreenProps) {
   const colors = useLegacyColors();
   return (
@@ -130,9 +143,13 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing.screen, gap: 22 }}
     >
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Care & support</Text>
-        <MutedText>Your care plan, reviews, and referrals.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Care & support
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Your care plan, reviews, and referrals.
+        </AppText>
       </View>
 
       <MonthlyCheckinSection />
@@ -199,7 +216,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
     return (
       <View style={{ gap: 10 }}>
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
-        <ActivityIndicator color={colors.brand} />
+        <LoadingRows />
       </View>
     );
   }
@@ -521,7 +538,7 @@ function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: s
         />
       ) : null}
 
-      {loading && <ActivityIndicator color={colors.brand} />}
+      {loading && <LoadingRows />}
       {!loading && admissions.length === 0 && !formOpen && <MutedText>No admissions recorded.</MutedText>}
       {admissions.length > 0 ? (
         <Card style={{ gap: 0 }}>
@@ -842,7 +859,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
         </Card>
       )}
 
-      {loading && <ActivityIndicator color={colors.brand} />}
+      {loading && <LoadingRows />}
       {!loading && requests.length === 0 && !open && (
         <MutedText>No requests yet — if something's getting in the way, let us know above.</MutedText>
       )}

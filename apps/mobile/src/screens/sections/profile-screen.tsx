@@ -7,7 +7,7 @@ import {
   measurementUnitsFromProfile,
   type GlucoseDisplayUnit,
 } from "@tarragon/shared";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { radius, spacing } from "@/ui/theme";
@@ -19,11 +19,11 @@ import {
   GroupedListRow,
   MutedText,
   PrimaryButton,
-  ScreenTitle,
   SecondaryButton,
   SectionDivider,
   SectionLabel,
 } from "@/ui/legacy-kit";
+import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
@@ -890,8 +890,14 @@ export function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading your profile">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="55%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -907,8 +913,14 @@ export function ProfileScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
-      <ScreenTitle>Profile data</ScreenTitle>
-      <MutedText>Keep your details, emergency contacts, and care preferences up to date.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Profile data
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Keep your details, emergency contacts, and care preferences up to date.
+        </AppText>
+      </View>
 
       <GroupHeading title="About you" description="Your details, where you are and who we call in an emergency." />
       <PersonalDetailsSection profile={profile} email={email} />

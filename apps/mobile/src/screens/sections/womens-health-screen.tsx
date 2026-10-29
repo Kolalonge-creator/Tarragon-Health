@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { todayIsoDate } from "@/lib/medications";
 import { computeGestationalEstimate } from "@/lib/gestational-age";
@@ -60,7 +60,8 @@ import { PregnancyDangerGuideCard, PregnancyTools } from "@/screens/sections/pre
 import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText, Button, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 function when(iso: string): string {
@@ -209,8 +210,14 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   if (sex === null && loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Women's Health">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="60%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -218,16 +225,16 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
   if (sex !== "female") {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-        <ScreenTitle>Women&apos;s Health</ScreenTitle>
+        <AppText variant="headline" heading>
+          Women&apos;s Health
+        </AppText>
         <Card style={{ gap: 10 }}>
-          <MutedText>
+          <AppText variant="body" tone="textMuted">
             {sex === null
               ? "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause for female patients. We don't have a sex recorded on your health profile yet, so we can't tell whether it applies to you. Add it on your profile and this section will open up if it's relevant."
               : "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause, so it doesn't apply to your health profile. Everything here is built around care that's specific to female patients."}
-          </MutedText>
-          <Text onPress={() => onNavigate("prevention")} style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed }}>
-            The screenings and checks relevant to you live in Prevention →
-          </Text>
+          </AppText>
+          <Button variant="ghost" title="Screenings and checks relevant to you: Prevention" onPress={() => onNavigate("prevention")} />
         </Card>
       </ScrollView>
     );
@@ -235,8 +242,14 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Women's Health">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="60%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -258,9 +271,13 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-      <View>
-        <ScreenTitle>Women&apos;s Health</ScreenTitle>
-        <MutedText>Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Women&apos;s Health
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place.
+        </AppText>
       </View>
 
       {/* S66: sits behind the same section PIN as the cycle tracker. Only emergency content stays outside it: the danger signs and the

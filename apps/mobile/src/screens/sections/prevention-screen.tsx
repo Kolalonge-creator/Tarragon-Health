@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { koboToNaira } from "@tarragon/shared";
 import {
   CONDITION_LABEL,
@@ -36,6 +36,7 @@ import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
+import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
@@ -296,8 +297,14 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Prevention">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="55%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -310,11 +317,13 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
       contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
     >
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Prevention</Text>
-        <MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Prevention
+        </AppText>
+        <AppText variant="body" tone="textMuted">
           Screenings, vaccinations, and the risk tiers that keep a healthy person healthy.
-        </MutedText>
+        </AppText>
       </View>
 
       {/* Preventive programmes */}
