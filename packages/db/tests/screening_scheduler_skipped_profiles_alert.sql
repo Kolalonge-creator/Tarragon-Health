@@ -35,7 +35,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_staff uuid; v_set uuid; v_gap uuid; v_gap_test uuid; v_ok uuid;
-  v_before integer; v_n integer; v_inc public.ops_incidents%rowtype; v_res jsonb; v_audit jsonb;
+  v_before integer; v_n integer; v_org2 uuid; v_inc public.ops_incidents%rowtype; v_res jsonb; v_audit jsonb;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', true);
@@ -59,8 +59,8 @@ begin
   v_ok := pg_temp.mkuser(v_org, 'complete', 'patient', false, date '1980-01-01', 'female');
 
   -- 0. the owner resolver finds exactly this CMO
-  if private.screening_incident_owner() is distinct from v_cmo then
-    raise exception 'FAIL 0: owner resolver returned %, expected the active CMO %', private.screening_incident_owner(), v_cmo;
+  if private.screening_incident_owner(v_org) is distinct from v_cmo then
+    raise exception 'FAIL 0: owner resolver returned %, expected the active CMO %', private.screening_incident_owner(v_org), v_cmo;
   end if;
 
   -- 5 first: a single-patient run never raises the incident
@@ -101,22 +101,47 @@ begin
   values (v_org, v_ok, (select id from public.screen_types where code = 'hba1c'), 'pending', current_date - 1, v_set);
   create function pg_temp.boom() returns trigger language plpgsql as $t$ begin raise exception 'proof: forced failure'; end $t$;
   create trigger zz_proof_boom before insert on public.lab_orders for each row execute function pg_temp.boom();
-  -- the bundle for hba1c must exist for the row to reach the insert; if the fixture database has none, add the failure through
-  -- the guard path instead
-  if exists (select 1 from public.panel_bundles b where b.is_active and b.test_codes = array['hba1c']) then
-    v_res := private.run_screening_request_automation(null);
-    if coalesce((v_res ->> 'failed')::integer, 0) < 1 then raise exception 'FAIL 6: the forced failure was not counted: %', v_res; end if;
-    select * into v_inc from public.ops_incidents where external_reference = 'screening_request_automation' and status not in ('resolved', 'closed');
-    if v_inc.id is null then raise exception 'FAIL 6: no failure incident opened'; end if;
-    if v_inc.owner_id is distinct from v_cmo then raise exception 'FAIL 6: failure incident owner is %, expected the CMO', v_inc.owner_id; end if;
-  else
-    raise notice 'NOTE 6: no active hba1c single-test bundle in this database, step 6 skipped';
+  -- the single_hba1c bundle is seeded by a migration; if it is missing this step cannot prove anything, so it fails rather than skips
+  if not exists (select 1 from public.panel_bundles b where b.is_active and b.test_codes = array['hba1c']) then
+    raise exception 'FAIL 6: no active hba1c single-test bundle, the failure path cannot be exercised';
   end if;
+  v_res := private.run_screening_request_automation(null);
+  if coalesce((v_res ->> 'failed')::integer, 0) < 1 then raise exception 'FAIL 6: the forced failure was not counted: %', v_res; end if;
+  select * into v_inc from public.ops_incidents where external_reference = 'screening_request_automation' and status not in ('resolved', 'closed');
+  if v_inc.id is null then raise exception 'FAIL 6: no failure incident opened'; end if;
+  if v_inc.owner_id is distinct from v_cmo then raise exception 'FAIL 6: failure incident owner is %, expected the CMO', v_inc.owner_id; end if;
   drop trigger zz_proof_boom on public.lab_orders;
 
+  -- 8. the open incident's count is refreshed, not left stale, and still only one incident exists
+  perform pg_temp.mkuser(v_org, 'gap-real-2', 'patient', false, null, null);
+  perform private.run_screening_scheduler(null);
+  select * into v_inc from public.ops_incidents where external_reference = 'screening_scheduler_missing_profile_data' and organisation_id = v_org and status not in ('resolved', 'closed');
+  if v_inc.summary not like (v_before + 1)::text || ' active patient(s)%' then raise exception 'FAIL 8: incident count not refreshed: %', v_inc.summary; end if;
+  select count(*) into v_n from public.ops_incidents where external_reference = 'screening_scheduler_missing_profile_data' and organisation_id = v_org;
+  if v_n <> 1 then raise exception 'FAIL 8: % incidents, expected 1', v_n; end if;
+
+  -- 9. another organisation gets its own incident and is never owned by this organisation's CMO
+  insert into public.organisations (name, type) select 'Skip other organisation', type from public.organisations where id = v_org returning id into v_org2;
+  perform pg_temp.mkuser(v_org2, 'gap-other', 'patient', false, null, null);
+  update public.profiles set organisation_id = v_org2 where full_name = 'Skip gap-other';
+  perform private.run_screening_scheduler(null);
+  select * into v_inc from public.ops_incidents where external_reference = 'screening_scheduler_missing_profile_data' and organisation_id = v_org2;
+  if v_inc.id is null then raise exception 'FAIL 9: no incident for the other organisation'; end if;
+  if v_inc.owner_id is not null then raise exception 'FAIL 9: the other organisation incident is owned by %, a CMO of a different organisation', v_inc.owner_id; end if;
+
+  -- 10. a failing alert never aborts the scheduling run: the run still reports ran=true and carries the SQLSTATE
+  create function pg_temp.boom2() returns trigger language plpgsql as $t$ begin raise exception 'proof: incident insert refused'; end $t$;
+  update public.ops_incidents set status = 'resolved', root_cause = 'proof: resolved so a new one must be attempted' where external_reference = 'screening_scheduler_missing_profile_data';
+  create trigger zz_proof_boom2 before insert on public.ops_incidents for each row execute function pg_temp.boom2();
+  v_res := private.run_screening_scheduler(null);
+  drop trigger zz_proof_boom2 on public.ops_incidents;
+  if (v_res ->> 'ran') <> 'true' or (v_res ->> 'missing_profile_alert_error') is null then
+    raise exception 'FAIL 10: a failing alert aborted or hid itself: %', v_res;
+  end if;
+
   -- 7. privileges
-  if has_function_privilege('anon', 'private.screening_incident_owner()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.screening_incident_owner()', 'EXECUTE') then
+  if has_function_privilege('anon', 'private.screening_incident_owner(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.screening_incident_owner(uuid)', 'EXECUTE') then
     raise exception 'FAIL 7: the owner resolver is callable by anon or a signed-in user';
   end if;
 

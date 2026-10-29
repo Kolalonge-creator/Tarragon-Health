@@ -9,7 +9,7 @@
 -- Both job bodies below are the LIVE definitions read with pg_get_functiondef on 2026-10-29, not the older migration text.
 -- Live counts before writing: 5 real active patients, 1 of them with no date of birth or sex.
 
-create or replace function private.screening_incident_owner()
+create or replace function private.screening_incident_owner(p_org uuid)
 returns uuid
 language sql
 stable
@@ -18,11 +18,12 @@ set search_path = ''
 as $$
   select cs.profile_id
     from public.clinical_staff cs
-   where cs.active and cs.doctor_tier = 'chief_medical_officer' and coalesce(cs.is_test, false) = false
+   where cs.organisation_id = p_org
+     and cs.active and cs.doctor_tier = 'chief_medical_officer' and coalesce(cs.is_test, false) = false
    order by cs.created_at
    limit 1
 $$;
-revoke all on function private.screening_incident_owner() from public, anon, authenticated;
+revoke all on function private.screening_incident_owner(uuid) from public, anon, authenticated;
 
 create or replace function private.run_screening_scheduler(p_patient uuid default null::uuid)
 returns jsonb
@@ -32,7 +33,7 @@ set search_path to ''
 as $function$
 declare
   v_set uuid; v_created integer := 0; v_events integer := 0; r record; v_reasons text[]; v_flagged integer := 0;
-  v_missing integer := 0; v_missing_org uuid;
+  v_missing integer := 0; v_alert_error text;
 begin
   if p_patient is null then
     if not private.go_live_guard_on('screening_scheduler_enabled') then return jsonb_build_object('ran', false, 'reason', 'guard_off'); end if;
@@ -97,23 +98,38 @@ begin
 
   -- HZ-SCR-03: count the real active patients the run could not screen because the profile lacks a date of birth or a sex.
   -- Full nightly run only. The count and one incident name no patient (INV-07); a person finds them in the patient directory.
+  -- Per organisation (every table filters by it). This is a diagnostic, so it runs in its own sub-transaction: if recording the
+  -- alert fails, the schedules created above are kept, a WARNING is raised for the job log and the result carries the SQLSTATE.
+  -- audit_log.result only allows success/denied/failed; 'failed' is used because the run did NOT screen these patients.
   if p_patient is null then
-    select count(*), (array_agg(p.organisation_id))[1] into v_missing, v_missing_org
-      from public.profiles p
-     where p.role = 'patient' and p.is_active and p.organisation_id is not null
-       and not coalesce(p.is_test, false)
-       and (p.date_of_birth is null or p.sex is null);
-    if v_missing > 0 then
-      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result)
-      values (v_missing_org, null, 'screening_scheduler.skipped_missing_profile_data', 'profiles', null,
-              jsonb_build_object('skipped', v_missing), 'failed');
-      if not exists (select 1 from public.ops_incidents where external_reference = 'screening_scheduler_missing_profile_data' and status not in ('resolved', 'closed')) then
-        insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at, owner_id)
-        values (v_missing_org, 'technical', 'sev3', 'Some patients cannot be screened: profile is missing a date of birth or sex',
-                format('%s active patient(s) were skipped by the nightly screening scheduler because their profile has no date of birth or no sex. No patient is named here. Find them in the admin patient directory and ask them to complete their profile.', v_missing),
-                'screening_scheduler_missing_profile_data', now(), now() + interval '7 days', private.screening_incident_owner());
-      end if;
-    end if;
+    begin
+      for r in
+        select p.organisation_id, count(*)::integer as n
+          from public.profiles p
+         where p.role = 'patient' and p.is_active and p.organisation_id is not null
+           and not coalesce(p.is_test, false)
+           and (p.date_of_birth is null or p.sex is null)
+         group by p.organisation_id
+      loop
+        v_missing := v_missing + r.n;
+        insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result)
+        values (r.organisation_id, null, 'screening_scheduler.skipped_missing_profile_data', 'profiles', null,
+                jsonb_build_object('skipped', r.n), 'failed');
+        -- one open incident per organisation; its count is refreshed every night so it never goes stale
+        update public.ops_incidents
+           set summary = format('%s active patient(s) were skipped by the nightly screening scheduler because their profile has no date of birth or no sex. No patient is named here. Find them in the admin patient directory and ask them to complete their profile.', r.n)
+         where organisation_id = r.organisation_id and external_reference = 'screening_scheduler_missing_profile_data' and status not in ('resolved', 'closed');
+        if not found then
+          insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at, owner_id)
+          values (r.organisation_id, 'technical', 'sev3', 'Some patients cannot be screened: profile is missing a date of birth or sex',
+                  format('%s active patient(s) were skipped by the nightly screening scheduler because their profile has no date of birth or no sex. No patient is named here. Find them in the admin patient directory and ask them to complete their profile.', r.n),
+                  'screening_scheduler_missing_profile_data', now() + interval '1 day', now() + interval '7 days', private.screening_incident_owner(r.organisation_id));
+        end if;
+      end loop;
+    exception when others then
+      raise warning 'screening scheduler: missing-profile alert failed (SQLSTATE %)', sqlstate;
+      v_alert_error := sqlstate;
+    end;
   end if;
 
   -- reassessment prompts ride the same nightly run (only while the risk guard is on)
@@ -126,7 +142,7 @@ begin
       end if;
     end loop;
   end if;
-  return jsonb_build_object('ran', true, 'rule_set_id', v_set, 'created', v_created, 'events', v_events, 'care_flags', v_flagged, 'skipped_missing_profile', v_missing);
+  return jsonb_build_object('ran', true, 'rule_set_id', v_set, 'created', v_created, 'events', v_events, 'care_flags', v_flagged, 'skipped_missing_profile', v_missing, 'missing_profile_alert_error', v_alert_error);
 end $function$;
 
 -- HZ-SCR-06: same live body as before, with one change: the failure incident gets the CMO as owner.
@@ -202,7 +218,7 @@ begin
       values (v_fail_org, 'technical', 'sev3', 'Automatic test requests failed for some patients',
               format('%s automatic test request(s) failed in the last nightly run (SQLSTATE: %s). See audit_log action screening_request.auto_issue_failed. No patient or test is named here.',
                      v_failed, array_to_string(v_fail_states, ',')),
-              'screening_request_automation', now(), now() + interval '1 day', private.screening_incident_owner());
+              'screening_request_automation', now(), now() + interval '1 day', private.screening_incident_owner(v_fail_org));
     end if;
   end if;
   return jsonb_build_object('ran', true, 'issued', v_issued, 'skipped_sensitive', v_sensitive, 'skipped_no_bundle', v_no_bundle, 'failed', v_failed);
@@ -215,8 +231,8 @@ begin
   if position('screening_scheduler_missing_profile_data' in pg_get_functiondef('private.run_screening_scheduler(uuid)'::regprocedure)) = 0 then
     raise exception 'scheduler does not carry the missing-profile alert';
   end if;
-  if has_function_privilege('anon', 'private.screening_incident_owner()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.screening_incident_owner()', 'EXECUTE') then
+  if has_function_privilege('anon', 'private.screening_incident_owner(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.screening_incident_owner(uuid)', 'EXECUTE') then
     raise exception 'the owner resolver is callable by anon or a signed-in user';
   end if;
 end $$;
