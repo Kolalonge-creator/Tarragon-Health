@@ -344,7 +344,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         <View style={{ gap: 8, backgroundColor: colors.brandTint, borderRadius: radius.card, padding: 14 }}>
           {[
             "Log blood pressure, sugar and medicines in seconds",
-            "Plain-language results, reviewed by your care team",
+            "Plain-language explanations of your results",
             "Reminders that fit around your day",
           ].map((line) => (
             <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
