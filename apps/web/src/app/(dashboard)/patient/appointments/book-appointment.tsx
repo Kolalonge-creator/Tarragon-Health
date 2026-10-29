@@ -68,10 +68,14 @@ export function BookAppointment({
   initialAppointmentType,
   locale = "en",
   renderPendingPayment,
+  renderTerms,
 }: {
   organisationId: string;
   patientId: string;
   locale?: Locale;
+  /** The "Before you pay" card is written to the patient ("your Membership"). A Care Coordinator booking for someone else shows terms
+   * written about that patient instead. */
+  renderTerms?: (appointmentType: AppointmentType) => React.ReactNode;
   /** A Care Coordinator booking on a phone call shows its own payment panel (a pay link for the patient or a relative) instead of
    * the "Pay to confirm" button, which would start a purchase for the signed-in coordinator. */
   renderPendingPayment?: (held: { appointmentId: string; productCode: string; slotStart: string; appointmentType: AppointmentType }) => React.ReactNode;
@@ -261,10 +265,11 @@ export function BookAppointment({
         text: "Could not book that slot. Try another.",
       });
     } catch (error) {
+      // The database's refusals are written as a clause ("this patient needs to join Membership..."); show them as a sentence.
+      const raw = (error as Error).message;
       setMessage({
         tone: "error",
-        text:
-          (error as Error).message || "Could not book that slot. Try another.",
+        text: raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Could not book that slot. Try another.",
       });
     }
   }
@@ -371,7 +376,7 @@ export function BookAppointment({
           </div>
         )}
 
-        {!closed && <BookingTermsCard appointmentType={appointmentType} locale={locale} />}
+        {!closed && (renderTerms ? renderTerms(appointmentType) : <BookingTermsCard appointmentType={appointmentType} locale={locale} />)}
 
         {!closed && declaredTimeSlots.length > 0 && (
           <div className="space-y-2" role="group" aria-label={t("book.filter.title", locale)}>

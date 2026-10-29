@@ -139,20 +139,31 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
     caller: { id: booking.userId, email: parsed.data.payerEmail },
   });
   if (!result) return { error: "Could not start the payment" };
-  if (result.error) return { error: result.error };
+  if (result.error) return { error: friendlyPayError(result.error) };
   if (result.checkoutUrl) return { checkoutUrl: result.checkoutUrl };
   if (result.activated) return { activated: true };
   return { error: "Could not start the payment" };
 }
 
+/**
+ * The purchase function's own refusals are written for developers ("service product video_visit_credit is not available"). A coordinator
+ * on a call needs to know what to do: a visit that is not on sale cannot be paid for by link, and the care lead decides how it is covered.
+ */
+function friendlyPayError(message: string): string {
+  if (/is not available/i.test(message)) {
+    return "This visit cannot be paid for by link right now because it is not on sale. Tell the patient you will call back, and ask the care lead how it should be covered.";
+  }
+  return message;
+}
+
 /** Shows again the link already made for a waiting phone booking (a lost link). Never makes a new one. */
-export async function getPayLink(appointmentId: string): Promise<{ checkoutUrl: string } | { error: string }> {
+export async function getPayLink(appointmentId: string): Promise<{ checkoutUrl: string } | { none: true } | { error: string }> {
   if (!appointmentIdSchema.safeParse(appointmentId).success) return { error: "That appointment could not be found" };
   const booking = await loadWaitingBooking(appointmentId);
   if ("error" in booking) return booking;
   const outstanding = await findOutstandingLink(booking.patientId, booking.productCode);
   if ("error" in outstanding) return outstanding;
-  if (!outstanding.found) return { error: "No payment link has been made for this booking yet. Open Book for a patient and make one." };
+  if (!outstanding.found) return { none: true };
   if (!outstanding.checkoutUrl) return { error: "That link was made before links were kept, so it cannot be shown again. Ask the payer to use it." };
   return { checkoutUrl: outstanding.checkoutUrl };
 }

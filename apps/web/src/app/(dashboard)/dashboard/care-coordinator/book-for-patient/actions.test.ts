@@ -96,6 +96,18 @@ describe("createPayLink", () => {
     );
   });
 
+  it("turns the developer-worded 'not available' refusal into what the coordinator should do", async () => {
+    purchaseServiceProduct.mockResolvedValue({ error: "service product video_visit_credit is not available" });
+    const r = await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" });
+    expect(r).toEqual({ error: expect.stringContaining("not on sale") });
+    expect(JSON.stringify(r)).not.toContain("video_visit_credit");
+  });
+
+  it("leaves other payment errors as they are", async () => {
+    purchaseServiceProduct.mockResolvedValue({ error: "Card payments aren't set up yet" });
+    expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ error: "Card payments aren't set up yet" });
+  });
+
   it("shows the SAME link again instead of making a second one (a second would orphan a payment on the first)", async () => {
     outstandingLimit.mockResolvedValue({ data: [{ ...FRESH(), pending_payment_checkout_url: "https://checkout.paystack.com/first" }], error: null });
     expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({
@@ -207,7 +219,7 @@ describe("getPayLink", () => {
   });
 
   it("never makes a link: with none made it says so", async () => {
-    expect(await getPayLink(APPT)).toEqual({ error: expect.stringContaining("No payment link") });
+    expect(await getPayLink(APPT)).toEqual({ none: true });
     expect(purchaseServiceProduct).not.toHaveBeenCalled();
   });
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
 import { getPayLink, retryConfirm } from "./actions";
+import { PayLinkPanel } from "./pay-link-panel";
 
 type PhoneBooking = {
   id: string;
@@ -30,6 +31,7 @@ export function PhoneBookingsList() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [links, setLinks] = useState<Record<string, string>>({});
+  const [panelFor, setPanelFor] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: KEY,
@@ -70,6 +72,7 @@ export function PhoneBookingsList() {
     const r = await getPayLink(id);
     setBusyId(null);
     if ("error" in r) setMessage(r.error);
+    else if ("none" in r) setPanelFor(id);
     else setLinks((prev) => ({ ...prev, [id]: r.checkoutUrl }));
   }
 
@@ -127,7 +130,9 @@ export function PhoneBookingsList() {
                       : failed
                         ? `Payment received but the booking was not confirmed: ${b.payment_confirm_error}`
                         : b.hold_expires_at
-                          ? `Waiting for payment. The time is released ${formatPatientDateTime(b.hold_expires_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })} if it is not paid.`
+                          ? new Date(b.hold_expires_at).getTime() >= new Date(b.scheduled_for).getTime()
+                            ? "Waiting for payment. The visit is soon, so the time is released if it is not paid before the visit starts."
+                            : `Waiting for payment. The time is released ${formatPatientDateTime(b.hold_expires_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })} if it is not paid.`
                           : "Waiting for payment."}
                   </p>
                 </div>
@@ -142,6 +147,11 @@ export function PhoneBookingsList() {
                     <Button size="sm" variant="outline" disabled={busyId === b.id} onClick={() => retry(b.id)}>
                       {busyId === b.id ? "Checking…" : "Check payment and confirm"}
                     </Button>
+                  </div>
+                )}
+                {panelFor === b.id && (
+                  <div className="w-full">
+                    <PayLinkPanel appointmentId={b.id} slotStart={b.scheduled_for} patientName={b.patient?.full_name ?? "the patient"} />
                   </div>
                 )}
                 {links[b.id] && (
