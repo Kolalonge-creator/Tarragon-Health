@@ -36,7 +36,7 @@ import {
   splitBillWithThem,
   type SponsorActionState,
 } from "./actions";
-import { useActiveServiceProducts } from "@/lib/queries/service-products";
+import { useSponsorableServiceProducts } from "@/lib/queries/service-products";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -531,7 +531,7 @@ function SplitBillWithThem({
  * not a diaspora premium for the same thing.
  */
 function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActiveServiceProducts();
+  const { data: plans } = useSponsorableServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,

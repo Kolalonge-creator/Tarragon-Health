@@ -22,8 +22,13 @@
 -- 6. Two other routes read the same product and must not become a way round the rule (found in review): the older video-visit request
 --    path (private.pin_video_visit_amount, a BEFORE INSERT trigger on video_visit_requests, takes its price from the product and used to
 --    refuse because the product was off) now also refuses a non-Member; and create_sponsored_service_reservation, where a sponsor names
---    the recipient by phone number so Membership cannot be checked, refuses this product outright, and the second opinion (also
---    Members-only, same hole) with it.
+--    the recipient by phone number, may buy the extra meeting or the second opinion (also Members-only, same hole) only for someone
+--    who is ALREADY a paid Member: the account holding that phone number must exist in the sponsor's organisation and be a Member now.
+--    claim_sponsored_service_reservation (redefined from its live body) checks again at claim time, because the recipient may have
+--    lapsed since. Sponsoring a Membership or Membership Plus is unaffected, and so is paying for a named supported person (that route
+--    already refuses a non-Member through the service_purchases triggers).
+--    The sponsor screen needs to SEE these products though a non-Member sponsor cannot (item 7), so it reads them through
+--    public.sponsorable_service_products(), which returns every active product. It only lists; it grants nothing.
 -- 7. Members-only products are not shown to patients who cannot buy them. service_products was readable by every signed-in user, so any
 --    screen that lists active products (the mobile and web service lists, onboarding) offered the extra meeting and the second opinion to
 --    Free patients, who were refused only at purchase. The SELECT policy now goes through private.may_see_service_product: hidden from a
@@ -479,16 +484,13 @@ begin
     raise exception 'sponsor has no organisation' using errcode = '23514';
   end if;
 
-  select id, code, currency, price_kobo, is_active
+  select id, code, name, currency, price_kobo, is_active
     into v_product
     from public.service_products
    where id = p_service_product_id;
 
   if v_product.id is null or not v_product.is_active then
     raise exception 'that service is not available' using errcode = '23514';
-  end if;
-  if v_product.code in ('video_visit_credit', 'second_opinion_credit') then
-    raise exception 'that service can only be bought by a Member for themselves' using errcode = '23514';
   end if;
   if v_product.currency <> 'NGN' then
     raise exception 'reservations only support naira-priced services' using errcode = '23514';
@@ -499,6 +501,16 @@ begin
   end if;
   if length(trim(p_recipient_first_name)) = 0 then
     raise exception 'recipient first name is required' using errcode = '23514';
+  end if;
+
+  -- a second opinion or an extra meeting is only for someone who is already a paid Member (decision 2026-10-29)
+  if v_product.code in ('video_visit_credit', 'second_opinion_credit') then
+    if not exists (select 1 from public.profiles r
+                    where r.phone = p_recipient_phone and r.role = 'patient' and r.organisation_id = v_org
+                      and coalesce(private.patient_is_member(r.id), false)) then
+      raise exception '% can only be bought for someone who is already a paid Member. Check their phone number, or sponsor their Membership first.', v_product.name
+        using errcode = '23514';
+    end if;
   end if;
 
   insert into public.sponsored_service_reservations (
@@ -518,8 +530,123 @@ begin
 end;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.claim_sponsored_service_reservation(p_token text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_caller uuid := (select auth.uid());
+  v_caller_phone text;
+  v_reservation public.sponsored_service_reservations%rowtype;
+  v_product record;
+  v_validity_months int;
+  v_voucher_id uuid;
+  v_voucher_number text;
+begin
+  if v_caller is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  select phone into v_caller_phone from public.profiles where id = v_caller;
+  if v_caller_phone is null then
+    raise exception 'add a phone number to your account before claiming this' using errcode = '23514';
+  end if;
+
+  select * into v_reservation
+    from public.sponsored_service_reservations
+   where invite_token = p_token
+   for update;
+
+  if v_reservation.id is null then
+    raise exception 'that link is not valid' using errcode = '22023';
+  end if;
+  if v_reservation.status <> 'invited' then
+    raise exception 'this reservation is % — it can no longer be claimed', v_reservation.status
+      using errcode = '23514';
+  end if;
+  if v_reservation.expires_at is not null and v_reservation.expires_at < now() then
+    update public.sponsored_service_reservations set status = 'expired' where id = v_reservation.id;
+    raise exception 'this invitation has expired' using errcode = '23514';
+  end if;
+  if v_reservation.recipient_phone <> v_caller_phone then
+    raise exception 'this invitation was sent to a different phone number than the one on your account'
+      using errcode = '42501';
+  end if;
+
+  select id, code, name, price_kobo
+    into v_product
+    from public.service_products
+   where id = v_reservation.service_product_id;
+
+  if v_product.code in ('video_visit_credit', 'second_opinion_credit') and not coalesce(private.patient_is_member(v_caller), false) then
+    raise exception '% is part of Membership. Start or renew your Membership, then claim this again before it expires.', v_product.name
+      using errcode = '23514';
+  end if;
+
+  select validity_months into v_validity_months from public.care_voucher_config limit 1;
+  v_validity_months := coalesce(v_validity_months, 24);
+
+  insert into public.care_vouchers (
+    organisation_id, voucher_number, kind, beneficiary_profile_id, purchaser_profile_id,
+    service_product_id, sku_code, sku_name, face_value_kobo, amount_paid_kobo,
+    status, expires_at, activated_at
+  ) values (
+    v_reservation.organisation_id,
+    'RSV-' || upper(substr(encode(extensions.gen_random_bytes(6), 'hex'), 1, 10)),
+    'prepaid_service', v_caller, v_reservation.sponsor_profile_id,
+    v_product.id, v_product.code, v_product.name, v_reservation.amount_kobo, v_reservation.amount_kobo,
+    'active', now() + (v_validity_months || ' months')::interval, now()
+  ) returning id, voucher_number into v_voucher_id, v_voucher_number;
+
+  update public.sponsored_service_reservations
+     set status = 'claimed',
+         claimed_by_profile_id = v_caller,
+         claimed_at = now(),
+         care_voucher_id = v_voucher_id
+   where id = v_reservation.id;
+
+  insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class)
+  values (
+    v_reservation.organisation_id, v_reservation.sponsor_profile_id, 'in_app', 'sponsored_reservation_claimed',
+    jsonb_build_object('recipient_name', v_reservation.recipient_first_name, 'sku_name', v_product.name),
+    'non_clinical'
+  );
+
+  perform private.log_audit(
+    'sponsored_service_reservation.claimed', 'sponsored_service_reservation', v_reservation.id,
+    jsonb_build_object('care_voucher_id', v_voucher_id)
+  );
+
+  return jsonb_build_object(
+    'ok', true, 'voucher_id', v_voucher_id, 'voucher_number', v_voucher_number,
+    'sku_name', v_product.name, 'face_value_kobo', v_reservation.amount_kobo
+  );
+end;
+$function$;
+
+create or replace function public.sponsorable_service_products()
+ returns setof public.service_products
+ language sql
+ stable
+ security definer
+ set search_path to ''
+as $function$
+  select * from public.service_products where is_active order by price_kobo;
+$function$;
+revoke all on function public.sponsorable_service_products() from public, anon;
+grant execute on function public.sponsorable_service_products() to authenticated;
+
 do $$
 begin
+  if pg_get_functiondef('public.claim_sponsored_service_reservation(text)'::regprocedure) not like '%Start or renew your Membership%'
+     or pg_get_functiondef('public.create_sponsored_service_reservation(uuid,text,text)'::regprocedure) not like '%already a paid Member%' then
+    raise exception 'the sponsored reservation functions were not updated';
+  end if;
+  if has_function_privilege('anon', 'public.sponsorable_service_products()', 'EXECUTE') then
+    raise exception 'sponsorable_service_products must not be executable by anon';
+  end if;
   if pg_get_functiondef('private.pin_video_visit_amount()'::regprocedure) not like '%MEMBERSHIP_REQUIRED%'
      or pg_get_functiondef('public.create_sponsored_service_reservation(uuid,text,text)'::regprocedure) not like '%video_visit_credit%' then
     raise exception 'the video-visit request path or the sponsor reservation was not updated';
