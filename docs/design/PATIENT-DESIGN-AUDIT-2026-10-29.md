@@ -247,6 +247,8 @@ P2 status: all five flagship screens have had their pass on web/mobile as descri
 
 **P3 - the long pages (REBUILD verdicts)**
 13. Labs (11,624px), Health Check (8,710), Wellbeing (7,188), Profile (5,972), Care & support (4,983), Care Circle (3,756), Appointments/Find a specialist/Directory (results-first cards).
+   - **Labs (web): done in code.** Results stay first and order/booking status stays visible. The long ordering material (annual bundle, full test catalogue, branch directory) is folded into one "Request a lab test" section (new shared `Disclosure` component). Released results show the latest three with "Show earlier results (N)"; interpreted results show three with the rest folded. Verified structurally in the browser on the local patient (no lab data there, so the 11,624px page was NOT reproduced and the new height is not measured on real data).
+   - Health Check, Wellbeing, Profile, Care & support, Care Circle, Appointments: not started.
 
 **P4 - the tracker family (Weight, Sleep, Alcohol, Smoking, Nutrition, Fasting, Exercise, Activity)** as one Metric template.
 

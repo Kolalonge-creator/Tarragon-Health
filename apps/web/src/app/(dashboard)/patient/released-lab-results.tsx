@@ -132,8 +132,14 @@ function AddOwnResult({ locale, onDone }: { locale: Locale; onDone: () => void }
   );
 }
 
+/** How many released results show before the rest fold behind a button; a year of results made this page very long. */
+const RECENT_RESULTS = 3;
+
 export function ReleasedLabResults({ patientId, locale }: { patientId: string; locale: Locale }) {
   const q = useMyLabResults(patientId);
+  const [showAll, setShowAll] = useState(false);
+  const all = q.data ?? [];
+  const visible = showAll ? all : all.slice(0, RECENT_RESULTS);
   return (
     <Card>
       <CardHeader>
@@ -142,10 +148,15 @@ export function ReleasedLabResults({ patientId, locale }: { patientId: string; l
       <CardContent className="space-y-3">
         {q.data && q.data.length === 0 ? <p className={`text-sm ${MUTED}`}>{t("labres.empty", locale)}</p> : null}
         <ul className="space-y-2">
-          {(q.data ?? []).map((r) => (
+          {visible.map((r) => (
             <ResultCard key={r.lab_result_id} r={r} locale={locale} />
           ))}
         </ul>
+        {all.length > RECENT_RESULTS ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+            {showAll ? "Show fewer results" : `Show earlier results (${all.length - RECENT_RESULTS})`}
+          </Button>
+        ) : null}
         <AddOwnResult locale={locale} onDone={() => void q.refetch()} />
       </CardContent>
     </Card>

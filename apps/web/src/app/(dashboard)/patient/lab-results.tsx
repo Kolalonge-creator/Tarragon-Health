@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
+import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyHint } from "@/components/ui/empty-hint";
 import type { ScreeningResultStatus } from "@tarragon/shared";
 
@@ -9,6 +10,9 @@ interface StoredInterpretation {
   result_status?: ScreeningResultStatus;
   summary?: string;
 }
+
+/** The latest results show; older ones fold. */
+const RECENT = 3;
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -41,30 +45,37 @@ export async function LabResults({
     return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
   }
 
+  const renderRow = (result: (typeof results)[number]) => {
+    const interpretation = result.interpretation as StoredInterpretation | null;
+    const badge = interpretation?.result_status ? RESULT_STATUS_BADGE[interpretation.result_status] : null;
+    return (
+      <div
+        key={result.id}
+        className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          {badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : <span />}
+          <p className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(result.created_at)}</p>
+        </div>
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">
+          {interpretation?.summary ?? "Results available, ask your care team for details."}
+        </p>
+      </div>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Your lab results</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {results.map((result) => {
-          const interpretation = result.interpretation as StoredInterpretation | null;
-          const badge = interpretation?.result_status ? RESULT_STATUS_BADGE[interpretation.result_status] : null;
-          return (
-            <div
-              key={result.id}
-              className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                {badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : <span />}
-                <p className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(result.created_at)}</p>
-              </div>
-              <p className="text-sm text-charcoal-ink dark:text-night-ink">
-                {interpretation?.summary ?? "Results available, ask your care team for details."}
-              </p>
-            </div>
-          );
-        })}
+        {results.slice(0, RECENT).map(renderRow)}
+        {results.length > RECENT && (
+          <Disclosure title={`Earlier results (${results.length - RECENT})`}>
+            {results.slice(RECENT).map(renderRow)}
+          </Disclosure>
+        )}
       </CardContent>
     </Card>
   );
