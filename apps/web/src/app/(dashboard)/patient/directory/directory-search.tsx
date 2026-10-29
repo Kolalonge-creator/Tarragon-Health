@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useState } from "react";
 import { t, type Locale } from "@tarragon/i18n";
 import { directionsHref, telHref } from "@tarragon/shared";
@@ -192,7 +193,12 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
         </Disclosure>
       </form>
 
-      {result.error instanceof DirectoryNotOpenError ? <p role="status">{t("directory.not_open", locale)}</p> : null}
+      {result.error instanceof DirectoryNotOpenError ? (
+        <div className="space-y-3">
+          <p role="status">{t("directory.not_open", locale)}</p>
+          <JoinWaitlist feature="directory" />
+        </div>
+      ) : null}
       {result.isError && !(result.error instanceof DirectoryNotOpenError) ? <p role="alert">{t("directory.error", locale)}</p> : null}
       {result.isSuccess && result.data.length === 0 ? <p role="status">{t("directory.none", locale)}</p> : null}
       {result.isSuccess && result.data.length > 0 ? (

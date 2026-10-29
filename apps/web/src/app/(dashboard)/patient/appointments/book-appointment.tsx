@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -336,6 +337,7 @@ export function BookAppointment({
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("golive.consultations.closed.title", locale)}</p>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("golive.consultations.closed.body", locale)}</p>
+            <JoinWaitlist feature="consultations" />
           </div>
         )}
 

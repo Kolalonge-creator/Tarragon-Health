@@ -11,6 +11,7 @@ import { axe } from "jest-axe";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { BookAppointment } from "./book-appointment";
 
+jest.mock("@/components/join-waitlist", () => ({ JoinWaitlist: () => null }));
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));

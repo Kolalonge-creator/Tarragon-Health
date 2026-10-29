@@ -19024,6 +19024,45 @@ export type Database = {
           },
         ]
       }
+      feature_waitlist: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_waitlist_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_waitlist_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flag_rules: {
         Row: {
           created_at: string

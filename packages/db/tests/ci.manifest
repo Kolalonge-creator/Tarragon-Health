@@ -1650,3 +1650,4 @@ rls_shape_gate.sql
 public_impact_metrics_anon_select_without_has_permission.sql
 # marketing_resources_anon_select_without_is_admin.sql: anon read of marketing_resources used to fail 42501 (is_admin() in the shared policy); proves anon sees published rows only without an error, non-admin published only, admin all, anon still cannot execute is_admin() or write. Sabotage: the old combined policy is restored and anon's read must fail with 42501.
 marketing_resources_anon_select_without_is_admin.sql
+feature_waitlist.sql
