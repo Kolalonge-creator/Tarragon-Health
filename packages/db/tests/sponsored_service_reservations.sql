@@ -70,7 +70,8 @@ begin
     raise exception 'no organisation available -- cannot run this test';
   end if;
 
-  select id into v_product from public.service_products where is_active and currency = 'NGN' order by price_kobo limit 1;
+  select id into v_product from public.service_products
+   where is_active and currency = 'NGN' and code not in ('second_opinion_credit', 'video_visit_credit') order by price_kobo limit 1;
   if v_product is null then
     raise exception 'no active NGN service product available -- cannot run this test';
   end if;

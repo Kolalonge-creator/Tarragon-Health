@@ -95,10 +95,10 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_org2 uuid; v_admin uuid; v_doc uuid; v_cc uuid; v_cc2 uuid; v_pm uuid; v_pm2 uuid; v_pf uuid; v_prod uuid;
+  v_org uuid; v_org2 uuid; v_admin uuid; v_doc uuid; v_cc uuid; v_cc2 uuid; v_pm uuid; v_pm2 uuid; v_pf uuid; v_pf2 uuid; v_prod uuid;
   v0 timestamptz;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
-  v_h text; v_r jsonb; v_id text; v_slot uuid; v_slot2 uuid; v_appt uuid; v_cnt integer;
+  v_so uuid; v_h text; v_r jsonb; v_id text; v_slot uuid; v_slot2 uuid; v_appt uuid; v_cnt integer;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   select id into v_org2 from public.organisations where id <> v_org order by created_at limit 1;
@@ -113,6 +113,7 @@ begin
   v_pm := pg_temp.mkuser(v_org, 'member', 'patient', (current_date - interval '68 years')::date);
   v_pm2 := pg_temp.mkuser(v_org, 'member-2', 'patient', (current_date - interval '66 years')::date);
   v_pf := pg_temp.mkuser(v_org, 'free', 'patient', (current_date - interval '70 years')::date);
+  v_pf2 := pg_temp.mkuser(v_org, 'free-holds-nothing', 'patient', (current_date - interval '71 years')::date);
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
   values (v_org, v_pm, 'granted', 'active', now() - interval '1 day', v_admin, 'proof fixture membership', true),
          (v_org, v_pm2, 'granted', 'active', now() - interval '1 day', v_admin, 'proof fixture membership', true);
@@ -217,12 +218,39 @@ begin
   -- ===== E. the other two routes to the same product =====
   v_id := pg_temp.q_as(v_pm, format($q$select public.create_sponsored_service_reservation(%L, '+2348012345678', 'Ada')::text$q$, v_prod));
   perform pg_temp.rec('E1 a sponsor cannot reserve an extra meeting (the recipient is only a phone number, so Membership cannot be checked)', 'true',
-    (v_id like 'ERR:23514:%extra online meeting can only be bought by a Member for themselves%')::text);
+    (v_id like 'ERR:23514:%that service can only be bought by a Member for themselves%')::text);
+  select id into v_so from public.service_products where code = 'second_opinion_credit';
+  v_id := pg_temp.q_as(v_pm, format($q$select public.create_sponsored_service_reservation(%L, '+2348012345678', 'Ada')::text$q$, v_so));
+  perform pg_temp.rec('E1b a sponsor cannot reserve a second opinion either (same Members-only rule)', 'true',
+    (v_id like 'ERR:23514:%that service can only be bought by a Member for themselves%')::text);
   v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pf, gen_random_uuid()));
   perform pg_temp.rec('E2 the older video-visit request path refuses a Free patient with the Membership message', 'true',
     (v_id like 'P0001:An extra online meeting is part of Membership%')::text);
   v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pm, gen_random_uuid()));
   perform pg_temp.rec('E3 a Member is not stopped by the Membership rule on that path', 'true', (v_id not like '%part of Membership%')::text);
+
+  -- ===== F. members-only products are not offered to patients who cannot buy them =====
+  perform pg_temp.rec('F1 a Free patient does not see the extra meeting or the second opinion in the product list', '0',
+    pg_temp.q_as(v_pf2, $q$select count(*)::text from public.service_products where code in ('video_visit_credit', 'second_opinion_credit')$q$));
+  perform pg_temp.rec('F2 ...but still sees the products that are for everyone', 'true',
+    (pg_temp.q_as(v_pf2, $q$select count(*)::text from public.service_products where is_active and code not in ('video_visit_credit', 'second_opinion_credit')$q$)::integer
+       = (select count(*) from public.service_products where is_active and code not in ('video_visit_credit', 'second_opinion_credit')))::text);
+  perform pg_temp.rec('F3 a Member sees both', '2',
+    pg_temp.q_as(v_pm, $q$select count(*)::text from public.service_products where code in ('video_visit_credit', 'second_opinion_credit')$q$));
+  perform pg_temp.rec('F4 a doctor sees both (staff are not patients)', '2',
+    pg_temp.q_as(v_doc, $q$select count(*)::text from public.service_products where code in ('video_visit_credit', 'second_opinion_credit')$q$));
+  perform pg_temp.rec('F5 a coordinator sees both', '2',
+    pg_temp.q_as(v_cc, $q$select count(*)::text from public.service_products where code in ('video_visit_credit', 'second_opinion_credit')$q$));
+  -- a Free patient who already holds a credit for the extra meeting (granted by hand) keeps seeing that product, so their own purchase history names it
+  insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, purchased_at)
+  values (v_org, v_pf, v_prod, 'active', 500000, 'NGN', 0, now());
+  perform pg_temp.rec('F6 a Free patient holding an extra-meeting credit still sees that product', '1',
+    pg_temp.q_as(v_pf, $q$select count(*)::text from public.service_products where code = 'video_visit_credit'$q$));
+  perform pg_temp.rec('F7 and their purchase still carries its product name (the embed is not nulled)', 'Extra online meeting',
+    pg_temp.q_as(v_pf, $q$select (select name from public.service_products where id = sp.service_product_id) from public.service_purchases sp where sp.status = 'active' limit 1$q$));
+  perform pg_temp.rec('F8 ...but not the second opinion, which they hold nothing of', '0',
+    pg_temp.q_as(v_pf2, $q$select count(*)::text from public.service_products where code = 'second_opinion_credit'$q$));
+  update public.service_purchases set redeemed_at = now(), redeemed_entity_type = 'appointment', redeemed_entity_id = gen_random_uuid() where patient_id = v_pf;
 
   -- ===== D. SABOTAGE =====
   v_r := pg_temp.j(v_doc, format($q$select public.offer_followup_slots(%L, array[%L::timestamptz], 'monthly', null)$q$, v_pm2, v0 + interval '60 minutes'));
@@ -237,6 +265,10 @@ begin
   v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pf, gen_random_uuid()));
   perform pg_temp.rec('D4 SABOTAGE Membership check removed from the older path: the Free patient is no longer refused with the Membership message (so E2 was that check)', 'true',
     (v_id not like '%part of Membership%')::text);
+  execute 'drop policy service_products_select on public.service_products';
+  execute 'create policy service_products_select on public.service_products for select to authenticated using (true)';
+  perform pg_temp.rec('D5 SABOTAGE the old open policy restored: a Free patient sees the members-only products again (so F1 was the new policy)', '2',
+    pg_temp.q_as(v_pf2, $q$select count(*)::text from public.service_products where code in ('video_visit_credit', 'second_opinion_credit')$q$));
   execute $s$ create or replace function private.patient_membership_tier(p_patient uuid) returns text language sql stable security definer set search_path to '' as $b$ select 'plus'::text $b$ $s$;
   v_h := pg_temp.hold_as(v_pf, v_pf, v_doc, v_start + interval '4 days');
   perform pg_temp.rec('D3 SABOTAGE tier check satisfied: a Free patient can book themselves (so B1 was the tier gate)', 'true', (v_h !~ '^ERR')::text);

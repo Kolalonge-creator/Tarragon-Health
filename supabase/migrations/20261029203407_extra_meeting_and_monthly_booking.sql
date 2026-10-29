@@ -22,7 +22,13 @@
 -- 6. Two other routes read the same product and must not become a way round the rule (found in review): the older video-visit request
 --    path (private.pin_video_visit_amount, a BEFORE INSERT trigger on video_visit_requests, takes its price from the product and used to
 --    refuse because the product was off) now also refuses a non-Member; and create_sponsored_service_reservation, where a sponsor names
---    the recipient by phone number so Membership cannot be checked, refuses this product outright.
+--    the recipient by phone number so Membership cannot be checked, refuses this product outright, and the second opinion (also
+--    Members-only, same hole) with it.
+-- 7. Members-only products are not shown to patients who cannot buy them. service_products was readable by every signed-in user, so any
+--    screen that lists active products (the mobile and web service lists, onboarding) offered the extra meeting and the second opinion to
+--    Free patients, who were refused only at purchase. The SELECT policy now goes through private.may_see_service_product: hidden from a
+--    patient who is not a Member, unless they already hold a purchase of that product (so their own purchase history still names it).
+--    Staff, admins and Members see everything as before. Nothing is deleted or changed in the table.
 
 alter table public.service_products drop constraint if exists service_products_doctor_time_not_sellable;
 alter table public.service_products add constraint service_products_doctor_time_not_sellable
@@ -80,6 +86,35 @@ as $function$
   );
 $function$;
 revoke all on function private.is_care_coordinator_for(uuid) from public;
+
+-- Who may SEE a members-only product row. A definer function, so the purchases lookup inside it is not itself subject to row security
+-- (a policy on service_products that read service_purchases directly could recurse). Fail closed for a non-Member patient.
+create or replace function private.may_see_service_product(p_product uuid)
+ returns boolean
+ language sql
+ stable
+ security definer
+ set search_path to ''
+as $function$
+  select
+    -- not a members-only product: everyone signed in sees it, as before
+    not exists (select 1 from public.service_products p where p.id = p_product and p.code in ('second_opinion_credit', 'video_visit_credit'))
+    -- staff and admins are not patients
+    or not exists (select 1 from public.profiles me where me.id = (select auth.uid()) and me.role = 'patient')
+    -- a Member
+    or coalesce(private.patient_is_member((select auth.uid())), false)
+    -- someone who already holds, or paid for, a purchase of it keeps seeing its name
+    or exists (select 1 from public.service_purchases sp
+                where sp.service_product_id = p_product
+                  and ((sp.patient_id = (select auth.uid())) or (sp.purchaser_profile_id = (select auth.uid()))));
+$function$;
+revoke all on function private.may_see_service_product(uuid) from public;
+grant execute on function private.may_see_service_product(uuid) to authenticated;
+
+drop policy if exists service_products_select on public.service_products;
+create policy service_products_select on public.service_products
+  for select to authenticated
+  using (private.may_see_service_product(id));
 
 CREATE OR REPLACE FUNCTION public.public_price_list()
  RETURNS TABLE(code text, currency currency, access_duration_days integer, price_minor bigint)
@@ -452,8 +487,8 @@ begin
   if v_product.id is null or not v_product.is_active then
     raise exception 'that service is not available' using errcode = '23514';
   end if;
-  if v_product.code = 'video_visit_credit' then
-    raise exception 'an extra online meeting can only be bought by a Member for themselves' using errcode = '23514';
+  if v_product.code in ('video_visit_credit', 'second_opinion_credit') then
+    raise exception 'that service can only be bought by a Member for themselves' using errcode = '23514';
   end if;
   if v_product.currency <> 'NGN' then
     raise exception 'reservations only support naira-priced services' using errcode = '23514';
@@ -504,6 +539,13 @@ begin
   end if;
   if exists (select 1 from public.public_price_list() where code in ('video_visit_credit', 'second_opinion_credit')) then
     raise exception 'a members-only product is on the public price list';
+  end if;
+  if has_function_privilege('anon', 'private.may_see_service_product(uuid)', 'EXECUTE') then
+    raise exception 'may_see_service_product must not be executable by anon';
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'service_products' and policyname = 'service_products_select'
+                  and qual like '%may_see_service_product%') then
+    raise exception 'the service_products select policy was not replaced';
   end if;
   if has_function_privilege('anon', 'private.is_care_coordinator_for(uuid)', 'EXECUTE') then
     raise exception 'is_care_coordinator_for must not be executable by anon';
