@@ -486,7 +486,7 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
         </View>
 
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: showDetails }} onPress={() => setShowDetails((v) => !v)}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.brand }}>
+          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.brandPressed }}>
             {showDetails ? "Hide details" : photo ? "Add details (optional)" : "Or describe it, search foods or scan a barcode"}
           </Text>
         </Pressable>

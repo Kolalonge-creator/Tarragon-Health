@@ -219,7 +219,7 @@ export function LogSessionCard({
           ))}
         </View>
       </View>
-      {active.length > 1 ? (
+      {active.length > 0 ? (
         <View style={{ gap: 6 }}>
           <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>Part of a programme? (optional)</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
