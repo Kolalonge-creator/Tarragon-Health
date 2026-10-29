@@ -15,6 +15,8 @@ export type OutboxKind =
   | "birth_plan"
   | "meal"
   | "activity"
+  // P4: an exercise session the person did, saved on the phone first (idempotent by exercise_session_logs.client_id).
+  | "exercise_session"
   // D.1: a wellbeing check-in (mood, stress, sleep, activity), saved on the phone first like a reading.
   | "wellbeing_checkin"
   // S08z: the patient's anchor times and "my day has shifted" entries. Settings, not records: they queue so they work offline.
