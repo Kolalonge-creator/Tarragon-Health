@@ -76,6 +76,8 @@ import { VitalsTaskTypePanel } from "../_signoff-panels/vitals-task-type-panel";
 import { VitalsTriageRulesPanel } from "../_signoff-panels/vitals-triage-rules-panel";
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
+import { OwedSignoffPanel } from "../_signoff-panels/owed-signoff-panel";
+import { OWED_ITEM_PREFIX } from "@/lib/queries/pending-owed-signoffs";
 import { ThresholdPolicyPanel } from "../_signoff-panels/threshold-policy-panel";
 import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
@@ -336,6 +338,10 @@ export default async function ClinicianClinicalSignoffPage({
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
+  // Owed signatures (a safety case, switches pressed from chat, a licence, drafts): one signing form per line.
+  for (const item of hub.items) {
+    if (item.key.startsWith(OWED_ITEM_PREFIX)) inlinePanels[item.key] = <OwedSignoffPanel subjectKey={item.key.slice(OWED_ITEM_PREFIX.length)} running={item.severity === "live_unsigned"} />;
+  }
   // Glucose triage rules (plan item R2): the numbers, the guideline basis of every rule, the patient wording in full, then the Sign control.
   if (keys.has(GLUCOSE_TRIAGE_ITEM_KEY)) inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel back="hub" />;
   // Pulse, SpO2 and temperature triage rules: the numbers, the guideline basis (with the NEWS2 comparison), the patient wording in full, then the Sign control.

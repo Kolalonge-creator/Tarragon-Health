@@ -830,14 +830,14 @@ begin
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   update public.clinical_staff set is_test = false where id = v_real_sid;
   perform pg_temp.ck('the legacy no-date rows block the switch (nobody is stranded)', '23514',
-    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 4$q$));
+    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true, approved_at = now() where version = 4$q$));
   perform pg_temp.ck('signing is refused while an active clinician has no licence date', 'true', (pg_temp.q_as(v_cmo, 'select public.sign_credentialing_config(4)') like 'ERR:record the licence expiry date%')::text);
   perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
   update public.clinical_staff set is_test = true where id = v_real_sid;
   -- Only test clinicians lack a date now: activation must NOT be refused (rolled back in a sub-block, so the proof's own flow is untouched).
   begin
     update public.credentialing_config set is_active = false where is_active;
-    update public.credentialing_config set is_active = true where version = 4;
+    update public.credentialing_config set is_active = true, approved_at = now() where version = 4;
     v_probe := 'activated';
     raise exception 'probe_rollback';
   exception when others then
@@ -853,7 +853,7 @@ begin
       end if; return new; end; $b$ $sab$;
   begin
     update public.credentialing_config set is_active = false where is_active;
-    update public.credentialing_config set is_active = true where version = 4;
+    update public.credentialing_config set is_active = true, approved_at = now() where version = 4;
     v_probe := 'activated';
     raise exception 'probe_rollback';
   exception when others then

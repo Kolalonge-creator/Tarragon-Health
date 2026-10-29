@@ -130,6 +130,12 @@ jest.mock("@/lib/queries/pending-msk-programmes-signoff", () => ({
   MSK_PROGRAMMES_ITEM_KEY: "msk_programmes",
   readPendingMskProgrammesSignoff: (...args: unknown[]) => readPendingMskProgrammesSignoff(...args),
 }));
+type OwedPending = { rows: Array<{ subjectKey: string; title: string; detail: string; running: boolean }>; failed: boolean };
+const readPendingOwedSignoffs = jest.fn<(...args: unknown[]) => Promise<OwedPending>>();
+jest.mock("@/lib/queries/pending-owed-signoffs", () => ({
+  OWED_ITEM_PREFIX: "owed:",
+  readPendingOwedSignoffs: (...args: unknown[]) => readPendingOwedSignoffs(...args),
+}));
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
@@ -163,6 +169,7 @@ function item(key: string, severity: SignoffQueueItem["severity"], count?: numbe
 beforeEach(() => {
   readPendingMskProgrammesSignoff.mockReset();
   readPendingMskProgrammesSignoff.mockResolvedValue({ programmes: [], waitingCount: 0, failed: false });
+  readPendingOwedSignoffs.mockResolvedValue({ rows: [], failed: false });
   readPendingBpDeviceReview.mockReset();
   readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
@@ -869,6 +876,36 @@ describe("readCmoSigningHub: back, neck, knee and hip pain programmes (S96)", ()
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the back, neck, knee and hip pain programmes");
+  });
+});
+
+describe("readCmoSigningHub: signatures owed for things already running", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line per owed row under /clinician, live without a signature when it is running and a draft when it is not", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingOwedSignoffs.mockResolvedValue({
+      rows: [
+        { subjectKey: "screening_safety_case_v1", title: "Screening scheduler safety case", detail: "Version 0.1 was accepted in chat and never signed.", running: true },
+        { subjectKey: "vaccination_adult_drafts", title: "Adult vaccines", detail: "Three drafts, inactive, unverified.", running: false },
+      ],
+      failed: false,
+    });
+    const items = (await readCmoSigningHub(supabase)).items;
+    const running = items.find((i) => i.key === "owed:screening_safety_case_v1");
+    const draft = items.find((i) => i.key === "owed:vaccination_adult_drafts");
+    expect(running?.severity).toBe("live_unsigned");
+    expect(running?.detail).toMatch(/already running without your signature/);
+    expect(running?.href.startsWith("/clinician/")).toBe(true);
+    expect(draft?.severity).toBe("draft_pending");
+    expect(draft?.detail).not.toMatch(/already running/);
+  });
+  it("adds no line when nothing is owed, and names a failed read instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.some((i) => i.key.startsWith("owed:"))).toBe(false);
+    readPendingOwedSignoffs.mockResolvedValue({ rows: [], failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the signatures you owe for things already running");
   });
 });
 

@@ -101,6 +101,7 @@ begin
 
   -- SABOTAGE: the constraint dropped, activating the draft by hand must now succeed
   alter table public.triage_protocols drop constraint triage_protocols_active_requires_signature;
+  alter table public.triage_protocols disable trigger zz_refuse_unsigned_activation_upd;  -- the governed-config guard is a second layer; this sabotage removes both
   update public.triage_protocols set is_active = false where is_active;
   if pg_temp.try(format('update public.triage_protocols set is_active = true where id = %L', r.id)) <> 'ok' then
     raise exception 'VACUOUS TEST: with the constraint dropped the draft was still refused';
