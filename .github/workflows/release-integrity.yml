@@ -115,3 +115,45 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/release-integrity/check-minor-guard-gaps.mjs
+
+  # W-36: act as anon and count readable rows in every row-secured table. Runs after the other database jobs for the
+  # same login-role reason as above.
+  check-anon-zero-rows:
+    name: Anon reads zero rows
+    needs: check-minor-guard-gaps
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Unit test the checks
+        run: node --test scripts/release-integrity/check-anon-zero-rows.test.mjs scripts/release-integrity/check-policy-baseline.test.mjs
+      - name: Check anon can read no row outside the public-by-design tables
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/check-anon-zero-rows.mjs
+
+  # W-36: diff pg_policies against docs/security/pg-policies-baseline.json. Report only until the baseline file exists
+  # and carries "enforce": true (a human reviews the first --write).
+  check-policy-baseline:
+    name: Policy baseline diff
+    needs: check-anon-zero-rows
+    if: ${{ !cancelled() && github.event_name != 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Compare live policies with the baseline
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/check-policy-baseline.mjs --out "$RUNNER_TEMP/pg-policies-live.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pg-policies-live
+          path: ${{ runner.temp }}/pg-policies-live.json
+          if-no-files-found: ignore
