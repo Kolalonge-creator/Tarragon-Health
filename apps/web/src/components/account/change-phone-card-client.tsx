@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
+import { EMAIL_OTP_MAX_LENGTH } from "@/lib/validation/otp";
 
 /**
  * Change the sign-in phone number (S03, S03b). Three steps, and nothing about the account changes until the last one:
@@ -113,7 +114,7 @@ export function ChangePhoneCardClient({ locale = "en", options }: { locale?: Loc
                 id="change-phone-identity-token"
                 name="token"
                 inputMode="numeric"
-                maxLength={6}
+                maxLength={method === "email" ? EMAIL_OTP_MAX_LENGTH : 6}
                 autoComplete="one-time-code"
                 required
                 {...fieldErrorProps(identityErrorId, Boolean(identityState?.error))}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BookAppointment } from "@/app/(dashboard)/patient/appointments/book-appointment";
 import { findPatients, type FoundPatient } from "./actions";
+import { CoordinatorTermsNote } from "./coordinator-terms-note";
 import { PayLinkPanel } from "./pay-link-panel";
 import { PhoneBookingsList } from "./phone-bookings-list";
 
@@ -107,6 +108,9 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
             key={selected.patientId}
             organisationId={organisationId}
             patientId={selected.patientId}
+            renderTerms={(type) => (
+              <CoordinatorTermsNote appointmentType={type} patientName={selected.fullName} isMember={selected.membershipTier !== null} />
+            )}
             renderPendingPayment={(held) => (
               <PayLinkPanel appointmentId={held.appointmentId} slotStart={held.slotStart} patientName={selected.fullName} />
             )}

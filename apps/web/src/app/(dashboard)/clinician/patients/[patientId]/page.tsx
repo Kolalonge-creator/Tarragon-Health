@@ -22,6 +22,7 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { PatientReportedValuesSection } from "./patient-reported-values-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
 import { ImagingOrdersSection } from "./imaging-orders-section";
@@ -411,6 +412,7 @@ export default async function ClinicianPatientPage({
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
+                <PatientReportedValuesSection patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <ReleasedLabResultsWithdraw patientId={patient.id} />}
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />

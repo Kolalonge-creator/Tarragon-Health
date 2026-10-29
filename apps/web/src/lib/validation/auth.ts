@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EMAIL_OTP_PATTERN } from "./otp";
 import { E164_GENERIC } from "@tarragon/shared";
 import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from "./password";
@@ -35,10 +36,10 @@ export const phoneOtpVerifySchema = z.object({
 });
 export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
-/** S41 (spec 1.4): the optional six-digit code from the confirmation email, an alternative to clicking its link. */
+/** S41 (spec 1.4): the optional code from the confirmation email, an alternative to clicking its link. Email codes are 8 digits here (see otp.ts). */
 export const emailOtpVerifySchema = z.object({
   email: z.email(),
-  token: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+  token: z.string().regex(EMAIL_OTP_PATTERN, "Enter the code from your email"),
 });
 export type EmailOtpVerifyInput = z.infer<typeof emailOtpVerifySchema>;
 
