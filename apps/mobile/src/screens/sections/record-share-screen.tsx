@@ -25,6 +25,7 @@ import { API_BASE_URL } from "@/lib/api";
 import { spacing, radius } from "@/ui/theme";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const OFFER = getSharingOffer();
 type FetchArg = Parameters<typeof fetchShl>[2];
@@ -206,14 +207,14 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
         </ChipRow>
         {sections.includes("medications") || sections.includes("conditions") ? <MutedText>{t("sharelink.sections_note")}</MutedText> : null}
 
-        <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.expiry.label")}</Text>
+        <AppText variant="bodyStrong">{t("share.expiry.label")}</AppText>
         <ChipRow>
           {OFFER.expiryOptionsHours.map((h) => (
             <Chip key={h} label={expiryText(h)} active={expiry === h} onPress={() => setExpiry(h)} />
           ))}
         </ChipRow>
 
-        <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("sharelink.recipient.label")}</Text>
+        <AppText variant="bodyStrong">{t("sharelink.recipient.label")}</AppText>
         <TextInput
           keyboardAppearance={scheme}
           placeholderTextColor={placeholderColorFor(scheme)}
@@ -226,7 +227,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
         />
         <MutedText>{t("sharelink.recipient.hint")}</MutedText>
 
-        <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("sharelink.max_views.label")}</Text>
+        <AppText variant="bodyStrong">{t("sharelink.max_views.label")}</AppText>
         <ChipRow>
           <Chip label={t("sharelink.max_views.any")} active={maxViews === null} onPress={() => setMaxViews(null)} />
           {SHARE_MAX_VIEWS_CHOICES.map((n) => (
@@ -239,7 +240,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
           ))}
         </ChipRow>
 
-        <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("sharelink.window.label")}</Text>
+        <AppText variant="bodyStrong">{t("sharelink.window.label")}</AppText>
         <ChipRow>
           <Chip label={t("sharelink.window.latest")} active={windowDays === null} onPress={() => setWindowDays(null)} />
           {SHARE_WINDOW_DAYS_CHOICES.map((d) => (
@@ -249,14 +250,14 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.pin.label")}</Text>
+            <AppText variant="bodyStrong">{t("share.pin.label")}</AppText>
             <MutedText>{t("share.pin.hint", "en", { digits: String(OFFER.pinDigits) })}</MutedText>
           </View>
           <Switch value={usePin} onValueChange={setUsePin} accessibilityLabel={t("share.pin.label")} />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.session.label")}</Text>
+            <AppText variant="bodyStrong">{t("share.session.label")}</AppText>
           </View>
           <Switch value={oneSession} onValueChange={setOneSession} accessibilityLabel={t("share.session.label")} />
         </View>
@@ -270,14 +271,14 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
 
       {created ? (
         <Card style={{ gap: 8 }}>
-          <Text style={{ color: colors.ink, fontWeight: "700" }}>{t("share.created.title")}</Text>
-          <Text selectable style={{ color: colors.ink }}>
+          <AppText variant="bodyStrong">{t("share.created.title")}</AppText>
+          <AppText variant="body" selectable>
             {shareUrl(created.token)}
-          </Text>
+          </AppText>
           <SecondaryButton title={t("sharelink.send")} onPress={() => void sendLink(created.token)} />
           {created.pin ? (
             <View style={{ gap: 4 }}>
-              <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("share.created.pin_title")}</Text>
+              <AppText variant="bodyStrong">{t("share.created.pin_title")}</AppText>
               <Text selectable style={{ color: colors.ink, fontSize: 26, letterSpacing: 4 }}>
                 {created.pin}
               </Text>
@@ -289,7 +290,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
       ) : null}
 
       <View>
-        <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 18 }}>{t("share.active_shares")}</Text>
+        <AppText variant="title">{t("share.active_shares")}</AppText>
       </View>
       {shares === null && !loadFailed ? (
         <ActivityIndicator color={colors.brand} />
@@ -311,7 +312,7 @@ export function RecordShareScreen({ userId, acting }: { userId: string; acting: 
           const dead = deadReason(share, OFFER.oneSessionWindowMinutes);
           return (
             <Card key={share.id} style={{ gap: 6 }}>
-              <Text style={{ color: colors.ink, fontWeight: "600" }}>{share.sections.join(", ")}</Text>
+              <AppText variant="bodyStrong">{share.sections.join(", ")}</AppText>
               {share.recipientLabel ? <MutedText>{share.recipientLabel}</MutedText> : null}
               {badges.length > 0 ? <MutedText>{badges.join(" · ")}</MutedText> : null}
               <MutedText>

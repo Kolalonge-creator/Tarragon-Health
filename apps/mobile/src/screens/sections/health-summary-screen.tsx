@@ -14,6 +14,7 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type ConditionStatus = Enums<"condition_clinical_status">;
 
@@ -161,7 +162,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
       {error && <ErrorText>{error}</ErrorText>}
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Conditions</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Conditions</AppText>
         {conditions.length === 0 && (
           <MutedText>Nothing on file yet. Your care team adds a condition here once it has been confirmed.</MutedText>
         )}
@@ -170,9 +171,9 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
           return (
             <Card key={c.id} style={{ gap: 4, marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
+                <AppText variant="bodyStrong" style={{ flex: 1 }}>
                   {c.condition_name}
-                </Text>
+                </AppText>
                 <StatusChip label={CONDITION_STATUS_LABEL[c.status]} bg={tone.bg} text={tone.text} />
               </View>
               {(c.severity || c.date_identified) && (
@@ -189,13 +190,10 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
 
       <View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Allergies</Text>
-          <Text
-            onPress={() => setFormOpen((v) => !v)}
-            style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
-          >
+          <AppText variant="label">Allergies</AppText>
+          <AppText variant="label" tone="brandText" onPress={() => setFormOpen((v) => !v)}>
             {formOpen ? "Cancel" : "+ Add"}
-          </Text>
+          </AppText>
         </View>
 
         {formOpen && (
@@ -241,7 +239,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
         {allergies.map((a) => (
           <Card key={a.id} style={{ gap: 4, marginBottom: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>{a.allergen}</Text>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>{a.allergen}</AppText>
               {a.severity && (
                 <StatusChip
                   label={ALLERGY_SEVERITY_LABEL[a.severity]}
@@ -256,7 +254,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
       </View>
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Rest of your record</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Rest of your record</AppText>
         <GroupedList>
           <GroupedListRow
             leading={<Ionicons name="medkit-outline" size={18} color={colors.brand} />}

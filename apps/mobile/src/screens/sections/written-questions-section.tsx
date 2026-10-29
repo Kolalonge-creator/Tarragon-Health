@@ -36,6 +36,7 @@ import {
 import { colors as themeColors, radius, spacing } from "@/ui/theme";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const DRAFT_KEY = "written-question";
 
@@ -340,13 +341,13 @@ export function WrittenQuestionsSection() {
 
       {lockedKey ? (
         <Card style={{ backgroundColor: colors.brandTint }}>
-          <Text style={{ fontSize: 14, color: colors.brandPressed }}>{tr(lockedKey)}</Text>
+          <AppText variant="body" tone="brandText">{tr(lockedKey)}</AppText>
         </Card>
       ) : null}
 
       {canAsk ? (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("wq.category.label")}</Text>
+          <AppText variant="label">{tr("wq.category.label")}</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {WRITTEN_QUESTION_CATEGORIES.map((c) => {
               const selected = c === category;
@@ -373,7 +374,7 @@ export function WrittenQuestionsSection() {
             })}
           </View>
 
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("wq.question.label")}</Text>
+          <AppText variant="label">{tr("wq.question.label")}</AppText>
           <TextInput
             keyboardAppearance={scheme}
             placeholderTextColor={placeholderColorFor(scheme)}
@@ -387,7 +388,7 @@ export function WrittenQuestionsSection() {
           />
           <MutedText>{tr("wq.question.help", { min: QUESTION_MIN_CHARS })}</MutedText>
 
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("wq.duration.label")}</Text>
+          <AppText variant="label">{tr("wq.duration.label")}</AppText>
           <TextInput
             keyboardAppearance={scheme}
             placeholderTextColor={placeholderColorFor(scheme)}
@@ -398,7 +399,7 @@ export function WrittenQuestionsSection() {
             style={[textInputStyle, { minHeight: 44 }]}
           />
 
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("wq.photos.title")}</Text>
+          <AppText variant="label">{tr("wq.photos.title")}</AppText>
           <MutedText>{tr("wq.photos.guidance")}</MutedText>
           {photos.length > 0 ? (
             <ScrollView horizontal contentContainerStyle={{ gap: 10 }}>
@@ -415,7 +416,7 @@ export function WrittenQuestionsSection() {
                     accessibilityLabel={tr("wq.photos.remove")}
                     style={{ minHeight: 44, minWidth: 44, justifyContent: "center", alignItems: "center" }}
                   >
-                    <Text style={{ fontSize: 13, color: colors.brandPressed }}>{tr("wq.photos.remove")}</Text>
+                    <AppText variant="body" tone="brandText">{tr("wq.photos.remove")}</AppText>
                   </Pressable>
                 </View>
               ))}
@@ -441,7 +442,7 @@ export function WrittenQuestionsSection() {
             </ErrorText>
           ) : null}
           {returnedNotice ? <ErrorText>{returnedNotice}</ErrorText> : null}
-          {sent ? <Text style={{ fontSize: 13.5, color: colors.brandPressed }}>{tr("wq.sent")}</Text> : null}
+          {sent ? <AppText variant="body" tone="brandText">{tr("wq.sent")}</AppText> : null}
           <PrimaryButton
             title={submitting ? tr("wq.sending") : tr("wq.send")}
             onPress={attemptSend}
@@ -455,7 +456,7 @@ export function WrittenQuestionsSection() {
 
       {queued.map((item, index) => (
         <Card key={item.clientId} style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{item.question}</Text>
+          <AppText variant="bodyStrong">{item.question}</AppText>
           <MutedText>
             {item.state === "returned"
               ? tr("wq.queued.returned", {
@@ -564,7 +565,7 @@ function QuestionCard({
   return (
     <Card style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, flex: 1 }}>{q.question}</Text>
+        <AppText variant="bodyStrong" style={{ flex: 1 }}>{q.question}</AppText>
         <Badge tone={badgeTone}>{tr(view.statusKey)}</Badge>
       </View>
       <MutedText>{lagos(q.createdAt, true)}</MutedText>
@@ -589,8 +590,8 @@ function QuestionCard({
             backgroundColor: m.authorRole === "patient" ? colors.brandTint : colors.groupBg,
           }}
         >
-          <Text style={{ fontSize: 14, color: colors.ink }}>{m.body}</Text>
-          <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 4 }}>{lagos(m.createdAt, true)}</Text>
+          <AppText variant="body">{m.body}</AppText>
+          <AppText variant="caption" tone="textSubtle" style={{ marginTop: 4 }}>{lagos(m.createdAt, true)}</AppText>
         </View>
       ))}
 
@@ -601,7 +602,7 @@ function QuestionCard({
 
       {view.canReply ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("wq.thread.reply.label")}</Text>
+          <AppText variant="label">{tr("wq.thread.reply.label")}</AppText>
           <TextInput
             keyboardAppearance={scheme}
             placeholderTextColor={placeholderColorFor(scheme)}

@@ -36,7 +36,8 @@ import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
-import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
@@ -356,9 +357,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   return (
                     <Card key={programme.id} style={{ gap: 6 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text style={{ flex: 1, fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+                        <AppText variant="bodyStrong" style={{ flex: 1 }}>
                           {programme.name}
-                        </Text>
+                        </AppText>
                         {enrolment ? <Badge tone="brand">Enrolled</Badge> : null}
                       </View>
                       {programme.description ? <MutedText>{programme.description}</MutedText> : null}
@@ -458,9 +459,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               return (
                 <Card key={item.id} style={{ gap: 6 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ flex: 1, fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+                    <AppText variant="bodyStrong" style={{ flex: 1 }}>
                       {item.screenTypeName}
-                    </Text>
+                    </AppText>
                     <StatusBadge status={item.status} overdue={item.isOverdue} />
                   </View>
                   <MutedText>Due {item.dueDate}</MutedText>
@@ -553,7 +554,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             ) : (
               cancerScreening.data.bundles.map((bundle) => (
                 <View key={bundle.id} style={{ gap: 6, paddingVertical: 6 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+                  <AppText variant="bodyStrong">{bundle.name}</AppText>
                   {bundle.description ? <MutedText>{bundle.description}</MutedText> : null}
                   <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
                     {bundle.indicative_price_kobo ? (
@@ -662,11 +663,11 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   })}
                   trailing={
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                      <AppText variant="bodyStrong">
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
-                      </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
+                      </AppText>
+                      {deltaLabel ? <AppText variant="caption" tone="textSubtle">{deltaLabel}</AppText> : null}
                     </View>
                   }
                 />

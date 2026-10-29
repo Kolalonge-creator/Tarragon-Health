@@ -17,6 +17,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STATE_LABEL: Record<MyTestingBooking["state"], string> = {
   confirmed: "Your place is held",
@@ -91,7 +92,7 @@ export function TestingDaysScreen() {
 
       {notMember && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Testing days are part of Membership</Text>
+          <AppText variant="bodyStrong">Testing days are part of Membership</AppText>
           <SecondaryButton title="See what Membership includes" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/membership`)} />
         </Card>
       )}
@@ -99,10 +100,10 @@ export function TestingDaysScreen() {
       {live && (
         <Card style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink, flex: 1 }}>Your place</Text>
+            <AppText variant="bodyStrong" style={{ flex: 1 }}>Your place</AppText>
             <Badge tone={live.state === "confirmed" ? "brand" : "neutral"}>{STATE_LABEL[live.state]}</Badge>
           </View>
-          <Text style={{ color: colors.ink }}>{when(live.event_date)}</Text>
+          <AppText variant="body">{when(live.event_date)}</AppText>
           <MutedText>
             {live.venue_name}, {live.address}, {live.city}
           </MutedText>
@@ -122,7 +123,7 @@ export function TestingDaysScreen() {
           {!loading && others.length === 0 && <MutedText>No other days are open right now. Please check back soon.</MutedText>}
           {others.map((d) => (
             <Card key={d.id} style={{ gap: 6 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>{when(d.event_date)}</Text>
+              <AppText variant="bodyStrong">{when(d.event_date)}</AppText>
               <MutedText>
                 {d.venue_name}, {d.address}, {d.city}
                 {d.lga ? ` (${d.lga})` : ""}
@@ -151,7 +152,7 @@ export function TestingDaysScreen() {
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>Results from your visit</Text>
           {poc.results.map((r) => (
             <Card key={r.id} style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>{r.kind === "urinalysis" ? "Urine test" : "Sugar control (HbA1c)"}</Text>
+              <AppText variant="bodyStrong">{r.kind === "urinalysis" ? "Urine test" : "Sugar control (HbA1c)"}</AppText>
               {(r.items ?? []).map((i) => (
                 <MutedText key={i.analyte_code}>
                   {i.analyte_code}: {i.value_numeric ?? i.value_text} {i.unit} ({i.flag})
@@ -161,8 +162,8 @@ export function TestingDaysScreen() {
           ))}
           {poc.ecgs.map((e) => (
             <Card key={e.id} style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>Heart tracing (ECG)</Text>
-              {e.interpretation_class ? <Text style={{ color: colors.ink }}>{ECG_CLASS_LABEL[e.interpretation_class]}</Text> : null}
+              <AppText variant="bodyStrong">Heart tracing (ECG)</AppText>
+              {e.interpretation_class ? <AppText variant="body">{ECG_CLASS_LABEL[e.interpretation_class]}</AppText> : null}
               <MutedText>{e.interpretation}</MutedText>
               <MutedText>Read by a doctor.</MutedText>
             </Card>

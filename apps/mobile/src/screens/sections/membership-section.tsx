@@ -16,6 +16,7 @@ import { RenewalSection } from "./renewal-section";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "@/lib/commerce/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const naira = (kobo: number) => `₦${formatNaira(kobo)}`;
 
@@ -193,7 +194,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     <View style={{ gap: 12 }}>
       {beneficiary ? null : <EntitlementsSection refreshKey={entKey} />}
       {beneficiary ? null : <RenewalSection refreshKey={entKey} />}
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</Text>
+      <AppText variant="title">{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</AppText>
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
       {!beneficiary && membership.isMember && membership.endsAt ? (
@@ -201,14 +202,14 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       ) : null}
       {ladder && !(membership.isMember && !beneficiary) ? (
         <View style={{ gap: 4 }}>
-          <Text style={{ color: colors.ink }}>{tr("shop.tier.same_care")}</Text>
+          <AppText variant="body">{tr("shop.tier.same_care")}</AppText>
           <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
         </View>
       ) : null}
       {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}
       {needsPlusStateSetup({ ladder, forSomeoneElse: beneficiary !== undefined, tier: tierNow, membership }) ? (
         <Card>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.plus.state.set_title")}</Text>
+          <AppText variant="bodyStrong">{tr("shop.plus.state.set_title")}</AppText>
           {plusStatesFailed ? (
             <View style={{ gap: 6 }}>
               <ErrorText>{tr("shop.plus.state.error")}</ErrorText>
@@ -255,11 +256,11 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}
       {priceNotices.length > 0 ? (
         <Card>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("pricechange.title")}</Text>
+          <AppText variant="bodyStrong">{tr("pricechange.title")}</AppText>
           {priceNotices.map((n) => (
             <View key={`${n.itemCode}-${n.endsAt}`} style={{ gap: 4, marginTop: 6 }}>
-              <Text style={{ color: colors.ink }}>{tr("pricechange.body", { name: copy(n.nameKey), paid: naira(n.paidListKobo), date: lagos(n.newFrom), price: naira(n.newKobo) })}</Text>
-              <Text style={{ color: colors.ink }}>{tr("pricechange.kept", { ends: lagos(n.endsAt) })}</Text>
+              <AppText variant="body">{tr("pricechange.body", { name: copy(n.nameKey), paid: naira(n.paidListKobo), date: lagos(n.newFrom), price: naira(n.newKobo) })}</AppText>
+              <AppText variant="body">{tr("pricechange.kept", { ends: lagos(n.endsAt) })}</AppText>
             </View>
           ))}
           <MutedText>{tr("pricechange.renew")}</MutedText>
@@ -283,7 +284,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             {tierCard && monthlyOn ? <MutedText>{tr("shop.tier.monthly", { amount: naira(monthlyFramingKobo(quote?.amountDueKobo ?? item.amountKobo)) })}</MutedText> : null}
             {needsStateFor(item) && !blocked ? (
               <View style={{ gap: 6, marginTop: 8 }}>
-                <Text style={{ fontWeight: "600", color: colors.ink }}>{beneficiary ? tr("shop.plus.state.label_for", { name: beneficiary.name }) : tr("shop.plus.state.label")}</Text>
+                <AppText variant="bodyStrong">{beneficiary ? tr("shop.plus.state.label_for", { name: beneficiary.name }) : tr("shop.plus.state.label")}</AppText>
                 {plusStatesFailed ? (
                   <View style={{ gap: 6 }}>
                     <ErrorText>{tr("shop.plus.state.error")}</ErrorText>
@@ -317,13 +318,13 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                 <MutedText>{beneficiary ? tr("shop.plus.state.warning_for", { name: beneficiary.name }) : tr("shop.plus.state.warning")}</MutedText>
               </View>
             ) : null}
-            <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("shop.included")}</Text>
+            <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("shop.included")}</AppText>
             {item.includedKeys.map((k) => (
               <Text key={k} style={{ color: colors.ink }}>{`• ${copy(k)}`}</Text>
             ))}
             {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").length > 0 ? (
               <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: "600", color: colors.ink }}>{tr("notincl.title")}</Text>
+                <AppText variant="bodyStrong">{tr("notincl.title")}</AppText>
                 {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").map((e) => (
                   <Text key={e.labelKey} style={{ color: colors.ink }} accessibilityLabel={e.extraCode !== null && e.amountKobo === null ? tr("notincl.ask_us_label", { name: copy(e.labelKey) }) : undefined}>
                     {e.extraCode === null ? `• ${copy(e.labelKey)}` : `• ${copy(e.labelKey)}: ${e.amountKobo !== null ? naira(e.amountKobo) : tr("notincl.ask_us")}`}
@@ -334,29 +335,29 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             ) : null}
             {view.mode === "covered" ? (
               <View style={{ gap: 4, marginTop: 8 }} accessible accessibilityLabel={view.sponsorName ? tr("sponsor.covered_by", { name: view.sponsorName }) : tr("sponsor.covered_generic")}>
-                <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyStrong" accessibilityRole="header">
                   {view.sponsorName ? tr("sponsor.covered_by", { name: view.sponsorName }) : tr("sponsor.covered_generic")}
-                </Text>
+                </AppText>
                 <MutedText>{tr("sponsor.no_payment", { name: view.sponsorName ?? tr("sponsor.covered_generic") })}</MutedText>
               </View>
             ) : (
               <View style={{ gap: 4, marginTop: 8 }}>
                 {view.partCover ? (
-                  <Text style={{ color: colors.ink }}>{tr("sponsor.part", { name: view.partCover.sponsorName ?? tr("sponsor.covered_generic"), amount: naira(view.partCover.amountKobo) })}</Text>
+                  <AppText variant="body">{tr("sponsor.part", { name: view.partCover.sponsorName ?? tr("sponsor.covered_generic"), amount: naira(view.partCover.amountKobo) })}</AppText>
                 ) : null}
-                {view.budgetShort ? <Text style={{ color: colors.ink }}>{tr("sponsor.budget_short")}</Text> : null}
+                {view.budgetShort ? <AppText variant="body">{tr("sponsor.budget_short")}</AppText> : null}
                 {view.itemised ? (
                   <View style={{ gap: 4 }}>
-                    <Text accessibilityRole="header" style={{ fontWeight: "600", color: colors.ink }}>{tr("checkout.itemised.title")}</Text>
+                    <AppText variant="bodyStrong" accessibilityRole="header">{tr("checkout.itemised.title")}</AppText>
                     {itemisedRows(view.itemised, copy, (amount) => tr("shop.fee.about", { amount })).map((row) => (
                       <View key={row.key} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }} accessible accessibilityLabel={`${row.label}: ${row.amount}`}>
-                        <Text style={{ color: colors.ink, flexShrink: 1 }}>{row.label}</Text>
-                        <Text style={{ color: colors.ink }}>{row.amount}</Text>
+                        <AppText variant="body" style={{ flexShrink: 1 }}>{row.label}</AppText>
+                        <AppText variant="body">{row.amount}</AppText>
                       </View>
                     ))}
                     <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }} accessible accessibilityLabel={`${tr("checkout.total")}: ${tr("shop.fee.about", { amount: naira(view.itemised.totalKobo) })}`}>
-                      <Text style={{ color: colors.ink, fontWeight: "700" }}>{tr("checkout.total")}</Text>
-                      <Text style={{ color: colors.ink, fontWeight: "700" }}>{tr("shop.fee.about", { amount: naira(view.itemised.totalKobo) })}</Text>
+                      <AppText variant="bodyStrong">{tr("checkout.total")}</AppText>
+                      <AppText variant="bodyStrong">{tr("shop.fee.about", { amount: naira(view.itemised.totalKobo) })}</AppText>
                     </View>
                     <MutedText>{tr("checkout.itemised.note")}</MutedText>
                     {view.itemised.international ? (
@@ -369,9 +370,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
                   </View>
                 ) : (
                   <View style={{ gap: 4 }}>
-                    <Text style={{ color: colors.ink }}>{`${tr("pay.fee.price")}: ${naira(view.fallback.priceKobo)}`}</Text>
-                    <Text style={{ color: colors.ink }}>{`${tr("pay.fee.line")}: ${tr("shop.fee.about", { amount: naira(view.fallback.feeKobo) })}`}</Text>
-                    <Text style={{ color: colors.ink, fontWeight: "700" }}>{`${tr("pay.fee.total")}: ${tr("shop.fee.about", { amount: naira(view.fallback.totalKobo) })}`}</Text>
+                    <AppText variant="body">{`${tr("pay.fee.price")}: ${naira(view.fallback.priceKobo)}`}</AppText>
+                    <AppText variant="body">{`${tr("pay.fee.line")}: ${tr("shop.fee.about", { amount: naira(view.fallback.feeKobo) })}`}</AppText>
+                    <AppText variant="bodyStrong">{`${tr("pay.fee.total")}: ${tr("shop.fee.about", { amount: naira(view.fallback.totalKobo) })}`}</AppText>
                     <MutedText>{tr("pay.fee.explain")}</MutedText>
                     <MutedText>{tr("shop.fee.estimate")}</MutedText>
                   </View>
@@ -384,7 +385,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             {view.mode === "pay" && pointsLine !== null && q?.points && !beneficiary ? (
               <View style={{ gap: 4, marginTop: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <Text style={{ color: colors.ink, flexShrink: 1 }}>{tr("checkout.points.label")}</Text>
+                  <AppText variant="body" style={{ flexShrink: 1 }}>{tr("checkout.points.label")}</AppText>
                   <Switch
                     value={pointsOn} onValueChange={(v) => setUsePoints((m) => ({ ...m, [item.code]: v }))}
                     accessibilityLabel={tr("checkout.points.label")}
@@ -398,7 +399,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             {canRenewItem(item) ? (
               <View style={{ gap: 4, marginTop: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <Text style={{ color: colors.ink, flexShrink: 1 }}>{tr("shop.renew.label")}</Text>
+                  <AppText variant="body" style={{ flexShrink: 1 }}>{tr("shop.renew.label")}</AppText>
                   <Switch
                     value={renew[item.code] ?? RENEWAL_CONSENT_TICKED_BY_DEFAULT} onValueChange={(v) => setRenew((m) => ({ ...m, [item.code]: v }))}
                     accessibilityLabel={tr("shop.renew.label")}
@@ -422,22 +423,22 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       })}
       {errorKey ? <ErrorText>{tr(errorKey)}</ErrorText> : null}
       {/* a transfer or USSD payment that has not landed is "waiting for your bank", never a failure (S71, 19.2) */}
-      {notice === "shop.return.pending" ? <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.return.pending.title")}</Text> : null}
-      {notice ? <Text accessibilityLiveRegion="polite" style={{ color: colors.muted }}>{tr(notice)}</Text> : null}
+      {notice === "shop.return.pending" ? <AppText variant="bodyStrong">{tr("shop.return.pending.title")}</AppText> : null}
+      {notice ? <AppText variant="body" tone="textMuted" accessibilityLiveRegion="polite">{tr(notice)}</AppText> : null}
       {notice === "shop.return.pending" && pendingRef !== null ? <SecondaryButton title={tr("shop.return.check_again")} onPress={() => void checkAgain()} disabled={checking} loading={checking} /> : null}
-      {notice === "sponsor.done.body" ? <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("sponsor.done.title")}</Text> : null}
+      {notice === "sponsor.done.body" ? <AppText variant="bodyStrong">{tr("sponsor.done.title")}</AppText> : null}
       {beneficiary ? null : <HmoEligibilitySection onChecked={() => void refresh()} />}
       <Card>
-        <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.history.title")}</Text>
+        <AppText variant="bodyStrong">{tr("shop.history.title")}</AppText>
         {orders.length === 0 ? <MutedText>{tr("shop.history.empty")}</MutedText> : null}
         {orders.map((o) => (
           <View key={o.orderId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
             <View>
-              <Text style={{ color: colors.ink }}>{copy(o.nameKey)}</Text>
+              <AppText variant="body">{copy(o.nameKey)}</AppText>
               <MutedText>{lagos(o.paidAt ?? o.createdAt)}</MutedText>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={{ color: colors.ink }}>{o.amountKobo === 0 && o.sponsorShareKobo > 0 ? (o.sponsorName ? tr("sponsor.history_covered", { name: o.sponsorName }) : tr("sponsor.covered_generic")) : naira(o.totalKobo ?? o.amountKobo)}</Text>
+              <AppText variant="body">{o.amountKobo === 0 && o.sponsorShareKobo > 0 ? (o.sponsorName ? tr("sponsor.history_covered", { name: o.sponsorName }) : tr("sponsor.covered_generic")) : naira(o.totalKobo ?? o.amountKobo)}</AppText>
               <MutedText>{tr(orderStateKey(o.state))}</MutedText>
             </View>
           </View>

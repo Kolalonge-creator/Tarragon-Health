@@ -16,6 +16,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -86,7 +87,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>What you&apos;ve funded</Text>
+        <AppText variant="title">What you&apos;ve funded</AppText>
         <MutedText>
           Money you&apos;ve put towards someone else&apos;s care, and what it actually paid for. Every person here
           keeps their own account and their own plan.
@@ -98,7 +99,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
 
       {!loading && !error && people.length === 0 && (
         <Card style={{ gap: 6 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>You are not supporting anyone yet</Text>
+          <AppText variant="bodyStrong">You are not supporting anyone yet</AppText>
           <MutedText>
             Once someone accepts a request to let you help manage their care, they appear here and you can fund
             their care directly.
@@ -148,13 +149,12 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
 }
 
 function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; trailing: ReactNode }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.muted, flex: 1 }} numberOfLines={1}>
+      <AppText variant="body" tone="textMuted" numberOfLines={1} style={{ flex: 1 }}>
         {voucher.label}
-        <Text style={{ color: colors.subtle }}> · {voucher.voucherNumber}</Text>
-      </Text>
+        <AppText variant="body" tone="textSubtle"> · {voucher.voucherNumber}</AppText>
+      </AppText>
       {trailing}
     </View>
   );
@@ -198,7 +198,7 @@ function SupporterDosesSection({ beneficiaryId, name }: { beneficiaryId: string;
   const now = Date.now();
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
-      <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{t("supporter.doses.title", locale)}</Text>
+      <AppText variant="label">{t("supporter.doses.title", locale)}</AppText>
       {view.doses.length === 0 ? <MutedText>{t(view.activeMedicines === 0 ? "supporter.doses.no_medicines" : "supporter.doses.none_scheduled", locale)}</MutedText> : null}
       {view.doses.map((dose) => (
         <Text key={`${dose.medicationId}-${dose.time}`} style={{ fontSize: 13, color: colors.ink }}>
@@ -252,7 +252,7 @@ function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
 
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
-      <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>How it is going, in the last 30 days</Text>
+      <AppText variant="label">How it is going, in the last 30 days</AppText>
       <MutedText>
         {report.readings_logged
           ? `${report.readings_logged} reading${report.readings_logged === 1 ? "" : "s"} logged.`
@@ -289,9 +289,9 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
 
       {person.readyVouchers.length > 0 && (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="label">
             Paid for and waiting ({person.readyVouchers.length})
-          </Text>
+          </AppText>
           {person.readyVouchers.map((v) => (
             <VoucherRow key={v.id} voucher={v} trailing={<Badge tone="brand">Ready</Badge>} />
           ))}
@@ -303,10 +303,10 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
         return (
           <View key={v.id} style={{ gap: 4 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 11.5, color: colors.muted }}>Still paying for {v.label}</Text>
-              <Text style={{ fontSize: 11.5, color: colors.muted }}>
+              <AppText variant="caption" tone="textMuted">Still paying for {v.label}</AppText>
+              <AppText variant="caption" tone="textMuted">
                 {naira(v.amountPaidKobo)} of {naira(v.faceValueKobo)}
-              </Text>
+              </AppText>
             </View>
             <View style={{ height: 6, borderRadius: 999, backgroundColor: colors.groupBg, overflow: "hidden" }}>
               <View style={{ height: "100%", width: `${pct}%`, borderRadius: 999, backgroundColor: colors.brand }} />
@@ -317,15 +317,15 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
 
       {person.usedVouchers.length > 0 && (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>What it has paid for</Text>
+          <AppText variant="label">What it has paid for</AppText>
           {person.usedVouchers.map((v) => (
             <VoucherRow
               key={v.id}
               voucher={v}
               trailing={
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{naira(v.faceValueKobo)}</Text>
-                  {v.redeemedAt && <Text style={{ fontSize: 10.5, color: colors.subtle }}>{shortDate(v.redeemedAt)}</Text>}
+                  <AppText variant="label">{naira(v.faceValueKobo)}</AppText>
+                  {v.redeemedAt && <AppText variant="caption" tone="textSubtle">{shortDate(v.redeemedAt)}</AppText>}
                 </View>
               }
             />
@@ -354,9 +354,9 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
           opacity: pressed ? 0.7 : 1,
         })}
       >
-        <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+        <AppText variant="label" tone="brandText">
           Pay a bill or fund their plan for {name.trim().split(/\s+/)[0] || "them"}
-        </Text>
+        </AppText>
       </Pressable>
     </Card>
   );

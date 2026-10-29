@@ -8,6 +8,7 @@ import { REFUND_STEP_KEY, refundRuleFor, refundTimingNote, type MyRefund } from 
 import { useUiLanguage } from "@/lib/ui-language";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const isKey = (k: string): k is MessageKey => Object.hasOwn(en, k);
 
@@ -27,13 +28,12 @@ function useRefundPolicy(): RefundPolicy {
  * configuration's, never typed here, and the lines promise only what the database enforces.
  */
 export function RefundRuleBlock({ kind }: { kind: "consultation" | "care_pack" | "lab_panel" | "membership" | "home_kit" }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const policy = useRefundPolicy();
   const lines = refundRuleFor(policy, { kind });
   return (
     <View style={{ gap: 4, marginTop: 8 }} accessibilityRole="summary">
-      <Text accessibilityRole="header" style={{ fontWeight: "600", color: colors.ink }}>{t("refund.rule.title", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("refund.rule.title", locale)}</AppText>
       {lines.map((l) => (
         <MutedText key={l.key}>{`• ${t(l.key as MessageKey, locale, { ...l.params })}`}</MutedText>
       ))}
@@ -60,7 +60,7 @@ export function RefundStatusCard({ refreshKey = 0 }: { refreshKey?: number }) {
         const note = refundTimingNote(r.state, policy);
         return (
           <View key={r.id} style={{ paddingVertical: 8, gap: 4 }}>
-            {isKey(r.nameKey) ? <Text style={{ color: colors.ink, fontWeight: "600" }}>{t(r.nameKey, locale)}</Text> : null}
+            {isKey(r.nameKey) ? <AppText variant="bodyStrong">{t(r.nameKey, locale)}</AppText> : null}
             <MutedText>{t("refund.status.amount", locale, { amount: `₦${formatNaira(r.amountKobo)}` })}</MutedText>
             {r.steps.map((s, i) => (
               <Text key={`${s.step}-${s.createdAt}`} style={{ color: colors.ink, fontWeight: i === r.steps.length - 1 ? "700" : "400" }}>
@@ -70,7 +70,7 @@ export function RefundStatusCard({ refreshKey = 0 }: { refreshKey?: number }) {
             {note?.key === "refund.status.sla" ? <MutedText>{t("refund.status.sla", locale, note.params)}</MutedText> : null}
             {note?.key === "refund.status.bank" ? <MutedText>{t("refund.status.bank", locale, note.params)}</MutedText> : null}
             {r.state === "rejected" && r.decisionNote ? (
-              <Text style={{ color: colors.ink }}>{`${t("refund.status.reason_label", locale)}: ${r.decisionNote}`}</Text>
+              <AppText variant="body">{`${t("refund.status.reason_label", locale)}: ${r.decisionNote}`}</AppText>
             ) : null}
           </View>
         );

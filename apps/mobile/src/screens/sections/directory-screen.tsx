@@ -11,6 +11,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -32,7 +33,7 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
   if (state === "sent") return <MutedText>{t("directory.report.thanks", locale)}</MutedText>;
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("directory.report.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("directory.report.title", locale)}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {REPORT_FIELDS.map((f) => {
           const selected = f === field;
@@ -90,9 +91,9 @@ function Listing({ row, hmo, locale }: { row: DirectoryRow; hmo: string; locale:
         <MutedText>{row.last_verified_at ? t("directory.last_verified", locale, { date: lagosDate(row.last_verified_at) }) : t("directory.never_verified", locale)}</MutedText>
       </View>
       <MutedText>{[row.address, row.city, row.state].filter(Boolean).join(", ")}</MutedText>
-      {row.open_now !== null ? <Text style={{ color: colors.ink }}>{row.open_now ? t("directory.open_now", locale) : t("directory.closed_now", locale)}</Text> : null}
+      {row.open_now !== null ? <AppText variant="body">{row.open_now ? t("directory.open_now", locale) : t("directory.closed_now", locale)}</AppText> : null}
       {row.hours_text ? <MutedText>{row.hours_text}</MutedText> : null}
-      <Text style={{ color: colors.ink }}>{price ? t("directory.price.per_item", locale, { amount: price }) : t("directory.price.unknown", locale)}</Text>
+      <AppText variant="body">{price ? t("directory.price.per_item", locale, { amount: price }) : t("directory.price.unknown", locale)}</AppText>
       {hmoLine ? <MutedText>{t(hmoLine, locale, { hmo })}</MutedText> : null}
       {nhiaLine ? <MutedText>{t(nhiaLine, locale)}</MutedText> : null}
       {row.rating_count > 0 ? (
@@ -164,11 +165,11 @@ export function DirectoryScreen() {
           />
         ))}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
-          <Text style={{ color: colors.ink }}>{t("directory.filter.nhia", locale)}</Text>
+          <AppText variant="body">{t("directory.filter.nhia", locale)}</AppText>
           <Switch accessibilityLabel={t("directory.filter.nhia", locale)} value={filters.nhia} onValueChange={(v) => set("nhia", v)} />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
-          <Text style={{ color: colors.ink }}>{t("directory.filter.open_now", locale)}</Text>
+          <AppText variant="body">{t("directory.filter.open_now", locale)}</AppText>
           <Switch accessibilityLabel={t("directory.filter.open_now", locale)} value={filters.openNow} onValueChange={(v) => set("openNow", v)} />
         </View>
         <PrimaryButton title={t("directory.search", locale)} onPress={() => void search()} loading={loading} />

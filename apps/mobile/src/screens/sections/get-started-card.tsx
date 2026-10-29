@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The native twin of web's GetStartedCard -- see that file for the full
@@ -134,7 +135,7 @@ export function GetStartedCard({
             {step.done ? (
               <Ionicons name="checkmark" size={15} color="#FFFFFF" />
             ) : (
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{index + 1}</Text>
+              <AppText variant="label">{index + 1}</AppText>
             )}
           </View>
           <View style={{ flex: 1, gap: step.done ? 0 : 8 }}>

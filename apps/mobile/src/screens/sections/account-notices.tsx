@@ -14,6 +14,7 @@ import {
 } from "@/lib/proxy";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   const colors = useLegacyColors();
@@ -22,14 +23,13 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
       <View style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: checked ? colors.brand : "transparent" }}>
         {checked && <Text style={{ color: "#fff", fontSize: 14 }}>✓</Text>}
       </View>
-      <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{label}</Text>
+      <AppText variant="body" style={{ flex: 1 }}>{label}</AppText>
     </Pressable>
   );
 }
 
 /** The parent's confirmation of "Set up for my parent". Every box starts unticked: share nothing unless they choose. */
 function ProxyRequestCard({ setup, onDone }: { setup: PendingProxySetup; onDone: () => void }) {
-  const colors = useLegacyColors();
   const name = setup.requesterFirstName || "Someone";
   const [chosen, setChosen] = useState<CareAccessCategory[]>([]);
   const [busy, setBusy] = useState(false);
@@ -52,15 +52,15 @@ function ProxyRequestCard({ setup, onDone }: { setup: PendingProxySetup; onDone:
   if (message) {
     return (
       <Card>
-        <Text accessibilityRole="text" style={{ fontSize: 13.5, color: colors.ink }}>{message}</Text>
+        <AppText variant="body" accessibilityRole="text">{message}</AppText>
       </Card>
     );
   }
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("proxy.confirm.title", "en", { name })}</Text>
+      <AppText variant="bodyStrong">{t("proxy.confirm.title", "en", { name })}</AppText>
       <MutedText>{t("proxy.confirm.body", "en", { name })}</MutedText>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("proxy.confirm.categories_label", "en", { name })}</Text>
+      <AppText variant="label">{t("proxy.confirm.categories_label", "en", { name })}</AppText>
       {CARE_ACCESS_CATEGORIES.map((category) => (
         <Check
           key={category}
@@ -104,13 +104,13 @@ function HandoverCard({ state, onDone }: { state: HandoverState; onDone: () => v
   if (done) {
     return (
       <Card>
-        <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("handover.done")}</Text>
+        <AppText variant="body">{t("handover.done")}</AppText>
       </Card>
     );
   }
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("handover.title")}</Text>
+      <AppText variant="bodyStrong">{t("handover.title")}</AppText>
       <MutedText>{t("handover.body")}</MutedText>
       {state.guardians.length === 0 ? (
         <MutedText>{t("handover.nobody")}</MutedText>
@@ -123,7 +123,7 @@ function HandoverCard({ state, onDone }: { state: HandoverState; onDone: () => v
         </>
       )}
       <MutedText>{t("handover.consent_notice")}</MutedText>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("handover.dob_label")}</Text>
+      <AppText variant="label">{t("handover.dob_label")}</AppText>
       <TextInput
         accessibilityLabel={t("handover.dob_label")}
         placeholder="YYYY-MM-DD"

@@ -6,6 +6,7 @@ import { confirmLifecycleEvent, loadFeedLog, loadMyLifecycle, logFeed, requestTr
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STAGE_KEY = { tracking: "mch.life.stage_tracking", trying: "mch.life.stage_trying", pregnant: "mch.life.stage_pregnant", postnatal: "mch.life.stage_postnatal", parenting: "mch.life.stage_parenting" } as const;
 const KIND_KEY: Record<LifecycleKind, Parameters<typeof t>[0]> = {
@@ -26,9 +27,9 @@ export function LifecycleCardMobile() {
   if (!life) return null;
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("mch.life.title")}</Text>
+      <AppText variant="bodyStrong">{t("mch.life.title")}</AppText>
       <MutedText>{t("mch.life.intro")}</MutedText>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t(STAGE_KEY[life.stage])}</Text>
+      <AppText variant="bodyStrong">{t(STAGE_KEY[life.stage])}</AppText>
       {life.baby_content_hidden && <MutedText>{t("mch.life.loss_note")}</MutedText>}
       {pending === null ? (
         availableLifecycleKinds(life.stage).map((k) => <SecondaryButton key={k} title={t(KIND_KEY[k])} onPress={() => { setError(null); setPending(k); }} />)
@@ -66,7 +67,7 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
   useEffect(() => refresh(), [refresh]);
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("mch.feed.title")}</Text>
+      <AppText variant="bodyStrong">{t("mch.feed.title")}</AppText>
       <MutedText>{t("mch.feed.intro")}</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {FEED_CHOICES.map((c) => (

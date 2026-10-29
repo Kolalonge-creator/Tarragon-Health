@@ -20,6 +20,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -135,7 +136,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
       </View>
 
       <Card style={{ gap: 0 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink, marginBottom: 6 }}>Your {state.year} check</Text>
+        <AppText variant="bodyStrong" style={{ marginBottom: 6 }}>Your {state.year} check</AppText>
         {state.stages.map((stage, i) => (
           <View
             key={stage.title}
@@ -150,16 +151,16 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
             }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{stage.title}</Text>
+              <AppText variant="bodyStrong">{stage.title}</AppText>
               <MutedText>{stage.label}</MutedText>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               {stage.state !== "neutral" && (
                 <StatusBadge text={stage.state === "done" ? "Done" : "To do"} tone={stage.state === "done" ? "brand" : "warn"} />
               )}
-              <Text onPress={() => onNavigate(STAGE_NAV[i])} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+              <AppText variant="label" tone="brandText" onPress={() => onNavigate(STAGE_NAV[i])}>
                 Open →
-              </Text>
+              </AppText>
             </View>
           </View>
         ))}
@@ -183,20 +184,17 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
       {riskSignals.length > 0 && <RiskSignalsCard signals={riskSignals} />}
 
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Review &amp; communicate</Text>
+        <AppText variant="bodyStrong">Review &amp; communicate</AppText>
         {state.reviewedAt ? (
           <>
             <MutedText>
               Completed{state.reviewerName ? ` · Reviewed by ${state.reviewerName}` : " · Reviewed by your care team"} ·{" "}
               {when(state.reviewedAt)}
             </MutedText>
-            {state.reviewSummary && <Text style={{ fontSize: 13, color: colors.ink }}>{state.reviewSummary}</Text>}
-            <Text
-              onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/api/patient/health-check/report`)}
-              style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed, marginTop: 4 }}
-            >
+            {state.reviewSummary && <AppText variant="body">{state.reviewSummary}</AppText>}
+            <AppText variant="label" tone="brandText" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/api/patient/health-check/report`)} style={{ marginTop: 4 }}>
               Download your Health Check report (PDF) →
-            </Text>
+            </AppText>
           </>
         ) : (
           <MutedText>
@@ -223,7 +221,7 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
   const colors = useLegacyColors();
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Lipid profile</Text>
+      <AppText variant="bodyStrong">Lipid profile</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {LIPID_ANALYTE_CODES.map((code) => {
           const meta = LIPID_ANALYTE_META[code];
@@ -236,7 +234,7 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
               </MutedText>
               <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
                 {reading ? `${reading.value} ` : "—"}
-                {reading && <Text style={{ fontSize: 11, fontWeight: "400", color: colors.muted }}>{meta.unit}</Text>}
+                {reading && <AppText variant="caption" tone="textMuted">{meta.unit}</AppText>}
               </Text>
             </View>
           );
@@ -258,7 +256,7 @@ function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What your care team is watching</Text>
+      <AppText variant="bodyStrong">What your care team is watching</AppText>
       {elevated.length === 0 ? (
         <MutedText>
           Your recent readings and risk checks are within the normal range: nothing here needs extra attention
@@ -273,7 +271,7 @@ function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
           <View style={{ gap: 4 }}>
             {elevated.map((s) => (
               <Text key={s.scoreType} style={{ fontSize: 13, color: colors.ink }}>
-                <Text style={{ fontWeight: "700" }}>{SCORE_TYPE_LABEL[s.scoreType] ?? s.scoreType.replace(/_/g, " ")}</Text>
+                <AppText variant="bodyStrong">{SCORE_TYPE_LABEL[s.scoreType] ?? s.scoreType.replace(/_/g, " ")}</AppText>
                 {": "}
                 {RISK_LEVEL_COPY[s.riskLevel]}
               </Text>
@@ -294,7 +292,7 @@ function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoCon
   if (consult.scheduledAt) {
     return (
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your video consult</Text>
+        <AppText variant="bodyStrong">Your video consult</AppText>
         <MutedText>Confirmed for {formatSlot(consult.scheduledAt)}.</MutedText>
         {consult.joinUrl && (
           <SecondaryButton
@@ -322,7 +320,7 @@ function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoCon
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Pick a time for your video consult</Text>
+      <AppText variant="bodyStrong">Pick a time for your video consult</AppText>
       <MutedText>Your doctor is ready to walk you through your results. Pick whichever works for you.</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {consult.proposedSlots.map((slot) => (

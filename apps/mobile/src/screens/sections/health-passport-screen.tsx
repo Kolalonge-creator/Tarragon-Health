@@ -5,6 +5,7 @@ import { formatDoctorName } from "@/lib/doctor-name";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 interface HealthPassportScreenProps {
   patientId: string;
@@ -89,9 +90,9 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 19, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="title">
           {subjectName ? `${subjectName}'s Health Passport` : "Your Health Passport"}
-        </Text>
+        </AppText>
         <MutedText>
           {subjectName
             ? `A summary of ${subjectName}'s record, to view or share with another doctor.`
@@ -125,9 +126,9 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
                   key={v.vitalType}
                   title={def?.label ?? v.vitalType}
                   trailing={
-                    <Text style={{ fontSize: 12.5, color: colors.muted, textAlign: "right", flexShrink: 1 }}>
+                    <AppText variant="body" tone="textMuted" style={{ textAlign: "right", flexShrink: 1 }}>
                       {def?.format(v.latest) ?? "—"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
-                    </Text>
+                    </AppText>
                   }
                 />
               );
@@ -164,7 +165,7 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
                 <GroupedListRow
                   key={`${r.code}:${r.takenAt}`}
                   title={r.code}
-                  trailing={<Text style={{ fontSize: 12.5, color: colors.muted }}>{r.value} {r.unit}</Text>}
+                  trailing={<AppText variant="body" tone="textMuted">{r.value} {r.unit}</AppText>}
                 />
               ))}
             </GroupedList>

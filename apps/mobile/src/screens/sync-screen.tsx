@@ -16,6 +16,7 @@ import {
   ScreenTitle,
   SecondaryButton,
 } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type PatientDevice = Tables<"patient_devices">;
 type GlucoseContext = "fasting" | "random" | "post_meal";
@@ -290,7 +291,7 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
             )}
             {item.status === "held" && (
               <View style={{ gap: 6 }}>
-                <Text style={{ color: colors.ink, fontWeight: "700" }}>Please check this reading</Text>
+                <AppText variant="bodyStrong">Please check this reading</AppText>
                 <MutedText>
                   This number does not look possible, so we have not added it to your record. Check your device and take the reading again. If you feel unwell, do not wait. Get care now.
                 </MutedText>

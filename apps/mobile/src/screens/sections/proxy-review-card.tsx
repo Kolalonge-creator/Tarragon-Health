@@ -3,11 +3,11 @@ import { Switch, Text, View } from "react-native";
 import { answerProxyReview, dueReviews, loadProxyReviews, reviewCategoryLabel, type ProxyReviewRow } from "@/lib/proxy-review";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type Mode = "idle" | "narrowing" | "confirming_remove";
 
 function ReviewItem({ row, onAnswered }: { row: ProxyReviewRow; onAnswered: (message: string) => void }) {
-  const colors = useLegacyColors();
   const [mode, setMode] = useState<Mode>("idle");
   const [keep, setKeep] = useState<string[]>(row.categories);
   const [busy, setBusy] = useState(false);
@@ -40,7 +40,7 @@ function ReviewItem({ row, onAnswered }: { row: ProxyReviewRow; onAnswered: (mes
 
   return (
     <View style={{ gap: 8, paddingVertical: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{row.firstName} can still see your health information.</Text>
+      <AppText variant="bodyStrong">{row.firstName} can still see your health information.</AppText>
       <MutedText>
         {row.categories.length > 0
           ? `What they can see: ${row.categories.map(reviewCategoryLabel).join(", ")}.`
@@ -61,7 +61,7 @@ function ReviewItem({ row, onAnswered }: { row: ProxyReviewRow; onAnswered: (mes
           <MutedText>Turn off what they no longer need to see. They are not told. To stop all of it, choose Remove their access instead.</MutedText>
           {row.categories.map((category) => (
             <View key={category} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <Text style={{ flex: 1, color: colors.ink }}>{reviewCategoryLabel(category)}</Text>
+              <AppText variant="body" style={{ flex: 1 }}>{reviewCategoryLabel(category)}</AppText>
               <Switch
                 value={keep.includes(category)}
                 onValueChange={(on) => setKeep((cur) => (on ? [...cur, category] : cur.filter((c) => c !== category)))}
@@ -76,9 +76,9 @@ function ReviewItem({ row, onAnswered }: { row: ProxyReviewRow; onAnswered: (mes
 
       {mode === "confirming_remove" && (
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.ink }}>
+          <AppText variant="body">
             Remove {row.firstName}&apos;s access now? They will not be able to see anything of yours. They are not told.
-          </Text>
+          </AppText>
           <PrimaryButton title="Yes, remove it" loading={busy} onPress={() => void send("remove")} />
           <SecondaryButton title="No, go back" disabled={busy} onPress={() => setMode("idle")} />
         </View>
@@ -116,7 +116,7 @@ export function ProxyReviewCard() {
   if (failed) {
     return (
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Yearly check on who can help you</Text>
+        <AppText variant="bodyStrong">Yearly check on who can help you</AppText>
         <MutedText>We could not load this just now. Please try again later. Nobody&apos;s access has changed.</MutedText>
       </Card>
     );
@@ -127,7 +127,7 @@ export function ProxyReviewCard() {
 
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Yearly check on who can help you</Text>
+      <AppText variant="bodyStrong">Yearly check on who can help you</AppText>
       <MutedText>Once a year we ask whether the people who help you still need access. Nothing changes unless you choose.</MutedText>
       {notices.map((notice) => (
         <Text key={notice} style={{ color: colors.ink }} accessibilityRole="alert">

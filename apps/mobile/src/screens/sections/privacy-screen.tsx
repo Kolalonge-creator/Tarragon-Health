@@ -27,6 +27,7 @@ import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const CONSENT_TYPE_LABEL: Record<string, string> = {
   data_processing: "Data processing",
@@ -133,7 +134,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       )}
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your consent</Text>
+        <AppText variant="bodyStrong">Your consent</AppText>
         <MutedText>What you&apos;ve agreed to, by category.</MutedText>
         {loadError ? (
           <MutedText>We could not load your consent choices just now, so we are not showing them.</MutedText>
@@ -144,7 +145,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
             <View key={`${c.consentType}-${c.version}`} style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, color: colors.ink }}>{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</Text>
+                <AppText variant="body">{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</AppText>
                 <MutedText>{c.accepted && c.acceptedAt
                     ? `Accepted ${when(c.acceptedAt)} · v${c.version}`
                     : c.state === "withdrawn"
@@ -173,14 +174,14 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <ProxyArrangementsCard />
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>
+        <AppText variant="bodyStrong">Connected devices</AppText>
         <MutedText>Services currently sharing data into your record.</MutedText>
         {devices.length === 0 ? (
           <MutedText>No devices connected.</MutedText>
         ) : (
           devices.map((d) => (
             <View key={d.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 }}>
-              <Text style={{ fontSize: 13, color: colors.ink, textTransform: "capitalize" }}>{d.provider.replace(/_/g, " ")}</Text>
+              <AppText variant="body" style={{ textTransform: "capitalize" }}>{d.provider.replace(/_/g, " ")}</AppText>
               <MutedText>{d.connectedAt ? `Connected ${when(d.connectedAt)}` : "—"}</MutedText>
             </View>
           ))
@@ -226,9 +227,9 @@ function RequestList({ requests }: { requests: DataRightsRequest[] }) {
     <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
       {requests.map((r) => (
         <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <Text style={{ fontSize: 12.5, color: colors.muted, flex: 1 }} numberOfLines={1}>
+          <AppText variant="body" tone="textMuted" numberOfLines={1} style={{ flex: 1 }}>
             {r.summary || "Request"} · {when(r.requestedAt)}
-          </Text>
+          </AppText>
           <Badge tone={POSITIVE_STATUSES.has(r.status) ? "brand" : "neutral"}>{r.status.replace(/_/g, " ")}</Badge>
         </View>
       ))}
@@ -247,7 +248,6 @@ function CorrectionRequestCard({
   requests: DataRightsRequest[];
   onChanged: () => void;
 }) {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -279,7 +279,7 @@ function CorrectionRequestCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a correction</Text>
+      <AppText variant="bodyStrong">Request a correction</AppText>
       <MutedText>
         See something wrong in your record? Tell us what it is. A member of your care team reviews
         every request before anything changes.
@@ -287,7 +287,7 @@ function CorrectionRequestCard({
       {error && <ErrorText>{error}</ErrorText>}
       {open ? (
         <>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Which record?</Text>
+          <AppText variant="label">Which record?</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={recordDescription}
             onChangeText={setRecordDescription}
@@ -296,9 +296,9 @@ function CorrectionRequestCard({
             numberOfLines={2}
             style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]}
           />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What&apos;s wrong with it?</Text>
+          <AppText variant="label">What&apos;s wrong with it?</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={whatIsWrong} onChangeText={setWhatIsWrong} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should it say instead? (optional)</Text>
+          <AppText variant="label">What should it say instead? (optional)</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={requestedChange} onChangeText={setRequestedChange} multiline numberOfLines={2} style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]} />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton

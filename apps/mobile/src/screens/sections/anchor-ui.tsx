@@ -19,6 +19,7 @@ import { anchorProfileFor, refreshAnchorProfile, type DayShiftRow } from "@/lib/
 import { endDayShift, saveAnchorTimes, startDayShift } from "@/lib/anchor-actions";
 import { readLocalShiftRows } from "@/lib/offline-store";
 import { listOutbox } from "@/lib/outbox";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Screens for dose times tied to the patient's day (S08z): the picker used when adding a medicine, and the "My day" section
@@ -284,7 +285,7 @@ export function MyDaySection({ patientId }: { patientId: string }) {
             const base = anchorBaseTime(profile, id);
             return (
               <View key={id} style={{ gap: 4 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{anchorTitle(id, locale)}</Text>
+                <AppText variant="bodyStrong">{anchorTitle(id, locale)}</AppText>
                 {!set ? <MutedText>{t("doseanchor.myday.not_set", locale, { time: base })}</MutedText> : null}
                 <TextInput
                   keyboardAppearance={scheme}
@@ -393,7 +394,7 @@ function ShiftSheet({ patientId, maxDays, choices, onDone }: { patientId: string
           </View>
         </View>
       ))}
-      {error ? <Text style={{ fontSize: 14, color: colors.danger }} accessibilityLiveRegion="polite">{error}</Text> : null}
+      {error ? <AppText variant="body" tone="dangerText" accessibilityLiveRegion="polite">{error}</AppText> : null}
       <ActionButton title={t("doseanchor.myday.shift_save", locale)} onPress={() => void submit()} disabled={busy} />
       <ActionButton tone="plain" title={t("doseanchor.myday.cancel", locale)} onPress={() => setOpen(false)} />
     </View>

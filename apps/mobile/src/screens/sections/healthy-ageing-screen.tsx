@@ -32,6 +32,7 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -60,10 +61,10 @@ function StatusBadge({ text, tone }: { text: string; tone: "brand" | "warn" | "d
 function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   const colors = useLegacyColors();
   return (
-    <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
+    <AppText variant="body" onPress={onToggle} style={{ paddingVertical: 4 }}>
       <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
-    </Text>
+    </AppText>
   );
 }
 
@@ -71,9 +72,9 @@ function Stat({ label, value, badge }: { label: string; value: string; badge?: {
   const colors = useLegacyColors();
   return (
     <View style={{ flexBasis: "47%", flexGrow: 1, gap: 4 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
         {label}
-      </Text>
+      </AppText>
       <Text style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{value}</Text>
       {badge && <StatusBadge text={badge.text} tone={badge.tone} />}
     </View>
@@ -171,7 +172,7 @@ export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: H
 
       {(summary.activeConditionCount > 0 || summary.actions.length > 0) && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Coordinated care</Text>
+          <AppText variant="bodyStrong">Coordinated care</AppText>
           <MutedText>
             {summary.activeConditionCount > 1
               ? `${summary.activeConditionCount} conditions being managed together: one view, not ${summary.activeConditionCount} separate ones.`
@@ -183,7 +184,7 @@ export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: H
             <View style={{ gap: 8 }}>
               {summary.actions.map((action) => (
                 <View key={action.key} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{action.label}</Text>
+                  <AppText variant="label">{action.label}</AppText>
                   <MutedText>{action.detail}</MutedText>
                 </View>
               ))}
@@ -203,19 +204,19 @@ export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: H
       <HomeCareCard homeCare={homeCare} patientId={patientId} organisationId={organisationId} onChanged={refresh} />
 
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Related</Text>
-        <Text onPress={() => onNavigate("emergency")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
+        <AppText variant="bodyStrong">Related</AppText>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("emergency")} style={{ paddingVertical: 3 }}>
           Emergency card: allergies, medicines, and contacts for a stranger to find →
-        </Text>
-        <Text onPress={() => onNavigate("lifestyle")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
+        </AppText>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("lifestyle")} style={{ paddingVertical: 3 }}>
           Nutrition and lifestyle coaching →
-        </Text>
-        <Text onPress={() => onNavigate("prevention")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
+        </AppText>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("prevention")} style={{ paddingVertical: 3 }}>
           Vaccinations and preventive screening →
-        </Text>
-        <Text onPress={() => onNavigate("family")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingVertical: 3 }}>
+        </AppText>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("family")} style={{ paddingVertical: 3 }}>
           Caregivers who can help manage this →
-        </Text>
+        </AppText>
       </Card>
     </ScrollView>
   );
@@ -272,7 +273,7 @@ function AgeingAssessmentCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Comprehensive check-in</Text>
+      <AppText variant="bodyStrong">Comprehensive check-in</AppText>
       <MutedText>
         A few honest answers across the areas that matter most as you age: mobility, cognition, nutrition,
         vision and hearing, and more. This isn&apos;t a diagnosis; anything worth a closer look gets flagged
@@ -287,7 +288,7 @@ function AgeingAssessmentCard({
               style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{DOMAIN_LABEL[d.domain]}</Text>
+                <AppText variant="label">{DOMAIN_LABEL[d.domain]}</AppText>
                 <MutedText>{OUTCOME_COPY[d.outcome]}</MutedText>
               </View>
               <StatusBadge text={d.clinicianReviewedAt ? "Reviewed" : "Recorded"} tone={OUTCOME_BADGE_TONE[d.outcome]} />
@@ -300,7 +301,7 @@ function AgeingAssessmentCard({
         <View style={{ gap: 12 }}>
           {missing.map((domain) => (
             <View key={domain} style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{DOMAIN_LABEL[domain]}</Text>
+              <AppText variant="label">{DOMAIN_LABEL[domain]}</AppText>
               {OUTCOME_OPTIONS.map((opt) => (
                 <Checkbox
                   key={opt.value}
@@ -386,12 +387,12 @@ function FallsRiskCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Falls risk</Text>
+      <AppText variant="bodyStrong">Falls risk</AppText>
       <MutedText>A few quick questions to flag anything worth a closer look.</MutedText>
       {fallsRisk ? (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
           <View>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{FALLS_PATHWAY_STAGE_LABEL[fallsRisk.pathwayStage]}</Text>
+            <AppText variant="label">{FALLS_PATHWAY_STAGE_LABEL[fallsRisk.pathwayStage]}</AppText>
             <MutedText>Flagged {when(fallsRisk.identifiedAt)}</MutedText>
           </View>
           {fallsRisk.riskLevel && (
@@ -466,16 +467,16 @@ function SocialDeterminantsCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Support at home</Text>
+      <AppText variant="bodyStrong">Support at home</AppText>
       <MutedText>
         A few questions about day-to-day life. These help us connect you with the right support, not just
         record them.
       </MutedText>
       {social?.needsNavigationSupport && (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>
+          <AppText variant="body">
             {social.followUpStatus === "resolved" ? "Follow-up completed" : "A care coordinator will follow up"}
-          </Text>
+          </AppText>
           <StatusBadge
             text={social.followUpStatus === "pending" ? "Pending" : social.followUpStatus === "contacted" ? "Contacted" : "Resolved"}
             tone={social.followUpStatus === "resolved" ? "brand" : "warn"}
@@ -531,16 +532,16 @@ function HomeCareCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Home visit</Text>
+      <AppText variant="bodyStrong">Home visit</AppText>
       <MutedText>If getting to a clinic is difficult, ask your care coordinator about a home visit.</MutedText>
       {homeCare ? (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>{HOME_CARE_STATUS_LABEL[homeCare.status]}</Text>
+          <AppText variant="body">{HOME_CARE_STATUS_LABEL[homeCare.status]}</AppText>
           <StatusBadge text="In progress" tone="neutral" />
         </View>
       ) : (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What&apos;s going on?</Text>
+          <AppText variant="label">What&apos;s going on?</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
             value={reason}
             onChangeText={setReason}

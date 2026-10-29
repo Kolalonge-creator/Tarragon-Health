@@ -15,6 +15,7 @@ import {
 } from "@/lib/proxy-setup";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const CATEGORIES = Constants.public.Enums.care_access_category;
 
@@ -76,7 +77,7 @@ function PendingRequest({ setup, onDone }: { setup: PendingProxySetup; onDone: (
     <Card>
       <Text style={{ fontSize: 16, fontWeight: "700" }}>{t("proxy.confirm.title", "en", { name })}</Text>
       <MutedText>{t("proxy.confirm.body", "en", { name })}</MutedText>
-      <Text style={{ fontSize: 13, fontWeight: "600" }}>{t("proxy.confirm.categories_label", "en", { name })}</Text>
+      <AppText variant="label">{t("proxy.confirm.categories_label", "en", { name })}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {CATEGORIES.map((category) => (
           <Toggle
@@ -147,7 +148,7 @@ export function ProxySetupSection() {
           <Text accessibilityRole="alert">{t("proxy.setup.sent", "en", { hours: String(sentHours) })}</Text>
         ) : (
           <>
-            <Text style={{ fontSize: 12.5, fontWeight: "600" }}>{t("proxy.setup.name_label", "en")}</Text>
+            <AppText variant="label">{t("proxy.setup.name_label", "en")}</AppText>
             <TextInput
               keyboardAppearance={scheme}
               placeholderTextColor={placeholderColorFor(scheme)}
@@ -156,7 +157,7 @@ export function ProxySetupSection() {
               maxLength={200}
               style={textInputStyle}
             />
-            <Text style={{ fontSize: 12.5, fontWeight: "600" }}>{t("proxy.setup.phone_label", "en")}</Text>
+            <AppText variant="label">{t("proxy.setup.phone_label", "en")}</AppText>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TextInput
                 keyboardAppearance={scheme}

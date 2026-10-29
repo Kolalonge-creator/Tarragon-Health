@@ -8,6 +8,7 @@ import { isOwnAccount, loadEatingPlans, loadNutritionReferral, type ReferralStat
 import { recordSyncError } from "@/lib/sync-diagnostics";
 import { referralStatusLabel, referralStatusText } from "@/lib/eating-plans-model";
 import { loadFoodList } from "@/lib/food-diary";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Eating plans, food swaps and the dietitian request status (S50a, read only). Renders NOTHING when the server says the plans are not for this
@@ -37,7 +38,7 @@ function PlanBlock({ plan }: { plan: EatingPlan }) {
         onPress={() => setOpen((v) => !v)}
         style={{ minHeight: TOUCH, justifyContent: "center" }}
       >
-        <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{`${plan.title} (${open ? "hide" : "show"})`}</Text>
+        <AppText variant="bodyStrong">{`${plan.title} (${open ? "hide" : "show"})`}</AppText>
       </Pressable>
       {open ? (
         <View style={{ gap: 6 }}>
@@ -53,7 +54,6 @@ function PlanBlock({ plan }: { plan: EatingPlan }) {
 }
 
 export function EatingPlansCard({ patientId }: { patientId: string }) {
-  const colors = useLegacyColors();
   const [guidance, setGuidance] = useState<EatingGuidance>({ state: "unavailable" });
   const [fromCache, setFromCache] = useState(false);
   const [foods, setFoods] = useState<FoodCatalogueItem[]>([]);
@@ -107,10 +107,10 @@ export function EatingPlansCard({ patientId }: { patientId: string }) {
           {guidance.plans.map((p) => (
             <PlanBlock key={p.code} plan={p} />
           ))}
-          {kinds.length > 0 ? <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>Ideas for swaps</Text> : null}
+          {kinds.length > 0 ? <AppText variant="bodyStrong">Ideas for swaps</AppText> : null}
           {kinds.map((kind) => (
             <View key={kind} style={{ gap: 4 }}>
-              <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{REASON_KIND_LABEL[kind]}</Text>
+              <AppText variant="bodyStrong">{REASON_KIND_LABEL[kind]}</AppText>
               {guidance.swaps
                 .filter((s) => s.reasonKind === kind)
                 .map((s) => (

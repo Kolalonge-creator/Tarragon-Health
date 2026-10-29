@@ -16,6 +16,7 @@ import { MskDaySetNative, MskFlareUpNative } from "./msk-programme-parts";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type Step =
   | { kind: "list" }
@@ -24,11 +25,10 @@ type Step =
 
 /** Guidance when a programme is stopped. No phone number and no helpline (CMO decision): the crisis card says go to the nearest hospital now. */
 function Guidance({ route, taskFailed, onBack }: { route: TherapyRoute | "clinician_review_pending" | "offline_stop" | null; taskFailed?: boolean; onBack: () => void }) {
-  const colors = useLegacyColors();
   const key = route ?? "not_available";
   return (
     <Card style={{ gap: 8 }}>
-      <Text accessibilityRole="alert" style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t(`therapy.guidance.${key}_title` as MessageKey)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="alert">{t(`therapy.guidance.${key}_title` as MessageKey)}</AppText>
       <MutedText>{t(`therapy.guidance.${key}` as MessageKey)}</MutedText>
       {taskFailed ? <MutedText>{t("therapy.guidance.task_failed")}</MutedText> : (route === "crisis" || route === "same_day_clinician" || route === "medical_review_first") && <MutedText>{t("therapy.guidance.told")}</MutedText>}
       <SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} />
@@ -49,7 +49,7 @@ function Questions({ questions, label, busy, onSubmit }: { questions: EntryQuest
     <View style={{ gap: 12 }}>
       {questions.map((q) => (
         <View key={q.code} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 14, color: colors.ink }}>{q.question}</Text>
+          <AppText variant="body">{q.question}</AppText>
           {q.kind === "yes_no" ? (
             <View style={{ flexDirection: "row", gap: 8 }}>
               <SecondaryButton title={(answers[q.code] === true ? "* " : "") + t("therapy.enrol.yes")} onPress={() => setAnswers((a) => ({ ...a, [q.code]: true }))} />
@@ -222,7 +222,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   if (view.kind === "done") {
     return (
       <Card style={{ gap: 8 }}>
-        <Text accessibilityRole="alert" style={{ fontWeight: "600", color: colors.ink }}>{t(view.text)}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="alert">{t(view.text)}</AppText>
         {view.paused && <MutedText>{t("therapy.player.paused_review")}</MutedText>}
         {queuedShort && <MutedText>{t("therapy.msk.queued_not_enough_days")}</MutedText>}
         <SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} />
@@ -262,11 +262,11 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
       </Card>
       {s.checkpoint && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("therapy.player.scores_title")}</Text>
+          <AppText variant="bodyStrong">{t("therapy.player.scores_title")}</AppText>
           <MutedText>{t("therapy.player.scores_intro")}</MutedText>
           {s.instruments.map((key) => (
             <View key={key} style={{ gap: 4 }}>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{t(`therapy.instrument.${key}` as MessageKey)}</Text>
+              <AppText variant="body">{t(`therapy.instrument.${key}` as MessageKey)}</AppText>
               <TextInput keyboardType="number-pad" value={scores[key] ?? ""} onChangeText={(v) => setScores((x) => ({ ...x, [key]: v.replace(/\D/g, "").slice(0, 3) }))}
                 style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, width: 90, color: colors.ink }} />
             </View>
@@ -298,7 +298,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
         <MskFlareUpNative enrolmentId={enrolmentId} questions={flareQuestions} Form={Questions} Guidance={Guidance} onBack={onBack} />
       )}
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "700", color: colors.ink }}>{t("therapy.share.title")}</Text>
+        <AppText variant="bodyStrong">{t("therapy.share.title")}</AppText>
         <MutedText>{t("therapy.share.body")}</MutedText>
         {shared !== null && <MutedText>{shared ? t("therapy.share.status_on") : t("therapy.share.status_off")}</MutedText>}
         <SecondaryButton title={shared ? t("therapy.share.off") : t("therapy.share.on")} onPress={async () => { if (await setSharing(enrolmentId, !shared)) setShared(!shared); }} disabled={shared === null} />

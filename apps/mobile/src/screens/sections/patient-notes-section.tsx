@@ -17,6 +17,7 @@ import {
 } from "@/lib/written-questions/notes";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
@@ -79,7 +80,6 @@ function NoteRow({
   tr: Translate;
   onChanged: () => Promise<void>;
 }) {
-  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [asked, setAsked] = useState(false);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
@@ -103,9 +103,9 @@ function NoteRow({
   return (
     <Card style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink }}>
+        <AppText variant="bodyStrong" style={{ flex: 1 }}>
           {tr("notes.signed_on", { date: lagosDate(item.signedAt) })}
-        </Text>
+        </AppText>
         {!withdrawn && item.releaseState === "released" ? <Badge tone="brand">{tr("notes.released_badge")}</Badge> : null}
       </View>
 
@@ -126,10 +126,9 @@ function NoteRow({
 
 /** A note withdrawn "entered in error": facts only, no clinical text, nothing to correct or request. */
 function WithdrawnNote({ note, tr }: { note: ReleasedNote | null; tr: Translate }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("notes.withdrawn")}</Text>
+      <AppText variant="bodyStrong">{tr("notes.withdrawn")}</AppText>
       {note?.withdrawnAt ? <MutedText>{tr("notes.withdrawn.on", { date: lagosDate(note.withdrawnAt) })}</MutedText> : null}
       {note?.withdrawnReason ? <MutedText>{tr("notes.withdrawn.reason", { reason: note.withdrawnReason })}</MutedText> : null}
       <MutedText>{tr("notes.withdrawn.explain")}</MutedText>
@@ -178,14 +177,14 @@ function ReleasedNoteBody({ note, tr, onChanged }: { note: ReleasedNote; tr: Tra
 
       {visibleSections(note).map((s) => (
         <View key={s.key} style={{ gap: 2 }}>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{tr(s.key)}</Text>
+          <AppText variant="label">{tr(s.key)}</AppText>
           <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{s.text}</Text>
         </View>
       ))}
 
       {note.corrections.map((c) => (
         <View key={c.id} style={{ gap: 2, borderLeftWidth: 3, borderLeftColor: colors.border, paddingLeft: 10 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{c.requestText}</Text>
+          <AppText variant="body">{c.requestText}</AppText>
           <MutedText>{tr(correctionStateKey(c.state))}</MutedText>
           {c.response ? <MutedText>{tr("notes.correction.reply", { text: c.response })}</MutedText> : null}
         </View>
@@ -195,7 +194,7 @@ function ReleasedNoteBody({ note, tr, onChanged }: { note: ReleasedNote; tr: Tra
 
       {open ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{tr("notes.correction.label")}</Text>
+          <AppText variant="label">{tr("notes.correction.label")}</AppText>
           <TextInput
             keyboardAppearance={scheme}
             placeholderTextColor={placeholderColorFor(scheme)}

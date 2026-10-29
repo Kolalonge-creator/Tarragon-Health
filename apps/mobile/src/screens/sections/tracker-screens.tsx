@@ -43,6 +43,7 @@ import {
 import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The five daily lifestyle trackers as native screens, each a thin
@@ -443,9 +444,9 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
 
       <Card style={{ gap: 12 }}>
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             {t("Which meal?")}
-          </Text>
+          </AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {MEAL_TYPE_CHOICES.map((choice) => {
               const selected = mealType === choice.value;
@@ -476,9 +477,9 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
         ) : null}
 
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             {t("What did you eat?")}
-          </Text>
+          </AppText>
           <TextInput keyboardAppearance={scheme}
             accessibilityLabel={t("What did you eat?")}
             value={description}
@@ -522,9 +523,9 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
           // scoped to existing wayfinding chrome, not every new feature.
           <Card style={{ gap: 4, backgroundColor: colors.groupBg }}>
             <Badge tone="brand">AI estimate</Badge>
-            <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {estimateSummary(lastEstimate)}
-            </Text>
+            </AppText>
             {lastEstimate.items.length > 0 ? (
               <MutedText>
                 {lastEstimate.items.map((item) => `${item.name} (${item.portion})`).join(", ")}

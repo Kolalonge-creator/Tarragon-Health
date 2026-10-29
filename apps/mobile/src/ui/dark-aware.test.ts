@@ -42,7 +42,6 @@ const FILES = [
   "screens/sections/ai-coach-screen.tsx",
   "screens/sections/exercise-screen.tsx",
   "screens/sections/fasting-screen.tsx",
-  "screens/sections/glucose-response-card.tsx",
   "screens/sections/tracker-screens.tsx",
   "screens/sections/care-support-screen.tsx",
   "screens/sections/womens-health-screen.tsx",

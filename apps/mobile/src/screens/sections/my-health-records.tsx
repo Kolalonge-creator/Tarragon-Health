@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Text, View } from "react-native";
+import { ActivityIndicator, Linking, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { loadImmunisationCard } from "@/lib/immunisation";
@@ -8,6 +8,7 @@ import type { ImmunisationCard } from "@tarragon/shared";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ChoiceChip, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const TRUST_KEY = {
   verified: "my_health.immunisation.trust.verified",
@@ -50,7 +51,7 @@ export function ImmunisationSummary({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 18 }}>{t("my_health.immunisation.title")}</Text>
+      <AppText variant="title">{t("my_health.immunisation.title")}</AppText>
       <MutedText>{t("my_health.immunisation.description")}</MutedText>
       {loading ? (
         <ActivityIndicator color={colors.brand} />
@@ -146,7 +147,7 @@ export function OutsideRecordsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 18 }}>{t("outside_records.title")}</Text>
+      <AppText variant="title">{t("outside_records.title")}</AppText>
       <MutedText>{t("outside_records.description")}</MutedText>
       <MutedText>{t("outside_records.type_label")}</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

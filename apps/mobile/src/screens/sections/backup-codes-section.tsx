@@ -15,6 +15,7 @@ import {
   generateBackupCodesRemote,
   type BackupCodeStatus,
 } from "@/lib/auth/backup-codes";
+import { AppText } from "@/ui/kit/AppText";
 
 type FetchArg = Parameters<typeof fetchBackupCodeStatus>[1];
 
@@ -96,9 +97,9 @@ export function BackupCodesSection() {
       <MutedText>{ta("account.backup_codes.intro", locale)}</MutedText>
       {codes ? (
         <View style={{ gap: 10 }}>
-          <Text accessibilityRole="alert" style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong" accessibilityRole="alert">
             {ta("account.backup_codes.shown_title", locale)}
-          </Text>
+          </AppText>
           <MutedText>{ta("account.backup_codes.shown_guidance", locale)}</MutedText>
           <View accessibilityLabel={ta("account.backup_codes.title", locale)} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {codes.map((code) => (

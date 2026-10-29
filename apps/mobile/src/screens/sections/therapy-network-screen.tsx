@@ -11,6 +11,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const MODALITY_LABEL: Record<Enums<"therapy_modality">, string> = {
   video: "Video",
@@ -63,9 +64,9 @@ function ProviderRow({ provider, organisationId, patientId }: ProviderRowProps) 
   return (
     <Card style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, flexShrink: 1 }}>
+        <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>
           {provider.name}
-        </Text>
+        </AppText>
         <Badge>{provider.specialist_type === "psychiatry" ? "Psychiatrist" : "Psychologist"}</Badge>
         {provider.needs_doctor_approval ? <Badge>A doctor reviews this first</Badge> : null}
       </View>
@@ -91,9 +92,9 @@ function ProviderRow({ provider, organisationId, patientId }: ProviderRowProps) 
         </MutedText>
       ) : null}
       {provider.consultation_fee_kobo ? (
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="label">
           {naira(provider.consultation_fee_kobo)} a session
-        </Text>
+        </AppText>
       ) : null}
       {modalities.length > 1 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>

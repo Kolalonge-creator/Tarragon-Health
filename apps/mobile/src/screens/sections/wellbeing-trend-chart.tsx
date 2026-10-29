@@ -11,6 +11,7 @@ import {
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type TrendMode = "mood_score" | "stress_score" | "sleep_quality";
 
@@ -84,7 +85,7 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellbeing trend</Text>
+      <AppText variant="bodyStrong">Wellbeing trend</AppText>
 
       <View style={{ flexDirection: "row", gap: 6 }}>
         {(Object.keys(MODE_CONFIG) as TrendMode[]).map((key) => (
@@ -144,12 +145,9 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
                         }}
                       />
                     </View>
-                    <Text
-                      numberOfLines={1}
-                      style={{ fontSize: 9.5, color: colors.muted, marginTop: 4 }}
-                    >
+                    <AppText variant="caption" tone="textMuted" numberOfLines={1} style={{ marginTop: 4 }}>
                       {formatShortDate(row.checked_in_at)}
-                    </Text>
+                    </AppText>
                   </View>
                 );
               })}

@@ -49,6 +49,7 @@ import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } fro
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
+import { AppText } from "@/ui/kit/AppText";
 
 function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
   const colors = useLegacyColors();
@@ -203,7 +204,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
       ) : (
         <>
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your wellbeing</Text>
+          <AppText variant="bodyStrong">Your wellbeing</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <Tile label="Mood" value={checkin ? wellbeingBandLabel(bandHigherIsBetter(checkin.mood_score)) : null} />
             <Tile label="Stress" value={checkin ? wellbeingBandLabel(bandLowerIsBetter(checkin.stress_score)) : null} />
@@ -249,7 +250,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         <SleepToolsCard patientId={patientId} />
 
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Talk to someone</Text>
+          <AppText variant="bodyStrong">Talk to someone</AppText>
           <MutedText>Book a session with one of our therapists, over telemedicine or in person, whichever suits you.</MutedText>
           <SecondaryButton title="Book a therapy session" onPress={() => setTherapyOpen(true)} />
         </Card>
@@ -281,8 +282,8 @@ function Tile({ label, value }: { label: string; value: string | null }) {
   const colors = useLegacyColors();
   return (
     <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, minWidth: 110 }}>
-      <Text style={{ fontSize: 10.5, textTransform: "uppercase", color: colors.muted }}>{label}</Text>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 2 }}>{value ?? "No check-in yet"}</Text>
+      <AppText variant="caption" tone="textMuted" style={{ textTransform: "uppercase" }}>{label}</AppText>
+      <AppText variant="label" style={{ marginTop: 2 }}>{value ?? "No check-in yet"}</AppText>
     </View>
   );
 }
@@ -352,12 +353,12 @@ function CheckinForm({
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>How are you doing today?</Text>
+      <AppText variant="bodyStrong">How are you doing today?</AppText>
       {/* One tap from the check-in too (S56b). */}
       <CalmToolButton enabled={calmToolEnabled} />
       {WELLBEING_SCALE_QUESTIONS.map((q) => (
         <View key={q.name} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>{q.prompt}</Text>
+          <AppText variant="body">{q.prompt}</AppText>
           <ScalePicker value={answers[q.name] ?? null} onChange={(v) => setAnswers((prev) => ({ ...prev, [q.name]: v }))} />
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <MutedText>{q.low}</MutedText>
@@ -366,7 +367,7 @@ function CheckinForm({
         </View>
       ))}
       <View style={{ gap: 6 }}>
-        <Text style={{ fontSize: 13, color: colors.ink }}>{t("mood.tags.title")} {t("mood.tags.optional")}</Text>
+        <AppText variant="body">{t("mood.tags.title")} {t("mood.tags.optional")}</AppText>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           {WELLBEING_TAGS.map((tag) => {
             const on = tags.includes(tag);
@@ -385,7 +386,7 @@ function CheckinForm({
         </View>
       </View>
       <View style={{ gap: 6 }}>
-        <Text style={{ fontSize: 13, color: colors.ink }}>Anything else you&apos;d like to note? (optional)</Text>
+        <AppText variant="body">Anything else you&apos;d like to note? (optional)</AppText>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={note}
           onChangeText={setNote}
@@ -400,7 +401,7 @@ function CheckinForm({
       <PrimaryButton title="Save check-in" onPress={submit} loading={submitting} />
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
-        <Text style={{ fontSize: 13, color: colors.ink }}>Remind me to check in every</Text>
+        <AppText variant="body">Remind me to check in every</AppText>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           {[
             { value: 1, label: "Day" },
@@ -433,13 +434,12 @@ function CheckinForm({
 }
 
 function MentalHealthSummaryCard({ screens }: { screens: Partial<Record<string, MentalHealthScreen>> }) {
-  const colors = useLegacyColors();
   const { phq9, gad7, auditc, epds } = screens;
   if (!phq9 && !gad7 && !auditc && !epds) return null;
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Mental wellbeing</Text>
+      <AppText variant="bodyStrong">Mental wellbeing</AppText>
       {phq9 && (
         <SummaryRow label="Mood (PHQ-9)" bandLabel={PHQ9_BAND_LABEL[phq9.severity_band] ?? phq9.severity_band} flagged={phq9.crisis_flagged} />
       )}
@@ -475,10 +475,9 @@ function SummaryRow({
   flagged?: boolean | null;
   flagLabel?: string;
 }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-      <Text style={{ fontSize: 13, color: colors.ink }}>{label}</Text>
+      <AppText variant="body">{label}</AppText>
       <View style={{ flexDirection: "row", gap: 6 }}>
         {flagged && <Badge>{flagLabel}</Badge>}
         <Badge tone="neutral">{bandLabel}</Badge>
@@ -526,7 +525,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
   if (result) {
     return (
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
+        <AppText variant="bodyStrong">Thanks for checking in</AppText>
         <MutedText>Your answers are saved and your care team can see them.</MutedText>
         {result.crisis && <CrisisCard told={result.told !== false} />}
         <SecondaryButton title="Close" onPress={onDone} />
@@ -556,22 +555,22 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
       <Section title="Alcohol">
         {AUDITC_QUESTIONS.map((q, i) => (
           <View key={i} style={{ gap: 6 }}>
-            <Text style={{ fontSize: 13, color: colors.ink }}>{q.prompt}</Text>
+            <AppText variant="body">{q.prompt}</AppText>
             <OptionPicker options={q.options} value={auditc[i]} onChange={(v) => setAuditc((prev) => prev.map((p, idx) => (idx === i ? v : p)))} />
           </View>
         ))}
       </Section>
 
       <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 10, gap: 10 }}>
-        <Text onPress={() => setIsPerinatal((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-          <Text style={{ fontWeight: "700" }}>{isPerinatal ? "☑ " : "☐ "}</Text>
+        <AppText variant="body" onPress={() => setIsPerinatal((v) => !v)}>
+          <AppText variant="bodyStrong">{isPerinatal ? "☑ " : "☐ "}</AppText>
           I am currently pregnant, or have given birth in the last 12 months
-        </Text>
+        </AppText>
         {isPerinatal && (
           <Section title="How you have been feeling since your pregnancy or birth">
             {EPDS_QUESTIONS.map((q, i) => (
               <View key={i} style={{ gap: 6 }}>
-                <Text style={{ fontSize: 13, color: colors.ink }}>{q.prompt}</Text>
+                <AppText variant="body">{q.prompt}</AppText>
                 <OptionPicker options={q.options} value={epds[i]} onChange={(v) => setEpds((prev) => prev.map((p, idx) => (idx === i ? v : p)))} />
               </View>
             ))}
@@ -586,12 +585,11 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <AppText variant="label" tone="brandText" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
         {title}
-      </Text>
+      </AppText>
       {children}
     </View>
   );
@@ -601,7 +599,7 @@ function FrequencyQuestion({ prompt, value, onChange }: { prompt: string; value:
   const colors = useLegacyColors();
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontSize: 13, color: colors.ink }}>{prompt}</Text>
+      <AppText variant="body">{prompt}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {FREQUENCY_OPTIONS.map((opt) => (
           <Text

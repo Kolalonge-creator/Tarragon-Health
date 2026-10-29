@@ -12,6 +12,7 @@ import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function ActionRow({ item, onPress }: { item: ActionItem; onPress: () => void }) {
   const colors = useLegacyColors();
@@ -30,10 +31,10 @@ function ActionRow({ item, onPress }: { item: ActionItem; onPress: () => void })
         style={{ marginTop: 2 }}
       />
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase" }}>
+        <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>
           {item.type}
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.ink }}>{item.title}</Text>
+        </AppText>
+        <AppText variant="body">{item.title}</AppText>
       </View>
       {item.dueDate ? (
         <Text
@@ -127,7 +128,7 @@ export function ActionsScreen({ patientId, onNavigate }: ActionsScreenProps) {
       contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
     >
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>My actions</Text>
+        <AppText variant="title">My actions</AppText>
         <MutedText>Everything outstanding, in one place, grouped by how soon it needs you.</MutedText>
       </View>
 
@@ -150,9 +151,9 @@ export function ActionsScreen({ patientId, onNavigate }: ActionsScreenProps) {
       >
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Ionicons name="checkmark-done-outline" size={20} color={colors.brand} />
-          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, flex: 1 }}>
+          <AppText variant="bodyStrong" style={{ flex: 1 }}>
             See today&apos;s doses
-          </Text>
+          </AppText>
           <Ionicons name="chevron-forward" size={16} color={colors.faint} />
         </Card>
       </Pressable>

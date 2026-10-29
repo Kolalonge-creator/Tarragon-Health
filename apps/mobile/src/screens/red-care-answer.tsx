@@ -6,6 +6,7 @@ import { SecondaryButton } from "@/ui/components";
 import { supabase } from "@/lib/supabase";
 import { resolveSubjectId } from "@/lib/acting";
 import { answerRedCare, type RedCareAnswer as Answer, type RedCareOutcome } from "@/lib/red-care";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Two buttons under the red guidance (S13 R4, CMO Q13): "I have sought care" and "I could not get care". Saved on the phone
@@ -44,7 +45,7 @@ export function RedCareAnswer() {
   }
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{t("redcare.question", "en")}</Text>
+      <AppText variant="bodyStrong">{t("redcare.question", "en")}</AppText>
       <SecondaryButton title={t("redcare.sought", "en")} onPress={() => void send("sought_care")} />
       <SecondaryButton title={t("redcare.could_not", "en")} onPress={() => void send("could_not_get_care")} />
       {failed ? <Text accessibilityRole="alert" style={{ fontSize: 12.5, color: colors.status.warn }}>{t("redcare.failed", "en")}</Text> : null}

@@ -57,7 +57,8 @@ import {
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
-import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import {
   Badge,
@@ -226,9 +227,9 @@ function CarePlanSection({ patientId }: { patientId: string }) {
       <View style={{ gap: 10 }}>
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
         <Card style={{ gap: 8, borderStyle: "dashed" }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             A doctor-set care plan is a paid service
-          </Text>
+          </AppText>
           <MutedText>
             Your readings are checked against care protocols whatever you pay, and a dangerous one gets
             you clear guidance and a specific next step right away. What a doctor adds is a care plan set
@@ -267,18 +268,18 @@ function CarePlanSection({ patientId }: { patientId: string }) {
             {plans.map((plan) => (
               <View key={plan.id} style={{ gap: 2 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.condition}</Text>
+                  <AppText variant="bodyStrong">{plan.condition}</AppText>
                   <Badge tone="brand">Active</Badge>
                 </View>
                 <MutedText>
                   {plan.clinicianName ? `Managed by ${plan.clinicianName}` : "Not yet assigned to a doctor"}
                 </MutedText>
                 {plan.targetRanges.length > 0 ? (
-                  <Text style={{ fontSize: 12, color: colors.muted }}>
+                  <AppText variant="caption" tone="textMuted">
                     {plan.targetRanges.map(([k, v]) => `${k}: ${v}`).join("; ")}
-                  </Text>
+                  </AppText>
                 ) : null}
-                {plan.notes ? <Text style={{ fontSize: 12, color: colors.muted }}>{plan.notes}</Text> : null}
+                {plan.notes ? <AppText variant="caption" tone="textMuted">{plan.notes}</AppText> : null}
               </View>
             ))}
           </View>
@@ -297,23 +298,15 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 
         {goals.length > 0 ? (
           <View style={{ gap: 6 }}>
-            <Text
-              style={{
-                fontSize: 11.5,
-                fontWeight: "700",
-                color: colors.muted,
-                textTransform: "uppercase",
-                letterSpacing: 0.4,
-              }}
-            >
+            <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
               Your goals
-            </Text>
+            </AppText>
             {goals.map((goal) => (
               <View key={goal.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Badge tone={goal.status === "proposed" ? "neutral" : "brand"}>
                   {goal.status === "proposed" ? "Pending review" : "Active"}
                 </Badge>
-                <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{goal.description}</Text>
+                <AppText variant="body" style={{ flex: 1 }}>{goal.description}</AppText>
               </View>
             ))}
           </View>
@@ -324,15 +317,12 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 }
 
 function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask[]; onChanged: () => void }) {
-  const colors = useLegacyColors();
   if (tasks.length === 0) return null;
   return (
     <View style={{ gap: 8 }}>
-      <Text
-        style={{ fontSize: 11.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4 }}
-      >
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
         {title}
-      </Text>
+      </AppText>
       {tasks.map((task) => (
         <TaskRow key={task.id} task={task} onChanged={onChanged} />
       ))}
@@ -365,9 +355,9 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink }}>{task.title}</Text>
+        <AppText variant="body" style={{ flex: 1 }}>{task.title}</AppText>
         {task.status === "missed" ? <Badge tone="neutral">Overdue</Badge> : null}
-        {due ? <Text style={{ fontSize: 11, color: colors.subtle }}>Due {due}</Text> : null}
+        {due ? <AppText variant="caption" tone="textSubtle">Due {due}</AppText> : null}
       </View>
       {task.description ? <MutedText>{task.description}</MutedText> : null}
       {!showUnable ? (
@@ -425,13 +415,13 @@ function EscalationsSection({ patientId }: { patientId: string }) {
             style={{ paddingVertical: 10, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border, gap: 3 }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{escalation.reason}</Text>
-              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(escalation.createdAt)}</Text>
+              <AppText variant="body" style={{ flex: 1 }}>{escalation.reason}</AppText>
+              <AppText variant="caption" tone="textSubtle">{formatCareDate(escalation.createdAt)}</AppText>
             </View>
             <MutedText>{ESCALATION_STATUS_COPY[escalation.status]}</MutedText>
             {(() => {
               const next = whatHappensNext(escalation.status, escalation.slaDueAt);
-              return next ? <Text style={{ fontSize: 12, color: colors.subtle }}>{next}</Text> : null;
+              return next ? <AppText variant="caption" tone="textSubtle">{next}</AppText> : null;
             })()}
           </View>
         ))}
@@ -470,19 +460,19 @@ function ReferralsSection({ patientId }: { patientId: string }) {
             style={{ paddingVertical: 10, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border, gap: 3 }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {humanizeCareLabel(referral.specialistType)}
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(referral.createdAt)}</Text>
+              </AppText>
+              <AppText variant="caption" tone="textSubtle">{formatCareDate(referral.createdAt)}</AppText>
             </View>
             <MutedText>{REFERRAL_STATUS_COPY[referral.status]}</MutedText>
             {referral.appointmentDate ? (
-              <Text style={{ fontSize: 12, color: colors.muted }}>
+              <AppText variant="caption" tone="textMuted">
                 Appointment: {formatCareDate(referral.appointmentDate)}
-              </Text>
+              </AppText>
             ) : null}
             {referral.status === "closed" && referral.carePlanUpdateNote ? (
-              <Text style={{ fontSize: 12, color: colors.ink }}>What changed: {referral.carePlanUpdateNote}</Text>
+              <AppText variant="caption">What changed: {referral.carePlanUpdateNote}</AppText>
             ) : (
               <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>
                 Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
@@ -615,7 +605,7 @@ function HospitalAdmissionForm({
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Admission date (YYYY-MM-DD)</Text>
+        <AppText variant="label" tone="textMuted">Admission date (YYYY-MM-DD)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder={todayDateInput()}
@@ -627,7 +617,7 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Discharge date (optional)</Text>
+        <AppText variant="label" tone="textMuted">Discharge date (optional)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder="Leave blank if still admitted"
@@ -639,7 +629,7 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Hospital (optional)</Text>
+        <AppText variant="label" tone="textMuted">Hospital (optional)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
@@ -649,9 +639,9 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>
+        <AppText variant="label" tone="textMuted">
           What were you admitted for? (optional)
-        </Text>
+        </AppText>
         <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
@@ -713,26 +703,26 @@ function AdmissionRow({
     <View style={{ paddingVertical: 10, borderTopWidth: first ? 0 : 1, borderTopColor: colors.border, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             {admission.facility_name ?? "Hospital admission"}
-          </Text>
+          </AppText>
           <Badge tone={admission.is_current ? "brand" : "neutral"}>
             {admission.is_current ? "Currently admitted" : "Discharged"}
           </Badge>
         </View>
-        <Text style={{ fontSize: 11, color: colors.subtle }}>{admissionDurationLabel(admission)}</Text>
+        <AppText variant="caption" tone="textSubtle">{admissionDurationLabel(admission)}</AppText>
       </View>
       <MutedText>
         Admitted {formatCareDate(admission.admitted_on)}
         {admission.discharged_on ? ` · discharged ${formatCareDate(admission.discharged_on)}` : ""}
       </MutedText>
       {admission.self_reported_diagnosis ? (
-        <Text style={{ fontSize: 12, color: colors.muted }}>
+        <AppText variant="caption" tone="textMuted">
           Reason (self-reported): {admission.self_reported_diagnosis}
-        </Text>
+        </AppText>
       ) : null}
       {admission.discharge_summary ? (
-        <Text style={{ fontSize: 12, color: colors.muted }}>Discharge notes: {admission.discharge_summary}</Text>
+        <AppText variant="caption" tone="textMuted">Discharge notes: {admission.discharge_summary}</AppText>
       ) : null}
       {admission.source === "staff_recorded" ? <MutedText>Recorded by your care team.</MutedText> : null}
 
@@ -868,14 +858,14 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
           {requests.map((r) => (
             <Card key={r.id} style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyStrong">
                   {NAVIGATION_REQUEST_CATEGORY_LABEL[r.category]}
-                </Text>
+                </AppText>
                 <Badge tone={r.status === "resolved" ? "brand" : "neutral"}>
                   {NAVIGATION_REQUEST_STATUS_LABEL[r.status]}
                 </Badge>
               </View>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.description}</Text>
+              <AppText variant="body">{r.description}</AppText>
               <MutedText>Sent {when(r.created_at)}</MutedText>
               {r.status === "resolved" && r.resolution_note && (
                 <Text style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, padding: 8, borderRadius: radius.control }}>
@@ -899,7 +889,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                         justifyContent: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 12, color: colors.ink }}>{n}</Text>
+                      <AppText variant="caption">{n}</AppText>
                     </Pressable>
                   ))}
                 </View>
@@ -975,7 +965,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
       ) : (
         live.map((v) => (
           <View key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>{v.sku_name ?? "Care voucher"}</Text>
+            <AppText variant="body">{v.sku_name ?? "Care voucher"}</AppText>
             <Badge tone={v.status === "active" ? "brand" : "neutral"}>{STATUS_LABEL[v.status] ?? v.status}</Badge>
           </View>
         ))
@@ -990,7 +980,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
       />
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Invite someone</Text>
+        <AppText variant="bodyStrong">Invite someone</AppText>
         <MutedText>
           When someone you invite completes their first paid order, you both get a reward voucher towards your
           care.
@@ -1049,7 +1039,7 @@ function TestimonialSection() {
             (never your medical details, just your words).
           </MutedText>
           <View>
-            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>How should we credit you?</Text>
+            <AppText variant="body" style={{ marginBottom: 4 }}>How should we credit you?</AppText>
             <TextInput keyboardAppearance={scheme}
               value={displayName}
               onChangeText={setDisplayName}
@@ -1060,7 +1050,7 @@ function TestimonialSection() {
             />
           </View>
           <View>
-            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>Your words</Text>
+            <AppText variant="body" style={{ marginBottom: 4 }}>Your words</AppText>
             <TextInput keyboardAppearance={scheme}
               value={quote}
               onChangeText={setQuote}

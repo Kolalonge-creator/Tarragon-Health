@@ -24,6 +24,7 @@ import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton 
 import { useLegacyColors } from "@/ui/design";
 import { NotADiagnosis } from "@/ui/not-a-diagnosis";
 import { SafetyBlock } from "@/screens/sections/symptom-assessment-extras";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S59c: the follow-up after a symptom check ("How are you getting on?") on the phone. A quiet banner appears only when one is waiting and the
@@ -138,23 +139,23 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
   return (
     <Card>
       <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.checkback.title")}</Text>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 4 }}>{v.complaint_label}</Text>
+      <AppText variant="bodyStrong" style={{ marginTop: 4 }}>{v.complaint_label}</AppText>
       <MutedText>{t("symptom.checkback.intro")}</MutedText>
       <View style={{ gap: 6, marginTop: 8 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_progress")}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_progress")}</AppText>
         {PROGRESS_OPTIONS.map((p) => (
           <ChoiceChip key={p} title={`${progress === p ? "(o) " : "( ) "}${t(`symptom.checkback.progress.${p}` as MessageKey)}`} onPress={() => setProgress(p)} />
         ))}
       </View>
       <View style={{ gap: 6, marginTop: 8 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_care")}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_care")}</AppText>
         {CARE_OPTIONS.map((c) => (
           <ChoiceChip key={c} title={`${care === c ? "(o) " : "( ) "}${t(`symptom.checkback.care.${c}` as MessageKey)}`} onPress={() => setCare(c)} />
         ))}
       </View>
       {v.sign_vocabulary.length > 0 && (
         <View style={{ gap: 6, marginTop: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_signs")}</Text>
+          <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_signs")}</AppText>
           {v.sign_vocabulary.map((k) => (
             <ChoiceChip key={k} title={`${signs.includes(k) ? "[x] " : "[ ] "}${symptomLabel(k)}`} onPress={() => toggle(k)} />
           ))}

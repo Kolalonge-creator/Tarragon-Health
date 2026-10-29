@@ -35,6 +35,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function shortDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -166,7 +167,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
 
       {emergencyGrants.length > 0 && (
         <Card style={{ borderColor: colors.status.warn, backgroundColor: colors.status.warnBg, gap: 8 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>Emergency access is active on your record</Text>
+          <AppText variant="bodyStrong">Emergency access is active on your record</AppText>
           {emergencyGrants.map((g) => (
             <EmergencyGrantRow key={g.id} grant={g} userId={userId} onChanged={refresh} />
           ))}
@@ -234,7 +235,6 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
 }
 
 function EmergencyGrantRow({ grant, userId, onChanged }: { grant: EmergencyGrantOnMyRecord; userId: string; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const [revoking, setRevoking] = useState(false);
 
   async function revoke() {
@@ -246,10 +246,10 @@ function EmergencyGrantRow({ grant, userId, onChanged }: { grant: EmergencyGrant
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
-        <Text style={{ fontWeight: "700" }}>{grant.granteeName ?? "Someone you gave care access to"}</Text> can see your health
+      <AppText variant="body" style={{ flex: 1 }}>
+        <AppText variant="bodyStrong">{grant.granteeName ?? "Someone you gave care access to"}</AppText> can see your health
         information until {shortDateTime(grant.expiresAt)}. Reason given: {grant.reason}
-      </Text>
+      </AppText>
       <SecondaryButton title={revoking ? "Ending…" : "End it now"} onPress={revoke} loading={revoking} />
     </View>
   );
@@ -299,7 +299,7 @@ function CareAccessRequestsCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Requests</Text>
+      <AppText variant="bodyStrong">Requests</AppText>
       <MutedText>Nothing here changes what anyone can see or do until both sides agree.</MutedText>
       {error && <ErrorText>{error}</ErrorText>}
 
@@ -312,7 +312,7 @@ function CareAccessRequestsCard({
           : `${otherName} wants you to be able to ${LEVEL_LABEL[r.permission_level]} their care${displayedRelationship ? ` (your ${displayedRelationship})` : ""}.`;
         return (
           <View key={r.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 8 }}>
-            <Text style={{ fontSize: 13, color: colors.ink }}>{text}</Text>
+            <AppText variant="body">{text}</AppText>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <PrimaryButton title="Accept" onPress={() => respond(r.id, true)} loading={pendingId === r.id} />
               <SecondaryButton title="Decline" onPress={() => respond(r.id, false)} disabled={pendingId === r.id} />
@@ -329,7 +329,7 @@ function CareAccessRequestsCard({
           : `You asked to ${LEVEL_LABEL[r.permission_level]} ${otherName}'s care: waiting for them to accept.`;
         return (
           <View key={r.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 8, backgroundColor: colors.groupBg }}>
-            <Text style={{ fontSize: 13, color: colors.muted }}>{text}</Text>
+            <AppText variant="body" tone="textMuted">{text}</AppText>
             <SecondaryButton title="Withdraw" onPress={() => cancel(r.id)} loading={pendingId === r.id} />
           </View>
         );
@@ -395,7 +395,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your next of kin</Text>
+      <AppText variant="bodyStrong">Your next of kin</AppText>
       <MutedText>
         One person we contact if something urgent comes up. If they have a Tarragon account of their own,
         we&apos;ll ask them to confirm before they can also follow your care: see your readings,
@@ -409,7 +409,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
       {current.name && (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{current.name}</Text>
+            <AppText variant="label">{current.name}</AppText>
             <MutedText>
               {RELATIONSHIP_LABEL[current.relationship ?? "other"] ?? current.relationship} · {current.phone}
               {current.grantId ? " · can view your care" : current.pendingRequestId ? " · waiting for them to accept" : " · contact only, no Tarragon account on this number"}
@@ -422,17 +422,17 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
 
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their name</Text>
+          <AppText variant="label">Their name</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={fullName} onChangeText={setFullName} style={textInputStyle} />
         </View>
       </View>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Relationship to you</Text>
+      <AppText variant="label">Relationship to you</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {NEXT_OF_KIN_RELATIONSHIPS.map((r) => (
           <Chip key={r} label={RELATIONSHIP_LABEL[r]} active={relationship === r} onPress={() => setRelationship(r)} />
         ))}
       </View>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number</Text>
+      <AppText variant="label">Their phone number</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
       <MutedText>If this number belongs to a Tarragon account, they&apos;ll be able to follow your care straight away.</MutedText>
 
@@ -465,7 +465,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Who can see your health information</Text>
+      <AppText variant="bodyStrong">Who can see your health information</AppText>
       <MutedText>
         These people can already be contacted about you. Seeing any part of your record is a separate yes,
         category by category, and it is yours to give or take back at any time. Tap a name to change it.
@@ -479,15 +479,15 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
         const mentalHealthOn = follower.categories.includes("mental_health");
         return (
           <View key={follower.grantId} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
-            <Text onPress={() => setOpenId(open ? null : follower.grantId)} style={{ fontSize: 13, color: colors.ink }}>
-              <Text style={{ fontWeight: "700" }}>{name}</Text>
+            <AppText variant="body" onPress={() => setOpenId(open ? null : follower.grantId)}>
+              <AppText variant="bodyStrong">{name}</AppText>
               {"  "}
-              <Text style={{ fontSize: 11, color: colors.muted }}>
+              <AppText variant="caption" tone="textMuted">
                 {follower.permissionLevel === "manage" ? "Can act for you" : "Next of kin"} ·{" "}
                 {follower.categories.length === 0 ? "Cannot see your health information" : `Can see ${follower.categories.length} of 8`} ·{" "}
                 {expiryLabel(follower.expiresAt)}
-              </Text>
-            </Text>
+              </AppText>
+            </AppText>
 
             {open && (
               <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 8 }}>
@@ -508,30 +508,24 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                   </Text>
                 ))}
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, backgroundColor: colors.card, padding: 10, gap: 4 }}>
-                  <Text
-                    onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "reproductive_health")))}
-                    style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}
-                  >
+                  <AppText variant="label" onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "reproductive_health")))}>
                     <Text style={{ fontWeight: "700", color: reproductiveHealthOn ? colors.brandPressed : colors.faint }}>
                       {reproductiveHealthOn ? "☑ " : "☐ "}
                     </Text>
                     Reproductive health
-                  </Text>
+                  </AppText>
                   <MutedText>
                     Kept separate on purpose: turning on everything else above leaves this untouched. Cycle,
                     pregnancy and related information stays private unless you choose to share it here too.
                   </MutedText>
                 </View>
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, backgroundColor: colors.card, padding: 10, gap: 4 }}>
-                  <Text
-                    onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "mental_health")))}
-                    style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}
-                  >
+                  <AppText variant="label" onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "mental_health")))}>
                     <Text style={{ fontWeight: "700", color: mentalHealthOn ? colors.brandPressed : colors.faint }}>
                       {mentalHealthOn ? "☑ " : "☐ "}
                     </Text>
                     Mental wellbeing
-                  </Text>
+                  </AppText>
                   <MutedText>
                     Kept separate on purpose: turning on everything else above leaves this untouched. Your check-ins,
                     questionnaire answers and any therapy bookings stay private unless you choose to share them here.
@@ -564,7 +558,7 @@ function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What&apos;s happened with your access</Text>
+      <AppText variant="bodyStrong">What&apos;s happened with your access</AppText>
       <MutedText>
         Every time someone&apos;s access to a record changed, on your record or one you help look after.
       </MutedText>
@@ -573,8 +567,8 @@ function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
           key={row.id}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}
         >
-          <Text style={{ fontSize: 12.5, color: colors.ink, flex: 1 }}>{describeCareAccessEvent(row)}</Text>
-          <Text style={{ fontSize: 11, color: colors.subtle, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
+          <AppText variant="body" style={{ flex: 1 }}>{describeCareAccessEvent(row)}</AppText>
+          <AppText variant="caption" tone="textSubtle" style={{ flexShrink: 0 }}>{shortDate(row.occurredAt)}</AppText>
         </View>
       ))}
       {hasMore && (

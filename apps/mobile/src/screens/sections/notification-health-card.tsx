@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { Text } from "react-native";
+import { AppText } from "@/ui/kit/AppText";
 
 const FINDING_KEY: Record<DiagnosisFinding, MessageKey> = {
   permission_off: "notif.diag.permission_off",
@@ -65,7 +66,7 @@ export function NotificationHealthCard() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.diag.title")}</Text>
+      <AppText variant="bodyStrong">{tr("notif.diag.title")}</AppText>
       <MutedText>{tr("notif.diag.intro")}</MutedText>
       {d.findings.map((f) => (
         <Text key={f} style={{ fontSize: 13.5, color: colors.ink }}>
@@ -74,7 +75,7 @@ export function NotificationHealthCard() {
       ))}
       {needsSteps && (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{tr("notif.diag.steps_title")}</Text>
+          <AppText variant="bodyStrong">{tr("notif.diag.steps_title")}</AppText>
           <MutedText>{tr(steps)}</MutedText>
           {d.maker === "other_android" && (
             <>

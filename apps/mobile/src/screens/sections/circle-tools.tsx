@@ -7,6 +7,7 @@ import { loadDigest, loadNudges, loadTasks, loadToolsStatus, postTask, taskActio
 import { TOOLS_OFF, type CirclePermission, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -36,13 +37,13 @@ export function PermissionSummary({ permissions, audience, name }: { permissions
   const empty = p.sees.length === 0 && p.can.length === 0;
   return (
     <View accessibilityLabel={t(invitee ? "cctools.preview.title.invitee" : "cctools.preview.title.sender", locale)} style={{ gap: 6, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12 }}>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{t(invitee ? "cctools.preview.title.invitee" : "cctools.preview.title.sender", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t(invitee ? "cctools.preview.title.invitee" : "cctools.preview.title.sender", locale)}</AppText>
       {empty ? <MutedText>{t("cctools.preview.none", locale)}</MutedText> : null}
-      {p.sees.length > 0 ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(invitee ? "cctools.preview.sees.invitee" : "cctools.preview.sees", locale)}</Text> : null}
+      {p.sees.length > 0 ? <AppText variant="bodyStrong">{t(invitee ? "cctools.preview.sees.invitee" : "cctools.preview.sees", locale)}</AppText> : null}
       {p.sees.map((c) => <Text key={c} style={{ color: colors.ink }}>{`• ${t(circleToolsSeesKey(c), locale)}`}</Text>)}
-      {p.can.length > 0 ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(invitee ? "cctools.preview.can.invitee" : "cctools.preview.can", locale)}</Text> : null}
+      {p.can.length > 0 ? <AppText variant="bodyStrong">{t(invitee ? "cctools.preview.can.invitee" : "cctools.preview.can", locale)}</AppText> : null}
       {p.can.map((c) => <Text key={c} style={{ color: colors.ink }}>{`• ${t(circleToolsCanKey(c), locale)}`}</Text>)}
-      {empty ? null : <Text style={{ color: colors.ink }}>{t("cctools.preview.never", locale)}</Text>}
+      {empty ? null : <AppText variant="body">{t("cctools.preview.never", locale)}</AppText>}
       <MutedText>{invitee ? t("cctools.preview.control.invitee", locale, { name: name ?? "They" }) : t("cctools.preview.control.sender", locale)}</MutedText>
     </View>
   );
@@ -50,7 +51,6 @@ export function PermissionSummary({ permissions, audience, name }: { permissions
 
 /** Two named presets over the existing permissions, plus "choose one by one" (the switches stay on screen under it). */
 export function PresetPicker({ value, onChange }: { value: readonly CirclePermission[]; onChange: (next: CirclePermission[]) => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const current: CirclePresetChoice = presetOfPermissions(value);
   const options = [
@@ -60,7 +60,7 @@ export function PresetPicker({ value, onChange }: { value: readonly CirclePermis
   ] as const;
   return (
     <View accessibilityRole="radiogroup" style={{ gap: 6 }}>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("cctools.preset.legend", locale)}</Text>
+      <AppText variant="bodyStrong">{t("cctools.preset.legend", locale)}</AppText>
       {options.map((o) => (
         <Pressable
           key={o.choice}
@@ -72,7 +72,7 @@ export function PresetPicker({ value, onChange }: { value: readonly CirclePermis
           }}
           style={{ minHeight: 44, paddingVertical: 6 }}
         >
-          <Text style={{ fontWeight: "600", color: colors.ink }}>{`${current === o.choice ? "● " : "○ "}${t(o.title, locale)}`}</Text>
+          <AppText variant="bodyStrong">{`${current === o.choice ? "● " : "○ "}${t(o.title, locale)}`}</AppText>
           <MutedText>{t(o.body, locale)}</MutedText>
         </Pressable>
       ))}
@@ -82,7 +82,6 @@ export function PresetPicker({ value, onChange }: { value: readonly CirclePermis
 
 /** Shared jobs for one person's circle. Renders nothing while the module is off or the read fails. No free text, no chat. */
 export function TasksCard({ patientId, tools }: { patientId: string; tools: ToolsStatus }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [list, setList] = useState<CircleTaskList | null>(null);
   const [kind, setKind] = useState<string>(CIRCLE_TASK_KINDS[0]);
@@ -114,13 +113,13 @@ export function TasksCard({ patientId, tools }: { patientId: string; tools: Tool
   const canPost = list.role === "patient" || list.role === "helper";
   return (
     <Card style={{ gap: 8 }}>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{t("cctools.tasks.title", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("cctools.tasks.title", locale)}</AppText>
       <MutedText>{t("cctools.tasks.intro", locale)}</MutedText>
-      {list.role === "viewer" ? <Text style={{ color: colors.ink }}>{t("cctools.tasks.view_only", locale)}</Text> : null}
+      {list.role === "viewer" ? <AppText variant="body">{t("cctools.tasks.view_only", locale)}</AppText> : null}
       {list.tasks.length === 0 ? <MutedText>{t("cctools.tasks.empty", locale)}</MutedText> : null}
       {list.tasks.map((task) => (
         <View key={task.taskId} style={{ gap: 4, paddingVertical: 6 }}>
-          <Text style={{ fontWeight: "600", color: colors.ink }}>{t(circleToolsTaskKindKey(task.kind), locale)}</Text>
+          <AppText variant="bodyStrong">{t(circleToolsTaskKindKey(task.kind), locale)}</AppText>
           <MutedText>
             {`${task.neededBy ? `${t("cctools.tasks.needed_by", locale, { date: lagosDate(task.neededBy) })}. ` : ""}${
               task.state === "done" ? t("cctools.tasks.state.done", locale)
@@ -135,7 +134,7 @@ export function TasksCard({ patientId, tools }: { patientId: string; tools: Tool
       ))}
       {canPost ? (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontWeight: "600", color: colors.ink }}>{t("cctools.tasks.kind", locale)}</Text>
+          <AppText variant="bodyStrong">{t("cctools.tasks.kind", locale)}</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {CIRCLE_TASK_KINDS.map((k) => (
               <SecondaryButton key={k} title={`${kind === k ? "● " : ""}${t(circleToolsTaskKindKey(k), locale)}`} onPress={() => setKind(k)} />
@@ -172,16 +171,15 @@ export function DigestCard({ patientId, tools }: { patientId: string; tools: Too
   if (digest.tasks && (digest.tasks.open > 0 || digest.tasks.claimed > 0 || digest.tasks.done > 0)) lines.push(t("cctools.digest.tasks", locale, { open: digest.tasks.open, claimed: digest.tasks.claimed, done: digest.tasks.done }));
   return (
     <Card style={{ gap: 6 }}>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{t("cctools.digest.title", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("cctools.digest.title", locale)}</AppText>
       <MutedText>{t("cctools.digest.note", locale, { name: digest.name })}</MutedText>
-      {lines.length === 0 ? <Text style={{ color: colors.ink }}>{t("cctools.digest.empty", locale)}</Text> : lines.map((l) => <Text key={l} style={{ color: colors.ink }}>{l}</Text>)}
+      {lines.length === 0 ? <AppText variant="body">{t("cctools.digest.empty", locale)}</AppText> : lines.map((l) => <Text key={l} style={{ color: colors.ink }}>{l}</Text>)}
     </Card>
   );
 }
 
 /** The people a gentle nudge was sent about: a first name and nothing else. */
 export function NudgesCard({ tools, onOpen }: { tools: ToolsStatus; onOpen?: (patientId: string) => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [rows, setRows] = useState<CircleNudge[]>([]);
   useEffect(() => {
@@ -197,10 +195,10 @@ export function NudgesCard({ tools, onOpen }: { tools: ToolsStatus; onOpen?: (pa
   if (!tools.missedDose || rows.length === 0) return null;
   return (
     <Card style={{ gap: 6 }}>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{t("cctools.nudges.title", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("cctools.nudges.title", locale)}</AppText>
       {rows.map((r) => (
         <Pressable key={r.patientId} accessibilityRole="button" onPress={() => onOpen?.(r.patientId)} style={{ minHeight: 44, justifyContent: "center" }}>
-          <Text style={{ color: colors.ink }}>{t("cctools.nudges.line", locale, { name: r.name })}</Text>
+          <AppText variant="body">{t("cctools.nudges.line", locale, { name: r.name })}</AppText>
         </Pressable>
       ))}
     </Card>

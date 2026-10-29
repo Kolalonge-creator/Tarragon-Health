@@ -24,6 +24,7 @@ import {
 import { lightPalette } from "@/ui/design/tokens";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { AppText } from "@/ui/kit/AppText";
 
 type Tab = "phone" | "email" | "backup" | "contact";
 type PhoneStep = "request" | "verify" | "new-password";
@@ -336,7 +337,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
                     onPress={() => setCountryPickerOpen(true)}
                     style={[inputStyle, { width: 92, justifyContent: "center" }]}
                   >
-                    <Text style={{ fontSize: 16, color: colors.ink }}>{countryCode}</Text>
+                    <AppText variant="bodyLarge">{countryCode}</AppText>
                   </Pressable>
                   <TextInput
                     accessibilityLabel="Phone number"

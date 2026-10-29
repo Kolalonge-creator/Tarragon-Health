@@ -11,6 +11,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, MutedText, ScreenTitle } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function specialtyLabel(t: SpecialistType): string {
   return t.replace(/_/g, " ");
@@ -128,7 +129,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>Telemedicine only</Text>
+          <AppText variant="body">Telemedicine only</AppText>
           <Switch value={requireTelemedicine} onValueChange={setRequireTelemedicine} />
         </View>
       </Card>
@@ -143,7 +144,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
       {providers.map((p) => (
         <Card key={p.id} style={{ gap: 4 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{p.name}</Text>
+            <AppText variant="bodyStrong">{p.name}</AppText>
             <Badge>{p.specialist_type ? specialtyLabel(p.specialist_type) : "Specialist"}</Badge>
             {p.subspecialty && <Badge tone="brand">{p.subspecialty}</Badge>}
             {p.supports_telemedicine && <Badge tone="brand">Telemedicine</Badge>}

@@ -12,6 +12,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Your records requests: the list, and for each the plain state and the next step. The letter is made and printed on the web; nothing here contacts a
@@ -72,7 +73,7 @@ export function RecordsRequestsScreen({ actingForOther = false }: { actingForOth
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 19, fontWeight: "700", color: colors.ink }}>{t("records_request.title")}</Text>
+        <AppText variant="title">{t("records_request.title")}</AppText>
         <MutedText>{t("records_request.description")}</MutedText>
       </View>
       <MutedText>{t("records_request.mobile_hint")}</MutedText>
@@ -82,7 +83,7 @@ export function RecordsRequestsScreen({ actingForOther = false }: { actingForOth
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{open.facility_name}</Text>
           <MutedText>{t(`records_request.state.${open.state}`)}</MutedText>
           {open.requested_at ? <MutedText>{t("records_request.asked_on", undefined, { date: formatRequestDate(open.requested_at) })}</MutedText> : null}
-          {open.is_overdue && open.due_at ? <Text style={{ color: colors.ink }}>{t("records_request.overdue", undefined, { date: formatRequestDate(open.due_at) })}</Text> : null}
+          {open.is_overdue && open.due_at ? <AppText variant="body">{t("records_request.overdue", undefined, { date: formatRequestDate(open.due_at) })}</AppText> : null}
           {open.state === "sent" && !open.is_overdue && open.due_at ? <MutedText>{t("records_request.due_on", undefined, { date: formatRequestDate(open.due_at) })}</MutedText> : null}
           {open.state === "sent" ? <MutedText>{t("records_request.reply_date_note")}</MutedText> : null}
           {open.state === "received" ? <MutedText>{t("records_request.received_next")}</MutedText> : null}

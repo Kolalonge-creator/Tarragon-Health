@@ -15,6 +15,7 @@ import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const PAGE_SIZE = (getProposedConfig("my_health.sharing_and_access_log").value as unknown as { access_log: { page_size: number } }).access_log.page_size;
 
@@ -128,7 +129,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
             <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 16 }}>{t("my_health.pass.title")}</Text>
             <MutedText>{t("my_health.pass.description")}</MutedText>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
-              <Text style={{ color: colors.ink, flex: 1, marginRight: 12 }}>{t("my_health.pass.toggle")}</Text>
+              <AppText variant="body" style={{ flex: 1, marginRight: 12 }}>{t("my_health.pass.toggle")}</AppText>
               <Switch
                 value={enabled}
                 disabled={saving || !pass}
@@ -141,7 +142,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
             {pass && pass.facts.fields_signed !== true ? <MutedText>{t("my_health.pass.unsigned")}</MutedText> : null}
             {enabled && pass?.cardPayload ? (
               <View style={{ marginTop: 8, gap: 4 }}>
-                <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("my_health.pass.preview")}</Text>
+                <AppText variant="bodyStrong">{t("my_health.pass.preview")}</AppText>
                 {pass.cardPayload.rows.map((r) => (
                   <Text key={r.key} style={{ color: colors.ink }}>
                     {r.label}: {r.value}
@@ -153,7 +154,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
           </Card>
 
           <View>
-            <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 18 }}>{t("my_health.log.title")}</Text>
+            <AppText variant="title">{t("my_health.log.title")}</AppText>
             <MutedText>{t("my_health.log.description")}</MutedText>
           </View>
           {logLoading ? (

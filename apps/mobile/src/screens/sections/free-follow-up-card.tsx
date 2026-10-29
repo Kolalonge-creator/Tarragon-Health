@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { Card, SecondaryButton } from "@/ui/legacy-kit";
 import { useLegacyColors } from "@/ui/design";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Two-tier (founder 2026-10-12): the Free rule's follow-up on the phone. Calm guidance after an amber event or a rapid weight
@@ -71,18 +72,18 @@ export function FreeFollowUpCard() {
       ) : null}
       {checkinId ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("freered.checkin.title", "en")}</Text>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("freered.checkin.question", "en")}</Text>
+          <AppText variant="bodyStrong">{t("freered.checkin.title", "en")}</AppText>
+          <AppText variant="body">{t("freered.checkin.question", "en")}</AppText>
           {ANSWERS.map((a) => (
             <SecondaryButton key={a} title={t(`freered.checkin.${a}`, "en")} onPress={() => answer(a)} />
           ))}
-          {failed ? <Text style={{ fontSize: 12.5, color: colors.ink }}>{t("freered.checkin.error", "en")}</Text> : null}
+          {failed ? <AppText variant="body">{t("freered.checkin.error", "en")}</AppText> : null}
         </View>
       ) : null}
       {done ? (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("freered.checkin.thanks", "en")}</Text>
-          {done === "not_yet" ? <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{t("freered.checkin.not_yet_note", "en")}</Text> : null}
+          <AppText variant="body">{t("freered.checkin.thanks", "en")}</AppText>
+          {done === "not_yet" ? <AppText variant="bodyStrong">{t("freered.checkin.not_yet_note", "en")}</AppText> : null}
         </View>
       ) : null}
     </Card>

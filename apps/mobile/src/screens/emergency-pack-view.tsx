@@ -4,6 +4,7 @@ import { activeEmergencyPack, emergencyFacilitiesForState, type PackLike } from 
 import { directionsHref, getProposedConfig } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import { colors, radius } from "@/ui/theme";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The bundled emergency pack, offline (S65, INV-06, spec 15.13 and 15.14). Everything comes from the pack compiled into the app: no network call,
@@ -20,26 +21,26 @@ export function EmergencyPackView() {
 
   return (
     <View style={{ gap: 12 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{pack.firstLine}</Text>
+      <AppText variant="title" accessibilityRole="header">{pack.firstLine}</AppText>
 
       {pack.isDraft ? (
-        <Text style={{ fontSize: 13, color: colors.subtle }}>{t("emergency.draft_note", "en")}</Text>
+        <AppText variant="body" tone="textSubtle">{t("emergency.draft_note", "en")}</AppText>
       ) : (
         pack.topics.map((topic) => (
           <View key={topic.key} style={{ gap: 4, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{topic.title}</Text>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("emergency.signs", "en")}</Text>
+            <AppText variant="label">{t("emergency.signs", "en")}</AppText>
             {topic.signs.map((s) => <Text key={s} style={{ fontSize: 14, color: colors.ink }}>{`• ${s}`}</Text>)}
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("emergency.steps", "en")}</Text>
+            <AppText variant="label">{t("emergency.steps", "en")}</AppText>
             {topic.steps.map((s) => <Text key={s} style={{ fontSize: 14, color: colors.ink }}>{`• ${s}`}</Text>)}
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("emergency.never", "en")}</Text>
+            <AppText variant="label">{t("emergency.never", "en")}</AppText>
             {topic.never.map((s) => <Text key={s} style={{ fontSize: 14, color: colors.ink }}>{`• ${s}`}</Text>)}
           </View>
         ))
       )}
 
       <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("emergency.facilities.title", "en")}</Text>
-      <Text style={{ fontSize: 13, color: colors.subtle }}>{t("emergency.facilities.state", "en")}</Text>
+      <AppText variant="body" tone="textSubtle">{t("emergency.facilities.state", "en")}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {pack.states.map((s) => (
           <Pressable
@@ -49,21 +50,21 @@ export function EmergencyPackView() {
             onPress={() => setStateCode(s.code)}
             style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 12, borderWidth: 1, borderColor: stateCode === s.code ? colors.ink : colors.border, borderRadius: radius.control }}
           >
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>{s.name}</Text>
+            <AppText variant="body">{s.name}</AppText>
           </Pressable>
         ))}
       </View>
-      {result?.noneListed ? <Text style={{ fontSize: 14, color: colors.ink }}>{t("emergency.facilities.none", "en")}</Text> : null}
+      {result?.noneListed ? <AppText variant="body">{t("emergency.facilities.none", "en")}</AppText> : null}
       {result?.facilities.map((f) => {
         const href = directionsHref({ latitude: f.latitude, longitude: f.longitude, name: f.name, address: f.address }, platform);
         return (
           <View key={f.name} style={{ gap: 2 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{f.name}</Text>
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>{f.address}</Text>
-            <Text style={{ fontSize: 12.5, color: colors.subtle }}>{t("emergency.facilities.verified", "en", { date: f.last_verified_on })}</Text>
+            <AppText variant="body">{f.address}</AppText>
+            <AppText variant="body" tone="textSubtle">{t("emergency.facilities.verified", "en", { date: f.last_verified_on })}</AppText>
             {href ? (
               <Pressable accessibilityRole="link" onPress={() => Linking.openURL(href)} style={{ minHeight: 44, justifyContent: "center" }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("emergency.facilities.directions", "en")}</Text>
+                <AppText variant="bodyStrong">{t("emergency.facilities.directions", "en")}</AppText>
               </Pressable>
             ) : null}
           </View>

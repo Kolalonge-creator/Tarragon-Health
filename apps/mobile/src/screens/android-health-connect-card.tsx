@@ -10,6 +10,7 @@ import { syncHealthConnect, type HealthSyncResult } from "@/lib/health-sync";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { HealthConnectRationaleModal } from "@/screens/health-connect-rationale-modal";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Android Health Connect card — the Android peer of apple-health-card.tsx,
@@ -98,9 +99,9 @@ export function AndroidHealthConnectCard() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Health Connect</Text>
-          <Text style={{ color: colors.muted, fontSize: 13 }}>
+          <AppText variant="body" tone="textMuted">
             Bring across readings you already track on your phone
-          </Text>
+          </AppText>
         </View>
       </View>
 

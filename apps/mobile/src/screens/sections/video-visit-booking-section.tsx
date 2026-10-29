@@ -26,6 +26,7 @@ import {
   SectionLabel,
 } from "@/ui/legacy-kit";
 import type { Currency } from "@tarragon/shared";
+import { AppText } from "@/ui/kit/AppText";
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -170,9 +171,9 @@ export function VideoVisitBookingSection({
       <MutedText>A paid, self-serve 15-minute online consultation with a Tarragon doctor, over video.</MutedText>
 
       <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
-        <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
+        <AppText variant="bodyStrong" tone="dangerText">
           Not for emergencies. If this is an emergency, go to the nearest emergency department now.
-        </Text>
+        </AppText>
       </View>
 
       {message && (
@@ -192,9 +193,9 @@ export function VideoVisitBookingSection({
             return (
               <Card key={req.id} style={{ gap: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                  <AppText variant="bodyStrong">
                     {req.slot?.slot_start ? formatSlot(req.slot.slot_start) : "Requested visit"}
-                  </Text>
+                  </AppText>
                   <Badge tone={status.tone}>{status.label}</Badge>
                 </View>
                 {status.note && <MutedText>{status.note}</MutedText>}
@@ -224,9 +225,9 @@ export function VideoVisitBookingSection({
                 )}
                 {canCancel && (
                   <Pressable accessibilityRole="button" onPress={() => void cancelRequest(req.id)} style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.danger }}>
+                    <AppText variant="label" tone="dangerText">
                       {cancellingId === req.id ? "Cancelling…" : "Cancel request"}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 )}
               </Card>
@@ -237,9 +238,9 @@ export function VideoVisitBookingSection({
 
       {hasSlots && (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             Pick a time: {formatPrice(price!.amount_minor, price!.currency as Currency)} per visit
-          </Text>
+          </AppText>
           <GroupedList>
             {(slots ?? []).slice(0, 12).map((slot) => {
               const selected = selectedSlotId === slot.id;
@@ -276,9 +277,9 @@ export function VideoVisitBookingSection({
       )}
 
       <Pressable accessibilityRole="link" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`)}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, textAlign: "center" }}>
+        <AppText variant="label" tone="brandText" style={{ textAlign: "center" }}>
           Open the full booking page in your browser
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

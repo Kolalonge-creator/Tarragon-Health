@@ -23,7 +23,8 @@ import {
   SectionDivider,
   SectionLabel,
 } from "@/ui/legacy-kit";
-import { AppText, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
@@ -285,7 +286,7 @@ function MeasurementUnitsSection({
       </MutedText>
       {UNIT_ROWS.map((row) => (
         <View key={row.key} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{row.title}</Text>
+          <AppText variant="bodyStrong">{row.title}</AppText>
           <View style={{ flexDirection: "row", gap: 10 }}>
             {row.options.map((o) => {
               const selected = units[row.key] === o.value;
@@ -319,10 +320,9 @@ function MeasurementUnitsSection({
 }
 
 function GroupHeading({ title, description }: { title: string; description: string }) {
-  const colors = useLegacyColors();
   return (
     <View accessible accessibilityRole="header" style={{ gap: 2 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: colors.ink }}>{title}</Text>
+      <AppText variant="title">{title}</AppText>
       <MutedText>{description}</MutedText>
     </View>
   );
@@ -574,7 +574,7 @@ function IdentityVerificationSection({
       <SectionLabel>Identity verification</SectionLabel>
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Status</Text>
+          <AppText variant="bodyStrong">Status</AppText>
           <Text style={{ fontSize: 13, fontWeight: "700", color: verificationColor(colors)[status] }}>
             {VERIFICATION_LABEL[status]}
           </Text>
@@ -702,7 +702,6 @@ function DataPrivacySection({
   correctionRequests: CorrectionRequestRow[];
   onCorrectionCreated: (row: CorrectionRequestRow) => void;
 }) {
-  const colors = useLegacyColors();
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [recordDescription, setRecordDescription] = useState("");
   const [whatIsWrong, setWhatIsWrong] = useState("");
@@ -761,7 +760,7 @@ function DataPrivacySection({
       <SectionLabel>Data &amp; privacy</SectionLabel>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Export your data</Text>
+        <AppText variant="bodyStrong">Export your data</AppText>
         <MutedText>
           Download a machine-readable copy of your record. This opens in your browser, where you&apos;re
           signed in.
@@ -773,7 +772,7 @@ function DataPrivacySection({
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request a correction</Text>
+        <AppText variant="bodyStrong">Request a correction</AppText>
         <MutedText>
           See something wrong in your record? Tell us what it is. Your care team reviews every request
           before anything changes.
@@ -823,7 +822,7 @@ function DataPrivacySection({
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
+        <AppText variant="bodyStrong">Request deletion of your data</AppText>
         <MutedText>
           Asking us to close your account and erase your data lives in Privacy &amp; your data (open it from the menu): tap &quot;Request deletion of your data&quot;.
           It shows the waiting period, lets you cancel during it, and says plainly which records the law requires us to keep.

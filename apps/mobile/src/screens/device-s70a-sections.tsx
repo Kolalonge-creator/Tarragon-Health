@@ -10,6 +10,7 @@ import { readEcgClassifications, syncEcgResults } from "@/lib/healthkit-ecg";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The Module 18 sections of the Devices screen (S70a). Each one renders only when its go-live switch is on (the caller decides) and each says
@@ -41,9 +42,9 @@ export function HeldReadingsSection({ patientId, onEnterAgain }: { patientId: st
       <MutedText>{HELD_READING_COPY.body}</MutedText>
       {state.items.map((item) => (
         <View key={item.id} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>
-            {item.summary} <Text style={{ fontSize: 12, fontWeight: "500", color: colors.muted }}>{sourceBadgeLabel(item.source)}</Text>
-          </Text>
+          <AppText variant="title">
+            {item.summary} <AppText variant="caption" tone="textMuted">{sourceBadgeLabel(item.source)}</AppText>
+          </AppText>
           <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
             <PrimaryButton title={HELD_READING_COPY.retry} onPress={onEnterAgain} />
             <SecondaryButton
@@ -62,7 +63,7 @@ export function HeldReadingsSection({ patientId, onEnterAgain }: { patientId: st
         </View>
       ))}
       {error ? <ErrorText>That did not work. Nothing was changed. Try again.</ErrorText> : null}
-      <Text style={{ fontWeight: "600", color: colors.ink }}>If you feel unwell, do not wait for a new reading. Get care now.</Text>
+      <AppText variant="bodyStrong">If you feel unwell, do not wait for a new reading. Get care now.</AppText>
     </Card>
   );
 }
@@ -79,7 +80,7 @@ export function CgmSafetySection({ patientId }: { patientId: string }) {
     <Card style={{ gap: 8, borderWidth: 2, borderColor: colors.danger }}>
       <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
         <Ionicons name="alert-circle" size={22} color={colors.danger} />
-        <Text style={{ fontWeight: "700", color: colors.ink }}>Please read this now</Text>
+        <AppText variant="bodyStrong">Please read this now</AppText>
       </View>
       <Text style={{ color: colors.ink, fontSize: 15 }}>{message}</Text>
     </Card>
@@ -95,7 +96,6 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 /** Recommended devices (18.2): reviewed, evidenced, never sold. Always says "any other device: type it in". */
 export function RecommendedDevicesSection() {
-  const colors = useLegacyColors();
   const [state, setState] = useState<{ phase: "loading" } | { phase: "failed" } | { phase: "ok"; items: RecommendedDevice[] }>({ phase: "loading" });
   useEffect(() => {
     void loadRecommendedDevices().then((r) => setState(r.ok ? { phase: "ok", items: r.items } : { phase: "failed" }));
@@ -110,14 +110,14 @@ export function RecommendedDevicesSection() {
       {state.phase === "ok"
         ? state.items.map((d) => (
             <Card key={d.id} style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>{d.name}</Text>
+              <AppText variant="bodyStrong">{d.name}</AppText>
               <MutedText>{CATEGORY_LABEL[d.category] ?? d.category}{d.vendor ? ` · ${d.vendor}` : ""}</MutedText>
               {d.description ? <MutedText>{d.description}</MutedText> : null}
               {d.validatedSourceUrl ? (
                 <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(d.validatedSourceUrl as string)}>
-                  <Text style={{ color: colors.brandPressed, textDecorationLine: "underline" }}>
+                  <AppText variant="body" tone="brandText" style={{ textDecorationLine: "underline" }}>
                     Accuracy evidence: {d.validationBasis === "validatebp" ? "ValidateBP listing" : "published validation study"}
-                  </Text>
+                  </AppText>
                 </Pressable>
               ) : null}
               {d.nafdacNumber ? <MutedText>NAFDAC number {d.nafdacNumber}</MutedText> : null}
@@ -125,7 +125,7 @@ export function RecommendedDevicesSection() {
             </Card>
           ))
         : null}
-      <Text style={{ fontWeight: "600", color: colors.ink }}>Any other device: type it in. It reaches your care team in exactly the same way.</Text>
+      <AppText variant="bodyStrong">Any other device: type it in. It reaches your care team in exactly the same way.</AppText>
     </View>
   );
 }
@@ -206,7 +206,7 @@ export function EcgResultsSection({ patientId }: { patientId: string }) {
           })}
         </View>
         {error ? <ErrorText>{error}</ErrorText> : null}
-        {message ? <Text style={{ color: colors.ink }}>{message}</Text> : null}
+        {message ? <AppText variant="body">{message}</AppText> : null}
         <PrimaryButton title="Check for new results" onPress={() => void check()} loading={busy} />
       </Card>
       <EmergencyGuidanceModal visible={guidance} detail="You told us you have a symptom that needs care now." synced emergencyContact={contact} onDismiss={() => setGuidance(false)} />

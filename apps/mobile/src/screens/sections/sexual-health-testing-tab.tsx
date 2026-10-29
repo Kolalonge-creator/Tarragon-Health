@@ -27,6 +27,7 @@ import type { PanelBundle } from "@/lib/labs";
 import { radius } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -76,7 +77,7 @@ function StiBookingPanel() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>STI testing</Text>
+      <AppText variant="bodyStrong">STI testing</AppText>
       <MutedText>
         Test on your own schedule, whether or not you did the check-in above. Working out what you
         need and writing the request is free. You take it to any laboratory and pay them directly at
@@ -94,18 +95,18 @@ function StiBookingPanel() {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 6 }}
         >
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+            <AppText variant="bodyStrong">{bundle.name}</AppText>
             {bundle.description && <MutedText>{bundle.description}</MutedText>}
             {/* The laboratory's price, not Tarragon's. Tarragon stopped selling
                 tests on 2026-09-10: what it recorded as its cost was the
                 laboratory's own retail price, so any margin made it dearer than
                 the laboratory performing the test. Never render this as a
                 figure Tarragon charges. */}
-            <Text style={{ fontSize: 13, color: colors.ink, marginTop: 2 }}>
+            <AppText variant="body" style={{ marginTop: 2 }}>
               {bundle.indicative_price_kobo
                 ? `About ₦${koboToNaira(bundle.indicative_price_kobo).toLocaleString("en-NG")} at a major private laboratory. Smaller ones are often cheaper.`
                 : "Ask the laboratory for their current price."}
-            </Text>
+            </AppText>
             {bundle.where_to_get && <MutedText>{bundle.where_to_get}</MutedText>}
           </View>
         </View>
@@ -167,7 +168,7 @@ export function SexualHealthTestingTab() {
     return (
       <View style={{ gap: 12 }}>
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
+          <AppText variant="bodyStrong">Thanks for checking in</AppText>
           {result.recommendedScreenCodes.length > 0 ? (
             <>
               <MutedText>Based on your answers, it&apos;s worth getting these tests done:</MutedText>
@@ -196,53 +197,53 @@ export function SexualHealthTestingTab() {
   return (
     <View style={{ gap: 12 }}>
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Sexual health check-in</Text>
+        <AppText variant="bodyStrong">Sexual health check-in</AppText>
         <MutedText>
           A few quick, private questions to help us suggest which tests, if any, are worth getting. This
           stays between you and your care team.
         </MutedText>
 
-        <Text onPress={() => setActive((v) => !v)} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+        <AppText variant="label" onPress={() => setActive((v) => !v)}>
           <Text style={{ fontWeight: "700", color: active ? colors.brandPressed : colors.faint }}>{active ? "☑ " : "☐ "}</Text>
           I&apos;ve been sexually active in the last 12 months
-        </Text>
+        </AppText>
 
         {active && (
           <View style={{ gap: 10, borderLeftWidth: 2, borderLeftColor: colors.brandTint, paddingLeft: 12 }}>
-            <Text onPress={() => setNewPartner((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" onPress={() => setNewPartner((v) => !v)}>
               <Text style={{ fontWeight: "700", color: newPartner ? colors.brandPressed : colors.faint }}>{newPartner ? "☑ " : "☐ "}</Text>
               I&apos;ve had a new partner in the last 3 months
-            </Text>
+            </AppText>
 
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Roughly how many partners in the last 12 months?</Text>
+            <AppText variant="label">Roughly how many partners in the last 12 months?</AppText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STI_PARTNER_COUNTS.map((v) => (
                 <Chip key={v} label={STI_PARTNER_COUNT_LABEL[v]} active={partnerCount === v} onPress={() => setPartnerCount(v)} />
               ))}
             </View>
 
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How often do you use condoms?</Text>
+            <AppText variant="label">How often do you use condoms?</AppText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STI_CONDOM_USES.map((v) => (
                 <Chip key={v} label={STI_CONDOM_USE_LABEL[v]} active={condomUse === v} onPress={() => setCondomUse(v)} />
               ))}
             </View>
 
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Have you noticed any of these recently?</Text>
+            <AppText variant="label">Have you noticed any of these recently?</AppText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STI_SYMPTOMS.map((v) => (
                 <Chip key={v} label={STI_SYMPTOM_LABEL[v]} active={symptoms.includes(v)} onPress={() => toggleSymptom(v)} />
               ))}
             </View>
 
-            <Text onPress={() => setPriorDiagnosis((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" onPress={() => setPriorDiagnosis((v) => !v)}>
               <Text style={{ fontWeight: "700", color: priorDiagnosis ? colors.brandPressed : colors.faint }}>{priorDiagnosis ? "☑ " : "☐ "}</Text>
               I&apos;ve been diagnosed with an STI before
-            </Text>
-            <Text onPress={() => setPartnerDiagnosed((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+            </AppText>
+            <AppText variant="body" onPress={() => setPartnerDiagnosed((v) => !v)}>
               <Text style={{ fontWeight: "700", color: partnerDiagnosed ? colors.brandPressed : colors.faint }}>{partnerDiagnosed ? "☑ " : "☐ "}</Text>
               A partner has told me they were diagnosed with an STI
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -367,13 +368,13 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
             result, or Tarragon.
           </MutedText>
           <View style={{ gap: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", color: colors.muted }}>Text message</Text>
+            <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>Text message</AppText>
             <Text selectable style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
               {templates.smsTemplate}
             </Text>
           </View>
           <View style={{ gap: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", color: colors.muted }}>Longer message</Text>
+            <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>Longer message</AppText>
             <Text selectable style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
               {templates.longerTemplate}
             </Text>
@@ -384,9 +385,9 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
 
       {mode === "clinician_assisted" && (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What should we call them? (optional)</Text>
+          <AppText variant="label">What should we call them? (optional)</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={partnerLabel} onChangeText={setPartnerLabel} placeholder="e.g. my partner" style={textInputStyle} />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Their phone number or contact detail</Text>
+          <AppText variant="label">Their phone number or contact detail</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={partnerContact} onChangeText={setPartnerContact} placeholder="+234…" style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -415,7 +416,6 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
  * sponsor/supporter.
  */
 export function SexualHealthResultsTab({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
   const [episodes, setEpisodes] = useState<StiCaseEpisode[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -442,9 +442,9 @@ export function SexualHealthResultsTab({ patientId, organisationId }: { patientI
         const canNotifyPartner = PARTNER_NOTIFY_ELIGIBLE_STATUSES.includes(episode.status);
         return (
           <Card key={episode.id} style={{ gap: 10 }}>
-            <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {STI_CODE_LABEL[episode.sti_code] ?? episode.sti_code.replace(/_/g, " ")}
-            </Text>
+            </AppText>
             <MutedText>Started {when(episode.created_at)}</MutedText>
             <StageTracker status={episode.status} />
             {showConfidentialNotice ? (

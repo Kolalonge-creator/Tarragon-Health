@@ -4,6 +4,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import type { SupporterView } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -25,18 +26,18 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
     <>
       {view.adherence ? (
         <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.adherence.title", locale)}</Text>
+          <AppText variant="bodyStrong">{t("circle.view.adherence.title", locale)}</AppText>
           {view.adherence.due === 0 || view.adherence.percent === null ? (
             <MutedText>{t("circle.view.adherence.none", locale)}</MutedText>
           ) : (
-            <Text style={{ color: colors.ink }}>{t("circle.view.adherence.line", locale, { taken: view.adherence.taken, due: view.adherence.due, percent: view.adherence.percent })}</Text>
+            <AppText variant="body">{t("circle.view.adherence.line", locale, { taken: view.adherence.taken, due: view.adherence.due, percent: view.adherence.percent })}</AppText>
           )}
         </Card>
       ) : null}
 
       {view.bpTrend ? (
         <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.bp.title", locale)}</Text>
+          <AppText variant="bodyStrong">{t("circle.view.bp.title", locale)}</AppText>
           {view.bpTrend.weeks.every((w) => w.readings === 0) ? <MutedText>{t("circle.view.bp.none", locale)}</MutedText> : null}
           {view.bpTrend.weeks.filter((w) => w.readings > 0).map((w) => (
             <Text key={w.weekStart} style={{ color: colors.ink }}>
@@ -45,21 +46,21 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
                 : t("supporterview.bp.row_few", locale, { date: lagosDate(w.weekStart) })}
             </Text>
           ))}
-          {dir ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(`circle.view.bp.${dir}`, locale)}</Text> : null}
+          {dir ? <AppText variant="bodyStrong">{t(`circle.view.bp.${dir}`, locale)}</AppText> : null}
         </Card>
       ) : null}
 
       {monthly.length > 0 ? (
         <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.monthly.title", locale)}</Text>
+          <AppText variant="bodyStrong">{t("circle.view.monthly.title", locale)}</AppText>
           {monthly.flatMap((r) => circleMonthlyLines(r, locale).map((l) => <Text key={`${r.month}-${l}`} style={{ color: colors.ink }}>{l}</Text>))}
         </Card>
       ) : null}
 
       {view.appointments ? (
         <Card style={{ gap: 4 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.appt.title", locale)}</Text>
-          <Text style={{ color: colors.ink }}>{view.appointments.nextAt ? t("circle.view.appt.next", locale, { date: lagosDateTime(view.appointments.nextAt) }) : t("circle.view.appt.none", locale)}</Text>
+          <AppText variant="bodyStrong">{t("circle.view.appt.title", locale)}</AppText>
+          <AppText variant="body">{view.appointments.nextAt ? t("circle.view.appt.next", locale, { date: lagosDateTime(view.appointments.nextAt) }) : t("circle.view.appt.none", locale)}</AppText>
           <MutedText>{t("circle.view.appt.missed", locale, { count: view.appointments.missed30d })}</MutedText>
         </Card>
       ) : null}

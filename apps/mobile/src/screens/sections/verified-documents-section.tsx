@@ -11,6 +11,7 @@ import {
 import { formatCareDate } from "@/lib/care";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Native "Verified documents" — retired from patient purchase 2026-09-24
@@ -64,10 +65,10 @@ export function VerifiedDocumentsSection({ patientId }: { patientId: string }) {
         {documents.map((d) => (
           <Card key={d.id} style={{ gap: 6 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>
                 {DOCUMENT_TYPE_LABEL[d.document_type as VerifiedDocumentType] ??
                   d.document_type.replace(/_/g, " ")}
-              </Text>
+              </AppText>
               <Badge tone={d.status === "issued" ? "brand" : "neutral"}>
                 {d.status === "issued" ? "Issued" : d.status === "declined" ? "Declined" : "Requested"}
               </Badge>

@@ -16,6 +16,7 @@ import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton 
 import { useLegacyColors } from "@/ui/design";
 import { NotADiagnosis } from "@/ui/not-a-diagnosis";
 import { DescribeBox, SafetyBlock, SaveCard, WhyBlock } from "@/screens/sections/symptom-assessment-extras";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S59b: the mobile symptom checker (English only, text first). Order of events is the safety rule (spec 12.8, INV-06):
@@ -316,7 +317,6 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
 }
 
 function CaptureForm({ complaintKey, busy, onSubmit }: { complaintKey: string; busy: boolean; onSubmit: (c: SymptomCapture) => void }) {
-  const colors = useLegacyColors();
   const vocab = SEED_PATHWAYS.find((p) => p.key === complaintKey);
   const [onset, setOnset] = useState<Onset>("gradual");
   const [severity, setSeverity] = useState(5);
@@ -327,7 +327,7 @@ function CaptureForm({ complaintKey, busy, onSubmit }: { complaintKey: string; b
   const group = (title: string, keys: readonly string[] | undefined, list: string[], set: (v: string[]) => void) =>
     keys && keys.length > 0 ? (
       <View style={{ gap: 6 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{title}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{title}</AppText>
         {keys.map((k) => (
           <ChoiceChip key={k} title={`${list.includes(k) ? "[x] " : "[ ] "}${SYMPTOM_LABEL(k)}`} onPress={() => toggle(list, set, k)} />
         ))}
@@ -336,13 +336,13 @@ function CaptureForm({ complaintKey, busy, onSubmit }: { complaintKey: string; b
   return (
     <ScrollView scrollEnabled={false} style={{ marginTop: 8 }} contentContainerStyle={{ gap: 12 }}>
       <MutedText>{t("symptom.redflag.intro")}</MutedText>
-      <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.mobile.when")}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.mobile.when")}</AppText>
       <View style={{ gap: 6 }}>
         {(["sudden", "gradual", "unknown"] as const).map((v) => (
           <ChoiceChip key={v} title={`${onset === v ? "(o) " : "( ) "}${v === "sudden" ? "Suddenly" : v === "gradual" ? "Gradually" : "Not sure"}`} onPress={() => setOnset(v)} />
         ))}
       </View>
-      <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{`${t("symptom.mobile.severity")} ${severity}/10`}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{`${t("symptom.mobile.severity")} ${severity}/10`}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
           <ChoiceChip key={n} title={severity === n ? `[${n}]` : String(n)} onPress={() => setSeverity(n)} />

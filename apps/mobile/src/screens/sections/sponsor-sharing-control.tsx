@@ -5,6 +5,7 @@ import { loadMySponsorSharing, setSponsorSharing, type SponsorSharingPreference 
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const LEVEL_COPY: Record<Enums<"sponsor_sharing_level">, { title: string; body: string }> = {
   none: {
@@ -59,9 +60,9 @@ export function SponsorSharingControl({ organisationId }: { organisationId: stri
   return (
     <Card style={{ gap: 12 }}>
       <View>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyStrong">
           What the people paying for your care can see
-        </Text>
+        </AppText>
         <MutedText>
           Someone paying for your care can always see what they bought and whether you used it.
           Anything beyond that is your decision, and you can change it whenever you like.
@@ -86,10 +87,10 @@ export function SponsorSharingControl({ organisationId }: { organisationId: stri
                     opacity: saving === preference.sponsor_id ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+                  <AppText variant="label">
                     {selected ? "● " : "○ "}
                     {LEVEL_COPY[level].title}
-                  </Text>
+                  </AppText>
                   {"\n"}
                   <Text style={{ fontSize: 11.5, color: colors.muted, lineHeight: 16 }}>{LEVEL_COPY[level].body}</Text>
                 </Text>

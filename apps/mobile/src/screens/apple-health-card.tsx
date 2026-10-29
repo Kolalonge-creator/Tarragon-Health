@@ -5,6 +5,7 @@ import { isHealthKitAvailable } from "@/lib/healthkit";
 import { syncAppleHealth, type HealthSyncResult } from "@/lib/health-sync";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Apple Health card, shown above the Bluetooth device list.
@@ -70,9 +71,9 @@ export function AppleHealthCard() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Apple Health</Text>
-          <Text style={{ color: colors.muted, fontSize: 13 }}>
+          <AppText variant="body" tone="textMuted">
             Bring across readings you already track on your iPhone
-          </Text>
+          </AppText>
         </View>
       </View>
 

@@ -33,6 +33,7 @@ import { evaluateContractionsNow, evaluateKickNow, finishContractionSession, fin
 import { todayIsoDate } from "@/lib/medications";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const SIGN_KEY: Record<InstantGoSign, Parameters<typeof t>[0]> = {
   waters_break: "preg.contractions.sign.waters_break",
@@ -53,8 +54,8 @@ function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; e
       <Text accessibilityRole="alert" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
         {variant === "go_now" ? t("preg.card.go_now.title") : t("preg.card.contact_today.title")}
       </Text>
-      <Text style={{ fontSize: 14, color: colors.ink }}>{variant === "go_now" ? t("preg.card.go_now.body") : t("preg.card.contact_today.body")}</Text>
-      {extra ? <Text style={{ fontSize: 14, color: colors.ink }}>{extra}</Text> : null}
+      <AppText variant="body">{variant === "go_now" ? t("preg.card.go_now.body") : t("preg.card.contact_today.body")}</AppText>
+      {extra ? <AppText variant="body">{extra}</AppText> : null}
     </Card>
   );
 }
@@ -68,18 +69,17 @@ export function PregnancyDangerGuideCard() {
   const entries = pregnancyDangerGuide();
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: "#DC2626", gap: 6 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.ui.offline.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.ui.offline.title")}</AppText>
       <MutedText>{t("preg.ui.offline.intro")}</MutedText>
       {entries.map((e) => (
         <Text key={e.sign} style={{ fontSize: 13.5, color: colors.ink }}>{`• ${e.label}`}</Text>
       ))}
-      <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{DANGER_GUIDE_ACTION}</Text>
+      <AppText variant="bodyStrong">{DANGER_GUIDE_ACTION}</AppText>
     </Card>
   );
 }
 
 function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: string; organisationId: string; week: number | null }) {
-  const colors = useLegacyColors();
   const { config } = useMemo(() => loadMaternalConfig(), []);
   const [offered, setOffered] = useState<boolean | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -132,7 +132,7 @@ function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: stri
   if (offered === false) {
     return (
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.kick.title")}</Text>
+        <AppText variant="bodyStrong">{t("preg.kick.title")}</AppText>
         <MutedText>{t("preg.kick.not_yet")}</MutedText>
       </Card>
     );
@@ -141,19 +141,19 @@ function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: stri
   const shown = final ?? live;
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.kick.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.kick.title")}</AppText>
       <MutedText>{t("preg.kick.intro")}</MutedText>
       {final?.state === "contact_today" && <ActionCard variant="contact_today" />}
-      {final?.state === "target_reached" && <Text style={{ fontSize: 14, color: colors.ink }}>{t("preg.kick.done")}</Text>}
+      {final?.state === "target_reached" && <AppText variant="body">{t("preg.kick.done")}</AppText>}
       {final && final.state === "counting" && <MutedText>{t("preg.ui.kick.stopped")}</MutedText>}
       {final && !saveError && <MutedText>{t("preg.ui.kick.saved_offline")}</MutedText>}
       {saveError && <ErrorText>{t("preg.ui.kick.not_saved")}</ErrorText>}
       {startedAt !== null && !final && (
         <View style={{ gap: 4 }}>
           <MutedText>{t("preg.ui.kick.how", "en", { window: config.kicks.windowMinutes, target: config.kicks.movementsTarget })}</MutedText>
-          <Text accessibilityLiveRegion="polite" style={{ fontSize: 24, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="headline" accessibilityLiveRegion="polite">
             {t("preg.ui.kick.count", "en", { count: shown?.count ?? movements.length, target: config.kicks.movementsTarget })}
-          </Text>
+          </AppText>
         </View>
       )}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -182,7 +182,6 @@ function KickCounterPanel({ subjectId, organisationId, week }: { subjectId: stri
 }
 
 function ContractionTimerPanel({ subjectId, organisationId, week, plan, planUnavailable }: { subjectId: string; organisationId: string; week: number | null; plan: BirthPlanState["plan"]; planUnavailable: boolean }) {
-  const colors = useLegacyColors();
   const { config } = useMemo(() => loadMaternalConfig(), []);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [contractions, setContractions] = useState<Contraction[]>([]);
@@ -245,17 +244,17 @@ function ContractionTimerPanel({ subjectId, organisationId, week, plan, planUnav
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.contractions.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.contractions.title")}</AppText>
       {card === "go_now_sign" && <ActionCard variant="go_now" />}
       {card === "go_now_pattern" && <ActionCard variant="go_now" extra={t("preg.ui.contractions.pattern_body")} />}
       {card === "none" && contractions.length > 0 && !finished && <MutedText>{t("preg.contractions.keep")}</MutedText>}
       {planUnavailable && <MutedText>{t("preg.ui.contractions.plan_unavailable")}</MutedText>}
       {evaluation?.needsGestation && <MutedText>{t("preg.contractions.needs_due_date")}</MutedText>}
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{t("preg.ui.contractions.signs_title")}</Text>
+      <AppText variant="label">{t("preg.ui.contractions.signs_title")}</AppText>
       <MutedText>{t("preg.ui.contractions.signs_hint")}</MutedText>
       {INSTANT_GO_SIGNS.map((sign) => (
         <View key={sign} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{t(SIGN_KEY[sign])}</Text>
+          <AppText variant="body" style={{ flex: 1 }}>{t(SIGN_KEY[sign])}</AppText>
           <Switch
             accessibilityLabel={t(SIGN_KEY[sign])}
             value={signs.includes(sign)}
@@ -318,7 +317,6 @@ function ContractionTimerPanel({ subjectId, organisationId, week, plan, planUnav
 }
 
 function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subjectId: string; organisationId: string; state: BirthPlanState | null; onSaved: () => void }) {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [form, setForm] = useState<BirthPlanForm>(birthPlanToForm(null));
@@ -336,7 +334,7 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
   const set = <K extends keyof BirthPlanForm>(key: K, value: BirthPlanForm[K]) => setForm((f) => ({ ...f, [key]: value }));
   const field = (label: string, key: "place" | "transport" | "money" | "donorName" | "donorPhone" | "escortName" | "escortPhone" | "previousBirths", opts?: { phone?: boolean; numeric?: boolean }) => (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>{label}</Text>
+      <AppText variant="label">{label}</AppText>
       <TextInput
         accessibilityLabel={label}
         keyboardAppearance={scheme}
@@ -352,7 +350,7 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
   if (!state || state.pregnancyId === null) {
     return (
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.plan.title")}</Text>
+        <AppText variant="bodyStrong">{t("preg.plan.title")}</AppText>
         <MutedText>{t("preg.ui.plan.no_pregnancy")}</MutedText>
       </Card>
     );
@@ -377,7 +375,7 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.plan.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.plan.title")}</AppText>
       <MutedText>{t("preg.ui.plan.intro")}</MutedText>
       {field(t("preg.plan.place"), "place")}
       {field(t("preg.plan.transport"), "transport")}
@@ -391,11 +389,11 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
       {field(`${t("preg.plan.escort")}: ${t("preg.ui.plan.phone")}`, "escortPhone", { phone: true })}
       {errors?.escortPhone && <ErrorText>{t("preg.ui.plan.phone_bad")}</ErrorText>}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{t("preg.plan.long_journey")}</Text>
+        <AppText variant="body" style={{ flex: 1 }}>{t("preg.plan.long_journey")}</AppText>
         <Switch accessibilityLabel={t("preg.plan.long_journey")} value={form.longJourney} onValueChange={(v) => set("longJourney", v)} />
       </View>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{t("preg.ui.plan.previous_fast_labour")}</Text>
+        <AppText variant="body" style={{ flex: 1 }}>{t("preg.ui.plan.previous_fast_labour")}</AppText>
         <Switch accessibilityLabel={t("preg.ui.plan.previous_fast_labour")} value={form.previousFastLabour} onValueChange={(v) => set("previousFastLabour", v)} />
       </View>
       {field(t("preg.ui.plan.previous_births"), "previousBirths", { numeric: true })}
@@ -414,19 +412,19 @@ function WeekCardPanel({ week }: { week: number | null }) {
   }, [week]);
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.ui.week.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.ui.week.title")}</AppText>
       {state.kind === "unknown_week" && <MutedText>{t("preg.ui.week.unknown")}</MutedText>}
       {state.kind === "coming_soon" && (
         <>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("preg.ui.week.heading", "en", { week: state.week })}</Text>
+          <AppText variant="bodyStrong">{t("preg.ui.week.heading", "en", { week: state.week })}</AppText>
           <MutedText>{t("preg.ui.week.coming_soon")}</MutedText>
         </>
       )}
       {state.kind === "content" && (
         <>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("preg.ui.week.heading", "en", { week: state.week })}</Text>
+          <AppText variant="bodyStrong">{t("preg.ui.week.heading", "en", { week: state.week })}</AppText>
           <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{state.title}</Text>
-          <Text style={{ fontSize: 14, color: colors.ink }}>{state.body}</Text>
+          <AppText variant="body">{state.body}</AppText>
         </>
       )}
     </Card>
@@ -434,7 +432,6 @@ function WeekCardPanel({ week }: { week: number | null }) {
 }
 
 function SchedulePanel({ subjectId }: { subjectId: string }) {
-  const colors = useLegacyColors();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   useEffect(() => {
     void loadSchedule(subjectId).then(setEntries);
@@ -451,14 +448,14 @@ function SchedulePanel({ subjectId }: { subjectId: string }) {
             : t("preg.ui.schedule.status_scheduled");
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("preg.ui.schedule.title")}</Text>
+      <AppText variant="bodyStrong">{t("preg.ui.schedule.title")}</AppText>
       <MutedText>{t("preg.ui.schedule.intro")}</MutedText>
       {entries.length === 0 ? (
         <MutedText>{t("preg.ui.schedule.empty")}</MutedText>
       ) : (
         entries.map((e) => (
           <View key={e.id} style={{ gap: 2 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("preg.ui.schedule.visit", "en", { number: e.visitNumber })}</Text>
+            <AppText variant="bodyStrong">{t("preg.ui.schedule.visit", "en", { number: e.visitNumber })}</AppText>
             {e.week !== null && <MutedText>{t("preg.ui.schedule.around_week", "en", { week: e.week })}</MutedText>}
             <MutedText>{status(e)}</MutedText>
           </View>

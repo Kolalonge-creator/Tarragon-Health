@@ -26,6 +26,7 @@ import { ActivityGateCard } from "@/screens/sections/movement-extras";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const INTENSITY_LABEL: Record<string, string> = {
   beginner: "Beginner",
@@ -199,9 +200,9 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                 >
                   {answers[q.name] ? "✓" : ""}
                 </Text>
-                <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }} onPress={() => setAnswers((a) => ({ ...a, [q.name]: !a[q.name] }))}>
+                <AppText variant="body" onPress={() => setAnswers((a) => ({ ...a, [q.name]: !a[q.name] }))} style={{ flex: 1 }}>
                   {q.label}
-                </Text>
+                </AppText>
               </View>
             ))}
             <TextInput keyboardAppearance={scheme}
@@ -225,7 +226,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
           <SectionLabel>Your programmes</SectionLabel>
           {enrollments.map((e) => (
             <View key={e.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{e.programme?.title}</Text>
+              <AppText variant="bodyStrong">{e.programme?.title}</AppText>
               <Badge tone={e.status === "active" ? "brand" : "neutral"}>{e.status}</Badge>
             </View>
           ))}
@@ -237,7 +238,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
           <SectionLabel>{t("activity.plans.title")}</SectionLabel>
           {orderedPlans.map((plan) => (
             <View key={plan.code} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 6 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.title}</Text>
+              <AppText variant="bodyStrong">{plan.title}</AppText>
               <Badge tone="neutral">{plan.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
               {plan.sessions.map((s, i) => (
                 <View key={i} style={{ gap: 2 }}>
@@ -261,7 +262,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
           return (
             <View key={p.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 8 }}>
               <View>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{p.title}</Text>
+                <AppText variant="bodyStrong">{p.title}</AppText>
                 <MutedText>{p.summary}</MutedText>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                   <Badge tone="neutral">{INTENSITY_LABEL[p.intensity_level]}</Badge>

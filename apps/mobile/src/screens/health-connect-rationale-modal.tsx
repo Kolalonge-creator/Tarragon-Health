@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const PRIVACY_POLICY_URL = "https://tarragonhealth.ng/privacy";
 
@@ -54,9 +55,9 @@ export function HealthConnectRationaleModal({
           <Ionicons name="fitness-outline" size={24} color={colors.brand} />
         </View>
 
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="title">
           Share Health Connect data with TarragonHealth?
-        </Text>
+        </AppText>
 
         <Text style={{ fontSize: 14.5, lineHeight: 21, color: colors.ink }}>
           Before Android asks you to choose which permissions to grant, here is exactly what that
@@ -90,9 +91,9 @@ export function HealthConnectRationaleModal({
           onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
           hitSlop={8}
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.brandPressed }}>
+          <AppText variant="bodyStrong" tone="brandText">
             Read our privacy policy
-          </Text>
+          </AppText>
         </Pressable>
 
         <View style={{ gap: 10, marginTop: 8 }}>

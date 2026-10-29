@@ -16,6 +16,7 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const OBESITY_STATUS_COPY: Record<string, string> = {
   preclinical:
@@ -56,10 +57,10 @@ function when(iso: string): string {
 function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   const colors = useLegacyColors();
   return (
-    <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
+    <AppText variant="body" onPress={onToggle} style={{ paddingVertical: 4 }}>
       <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
-    </Text>
+    </AppText>
   );
 }
 
@@ -126,13 +127,13 @@ export function WeightManagementScreen({ userId, onNavigate }: WeightManagementS
 
       {assessment && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your weight & health</Text>
+          <AppText variant="bodyStrong">Your weight & health</AppText>
           <MutedText>
             Your care team recorded this on {when(assessment.assessed_at)}. Weight is only one part of the
             picture, alongside your energy, sleep, blood pressure and how you feel, not a number on the scale.
           </MutedText>
           {assessment.clinical_status && OBESITY_STATUS_COPY[assessment.clinical_status] && (
-            <Text style={{ fontSize: 13, color: colors.ink }}>{OBESITY_STATUS_COPY[assessment.clinical_status]}</Text>
+            <AppText variant="body">{OBESITY_STATUS_COPY[assessment.clinical_status]}</AppText>
           )}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {assessment.bmi != null && <Badge tone="brand">BMI {Number(assessment.bmi).toFixed(1)}</Badge>}
@@ -152,12 +153,12 @@ export function WeightManagementScreen({ userId, onNavigate }: WeightManagementS
       {referral && (
         <Card style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Specialist assessment</Text>
+            <AppText variant="bodyStrong">Specialist assessment</AppText>
             <Badge tone={referral.status === "completed" ? "brand" : "neutral"}>{referral.status}</Badge>
           </View>
-          <Text style={{ fontSize: 13, color: colors.ink }}>
+          <AppText variant="body">
             {REFERRAL_STATUS_COPY[referral.status] ?? "Your care team is coordinating a specialist assessment."}
-          </Text>
+          </AppText>
           <MutedText>
             Raised {when(referral.referred_at)}. Questions about this are welcome, your care team can walk you
             through what happens next.
@@ -216,7 +217,6 @@ function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
 }
 
 function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () => void }) {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
@@ -268,7 +268,7 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
         />
       ))}
 
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginTop: 6 }}>Any of these lately?</Text>
+      <AppText variant="label" style={{ marginTop: 6 }}>Any of these lately?</AppText>
       {DISORDERED_BEHAVIOURS.map((b) => (
         <Checkbox key={b.code} checked={behaviours.includes(b.code)} onToggle={() => toggleBehaviour(b.code)} label={b.label} />
       ))}
@@ -284,9 +284,9 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
         label="Any thoughts of harming yourself"
       />
 
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
+      <AppText variant="label" style={{ marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
-      </Text>
+      </AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
@@ -317,9 +317,9 @@ function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnroll
       ) : (
         <>
           {enrollment.currentPhaseName && (
-            <Text style={{ fontSize: 13, color: colors.ink }}>
-              Current phase: <Text style={{ fontWeight: "700" }}>{enrollment.currentPhaseName}</Text>
-            </Text>
+            <AppText variant="body">
+              Current phase: <AppText variant="bodyStrong">{enrollment.currentPhaseName}</AppText>
+            </AppText>
           )}
           {enrollment.goals.map((g) => (
             <GoalRow key={g.id} goal={g} onChanged={onChanged} />
@@ -336,7 +336,6 @@ function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnroll
 }
 
 function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; title: string; personalised: boolean }; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -352,19 +351,19 @@ function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; titl
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
-        <Text style={{ color: colors.muted, textTransform: "capitalize" }}>{goal.module}</Text> {goal.title}
-      </Text>
+      <AppText variant="body" style={{ flex: 1 }}>
+        <AppText variant="body" tone="textMuted" style={{ textTransform: "capitalize" }}>{goal.module}</AppText> {goal.title}
+      </AppText>
       {done ? (
         <MutedText>{done}</MutedText>
       ) : goal.personalised ? (
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brandPressed }}>
+          <AppText variant="label" tone="brandText" onPress={() => !busy && resolve("achieved")}>
             Mark achieved
-          </Text>
-          <Text onPress={() => !busy && resolve("abandoned")} style={{ fontSize: 12, color: colors.muted }}>
+          </AppText>
+          <AppText variant="caption" tone="textMuted" onPress={() => !busy && resolve("abandoned")}>
             Let this go
-          </Text>
+          </AppText>
         </View>
       ) : null}
     </View>
@@ -411,7 +410,7 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
 
   return (
     <View style={{ gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 10 }}>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Quick check-in</Text>
+      <AppText variant="label">Quick check-in</AppText>
       <View style={{ flexDirection: "row", gap: 8 }}>
         {(["mood", "weight", "activity_minutes"] as const).map((t) => (
           <Text
@@ -472,9 +471,9 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
 
   if (!open) {
     return (
-      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
+      <AppText variant="label" tone="brandText" onPress={() => setOpen(true)}>
         + Add a goal
-      </Text>
+      </AppText>
     );
   }
 
