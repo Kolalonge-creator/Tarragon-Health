@@ -22,12 +22,13 @@ function fakeAuth(users: Record<string, AuthEmailUser>) {
   return { calls, lookupFor };
 }
 
+const ACK_TIMEOUT_TEMPLATES = ["clinician_alert_ack_timeout_backup", "clinician_alert_ack_timeout_senior", "clinician_alert_ack_timeout_admin"];
 const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired", "on_call_ops_desk", "on_call_ops_desk_uncovered", "on_call_ops_desk_roster", "on_call_ops_desk_dead_letter"];
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {
-    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice"]) expect(addressRuleFor(t)).toBe("own_only");
-    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 2);
+    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
+    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 2 + ACK_TIMEOUT_TEMPLATES.length);
   });
   it("security notices keep payload first, everything else the payload only", () => {
     expect(addressRuleFor("security.new_device_signin")).toBe("payload_then_own");
@@ -132,4 +133,24 @@ describe("the sender is wired to the rule", () => {
   it("lets a page row be retried rather than failed on the first error (pages no longer have the legacy ladder behind them)", () => {
     expect(sender).toContain("isPageRow");
   });
+});
+
+describe("unacknowledged-alert ladder email (backup, senior, admin)", () => {
+  // Live, 8 admin-rung emails failed with "template has no email rendering" and 942 more with "recipient has no email address":
+  // the ladder writes push, email and in-app (SMS is refused, INV-08), so both halves must hold or an admin without push is never reached.
+  for (const template of ACK_TIMEOUT_TEMPLATES) {
+    it(`${template} renders an email that escapes the message`, () => {
+      const render = TEMPLATE_MAP[template]?.({ message: "You have a new <urgent> alert & more" }, { notificationId: "n", recipientId: "r" });
+      expect(render.email?.subject).toBeTruthy();
+      expect(render.email?.html).toContain("&lt;urgent&gt; alert &amp; more");
+      expect(render.email?.html).not.toContain("<urgent>");
+      expect(render.email?.text).toContain("You have a new <urgent> alert & more");
+    });
+
+    it(`${template} goes to the recipient's own verified address, never a payload address`, async () => {
+      const auth = fakeAuth({ clin: { email: "clin@example.test", email_confirmed_at: "2026-01-01T00:00:00Z" } });
+      const r = await resolveEmailAddress(template, "stranger@evil.test", auth.lookupFor("clin"));
+      expect(r).toEqual({ address: "clin@example.test", source: "auth" });
+    });
+  }
 });

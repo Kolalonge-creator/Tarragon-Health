@@ -154,7 +154,7 @@ begin
   perform pg_temp.as_user(v_cmo);
   v_res := v_res || jsonb_build_array(jsonb_build_array('a malformed rule set cannot be inserted', '23514',
     pg_temp.attempt($$insert into public.medicine_interaction_rule_sets (version, config) values (91, '{"rules":[{"code":"x"}]}')$$)));
-  v_res := v_res || jsonb_build_array(jsonb_build_array('a draft cannot be inserted already active', '42501',
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a draft cannot be inserted already active', '23514',
     pg_temp.attempt($$insert into public.medicine_interaction_rule_sets (version, config, is_active) values (92, '{"rules": []}', true)$$)));
   insert into public.medicine_interaction_rule_sets (version, config, notes) values
     (2, '{"rules":[{"code":"example_rule","ingredientA":"exampleone","ingredientB":"exampletwo","severity":"caution","source":"https://example.org/source"}]}', 'proof: synthetic, fictional ingredients');

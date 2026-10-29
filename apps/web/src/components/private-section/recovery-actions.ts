@@ -6,6 +6,7 @@ import { checkAuthRateLimit } from "@/lib/rate-limit";
 import { authErrorKey } from "@tarragon/auth/auth-error-key";
 import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { EMAIL_OTP_PATTERN, PHONE_OTP_PATTERN } from "@/lib/validation/otp";
 
 /**
  * Forgotten PIN recovery for a private section (S66): the person proves they still hold the account's own phone (or, for an account with
@@ -20,7 +21,8 @@ export type PrivateSectionRecoveryState =
   | { step?: "code"; sentTo?: "phone" | "email"; error?: string; success?: boolean }
   | undefined;
 
-const codeSchema = z.object({ token: z.string().regex(/^\d{6}$/) });
+// The code goes to the account's phone (6 digits) or email (8 digits); Auth checks the exact value, this only rejects obvious junk. See otp.ts.
+const codeSchema = z.object({ token: z.string().regex(EMAIL_OTP_PATTERN) });
 
 function contactOf(user: { phone?: string | null; email?: string | null }): { kind: "phone"; value: string } | { kind: "email"; value: string } | null {
   if (user.phone) return { kind: "phone", value: `+${user.phone.replace(/^\+/, "")}` };
@@ -59,6 +61,8 @@ export async function verifyPrivateSectionRecoveryCode(
   if (!user) return { error: t("auth.error.sign_in_failed", locale) };
   const contact = contactOf(user);
   if (!contact) return { error: t("auth.error.generic", locale) };
+  // A code sent to a phone is 6 digits; only an emailed code may be 8 (see otp.ts).
+  if (contact.kind === "phone" && !PHONE_OTP_PATTERN.test(parsed.data.token)) return { step: "code", error: t("auth.error.wrong_code", locale) };
 
   const limited = await checkAuthRateLimit("private-section-recovery-verify", user.id, { limit: 20, windowSeconds: 300 }, { limit: 8, windowSeconds: 900 });
   if (!limited.success) return { step: "code", error: t("auth.error.rate_limited", locale) };

@@ -164,7 +164,10 @@ begin
   -- C24: no active config fails closed
   update public.activity_safety_config set is_active = false where id = v_cfg;
   perform pg_temp.ck('C24 no active config: restrict, gentle, rules_unavailable', 'restrict|rules_unavailable|rules_unavailable|gentle|', pg_temp.run_case(null, null, null));
+  -- the seeded config is unsigned on purpose (PROPOSED); the governed-config guard would refuse putting it back live, so step it aside for this fixture only
+  alter table public.activity_safety_config disable trigger zz_refuse_unsigned_activation_upd;
   update public.activity_safety_config set is_active = true where id = v_cfg;
+  alter table public.activity_safety_config enable trigger zz_refuse_unsigned_activation_upd;
   perform pg_temp.ck('the seeded config is unsigned (PROPOSED)', 'false', (select (approved_by is not null)::text from public.activity_safety_config where id = v_cfg));
 end $$;
 

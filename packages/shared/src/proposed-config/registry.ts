@@ -1248,6 +1248,37 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; paging_delivery_config version 2 (inactive)",
   },
   {
+    key: "paging.delivery_rules_v3",
+    // The v2 delivery rules with the on-call test page valid for 90 days (three months) instead of 7: readiness_test_page_days 90. Shipped as an
+    // INACTIVE, unsigned row (the next paging_delivery_config version); the CMO activates it. Everything else is exactly v2. The CMO asked for a
+    // dashboard control to change this number later; until then a change is a new version signed from the sign-off hub.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 90,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-29",
+    source: "supabase/migrations/*_paging_delivery_config_v3_test_page_90_days_draft.sql; paging_delivery_config next version (inactive)",
+  },
+  {
     key: "paging.unified_red_rules",
     // Unified red-event paging (S19d, S16-S20 review Stage 3, CMO decision 11 part 3, defect P5). Live values are the active row of
     // `unified_red_paging_config`; this entry mirrors version 1 and a test fails if the migration seed and this value drift. The row ships
@@ -6414,6 +6445,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-15",
     source: "docs/design/S16-S20-capacity-cover.md; capacity_cover_config version 2 (inactive)",
+  },
+  {
+    key: "capacity.cover_rules_v3",
+    // Version 3 of capacity.cover_rules: v2 with the intake gate NOT enforced (gate_enforce 0); the hard rest rule and fire drills are on, exactly as in v2.
+    // Shipped as an INACTIVE, unsigned row (the next capacity_cover_config version). It exists so the CMO can sign the rest and drill rules while the
+    // on_call_cover_ok guard cannot yet be switched on (it waits on the ops desk). Signing it retires v1 and leaves new care pack sales open.
+    value: {
+      gate_enforce: 0,
+      min_lead_headroom: 3,
+      rota_horizon_hours: 72,
+      rota_gap_tolerance_hours: 0,
+      oldest_task_max_class: 5,
+      override_max_hours: 24,
+      override_reason_min_chars: 20,
+      reason_min_chars: 20,
+      surge_max_hours: 12,
+      surge_widen_min_class: 4,
+      surge_routine_window_multiplier: 2,
+      pause_max_hours: 24,
+      pause_confirm_minutes: 240,
+      pause_hold_min_class: 6,
+      hard_rest_enforce: 1,
+      rest_hours: 11,
+      overnight_start_hour: 22,
+      overnight_end_hour: 7,
+      rest_min_overnight_pages: 1,
+      rest_override_max_days: 3,
+      cover_offer_pages: 2,
+      cover_offer_lookahead_hours: 36,
+      drill_enabled: 1,
+      drill_interval_days: 30,
+      drill_roster_lookahead_days: 30,
+      drill_min_gap_minutes: 10,
+      drill_busy_hours: 6,
+      drill_ack_target_seconds: 300,
+      drill_ack_target_pct: 90,
+      drill_missed_after_minutes: 60,
+      drill_hour_start: 8,
+      drill_hour_end: 20,
+      drill_max_per_run: 2,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-29",
+    source: "supabase/migrations/*_capacity_cover_config_v3_gate_off_draft.sql; capacity_cover_config next version (inactive)",
   },
   {
     key: "capacity.pilot_lead_cap",

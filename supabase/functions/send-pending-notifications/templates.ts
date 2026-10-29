@@ -103,6 +103,24 @@ export function escapeHtmlForBroadcast(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// The ack-timeout ladder (backup, senior, admin) writes push, email and in-app rows (SMS is refused for notifications,
+// INV-08). Until this existed the email rung failed with "template has no email rendering", so an admin with no push
+// subscription was never reached by email. The message is the generic non-clinical line the enqueuing function writes for
+// push and email rows ("You have a new urgent alert ... check your dashboard"); the alert's title lives only on the in-app row.
+function ackTimeoutEmail(message: string): { subject: string; html: string; text: string } {
+  return {
+    subject: "Urgent alert waiting on Tarragon Health",
+    html:
+      `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+      `<p>Hello,</p>` +
+      `<p>${escapeHtmlForBroadcast(message)}</p>` +
+      `<p>Open your clinician dashboard to acknowledge it.</p>` +
+      `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+      `</div>`,
+    text: `Hello,\n\n${message}\n\nOpen your clinician dashboard to acknowledge it.\n\nTarragon Health`,
+  };
+}
+
 export function renderBroadcastEmailHtml(
   content: BroadcastEmailContent | null | undefined,
   fallbackSubject: string,
@@ -1441,6 +1459,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
+      email: ackTimeoutEmail(message),
     };
   },
   clinician_alert_ack_timeout_senior: (payload) => {
@@ -1448,6 +1467,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
+      email: ackTimeoutEmail(message),
     };
   },
   clinician_alert_ack_timeout_admin: (payload) => {
@@ -1455,6 +1475,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
+      email: ackTimeoutEmail(message),
     };
   },
   // S15: licence and indemnity reminders (3 months, 1 month, the day), grace and suspension notices, and application

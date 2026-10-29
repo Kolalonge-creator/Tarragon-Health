@@ -39,6 +39,8 @@ import { LoginScreen } from "@/screens/login-screen";
 import { AppLockScreen } from "@/screens/app-lock-screen";
 import { PrivacyCover } from "@/ui/privacy-cover";
 import { HomeShell } from "@/screens/home-shell";
+import { ProfileDetailsScreen } from "@/screens/profile-details-screen";
+import { needsDemographics } from "@/lib/demographics";
 import { SponsorHome } from "@/screens/sponsor-home";
 import { ClinicianHome } from "@/screens/clinician-home";
 import { startPageSurface } from "@/lib/paging/page-native";
@@ -419,6 +421,22 @@ function AppContent() {
   // patient data mounts at all, so nothing can leak under or behind the gate.
   if (lockState === "locked") {
     return <AppLockScreen accountId={session.user.id} onUnlocked={() => setLockState("unlocked")} />;
+  }
+
+  // Sex and date of birth are mandatory for a patient and the phone has no onboarding flow, so a patient who is missing either is
+  // asked here before anything of theirs opens. Staff, funder-only accounts and dependants are never asked (lib/demographics.ts).
+  if (needsDemographics(identity)) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" />
+        <ProfileDetailsScreen
+          userId={session.user.id}
+          current={{ sex: identity.sex, dateOfBirth: identity.dateOfBirth }}
+          onDone={(saved) => setIdentity((prev) => (prev ? { ...prev, sex: saved.sex, dateOfBirth: saved.dateOfBirth } : prev))}
+          onSignOut={() => void signOutOfThisPhone()}
+        />
+      </SafeAreaView>
+    );
   }
 
   if (shellForRole(identity.role) === "sponsor") {

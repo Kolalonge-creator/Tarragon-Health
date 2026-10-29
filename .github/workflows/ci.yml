@@ -460,6 +460,9 @@ jobs:
           # ("JavaScript heap out of memory", 2026-10-28, on main-dev and on PRs alike), so no test ever started.
           # Same ceiling the main CI job uses; ubuntu-latest has 16 GB.
           NODE_OPTIONS: --max-old-space-size=6144
+          # The phone sign-up and sign-in specs drive the texted-code routes, which the product hides until an SMS provider is live
+          # (apps/web/src/lib/auth/text-codes.ts). This disposable stack uses the mock provider, so the routes are switched on for the test build only.
+          NEXT_PUBLIC_TEXT_CODES_ENABLED: "true"
         run: pnpm test:e2e-browser
 
       # S85: print every journey's step report (passed / pending / skipped / failed) so a reader sees what is pending.

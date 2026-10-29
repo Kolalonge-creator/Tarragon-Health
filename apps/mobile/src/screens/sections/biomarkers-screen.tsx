@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { chartGeometry, displayCode, groupByUnit, labRangeLabel, targetLabel, type TrendPoint, type TrendSeries } from "@tarragon/shared";
-import { t, type MessageKey } from "@tarragon/i18n";
+import { t } from "@tarragon/i18n";
 import {
   flagLabel,
   formatResultValue,
   latestLabel,
   loadBiomarkerList,
   loadBiomarkerTrend,
+  readingSourceLabel,
   readingsLabel,
   trendSummary,
   type BiomarkerListItem,
@@ -17,6 +18,7 @@ import { formatPassportDate } from "@/lib/passport-format";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Chip, EmptyState, InlineAlert, Screen } from "@/ui/kit";
 import { LoadFailed, PassportHeader, StaleNotice } from "@/screens/sections/passport-parts";
+import { ReportedValuesCard } from "@/screens/sections/reported-values-card";
 
 interface Props {
   subjectId: string;
@@ -70,7 +72,7 @@ function Chart({ code, unit, points }: { code: string; unit: string | null; poin
 function ReadingRow({ p }: { p: TrendPoint }) {
   const flag = flagLabel(p.flag);
   const range = labRangeLabel(p);
-  const from = p.laboratory ?? t(`biomarkers.source.${p.source === "legacy_report" ? "legacy_report" : "lab_result"}` as MessageKey);
+  const from = readingSourceLabel(p);
   return (
     <View style={{ gap: 2, paddingVertical: space.sm }} accessible>
       <AppText variant="bodyStrong">
@@ -188,6 +190,10 @@ export function BiomarkersScreen({ subjectId, userId }: Props) {
   return (
     <Screen edges={[]}>
       <PassportHeader title={t("biomarkers.title")} description={t("biomarkers.description")} />
+
+      {/* Numbers read from a report the person uploaded themselves, to check and confirm. Their own record only: nobody confirms numbers on
+          someone else's behalf. Shown above the list so it is also there when there is no result yet. */}
+      {own ? <ReportedValuesCard onConfirmed={() => void loadList()} /> : null}
 
       {list.kind === "loading" ? <ActivityIndicator color={colors.brand} accessibilityLabel={t("mpass.loading")} /> : null}
       {list.kind === "failed" ? <LoadFailed offline={list.offline} refused={list.refused} onRetry={() => void loadList()} /> : null}

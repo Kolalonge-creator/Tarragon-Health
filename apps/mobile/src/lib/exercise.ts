@@ -115,17 +115,6 @@ export async function loadActivityGate(): Promise<{ gate: ActivityGateResult; un
   return { gate: parseActivityGate(data), unavailable: false };
 }
 
-export type WeekProgress = { ok: true; activeMinutes: number; goalMinutes: number } | { ok: false };
-
-/** This week's active minutes against the weekly goal, from the same database function the Activity tracker uses. A failed or malformed answer is `ok: false`, never zero. */
-export async function loadWeekProgress(): Promise<WeekProgress> {
-  const { data, error } = await supabase.rpc("activity_week_progress");
-  if (error || data === null || typeof data !== "object" || Array.isArray(data)) return { ok: false };
-  const d = data as { active_minutes?: unknown; weekly_active_minutes_goal?: unknown };
-  if (typeof d.active_minutes !== "number" || typeof d.weekly_active_minutes_goal !== "number") return { ok: false };
-  return { ok: true, activeMinutes: d.active_minutes, goalMinutes: d.weekly_active_minutes_goal };
-}
-
 export interface WorkoutPlan {
   code: string;
   title: string;
@@ -141,4 +130,86 @@ export async function loadWorkoutPlans(): Promise<WorkoutPlan[]> {
   const { data, error } = await supabase.rpc("my_workout_plans");
   if (error || !Array.isArray(data)) return [];
   return data as unknown as WorkoutPlan[];
+}
+
+// ── Session log (P4) ─────────────────────────────────────────────────────────
+
+export type ExerciseSessionLog = Tables<"exercise_session_logs">;
+
+export const EXERCISE_KINDS: { value: "walking" | "mobility" | "strength" | "cardio" | "other"; label: string }[] = [
+  { value: "walking", label: "Walking" },
+  { value: "mobility", label: "Stretching" },
+  { value: "strength", label: "Strength" },
+  { value: "cardio", label: "Cardio" },
+  { value: "other", label: "Other" },
+];
+export const EXERCISE_EFFORTS: { value: "easy" | "moderate" | "hard"; label: string }[] = [
+  { value: "easy", label: "Easy" },
+  { value: "moderate", label: "Steady" },
+  { value: "hard", label: "Hard" },
+];
+
+const SESSION_PAGE = 1000;
+const SESSION_MAX_PAGES = 20;
+
+/** Every session the person logged, newest first, read page by page so progress is never counted from a truncated list. */
+export async function loadExerciseSessions(patientId: string): Promise<QueryResult<ExerciseSessionLog[]>> {
+  const rows: ExerciseSessionLog[] = [];
+  for (let page = 0; page < SESSION_MAX_PAGES; page++) {
+    const { data, error } = await supabase
+      .from("exercise_session_logs")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("performed_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(page * SESSION_PAGE, (page + 1) * SESSION_PAGE - 1);
+    if (error) return { ok: false, error: error.message };
+    rows.push(...data);
+    if (data.length < SESSION_PAGE) break;
+  }
+  return { ok: true, data: rows };
+}
+
+export interface LogSessionInput {
+  performedOn: string;
+  minutes: number;
+  kind: (typeof EXERCISE_KINDS)[number]["value"];
+  effort: (typeof EXERCISE_EFFORTS)[number]["value"] | null;
+  symptomDuring: boolean;
+  enrollmentId: string | null;
+  note: string;
+}
+
+/**
+ * A plain RLS-scoped insert, like the readiness screen. The date window, "that programme is yours" and the clinician alert for a Member who
+ * reports a symptom are all database triggers (20261029204012, 20261029211315); the patient-readable trigger message comes back as error.
+ */
+export async function logExerciseSession(
+  patientId: string,
+  organisationId: string,
+  input: LogSessionInput
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 600) {
+    return { error: "Enter between 1 and 600 minutes." };
+  }
+  const { error } = await supabase.from("exercise_session_logs").insert({
+    organisation_id: organisationId,
+    patient_id: patientId,
+    enrollment_id: input.enrollmentId,
+    performed_on: input.performedOn,
+    duration_minutes: input.minutes,
+    kind: input.kind,
+    effort: input.effort,
+    symptom_during: input.symptomDuring,
+    note: input.note.trim() ? input.note.trim().slice(0, 300) : null,
+  });
+  return error ? { error: error.message } : {};
+}
+
+export async function deleteExerciseSession(patientId: string, id: string): Promise<{ error?: string }> {
+  const { data, error } = await supabase.from("exercise_session_logs").delete().eq("id", id).eq("patient_id", patientId).select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "That session was already removed." };
+  return {};
 }

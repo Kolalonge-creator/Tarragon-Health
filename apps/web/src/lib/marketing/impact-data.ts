@@ -26,6 +26,7 @@ export async function loadImpactMetrics(): Promise<ImpactMetric[]> {
     .select("metric_key, label, description, value, suppressed, computed_at, display_order")
     .eq("is_published", true)
     .order("display_order", { ascending: true });
+  if (error) console.error("public_impact_metrics read failed; showing no metrics", error.code ?? "", error.message ?? "");
   if (error || !data) return [];
   return data.map((row) => ({
     metricKey: row.metric_key,

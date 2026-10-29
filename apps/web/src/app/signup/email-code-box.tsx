@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { resendSignupEmail, verifySignupEmail } from "./actions";
+import { EMAIL_OTP_MAX_LENGTH } from "@/lib/validation/otp";
 
 /**
  * The optional six-digit code from the confirmation email (S41, spec 1.4). The link in the same email keeps working and
@@ -37,8 +38,8 @@ export function EmailCodeBox({ email, redirectTo, locale }: { email: string; red
             name="token"
             inputMode="numeric"
             autoComplete="one-time-code"
-            pattern="\d{6}"
-            maxLength={6}
+            pattern="(\d{6}|\d{8})"
+            maxLength={EMAIL_OTP_MAX_LENGTH}
             placeholder={t("auth.email_code.placeholder", locale)}
             className="h-11 rounded-xl tracking-widest"
             {...fieldErrorProps(errorId, invalid)}

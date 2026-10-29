@@ -1,5 +1,5 @@
 import { en } from "@tarragon/i18n";
-import { flagLabel, formatResultValue, latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingsLabel, trendSummary } from "./biomarkers";
+import { flagLabel, formatResultValue, latestLabel, loadBiomarkerList, loadBiomarkerTrend, parseBiomarkerList, readingSourceLabel, readingsLabel, trendSummary } from "./biomarkers";
 
 let mockUser: string | null = "user-1";
 let mockError: { code?: string; message: string } | null = null;
@@ -126,5 +126,18 @@ describe("results over time on the phone (S43m)", () => {
   it("has a label for every flag and source the database can send", () => {
     for (const f of ["normal", "low", "high", "critical_low", "critical_high"]) expect(Object.hasOwn(en, `biomarkers.flag.${f}`)).toBe(true);
     for (const s of ["lab_result", "legacy_report"]) expect(Object.hasOwn(en, `biomarkers.source.${s}`)).toBe(true);
+  });
+});
+
+describe("readingSourceLabel", () => {
+  it("never calls a number the person confirmed themselves a laboratory result", () => {
+    expect(readingSourceLabel({ source: "patient_reported", laboratory: null })).toBe("Reported by you, not checked by a doctor");
+    // even if a laboratory name were somehow present
+    expect(readingSourceLabel({ source: "patient_reported", laboratory: "Synlab" })).toBe("Reported by you, not checked by a doctor");
+  });
+  it("keeps the laboratory's own name and the existing labels for everything else", () => {
+    expect(readingSourceLabel({ source: "lab_result", laboratory: "Synlab" })).toBe("Synlab");
+    expect(readingSourceLabel({ source: "lab_result", laboratory: null })).toBe("Laboratory");
+    expect(readingSourceLabel({ source: "legacy_report", laboratory: null })).toBe("Uploaded report");
   });
 });

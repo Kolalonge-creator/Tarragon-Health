@@ -13,6 +13,7 @@ import {
   type AlcoholState,
   type SleepState,
   type SmokingState,
+  defaultMealType,
   loadMealsState,
   logMealWithPhoto,
   type MealsState,
@@ -291,7 +292,9 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [mealType, setMealType] = useState<MealType | undefined>(undefined);
+  const [mealType, setMealType] = useState<MealType | undefined>(() => defaultMealType());
+  // Photo-first: the camera is the main way in; typing, food search and barcode sit behind one tap.
+  const [showDetails, setShowDetails] = useState(false);
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<CapturedMealPhoto | null>(null);
   const [saving, setSaving] = useState(false);
@@ -378,7 +381,7 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
       }
       setPhoto(null);
       setDescription("");
-      setMealType(undefined);
+      setMealType(defaultMealType());
       setSavedMessage(t("Saved."));
       if (result.aiStatus === "estimated" && result.aiEstimate) {
         setLastEstimate(result.aiEstimate);
@@ -390,7 +393,7 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
     const trimmedDescription = description.trim();
     if (!trimmedDescription) {
       setSaving(false);
-      setSaveError("Write what you ate.");
+      setSaveError("Take a photo of your meal, or write what you ate.");
       return;
     }
     // S49a: a meal in words goes through the offline outbox, so it is saved on the phone first and sent when there is signal.
@@ -403,7 +406,7 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
     }
     setSaving(false);
     setDescription("");
-    setMealType(undefined);
+    setMealType(defaultMealType());
     setSavedMessage(t("Saved."));
     await load();
   }
@@ -443,6 +446,27 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
       {acting ? null : <GlucoseResponseCard />}
 
       <Card style={{ gap: 12 }}>
+        {photo ? null : (
+          <View style={{ gap: 8 }}>
+            <PrimaryButton title="Snap your meal" onPress={() => void takePhoto()} disabled={saving} />
+            <SecondaryButton title="Choose from library" onPress={() => void chooseFromLibrary()} disabled={saving} />
+            <MutedText>We estimate the portions and carbs from the photo. It is a coaching guide, not a medical measurement.</MutedText>
+          </View>
+        )}
+        {photo ? (
+          <View style={{ gap: 8 }}>
+            <Image
+              source={{ uri: photo.uri }}
+              style={{ width: "100%", height: 180, borderRadius: radius.control, backgroundColor: colors.border }}
+              resizeMode="cover"
+            />
+            {/* "Remove photo" / "Take a photo" / "Choose from library" stay
+                plain English, matching labs-screen.tsx's identical camera
+                affordance. */}
+            <SecondaryButton title="Remove photo" onPress={() => setPhoto(null)} disabled={saving} />
+          </View>
+        ) : null}
+
         <View style={{ gap: 6 }}>
           <AppText variant="bodyStrong">
             {t("Which meal?")}
@@ -462,20 +486,13 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
           </View>
         </View>
 
-        {photo ? (
-          <View style={{ gap: 8 }}>
-            <Image
-              source={{ uri: photo.uri }}
-              style={{ width: "100%", height: 180, borderRadius: radius.control, backgroundColor: colors.border }}
-              resizeMode="cover"
-            />
-            {/* "Remove photo" / "Take a photo" / "Choose from library" stay
-                plain English, matching labs-screen.tsx's identical camera
-                affordance. */}
-            <SecondaryButton title="Remove photo" onPress={() => setPhoto(null)} disabled={saving} />
-          </View>
-        ) : null}
-
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showDetails }} onPress={() => setShowDetails((v) => !v)}>
+          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.brandPressed }}>
+            {showDetails ? "Hide details" : photo ? "Add details (optional)" : "Or describe it, search foods or scan a barcode"}
+          </Text>
+        </Pressable>
+        {showDetails ? (
+          <View style={{ gap: 12 }}>
         <View style={{ gap: 6 }}>
           <AppText variant="bodyStrong">
             {t("What did you eat?")}
@@ -502,14 +519,6 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
         <FoodPickerBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
         <BarcodeBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
 
-        {!photo ? (
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <SecondaryButton title="Take a photo" onPress={() => void takePhoto()} disabled={saving} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <SecondaryButton title="Choose from library" onPress={() => void chooseFromLibrary()} disabled={saving} />
-            </View>
           </View>
         ) : null}
 

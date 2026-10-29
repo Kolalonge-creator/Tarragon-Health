@@ -6206,6 +6206,7 @@ export type Database = {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          booked_via: string
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -6225,6 +6226,7 @@ export type Database = {
           no_show_reason: string | null
           organisation_id: string
           patient_id: string
+          payment_confirm_error: string | null
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
           reason: string | null
           rescheduled_from_id: string | null
@@ -6240,6 +6242,7 @@ export type Database = {
         Insert: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          booked_via?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -6259,6 +6262,7 @@ export type Database = {
           no_show_reason?: string | null
           organisation_id: string
           patient_id: string
+          payment_confirm_error?: string | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
           rescheduled_from_id?: string | null
@@ -6274,6 +6278,7 @@ export type Database = {
         Update: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          booked_via?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -6293,6 +6298,7 @@ export type Database = {
           no_show_reason?: string | null
           organisation_id?: string
           patient_id?: string
+          payment_confirm_error?: string | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
           rescheduled_from_id?: string | null
@@ -18560,6 +18566,73 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_session_logs: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          effort: string | null
+          enrollment_id: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          performed_on: string
+          symptom_during: boolean
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes: number
+          effort?: string | null
+          enrollment_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          performed_on: string
+          symptom_during?: boolean
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          effort?: string | null
+          enrollment_id?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          performed_on?: string
+          symptom_during?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_session_logs_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_exercise_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_session_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_session_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -33671,6 +33744,80 @@ export type Database = {
           },
         ]
       }
+      patient_reported_lab_values: {
+        Row: {
+          code: string
+          created_at: string
+          document_id: string
+          extraction_id: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          proposed_value: number | null
+          taken_at: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          document_id: string
+          extraction_id: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          proposed_value?: number | null
+          taken_at: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          document_id?: string
+          extraction_id?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          proposed_value?: number | null
+          taken_at?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_reported_lab_values_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "lab_report_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_pregnancy: {
         Row: {
           created_at: string
@@ -42540,6 +42687,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref: string | null
+          pending_payment_checkout_url: string | null
           pending_payment_provider_ref: string | null
           purchased_at: string | null
           purchaser_profile_id: string | null
@@ -42568,6 +42716,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref?: string | null
+          pending_payment_checkout_url?: string | null
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
@@ -42596,6 +42745,7 @@ export type Database = {
             | Database["public"]["Enums"]["payment_provider"]
             | null
           payment_provider_ref?: string | null
+          pending_payment_checkout_url?: string | null
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
@@ -53993,6 +54143,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      sponsorable_service_products: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Tables"]["service_products"]["Row"][]
+      }
+      coordinator_find_patient: {
+        Args: { p_query: string }
+        Returns: {
+          full_name: string | null
+          membership_tier: string | null
+          patient_id: string
+          phone: string | null
+          state: string | null
+        }[]
+      }
       confirm_appointment_booking: {
         Args: { p_appointment_id: string }
         Returns: {
@@ -54085,6 +54249,14 @@ export type Database = {
       confirm_imaging_ai_assist_draft: {
         Args: { p_draft_id: string }
         Returns: string
+      }
+      confirm_my_lab_report: {
+        Args: {
+          p_extraction_id: string
+          p_readings: Json
+          p_report_date: string
+        }
+        Returns: number
       }
       confirm_lab_report_extraction: {
         Args: {
@@ -55828,6 +56000,10 @@ export type Database = {
           score: number
           status: Database["public"]["Enums"]["reference_concept_status"]
         }[]
+      }
+      my_lab_report_drafts: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       mark_care_message_thread_read: {
         Args: { p_thread_id: string }

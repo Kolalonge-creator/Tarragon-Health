@@ -434,7 +434,7 @@ begin
   perform pg_temp.ck('8g typhoid is not among the scheduled doses', '0',
     (select count(*)::text from public.vaccination_schedule_signoffs s, jsonb_array_elements(s.schedule_config -> 'doses') d where s.version = 2 and d ->> 'catalog_code' = 'typhoid'));
   perform pg_temp.ck('8h version 2 cannot be made active without being signed', 'true',
-    (pg_temp.try_sql_owner($q$update public.vaccination_schedule_signoffs set is_active = true where version = 2$q$) like '%active_requires_signature%')::text);
+    (pg_temp.try_sql_owner($q$update public.vaccination_schedule_signoffs set is_active = true where version = 2$q$) like '%active_requires_signature%' or pg_temp.try_sql_owner($q$update public.vaccination_schedule_signoffs set is_active = true where version = 2$q$) like '%cannot be live without a signature%')::text);
   perform pg_temp.ck('8i a version 2 or later cannot be active without a config', 'true',
     (pg_temp.try_sql_owner(format($q$insert into public.vaccination_schedule_signoffs (version, approved_by, approved_at, is_active) values (9, (select id from public.clinical_staff where profile_id = %L), now(), true)$q$, v_doc)) like '%v2_active_needs_config%')::text);
   perform pg_temp.ck('8j no signed schedule: the status says so', 'false', (public.vaccination_schedule_status() ->> 'signed'));

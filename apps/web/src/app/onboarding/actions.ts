@@ -151,10 +151,14 @@ export async function completeOnboarding() {
     redirect("/login");
   }
 
-  await supabase
+  const { error: completeError } = await supabase
     .from("profiles")
     .update({ onboarding_completed_at: new Date().toISOString() })
     .eq("id", user.id);
+  // The database refuses to complete onboarding without a date of birth, a sex and the required consents (private.enforce_onboarding_prereqs).
+  // That refusal used to be ignored, so the person was sent on to the dashboard and bounced straight back to onboarding with no
+  // explanation. Send them back to the step that is missing instead; the page works out which one from what is on file.
+  if (completeError) redirect("/onboarding");
 
   // Land somebody where they were actually trying to go. `signup_intent` is
   // carried through auth metadata from /signup?intent=..., the same vehicle

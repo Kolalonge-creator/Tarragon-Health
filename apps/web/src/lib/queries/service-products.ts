@@ -35,6 +35,26 @@ export function useActiveServiceProducts() {
   });
 }
 
+export const SPONSORABLE_SERVICE_PRODUCTS_QUERY_KEY = ["service-products", "sponsorable"];
+
+/**
+ * What a sponsor can choose to pay for someone else. Unlike useActiveServiceProducts this includes the Members-only products (the extra
+ * meeting and the second opinion), which the product table hides from a patient who is not a Member: a sponsor often is not one. Nothing
+ * is granted by seeing them. The database refuses to reserve them unless the recipient is already a paid Member, and again when the
+ * recipient claims.
+ */
+export function useSponsorableServiceProducts() {
+  return useQuery({
+    queryKey: SPONSORABLE_SERVICE_PRODUCTS_QUERY_KEY,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("sponsorable_service_products");
+      if (error) throw error;
+      return (data ?? []).map(withInterval);
+    },
+  });
+}
+
 /** Every service product, any currency/active state — admin management view. */
 export function useAllServiceProductsAdmin() {
   return useQuery({

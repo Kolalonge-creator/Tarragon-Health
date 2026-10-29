@@ -71,6 +71,10 @@
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },
   {
+   "file": "apps/web/src/app/(dashboard)/dashboard/care-coordinator/book-for-patient/actions.ts",
+   "category": "Care Coordinator phone booking (2026-10-29): reads the patient's pending service_purchases row to find the pay link already made, because service_purchases has no coordinator read policy. Reached only after loadWaitingBooking proves the booking is this coordinator's own phone booking; returns only that purchase's link, nothing else."
+  },
+  {
    "file": "apps/web/src/app/(dashboard)/dashboard/corporate/actions.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },

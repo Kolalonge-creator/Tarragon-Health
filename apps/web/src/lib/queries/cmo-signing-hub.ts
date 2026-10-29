@@ -32,6 +32,7 @@ import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-si
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
+import { OWED_ITEM_PREFIX, readPendingOwedSignoffs } from "@/lib/queries/pending-owed-signoffs";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -127,7 +128,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -161,6 +162,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readBaselineLabsOverrideAttention(supabase),
     readPendingAiMonitoringSignoff(supabase),
     readPendingMskProgrammesSignoff(supabase),
+    readPendingOwedSignoffs(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -412,7 +414,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: OPS_DESK_CONFIG_ITEM_KEY,
       title: "Ops desk checklist gate",
-      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary and deputy ops contact are active.`,
+      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary ops contact is active (a deputy is optional).`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,
@@ -442,6 +444,19 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.${queuePaging.pagingRunningUnsigned === true ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
       severity: queuePaging.pagingRunningUnsigned === true ? "live_unsigned" : "draft_pending",
+      count: 1,
+    });
+  }
+
+  // Things already running (or drafted) that the CMO has not signed in person and that are not a governed configuration row: a safety case
+  // document, switches pressed from a chat session, an unverified licence. One line each, from public.owed_signoffs, until the CMO signs it.
+  for (const o of owed.rows) {
+    items.push({
+      key: `${OWED_ITEM_PREFIX}${o.subjectKey}`,
+      title: o.title,
+      detail: `${o.detail}${o.running ? " It is already running without your signature." : ""}`,
+      href: "/clinician/clinical-signoff",
+      severity: o.running ? "live_unsigned" : "draft_pending",
       count: 1,
     });
   }
@@ -599,6 +614,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
     ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
+    ...(owed.failed ? ["the signatures you owe for things already running"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

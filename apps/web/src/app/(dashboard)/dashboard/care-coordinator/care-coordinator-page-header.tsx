@@ -11,6 +11,10 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Outreach worklist",
     subtitle: "Contact patients surfaced by risk scores and care gaps, and note the outcome.",
   },
+  "/dashboard/care-coordinator/book-for-patient": {
+    title: "Book for a patient",
+    subtitle: "Book a doctor appointment for a patient who phoned in and cannot use the app.",
+  },
   "/dashboard/care-coordinator/support-requests": {
     title: "Support requests",
     subtitle: "Help patients have asked for, and where each request has got to.",

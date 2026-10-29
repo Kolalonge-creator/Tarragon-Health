@@ -13,6 +13,9 @@
 // It reports and fails on:
 //   leak      a table or view anon can read rows from that is not on PUBLIC_BY_DESIGN or KNOWN_REPORTED;
 //   rls_open  a table with row security OFF that anon can read at all (even with zero rows now);
+//   broken_public  a PUBLIC_BY_DESIGN table anon is refused on (42501) or that is missing from the scan. Refusal is the safe answer for
+//             every other table, but for these it is the bug: the public page silently shows nothing (found 2026-10-29: a policy
+//             calling a private.* function made anon reads of marketing_resources and public_impact_metrics fail with 42501).
 // and prints (never fails on): known reported findings, views anon can read, and the storage schema (public buckets are by design).
 //
 // Output shape: the CLI's handling of a multi-statement file was NOT verified against the real CLI (Docker and the CLI were not used
@@ -157,7 +160,7 @@ const id = (r) => `${r.schema_name}.${r.rel_name}`;
 
 /**
  * rows: [{schema_name, rel_name, kind, rls_enabled, status, row_count, err}].
- * Returns { leaks, rlsOpen, errors, controlOk, reported, views, buckets, scanned }.
+ * Returns { leaks, rlsOpen, brokenPublic, errors, controlOk, reported, views, buckets, scanned }.
  */
 export function evaluate(rows) {
   const rels = rows.filter((r) => r.kind !== "bucket");
@@ -166,7 +169,15 @@ export function evaluate(rows) {
   const errors = rels.filter((r) => r.status === "error").map((r) => `${id(r)} (${r.err})`);
   const readable = rels.filter((r) => r.status === "ok" && r.schema_name !== "storage");
   const okToRead = (r) => PUBLIC_BY_DESIGN.has(id(r));
+  const brokenPublic = [...PUBLIC_BY_DESIGN].filter((t) => {
+    const r = rels.find((x) => id(x) === t);
+    return !r || r.status !== "ok";
+  }).map((t) => {
+    const r = rels.find((x) => id(x) === t);
+    return r ? `${t} (${r.status}${r.err ? `: ${r.err}` : ""})` : `${t} (not found in the scan)`;
+  });
   return {
+    brokenPublic,
     scanned: rels.length,
     controlOk,
     errors,
@@ -214,7 +225,7 @@ function main() {
   for (const r of res.reported) console.log(`REPORTED (known, not failing): ${r}`);
   for (const v of res.views) console.log(`REPORT: view readable by anon: ${v}`);
   console.log(`Public buckets (by design): ${res.buckets.join(", ") || "none"}`);
-  if (res.leaks.length === 0 && res.rlsOpen.length === 0) {
+  if (res.leaks.length === 0 && res.rlsOpen.length === 0 && res.brokenPublic.length === 0) {
     console.log(`OK: anon read zero rows from ${res.scanned} relations outside the public-by-design and known-reported lists (positive control passed).`);
     return;
   }
@@ -225,6 +236,10 @@ function main() {
   if (res.rlsOpen.length) {
     console.error(`\n${res.rlsOpen.length} table(s) have row security OFF and anon can read them:`);
     for (const t of res.rlsOpen) console.error(`  ${t}`);
+  }
+  if (res.brokenPublic.length) {
+    console.error(`\n${res.brokenPublic.length} public-by-design table(s) are not readable by anon (the public page would show nothing):`);
+    for (const t of res.brokenPublic) console.error(`  ${t}`);
   }
   process.exit(1);
 }

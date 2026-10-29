@@ -6,6 +6,7 @@ import {
   useExerciseProgrammes,
   useLatestReadinessScreen,
   useExerciseEnrollments,
+  useExerciseSessions,
   clearsForModerate,
   clearsForVigorous,
   type ExerciseProgramme,
@@ -15,6 +16,7 @@ import {
   enrollExerciseProgrammeAction,
   type ExerciseActionState,
 } from "./actions";
+import { ExerciseProgressHero, EnrolmentProgress, LogSessionCard, RecentSessions } from "./exercise-progress";
 import { READINESS_QUESTIONS } from "@/lib/validation/exercise";
 import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
 import { useActivityGate, useWorkoutPlans, type WorkoutPlan } from "@/lib/queries/activity-gate";
@@ -27,10 +29,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { HeroMetric } from "@/components/ui/hero-metric";
-import { useActivityGoal, useWeeklyActivityMinutes } from "@/lib/queries/activity";
-import { WHO_WEEKLY_TARGET_MINUTES } from "@/lib/activity/intensity";
 import { Disclosure } from "@/components/ui/disclosure";
 
 const SCREEN_KEY = "exercise-readiness-screen";
@@ -46,6 +44,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const programmes = useExerciseProgrammes();
   const screen = useLatestReadinessScreen(patientId);
   const enrollments = useExerciseEnrollments(patientId);
+  const sessions = useExerciseSessions(patientId);
 
   const okModerate = clearsForModerate(screen.data);
   const okVigorous = clearsForVigorous(screen.data);
@@ -55,42 +54,15 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const plans = useWorkoutPlans();
   const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
   const resting = gate?.decision === "rest";
-  const weekly = useWeeklyActivityMinutes(patientId);
-  const goalMinutes = useActivityGoal(patientId).data?.weekly_active_minutes_goal ?? WHO_WEEKLY_TARGET_MINUTES;
   const activeCount = (enrollments.data ?? []).filter((e) => e.status === "active").length;
 
   return (
     <div className="space-y-6">
+      <ExerciseProgressHero patientId={patientId} />
       <ActivityGateBanner />
-      {/* The page opens on what the person is doing, not on a quiz (design audit P4). */}
-      {/* This week's real progress, from the workouts logged on the Activity page (moderate-equivalent minutes; vigorous counts double).
-          Never shown while the safety gate says rest, so the page does not push a target at someone told to stop. A failed read is a retry line, never a zero. */}
-      {!resting && gate && (
-        weekly.isError ? (
-          <p className="rounded-2xl bg-white p-5 text-sm text-red-600 dark:bg-night-card dark:text-red-300">
-            We couldn&apos;t load this week&apos;s activity just now. Try again in a moment.
-          </p>
-        ) : (
-          <HeroMetric
-            label="Active this week"
-            value={weekly.isLoading ? null : Math.round(weekly.data ?? 0)}
-            unit={`of ${goalMinutes} minutes`}
-            caption={
-              (weekly.data ?? 0) === 0
-                ? "Nothing logged in the last 7 days. Any movement counts, and a short walk is a good start."
-                : "From the workouts you logged in the last 7 days."
-            }
-            meta={<Link href="/patient/activity" className="underline">Log a workout</Link>}
-            emptyText="Loading…"
-          />
-        )
-      )}
-      <HeroMetric
-        label="Active programmes"
-        value={enrollments.isLoading ? null : String(activeCount)}
-                caption={activeCount === 0 && !resting ? "Pick a beginner programme below to start. Walking and mobility need no screen." : undefined}
-        emptyText="Loading…"
-      />
+      <LogSessionCard patientId={patientId} enrollments={enrollments.data ?? []} />
+      <RecentSessions patientId={patientId} />
+      <ReadinessCard patientId={patientId} screen={screen.data} />
 
       {(enrollments.data?.length ?? 0) > 0 && (
         <Card>
@@ -99,9 +71,12 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
           </CardHeader>
           <CardContent className="space-y-2">
             {(enrollments.data ?? []).map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{e.programme?.title}</p>
-                <Badge variant={e.status === "active" ? "green" : "grey"}>{e.status}</Badge>
+              <div key={e.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{e.programme?.title}</p>
+                  <Badge variant={e.status === "active" ? "green" : "grey"}>{e.status}</Badge>
+                </div>
+                <EnrolmentProgress enrollment={e} sessions={sessions.data ?? []} />
               </div>
             ))}
           </CardContent>
