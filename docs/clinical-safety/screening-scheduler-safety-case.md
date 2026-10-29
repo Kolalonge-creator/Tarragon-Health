@@ -1,5 +1,7 @@
 # Screening scheduler and automatic test requests: clinical safety case and hazard log
 
+Status 2026-10-29: **v0.1 was accepted by the CMO, Dr Kola Longe, by instruction in a Claude Code chat, and the screening guards were switched on. The signature block below is still unsigned and v1.0 has not been issued.** The attestation recorded in `go_live_attestations` says exactly that. HZ-SCR-01 and HZ-SCR-03 remain open gaps; on the day of switch-on one real patient (no sex or date of birth on file) is skipped by the scheduler.
+
 Version: **v0.1 DRAFT. Prepared by the assistant on 2026-10-29 from the live function bodies and the signed rule set. Not reviewed by a clinical safety officer. It becomes v1.0 only when the Chief Medical Officer reads it, amends it and signs it.** Nothing here claims compliance with a standard. Severity and likelihood cells are left for the clinical owner.
 
 Guards this document supports: `screening_scheduler_enabled` and `screening_request_automation_enabled` (both read the attested condition `clinical_safety_case_current`; the second one also needs the first).
