@@ -7,7 +7,7 @@ import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
 import { EatingPlansCard, signedSwapMessage, useEatingGuidance } from "./eating-plans-card";
-import { swapsForFood } from "@tarragon/shared";
+import { defaultMealType, swapsForFood } from "@tarragon/shared";
 import {
   BarcodeEntry,
   DailyTargetsCard,
@@ -18,7 +18,7 @@ import {
   useNutritionGuidance,
 } from "./nutrition-foundation";
 import { MealPlanSection } from "./meal-plan-section";
-import { defaultMealType, mealPhotoProblem } from "@/lib/nutrition/photo-first";
+import { mealPhotoProblem } from "@/lib/nutrition/photo-first";
 import { useNutritionEntries, type NutritionEntry } from "@/lib/queries/nutrition";
 import { useFoodCatalogue } from "@/lib/queries/food-catalogue";
 import { MEAL_TYPES, MEAL_TYPE_LABELS } from "@/lib/validation/nutrition";

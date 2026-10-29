@@ -128,12 +128,10 @@ const DAY_CHOICES = [
 
 export function LogSessionCard({
   patientId,
-  organisationId,
   enrollments,
   onLogged,
 }: {
   patientId: string;
-  organisationId: string;
   enrollments: readonly ExerciseEnrollment[];
   onLogged: () => Promise<void>;
 }) {
@@ -149,14 +147,14 @@ export function LogSessionCard({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ symptom: boolean } | null>(null);
+  const [done, setDone] = useState<{ symptom: boolean; stillOnPhone: boolean } | null>(null);
 
   async function submit() {
     setError(null);
     setDone(null);
     const n = Number(minutes);
     setSaving(true);
-    const res = await logExerciseSession(patientId, organisationId, {
+    const res = await logExerciseSession(patientId, {
       performedOn: shiftDate(todayDateInput(), -back),
       minutes: n,
       kind,
@@ -170,7 +168,7 @@ export function LogSessionCard({
       setError(res.error);
       return;
     }
-    setDone({ symptom });
+    setDone({ symptom, stillOnPhone: !!res.stillOnPhone });
     setMinutes("");
     setEffort(null);
     setSymptom(false);
@@ -261,7 +259,10 @@ export function LogSessionCard({
           nearest hospital now. Even if it passes, mention it to your care team before your next session.
         </MutedText>
       ) : done ? (
-        <MutedText>Logged. Well done.</MutedText>
+        <MutedText>{done.stillOnPhone ? "Saved on your phone. It will send when you have signal." : "Logged. Well done."}</MutedText>
+      ) : null}
+      {done?.stillOnPhone && done.symptom ? (
+        <MutedText>Your care team is told once this has sent, so please connect soon.</MutedText>
       ) : null}
     </Card>
   );

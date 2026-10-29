@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { enqueue, flushOutbox, listOutbox, type ExerciseSessionPayload } from "./outbox";
+import { recordSyncError } from "./sync-diagnostics";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
 import { parseActivityGate, unavailableActivityGate, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
@@ -182,29 +184,39 @@ export interface LogSessionInput {
 }
 
 /**
- * A plain RLS-scoped insert, like the readiness screen. The date window, "that programme is yours" and the clinician alert for a Member who
- * reports a symptom are all database triggers (20261029204012, 20261029211315); the patient-readable trigger message comes back as error.
+ * Saved on the phone first (the offline outbox), sent when there is signal. The outbox client id is the idempotency key
+ * (exercise_session_logs.client_id), so a resend after a lost reply is a duplicate, not a second session. The date window, "that programme is
+ * yours" and the clinician alert for a Member who reports a symptom are database triggers (20261029204012, 20261029211315) that run when the row
+ * lands; a refusal is held for the person by the outbox, never dropped. A session that reports a symptom is marked danger, so if it has not
+ * reached the server within the hour the person is told, because the care team only hears about it once it is sent.
  */
-export async function logExerciseSession(
-  patientId: string,
-  organisationId: string,
-  input: LogSessionInput
-): Promise<{ error?: string }> {
+export async function logExerciseSession(patientId: string, input: LogSessionInput): Promise<{ error?: string; stillOnPhone?: boolean }> {
   if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 600) {
     return { error: "Enter between 1 and 600 minutes." };
   }
-  const { error } = await supabase.from("exercise_session_logs").insert({
-    organisation_id: organisationId,
-    patient_id: patientId,
-    enrollment_id: input.enrollmentId,
+  const payload: ExerciseSessionPayload = {
     performed_on: input.performedOn,
     duration_minutes: input.minutes,
     kind: input.kind,
     effort: input.effort,
     symptom_during: input.symptomDuring,
+    enrollment_id: input.enrollmentId,
     note: input.note.trim() ? input.note.trim().slice(0, 300) : null,
-  });
-  return error ? { error: error.message } : {};
+  };
+  let clientId: string;
+  try {
+    clientId = (await enqueue({ kind: "exercise_session", subjectId: patientId, payload, danger: input.symptomDuring })).clientId;
+  } catch {
+    return { error: "We could not save that on your phone. Please try again." };
+  }
+  // Give the send a short chance to land so the list is fresh when the screen reloads; a slow or missing signal never holds the person up.
+  const flush = flushOutbox().catch((error) => recordSyncError("offline_outbox", "flushAfterExerciseSession", error));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([flush, new Promise<void>((resolve) => { timer = setTimeout(resolve, 3000); })]);
+  clearTimeout(timer);
+  // Still waiting in the outbox (no signal yet)? Say so, rather than telling the person it is logged.
+  const stillOnPhone = (await listOutbox().catch(() => [])).some((item) => item.clientId === clientId);
+  return { stillOnPhone };
 }
 
 export async function deleteExerciseSession(patientId: string, id: string): Promise<{ error?: string }> {
