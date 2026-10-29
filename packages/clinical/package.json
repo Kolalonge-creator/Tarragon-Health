@@ -21,6 +21,7 @@
     "./today": "./src/today.ts",
     "./activity-readiness": "./src/activity-readiness.ts",
     "./workout-plans": "./src/workout-plans.ts",
+    "./exercise-progress": "./src/exercise-progress.ts",
     "./omission-check": "./src/omission-check.ts",
     "./text-match": "./src/text-match.ts"
   },

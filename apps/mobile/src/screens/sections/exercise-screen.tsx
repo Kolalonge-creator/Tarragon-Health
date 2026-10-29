@@ -7,6 +7,8 @@ import {
   loadExerciseProgrammes,
   loadLatestReadinessScreen,
   loadExerciseEnrollments,
+  loadExerciseSessions,
+  type ExerciseSessionLog,
   loadActivityGate,
   loadWorkoutPlans,
   type WorkoutPlan,
@@ -23,6 +25,7 @@ import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/ac
 import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
 import { usePatientAge } from "@/lib/use-patient-age";
 import { ActivityGateCard } from "@/screens/sections/movement-extras";
+import { EnrolmentProgress, ExerciseProgressHero, LogSessionCard, RecentSessions } from "@/screens/sections/exercise-sessions";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
@@ -64,6 +67,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [programmes, setProgrammes] = useState<ExerciseProgramme[]>([]);
   const [screen, setScreen] = useState<ExerciseReadinessScreen | null>(null);
   const [enrollments, setEnrollments] = useState<ExerciseEnrollment[]>([]);
+  const [sessions, setSessions] = useState<ExerciseSessionLog[]>([]);
   // null until the gate has answered; nothing is offered before then. An unreadable answer is the fail-closed one, never a permissive guess.
   const [gate, setGate] = useState<{ gate: ActivityGateResult; unavailable: boolean } | null>(null);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
@@ -79,18 +83,20 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [justEnrolled, setJustEnrolled] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult] = await Promise.all([
+    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult, sessionsResult] = await Promise.all([
       loadExerciseProgrammes(),
       loadLatestReadinessScreen(patientId),
       loadExerciseEnrollments(patientId),
       loadActivityGate(),
       loadWorkoutPlans(),
+      loadExerciseSessions(patientId),
     ]);
     setGate(gateResult);
     setPlans(planResult);
     if (programmesResult.ok) setProgrammes(programmesResult.data);
     if (screenResult.ok) setScreen(screenResult.data);
     if (enrollmentsResult.ok) setEnrollments(enrollmentsResult.data);
+    if (sessionsResult.ok) setSessions(sessionsResult.data);
     setLoading(false);
   }, [patientId]);
 
@@ -143,7 +149,10 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <ExerciseProgressHero sessions={sessions} />
       <ActivityGateCard gate={gate} />
+      <LogSessionCard patientId={patientId} organisationId={organisationId} enrollments={enrollments} onLogged={load} />
+      <RecentSessions patientId={patientId} sessions={sessions} onChanged={load} />
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>
@@ -224,9 +233,12 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
         <Card style={{ gap: 8 }}>
           <SectionLabel>Your programmes</SectionLabel>
           {enrollments.map((e) => (
-            <View key={e.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{e.programme?.title}</Text>
-              <Badge tone={e.status === "active" ? "brand" : "neutral"}>{e.status}</Badge>
+            <View key={e.id} style={{ paddingVertical: 4, gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{e.programme?.title}</Text>
+                <Badge tone={e.status === "active" ? "brand" : "neutral"}>{e.status}</Badge>
+              </View>
+              <EnrolmentProgress enrollment={e} sessions={sessions} />
             </View>
           ))}
         </Card>

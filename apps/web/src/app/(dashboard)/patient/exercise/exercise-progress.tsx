@@ -12,7 +12,7 @@ import {
   programmeProgress,
   weekTotals,
   weeksInARow,
-} from "@/lib/exercise/progress";
+} from "@tarragon/clinical/exercise-progress";
 import {
   EXERCISE_EFFORTS,
   EXERCISE_EFFORT_LABELS,

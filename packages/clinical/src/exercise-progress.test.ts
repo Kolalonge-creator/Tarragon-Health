@@ -1,10 +1,11 @@
+import { describe, expect, it } from "@jest/globals";
 import {
   dailyBars,
   programmeProgress,
   weekTotals,
   weeksInARow,
   type SessionLike,
-} from "./progress";
+} from "./exercise-progress";
 
 const s = (
   performed_on: string,
