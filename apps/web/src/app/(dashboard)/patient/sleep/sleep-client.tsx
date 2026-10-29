@@ -16,6 +16,7 @@ import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 import { useT } from "@/components/ui-language-provider";
 import { t as tx } from "@tarragon/i18n";
 import { SleepExtras } from "./sleep-extras";
+import { SleepWeek } from "./sleep-week";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "sleep-goal";
@@ -69,6 +70,13 @@ export function SleepClient({ patientId }: { patientId: string }) {
         )}
         {goalLine && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{goalLine}</p>}
       </div>
+
+      {/* Seven real nights; a night not logged stays an empty slot. */}
+      <SleepWeek
+        entries={entries.data ?? []}
+        today={new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" })}
+        goalHours={g?.target_duration_hours ?? null}
+      />
 
       <SleepExtras patientId={patientId} bedtimeGoal={goal.data?.target_bedtime ?? null} />
 
