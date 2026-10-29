@@ -229,11 +229,11 @@ Not adopted: serif headlines (brand fixes Sora/Inter), streak penalties, gamifie
 6. **Done on web Vitals** (founder chose "move below the data"): offers now sit under the trend and weekly cards. Home already places its promo after the clinical snapshot.
 
 **P1 - shared foundations (before any redesign)**
-7. **Done**: `apps/mobile/src/ui/design/web-parity.test.ts`. It caught a real drift (mobile canvas `#FAF7F2` vs brand Warm Ivory `#FAF7F0`), now fixed.
-8. **Mostly already true**: 88 of 110 pages use `PageHeader` and the `(sections)` pages use `DashboardSection`. The last bare `<h1>`s (yearly report, caregiver reports) now use it. Remaining pages without one are print views and client-rendered hubs (lifestyle, sexual health, pharmacy collect); the repeated greeting (S2) comes from the section layout and is a P2 item.
-9. **Done**: `HeroMetric`, `EmptyState`, `ListItem`, `Sheet` added to `packages/ui` (status chip = `Badge`, skeleton = `Skeleton` already existed). Not yet adopted by pages; adoption happens in P2.
-10. **Deferred to P5**: only Community is gated in the nav today (already handled via `communityOpen`); the other gated pages are reached from hubs and each uses a different mechanism (flags, regions, go-live guards). A nav helper would have no consumers; the real fix is the per-page hide/waitlist/fold decision.
-11. **Done** (founder chose the floating button): one fixed "Get emergency guidance" button opens the signed checklist in a sheet; no more red card at the top of 15+ pages. Sheet sits below the EmergencyAlert layer (tested).
+7. Token parity test between `packages/ui/src/tokens.ts` and mobile `ui/design/tokens.ts`.
+8. One page-header component on web (title, back, subtitle) and apply to all 110 pages; fixes S2.
+9. Hero metric, status chip, empty-state, list item, sheet and skeleton components on web, matching the mobile kit.
+10. Feature-flag-aware navigation and page gating (S3): one helper that hides a page when its guard is off, used by both apps.
+11. One emergency control component, replacing the 15+ banners (S1).
 
 **P2 - flagship screens on both surfaces together (Home, Vitals, Medications, Messages, Auth)**
 12. Home, Vitals, Medications, Messages, Sign-in/Signup rebuilt to the spec, web catching up to mobile on Vitals and Home, mobile catching up to web on auth warmth and brand.

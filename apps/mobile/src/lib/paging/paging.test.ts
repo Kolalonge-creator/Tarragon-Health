@@ -349,7 +349,7 @@ describe("guard rails", () => {
   it("the Android permission that lets the app appear in Do Not Disturb access is declared, and the runtime version moved", () => {
     const app = JSON.parse(readFileSync("app.json", "utf8")) as { expo: { runtimeVersion: string; android: { permissions: string[] } } };
     expect(app.expo.android.permissions).toContain("android.permission.ACCESS_NOTIFICATION_POLICY");
-    expect(app.expo.runtimeVersion).toBe("0.1.0-native8");
+    expect(app.expo.runtimeVersion).toBe("0.1.0-native9");
   });
   it("registration reports the alarm channel only for a clinician, and the critical-alert permission only behind the flag", () => {
     const src = readFileSync("src/lib/push-registration.ts", "utf8");
