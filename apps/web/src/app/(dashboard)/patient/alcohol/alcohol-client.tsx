@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAlcoholGoal, useAlcoholConsumptionLogs, drinksThisWeek } from "@/lib/queries/alcohol";
 import { setAlcoholGoalAction, logAlcoholConsumptionAction, type AlcoholActionState } from "./actions";
 import { ALCOHOL_CONTEXTS, ALCOHOL_CONTEXT_LABELS } from "@/lib/validation/alcohol";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { SheetButton } from "@/components/ui/sheet-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +26,32 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
   const logs = useAlcoholConsumptionLogs(patientId);
   const weekTotal = useMemo(() => drinksThisWeek(logs.data ?? []), [logs.data]);
 
+  const target = goal.data?.target_drinks_per_week ?? null;
+
   return (
     <div className="space-y-6">
-      <GoalCard patientId={patientId} goal={goal.data} isLoading={goal.isLoading} weekTotal={weekTotal} />
-      <LogCard patientId={patientId} />
+      {/* The page opens on this week's total; logging a drink and setting a goal are one tap away in sheets, not forms on the page
+          (design audit P4). */}
+      <HeroMetric
+        label={t("Weekly goal")}
+        value={logs.isLoading ? null : String(weekTotal)}
+        unit={weekTotal === 1 ? "drink this week" : "drinks this week"}
+        meta={target != null ? `${weekTotal} of a ${target} drinks/week goal so far this week` : undefined}
+        emptyText={t("Loading…")}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <SheetButton variant="default" label={t("Log today's drinks")}>
+          {(close) => <LogForm patientId={patientId} onDone={close} />}
+        </SheetButton>
+        {!goal.isLoading && (
+          <SheetButton label={goal.data ? t("Update") + " " + t("Weekly goal").toLowerCase() : t("Set a goal")} title={t("Weekly goal")}>
+            {(close) => <GoalForm patientId={patientId} goal={goal.data} onDone={close} />}
+          </SheetButton>
+        )}
+        {!goal.isLoading && !goal.data && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("No goal set yet. Set one whenever you're ready.")}</p>
+        )}
+      </div>
 
       <Card>
         <CardContent className="flex items-center justify-between gap-3 pt-6">
@@ -74,33 +98,23 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
   );
 }
 
-function GoalCard({
+function GoalForm({
   patientId,
   goal,
-  isLoading,
-  weekTotal,
+  onDone,
 }: {
   patientId: string;
   goal: ReturnType<typeof useAlcoholGoal>["data"];
-  isLoading: boolean;
-  weekTotal: number;
+  onDone: () => void;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  // Not seeded from `!goal` directly: `goal` is undefined before the query
-  // resolves (async), and useState's initializer only runs once -- seeding
-  // from it here would permanently show the edit form on every fresh load,
-  // even for a patient who already has a saved goal. Wait for the query to
-  // settle before deciding there's nothing to edit (same fix as
-  // weight-client.tsx's WeightGoalSection).
-  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
-  const editing = editingOverride ?? (!isLoading && !goal);
   const [state, formAction, pending] = useActionState<AlcoholActionState, FormData>(
     async (prev, formData) => {
       const result = await setAlcoholGoalAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [GOAL_KEY, patientId] });
-        setEditingOverride(false);
+        onDone();
       }
       return result;
     },
@@ -108,47 +122,29 @@ function GoalCard({
   );
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>{t("Weekly goal")}</CardTitle>
-        <Button size="sm" variant="outline" onClick={() => setEditingOverride(!editing)}>
-          {editing ? t("Close") : goal ? t("Update") : t("Set a goal")}
+    <>
+      <form action={formAction} className="flex items-end gap-3">
+        <div className="grid gap-1">
+          <Label htmlFor="target_drinks_per_week">{t("Target drinks per week")}</Label>
+          <Input
+            id="target_drinks_per_week"
+            name="target_drinks_per_week"
+            type="number"
+            min={0}
+            defaultValue={goal?.target_drinks_per_week ?? undefined}
+            required
+          />
+        </div>
+        <Button type="submit" disabled={pending}>
+          {pending ? t("Saving…") : t("Save goal")}
         </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {goal?.target_drinks_per_week != null && (
-          <p className="text-sm text-charcoal-ink dark:text-night-ink">
-            {weekTotal} of a {goal.target_drinks_per_week} drinks/week goal so far this week
-          </p>
-        )}
-        {!goal && !editing && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("No goal set yet. Set one whenever you're ready.")}</p>
-        )}
-        {editing && (
-          <form action={formAction} className="flex items-end gap-3">
-            <div className="grid gap-1">
-              <Label htmlFor="target_drinks_per_week">{t("Target drinks per week")}</Label>
-              <Input
-                id="target_drinks_per_week"
-                name="target_drinks_per_week"
-                type="number"
-                min={0}
-                defaultValue={goal?.target_drinks_per_week ?? undefined}
-                required
-              />
-            </div>
-            <Button type="submit" disabled={pending}>
-              {pending ? t("Saving…") : t("Save goal")}
-            </Button>
-          </form>
-        )}
-        {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
-      </CardContent>
-    </Card>
+      </form>
+      {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
+    </>
   );
 }
 
-function LogCard({ patientId }: { patientId: string }) {
+function LogForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<AlcoholActionState, FormData>(
@@ -156,6 +152,7 @@ function LogCard({ patientId }: { patientId: string }) {
       const result = await logAlcoholConsumptionAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [LOGS_KEY, patientId] });
+        onDone();
       }
       return result;
     },
@@ -163,11 +160,7 @@ function LogCard({ patientId }: { patientId: string }) {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("Log today's drinks")}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <>
         <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
           <div className="grid gap-1">
             <Label htmlFor="drinks_count">{t("Standard drinks")}</Label>
@@ -189,8 +182,6 @@ function LogCard({ patientId }: { patientId: string }) {
           </Button>
         </form>
         {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">{t("Logged.")}</p>}
-      </CardContent>
-    </Card>
+    </>
   );
 }

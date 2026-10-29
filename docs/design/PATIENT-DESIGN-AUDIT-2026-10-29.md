@@ -261,6 +261,7 @@ P3 status: all pages on the list now have a first pass on web. Not yet touched: 
    - Measuring note: heights below about 2,000px at phone width are bounded by the app shell's `min-h-screen` in the emulated viewport, so treat them as upper bounds. Re-measure on the demo account after deploy.
 
 **P4 - the tracker family (Weight, Sleep, Alcohol, Smoking, Nutrition, Fasting, Exercise, Activity)** as one Metric template.
+   - **P4 status (web): Weight, Sleep, Alcohol and Smoking done, not seen in a browser.** One template: a hero number first (current weight; last night's hours; drinks this week; smoke-free streak), the trend or history after, and the input forms (log, goal, smoking status, daily check-in) behind buttons that open a sheet. No form is open first any more, including when there is no goal yet. New shared `SheetButton` in `packages/ui`. Existing behaviour kept: the smoking status form still mounts only when opened, so the old stale-status bug cannot return (its test still passes). Activity and Nutrition were rated KEEP in the register and were not changed. NOT done: Fasting timer, Exercise progress, Nutrition photo-first logging (new features, need a decision), and Sleep 7-day bars (not built).
 
 **P5 - gated and empty pages (34 short pages):** decide per page: hide, waitlist, or fold into a hub. Re-capture after go-live flags are set in the environment being reviewed.
 

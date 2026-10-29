@@ -16,12 +16,13 @@ import {
   SMOKING_TRIGGER_LABELS,
 } from "@/lib/validation/smoking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { SheetButton } from "@/components/ui/sheet-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
-import { SEMANTIC_ICON } from "@/lib/icons";
 import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -38,28 +39,25 @@ export function SmokingClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* The page opens on the smoke-free streak (when there is one to show); the status form and the daily check-in are one tap away in
+          sheets instead of forms on the page (design audit P4). */}
+      {(status === "current" || status === "former") && (
+        <HeroMetric
+          label={t("Smoke-free")}
+          value={checkIns.isLoading ? null : streak > 0 ? String(streak) : null}
+          unit={streak === 1 ? "day in a row" : "days in a row"}
+          emptyText={checkIns.isLoading ? t("Loading…") : t("Log a check-in to start your streak.")}
+        />
+      )}
+
       <ProfileCard patientId={patientId} profile={profile.data} isLoading={profile.isLoading} />
 
       {status === "current" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t("Today's check-in")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CheckInForm patientId={patientId} />
-          </CardContent>
-        </Card>
-      )}
-
-      {(status === "current" || status === "former") && streak > 0 && (
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <SEMANTIC_ICON.smoking className="h-6 w-6 text-brand-green dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
-            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-              {streak} smoke-free day{streak === 1 ? "" : "s"} in a row
-            </p>
-          </CardContent>
-        </Card>
+        <div>
+          <SheetButton variant="default" label={t("Today's check-in")}>
+            {(close) => <CheckInForm patientId={patientId} onDone={close} />}
+          </SheetButton>
+        </div>
       )}
 
       <Card>
@@ -121,6 +119,100 @@ export function SmokingClient({ patientId }: { patientId: string }) {
   );
 }
 
+function ProfileForm({
+  patientId,
+  profile,
+  onDone,
+}: {
+  patientId: string;
+  profile: ReturnType<typeof useSmokingProfile>["data"];
+  onDone: () => void;
+}) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  // Derived from `profile` every render and only overridden once the patient picks something in this edit session: a useState
+  // initialiser seeded from an async query froze on "never" and could silently overwrite a saved "current"/"former" status
+  // (the 2026-09-24 audit bug). This form mounts when the sheet opens, by which time the profile has loaded.
+  const [statusOverride, setStatusOverride] = useState<(typeof SMOKING_STATUSES)[number] | null>(null);
+  const status = statusOverride ?? profile?.status ?? "never";
+
+  const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
+    async (prev, formData) => {
+      const result = await setSmokingProfileAction(prev, formData);
+      if (result?.success) {
+        queryClient.invalidateQueries({ queryKey: [PROFILE_KEY, patientId] });
+        onDone();
+      }
+      return result;
+    },
+    undefined,
+  );
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <div className="grid gap-1">
+        <Label htmlFor="status">{t("Status")}</Label>
+        <Select
+          id="status"
+          name="status"
+          defaultValue={status}
+          onChange={(e) => setStatusOverride(e.target.value as typeof status)}
+        >
+          {SMOKING_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {SMOKING_STATUS_LABELS[s]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {status === "current" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1">
+            <Label htmlFor="cigarettes_per_day">{t("Cigarettes per day")}</Label>
+            <Input
+              id="cigarettes_per_day"
+              name="cigarettes_per_day"
+              type="number"
+              min={0}
+              defaultValue={profile?.cigarettes_per_day ?? undefined}
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="years_smoking">{t("Years smoking")}</Label>
+            <Input
+              id="years_smoking"
+              name="years_smoking"
+              type="number"
+              min={0}
+              step={0.5}
+              defaultValue={profile?.years_smoking ?? undefined}
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="quit_motivation">{t("Quit motivation (0-10)")}</Label>
+            <Input
+              id="quit_motivation"
+              name="quit_motivation"
+              type="number"
+              min={0}
+              max={10}
+              defaultValue={profile?.quit_motivation ?? undefined}
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="quit_date">{t("Target quit date")}</Label>
+            <Input id="quit_date" name="quit_date" type="date" defaultValue={profile?.quit_date ?? undefined} />
+          </div>
+        </div>
+      )}
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
+      <Button type="submit" disabled={pending}>
+        {pending ? t("Saving…") : t("Save")}
+      </Button>
+    </form>
+  );
+}
+
 // Exported for testing only (smoking-client.test.tsx) — every other
 // consumer should still go through SmokingClient.
 export function ProfileCard({
@@ -133,151 +225,30 @@ export function ProfileCard({
   isLoading: boolean;
 }) {
   const t = useT();
-  const queryClient = useQueryClient();
-  // Not seeded from `!profile` directly: `profile` is undefined before the
-  // query resolves (async), and useState's initializer only runs once --
-  // seeding from it here would permanently show the edit form on every fresh
-  // load, even for a patient who already has a saved profile. Wait for the
-  // query to settle before deciding there's nothing to edit (same fix as
-  // weight-client.tsx's WeightGoalSection).
-  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
-  const editing = editingOverride ?? (!isLoading && !profile);
-  // Same async-seeding trap as `editing` above, one component-instance level
-  // deeper: ProfileCard never unmounts across the loading -> loaded
-  // transition, so a useState(profile?.status ?? "never") initializer here
-  // would freeze on whatever `profile` was (usually undefined) at the very
-  // first render and never notice the real value arriving later. That left
-  // the edit form's Status dropdown defaulting to "never" for a returning
-  // "current"/"former" smoker who clicks Update, hiding the fields that
-  // status implies and silently overwriting their saved status back to
-  // "never" if they saved without touching the dropdown. Derived fresh from
-  // `profile` every render instead, only overridden once the patient
-  // actually picks something in this edit session.
-  const [statusOverride, setStatusOverride] = useState<(typeof SMOKING_STATUSES)[number] | null>(null);
-  const status = statusOverride ?? profile?.status ?? "never";
-
-  const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
-    async (prev, formData) => {
-      const result = await setSmokingProfileAction(prev, formData);
-      if (result?.success) {
-        queryClient.invalidateQueries({ queryKey: [PROFILE_KEY, patientId] });
-        setEditingOverride(false);
-        setStatusOverride(null);
-      }
-      return result;
-    },
-    undefined,
-  );
-
-  if (!editing && profile) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>{SMOKING_STATUS_LABELS[profile.status]}</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setEditingOverride(true)}>
-            {t("Update")}
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          {profile.status === "current" && profile.cigarettes_per_day != null && (
-            <p>{profile.cigarettes_per_day} cigarettes/day</p>
-          )}
-          {profile.quit_date && <p>Quit date: {formatPatientDate(profile.quit_date)}</p>}
-          {profile.quit_motivation != null && <p>Quit motivation: {profile.quit_motivation}/10</p>}
-        </CardContent>
-      </Card>
-    );
-  }
-
+  // The status form lives in a sheet (design audit P4): with no profile yet the card is a calm prompt, not an open form.
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t("Your smoking status")}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle>{profile ? SMOKING_STATUS_LABELS[profile.status] : t("Your smoking status")}</CardTitle>
+        {!isLoading && (
+          <SheetButton size="sm" label={profile ? t("Update") : t("Set your status")} title={t("Your smoking status")}>
+            {(close) => <ProfileForm patientId={patientId} profile={profile} onDone={close} />}
+          </SheetButton>
+        )}
       </CardHeader>
-      <CardContent>
-        <form action={formAction} className="space-y-3">
-          <div className="grid gap-1">
-            <Label htmlFor="status">{t("Status")}</Label>
-            <Select
-              id="status"
-              name="status"
-              defaultValue={status}
-              onChange={(e) => setStatusOverride(e.target.value as typeof status)}
-            >
-              {SMOKING_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {SMOKING_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          {status === "current" && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1">
-                <Label htmlFor="cigarettes_per_day">{t("Cigarettes per day")}</Label>
-                <Input
-                  id="cigarettes_per_day"
-                  name="cigarettes_per_day"
-                  type="number"
-                  min={0}
-                  defaultValue={profile?.cigarettes_per_day ?? undefined}
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="years_smoking">{t("Years smoking")}</Label>
-                <Input
-                  id="years_smoking"
-                  name="years_smoking"
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  defaultValue={profile?.years_smoking ?? undefined}
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="quit_motivation">
-                  {t("Quit motivation (0-10)")}
-                </Label>
-                <Input
-                  id="quit_motivation"
-                  name="quit_motivation"
-                  type="number"
-                  min={0}
-                  max={10}
-                  defaultValue={profile?.quit_motivation ?? undefined}
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="quit_date">{t("Target quit date")}</Label>
-                <Input id="quit_date" name="quit_date" type="date" defaultValue={profile?.quit_date ?? undefined} />
-              </div>
-            </div>
-          )}
-          {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
-          <div className="flex gap-2">
-            <Button type="submit" disabled={pending}>
-              {pending ? t("Saving…") : t("Save")}
-            </Button>
-            {profile && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditingOverride(false);
-                  setStatusOverride(null);
-                }}
-              >
-                {t("Cancel")}
-              </Button>
-            )}
-          </div>
-        </form>
+      <CardContent className="space-y-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+        {!profile && <p>{isLoading ? t("Loading…") : t("Tell us where you are with smoking and we will show what helps.")}</p>}
+        {profile?.status === "current" && profile.cigarettes_per_day != null && (
+          <p>{profile.cigarettes_per_day} cigarettes/day</p>
+        )}
+        {profile?.quit_date && <p>Quit date: {formatPatientDate(profile.quit_date)}</p>}
+        {profile?.quit_motivation != null && <p>Quit motivation: {profile.quit_motivation}/10</p>}
       </CardContent>
     </Card>
   );
 }
 
-function CheckInForm({ patientId }: { patientId: string }) {
+function CheckInForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<SmokingActionState, FormData>(
@@ -285,6 +256,7 @@ function CheckInForm({ patientId }: { patientId: string }) {
       const result = await logSmokingCheckInAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [CHECKINS_KEY, patientId] });
+        onDone();
       }
       return result;
     },

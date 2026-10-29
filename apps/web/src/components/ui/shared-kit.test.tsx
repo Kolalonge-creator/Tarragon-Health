@@ -7,6 +7,7 @@ import { HeroMetric } from "./hero-metric";
 import { EmptyState } from "./empty-state";
 import { ListItem } from "./list-item";
 import { Sheet } from "./sheet";
+import { SheetButton } from "./sheet-button";
 
 describe("HeroMetric", () => {
   it("shows the number, unit, a worded status chip and the sentence", () => {
@@ -74,5 +75,20 @@ describe("Sheet focus", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(document.activeElement).toBe(opener);
+  });
+});
+
+describe("SheetButton", () => {
+  it("opens its content in a sheet and lets the content close it", () => {
+    render(
+      <SheetButton label="Log a reading">
+        {(close) => <button onClick={close}>Save it</button>}
+      </SheetButton>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Log a reading" }));
+    expect(screen.getByRole("dialog", { name: "Log a reading" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save it" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
