@@ -137,6 +137,13 @@ begin
     (select is_on::text || '|' || coalesce(held_reason, 'null') from public.go_live_guards where key = v_feature) || '|' || private.go_live_guard_on(v_feature)::text);
   perform pg_temp.rec('both switches were logged with the actor''s role', 'admin:switched_on,cmo:switched_off',
     (select string_agg(actor_role || ':' || action, ',' order by id) from public.go_live_guard_log where guard_key = v_feature));
+  perform pg_temp.rec('holding it again with a NEW reason updates the reason (logged)', 'ok',
+    pg_temp.sql_as(v_admin, format('select public.set_go_live_guard(%L, false, %L)', v_feature, 'G-01 proof: a newer reason replaces the old one')));
+  perform pg_temp.rec('...the row and the log carry the newer reason', 'G-01 proof: a newer reason replaces the old one|3',
+    (select held_reason from public.go_live_guards where key = v_feature) || '|' || (select count(*)::text from public.go_live_guard_log where guard_key = v_feature));
+  perform pg_temp.rec('holding it again with the SAME reason is accepted', 'ok',
+    pg_temp.sql_as(v_admin, format('select public.set_go_live_guard(%L, false, %L)', v_feature, 'G-01 proof: a newer reason replaces the old one')));
+  perform pg_temp.rec('...and changes nothing (no new log row)', '3', (select count(*)::text from public.go_live_guard_log where guard_key = v_feature));
   -- (two statements on purpose: an uncorrelated scalar subquery is an InitPlan and would be read BEFORE the switch in the same expression)
   perform pg_temp.rec('the CMO opens it again', 'ok', pg_temp.sql_as(v_cmo, format('select public.set_go_live_guard(%L, true, %L)', v_feature, 'G-01 proof: open again')));
   perform pg_temp.rec('...which clears the hold', 'null', (select coalesce(held_reason, 'null') from public.go_live_guards where key = v_feature));

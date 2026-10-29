@@ -6,7 +6,6 @@ import {
   groupGuards,
   guardHasDrifted,
   guardIsOpen,
-  isFeature,
   lagosToday,
   openRows,
   viewerMaySwitchOn,
@@ -219,8 +218,8 @@ function FeatureCard({ g, master, viewer, locale }: { g: GuardStatus; master: Gu
   );
 }
 
+/** One MASTER switch: its conditions, its role, its switch. Features render through FeatureCard (GuardSections routes them). */
 function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | null; locale: Locale }) {
-  if (isFeature(g)) return <FeatureCard g={g} master={null} viewer={viewer} locale={locale} />;
   const mayOn = viewer !== null && viewerMaySwitchOn(g, viewer);
   const drift = guardHasDrifted(g);
   return (

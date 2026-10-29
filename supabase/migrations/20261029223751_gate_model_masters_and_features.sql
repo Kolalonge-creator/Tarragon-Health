@@ -130,10 +130,18 @@ begin
   select * into g from public.go_live_guards where key = p_key for update;
   if g.key is null then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
   if p_on is null then raise exception 'say whether to switch it on or off' using errcode = '22023'; end if;
+  v_feature := g.kind = 'feature';
   if g.is_on = p_on then
+    -- G-01: holding an already-held feature with a NEW reason updates the reason (logged), so the go-live page never keeps a stale sentence
+    if v_feature and not p_on and length(btrim(coalesce(p_note, ''))) >= 20 and btrim(p_note) is distinct from g.held_reason then
+      insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+      values (p_key, 'switched_off', v_uid, case when private.is_admin() then 'admin' else 'cmo' end, btrim(p_note), '[]'::jsonb);
+      update public.go_live_guards set held_reason = btrim(p_note) where key = p_key;
+      perform private.log_audit('go_live_guard.hold_reason_updated', 'go_live_guard', null, jsonb_build_object('key', p_key));
+      return jsonb_build_object('ok', true, 'key', g.key, 'is_on', false, 'changed', true, 'kind', g.kind, 'reason_updated', true);
+    end if;
     return jsonb_build_object('ok', true, 'key', g.key, 'is_on', g.is_on, 'changed', false);
   end if;
-  v_feature := g.kind = 'feature';
   -- a person who is both the admin and the CMO acts in the role the guard names, so the permanent record is not mislabelled
   v_role := case when g.switch_role = 'cmo' and private.credential_is_cmo() then 'cmo' when private.is_admin() then 'admin' else 'cmo' end;
   v_conditions := private.go_live_conditions_safe(p_key, private.caller_org());

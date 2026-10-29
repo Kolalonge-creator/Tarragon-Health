@@ -33,6 +33,7 @@ import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { OWED_ITEM_PREFIX, readPendingOwedSignoffs } from "@/lib/queries/pending-owed-signoffs";
+import { TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -63,29 +64,6 @@ export type CmoSigningHub = {
   operational: SignoffQueueItem[];
 };
 
-/**
- * G-01: the clinical protocols the Chief Medical Officer signs (the "patient-harm list", DECISIONS G-01): triage rules, glucose, vitals
- * and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health
- * follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed.
- * Everything else the hub reads is an operational setting (see `CmoSigningHub.operational`). A new hub line must be placed in one of
- * the two lists on purpose: cmo-signing-hub.test.ts checks every known key lands somewhere.
- */
-const CLINICAL_TABLES = new Set([
-  "alert_rules", "escalation_slas", "triage_protocols", "mental_health_screening_cadences", "cv_risk_config", "risk_questionnaire_configs",
-  "vaccination_schedule_signoffs", "lab_panel_signoffs", "prn_limit_rules", "medicine_interaction_rule_sets", "home_bp_programme_signoffs",
-  "cuff_check_rules", "lowcarb_protocol_config", "activity_safety_config", "fasting_safety_config", "serology_rule_versions", "result_release_policies",
-]);
-const CLINICAL_ITEM_KEYS = new Set<string>([
-  "protocol_drafts", "clinical_rules", "ai_governance", "community", "threshold_override_policy", "red_outreach",
-  GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
-  "reliable_change_config", "baseline_labs_rule", "triage_rule_set_draft", "result_release_policies",
-]);
-export function isClinicalSignoff(key: string): boolean {
-  if (key.startsWith(OWED_ITEM_PREFIX)) return true;
-  const table = key.startsWith("versioned:") ? key.slice("versioned:".length) : key.startsWith("versioned_draft:") ? key.slice("versioned_draft:".length) : null;
-  if (table !== null) return CLINICAL_TABLES.has(table);
-  return CLINICAL_ITEM_KEYS.has(key);
-}
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
 export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
@@ -137,6 +115,30 @@ export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 /** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
+
+/**
+ * G-01: the clinical protocols the Chief Medical Officer signs (the "patient-harm list", DECISIONS G-01): triage rules, glucose, vitals
+ * and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health
+ * follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed.
+ * Everything else the hub reads is an operational setting (see `CmoSigningHub.operational`). A new hub line must be placed in one of
+ * the two lists on purpose: cmo-signing-hub.test.ts checks the known keys land where they should.
+ */
+const CLINICAL_TABLES = new Set([
+  "alert_rules", "escalation_slas", "triage_protocols", "mental_health_screening_cadences", "cv_risk_config", "risk_questionnaire_configs",
+  "vaccination_schedule_signoffs", "lab_panel_signoffs", "prn_limit_rules", "medicine_interaction_rule_sets", "home_bp_programme_signoffs",
+  "cuff_check_rules", "lowcarb_protocol_config", "activity_safety_config", "fasting_safety_config", "serology_rule_versions", "result_release_policies",
+]);
+const CLINICAL_ITEM_KEYS = new Set<string>([
+  PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
+  GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
+  RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies",
+]);
+export function isClinicalSignoff(key: string): boolean {
+  if (key.startsWith(OWED_ITEM_PREFIX)) return true;
+  const table = key.startsWith("versioned:") ? key.slice("versioned:".length) : key.startsWith("versioned_draft:") ? key.slice("versioned_draft:".length) : null;
+  if (table !== null) return CLINICAL_TABLES.has(table);
+  return CLINICAL_ITEM_KEYS.has(key);
+}
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.

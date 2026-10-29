@@ -65,8 +65,11 @@ export function SignoffQueueList({
    * "here's the thing to sign" are the same click, not two.
    */
   inlinePanels?: Partial<Record<string, ReactNode>>;
-  /** "live": signed items that only offer a switch. Drops the "Needs your signature" header and the unsigned badge. */
-  variant?: "needs_signature" | "live";
+  /**
+   * "live": signed items that only offer a switch. Drops the "Needs your signature" header and the unsigned badge.
+   * "operational" (G-01): settings, not clinical protocols; no signature is owed, so no header, and a neutral badge instead of "Ready to sign".
+   */
+  variant?: "needs_signature" | "live" | "operational";
 }) {
   if (items.length === 0) {
     return (
@@ -84,13 +87,18 @@ export function SignoffQueueList({
   }
 
   const isLive = variant === "live";
+  const isOperational = variant === "operational";
   const liveBadge = {
     variant: "green" as BadgeProps["variant"],
     label: "Signed, running",
   };
+  const operationalBadge = {
+    variant: "grey" as BadgeProps["variant"],
+    label: "Setting, no signature owed",
+  };
 
   const renderItem = (item: SignoffQueueItem) => {
-    const badge = isLive ? liveBadge : SEVERITY_BADGE[item.severity];
+    const badge = isLive ? liveBadge : isOperational ? operationalBadge : SEVERITY_BADGE[item.severity];
     const panel = inlinePanels[item.key];
 
     if (panel) {
@@ -110,7 +118,7 @@ export function SignoffQueueList({
             <span className="flex shrink-0 items-center gap-2">
               <Badge variant={badge.variant}>{badge.label}</Badge>
               <span className="text-xs font-medium text-brand-green group-open:hidden">
-                {isLive ? "Open ↓" : "Review & sign ↓"}
+                {isLive || isOperational ? "Open ↓" : "Review & sign ↓"}
               </span>
               <span className="hidden text-xs font-medium text-charcoal-ink/50 group-open:inline">
                 Collapse ↑
@@ -142,7 +150,7 @@ export function SignoffQueueList({
 
   return (
     <Card>
-      {!isLive && (
+      {!isLive && !isOperational && (
         <CardHeader>
           <CardTitle className="text-base">
             Needs your signature ({items.length})

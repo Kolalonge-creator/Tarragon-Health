@@ -410,8 +410,10 @@ export default async function ClinicianClinicalSignoffPage({
       {hub.items.length === 0 && (hub.failed || checklistFailed) ? null : hub.items.length === 0 ? (
         <Card className="border-brand-green/30 bg-brand-green/5">
           <CardContent className="pt-6 text-sm text-charcoal-ink/70">
-            Nothing is waiting on your signature. Every clinical rule, governed configuration, protocol,
-            AI system version, coaching content block and result release policy carries a signature.
+            Nothing is waiting on your signature. Every clinical protocol on the patient-harm list (triage rules,
+            thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules,
+            mental-health follow-up, fasting wording, AI system versions) carries a signature. Operational settings,
+            if any are waiting, are listed below and owe no signature.
           </CardContent>
         </Card>
       ) : (
@@ -429,7 +431,7 @@ export default async function ClinicianClinicalSignoffPage({
             protocol: it does not count above and it blocks nothing live. Set one when the feature that reads it needs it (decision G-01).
           </p>
           <div className="mt-4">
-            <SignoffQueueList items={hub.operational} inlinePanels={inlinePanels} variant="live" />
+            <SignoffQueueList items={hub.operational} inlinePanels={inlinePanels} variant="operational" />
           </div>
         </details>
       )}

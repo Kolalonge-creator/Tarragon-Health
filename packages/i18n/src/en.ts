@@ -2297,7 +2297,7 @@ export const en = {
   "golive.switch.confirm": "I have checked the conditions and I want this switched on.",
   "golive.readonly": "This is a read-only view. Only the founder or the Chief Medical Officer can switch a guard.",
   "golive.title": "Go-live guards",
-  "golive.intro": "A guard keeps a clinical feature switched off until its conditions are met. A guard can only be switched on here, which checks the conditions against real records and writes down who switched it on, when and why. Nobody can change a guard any other way.",
+  "golive.intro": "Nine master switches are the real decisions: each is switched on only here, by the role it names, once its conditions are met against real records, and it is written down who switched it on, when and why. Everything else is a feature: an admin or the Chief Medical Officer opens it with a note, no condition is checked, and it stays closed while its master is off. Nobody can change a switch any other way.",
   "golive.state.on": "On",
   "golive.state.off": "Off",
   "golive.drift": "This guard is on, but a condition is no longer met. Look at the list below and decide whether to switch it off.",
