@@ -881,6 +881,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "on_call_ops_desk_roster") {
     return { text: "Nobody reachable may be on call right now. Open the ops desk and phone the people on the call sheet", href: "/admin/ops/desk" };
   }
+  if (n.template === "on_call_ops_desk_dead_letter") {
+    // From private.ops_desk_assign (W-03): fixed neutral wording, nothing from the payload (INV-07). A person makes the calls.
+    return { text: "A priority case step failed. You are the ops contact: phone the clinician on call now", href: "/admin/ops/desk" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }

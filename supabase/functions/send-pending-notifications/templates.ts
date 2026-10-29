@@ -2040,6 +2040,20 @@ export const TEMPLATE_MAP: Record<
       text: "The system cannot find anyone reachable who is on call right now. No case is waiting on this alone.\n\nOpen the Ops desk page, phone the people on the call sheet, and check the rota.\n\nTarragon Health",
     },
   }),
+  on_call_ops_desk_dead_letter: () => ({
+    smsText: "A priority case step failed. Open the ops desk and phone the clinician on call. Tarragon Health",
+    pushUrl: "/admin/ops/desk",
+    email: {
+      subject: "A priority case step failed: please phone the clinician on call",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A step in the priority case chain failed and did not recover. A priority case may not have reached the clinician on call.</p>` +
+        `<p>Open the Ops desk page, phone the clinician on call and the chief medical officer, and record the calls.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A step in the priority case chain failed and did not recover. A priority case may not have reached the clinician on call.\n\nOpen the Ops desk page, phone the clinician on call and the chief medical officer, and record the calls.\n\nTarragon Health",
+    },
+  }),
   on_call_expired: () => ({
     smsText: "Nobody has answered a priority case. Phone the clinician on call now. Tarragon Health",
     pushUrl: "/rota",

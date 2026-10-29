@@ -22,7 +22,7 @@ function fakeAuth(users: Record<string, AuthEmailUser>) {
   return { calls, lookupFor };
 }
 
-const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired", "on_call_ops_desk", "on_call_ops_desk_uncovered", "on_call_ops_desk_roster"];
+const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired", "on_call_ops_desk", "on_call_ops_desk_uncovered", "on_call_ops_desk_roster", "on_call_ops_desk_dead_letter"];
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {

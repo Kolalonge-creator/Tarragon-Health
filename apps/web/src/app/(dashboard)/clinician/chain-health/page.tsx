@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { ChainHealthPanel } from "@/components/chain-health/chain-health-panel";
 import { parseChainHealth, parseReliability } from "@/lib/chain-health/model";
+import { parseRedLadder } from "@/lib/chain-health/red-ladder";
+import { RedLadderCard } from "@/components/chain-health/red-ladder-card";
 import { ProviderLayerCard } from "@/components/chain-health/provider-layer-card";
 import { loadProviderLayerHealth } from "@/lib/providers/load";
 
@@ -21,7 +23,13 @@ export default async function ClinicianChainHealthPage({ searchParams }: { searc
   if (profile.role !== "admin" && staff?.doctor_tier !== "chief_medical_officer") redirect("/clinician");
   const sp = await searchParams;
   const supabase = await createClient();
-  const [h, rel, providers] = await Promise.all([supabase.rpc("chain_health"), supabase.rpc("chain_reliability_report", { p_days: 30 }), loadProviderLayerHealth()]);
+  const [h, rel, providers, ladder] = await Promise.all([
+    supabase.rpc("chain_health"),
+    supabase.rpc("chain_reliability_report", { p_days: 30 }),
+    loadProviderLayerHealth(),
+    // not yet in the generated types until the W-03 migration is applied; parsed with zod, a failed read shows as "could not be read"
+    (supabase as unknown as { rpc: (fn: string) => Promise<{ data: unknown; error: unknown }> }).rpc("red_ladder_status"),
+  ]);
   const result = sp.r === "started" || sp.r === "wait" || sp.r === "failed" ? sp.r : null;
   return (
     <div className="space-y-6">
@@ -30,6 +38,7 @@ export default async function ClinicianChainHealthPage({ searchParams }: { searc
         description="Whether a reading becomes a grade, a task or a page, a neutral notice and an acknowledgement, and how long each step takes. Counts, seconds and stage names only: no patient appears here."
       />
       <ChainHealthPanel health={h.error ? null : parseChainHealth(h.data)} reliability={rel.error ? null : parseReliability(rel.data)} from="clinician" result={result} />
+      <RedLadderCard ladder={ladder.error ? null : parseRedLadder(ladder.data)} />
       <ProviderLayerCard health={providers} />
     </div>
   );
