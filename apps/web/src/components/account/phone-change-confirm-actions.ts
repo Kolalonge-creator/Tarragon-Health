@@ -8,6 +8,7 @@ import { authErrorKey } from "@tarragon/auth/auth-error-key";
 import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { e164FromAuthPhone, phoneChangeOptions } from "@/lib/account/phone-change-options";
+import { EMAIL_OTP_PATTERN, PHONE_OTP_PATTERN } from "@/lib/validation/otp";
 
 export type PhoneChangeConfirmState =
   | { error?: string; field?: string; step?: "code"; method?: "old_phone" | "email"; confirmed?: boolean; at?: number }
@@ -69,7 +70,7 @@ export async function confirmPhoneChangeIdentity(
   const token = String(formData.get("token") ?? "").replace(/\s/g, "");
   const user = await getCurrentUser();
   if (!user || !method) return { error: t("auth.error.sign_in_failed", locale) };
-  if (!/^\d{6}$/.test(token)) return { error: t("auth.error.wrong_code", locale), field: "token", step: "code", method };
+  if (!(method === "email" ? EMAIL_OTP_PATTERN : PHONE_OTP_PATTERN).test(token)) return { error: t("auth.error.wrong_code", locale), field: "token", step: "code", method };
 
   const options = phoneChangeOptions(user);
   if ((method === "old_phone" && !options.oldPhone) || (method === "email" && !options.email)) {

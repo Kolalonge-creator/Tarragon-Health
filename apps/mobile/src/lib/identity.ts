@@ -7,6 +7,11 @@ export interface PatientIdentity {
   initials: string;
   /** profiles.role. Only used to send a sponsor's own staff to their figures screen instead of the patient app (S38f). */
   role: string | null;
+  /** Sex and date of birth are mandatory for a patient; the app asks before it opens when either is missing (lib/demographics.ts). */
+  sex: string | null;
+  dateOfBirth: string | null;
+  receivesCare: boolean | null;
+  isDependent: boolean | null;
 }
 
 function initialsFrom(name: string): string {
@@ -21,7 +26,7 @@ function initialsFrom(name: string): string {
 export async function loadPatientIdentity(userId: string): Promise<PatientIdentity | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("full_name, patient_number, organisation_id, role")
+    .select("full_name, patient_number, organisation_id, role, sex, date_of_birth, receives_care, is_dependent_account")
     .eq("id", userId)
     .maybeSingle();
   if (!data?.full_name || !data.organisation_id) return null;
@@ -31,5 +36,9 @@ export async function loadPatientIdentity(userId: string): Promise<PatientIdenti
     organisationId: data.organisation_id,
     initials: initialsFrom(data.full_name),
     role: data.role ?? null,
+    sex: data.sex ?? null,
+    dateOfBirth: data.date_of_birth ?? null,
+    receivesCare: data.receives_care ?? null,
+    isDependent: data.is_dependent_account ?? null,
   };
 }

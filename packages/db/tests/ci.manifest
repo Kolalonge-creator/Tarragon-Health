@@ -907,6 +907,7 @@ s35_clinician_patient_summary.sql
 s35c_scribe_review_hash_and_quality.sql
 # S36a: admin patient search (OQ-04). Search returns minimal identity only (no full phone, no date of birth, no email column) with the phone masked; one audit row per search holds the query LENGTH and hit count, never the text; under 3 characters refused, LIKE wildcards literal, find by name, patient number, phone digits (0801 matches +234801) and exact email; only patients; opening a record needs a 10+ character reason (a refused open writes nothing), writes exactly one audit row carrying the reason, returns support facts only; clinician, patient and anon refused. Sabotage: the reason check removed, and the admin check removed on search; each must flip a check.
 s36a_admin_patient_search.sql
+admin_patient_directory.sql
 # S36b: go_live_guard_status is readable by a holder of ops.console.view (read-only dashboard for ops, spec 9.4); ops still cannot switch a guard on or off or attest a condition (42501), a plain clinician and a patient cannot read, revoking the permission closes the read. Sabotage: the permission clause removed; the ops read must flip.
 s36b_go_live_status_ops_read.sql
 # S36d: clinician roster (ops view, request and suspend; CMO-only competency grant and reinstatement decisions, never your own request) and the role-grants history (admin or users.permissions.grant only). Ops cannot reinstate, grant or decide directly; a plain clinician and a patient read neither the roster nor the history; no client write to the requests table. Sabotage: the history gate opened, and the CMO check removed from the decision door; each must flip a check.
@@ -1648,10 +1649,12 @@ w03_red_page_ladder.sql
 rls_shape_gate.sql
 # Care Coordinator phone booking: coordinator_find_patient (role gate, audit, fields), Free patient refused / Member held 24h, payment confirms with no session, unpaid release. Sabotage: tier check, payment trigger, coordinator role; all must flip.
 coordinator_phone_booking.sql
-# public_impact_metrics: anon reads published rows with no private.has_permission() call in its policy (the 2026-08-28 anon grant was revoked again by the 2026-08-29 resweep, so the policy is the fix). Simulated anon, non-admin and admin sessions; anon still lacks EXECUTE and cannot write. Sabotage: the old combined policy is restored and anon must fail with 42501 naming has_permission.
-public_impact_metrics_anon_select_without_has_permission.sql
 # marketing_resources_anon_select_without_is_admin.sql: anon read of marketing_resources used to fail 42501 (is_admin() in the shared policy); proves anon sees published rows only without an error, non-admin published only, admin all, anon still cannot execute is_admin() or write. Sabotage: the old combined policy is restored and anon's read must fail with 42501.
 marketing_resources_anon_select_without_is_admin.sql
+# Coordinator phone booking follow-ups: a Free patient with an unspent credit can be booked and the credit is spent; expired, redeemed and other-item credits do not count. Sabotage: credit check forced false and forced true must both flip.
+coordinator_phone_booking_followups.sql
+# public_impact_metrics: anon reads published rows with no private.has_permission() call in its policy (the 2026-08-28 anon grant was revoked again by the 2026-08-29 resweep, so the policy is the fix). Simulated anon, non-admin and admin sessions; anon still lacks EXECUTE and cannot write. Sabotage: the old combined policy is restored and anon must fail with 42501 naming has_permission.
+public_impact_metrics_anon_select_without_has_permission.sql
 # --- Repaired 2026-10-29 (preventive-pathway audit): fixtures rebuilt against the tied-staff access model, the v2 schedule_config CHECK and purged seed accounts ---
 breast_and_menopause_symptom_alerts.sql
 vaccination_declined_contraindicated_and_adverse_events.sql
@@ -1664,3 +1667,4 @@ screening_result_chase_task.sql
 on_call_cover_guard_cmo_switch.sql
 # P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
 exercise_session_logs.sql
+membership_start_routes_prior_uploads.sql

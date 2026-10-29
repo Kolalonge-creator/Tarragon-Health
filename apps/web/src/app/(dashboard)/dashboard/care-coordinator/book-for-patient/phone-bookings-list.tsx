@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
-import { retryConfirm } from "./actions";
+import { getPayLink, retryConfirm } from "./actions";
+import { PayLinkPanel } from "./pay-link-panel";
 
 type PhoneBooking = {
   id: string;
@@ -29,6 +30,8 @@ export function PhoneBookingsList() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [links, setLinks] = useState<Record<string, string>>({});
+  const [panelFor, setPanelFor] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: KEY,
@@ -61,6 +64,25 @@ export function PhoneBookingsList() {
     setBusyId(null);
     setMessage("error" in r ? r.error : r.status === "confirmed" ? "Confirmed." : "Still waiting for payment.");
     await queryClient.invalidateQueries({ queryKey: KEY });
+  }
+
+  async function showLink(id: string) {
+    setBusyId(id);
+    setMessage(null);
+    const r = await getPayLink(id);
+    setBusyId(null);
+    if ("error" in r) setMessage(r.error);
+    else if ("none" in r) setPanelFor(id);
+    else setLinks((prev) => ({ ...prev, [id]: r.checkoutUrl }));
+  }
+
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setMessage("Link copied.");
+    } catch {
+      setMessage("Could not copy. Select the link and copy it by hand.");
+    }
   }
 
   if (isLoading) return null;
@@ -108,15 +130,37 @@ export function PhoneBookingsList() {
                       : failed
                         ? `Payment received but the booking was not confirmed: ${b.payment_confirm_error}`
                         : b.hold_expires_at
-                          ? `Waiting for payment. The time is released ${formatPatientDateTime(b.hold_expires_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })} if it is not paid.`
+                          ? new Date(b.hold_expires_at).getTime() >= new Date(b.scheduled_for).getTime()
+                            ? "Waiting for payment. The visit is soon, so the time is released if it is not paid before the visit starts."
+                            : `Waiting for payment. The time is released ${formatPatientDateTime(b.hold_expires_at, { weekday: "short", hour: "2-digit", minute: "2-digit" })} if it is not paid.`
                           : "Waiting for payment."}
                   </p>
                 </div>
                 <Badge variant={b.status === "expired" || failed ? "red" : "amber"}>{b.status === "expired" ? "Released" : failed ? "Needs you" : "Awaiting payment"}</Badge>
                 {b.status === "booked" && (
-                  <Button size="sm" variant="outline" className="ml-auto" disabled={busyId === b.id} onClick={() => retry(b.id)}>
-                    {busyId === b.id ? "Checking…" : "Check payment and confirm"}
-                  </Button>
+                  <div className="ml-auto flex gap-2">
+                    {!failed && (
+                      <Button size="sm" variant="ghost" disabled={busyId === b.id} onClick={() => showLink(b.id)}>
+                        Show payment link
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" disabled={busyId === b.id} onClick={() => retry(b.id)}>
+                      {busyId === b.id ? "Checking…" : "Check payment and confirm"}
+                    </Button>
+                  </div>
+                )}
+                {panelFor === b.id && (
+                  <div className="w-full">
+                    <PayLinkPanel appointmentId={b.id} slotStart={b.scheduled_for} patientName={b.patient?.full_name ?? "the patient"} />
+                  </div>
+                )}
+                {links[b.id] && (
+                  <div className="w-full space-y-2">
+                    <p className="break-all rounded-md bg-charcoal-ink/5 p-2 text-xs text-charcoal-ink dark:text-night-ink">{links[b.id]}</p>
+                    <Button size="sm" variant="outline" onClick={() => copyLink(links[b.id])}>
+                      Copy link
+                    </Button>
+                  </div>
                 )}
               </li>
             );
