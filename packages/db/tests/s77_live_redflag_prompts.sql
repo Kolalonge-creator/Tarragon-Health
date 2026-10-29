@@ -124,8 +124,11 @@ insert into results values ('real', 'all four conditions are unmet', '4',
   (select count(*)::text from jsonb_array_elements(private.go_live_conditions('live_redflag_prompts_enabled', null)) c where not (c ->> 'met')::boolean));
 insert into results values ('real', 'no attestation was seeded for the guard', '0',
   (select count(*)::text from public.go_live_attestations where guard_key = 'live_redflag_prompts_enabled'));
-insert into results values ('real', 'the guard cannot be switched on while the conditions are unmet', 'ERR:42501',
-  pg_temp.sql_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('live_redflag_prompts_enabled', true, 'trying to switch it on early')$q$));
+-- G-01: a feature opens without its conditions (an admin may do it even though the row says cmo); it is held again at once so the closed checks below keep their meaning
+insert into results values ('real', 'G-01: an admin opens the feature without its conditions, then holds it again with a reason', 'ok|ok|false',
+  pg_temp.sql_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('live_redflag_prompts_enabled', true, 'G-01 proof: a feature opens without conditions')$q$) || '|' ||
+  pg_temp.sql_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('live_redflag_prompts_enabled', false, 'G-01 proof: held again so the closed checks below still hold')$q$) || '|' ||
+  (select is_on::text from public.go_live_guards where key = 'live_redflag_prompts_enabled'));
 insert into results values ('real', 'the older S28c guard conditions are unchanged (prescribing still has its pharmacy conditions)', 'true',
   (select (jsonb_array_length(private.go_live_conditions('prescribing_enabled', null)) >= 6)::text));
 
@@ -138,11 +141,13 @@ insert into results values ('real', 'guard off, test patient and test clinician 
 -- switch both guards on the way the switch function would (a log row in the same transaction, then the row)
 do $$
 begin
+  -- G-01: the prompts are a feature under the clinical-operations master, so the master is switched with them
   insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) values
     ('live_redflag_prompts_enabled', 'switched_on', pg_temp.f('admin'), 'cmo', 'proof only, rolled back'),
-    ('scribe_enabled', 'switched_on', pg_temp.f('admin'), 'cmo', 'proof only, rolled back');
-  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = pg_temp.f('admin'), change_note = 'proof only, rolled back'
-   where key in ('live_redflag_prompts_enabled', 'scribe_enabled');
+    ('scribe_enabled', 'switched_on', pg_temp.f('admin'), 'cmo', 'proof only, rolled back'),
+    ('clinical_operations_enabled', 'switched_on', pg_temp.f('admin'), 'admin', 'proof only, rolled back');
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = pg_temp.f('admin'), change_note = 'proof only, rolled back', held_reason = null
+   where key in ('live_redflag_prompts_enabled', 'scribe_enabled', 'clinical_operations_enabled');
 end $$;
 
 -- 1b. guard ON: consent and caller rules

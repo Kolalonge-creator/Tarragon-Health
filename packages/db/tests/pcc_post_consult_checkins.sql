@@ -55,11 +55,13 @@ end $f$;
 -- the guard, switched the way its own trigger allows (a log row in this transaction, then the update)
 create function pg_temp.guard(p_on boolean) returns void language plpgsql as $f$
 begin
+  -- G-01: the check-ins are a feature under the clinical-operations master, so the master is switched with it (a feature under a closed master reads closed)
   insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
-  select 'post_consult_checkins_enabled', case when p_on then 'switched_on' else 'switched_off' end, p.id, 'admin', 'PCC proof', '[]'::jsonb from public.profiles p order by p.created_at limit 1;
+  select k, case when p_on then 'switched_on' else 'switched_off' end, p.id, 'admin', 'PCC proof', '[]'::jsonb
+    from (select id from public.profiles order by created_at limit 1) p, unnest(array['post_consult_checkins_enabled', 'clinical_operations_enabled']) k;
   update public.go_live_guards
      set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then (select id from public.profiles order by created_at limit 1) end, change_note = case when p_on then 'PCC proof' end
-   where key = 'post_consult_checkins_enabled';
+   where key in ('post_consult_checkins_enabled', 'clinical_operations_enabled');
 end $f$;
 -- a consultation: inserted in progress, then completed at a chosen time (the trigger fires on the update)
 create function pg_temp.mkenc(p_org uuid, p_patient uuid, p_clin uuid, p_type text, p_ended timestamptz) returns uuid language plpgsql as

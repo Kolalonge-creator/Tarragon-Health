@@ -3,7 +3,9 @@ import { PROPOSED_CONFIG, type ProposedConfigEntry } from "@tarragon/shared";
 import {
   buildConfigRows,
   findEntry,
+  groupGuards,
   guardHasDrifted,
+  guardIsOpen,
   guardListSchema,
   hashConfigValue,
   openRows,
@@ -11,6 +13,7 @@ import {
   viewerMaySwitchOn,
   viewerOwns,
   type ConfigSignoff,
+  type GuardStatus,
 } from "./model";
 
 const entry = (over: Partial<ProposedConfigEntry> = {}): ProposedConfigEntry => ({
@@ -103,17 +106,79 @@ describe("who may do what", () => {
     expect(viewerOwns("Founder and counsel", "cmo")).toBe(false);
   });
 
-  it("shows the switch-on control only to the role the guard names", () => {
-    expect(viewerMaySwitchOn({ switch_role: "admin" }, "admin")).toBe(true);
-    expect(viewerMaySwitchOn({ switch_role: "admin" }, "cmo")).toBe(false);
-    expect(viewerMaySwitchOn({ switch_role: "cmo" }, "cmo")).toBe(true);
+  it("shows the switch-on control only to the role a MASTER names", () => {
+    expect(viewerMaySwitchOn({ switch_role: "admin", kind: "master" }, "admin")).toBe(true);
+    expect(viewerMaySwitchOn({ switch_role: "admin", kind: "master" }, "cmo")).toBe(false);
+    expect(viewerMaySwitchOn({ switch_role: "cmo", kind: "master" }, "cmo")).toBe(true);
+    expect(viewerMaySwitchOn({ switch_role: "cmo", kind: "master" }, "admin")).toBe(false);
+    // a status read from a database without the G-01 columns behaves as before
     expect(viewerMaySwitchOn({ switch_role: "cmo" }, "admin")).toBe(false);
   });
 
-  it("flags a guard that is on while a condition is no longer met", () => {
+  it("G-01: a FEATURE can be opened by either viewer, whatever role the row names", () => {
+    expect(viewerMaySwitchOn({ switch_role: "cmo", kind: "feature" }, "admin")).toBe(true);
+    expect(viewerMaySwitchOn({ switch_role: "admin", kind: "feature" }, "cmo")).toBe(true);
+  });
+
+  it("flags a MASTER that is on while a condition is no longer met, never a feature (its conditions are advisory)", () => {
+    expect(guardHasDrifted({ is_on: true, all_met: false, kind: "master" })).toBe(true);
     expect(guardHasDrifted({ is_on: true, all_met: false })).toBe(true);
-    expect(guardHasDrifted({ is_on: true, all_met: true })).toBe(false);
-    expect(guardHasDrifted({ is_on: false, all_met: false })).toBe(false);
+    expect(guardHasDrifted({ is_on: true, all_met: true, kind: "master" })).toBe(false);
+    expect(guardHasDrifted({ is_on: false, all_met: false, kind: "master" })).toBe(false);
+    expect(guardHasDrifted({ is_on: true, all_met: false, kind: "feature" })).toBe(false);
+  });
+
+  it("G-01: the effective answer is the database's open when it is present, else the row's own switch", () => {
+    expect(guardIsOpen({ is_on: true, open: false })).toBe(false);
+    expect(guardIsOpen({ is_on: false, open: true })).toBe(true);
+    expect(guardIsOpen({ is_on: true })).toBe(true);
+  });
+});
+
+describe("groupGuards (G-01 layout)", () => {
+  const g = (key: string, over: Partial<GuardStatus> = {}): GuardStatus => ({
+    key,
+    label: key,
+    blocks: "x",
+    condition_text: "x",
+    switch_role: "admin",
+    enforced_in: [],
+    not_enforced_in: "",
+    is_on: false,
+    changed_at: null,
+    changed_by_name: null,
+    change_note: null,
+    conditions: [],
+    all_met: true,
+    recent: [],
+    ...over,
+  });
+
+  it("puts each feature under its master and the rest on their own, keeping the database order", () => {
+    const list = [
+      g("clinical_operations_enabled", { kind: "master" }),
+      g("checkout_enabled", { kind: "master" }),
+      g("pathway_bp", { kind: "feature", parent_key: "clinical_operations_enabled" }),
+      g("wallet_pass", { kind: "feature", parent_key: null, held_reason: "No certificate is configured yet." }),
+      g("symptom_checker_enabled", { kind: "feature", parent_key: "clinical_operations_enabled" }),
+    ];
+    const { groups, standalone } = groupGuards(list);
+    expect(groups.map((x) => x.master.key)).toEqual(["clinical_operations_enabled", "checkout_enabled"]);
+    expect(groups[0]?.features.map((f) => f.key)).toEqual(["pathway_bp", "symptom_checker_enabled"]);
+    expect(groups[1]?.features).toEqual([]);
+    expect(standalone.map((f) => f.key)).toEqual(["wallet_pass"]);
+  });
+
+  it("treats a status without kinds (pre-G-01 database) as masters only, so the page still renders", () => {
+    const { groups, standalone } = groupGuards([g("payouts_enabled"), g("scribe_enabled")]);
+    expect(groups.map((x) => x.master.key)).toEqual(["payouts_enabled", "scribe_enabled"]);
+    expect(standalone).toEqual([]);
+  });
+
+  it("never drops a feature whose parent is missing from the list", () => {
+    const { groups, standalone } = groupGuards([g("orphan", { kind: "feature", parent_key: "no_such_master" })]);
+    expect(groups).toEqual([]);
+    expect(standalone.map((f) => f.key)).toEqual(["orphan"]);
   });
 });
 

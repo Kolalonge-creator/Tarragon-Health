@@ -49,7 +49,7 @@ $f$ begin
   alter table public.go_live_guards disable trigger user;
   update public.go_live_guards set is_on = p_on, changed_at = case when p_on then now() end,
       changed_by = case when p_on then (select id from public.profiles limit 1) end, change_note = case when p_on then 'proof' end
-   where key = 'pathway_diabetes_care';
+   where key in ('pathway_diabetes_care', 'clinical_operations_enabled'); -- G-01: a pathway is a feature under the clinical-operations master
   alter table public.go_live_guards enable trigger user;
 end $f$;
 create function pg_temp.sweep() returns integer language plpgsql as

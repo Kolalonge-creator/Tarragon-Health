@@ -167,8 +167,12 @@ begin
   -- ================= R. record-triggered lessons =================
   perform pg_temp.ck('R1 the guard exists and starts off',
     exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and not is_on));
-  v_t := pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', true, 'Trying to switch it on in the proof')$q$);
-  perform pg_temp.ck('R2 it cannot be switched on yet: no condition is defined for it', not exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and is_on));
+  -- G-01: a feature opens without a condition branch; it is held again at once (with a reason) so the closed checks below keep their meaning
+  v_t := pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', true, 'G-01 proof: a feature opens without a condition')$q$);
+  perform pg_temp.ck('R2 G-01: the CMO opens it without a condition, and holds it again with a reason',
+    v_t = 'ok'
+    and pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', false, 'G-01 proof: held again for the closed checks')$q$) = 'ok'
+    and not exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and is_on));
   perform pg_temp.ck('R3 the six lessons it points at are draft placeholders',
     (select count(*) = 6 and bool_and(content_status = 'draft' and is_placeholder) from public.health_education_content
       where code in ('record-bp-in-target', 'record-bp-above-target', 'record-glucose-in-target', 'record-glucose-above-target', 'record-lab-hba1c-normal', 'record-lab-hba1c-high')));
@@ -310,7 +314,7 @@ begin
     pg_temp.owner_msg($s$update public.health_education_content set content_status = 'published' where code = 'portion-guide-diabetes'$s$) = 'ok');
   -- (ii) the guard forced on: a real person is then shown a lesson, so the guard is what refused in R5
   alter table public.go_live_guards disable trigger go_live_guards_guard;
-  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof sabotage' where key = 'record_triggered_lessons_enabled';
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof sabotage', held_reason = null where key = 'record_triggered_lessons_enabled';
   alter table public.go_live_guards enable trigger go_live_guards_guard;
   perform pg_temp.ck('S2 sabotage: with the guard forced on a real person is shown the lesson',
     pg_temp.as_text(v_pr, format($q$select public.record_lesson_shown('blood_pressure', 'in_target', 'record-bp-in-target', array[%L]::uuid[])$q$, v_other)) = 'shown');

@@ -1678,3 +1678,5 @@ membership_start_routes_prior_uploads.sql
 governed_config_never_live_without_signature.sql
 # Owed sign-offs ledger: CMO-only read and sign, SIGN plus a note, one audit entry, no direct writes, other organisation refused. Sabotage: the read policy dropped must expose the row to a plain clinician.
 owed_signoffs_ledger.sql
+# G-01 gate model: nine masters, features under a parent, holds with a reason, feature switching without conditions. Sabotage: the pre-G-01 lookup body.
+gate_model_masters_and_features.sql

@@ -187,7 +187,8 @@ export default async function ClinicianClinicalSignoffPage({
   const checklistFailed = checklist.loadFailed;
 
   // Only fetch what an inline panel needs, and only when its line is on the list.
-  const keys = new Set([...hub.items, ...hub.live].map((i) => i.key));
+  // G-01: operational settings keep their inline panels; they are just listed apart and never counted as owed signatures.
+  const keys = new Set([...hub.items, ...hub.operational, ...hub.live].map((i) => i.key));
   const [blocksRes, releaseRes] = await Promise.all([
     keys.has("lpe_content_blocks")
       ? supabase
@@ -240,7 +241,7 @@ export default async function ClinicianClinicalSignoffPage({
     );
   }
 
-  for (const item of [...hub.items, ...hub.live]) {
+  for (const item of [...hub.items, ...hub.operational, ...hub.live]) {
     const table = item.key.startsWith("versioned:")
       ? item.key.slice("versioned:".length)
       : item.key.startsWith("versioned_draft:")
@@ -415,6 +416,22 @@ export default async function ClinicianClinicalSignoffPage({
         </Card>
       ) : (
         <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
+      )}
+
+      {hub.operational.length > 0 && (
+        <details className="rounded-md border border-mist-grey/40 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+            Operational settings ({hub.operational.length}): not clinical protocols, no signature owed
+          </summary>
+          <p className="mt-2 max-w-3xl text-sm text-charcoal-ink/70">
+            Capacity, quality, the ops desk, paging delivery, task-layer rules, care-gap and cascade definitions, wording and screen
+            attestations, device lists and the proposed registry values. Each is versioned and audited, but it is a setting, not a
+            protocol: it does not count above and it blocks nothing live. Set one when the feature that reads it needs it (decision G-01).
+          </p>
+          <div className="mt-4">
+            <SignoffQueueList items={hub.operational} inlinePanels={inlinePanels} variant="live" />
+          </div>
+        </details>
       )}
 
       {hub.live.length > 0 && (
