@@ -152,7 +152,7 @@ export function OutsideRecordsSection({ patientId }: { patientId: string }) {
       <MutedText>{t("outside_records.type_label")}</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {TYPES.map((k) => (
-          <ChoiceChip key={k} title={`${type === k ? "✓ " : ""}${t(`outside_records.type.${k}` as MessageKey)}`} onPress={() => setType(k)} />
+          <ChoiceChip key={k} selected={type === k} title={`${type === k ? "✓ " : ""}${t(`outside_records.type.${k}` as MessageKey)}`} onPress={() => setType(k)} />
         ))}
       </View>
       <View style={{ flexDirection: "row", gap: 8 }}>

@@ -37,16 +37,19 @@ export function SecondaryButton({ title, onPress, disabled, loading }: ButtonPro
   return <Button variant="secondary" title={title} onPress={onPress} disabled={disabled} loading={loading} />;
 }
 
-export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
+export function ChoiceChip({ title, onPress, disabled, selected }: ButtonProps & { /** When given, an unchosen chip is drawn quiet and the chosen one filled, so the choice reads at a glance. */ selected?: boolean }) {
   const { colors } = useTheme();
+  const quiet = selected === false;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, selected }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        backgroundColor: colors.brand,
+        backgroundColor: quiet ? colors.surfaceMuted : colors.brand,
+        borderWidth: quiet ? 1 : 0,
+        borderColor: colors.border,
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
@@ -56,7 +59,7 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
         opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
       })}
     >
-      <AppText variant="label" tone="textOnBrand">
+      <AppText variant="label" tone={quiet ? "text" : "textOnBrand"}>
         {title}
       </AppText>
     </Pressable>

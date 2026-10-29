@@ -44,8 +44,8 @@ export function EmergencyCoverageCard({ initial, onChanged }: { initial: Emergen
       <AppText variant="bodyLargeStrong">{t("ecf.coverage.title")}</AppText>
       <MutedText>{t("ecf.coverage.description")}</MutedText>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <ChoiceChip title={`${scheme === "hmo" ? "✓ " : ""}${t("ecf.coverage.scheme_hmo")}`} onPress={() => setScheme("hmo")} />
-        <ChoiceChip title={`${scheme === "nhia" ? "✓ " : ""}${t("ecf.coverage.scheme_nhia")}`} onPress={() => setScheme("nhia")} />
+        <ChoiceChip selected={scheme === "hmo"} title={`${scheme === "hmo" ? "✓ " : ""}${t("ecf.coverage.scheme_hmo")}`} onPress={() => setScheme("hmo")} />
+        <ChoiceChip selected={scheme === "nhia"} title={`${scheme === "nhia" ? "✓ " : ""}${t("ecf.coverage.scheme_nhia")}`} onPress={() => setScheme("nhia")} />
       </View>
       <TextInput
         accessibilityLabel={t("ecf.coverage.member_label")}

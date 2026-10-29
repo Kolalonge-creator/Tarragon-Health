@@ -81,7 +81,7 @@ export function HmoEligibilitySection({ onChecked }: { onChecked?: () => void })
       <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.field.plan")}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {plans.map((p) => (
-          <ChoiceChip key={p.hmoId} title={p.hmoId === selected ? `✓ ${p.name}` : p.name} onPress={() => setHmoId(p.hmoId)} />
+          <ChoiceChip key={p.hmoId} selected={p.hmoId === selected} title={p.hmoId === selected ? `✓ ${p.name}` : p.name} onPress={() => setHmoId(p.hmoId)} />
         ))}
       </View>
       <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.field.number")}</AppText>

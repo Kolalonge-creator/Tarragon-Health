@@ -329,7 +329,7 @@ function CaptureForm({ complaintKey, busy, onSubmit }: { complaintKey: string; b
       <View style={{ gap: 6 }}>
         <AppText variant="bodyStrong" accessibilityRole="header">{title}</AppText>
         {keys.map((k) => (
-          <ChoiceChip key={k} title={`${list.includes(k) ? "[x] " : "[ ] "}${SYMPTOM_LABEL(k)}`} onPress={() => toggle(list, set, k)} />
+          <ChoiceChip key={k} selected={list.includes(k)} title={`${list.includes(k) ? "[x] " : "[ ] "}${SYMPTOM_LABEL(k)}`} onPress={() => toggle(list, set, k)} />
         ))}
       </View>
     ) : null;
@@ -339,13 +339,13 @@ function CaptureForm({ complaintKey, busy, onSubmit }: { complaintKey: string; b
       <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.mobile.when")}</AppText>
       <View style={{ gap: 6 }}>
         {(["sudden", "gradual", "unknown"] as const).map((v) => (
-          <ChoiceChip key={v} title={`${onset === v ? "(o) " : "( ) "}${v === "sudden" ? "Suddenly" : v === "gradual" ? "Gradually" : "Not sure"}`} onPress={() => setOnset(v)} />
+          <ChoiceChip key={v} selected={onset === v} title={`${onset === v ? "(o) " : "( ) "}${v === "sudden" ? "Suddenly" : v === "gradual" ? "Gradually" : "Not sure"}`} onPress={() => setOnset(v)} />
         ))}
       </View>
       <AppText variant="bodyStrong" accessibilityRole="header">{`${t("symptom.mobile.severity")} ${severity}/10`}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-          <ChoiceChip key={n} title={severity === n ? `[${n}]` : String(n)} onPress={() => setSeverity(n)} />
+          <ChoiceChip key={n} selected={severity === n} title={severity === n ? `[${n}]` : String(n)} onPress={() => setSeverity(n)} />
         ))}
       </View>
       {group(t("symptom.redflag.symptoms"), vocab?.knownAssociatedSymptoms, symptoms, setSymptoms)}

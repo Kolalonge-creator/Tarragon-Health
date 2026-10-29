@@ -143,20 +143,20 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
       <View style={{ gap: 6, marginTop: 8 }}>
         <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_progress")}</AppText>
         {PROGRESS_OPTIONS.map((p) => (
-          <ChoiceChip key={p} title={`${progress === p ? "(o) " : "( ) "}${t(`symptom.checkback.progress.${p}` as MessageKey)}`} onPress={() => setProgress(p)} />
+          <ChoiceChip key={p} selected={progress === p} title={`${progress === p ? "(o) " : "( ) "}${t(`symptom.checkback.progress.${p}` as MessageKey)}`} onPress={() => setProgress(p)} />
         ))}
       </View>
       <View style={{ gap: 6, marginTop: 8 }}>
         <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_care")}</AppText>
         {CARE_OPTIONS.map((c) => (
-          <ChoiceChip key={c} title={`${care === c ? "(o) " : "( ) "}${t(`symptom.checkback.care.${c}` as MessageKey)}`} onPress={() => setCare(c)} />
+          <ChoiceChip key={c} selected={care === c} title={`${care === c ? "(o) " : "( ) "}${t(`symptom.checkback.care.${c}` as MessageKey)}`} onPress={() => setCare(c)} />
         ))}
       </View>
       {v.sign_vocabulary.length > 0 && (
         <View style={{ gap: 6, marginTop: 8 }}>
           <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_signs")}</AppText>
           {v.sign_vocabulary.map((k) => (
-            <ChoiceChip key={k} title={`${signs.includes(k) ? "[x] " : "[ ] "}${symptomLabel(k)}`} onPress={() => toggle(k)} />
+            <ChoiceChip key={k} selected={signs.includes(k)} title={`${signs.includes(k) ? "[x] " : "[ ] "}${symptomLabel(k)}`} onPress={() => toggle(k)} />
           ))}
         </View>
       )}
