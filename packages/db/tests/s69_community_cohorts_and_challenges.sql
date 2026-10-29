@@ -130,11 +130,9 @@ begin
 
   ---------------------------------------------------------------------------------------------------------------- 2. the guard
   perform pg_temp.ck('2 the guard has four conditions', '4', jsonb_array_length(private.go_live_conditions('cohorts_enabled', v_org))::text);
-  perform pg_temp.act(v_admin);
-  begin perform public.set_go_live_guard('cohorts_enabled', true, 'switching on for the proof'); t := 'on';
-  exception when others then t := 'refused'; end;
-  perform pg_temp.back();
-  perform pg_temp.ck('2 the guard cannot be switched on with nothing signed or attested', 'refused', t);
+  -- G-01: cohorts_enabled is a feature. Its conditions are still reported, but they no longer block the switch.
+  perform pg_temp.ck('2 the conditions read unmet with nothing signed or attested (reported, not enforced)', 'true',
+    exists (select 1 from jsonb_array_elements(private.go_live_conditions('cohorts_enabled', v_org)) c where not (c ->> 'met')::boolean)::text);
   perform pg_temp.ck('2 a CMO-only signature: an admin cannot sign a template', 'ERR:42501:only the Chief Medical Officer can sign a challenge template',
     pg_temp.q_as(v_admin, $q$select public.sign_challenge_template('move_together', true, 'reviewed in the proof')::text$q$));
   perform pg_temp.ck('2 a patient cannot attest the DPIA', 'ERR:42501',
@@ -147,10 +145,8 @@ begin
   perform pg_temp.ck('2 three templates are now approved', '3', (select count(*)::text from public.challenge_templates where status = 'approved'));
   perform pg_temp.ck('2 the template condition is met after signing', 'true',
     (select (c ->> 'met') from jsonb_array_elements(private.go_live_conditions('cohorts_enabled', v_org)) c where c ->> 'code' = 'challenge_templates_approved'));
-  perform pg_temp.act(v_admin);
-  begin perform public.set_go_live_guard('cohorts_enabled', true, 'switching on for the proof'); t := 'on'; exception when others then t := 'refused'; end;
-  perform pg_temp.back();
-  perform pg_temp.ck('2 still refused: the DPIA and counsel are not recorded', 'refused', t);
+  perform pg_temp.ck('2 still unmet: the DPIA and counsel are not recorded (reported, not enforced)', 'false,false',
+    (select string_agg(c ->> 'met', ',' order by c ->> 'code') from jsonb_array_elements(private.go_live_conditions('cohorts_enabled', v_org)) c where c ->> 'code' in ('dpia_recorded', 'counsel_ndpa_confirmed')));
   perform pg_temp.q_as(v_admin, $q$select public.attest_go_live_condition('cohorts_enabled', 'dpia_recorded', true, 'DPIA v1 recorded by the founder for the proof')::text$q$);
   perform pg_temp.q_as(v_admin, $q$select public.attest_go_live_condition('cohorts_enabled', 'counsel_ndpa_confirmed', true, 'Counsel letter confirmed for the proof')::text$q$);
   -- module on, guard still off: a real patient stays closed

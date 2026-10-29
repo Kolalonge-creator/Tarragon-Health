@@ -278,8 +278,9 @@ select pg_temp.ck('real', 'G6 signed rule, guard off: a fourth pair for the REAL
   (case when pg_temp.pair(pg_temp.f('c1'), pg_temp.f('r'), 128, 78, 142, 90, 3) !~ '^ERR' then pg_temp.npairs(pg_temp.f('r')) else 'ERR' end) || '|' || pg_temp.flags(pg_temp.f('r')) || '|' || pg_temp.ctasks(pg_temp.f('r')));
 
 -- F. switching the guard on ---------------------------------------------------------------------------------------------------------------
-select pg_temp.ck('real', 'F1 the rule guard cannot be switched on before the clinician-only attestation is recorded', 'refused',
-  (select case when o ~ '^ERR' then 'refused' else o end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_check_flag'', true, ''S07y proof'')::text') o) z));
+-- G-01: the flag is a feature, so its conditions are advisory and the CMO can open it before the attestation is recorded
+select pg_temp.ck('real', 'F1 G-01: the rule guard opens without its attestation (a feature, not a master)', 'ok',
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_check_flag'', true, ''S07y proof'')::text') o) z));
 select pg_temp.ck('real', 'F2 the CMO records the clinician-only attestation', 'ok',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.attest_go_live_condition(''cuff_check_flag'', ''flag_is_clinician_only'', true, ''S07y proof: no patient screen, notification or export shows the flag'')::text') o) z));
 select pg_temp.ck('real', 'F3 the CMO switches the guard on (its data conditions are met)', 'ok',
@@ -375,8 +376,10 @@ select pg_temp.setf('r2', pg_temp.mkuser(pg_temp.f('org'), 'real patient unflagg
 select pg_temp.ck('real', 'K1 the prompt is closed for a real patient and for a test patient before the wording is attested; anon cannot ask', 'false|false|ERR 42501',
   pg_temp.as_user(pg_temp.f('r'), 'select public.cuff_visit_prompt_open()::text') || '|' || pg_temp.as_user(pg_temp.f('p'), 'select public.cuff_visit_prompt_open()::text') || '|' ||
   pg_temp.as_anon('select public.cuff_visit_prompt_open()::text'));
-select pg_temp.ck('real', 'K2 the prompt guard cannot be switched on before the wording attestation', 'refused',
-  (select case when o ~ '^ERR' then 'refused' else o end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_visit_prompt'', true, ''S07y proof'')::text') o) z));
+-- G-01: the prompt is a feature; it opens without the attestation and is held again at once so K3a and K3 keep their meaning
+select pg_temp.ck('real', 'K2 G-01: the prompt guard opens without the wording attestation, then is held again with a reason', 'ok|ok',
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_visit_prompt'', true, ''S07y proof'')::text') o) z) || '|' ||
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''cuff_visit_prompt'', false, ''S07y proof: held again before the wording checks'')::text') o) z));
 select pg_temp.ck('real', 'K3a an attestation whose note does not carry the fingerprint of the sentence does not open the prompt, even for a test patient', 'ok|false',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.attest_go_live_condition(''cuff_visit_prompt'', ''visit_prompt_wording_signed'', true, ''S07y proof: the neutral line was read in full'')::text') o) z) || '|' ||
   pg_temp.as_user(pg_temp.f('p'), 'select public.cuff_visit_prompt_open()::text'));

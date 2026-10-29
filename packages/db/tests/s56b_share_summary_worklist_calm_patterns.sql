@@ -85,9 +85,17 @@ create function pg_temp.guard(p_key text, p_on boolean) returns void language pl
 $f$ begin
   insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
   values (p_key, case when p_on then 'switched_on' else 'switched_off' end, pg_temp.f('admin'), 'admin', 'S56b proof', '[]'::jsonb);
+  -- G-01: a feature is open only with its parent master on and no hold, so switching it on opens its parent and clears the hold
   update public.go_live_guards
-     set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end, change_note = case when p_on then 'S56b proof' end
+     set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end, change_note = case when p_on then 'S56b proof' end,
+         held_reason = case when p_on then null else held_reason end
    where key = p_key;
+  if p_on then
+    insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+    select parent_key, 'switched_on', pg_temp.f('admin'), 'admin', 'S56b proof', '[]'::jsonb from public.go_live_guards where key = p_key and parent_key is not null;
+    update public.go_live_guards set is_on = true, changed_at = now(), changed_by = pg_temp.f('admin'), change_note = 'S56b proof'
+     where key = (select parent_key from public.go_live_guards where key = p_key);
+  end if;
 end $f$;
 
 -- preview the summary, then send it with the hash the preview returned (what the app does)

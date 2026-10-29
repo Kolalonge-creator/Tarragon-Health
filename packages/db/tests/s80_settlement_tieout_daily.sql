@@ -53,8 +53,9 @@ end $f$;
 create function pg_temp.guard(p_on boolean) returns void language plpgsql as $f$
 begin
   set local session_replication_role = replica;
+  -- G-01: an open guard is never held (go_live_guards_open_is_not_held), so switching on clears the hold
   update public.go_live_guards set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end,
-         change_note = case when p_on then 'S80 proof run' end where key = 'settlement_tieout_daily';
+         change_note = case when p_on then 'S80 proof run' end, held_reason = case when p_on then null else held_reason end where key = 'settlement_tieout_daily';
   set local session_replication_role = origin;
 end $f$;
 

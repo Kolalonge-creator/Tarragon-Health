@@ -548,8 +548,9 @@ begin
   perform pg_temp.ck('an admin cannot switch it on while its go-live guard is off', 'true',
     (pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', true, 'Proof run, guard still off')$q$) like '%go_live_guard_closed%')::text);
   perform pg_temp.ck('and it stays off', 'false', (select active::text from public.catalog_items where code = 'membership_annual' and organisation_id = pg_temp.f('org')));
-  perform pg_temp.ck('the guard cannot be switched on with its conditions unmet', 'true',
-    (pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('membership_billing_enabled', true, 'Proof run, too early')$q$) like '%not yet met%')::text);
+  -- G-01: membership_billing_enabled is a feature. Its conditions are still reported on the dashboard, but they no longer block the switch.
+  perform pg_temp.ck('its conditions read unmet before anything is recorded (reported, not enforced)', 'true',
+    exists (select 1 from jsonb_array_elements(private.go_live_conditions('membership_billing_enabled', null)) c where not (c ->> 'met')::boolean)::text);
   perform pg_temp.ck('a patient cannot attest a condition', 'true',
     (pg_temp.try_as(v_pat, $q$select public.attest_go_live_condition('membership_billing_enabled', 'paystack_plan_codes_disabled', true, 'A patient trying to attest this')$q$) like '%only an admin%')::text);
   perform pg_temp.ck('admin records that the Paystack plan codes are disabled', 'ok',

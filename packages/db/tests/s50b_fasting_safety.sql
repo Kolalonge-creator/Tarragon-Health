@@ -86,7 +86,13 @@ end $f$;
 create function pg_temp.setguard(p_key text, p_on boolean) returns void language plpgsql as $f$
 begin
   alter table public.go_live_guards disable trigger go_live_guards_guard;
-  update public.go_live_guards set is_on = p_on, changed_at = now(), changed_by = pg_temp.f('doc'), change_note = 'S50b proof: rolled back' where key = p_key;
+  -- G-01: a feature is open only with its parent master on and no hold, so switching it on opens its parent and clears the hold
+  update public.go_live_guards set is_on = p_on, changed_at = now(), changed_by = pg_temp.f('doc'), change_note = 'S50b proof: rolled back',
+         held_reason = case when p_on then null else held_reason end where key = p_key;
+  if p_on then
+    update public.go_live_guards set is_on = true, changed_at = now(), changed_by = pg_temp.f('doc'), change_note = 'S50b proof: rolled back'
+     where key = (select parent_key from public.go_live_guards where key = p_key);
+  end if;
   alter table public.go_live_guards enable trigger go_live_guards_guard;
 end $f$;
 

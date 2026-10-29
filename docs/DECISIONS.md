@@ -649,3 +649,21 @@ All figures are as of 2026-10-27 at main-dev commit `06f55f162`. A figure here i
 | 21-day refund | registry key `membership.refund` (`window_days` 21), status PROPOSED |
 | 14-day gift acceptance window | migration `supabase/migrations/20261007101733_s29d_gift_window_14_days.sql` (the earlier `20261006204511_s29b_gifted_care_pack_acceptance.sql` set 30 as PROPOSED); corrected in `docs/design/S29.md` by this change |
 | 6/8 clinical accuracy and 2/4 fairness for AI-001 | `INNOVATION-BUILD-GAP.md` section 5, row D-08, from the AI governance evaluation records; re-check before relying on them |
+
+## Founder decision, 2026-10-29 (G-01: one gate model)
+
+Asked because the platform carried seven overlapping gate systems (92 go-live guards with 86 off, 29 platform modules, 13 feature
+flags, 44 signed configuration tables behind 90 signing functions and 62 hub panels, 338 registry values still "proposed", 834 open
+questions) and every new feature produced four or five artefacts that each needed a round trip with the founder, who is also the CMO.
+Design note: `docs/design/GATE-MODEL.md`. Migration `20261029223751_gate_model_masters_and_features.sql`.
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **G-01** | One gate model. Nine **master** switches are the only on/off decisions (`public_signup_enabled`, `checkout_enabled`, `clinical_operations_enabled`, `prescribing_enabled`, `payouts_enabled`, `lab_booking_enabled`, `research_export_enabled`, `assistant_enabled`, `on_call_cover_ok`). Everything else is a **feature**: open when on, not held, and its master is on; an admin or the CMO switches it; no condition is evaluated; holding it needs a reason of at least 20 characters. | Almost every dark guard protected something no real patient could reach while the masters were off; 27 could never be switched on at all. The per-feature gates added decisions without adding safety. | Every v5 session from here; the go-live page |
+| **G-02** | The CMO signs the **patient-harm list** only: triage rules, glucose, vitals and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed. Every other governed table is an **operational setting**: versioned, audited, a change note, no signature, never counted in the banner. | A signature should mean a clinician accepted a clinical risk, not that a setting exists. | The CMO hub (`items` versus `operational`) |
+| **G-03** | A `proposed` registry value that sits under a signed protocol is in force by that signature. No per-value confirmation, no open question. | 338 of 388 values were waiting on a confirmation nobody needed. | Registry hygiene (deferred pass) |
+| **G-04** | An open question that blocks no master closes as "default taken: X". Only questions that block a master stay open. | 834 ids, most answered by the build that followed. | `docs/OPEN-QUESTIONS.md` (deferred pass) |
+| **G-05** | No new go-live guard, platform module, feature flag, signed table, hub panel or open question for a new feature unless rule 1 to 3 in `docs/design/GATE-MODEL.md` section 6 says so. One gate per feature, never two. | This is how the count got to seven systems. | Every PR |
+
+The migration switches nothing on. Opening the standalone features live is the founder's act from the go-live page (one click each,
+attributed and logged), chosen over a migration flip so the audit trail names a person and the CI replay keeps its meaning.
