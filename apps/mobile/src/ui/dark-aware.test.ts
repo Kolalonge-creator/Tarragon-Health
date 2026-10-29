@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
 /**
@@ -118,20 +118,28 @@ describe("light-on-purpose screens stay light", () => {
  * theme must not use it, or in Dark its text turns near-white on a white card (the emergency guidance, the sign-in
  * screens and the other static-light files below). They keep raw Text until they move onto the full kit.
  */
-const STATIC_LIGHT_FILES = [
-  ...LIGHT_ON_PURPOSE,
-  "screens/emergency-pack-view.tsx",
-  "screens/red-care-answer.tsx",
-  "screens/biometric-offer-screen.tsx",
-  "screens/verify-code-step.tsx",
-  "screens/signup-dob-field.tsx",
-];
+function screenFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return screenFiles(full);
+    return full.endsWith(".tsx") ? [full] : [];
+  });
+}
 
-describe("static-light screens do not use the scheme-aware text", () => {
-  it.each(STATIC_LIGHT_FILES)("%s", (file) => {
-    const source = readFileSync(join(__dirname, "..", file), "utf8");
-    expect(source).not.toMatch(/<AppText\b/);
-    expect(source).not.toMatch(/AppText/);
+describe("no screen mixes the static light theme with the scheme-aware text", () => {
+  // Found by scanning every screen, so a new static-light screen is covered without anyone adding it to a list.
+  const files = screenFiles(join(__dirname, "..", "screens")).filter((f) => {
+    const source = readFileSync(f, "utf8");
+    const staticLight =
+      /import\s*\{[^}]*\bcolors\b[^}]*\}\s*from\s*"@\/ui\/theme"/.test(source) || /from\s*"@\/ui\/components"/.test(source);
+    return staticLight && !/useLegacyColors/.test(source);
+  });
+  it("finds the known static-light screens (the scan is not vacuous)", () => {
+    expect(files.some((f) => f.endsWith("emergency-guidance-modal.tsx"))).toBe(true);
+    expect(files.some((f) => f.endsWith("login-screen.tsx"))).toBe(true);
+  });
+  it.each(files.map((f) => [f.slice(f.indexOf("screens")), f]))("%s", (_name, f) => {
+    expect(readFileSync(f, "utf8")).not.toMatch(/<AppText\b/);
   });
 });
 

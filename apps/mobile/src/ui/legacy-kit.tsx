@@ -46,14 +46,14 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? colors.brandText : colors.brand,
+        backgroundColor: colors.brand,
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
         // At least 44 points tall; a chip is a tap target like any button.
         minHeight: MIN_TARGET,
         justifyContent: "center",
-        opacity: disabled ? 0.5 : 1,
+        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
       })}
     >
       <AppText variant="label" tone="textOnBrand">
@@ -117,9 +117,9 @@ export function SectionDivider() {
 /** Bold, uppercase, tracked-out label that introduces a block of content —
  * "A VIEW OF YOUR VEHICLE", "HELP & CONTACT" in the reference design. Reads
  * as a heading, not a muted caption, so keep the copy short. */
-export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   return (
-    <AppText variant="label" style={[{ textTransform: "uppercase", letterSpacing: 0.5 }, style as StyleProp<TextStyle>]}>
+    <AppText variant="label" style={[{ textTransform: "uppercase", letterSpacing: 0.5 }, style]}>
       {children}
     </AppText>
   );
