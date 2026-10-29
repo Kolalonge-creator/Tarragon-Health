@@ -97,6 +97,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/care-gaps", "care gaps with no owner unowned no coordinator no doctor available sev2 incident care-gap-unowned ops s90"],
   ["/clinician/clinical-signoff", "care gap rules s90 sign care gaps missed reading hba1c lipids refill adherence rising trend outreach ladder weekly cap quiet hours experiment shadow mode cmo"],
   ["/clinician/outreach", "care gaps why this gap is open missed reading hba1c lipids refill overdue adherence rising trend closure by outcome contact attempt log next attempt due coordinator doctor review shadow"],
+  ["/dashboard/care-coordinator/book-for-patient", "book appointment for a patient on a call phone elderly cannot use the app find patient by name or phone pay link held 24 hours membership upgrade first coordinator"],
   ["/dashboard/care-coordinator/outreach", "care gaps why this gap is open missed reading hba1c lipids refill overdue adherence closure by outcome contact attempt log next attempt due coordinator"],
   ["/clinician/assistant-review", "assistant ai coach chat monthly review sample conversations reported answers report an answer unsafe appropriate verdict clinical lead cmo audit read reason safety review ai health assistant"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],

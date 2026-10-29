@@ -150,6 +150,9 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                       {appt.clinician?.full_name ?? "Care team"} ·{" "}
                       {appt.consultation_method === "telemedicine" ? "Telemedicine" : appt.location || "In person"}
                     </p>
+                    {appt.booked_via === "coordinator_phone" && (
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Booked for you by the care team, over the phone.</p>
+                    )}
                   </div>
                   <Badge variant={status.tone}>{status.label}</Badge>
                   <div className="ml-auto flex gap-2">
