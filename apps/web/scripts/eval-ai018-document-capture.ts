@@ -29,7 +29,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 async function main() {
   const startedAt = new Date().toISOString();
-  const { suites: results } = await runAiDocumentCaptureEvalSuites();
+  const { suites: results, extractedByCase } = await runAiDocumentCaptureEvalSuites();
   const completedAt = new Date().toISOString();
 
   console.log("\n=== Summary ===");
@@ -44,7 +44,7 @@ async function main() {
   await writeFile(
     outPath,
     JSON.stringify(
-      { started_at: startedAt, completed_at: completedAt, model_identifier: "claude-sonnet-5", suites: results },
+      { started_at: startedAt, completed_at: completedAt, model_identifier: "claude-sonnet-5", suites: results, extracted_by_case: extractedByCase },
       null,
       2
     )

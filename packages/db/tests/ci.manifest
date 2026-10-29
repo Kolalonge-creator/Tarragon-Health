@@ -1648,3 +1648,5 @@ w03_red_page_ladder.sql
 rls_shape_gate.sql
 # Care Coordinator phone booking: coordinator_find_patient (role gate, audit, fields), Free patient refused / Member held 24h, payment confirms with no session, unpaid release. Sabotage: tier check, payment trigger, coordinator role; all must flip.
 coordinator_phone_booking.sql
+# marketing_resources_anon_select_without_is_admin.sql: anon read of marketing_resources used to fail 42501 (is_admin() in the shared policy); proves anon sees published rows only without an error, non-admin published only, admin all, anon still cannot execute is_admin() or write. Sabotage: the old combined policy is restored and anon's read must fail with 42501.
+marketing_resources_anon_select_without_is_admin.sql

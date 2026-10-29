@@ -107,6 +107,26 @@ describe("scoreDocumentCaptureEvalCase", () => {
       expect(result.pass).toBe(true);
     });
 
+    it("passes a composed field name whose words are all printed (row name + column header)", () => {
+      const result = scoreDocumentCaptureEvalCase(
+        CASE,
+        ok([...LAB, { label: "Haemoglobin Reference range", value: "12.0 - 15.5" }])
+      );
+      expect(result.pass).toBe(true);
+    });
+
+    it("SABOTAGE: still fails an invented field name, and a composed name with a wrong value", () => {
+      const invented = scoreDocumentCaptureEvalCase(CASE, ok([...LAB, { label: "Haemoglobin Target", value: "12.1" }]));
+      expect(invented.pass).toBe(false);
+      expect(invented.reasoning).toContain("Haemoglobin Target");
+      const wrongValue = scoreDocumentCaptureEvalCase(
+        CASE,
+        ok([...LAB, { label: "Haemoglobin Reference range", value: "12.0 - 16.0" }])
+      );
+      expect(wrongValue.pass).toBe(false);
+      expect(wrongValue.reasoning).toContain("NOT PRINTED");
+    });
+
     it("passes when the unit is carried inside the value", () => {
       const result = scoreDocumentCaptureEvalCase(
         CASE,
