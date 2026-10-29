@@ -141,7 +141,7 @@ begin
   select rules into v_base from public.ops_desk_config where version = 1;
   update public.ops_desk_config set is_active = false where is_active;
   select max(version) + 1 into v_next from public.ops_desk_config;
-  insert into public.ops_desk_config (version, is_active, effective_from, rules) values (v_next, true, current_date, v_base || p);
+  insert into public.ops_desk_config (version, is_active, effective_from, rules, approved_at) values (v_next, true, current_date, v_base || p, now());
 end $f$;
 create function pg_temp.guard_on(p_key text, p_on boolean) returns void language plpgsql as
 $f$ begin

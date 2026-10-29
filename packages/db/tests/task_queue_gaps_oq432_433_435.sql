@@ -102,6 +102,8 @@ end $f$;
 -- The symptom handler reads the active escalation SLA's symptom_triage entries (the Free fallback raises an alert). The draft that
 -- carries them is unsigned, so this rolled-back proof flips it active, as symptom_triage_assessment_engine.sql does.
 alter table public.escalation_slas disable trigger refuse_superseded_activation;
+-- the governed-config guard (zz_refuse_unsigned_activation_*) refuses an unsigned activation; this fixture deliberately activates an unsigned draft, so it steps aside like the sibling guard
+alter table public.escalation_slas disable trigger zz_refuse_unsigned_activation_upd;
 update public.escalation_slas set is_active = false where is_active;
 update public.escalation_slas set is_active = true
  where id = (select c.id from public.escalation_slas c, jsonb_array_elements(c.config) e

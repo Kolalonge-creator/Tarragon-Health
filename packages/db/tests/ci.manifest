@@ -1668,3 +1668,7 @@ on_call_cover_guard_cmo_switch.sql
 # CMO availability window: a Chief Medical Officer can declare their own availability up to 120 days ahead; everyone else stays at 31 days; a start in the past is still refused. Sabotage: the old 31 day function put back refuses the CMO's 100 day block.
 cmo_availability_window.sql
 membership_start_routes_prior_uploads.sql
+# No governed configuration is live without a signature: the guard on 44 tables, a registry check so a new governed-shaped table must be classified, and a sabotage step that drops the triggers on alert_rules and expects the probes to be allowed.
+governed_config_never_live_without_signature.sql
+# Owed sign-offs ledger: CMO-only read and sign, SIGN plus a note, one audit entry, no direct writes, other organisation refused. Sabotage: the read policy dropped must expose the row to a plain clinician.
+owed_signoffs_ledger.sql
