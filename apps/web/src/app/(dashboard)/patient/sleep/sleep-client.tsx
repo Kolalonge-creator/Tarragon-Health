@@ -44,7 +44,7 @@ export function SleepClient({ patientId }: { patientId: string }) {
       {/* The page opens on last night; logging and the goal are one tap away in sheets instead of forms on the page (design audit P4). */}
       <HeroMetric
         label="Last night"
-        value={entries.isLoading ? null : last ? String(last.duration_hours) : null}
+        value={entries.isLoading || entries.isError ? null : last ? String(last.duration_hours) : null}
         unit="hours"
         meta={
           last
@@ -57,7 +57,7 @@ export function SleepClient({ patientId }: { patientId: string }) {
                 .join(" · ")
             : undefined
         }
-        emptyText={entries.isLoading ? t("Loading…") : t("Nothing logged yet.")}
+        emptyText={entries.isError ? t("We couldn't load this just now. Try again in a moment.") : entries.isLoading ? t("Loading…") : t("Nothing logged yet.")}
       />
       <div className="flex flex-wrap items-center gap-3">
         <SheetButton variant="default" label={t("Log last night")}>
