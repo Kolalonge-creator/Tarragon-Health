@@ -278,3 +278,8 @@ Each step ships on web and mobile together under the parity checklist in the com
 5. **Price, next slot and wait data:** define the source and an honest fallback (show nothing rather than guess).
 6. **Founder calls:** how to treat gated features (hide vs waitlist), and whether the Membership upsell stays on Vitals/Home at all.
 7. **Confirm before building:** home-length target (2 screens) and the 5-tab set are proposals, not tested numbers.
+
+## P6 progress (mobile, branch design/p6-mobile)
+- Slices 1-5: top of Medicine Cabinet, Women's Health, Care & Support, Profile and Prevention moved onto the kit (headers, loading skeletons, error and empty states).
+- Shared-component step 1: in `ui/legacy-kit.tsx`, `ScreenTitle`, `MutedText`, `ErrorText`, `SectionLabel` now draw through the kit `AppText`, and `PrimaryButton`/`SecondaryButton` through the kit `Button`. Every legacy screen picks up the new type faces and button look at once. Same names and props, so no screen files changed. Not yet seen on a simulator. The 44-point touch-target test was updated to check the kit Button's minimum.
+- Lint counter of raw text not yet on the kit (warnings): 1,082 at the start, 1,073 now. Remaining: raw `<Text>` with literal font sizes inside screens, plus `Card`, `Badge`, `GroupedList`, `ChoiceChip` still on the old look.

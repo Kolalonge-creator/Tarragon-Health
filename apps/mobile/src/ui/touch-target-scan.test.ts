@@ -23,9 +23,9 @@ describe("legacy buttons meet the 44 point minimum", () => {
   for (const name of ["PrimaryButton", "SecondaryButton", "ChoiceChip"]) {
     it(`${name} cannot be shorter than MIN_TARGET`, () => {
       const src = body(kit, name);
-      // The primary button already clears it by padding (14 + 14 + a 16 point line); the others must say so.
-      if (name === "PrimaryButton") expect(src).toMatch(/paddingVertical: 14/);
-      else expect(src).toMatch(/minHeight: MIN_TARGET/);
+      // The two buttons now draw through the kit Button (checked below); the choice chip still carries its own minimum.
+      if (name === "ChoiceChip") expect(src).toMatch(/minHeight: MIN_TARGET/);
+      else expect(src).toMatch(/<Button /);
     });
   }
   it("the medicine cabinet's small text button has a 44 point minimum height", () => {
@@ -34,11 +34,18 @@ describe("legacy buttons meet the 44 point minimum", () => {
     expect(i).toBeGreaterThan(-1);
     expect(src.slice(i, i + 900)).toMatch(/minHeight: 44/);
   });
+  it("the kit Button that both now draw through is at least 44 points tall", () => {
+    const m = read("kit/Button.tsx").match(/minHeight: (\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(44);
+  });
   it("SABOTAGE: with the minimum removed from the real source, the same check fails", () => {
-    const real = body(kit, "SecondaryButton");
+    const real = body(kit, "ChoiceChip");
     expect(real).toMatch(/minHeight: MIN_TARGET/);
     const sabotaged = real.replace("minHeight: MIN_TARGET,", "");
     expect(sabotaged).not.toMatch(/minHeight: MIN_TARGET/);
+    const realButton = read("kit/Button.tsx");
+    expect(realButton.replace(/minHeight: \d+,/, "")).not.toMatch(/minHeight: \d+/);
   });
 });
 
