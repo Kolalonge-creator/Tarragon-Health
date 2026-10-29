@@ -7,7 +7,7 @@
 --   * One row per session done (several a day are fine). performed_on is a Lagos calendar date, never in the future, at most 30 days back.
 --   * enrollment_id is optional: a person can log a walk without being on a programme. When given it must belong to the same patient.
 --   * symptom_during records "chest pain, dizziness or unusual breathlessness during it". It is the person's own report. The page tells them to
---     stop and what to do; this migration adds NO new clinician alert path (open question, see the PR). Staff read it only through a care tie.
+--     stop and what to do; the alert route is the follow-on migration 20261029211315. Staff read it only through a care tie.
 --   * Patient writes their own rows only. Staff never write. Read: the patient, or staff with a care tie (private.staff_may_read, INV-12).
 --   * Registered in data_registry (class PROPOSED, reviewed = false: the CMO and DPO have not classified it) and staff_read_scope ('tied').
 --   * Under-18 dependants: left in the default 'guarded' class (event trigger S04b-1e adds the restrictive policy), same as exercise_readiness_screens and
@@ -36,7 +36,7 @@ create index exercise_session_logs_enrollment_idx on public.exercise_session_log
 comment on table public.exercise_session_logs is
   'Exercise sessions a patient recorded as done. The only source for exercise progress: nothing else counts a session. Self-reported, never a clinical measurement.';
 comment on column public.exercise_session_logs.symptom_during is
-  'Patient''s own answer to "chest pain, dizziness or unusual breathlessness during it". Shown to staff only through a care tie. Adds no alert path by itself.';
+  'Patient''s own answer to "chest pain, dizziness or unusual breathlessness during it". Shown to staff only through a care tie. A Member's symptom also opens a clinician alert (20261029211315).';
 
 -- Date bounds and enrolment ownership. Insert only: a later correction (typo in minutes) must not be blocked by the 30-day window.
 create or replace function private.exercise_session_log_guard()

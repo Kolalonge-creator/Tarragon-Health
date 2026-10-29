@@ -1,6 +1,5 @@
 import {
   dailyBars,
-  lagosToday,
   programmeProgress,
   weekTotals,
   weeksInARow,
@@ -15,14 +14,6 @@ const s = (
   performed_on,
   duration_minutes,
   enrollment_id,
-});
-
-describe("lagosToday", () => {
-  it("uses the Lagos calendar day, not UTC", () => {
-    // 23:30 UTC is already the next day in Lagos (UTC+1)
-    expect(lagosToday(new Date("2026-10-29T23:30:00Z"))).toBe("2026-10-30");
-    expect(lagosToday(new Date("2026-10-29T10:00:00Z"))).toBe("2026-10-29");
-  });
 });
 
 describe("dailyBars", () => {

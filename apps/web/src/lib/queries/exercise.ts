@@ -73,21 +73,34 @@ export function clearsForVigorous(screen: ExerciseReadinessScreen | null | undef
   return !!screen?.cleared_for_intensive;
 }
 
-/** The person's logged sessions, newest first. 120 covers the 30-day logging window many times over and any programme's length. */
+const SESSION_PAGE = 1000;
+/** A sanity ceiling only (about 14 sessions a day for the 30-day logging window, every day for a year); never reached in practice. */
+const SESSION_MAX_PAGES = 20;
+
+/**
+ * Every session the person has logged, newest first. Progress, weeks in a row and per-programme totals are counted from this list, so it is read
+ * in full (page by page) rather than cut at an arbitrary row count that would quietly shrink the figures.
+ */
 export function useExerciseSessions(patientId: string) {
   return useQuery({
     queryKey: ["exercise-sessions", patientId],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("exercise_session_logs")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("performed_on", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(120);
-      if (error) throw error;
-      return data as ExerciseSessionLog[];
+      const rows: ExerciseSessionLog[] = [];
+      for (let page = 0; page < SESSION_MAX_PAGES; page++) {
+        const { data, error } = await supabase
+          .from("exercise_session_logs")
+          .select("*")
+          .eq("patient_id", patientId)
+          .order("performed_on", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(page * SESSION_PAGE, (page + 1) * SESSION_PAGE - 1);
+        if (error) throw error;
+        rows.push(...(data as ExerciseSessionLog[]));
+        if (data.length < SESSION_PAGE) break;
+      }
+      return rows;
     },
     enabled: !!patientId,
   });

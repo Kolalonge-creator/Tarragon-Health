@@ -4,7 +4,8 @@
 --  * minutes 1..600; owner, date and programme cannot be changed afterwards, minutes can be corrected
 --  * staff read only through a care tie (tied clinician sees it, untied clinician and coordinator without a tie do not); anon is denied
 --  * both registries carry the table (data_registry unreviewed, staff_read_scope tied)
--- SABOTAGE: guard trigger dropped, immutable trigger dropped, SELECT policy opened to organisation staff; each must flip checks.
+-- Symptom escalation: a Member's reported symptom opens one clinician_review alert; a non-member's and a no-symptom session open none.
+-- SABOTAGE: guard trigger dropped, immutable trigger dropped, symptom trigger dropped, SELECT policy opened to organisation staff; each must flip checks.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -165,6 +166,33 @@ begin
   perform pg_temp.ck('anon holds no privilege', 'false', has_table_privilege('anon', 'public.exercise_session_logs', 'SELECT')::text);
 end $$;
 
+-- Symptom escalation: a Member's reported symptom opens one clinician alert, a non-member's opens none (and does not error), no symptom opens none
+do $$
+declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2'); v_n integer;
+begin
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, is_test)
+  values (v_org, v_pat, 'purchase', 'active', now() - interval '1 day', true);
+  perform pg_temp.ck('the member is a member, the other patient is not', 'true|false',
+    private.patient_has_feature_access(v_pat, 'vitals_red_flag_doctor_escalation')::text || '|' || private.patient_is_member(v_pat2)::text);
+
+  insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during)
+  values (v_org, v_pat, pg_temp.lagos_today() - 3, 20, 'walking', false);
+  perform pg_temp.ck('no symptom, no alert', '0', (select count(*)::text from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise'));
+
+  insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during, note)
+  values (v_org, v_pat, pg_temp.lagos_today() - 4, 20, 'cardio', true, 'felt dizzy near the end');
+  perform pg_temp.ck('a member''s symptom opens one clinician_review alert', '1|clinician_review|symptom_escalation',
+    (select count(*)::text || '|' || min(level::text) || '|' || min(type_code::text) from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise'));
+  perform pg_temp.ck('the alert carries the note and an SLA', 'true|true',
+    (select (detail like '%felt dizzy near the end%')::text || '|' || (sla_due_at is not null)::text from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise'));
+
+  insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during)
+  values (v_org, v_pat2, pg_temp.lagos_today() - 1, 20, 'walking', true);
+  perform pg_temp.ck('a non-member''s symptom opens no clinician alert', '0', (select count(*)::text from public.clinician_alerts where patient_id = v_pat2));
+  perform pg_temp.ck('the trigger function is not callable by API roles', 'false|false',
+    has_function_privilege('anon', 'private.exercise_symptom_escalation()', 'EXECUTE')::text || '|' || has_function_privilege('authenticated', 'private.exercise_symptom_escalation()', 'EXECUTE')::text);
+end $$;
+
 -- SABOTAGE: each break must make a check above come out differently
 do $$
 declare v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2'); v_id uuid;
@@ -177,6 +205,12 @@ begin
   drop trigger exercise_session_logs_immutable on public.exercise_session_logs;
   perform pg_temp.sab('the date cannot be changed', 'Owner, date and programme of a logged session cannot be changed.',
     pg_temp.try_as(v_pat, format('update public.exercise_session_logs set performed_on = performed_on - 1 where id = %L', v_id)));
+
+  drop trigger exercise_session_logs_symptom_escalation on public.exercise_session_logs;
+  insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during)
+  values (pg_temp.f('org'), v_pat, pg_temp.lagos_today() - 6, 20, 'walking', true);
+  perform pg_temp.sab('a member''s symptom opens one clinician_review alert', '1|clinician_review|symptom_escalation',
+    (select count(*)::text || '|' || coalesce(min(level::text), '') || '|' || coalesce(min(type_code::text), '') from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise' and detail like '%' || (pg_temp.lagos_today() - 6)::text || '%'));
 
   drop policy exercise_session_logs_select on public.exercise_session_logs;
   create policy exercise_session_logs_select on public.exercise_session_logs for select to authenticated
@@ -193,7 +227,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

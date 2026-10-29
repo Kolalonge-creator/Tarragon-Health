@@ -29,11 +29,6 @@ function fromDayNumber(n: number): string {
   return new Date(n * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
-/** Today's date in Lagos as YYYY-MM-DD. */
-export function lagosToday(now: Date = new Date()): string {
-  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
-}
-
 /** The last `days` calendar days ending today, oldest first, with the minutes and sessions logged on each. */
 export function dailyBars(
   sessions: readonly SessionLike[],

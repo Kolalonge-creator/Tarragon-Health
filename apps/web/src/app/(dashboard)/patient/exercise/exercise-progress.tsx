@@ -9,7 +9,6 @@ import {
 } from "@/lib/queries/exercise";
 import {
   dailyBars,
-  lagosToday,
   programmeProgress,
   weekTotals,
   weeksInARow,
@@ -34,7 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { EmptyHint } from "@/components/ui/empty-hint";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPatientDate } from "@/lib/format-date";
+import { formatPatientDate, lagosToday } from "@/lib/format-date";
 
 const SESSIONS_KEY = "exercise-sessions";
 

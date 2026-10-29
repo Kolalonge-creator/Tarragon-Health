@@ -86,7 +86,7 @@ export type LogSessionState =
 /**
  * Record a session the person did. The database trigger is the real check on the date window and on the programme being theirs; its
  * patient-readable message comes back as error.message. A reported symptom changes what the page says (stop, rest, get help if it persists);
- * it creates no clinician alert on its own.
+ * the database raises the clinician alert for Members (20261029211315_exercise_symptom_escalation).
  */
 export async function logExerciseSessionAction(
   _prev: LogSessionState,
