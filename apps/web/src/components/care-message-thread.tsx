@@ -19,6 +19,7 @@ import { DoctorNameLink } from "@/components/doctor-name-link";
 import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -70,6 +71,28 @@ function roleLabel(message: CareMessage): string | null {
   if (message.author_role === "patient") return "Patient";
   return null;
 }
+
+/** Plain-text author for the avatar initials. Mirrors AuthorLabel's null-gating exactly: only a real clinical-tier actor is named. */
+function authorName(message: CareMessage): string {
+  if (message.author_role === "care_team") {
+    return message.actor?.full_name && isClinicalTier(message.actor) ? message.actor.full_name : "Care team";
+  }
+  if (message.author_role === "sponsor") return message.author_display ?? "Someone who supports them";
+  return message.author_display ?? "Patient";
+}
+
+function initials(name: string): string {
+  const parts = name.replace(/^dr\.?\s+/i, "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR: Record<string, string> = {
+  patient: "bg-soft-sage text-deep-forest dark:bg-brand-green/20 dark:text-brand-green-bright",
+  care_team: "bg-brand-green text-white",
+  sponsor: "bg-clinical-navy text-white dark:bg-blue-500/40",
+};
 
 const BUBBLE: Record<string, string> = {
   patient: "rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-3",
@@ -214,8 +237,16 @@ export function CareMessageThread({
         {(messages ?? []).map((message) => (
           <li
             key={message.id}
-            className={BUBBLE[message.author_role] ?? BUBBLE.patient}
+            // Your own messages sit on the right, everyone else's on the left, like a chat. The staff view reads the other way round.
+            className={cn("flex items-end gap-2", message.author_role === (isStaff ? "care_team" : "patient") && "flex-row-reverse")}
           >
+            <span
+              aria-hidden
+              className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", AVATAR[message.author_role] ?? AVATAR.patient)}
+            >
+              {message.author_role === "care_team" && authorName(message) === "Care team" ? "CT" : initials(authorName(message))}
+            </span>
+            <div className={cn("min-w-0 max-w-[85%] flex-1 sm:max-w-[75%] sm:flex-none", BUBBLE[message.author_role] ?? BUBBLE.patient)}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
                 <AuthorLabel message={message} />
@@ -235,6 +266,7 @@ export function CareMessageThread({
                 ))}
               </div>
             )}
+            </div>
           </li>
         ))}
       </ul>
