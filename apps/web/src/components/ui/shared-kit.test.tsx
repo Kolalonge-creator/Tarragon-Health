@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 /** Design audit P1 item 9: the web twins of the mobile kit components. */
+import * as React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Inbox } from "lucide-react";
 import { HeroMetric } from "./hero-metric";
@@ -49,5 +50,29 @@ describe("Sheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("Sheet focus", () => {
+  it("keeps Tab inside the sheet and restores focus to the opener", () => {
+    const Harness = () => {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open</button>
+          <Sheet open={open} onClose={() => setOpen(false)} title="T"><button>Inner</button></Sheet>
+        </>
+      );
+    };
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Open" });
+    opener.focus();
+    fireEvent.click(opener);
+    const inner = screen.getByRole("button", { name: "Inner" });
+    inner.focus();
+    fireEvent.keyDown(inner, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(document.activeElement).toBe(opener);
   });
 });

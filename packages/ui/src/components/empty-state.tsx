@@ -12,6 +12,7 @@ export function EmptyState({
   title,
   body,
   action,
+  headingLevel: Heading = "h2",
   className,
 }: {
   icon?: LucideIcon;
@@ -19,6 +20,8 @@ export function EmptyState({
   body?: React.ReactNode;
   /** The single next step: a Button or Link. */
   action?: React.ReactNode;
+  /** Pick the level that fits the page outline. */
+  headingLevel?: "h2" | "h3" | "h4";
   className?: string;
 }) {
   return (
@@ -28,7 +31,7 @@ export function EmptyState({
           <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
         </span>
       )}
-      <h2 className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">{title}</h2>
+      <Heading className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">{title}</Heading>
       {body && <p className="max-w-sm text-sm text-charcoal-ink/70 dark:text-night-ink/70">{body}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>

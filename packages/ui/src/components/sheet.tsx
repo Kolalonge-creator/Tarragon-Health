@@ -28,6 +28,16 @@ export function Sheet({
   children: React.ReactNode;
 }) {
   const titleId = React.useId();
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
+  // Return focus to whatever opened the sheet when it closes.
+  React.useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.querySelector<HTMLElement>("[data-sheet-close]")?.focus();
+    return () => opener?.focus?.();
+  }, [open]);
+
   if (!open) return null;
   return (
     <div
@@ -37,10 +47,30 @@ export function Sheet({
       className={cn("fixed inset-0 flex items-end justify-center bg-charcoal-ink/60 sm:items-center sm:p-4 print:hidden", layerClassName)}
       onClick={onClose}
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") {
+          onClose();
+          return;
+        }
+        // Keep Tab inside the sheet: it is modal, so the page behind must not take focus.
+        if (e.key === "Tab" && panelRef.current) {
+          const items = panelRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+          );
+          if (items.length === 0) return;
+          const first = items[0];
+          const last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }}
     >
       <div
+        ref={panelRef}
         className={cn(
           "max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl dark:bg-night-card dark:shadow-none sm:rounded-2xl",
           tone === "danger" && "border border-red-200 dark:border-red-500/30",
@@ -60,7 +90,7 @@ export function Sheet({
           </h2>
           <button
             type="button"
-            autoFocus
+            data-sheet-close
             aria-label="Close"
             onClick={onClose}
             className="rounded-full p-1.5 text-charcoal-ink/70 hover:bg-charcoal-ink/5 dark:text-night-ink/70"

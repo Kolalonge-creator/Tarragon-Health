@@ -55,11 +55,21 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
 
   useEffect(() => {
     if (activeState?.success) {
-      // Surface the EmergencyAlert dialog immediately (it takes over the screen,
-      // so the chip selection behind it doesn't need clearing here).
+      // Surface the EmergencyAlert dialog immediately (it takes over the screen).
       queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
     }
   }, [activeState?.success, queryClient, patientId]);
+
+  // Once a report is recorded, close the sheet and clear the selection so it cannot be sent twice when the
+  // EmergencyAlert is dismissed. Adjusting state during render (not in an effect) keyed on the result object,
+  // which is new for every submission.
+  const [handledResult, setHandledResult] = useState<unknown>(undefined);
+  if (activeState?.success && handledResult !== activeState) {
+    setHandledResult(activeState);
+    setExpanded(false);
+    setSelected(new Set());
+    setPaediatricSelected(new Set());
+  }
 
   function toggle(sign: DangerSign) {
     setSelected((prev) => {
