@@ -10,6 +10,8 @@ const maybeSingle = jest.fn();
 const getUser = jest.fn();
 const purchaseServiceProduct = jest.fn();
 const outstandingLimit = jest.fn();
+const outstandingCalls: Array<[string, ...unknown[]]> = [];
+const verifyTransactionDetail = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockImplementation(async () => ({
@@ -22,12 +24,13 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     from: () => {
       const chain: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "not", "gt", "order"]) chain[m] = () => chain;
+      for (const m of ["select", "eq", "not", "order"]) chain[m] = (...a: unknown[]) => (outstandingCalls.push([m, ...a]), chain);
       chain.limit = outstandingLimit;
       return chain;
     },
   }),
 }));
+jest.mock("@/lib/paystack/transactions", () => ({ verifyTransactionDetail: (r: string) => verifyTransactionDetail(r) }));
 jest.mock("@/lib/billing/purchase-service-product", () => ({ purchaseServiceProduct: (a: unknown) => purchaseServiceProduct(a) }));
 
 import { createPayLink, findPatients, getPayLink, retryConfirm } from "./actions";
@@ -48,8 +51,11 @@ beforeEach(() => {
   getUser.mockResolvedValue({ data: { user: { id: "coord-1" } } });
   maybeSingle.mockResolvedValue({ data: waiting, error: null });
   purchaseServiceProduct.mockResolvedValue({ checkoutUrl: "https://checkout.paystack.com/abc" });
+  outstandingCalls.length = 0;
   outstandingLimit.mockResolvedValue({ data: [], error: null });
 });
+
+const FRESH = () => ({ id: "purchase-1", updated_at: new Date().toISOString(), pending_payment_provider_ref: "ref-1" });
 
 describe("findPatients", () => {
   it("refuses a query under 3 characters without calling the database", async () => {
@@ -91,7 +97,7 @@ describe("createPayLink", () => {
   });
 
   it("shows the SAME link again instead of making a second one (a second would orphan a payment on the first)", async () => {
-    outstandingLimit.mockResolvedValue({ data: [{ id: "purchase-1", pending_payment_checkout_url: "https://checkout.paystack.com/first" }], error: null });
+    outstandingLimit.mockResolvedValue({ data: [{ ...FRESH(), pending_payment_checkout_url: "https://checkout.paystack.com/first" }], error: null });
     expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({
       checkoutUrl: "https://checkout.paystack.com/first",
       reused: true,
@@ -100,8 +106,53 @@ describe("createPayLink", () => {
   });
 
   it("refuses, and does not replace, a recent link that was made before links were kept", async () => {
-    outstandingLimit.mockResolvedValue({ data: [{ id: "purchase-1", pending_payment_checkout_url: null }], error: null });
+    outstandingLimit.mockResolvedValue({ data: [{ ...FRESH(), pending_payment_checkout_url: null }], error: null });
     expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ error: expect.stringContaining("cannot be shown again") });
+    expect(purchaseServiceProduct).not.toHaveBeenCalled();
+  });
+
+  it("looks only at the patient's pending purchase for THIS product (a wrong filter would reuse an unrelated link)", async () => {
+    await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" });
+    expect(outstandingCalls).toEqual(
+      expect.arrayContaining([
+        ["eq", "patient_id", "patient-1"],
+        ["eq", "status", "pending_payment"],
+        ["eq", "service_product.code", "video_visit_credit"],
+      ]),
+    );
+  });
+
+  const staleRow = {
+    id: "purchase-1",
+    updated_at: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+    pending_payment_provider_ref: "ref-old",
+    pending_payment_checkout_url: "https://checkout.paystack.com/old",
+  };
+  const verdict = (status: string) => ({ ok: true, data: { status, amountMinor: null, currency: null, feeMinor: null } });
+
+  it("replaces a link older than 24 hours only when Paystack says it was abandoned", async () => {
+    outstandingLimit.mockResolvedValue({ data: [staleRow], error: null });
+    verifyTransactionDetail.mockResolvedValue(verdict("abandoned"));
+    expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ checkoutUrl: "https://checkout.paystack.com/abc" });
+    expect(verifyTransactionDetail).toHaveBeenCalledWith("ref-old");
+  });
+
+  it("does NOT replace an old link that Paystack says is paid or under way", async () => {
+    outstandingLimit.mockResolvedValue({ data: [staleRow], error: null });
+    for (const status of ["success", "ongoing", "pending"]) {
+      verifyTransactionDetail.mockResolvedValue(verdict(status));
+      expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({
+        checkoutUrl: "https://checkout.paystack.com/old",
+        reused: true,
+      });
+    }
+    expect(purchaseServiceProduct).not.toHaveBeenCalled();
+  });
+
+  it("does NOT replace an old link when Paystack cannot be asked", async () => {
+    outstandingLimit.mockResolvedValue({ data: [staleRow], error: null });
+    verifyTransactionDetail.mockResolvedValue({ ok: false, error: "down" });
+    expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ error: expect.stringContaining("Could not check") });
     expect(purchaseServiceProduct).not.toHaveBeenCalled();
   });
 
@@ -151,7 +202,7 @@ describe("retryConfirm", () => {
 
 describe("getPayLink", () => {
   it("returns the stored link for the coordinator's own waiting booking", async () => {
-    outstandingLimit.mockResolvedValue({ data: [{ id: "purchase-1", pending_payment_checkout_url: "https://checkout.paystack.com/first" }], error: null });
+    outstandingLimit.mockResolvedValue({ data: [{ ...FRESH(), pending_payment_checkout_url: "https://checkout.paystack.com/first" }], error: null });
     expect(await getPayLink(APPT)).toEqual({ checkoutUrl: "https://checkout.paystack.com/first" });
   });
 

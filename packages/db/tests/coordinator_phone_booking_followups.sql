@@ -117,6 +117,16 @@ begin
   v_h := pg_temp.hold_as(v_coord, v_free, v_doc, v_start + interval '1 day');
   perform pg_temp.rec('with that credit spent the Free patient is refused again', 'true', (v_h like 'ERR P0001:%|upgrade_first')::text);
 
+  -- the stored checkout link goes when its transaction stops being the pending one
+  insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, pending_payment_provider_ref, pending_payment_checkout_url)
+  values (v_org, v_free, v_prod, 'pending_payment', 100, 'NGN', 0, 'ref-1', 'https://checkout.paystack.com/x') returning id into v_cred;
+  perform pg_temp.rec('a pending purchase keeps its checkout link', 'https://checkout.paystack.com/x',
+    (select pending_payment_checkout_url from public.service_purchases where id = v_cred));
+  update public.service_purchases set status = 'active', purchased_at = now(), pending_payment_provider_ref = null where id = v_cred;
+  perform pg_temp.rec('when the payment is applied the checkout link is cleared', 'null',
+    coalesce((select pending_payment_checkout_url from public.service_purchases where id = v_cred), 'null'));
+  update public.service_purchases set redeemed_at = now(), redeemed_entity_type = 'appointment', redeemed_entity_id = gen_random_uuid() where id = v_cred;
+
   -- SABOTAGE
   execute $s$ create or replace function private.has_available_service_credit(p_patient uuid, p_code text) returns boolean language sql stable security definer set search_path to '' as $b$ select false $b$ $s$;
   insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, purchased_at)
@@ -128,6 +138,15 @@ begin
   update public.service_purchases set redeemed_at = now(), redeemed_entity_type = 'appointment', redeemed_entity_id = gen_random_uuid() where patient_id = v_free and redeemed_at is null;
   v_h := pg_temp.hold_as(v_coord, v_free, v_doc, v_start + interval '3 days');
   perform pg_temp.rec('SABOTAGE credit check forced true: a Free patient with NO credit now holds (so the check is what keeps the refusal)', 'true', (v_h !~ '^ERR')::text);
+
+  -- SABOTAGE: with the clearing trigger off the link outlives the payment
+  execute 'alter table public.service_purchases disable trigger clear_stale_checkout_url';
+  insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, pending_payment_provider_ref, pending_payment_checkout_url)
+  values (v_org, v_free, v_prod, 'pending_payment', 100, 'NGN', 0, 'ref-2', 'https://checkout.paystack.com/y') returning id into v_cred;
+  update public.service_purchases set status = 'active', purchased_at = now(), pending_payment_provider_ref = null, redeemed_at = now(), redeemed_entity_type = 'appointment', redeemed_entity_id = gen_random_uuid() where id = v_cred;
+  perform pg_temp.rec('SABOTAGE clearing trigger off: the link survives the payment (so the real test proved the trigger)', 'https://checkout.paystack.com/y',
+    (select pending_payment_checkout_url from public.service_purchases where id = v_cred));
+  execute 'alter table public.service_purchases enable trigger clear_stale_checkout_url';
 
   if exists (select 1 from results where expected is distinct from actual) then
     raise exception 'phone booking follow-ups proof FAILED: %', (select string_agg(check_name || ' (expected ' || expected || ', got ' || coalesce(actual, 'null') || ')', E'\n') from results where expected is distinct from actual);

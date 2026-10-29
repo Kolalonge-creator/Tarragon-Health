@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { verifyTransactionDetail } from "@/lib/paystack/transactions";
 import { PAID_APPOINTMENT_PRODUCT_CODE } from "@/app/(dashboard)/patient/appointments/appointment-labels";
 
 export type FoundPatient = {
@@ -79,26 +80,35 @@ async function loadWaitingBooking(appointmentId: string): Promise<WaitingBooking
 
 type OutstandingLink = { found: false } | { found: true; checkoutUrl: string | null };
 
+const LINK_HOLD_MS = 24 * 60 * 60 * 1000;
+
 /**
- * The payment link already made for this patient and item in the last 24 hours (the length of the hold), if any. The patient's pending
- * purchase for a product is shared and holds ONE payment reference: Paystack cannot cancel a started transaction, so a second link
- * would replace the first and a payer who then used the first would be charged with nothing to match it to. So an existing link is
- * shown again, never replaced. A link older than the hold no longer counts, so a lost one cannot block the patient for ever.
+ * The payment link already made for this patient and item, if one could still be paid. The patient's pending purchase for a product is
+ * shared and holds ONE payment reference: Paystack cannot cancel a started transaction, so a second link would replace the first and a
+ * payer who then used the first would be charged with nothing to match it to. So:
+ *  - a link made in the last 24 hours (the length of the hold) is shown again, never replaced;
+ *  - an older one is replaced only after Paystack says it was abandoned or failed. If Paystack says it is paid or under way, or cannot
+ *    be asked, nothing is replaced (a payment not yet applied must not lose its reference).
  */
 async function findOutstandingLink(patientId: string, productCode: string): Promise<OutstandingLink | { error: string }> {
   const { data, error } = await createServiceRoleClient()
     .from("service_purchases")
-    .select("id, pending_payment_checkout_url, service_product:service_products!inner(code)")
+    .select("id, updated_at, pending_payment_provider_ref, pending_payment_checkout_url, service_product:service_products!inner(code)")
     .eq("patient_id", patientId)
     .eq("status", "pending_payment")
     .not("pending_payment_provider_ref", "is", null)
-    .gt("updated_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .eq("service_product.code", productCode)
     .order("updated_at", { ascending: false })
     .limit(1);
   if (error) return { error: error.message };
   const row = data?.[0];
-  return row ? { found: true, checkoutUrl: row.pending_payment_checkout_url } : { found: false };
+  if (!row) return { found: false };
+  if (Date.now() - new Date(row.updated_at).getTime() < LINK_HOLD_MS) return { found: true, checkoutUrl: row.pending_payment_checkout_url };
+
+  const check = await verifyTransactionDetail(row.pending_payment_provider_ref as string);
+  if (!check.ok) return { error: "Could not check the earlier payment link with Paystack, so no new one was made. Try again in a moment." };
+  if (check.data.status === "abandoned" || check.data.status === "failed") return { found: false };
+  return { found: true, checkoutUrl: row.pending_payment_checkout_url };
 }
 
 /**
@@ -119,7 +129,7 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   if (outstanding.found) {
     if (outstanding.checkoutUrl) return { checkoutUrl: outstanding.checkoutUrl, reused: true };
     // made before links were kept: it cannot be shown again, and replacing it could orphan a payment
-    return { error: "A payment link was made for this patient in the last 24 hours but cannot be shown again. Ask the payer to use it; a new one can be made once it has lapsed." };
+    return { error: "A payment link was made for this patient earlier and cannot be shown again. Ask the payer to use it; a new one can be made once Paystack shows it was not used." };
   }
 
   const result = await purchaseServiceProduct({

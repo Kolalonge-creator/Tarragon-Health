@@ -15,6 +15,31 @@ alter table public.service_purchases
 comment on column public.service_purchases.pending_payment_checkout_url is
   'The Paystack authorization URL for the current pending_payment_provider_ref, so a coordinator can show the same link again.';
 
+-- The stored link is a bearer payment URL for one pending transaction. It lives only as long as that transaction is the purchase's
+-- pending one: when the reference is cleared (payment applied) or the purchase leaves pending_payment, the URL goes with it. Done in a
+-- trigger so no writer (payment webhook, expiry sweep, cancellation) has to remember, and the payment function is left untouched.
+create or replace function private.clear_stale_checkout_url()
+ returns trigger
+ language plpgsql
+ set search_path to ''
+as $function$
+begin
+  if new.pending_payment_checkout_url is not null
+     and (new.pending_payment_provider_ref is null or new.status <> 'pending_payment') then
+    new.pending_payment_checkout_url := null;
+  end if;
+  return new;
+end;
+$function$;
+revoke all on function private.clear_stale_checkout_url() from public;
+
+drop trigger if exists clear_stale_checkout_url on public.service_purchases;
+create trigger clear_stale_checkout_url
+  before update on public.service_purchases
+  for each row execute function private.clear_stale_checkout_url();
+
+update public.service_purchases set pending_payment_checkout_url = null where pending_payment_checkout_url is not null;
+
 create or replace function private.has_available_service_credit(p_patient uuid, p_code text)
  returns boolean
  language sql

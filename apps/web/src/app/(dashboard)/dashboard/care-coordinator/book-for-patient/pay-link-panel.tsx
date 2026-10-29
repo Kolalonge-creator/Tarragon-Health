@@ -19,6 +19,7 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
   const [activated, setActivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reused, setReused] = useState(false);
 
   async function makeLink() {
     setBusy(true);
@@ -29,9 +30,8 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
     if ("error" in result) setError(result.error);
     else if ("checkoutUrl" in result) {
       setLink(result.checkoutUrl);
-      if (result.reused) setError(null);
-    }
-    else setActivated(true);
+      setReused(result.reused === true);
+    } else setActivated(true);
   }
 
   async function copy() {
@@ -69,6 +69,11 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
           </div>
           {link && (
             <div className="space-y-2">
+              {reused && (
+                <p role="status" className="text-xs text-charcoal-ink dark:text-night-ink">
+                  This is the link made earlier for {patientName}, not a new one. It was made with another email address, and one payment covers one visit.
+                </p>
+              )}
               <p className="break-all rounded-md bg-charcoal-ink/5 p-2 text-xs text-charcoal-ink dark:text-night-ink">{link}</p>
               <Button size="sm" variant="outline" onClick={copy}>
                 {copied ? "Copied" : "Copy link"}
