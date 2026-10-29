@@ -64,12 +64,12 @@ export default async function PatientVitalsPage() {
       icon={SEMANTIC_ICON.bp}
     >
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
-      {/* W-53 / D-03: the calm-screen Membership offer. Price and refund window come from versioned config. */}
+      <VitalsTrendChart patientId={subjectId} />
+      {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
+      {/* Offers sit under the patient's own readings, never above them. W-53 / D-03: the calm-screen Membership offer; price and refund window come from versioned config. */}
       {subjectId === profile.id ? <FollowWithDoctorCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
       {/* Journey 1: above target for a week, the same offer with its own title. The database decides (Free, above target, checkout open). */}
       {subjectId === profile.id ? <AboveTargetMembershipCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
-      <VitalsTrendChart patientId={subjectId} />
-      {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
       {/* Renders nothing until there is sensor glucose to show. */}
       <AgpCard patientId={subjectId} audience="patient" />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />

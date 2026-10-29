@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC, checkAdultDateOfBirth } from "@tarragon/shared";
 import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
@@ -9,6 +9,8 @@ import { startPhoneSignUp } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
+import appIcon from "../../assets/icon.png";
+import { DobField } from "@/screens/signup-dob-field";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -316,13 +318,40 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 12 }}
       >
-        <SecondaryButton title="Close" onPress={onClose} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to sign in"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 20 }}
+          onPress={onClose}
+          style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.brand} />
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.brand }}>Sign in</Text>
+        </Pressable>
 
-        <View>
+        <View style={{ alignItems: "center", gap: 6, marginTop: 4 }}>
+          <Image
+            source={appIcon}
+            style={{ width: 56, height: 56, borderRadius: 14 }}
+            accessibilityIgnoresInvertColors
+          />
           <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
             {ta("auth.signup.title", locale)}
           </Text>
           <MutedText>A couple of minutes to set up. Your care team takes it from there.</MutedText>
+        </View>
+
+        <View style={{ gap: 8, backgroundColor: colors.brandTint, borderRadius: radius.card, padding: 14 }}>
+          {[
+            "Log blood pressure, sugar and medicines in seconds",
+            "Plain-language explanations of your results",
+            "Reminders that fit around your day",
+          ].map((line) => (
+            <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.brand} />
+              <Text style={{ flex: 1, fontSize: 14, color: colors.ink }}>{line}</Text>
+            </View>
+          ))}
         </View>
 
         <View
@@ -455,17 +484,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         )}
 
         <View style={{ gap: 6 }}>
-          <TextInput
-            accessibilityLabel={ta("auth.field.dob", locale)}
-            placeholder={ta("auth.field.dob", locale)}
-            placeholderTextColor={colors.subtle}
-            keyboardType="numbers-and-punctuation"
-            autoComplete="birthdate-full"
-            maxLength={10}
-            value={dateOfBirth}
-            onChangeText={setDateOfBirth}
-            style={inputStyle}
-          />
+          <DobField value={dateOfBirth} onChange={setDateOfBirth} label="Date of birth" />
           <MutedText>{ta("auth.field.dob_hint", locale)}</MutedText>
         </View>
 
