@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -84,6 +84,7 @@ import {
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText, Button, EmptyState, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { PharmacyOrdersSection } from "@/screens/sections/pharmacy-orders-section";
 
 interface MedicineCabinetScreenProps {
@@ -222,27 +223,31 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Your medicines cabinet</Text>
-        <MutedText>Everything you&apos;re taking, refills, check-ins, and pack checks.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Your medicines cabinet
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Everything you&apos;re taking, refills, check-ins, and pack checks.
+        </AppText>
       </View>
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Active medications</SectionLabel>
         {medsLoading ? (
-          <ActivityIndicator color={colors.brand} />
+          <SkeletonGroup label="Loading your medications">
+            <View style={{ gap: 10 }}>
+              <Skeleton height={96} radius={16} />
+              <Skeleton height={96} radius={16} />
+            </View>
+          </SkeletonGroup>
         ) : medsError ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="We couldn't load your medications. Tap to retry." onPress={retryLoad}>
-            <Card style={{ alignItems: "center", gap: 8 }}>
-              <Ionicons name="cloud-offline-outline" size={22} color={colors.faint} />
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>We couldn&apos;t load this right now</Text>
-              <MutedText>Tap to retry.</MutedText>
-            </Card>
-          </Pressable>
+          <View style={{ gap: 10 }}>
+            <InlineAlert tone="danger" message="We couldn't load your medications." />
+            <Button title="Try again" onPress={retryLoad} variant="secondary" />
+          </View>
         ) : medications.length === 0 ? (
-          <Card>
-            <MutedText>No active medications on file.</MutedText>
-          </Card>
+          <EmptyState icon="medication" title="No active medications" body="Medicines your care team adds, or you add below, will appear here." />
         ) : (
           <View style={{ gap: 10 }}>
             {medications.map((medication) => (
