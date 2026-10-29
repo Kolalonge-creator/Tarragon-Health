@@ -22,6 +22,8 @@ import {
 } from "@/lib/rules/cycle-prediction";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { suggestCycleReading } from "@/lib/rules/cycle-reading";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { cycleHero } from "@/lib/rules/cycle-hero";
 import { CycleCalendar } from "./cycle-calendar";
 import { CycleInsightsCard } from "./cycle-insights-card";
 import { CycleLengthChart } from "./cycle-length-chart";
@@ -216,6 +218,19 @@ export function CycleTracker({
   return (
     <div className="space-y-6">
       <FlagCard flags={prediction.flags} />
+
+      {(() => {
+        const hero = cycleHero(prediction);
+        return (
+          <HeroMetric
+            label="Period countdown"
+            value={hero.value}
+            unit={hero.unit}
+            caption={hero.value === null ? undefined : hero.caption}
+            emptyText={hero.caption}
+          />
+        );
+      })()}
 
       {/* ---------- Where you are now ---------- */}
       <Card>
