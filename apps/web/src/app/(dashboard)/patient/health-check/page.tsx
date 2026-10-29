@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { Disclosure } from "@/components/ui/disclosure";
+import { healthCheckView } from "./health-check-view";
 import { NAV_ICON } from "@/lib/icons";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
@@ -38,7 +38,12 @@ const VITAL_LABEL: Record<string, string> = {
   pulse: "pulse",
 };
 
-export default async function HealthCheckPage() {
+export default async function HealthCheckPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string | string[] }>;
+}) {
+  const view = healthCheckView((await searchParams).step);
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
@@ -163,7 +168,7 @@ export default async function HealthCheckPage() {
       title: "2. Mental wellbeing",
       state: wellbeingStage.kind,
       label: wellbeingStage.label,
-      href: "#wellbeing",
+      href: "/patient/health-check?step=wellbeing",
     },
     {
       title: "3. Your measurements",
@@ -210,7 +215,11 @@ export default async function HealthCheckPage() {
         <PageHeader
           title="Your Health Check"
           icon={NAV_ICON.review}
-          backTo={{ href: "/patient/prevention", label: "Prevention" }}
+          backTo={
+            view === "overview"
+              ? { href: "/patient/prevention", label: "Prevention" }
+              : { href: "/patient/health-check", label: "All steps" }
+          }
           description="A yearly, whole-body check: the right checks for you, and a plan to keep you well. Work through each step; your care team reviews everything at the end."
         />
         {tierName && (
@@ -220,6 +229,30 @@ export default async function HealthCheckPage() {
         )}
       </div>
 
+      {view === "wellbeing" ? (
+        // A clinical instrument shown exactly as signed, alone on its screen.
+        <div id="wellbeing">
+          <MentalHealthSummary patientId={profile.id} />
+          <MentalHealthScreenForm patientId={profile.id} />
+        </div>
+      ) : view === "tests" ? (
+        <>
+          {/* The lab tests behind the screenings step. Self-arranged: we write the request, the patient uses any lab and uploads the result back here. */}
+          <AnnualHealthCheckBooking
+            patientId={profile.id}
+            organisationId={profile.organisation_id}
+            sex={profile.sex}
+            state={profile.state}
+            screensEnabled={screensEnabled}
+          />
+          {/* Lipid results and the CV-risk gloss they feed both self-hide until there is real data. */}
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <LipidProfileCard patientId={profile.id} />
+            <RiskSignalsCard patientId={profile.id} />
+          </div>
+        </>
+      ) : (
+      <>
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-base">Your {year} check</CardTitle>
@@ -268,25 +301,18 @@ export default async function HealthCheckPage() {
               <div key={stage.title} className={rowClass}>{body}</div>
             );
           })}
+          <Link
+            href="/patient/health-check?step=tests"
+            className="flex min-h-11 items-center justify-between gap-3 py-3 last:pb-0 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+          >
+            <div>
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Lab tests for your check</p>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Request them, then add your results</p>
+            </div>
+            <span aria-hidden className="text-sm text-brand-green dark:text-brand-green-bright">→</span>
+          </Link>
         </CardContent>
       </Card>
-
-      {/* The lab tests that power stage 4. Self-arranged: we write the request,
-          the patient uses any lab, and uploads the result back here. */}
-      <AnnualHealthCheckBooking
-        patientId={profile.id}
-        organisationId={profile.organisation_id}
-        sex={profile.sex}
-        state={profile.state}
-        screensEnabled={screensEnabled}
-      />
-
-      {/* Lipid results + the CV-risk gloss they feed — both self-hide until
-          there's real data, so nothing renders until a lipid panel lands. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <LipidProfileCard patientId={profile.id} />
-        <RiskSignalsCard patientId={profile.id} />
-      </div>
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
@@ -337,18 +363,8 @@ export default async function HealthCheckPage() {
       </Card>
 
       <HealthCheckVideoConsultCard consult={check?.video_consult ?? null} />
-
-      {/* Step 2 lives here. Always folded (the questionnaire is about 4,400px tall): the step row above links to it, and the
-          patient opens it on purpose. The questions themselves are a clinical instrument and are shown exactly as signed. */}
-      <div id="wellbeing" className="scroll-mt-20">
-        <Disclosure
-          title="Mental wellbeing check-in"
-          hint={wellbeingStage.label}
-        >
-          <MentalHealthSummary patientId={profile.id} />
-          <MentalHealthScreenForm patientId={profile.id} />
-        </Disclosure>
-      </div>
+      </>
+      )}
     </div>
   );
 }
