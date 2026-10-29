@@ -20,7 +20,7 @@ export const EXPORT_COLUMNS: XlsxColumn[] = [
   { header: "Membership source", width: 16 },
   { header: "Membership started (Lagos time)", kind: "date", width: 18 },
   { header: "Membership ends (Lagos time)", kind: "date", width: 18 },
-  { header: "Auto-renew", width: 10 },
+  { header: "Renews automatically", width: 12 },
   { header: "Last sign-in (Lagos time)", kind: "date", width: 18 },
   { header: "Sign-ins (devices total)", kind: "number", width: 12 },
   { header: "Last activity (Lagos time)", kind: "date", width: 18 },

@@ -204,7 +204,7 @@ function Row({ r }: { r: DirectoryRow }) {
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         {planLabel(r)}
-        {r.membership_ends_at && r.plan !== "free" && <p className="text-xs text-charcoal-ink/60">to {day(r.membership_ends_at)}{r.auto_renew ? " · auto-renews" : ""}</p>}
+        {r.membership_ends_at && r.plan !== "free" && <p className="text-xs text-charcoal-ink/60">to {day(r.membership_ends_at)}{r.auto_renew ? " · renews automatically" : ""}</p>}
       </td>
       <td className="whitespace-nowrap px-3 py-2">{day(r.joined_at)}</td>
       <td className="whitespace-nowrap px-3 py-2">{when(r.last_login_at)}<p className="text-xs text-charcoal-ink/60">{r.login_count} sign-ins</p></td>
