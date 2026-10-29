@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { reportDangerSymptoms, reportPaediatricDangerSymptoms } from "./actions";
 import { DANGER_SIGNS, DANGER_SIGN_LABEL, type DangerSign } from "@/lib/validation/emergency";
 import {
@@ -13,7 +13,7 @@ import {
 import { shouldOfferPaediatricSymptomTypes } from "@/lib/rules/pediatric-symptom-triage";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Sheet } from "@/components/ui/sheet";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
@@ -24,10 +24,11 @@ import { cn } from "@/lib/utils";
  * emergency care — this routes the patient to a hospital, it never manages the
  * emergency itself.
  *
- * Renders on every dashboard section (see (sections)/layout.tsx), so it stays
- * collapsed to a single row by default and expands in place — the full
- * checklist was adding a fixed ~200px of red card above every page's actual
- * content regardless of whether anyone needed it.
+ * Renders on every dashboard section (see (sections)/layout.tsx) as one
+ * floating button that opens the checklist in a sheet. It used to be a red
+ * card at the top of every page (about 85px collapsed), which pushed the real
+ * content down on 15+ pages; now it takes no page space and stays reachable
+ * while scrolling (design audit P1 item 11). Wording is the signed text.
  *
  * §48.9: "Paediatric triage must not simply reuse adult rules". When the open
  * account belongs to a dependent under 5 (ageYears, from the subject's own
@@ -79,31 +80,28 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
   }
 
   return (
-    <Card className="border-red-200 dark:border-red-500/30">
+    <>
+      {/* One persistent control instead of a red card at the top of every page.
+          It sits above the phone bottom tab bar (z-40, ~64px) and bottom-right on wide screens. */}
       <button
         type="button"
-        onClick={() => setExpanded((prev) => !prev)}
-        aria-expanded={expanded}
-        // Stacks on phones. Side by side, the question and the "Get emergency
-        // guidance" control each fought for a 375px row and the question broke
-        // across four one-word lines — the worst possible legibility for the
-        // one surface on the page that someone unwell needs to read fast.
-        className="flex w-full flex-col items-start gap-1.5 px-5 py-3.5 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6"
+        onClick={() => setExpanded(true)}
+        aria-haspopup="dialog"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 inline-flex min-h-11 items-center gap-2 rounded-full bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 lg:bottom-6 lg:right-6 print:hidden"
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-300">
-          <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} aria-hidden />
-          Feeling something serious right now?
-        </span>
-        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-red-700 dark:text-red-300">
-          {expanded ? "Hide" : "Get emergency guidance"}
-          <ChevronDown
-            className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
-            strokeWidth={2} aria-hidden />
-        </span>
+        <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} aria-hidden />
+        Get emergency guidance
       </button>
 
-      {expanded && (
-        <CardContent className="pt-0">
+      <Sheet
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        tone="danger"
+        layerClassName="z-[45]"
+        title="Feeling something serious right now?"
+        titleIcon={<TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} aria-hidden />}
+      >
+        <div>
           <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Tap anything you&apos;re experiencing. If it&apos;s a medical emergency, we&apos;ll tell
             you what to do; TarragonHealth does not provide emergency care, so you should go to
@@ -173,8 +171,8 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
               {activePending ? "Getting help…" : "Get emergency guidance"}
             </Button>
           </form>
-        </CardContent>
-      )}
-    </Card>
+        </div>
+      </Sheet>
+    </>
   );
 }
