@@ -34,10 +34,10 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
           (design audit P4). */}
       <HeroMetric
         label={t("Weekly goal")}
-        value={logs.isLoading ? null : String(weekTotal)}
+        value={logs.isLoading || logs.isError ? null : String(weekTotal)}
         unit={weekTotal === 1 ? "drink this week" : "drinks this week"}
-        meta={target != null ? `${weekTotal} of a ${target} drinks/week goal so far this week` : undefined}
-        emptyText={t("Loading…")}
+        meta={!logs.isError && target != null ? `${weekTotal} of a ${target} drinks/week goal so far this week` : undefined}
+        emptyText={logs.isError ? t("We couldn't load this just now. Try again in a moment.") : t("Loading…")}
       />
       <div className="flex flex-wrap items-center gap-3">
         <SheetButton variant="default" label={t("Log today's drinks")}>

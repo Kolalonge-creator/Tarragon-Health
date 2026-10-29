@@ -66,10 +66,10 @@ export function WeightClient({ patientId }: { patientId: string }) {
       {/* The page opens on the current weight; setting a goal is one tap away instead of a form on the page (design audit P4). */}
       <HeroMetric
         label="Current weight"
-        value={latest.isLoading ? null : currentWeight != null ? currentWeight.toFixed(1) : null}
+        value={latest.isLoading || latest.isError ? null : currentWeight != null ? currentWeight.toFixed(1) : null}
         unit="kg"
         meta={heroMeta || undefined}
-        emptyText={latest.isLoading ? "Loading…" : "No weight logged yet. Log weight from your vitals or lifestyle check-in."}
+        emptyText={latest.isError ? "We couldn't load this just now. Try again in a moment." : latest.isLoading ? "Loading…" : "No weight logged yet. Log weight from your vitals or lifestyle check-in."}
       />
 
       <Card>
