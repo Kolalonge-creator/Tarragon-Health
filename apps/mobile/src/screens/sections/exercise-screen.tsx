@@ -9,6 +9,8 @@ import {
   loadExerciseEnrollments,
   loadActivityGate,
   loadWorkoutPlans,
+  loadWeekProgress,
+  type WeekProgress,
   type WorkoutPlan,
   submitReadinessScreen,
   enrollExerciseProgramme,
@@ -68,6 +70,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   // null until the gate has answered; nothing is offered before then. An unreadable answer is the fail-closed one, never a permissive guess.
   const [gate, setGate] = useState<{ gate: ActivityGateResult; unavailable: boolean } | null>(null);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+  const [week, setWeek] = useState<WeekProgress | null>(null);
   const age = usePatientAge(patientId, Date.now());
 
   const [screenOpen, setScreenOpen] = useState(false);
@@ -80,13 +83,15 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [justEnrolled, setJustEnrolled] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult] = await Promise.all([
+    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult, weekResult] = await Promise.all([
       loadExerciseProgrammes(),
       loadLatestReadinessScreen(patientId),
       loadExerciseEnrollments(patientId),
       loadActivityGate(),
       loadWorkoutPlans(),
+      loadWeekProgress(),
     ]);
+    setWeek(weekResult);
     setGate(gateResult);
     setPlans(planResult);
     if (programmesResult.ok) setProgrammes(programmesResult.data);
@@ -145,6 +150,24 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <ActivityGateCard gate={gate} />
+      {/* Real progress from the activity log. Not shown while the gate says rest, and a failed read is a retry line, never a zero. */}
+      {!resting && gate && week ? (
+        <Card style={{ gap: 6 }}>
+          <SectionLabel>Active this week</SectionLabel>
+          {week.ok ? (
+            <>
+              <AppText variant="stat">{`${Math.round(week.activeMinutes)} of ${week.goalMinutes} minutes`}</AppText>
+              <MutedText>
+                {week.activeMinutes === 0
+                  ? "Nothing logged this week yet. Any movement counts, and a short walk is a good start."
+                  : "From the workouts you logged this week."}
+              </MutedText>
+            </>
+          ) : (
+            <MutedText>We couldn't load this week's activity just now. Try again in a moment.</MutedText>
+          )}
+        </Card>
+      ) : null}
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>

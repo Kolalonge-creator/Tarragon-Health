@@ -115,6 +115,17 @@ export async function loadActivityGate(): Promise<{ gate: ActivityGateResult; un
   return { gate: parseActivityGate(data), unavailable: false };
 }
 
+export type WeekProgress = { ok: true; activeMinutes: number; goalMinutes: number } | { ok: false };
+
+/** This week's active minutes against the weekly goal, from the same database function the Activity tracker uses. A failed or malformed answer is `ok: false`, never zero. */
+export async function loadWeekProgress(): Promise<WeekProgress> {
+  const { data, error } = await supabase.rpc("activity_week_progress");
+  if (error || data === null || typeof data !== "object" || Array.isArray(data)) return { ok: false };
+  const d = data as { active_minutes?: unknown; weekly_active_minutes_goal?: unknown };
+  if (typeof d.active_minutes !== "number" || typeof d.weekly_active_minutes_goal !== "number") return { ok: false };
+  return { ok: true, activeMinutes: d.active_minutes, goalMinutes: d.weekly_active_minutes_goal };
+}
+
 export interface WorkoutPlan {
   code: string;
   title: string;

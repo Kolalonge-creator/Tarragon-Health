@@ -27,7 +27,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { HeroMetric } from "@/components/ui/hero-metric";
+import { useWeeklyActivityMinutes } from "@/lib/queries/activity";
+import { WHO_WEEKLY_TARGET_MINUTES } from "@/lib/activity/intensity";
 import { Disclosure } from "@/components/ui/disclosure";
 
 const SCREEN_KEY = "exercise-readiness-screen";
@@ -52,12 +55,35 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const plans = useWorkoutPlans();
   const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
   const resting = gate?.decision === "rest";
+  const weekly = useWeeklyActivityMinutes(patientId);
   const activeCount = (enrollments.data ?? []).filter((e) => e.status === "active").length;
 
   return (
     <div className="space-y-6">
       <ActivityGateBanner />
-      {/* The page opens on what the person is doing, not on a quiz (design audit P4). No progress figure is shown because no session data is recorded. */}
+      {/* The page opens on what the person is doing, not on a quiz (design audit P4). */}
+      {/* This week's real progress, from the workouts logged on the Activity page (moderate-equivalent minutes; vigorous counts double).
+          Never shown while the safety gate says rest, so the page does not push a target at someone told to stop. A failed read is a retry line, never a zero. */}
+      {!resting && gate && (
+        weekly.isError ? (
+          <p className="rounded-2xl bg-white p-5 text-sm text-red-600 dark:bg-night-card dark:text-red-300">
+            We couldn&apos;t load this week&apos;s activity just now. Try again in a moment.
+          </p>
+        ) : (
+          <HeroMetric
+            label="Active this week"
+            value={weekly.isLoading ? null : Math.round(weekly.data ?? 0)}
+            unit={`of ${WHO_WEEKLY_TARGET_MINUTES} minutes`}
+            caption={
+              (weekly.data ?? 0) === 0
+                ? "Nothing logged in the last 7 days. Any movement counts, and a short walk is a good start."
+                : "From the workouts you logged in the last 7 days."
+            }
+            meta={<Link href="/patient/activity" className="underline">Log a workout</Link>}
+            emptyText="Loading…"
+          />
+        )
+      )}
       <HeroMetric
         label="Active programmes"
         value={enrollments.isLoading ? null : String(activeCount)}
