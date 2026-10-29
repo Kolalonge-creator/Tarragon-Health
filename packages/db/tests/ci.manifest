@@ -1646,5 +1646,7 @@ w19_payer_sees_gift_state.sql
 w03_red_page_ladder.sql
 # W-36 RLS shape gate: every patient_id table has row security on, no open read policy, a reviewed helper in its read policy, and a staff_read_scope row when staff can read it (33 known tables baselined, OQ-280). Sabotage: an open policy, an unreviewed helper, an unregistered staff-readable table and a table without row security; all four must flip.
 rls_shape_gate.sql
+# public_impact_metrics: anon reads published rows with no private.has_permission() call in its policy (the 2026-08-28 anon grant was revoked again by the 2026-08-29 resweep, so the policy is the fix). Simulated anon, non-admin and admin sessions; anon still lacks EXECUTE and cannot write. Sabotage: the old combined policy is restored and anon must fail with 42501 naming has_permission.
+public_impact_metrics_anon_select_without_has_permission.sql
 # marketing_resources_anon_select_without_is_admin.sql: anon read of marketing_resources used to fail 42501 (is_admin() in the shared policy); proves anon sees published rows only without an error, non-admin published only, admin all, anon still cannot execute is_admin() or write. Sabotage: the old combined policy is restored and anon's read must fail with 42501.
 marketing_resources_anon_select_without_is_admin.sql
