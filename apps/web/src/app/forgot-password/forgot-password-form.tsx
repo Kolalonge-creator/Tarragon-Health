@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
 import { t } from "@tarragon/i18n";
@@ -29,7 +30,7 @@ export function ForgotPasswordForm() {
   return (
     <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
       <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-charcoal-ink/5 p-1 text-sm font-medium sm:grid-cols-4">
-        {(["email", "phone", "backup", "contact"] as const).map((value) => (
+        {(["email", "phone", "backup", "contact"] as const).filter((value) => value !== "phone" || TEXT_CODES_ENABLED).map((value) => (
           <button
             key={value}
             type="button"

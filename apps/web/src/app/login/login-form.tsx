@@ -13,6 +13,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
 import { PasskeySignIn } from "./passkey-sign-in";
@@ -33,7 +34,7 @@ export function LoginForm({
 
   return (
     <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7">
-      <div className="mb-6 grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
+      <div className={cn("mb-6 grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium", !TEXT_CODES_ENABLED && "hidden")}>
         {(["email", "phone"] as const).map((value) => (
           <button
             key={value}
@@ -49,7 +50,7 @@ export function LoginForm({
         ))}
       </div>
 
-      {tab === "email" ? (
+      {tab === "email" || !TEXT_CODES_ENABLED ? (
         <EmailLoginForm redirectTo={redirectTo} />
       ) : (
         <PhoneLoginForm redirectTo={redirectTo} locale={locale} />
