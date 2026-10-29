@@ -51,8 +51,8 @@ begin
   values (v_director_profile, v_org, 'Sig Test Director', 'chief_medical_officer', true, 'MDCN', 'SIGTEST-002', true, v_verifier, v_verifier, now())
   returning id into v_director_staff;
 
-  insert into public.vaccination_schedule_signoffs (version, notes)
-  values (999001, 'rolled-back verification draft')
+  insert into public.vaccination_schedule_signoffs (version, notes, schedule_config)
+  values (999001, 'rolled-back verification draft', '{"status":"verification","doses":[]}'::jsonb)
   returning id into v_draft_id;
 
   -- 1) Non-director cannot sign.
@@ -91,8 +91,8 @@ begin
   declare
     v_draft2_id uuid;
   begin
-    insert into public.vaccination_schedule_signoffs (version, notes)
-    values (999002, 'second rolled-back verification draft')
+    insert into public.vaccination_schedule_signoffs (version, notes, schedule_config)
+    values (999002, 'second rolled-back verification draft', '{"status":"verification","doses":[]}'::jsonb)
     returning id into v_draft2_id;
 
     perform set_config('request.jwt.claims', json_build_object('sub', v_director_profile, 'role', 'authenticated')::text, true);
