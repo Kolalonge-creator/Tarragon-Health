@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { callSheetSchema, overviewSchema, parseWindowLines } from "./schemas";
+import { callSheetSchema, overviewSchema, parseWindowLines, toE164ForTestCall } from "./schemas";
 import { opsDeskReadinessText } from "./readiness";
 
 const base = {
@@ -100,5 +100,18 @@ describe("opsDeskReadinessText", () => {
     expect(opsDeskReadinessText(done).tone).toBe("green");
     const stale = { ...done, checklist: done.checklist.map((i) => ({ ...i, stale: true })) };
     expect(opsDeskReadinessText(stale).tone).toBe("amber");
+  });
+});
+
+describe("toE164ForTestCall", () => {
+  it("accepts a +country number, with spaces or dashes removed", () => {
+    expect(toE164ForTestCall("+234 806 119 7940")).toBe("+2348061197940");
+    expect(toE164ForTestCall("+44 7700-900123")).toBe("+447700900123");
+  });
+  it("turns a Nigerian 0 number into +234", () => {
+    expect(toE164ForTestCall("08061197940")).toBe("+2348061197940");
+  });
+  it("refuses anything else", () => {
+    for (const bad of ["", "8061197940", "0806119794", "+0123456789", "phone", "+23480611979401234567"]) expect(toE164ForTestCall(bad)).toBeNull();
   });
 });
