@@ -214,6 +214,13 @@ export default async function AdminPage() {
           visible: can("leads.manage"),
         },
         {
+          href: "/admin/patients/directory",
+          label: "Patient directory",
+          blurb: "Every patient with plan, sign-ins, activity and time spent, with an Excel download",
+          icon: SEMANTIC_ICON.parentCare,
+          visible: true,
+        },
+        {
           href: "/admin/patients/duplicates",
           label: "Duplicate patients",
           blurb: "Review flagged possible-duplicate patient records",
@@ -567,6 +574,10 @@ export default async function AdminPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/admin/patients/directory"
+          className="block rounded-xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+        >
         <StatTile
           icon={SEMANTIC_ICON.parentCare}
           label="Total patients"
@@ -580,6 +591,7 @@ export default async function AdminPage() {
                 },
               })}
         />
+        </Link>
         <StatTile
           icon={SEMANTIC_ICON.clinicianFollowUp}
           label="Active clinicians"

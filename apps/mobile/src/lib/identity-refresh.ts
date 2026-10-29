@@ -12,7 +12,8 @@ export function eventMayChangeIdentity(event: string): boolean {
 
 export function sameIdentity(a: PatientIdentity | null | undefined, b: PatientIdentity | null | undefined): boolean {
   if (!a || !b) return a === b;
-  return a.fullName === b.fullName && a.patientNumber === b.patientNumber && a.organisationId === b.organisationId && a.initials === b.initials && a.role === b.role;
+  return a.fullName === b.fullName && a.patientNumber === b.patientNumber && a.organisationId === b.organisationId && a.initials === b.initials && a.role === b.role
+    && a.sex === b.sex && a.dateOfBirth === b.dateOfBirth && a.receivesCare === b.receivesCare && a.isDependent === b.isDependent;
 }
 
 /**

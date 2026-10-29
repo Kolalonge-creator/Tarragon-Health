@@ -33638,6 +33638,80 @@ export type Database = {
           },
         ]
       }
+      patient_reported_lab_values: {
+        Row: {
+          code: string
+          created_at: string
+          document_id: string
+          extraction_id: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          proposed_value: number | null
+          taken_at: string
+          unit: string | null
+          value: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          document_id: string
+          extraction_id: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          proposed_value?: number | null
+          taken_at: string
+          unit?: string | null
+          value: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          document_id?: string
+          extraction_id?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          proposed_value?: number | null
+          taken_at?: string
+          unit?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_reported_lab_values_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "lab_report_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reported_lab_values_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_pregnancy: {
         Row: {
           created_at: string
@@ -54070,6 +54144,14 @@ export type Database = {
         Args: { p_draft_id: string }
         Returns: string
       }
+      confirm_my_lab_report: {
+        Args: {
+          p_extraction_id: string
+          p_readings: Json
+          p_report_date: string
+        }
+        Returns: number
+      }
       confirm_lab_report_extraction: {
         Args: {
           p_extraction_id: string
@@ -55812,6 +55894,10 @@ export type Database = {
           score: number
           status: Database["public"]["Enums"]["reference_concept_status"]
         }[]
+      }
+      my_lab_report_drafts: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       mark_care_message_thread_read: {
         Args: { p_thread_id: string }

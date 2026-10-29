@@ -130,3 +130,13 @@ export function readingsLabel(count: number): string {
   return t(count === 1 ? "mpass.bio.readings_one" : "biomarkers.readings", "en", { count: String(count) });
 }
 
+/**
+ * Who a reading came from, in words. A number the person confirmed themselves from their own uploaded report (source patient_reported) is
+ * never called a laboratory result: nobody has checked it, and it carries no laboratory name even if one were present. Everything else
+ * keeps the laboratory's own name when it sent one.
+ */
+export function readingSourceLabel(p: { source: string; laboratory: string | null }): string {
+  if (p.source === "patient_reported") return t("biomarkers.source.patient_reported" as MessageKey);
+  if (p.laboratory) return p.laboratory;
+  return t((p.source === "legacy_report" ? "biomarkers.source.legacy_report" : "biomarkers.source.lab_result") as MessageKey);
+}

@@ -63,6 +63,17 @@ describe("verifyPrivateSectionRecoveryCode", () => {
     expect(await verifyPrivateSectionRecoveryCode(undefined, form("123456"))).toEqual({ success: true });
     expect(verifyOtpMock).toHaveBeenCalledWith({ phone: "+2348031234567", token: "123456", type: "sms" });
   });
+  it("an emailed code is 8 digits on this project: it verifies for an email-only account", async () => {
+    getCurrentUserMock.mockResolvedValue({ id: "u1", phone: null, email: "a@example.invalid" });
+    expect(await verifyPrivateSectionRecoveryCode(undefined, form("12345678"))).toEqual({ success: true });
+    expect(verifyOtpMock).toHaveBeenCalledWith({ email: "a@example.invalid", token: "12345678", type: "email" });
+  });
+  it("a code sent to a phone is still exactly 6 digits: 8 digits for a phone account never reaches Auth", async () => {
+    const r = await verifyPrivateSectionRecoveryCode(undefined, form("12345678"));
+    expect(r?.success).toBeUndefined();
+    expect(r?.step).toBe("code");
+    expect(verifyOtpMock).not.toHaveBeenCalled();
+  });
   it("a wrong, short or non-numeric code does not succeed and stays on the code step", async () => {
     for (const bad of ["12345", "abcdef", "", "1234567"]) {
       const r = await verifyPrivateSectionRecoveryCode(undefined, form(bad));
