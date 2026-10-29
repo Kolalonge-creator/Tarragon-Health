@@ -59,6 +59,11 @@ function toArticle(row: ResourceRow): ResourceArticle {
   };
 }
 
+/** A failed read must stay visible in server logs even though the page falls back to static copy (2026-10-29: an RLS error hid for weeks). */
+function logReadFailure(what: string, error: { code?: string; message?: string }): void {
+  console.error(`marketing_resources read failed (${what}); serving static fallback`, error.code ?? "", error.message ?? "");
+}
+
 export async function loadResourceArticles(): Promise<ResourceArticle[]> {
   const client = anonClient();
   if (!client) return STATIC_FALLBACK;
@@ -67,6 +72,7 @@ export async function loadResourceArticles(): Promise<ResourceArticle[]> {
     .select(RESOURCE_ROW_COLUMNS)
     .eq("is_published", true)
     .order("sort_order", { ascending: true });
+  if (error) logReadFailure("list", error);
   if (error || !data || data.length === 0) return STATIC_FALLBACK;
   return (data as ResourceRow[]).map(toArticle);
 }
@@ -80,7 +86,10 @@ export async function loadResourceArticle(slug: string): Promise<ResourceArticle
     .eq("is_published", true)
     .eq("slug", slug)
     .maybeSingle();
-  if (error) return STATIC_FALLBACK.find((a) => a.slug === slug) ?? null;
+  if (error) {
+    logReadFailure(`slug ${slug}`, error);
+    return STATIC_FALLBACK.find((a) => a.slug === slug) ?? null;
+  }
   if (!data) return null;
   return toArticle(data as ResourceRow);
 }
