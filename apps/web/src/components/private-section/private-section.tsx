@@ -213,7 +213,7 @@ function RecoveryCard({ lock, onDone }: { lock: ReturnType<typeof usePrivateLock
           <form action={formAction} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="private-recovery-code">{COPY.codeLabel}</Label>
-              <Input id="private-recovery-code" name="token" inputMode="numeric" autoComplete="one-time-code" maxLength={6} className="max-w-40" />
+              <Input id="private-recovery-code" name="token" inputMode="numeric" autoComplete="one-time-code" maxLength={8} className="max-w-40" />
             </div>
             {state?.error && (
               <p role="alert" className="text-sm text-red-700 dark:text-red-300">

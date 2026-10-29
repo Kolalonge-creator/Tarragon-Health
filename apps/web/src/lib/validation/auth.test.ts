@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   emailLoginSchema,
+  emailOtpVerifySchema,
   phoneOtpRequestSchema,
   phoneOtpVerifySchema,
   phonePasswordLoginSchema,
@@ -158,5 +159,22 @@ describe("S03 Nigerian phone entry", () => {
     const parsed = phonePasswordLoginSchema.safeParse({ countryCode: "+234", phone: "0803 123 4567", password: "abc" });
     expect(parsed.success && parsed.data).toEqual({ phone: NG, password: "abc" });
     expect(phonePasswordLoginSchema.safeParse({ countryCode: "+234", phone: "0803 123 4567", password: "" }).success).toBe(false);
+  });
+});
+
+describe("emailOtpVerifySchema", () => {
+  it("accepts the 8 digit code this project emails, and a 6 digit one if the setting is ever reset", () => {
+    expect(emailOtpVerifySchema.safeParse({ email: "ada@example.ng", token: "12345678" }).success).toBe(true);
+    expect(emailOtpVerifySchema.safeParse({ email: "ada@example.ng", token: "123456" }).success).toBe(true);
+  });
+
+  it("rejects a code that is too short, too long or not digits", () => {
+    for (const token of ["12345", "1234567", "123456789", "12ab5678", ""]) {
+      expect(emailOtpVerifySchema.safeParse({ email: "ada@example.ng", token }).success).toBe(false);
+    }
+  });
+
+  it("does not loosen the phone code: an SMS code is still exactly 6 digits", () => {
+    expect(phoneOtpVerifySchema.safeParse({ phone: "+2348012345678", token: "12345678" }).success).toBe(false);
   });
 });
