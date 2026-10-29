@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { colors, radius } from "@/ui/theme";
-import { AppText } from "@/ui/kit/AppText";
 
 const MIN_DATE = new Date(1900, 0, 1);
 
@@ -40,7 +39,7 @@ export function DobField({ value, onChange, label }: { value: string; onChange: 
 
   return (
     <View style={{ gap: 6 }}>
-      <AppText variant="label" tone="textMuted">{label}</AppText>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>{label}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={chosen ? `${label}: ${value}. Opens the date picker.` : `${label}. Opens the date picker.`}

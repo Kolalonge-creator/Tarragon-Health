@@ -4,7 +4,6 @@ import { colors, radius, spacing } from "@/ui/theme";
 import { SecondaryButton } from "@/ui/components";
 import type { EmergencyContact } from "@/lib/emergency";
 import { ListenButton } from "@/ui/kit";
-import { AppText } from "@/ui/kit/AppText";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { redGuidanceStatus } from "@/lib/red-guidance-copy";
 import { PLATFORM_URL } from "@/lib/platform-url";
@@ -80,9 +79,9 @@ export function EmergencyGuidanceModal({
           </View>
 
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
-            <AppText variant="title" accessibilityRole="header">
+            <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>
               {t("emergency.first_line", "en")}
-            </AppText>
+            </Text>
             {wordingCode ? (
               <>
                 <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink, fontWeight: "700" }}>
@@ -93,12 +92,12 @@ export function EmergencyGuidanceModal({
             ) : null}
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>
               TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
-              <AppText variant="bodyStrong">go to your nearest hospital or emergency department now.</AppText>
+              <Text style={{ fontWeight: "700" }}>go to your nearest hospital or emergency department now.</Text>
               {" "}Nigeria has no single reliable emergency number to call instead — going in person is
               the fastest, surest way to get help.
             </Text>
 
-            <AppText variant="body" tone="textSubtle">Reported: {detail}</AppText>
+            <Text style={{ fontSize: 13, color: colors.subtle }}>Reported: {detail}</Text>
 
             {emergencyContact?.phone ? (
               <Pressable
@@ -119,9 +118,9 @@ export function EmergencyGuidanceModal({
                 }}
               >
                 <Ionicons name="call-outline" size={16} color={colors.ink} />
-                <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flexShrink: 1 }}>
                   Call {emergencyContact.name} ({emergencyContact.relationship ?? "emergency contact"})
-                </AppText>
+                </Text>
               </Pressable>
             ) : null}
 
@@ -153,13 +152,13 @@ export function EmergencyGuidanceModal({
                 >
                   <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 14 }}>{t("freered.join", "en")}</Text>
                 </Pressable>
-                <AppText variant="caption" tone="textSubtle">{t("freered.join_hint", "en")}</AppText>
+                <Text style={{ fontSize: 12, color: colors.subtle }}>{t("freered.join_hint", "en")}</Text>
                 <Pressable
                   accessibilityRole="link"
                   onPress={() => Linking.openURL("https://www.google.com/maps/search/hospital+near+me")}
                   style={{ minHeight: 44, justifyContent: "center" }}
                 >
-                  <AppText variant="bodyStrong">{t("freered.facility", "en")}</AppText>
+                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("freered.facility", "en")}</Text>
                 </Pressable>
               </View>
             ) : null}

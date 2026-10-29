@@ -16,7 +16,6 @@ import { lightPalette } from "@/ui/design/tokens";
 import { fontFamily } from "@/ui/design/typography";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-import { AppText } from "@/ui/kit/AppText";
 
 const inputStyle = {
   borderWidth: 1,
@@ -352,7 +351,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           ].map((line) => (
             <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Ionicons name="checkmark-circle" size={18} color={colors.brand} />
-              <AppText variant="body" style={{ flex: 1 }}>{line}</AppText>
+              <Text style={{ flex: 1, fontSize: 14, color: colors.ink }}>{line}</Text>
             </View>
           ))}
         </View>
@@ -435,7 +434,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
               onPress={() => setCountryPickerOpen(true)}
               style={[inputStyle, { width: 92, justifyContent: "center" }]}
             >
-              <AppText variant="bodyLarge">{countryCode}</AppText>
+              <Text style={{ fontSize: 16, color: colors.ink }}>{countryCode}</Text>
             </Pressable>
             <TextInput
               accessibilityLabel="Phone number"

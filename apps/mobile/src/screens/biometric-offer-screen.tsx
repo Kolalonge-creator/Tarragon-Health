@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { Modal, View } from "react-native";
+import { Modal, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ta } from "@/lib/auth/auth-locale";
 import { acceptBiometricOffer, declineBiometricOffer } from "@/lib/auth/biometric-offer";
 import { useUiLanguage } from "@/lib/ui-language";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-import { AppText } from "@/ui/kit/AppText";
 
 /**
  * One-time offer shown after the first sign-in on a device that has
@@ -51,9 +50,9 @@ export function BiometricOfferScreen({ onDone }: { onDone: () => void }) {
           <View style={{ alignItems: "center" }}>
             <Ionicons name="finger-print" size={36} color={colors.brand} />
           </View>
-          <AppText variant="title" style={{ textAlign: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink, textAlign: "center" }}>
             {ta("auth.biometric.offer_title", locale)}
-          </AppText>
+          </Text>
           <MutedText>{ta("auth.biometric.offer_body", locale)}</MutedText>
           {error ? <ErrorText>{error}</ErrorText> : null}
           <PrimaryButton title={ta("auth.biometric.enable", locale)} onPress={enable} loading={busy} />

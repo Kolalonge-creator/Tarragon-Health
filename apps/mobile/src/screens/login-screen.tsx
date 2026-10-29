@@ -15,7 +15,6 @@ import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 import { SignUpScreen } from "@/screens/signup-screen";
 import { ForgotPasswordScreen } from "@/screens/forgot-password-screen";
-import { AppText } from "@/ui/kit/AppText";
 
 /** Supabase auth error strings are developer-facing ("Invalid login
  * credentials") — map the common ones to warm plain language, with a safe
@@ -210,7 +209,7 @@ export function LoginScreen() {
           <>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <View style={[inputStyle, { width: 92, justifyContent: "center" }]}>
-                <AppText variant="bodyLarge">{countryCode}</AppText>
+                <Text style={{ fontSize: 16, color: colors.ink }}>{countryCode}</Text>
               </View>
               <TextInput
                 accessibilityLabel={ta("auth.field.phone", locale)}

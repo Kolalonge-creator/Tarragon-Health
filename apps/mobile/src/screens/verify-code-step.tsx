@@ -15,7 +15,6 @@ import {
 import { useResendCountdown } from "@/lib/auth/use-resend-countdown";
 import { colors, radius } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton } from "@/ui/components";
-import { AppText } from "@/ui/kit/AppText";
 
 /**
  * 6-digit SMS code entry, shared by phone sign-up and "phone not confirmed"
@@ -114,9 +113,9 @@ export function VerifyCodeStep({
         disabled={!isOtpComplete(code)}
       />
       {seconds > 0 ? (
-        <AppText variant="body" tone="textMuted" style={{ textAlign: "center" }}>
+        <Text style={{ textAlign: "center", color: colors.muted, fontSize: 14 }}>
           {ta("auth.verify.resend_in", locale, { seconds })}
-        </AppText>
+        </Text>
       ) : (
         <Pressable
           accessibilityRole="button"

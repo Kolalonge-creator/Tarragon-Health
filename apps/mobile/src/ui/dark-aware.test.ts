@@ -113,6 +113,28 @@ describe("light-on-purpose screens stay light", () => {
   });
 });
 
+/**
+ * Code review of the P6 text change found this: AppText reads the scheme, so a screen that draws on the static light
+ * theme must not use it, or in Dark its text turns near-white on a white card (the emergency guidance, the sign-in
+ * screens and the other static-light files below). They keep raw Text until they move onto the full kit.
+ */
+const STATIC_LIGHT_FILES = [
+  ...LIGHT_ON_PURPOSE,
+  "screens/emergency-pack-view.tsx",
+  "screens/red-care-answer.tsx",
+  "screens/biometric-offer-screen.tsx",
+  "screens/verify-code-step.tsx",
+  "screens/signup-dob-field.tsx",
+];
+
+describe("static-light screens do not use the scheme-aware text", () => {
+  it.each(STATIC_LIGHT_FILES)("%s", (file) => {
+    const source = readFileSync(join(__dirname, "..", file), "utf8");
+    expect(source).not.toMatch(/<AppText\b/);
+    expect(source).not.toMatch(/AppText/);
+  });
+});
+
 describe("app lock follows the theme", () => {
   it("reads the scheme", () => {
     const source = readFileSync(join(__dirname, "..", "screens/app-lock-screen.tsx"), "utf8");
