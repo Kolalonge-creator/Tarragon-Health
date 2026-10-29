@@ -1,3 +1,4 @@
+import { LatestBpHero } from "./latest-bp-hero";
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
@@ -63,6 +64,7 @@ export default async function PatientVitalsPage() {
       description="Log readings and symptoms, and see how they trend over time."
       icon={SEMANTIC_ICON.bp}
     >
+      <LatestBpHero patientId={subjectId} />
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
       {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
@@ -79,7 +81,9 @@ export default async function PatientVitalsPage() {
             one moment they are actually thinking about what happens to it. */}
         <MonitoringCoverCard />
 
-        <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
+        <div id="log-reading" className="scroll-mt-20">
+          <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
+        </div>
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />
