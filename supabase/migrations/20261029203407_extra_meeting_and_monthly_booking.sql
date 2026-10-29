@@ -13,11 +13,16 @@
 --    it inserts the pending purchase, which the trigger refuses with the Membership message.
 -- 3. public_price_list hides it, like the second opinion: it is not on sale to the public.
 -- 4. hold_appointment_slot (redefined from its LIVE body): the Membership requirement for a paid appointment now applies to the patient
---    booking for themselves and to someone acting for them as well as to a coordinator. It was coordinator-only in the first phone booking
---    release. Staff booking for a patient are not held to it. A patient with an unspent credit for the item is let through.
+--    booking for themselves, someone acting for them, a coordinator and staff. It was coordinator-only in the first phone booking release.
+--    A patient with an unspent credit for the item is let through.
 -- 5. The included monthly meeting is booked from times the doctor has offered. pick_followup_slot and my_followups (both redefined from
 --    their LIVE bodies) now also admit a care coordinator of the patient's own organisation, through private.is_care_coordinator_for.
---    Everything else those functions check (Member, entitlement, hold, confirm, waived payment) is unchanged.
+--    Everything else those functions check (Member, entitlement, hold, confirm, waived payment) is unchanged. A read of someone else's
+--    monthly meeting through my_followups now leaves a care-access line (one per hour, best effort).
+-- 6. Two other routes read the same product and must not become a way round the rule (found in review): the older video-visit request
+--    path (private.pin_video_visit_amount, a BEFORE INSERT trigger on video_visit_requests, takes its price from the product and used to
+--    refuse because the product was off) now also refuses a non-Member; and create_sponsored_service_reservation, where a sponsor names
+--    the recipient by phone number so Membership cannot be checked, refuses this product outright.
 
 alter table public.service_products drop constraint if exists service_products_doctor_time_not_sellable;
 alter table public.service_products add constraint service_products_doctor_time_not_sellable
@@ -159,11 +164,11 @@ begin
   end if;
 
   -- An extra meeting is for paid members (founder decision 2026-10-29), for whoever is booking it: the patient, someone acting for them,
-  -- or a coordinator on a call. A patient who already holds an unspent credit for the item needs no new purchase and is let through.
-  -- Staff booking for a patient (a doctor adding a result discussion) are not held to it. Checked before the slot rules so the refusal
-  -- does not depend on what is open. After the go-live guard and the adult check: while consultations are closed, or for a minor, that is what everyone is told.
-  if v_via in ('self', 'caregiver', 'coordinator_phone')
-     and v_payment_status = 'pending'
+  -- a coordinator on a call, or staff. A patient who already holds an unspent credit for the item needs no new purchase and is let through.
+  -- Staff are held to it too: a staff booking for a Free patient could never be paid and nothing would release it. Checked before the slot
+  -- rules so the refusal does not depend on what is open. After the go-live guard and the adult check: while consultations are closed,
+  -- or for a minor, that is what everyone is told.
+  if v_payment_status = 'pending'
      and private.patient_membership_tier(v_patient) is null
      and not private.has_available_service_credit(v_patient, private.booking_product_code(p_appointment_type::text)) then
     raise exception '%', case when v_patient = v_uid
@@ -340,6 +345,10 @@ begin
     return jsonb_build_object('entitlement', null, 'offers', '[]'::jsonb);
   end if;
 
+  if v_subject <> v_uid then
+    perform private.log_care_access(v_subject, 'record_viewed', 'booking', jsonb_build_object('stage', 'monthly_offers'));
+  end if;
+
   select jsonb_build_object(
            'current', (select jsonb_build_object('month_index', e.month_index, 'state', e.state, 'period_end', e.period_end,
                                                    'appointment_id', e.appointment_id,
@@ -371,8 +380,118 @@ begin
 end;
 $function$;
 
+CREATE OR REPLACE FUNCTION private.pin_video_visit_amount()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_price record;
+begin
+  select p.amount_minor, p.currency, p.is_enabled into v_price
+  from (
+    select amount_minor, currency, is_enabled, 0 as pri
+    from public.video_visit_prices where organisation_id = new.organisation_id
+    union all
+    select price_kobo as amount_minor, currency::text as currency, is_active as is_enabled, 1
+    from public.service_products where code = 'video_visit_credit'
+    union all
+    select amount_minor, currency, is_enabled, 2
+    from public.video_visit_prices where organisation_id is null
+  ) p
+  order by p.pri
+  limit 1;
+
+  if v_price.amount_minor is null or not v_price.is_enabled then
+    raise exception 'video visits are not available right now';
+  end if;
+  -- An extra online meeting is for paid Members (decision 2026-10-29), by whichever route it is asked for.
+  if not coalesce(private.patient_is_member(new.patient_id), false) then
+    raise exception 'An extra online meeting is part of Membership. Join to add one.' using errcode = 'P0001', detail = 'MEMBERSHIP_REQUIRED';
+  end if;
+  new.amount_minor := v_price.amount_minor;
+  new.currency := v_price.currency;
+  new.status := 'requested';
+  new.origin := 'patient_initiated';
+  new.payment_provider := null;
+  new.payment_provider_ref := null;
+  new.pending_payment_provider_ref := null;
+  new.refund_status := null;
+  new.refund_ref := null;
+  return new;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_sponsored_service_reservation(p_service_product_id uuid, p_recipient_phone text, p_recipient_first_name text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_caller uuid := (select auth.uid());
+  v_org uuid;
+  v_product record;
+  v_id uuid;
+begin
+  if v_caller is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  select organisation_id into v_org from public.profiles where id = v_caller;
+  if v_org is null then
+    raise exception 'sponsor has no organisation' using errcode = '23514';
+  end if;
+
+  select id, code, currency, price_kobo, is_active
+    into v_product
+    from public.service_products
+   where id = p_service_product_id;
+
+  if v_product.id is null or not v_product.is_active then
+    raise exception 'that service is not available' using errcode = '23514';
+  end if;
+  if v_product.code = 'video_visit_credit' then
+    raise exception 'an extra online meeting can only be bought by a Member for themselves' using errcode = '23514';
+  end if;
+  if v_product.currency <> 'NGN' then
+    raise exception 'reservations only support naira-priced services' using errcode = '23514';
+  end if;
+
+  if p_recipient_phone !~ '^\+[1-9]\d{7,14}$' then
+    raise exception 'recipient phone must be E.164, e.g. +2348012345678' using errcode = '23514';
+  end if;
+  if length(trim(p_recipient_first_name)) = 0 then
+    raise exception 'recipient first name is required' using errcode = '23514';
+  end if;
+
+  insert into public.sponsored_service_reservations (
+    organisation_id, service_product_id, sponsor_profile_id,
+    recipient_phone, recipient_first_name, amount_kobo, currency
+  ) values (
+    v_org, p_service_product_id, v_caller,
+    p_recipient_phone, trim(p_recipient_first_name), v_product.price_kobo, v_product.currency
+  ) returning id into v_id;
+
+  perform private.log_audit(
+    'sponsored_service_reservation.created', 'sponsored_service_reservation', v_id,
+    jsonb_build_object('service_product_id', p_service_product_id, 'amount_kobo', v_product.price_kobo)
+  );
+
+  return v_id;
+end;
+$function$;
+
 do $$
 begin
+  if pg_get_functiondef('private.pin_video_visit_amount()'::regprocedure) not like '%MEMBERSHIP_REQUIRED%'
+     or pg_get_functiondef('public.create_sponsored_service_reservation(uuid,text,text)'::regprocedure) not like '%video_visit_credit%' then
+    raise exception 'the video-visit request path or the sponsor reservation was not updated';
+  end if;
+  if pg_get_functiondef('public.my_followups(uuid)'::regprocedure) not like '%monthly_offers%' then
+    raise exception 'my_followups does not audit a read of someone else''s monthly meeting';
+  end if;
   if not exists (select 1 from public.service_products where code = 'video_visit_credit' and is_active and price_kobo = 500000) then
     raise exception 'video_visit_credit is not on sale at 500000 kobo';
   end if;

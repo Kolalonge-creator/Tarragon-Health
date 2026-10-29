@@ -102,6 +102,11 @@ declare
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   select id into v_org2 from public.organisations where id <> v_org order by created_at limit 1;
+  -- a clean database has one organisation; the cross-organisation checks must never be skipped, so make a second (rolled back with the rest)
+  if v_org2 is null then
+    insert into public.organisations (name, type) values ('Proof other organisation', 'direct_consumer') returning id into v_org2;
+  end if;
+  perform pg_temp.rec('C-pre a second organisation exists for the cross-organisation checks', 'true', (v_org2 is not null and v_org2 <> v_org)::text);
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', (current_date - interval '45 years')::date);
   v_doc := pg_temp.mkuser(v_org, 'doctor', 'clinician', (current_date - interval '40 years')::date, 'female');
   v_cc := pg_temp.mkuser(v_org, 'coordinator', 'care_coordinator', (current_date - interval '30 years')::date);
@@ -157,8 +162,8 @@ begin
   perform pg_temp.rec('B2 a coordinator booking for a Free patient is refused ("This patient needs...", upgrade_first)', 'true',
     (v_h like 'ERR P0001:This patient needs to join Membership%|upgrade_first')::text);
   v_h := pg_temp.hold_as(v_doc, v_pf, v_doc, v_start);
-  perform pg_temp.rec('B3 staff booking for a Free patient are not held to the rule', 'true', (v_h !~ '^ERR')::text);
-  if v_h !~ '^ERR' then update public.appointments set status = 'cancelled', cancelled_at = now() where id = v_h::uuid; end if;
+  perform pg_temp.rec('B3 staff booking for a Free patient are held to the rule too (an unpayable hold would never be released)', 'true',
+    (v_h like 'ERR P0001:This patient needs to join Membership%|upgrade_first')::text);
   v_h := pg_temp.hold_as(v_pm, v_pm, v_doc, v_start + interval '1 day');
   perform pg_temp.rec('B4 a Member booking for themselves is let through', 'true', (v_h !~ '^ERR')::text);
   v_h := pg_temp.hold_as(v_cc, v_pm, v_doc, v_start + interval '2 days');
@@ -173,6 +178,9 @@ begin
   perform pg_temp.rec('C1 the coordinator sees one offer with two open times', '1|2',
     jsonb_array_length(v_r -> 'offers')::text || '|' || jsonb_array_length(v_r -> 'offers' -> 0 -> 'slots')::text);
   v_slot := (v_r -> 'offers' -> 0 -> 'slots' -> 0 ->> 'slot_id')::uuid;
+  perform pg_temp.rec('C1b the coordinator''s read of the Member''s meeting left a care-access line (booking scope, monthly_offers)', '1',
+    (select count(*)::text from public.care_access_events where patient_id = v_pm and actor_profile_id = v_cc and kind = 'record_viewed'
+        and scope = 'booking' and metadata ->> 'stage' = 'monthly_offers'));
   v_r := pg_temp.j(v_pf, format('select public.my_followups(%L)', v_pm));
   perform pg_temp.rec('C2 an unrelated patient sees nothing of it', '0', jsonb_array_length(v_r -> 'offers')::text);
   v_r := pg_temp.j(v_doc, format('select public.my_followups(%L)', v_pm));
@@ -206,6 +214,16 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('C12 the Member sees it on their own list', '1', v_cnt::text);
 
+  -- ===== E. the other two routes to the same product =====
+  v_id := pg_temp.q_as(v_pm, format($q$select public.create_sponsored_service_reservation(%L, '+2348012345678', 'Ada')::text$q$, v_prod));
+  perform pg_temp.rec('E1 a sponsor cannot reserve an extra meeting (the recipient is only a phone number, so Membership cannot be checked)', 'true',
+    (v_id like 'ERR:23514:%extra online meeting can only be bought by a Member for themselves%')::text);
+  v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pf, gen_random_uuid()));
+  perform pg_temp.rec('E2 the older video-visit request path refuses a Free patient with the Membership message', 'true',
+    (v_id like 'P0001:An extra online meeting is part of Membership%')::text);
+  v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pm, gen_random_uuid()));
+  perform pg_temp.rec('E3 a Member is not stopped by the Membership rule on that path', 'true', (v_id not like '%part of Membership%')::text);
+
   -- ===== D. SABOTAGE =====
   v_r := pg_temp.j(v_doc, format($q$select public.offer_followup_slots(%L, array[%L::timestamptz], 'monthly', null)$q$, v_pm2, v0 + interval '60 minutes'));
   v_slot2 := (select id from public.followup_offer_slots where offer_id = (v_r ->> 'offer_id')::uuid limit 1);
@@ -215,6 +233,10 @@ begin
   execute 'drop trigger service_purchases_extra_meeting_members_only on public.service_purchases';
   v_id := pg_temp.q_as(v_pf, format($q$select public.record_service_purchase_intent(%L, 'video_visit_credit')::text$q$, v_pf));
   perform pg_temp.rec('D2 SABOTAGE Membership trigger removed: a Free patient can start buying (so A6 was the trigger)', 'true', (v_id !~ '^ERR:')::text);
+  execute replace(pg_get_functiondef('private.pin_video_visit_amount()'::regprocedure), 'if not coalesce(private.patient_is_member(new.patient_id), false) then', 'if false then');
+  v_id := pg_temp.try_msg(format($q$insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)$q$, v_org, v_pf, gen_random_uuid()));
+  perform pg_temp.rec('D4 SABOTAGE Membership check removed from the older path: the Free patient is no longer refused with the Membership message (so E2 was that check)', 'true',
+    (v_id not like '%part of Membership%')::text);
   execute $s$ create or replace function private.patient_membership_tier(p_patient uuid) returns text language sql stable security definer set search_path to '' as $b$ select 'plus'::text $b$ $s$;
   v_h := pg_temp.hold_as(v_pf, v_pf, v_doc, v_start + interval '4 days');
   perform pg_temp.rec('D3 SABOTAGE tier check satisfied: a Free patient can book themselves (so B1 was the tier gate)', 'true', (v_h !~ '^ERR')::text);

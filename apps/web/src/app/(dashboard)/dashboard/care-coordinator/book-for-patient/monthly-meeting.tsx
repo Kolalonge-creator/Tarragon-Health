@@ -18,7 +18,7 @@ export function MonthlyMeeting({ patientId, patientName, isMember }: { patientId
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: key,
     enabled: isMember,
     queryFn: async () => {
@@ -68,7 +68,13 @@ export function MonthlyMeeting({ patientId, patientName, isMember }: { patientId
             This month&apos;s meeting for {patientName} is already booked. It is under their appointments.
           </p>
         )}
-        {!isLoading && !alreadyBooked && offers.length === 0 && (
+        {isError && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            Could not load {patientName}&apos;s monthly meeting. Do not tell them there are no times: reload the page and try again before booking
+            an extra meeting.
+          </p>
+        )}
+        {!isLoading && !isError && !alreadyBooked && offers.length === 0 && (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             No times have been offered yet for {patientName}. Their doctor offers the times, and they appear here as soon as they do. For a meeting
             now, book an extra meeting below (₦5,000).

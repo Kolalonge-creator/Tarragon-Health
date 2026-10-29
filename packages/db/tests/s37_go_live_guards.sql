@@ -277,6 +277,9 @@ begin
   v_realdoc := v_smo;                                       -- non-test profile too (below)
   update public.profiles set is_test = false where id = v_smo;
   v_tp := pg_temp.mkuser(v_org, 'test-patient', 'patient');
+  -- an extra online meeting is for paid Members by every route, including the older video-visit request path (decision 2026-10-29)
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
+  values (v_org, v_tp, 'granted', 'active', now() - interval '1 day', v_admin, 'S37 fixture membership', true);
   v_td := pg_temp.mkdoc(v_org, v_admin, 'test-doc', 'senior_medical_officer');
   perform pg_temp.open_time(v_td, v_start);
   perform pg_temp.open_time(v_realdoc, v_start);
@@ -360,6 +363,8 @@ begin
     pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_tp, gen_random_uuid())));
   perform pg_temp.back();
   v_tp2 := pg_temp.mkuser(v_org, 'test-patient-2', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
+  values (v_org, v_tp2, 'granted', 'active', now() - interval '1 day', v_admin, 'S37 fixture membership', true);
   perform pg_temp.act(v_tp2);
   perform pg_temp.rec('guard off: a test patient gets past the guard (and stops at the missing slot)', '23503',
     pg_temp.try(format('insert into public.video_visit_requests (organisation_id, patient_id, slot_id) values (%L, %L, %L)', v_org, v_tp2, gen_random_uuid())));
