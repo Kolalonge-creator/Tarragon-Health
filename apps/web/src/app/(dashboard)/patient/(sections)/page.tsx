@@ -215,6 +215,8 @@ export default async function PatientOverviewPage() {
 
           {/* Clinical signals stay in view: they self-hide when there is nothing behind them. */}
           <RiskSignalsCard patientId={subjectId} />
+          {/* Clinician-reviewed lab categories, including any that need attention, so they are not folded away with the rest. Self-hides without a reviewed result. */}
+          <BiomarkerCategoriesCard patientId={subjectId} />
 
           <details className="group rounded-2xl border border-charcoal-ink/10 bg-white p-1 dark:border-night-ink/15 dark:bg-night-card">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-4 py-2 text-sm font-semibold text-charcoal-ink hover:bg-charcoal-ink/[0.03] dark:text-night-ink [&::-webkit-details-marker]:hidden">
@@ -307,7 +309,6 @@ export default async function PatientOverviewPage() {
               {/* Conditional clinical cards: each self-hides when the patient has no data behind it. */}
               <HealthResetCard patientId={subjectId} />
               <WeeklyPlanCard patientId={subjectId} />
-              <BiomarkerCategoriesCard patientId={subjectId} />
               <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
               <HealthTrendsCard patientId={subjectId} audience="patient" />
 
