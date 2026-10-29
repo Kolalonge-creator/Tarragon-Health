@@ -369,6 +369,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
       {/* Choose a pharmacy for prescribed medicines and show the collection code (S28e). Shows nothing while collection is not open or nothing is waiting. */}
       {ownsReminders ? <PharmacyCollectCard tr={tr} /> : null}
 
+      {/* Short warning stays above the doses; the fixes themselves are lower down. */}
+      {ownsReminders && issues.length > 0 ? <InlineAlert tone="info" message={tr(ISSUE_TEXT[issues[0]])} /> : null}
 
       <View style={{ gap: space.md }}>
         <AppText variant="title" heading>

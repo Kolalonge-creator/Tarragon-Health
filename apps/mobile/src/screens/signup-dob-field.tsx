@@ -22,8 +22,8 @@ function fromIso(value: string): Date | null {
  * Date of birth through the phone's own date picker (iOS wheel, Android
  * dialog) instead of typing YYYY-MM-DD. `value`/`onChange` use the same ISO
  * string the sign-up form validates with checkAdultDateOfBirth; it stays ""
- * until a date is chosen. The picker opens near the youngest adult birth date
- * so a patient does not scroll from today back through decades.
+ * until a date is chosen. The wheel opens 30 years back so a patient does not scroll from today;
+ * nothing is recorded until they actually choose a date (Done alone never invents one).
  */
 export function DobField({ value, onChange, label }: { value: string; onChange: (iso: string) => void; label: string }) {
   const [open, setOpen] = useState(false);
@@ -69,7 +69,7 @@ export function DobField({ value, onChange, label }: { value: string; onChange: 
             onChange={handle}
           />
           {Platform.OS === "ios" ? (
-            <Pressable accessibilityRole="button" onPress={() => { if (!chosen) onChange(toIso(start)); setOpen(false); }} style={{ alignSelf: "flex-end", padding: 8 }}>
+            <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={{ alignSelf: "flex-end", padding: 8 }}>
               <Text style={{ fontSize: 16, fontWeight: "600", color: colors.brand }}>Done</Text>
             </Pressable>
           ) : null}
