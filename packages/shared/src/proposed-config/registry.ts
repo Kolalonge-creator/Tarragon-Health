@@ -3475,6 +3475,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (three-tier annual-only membership, 2026-10-21); founder confirmed 129,000 in chat on 2026-10-26; the live prices row valid from 2026-10-21",
   },
   {
+    key: "commerce.membership_prices",
+    // Version 3, 2026-10-29 (founder: "update the seat price to 129,000", answering 2026-10-28 "match Plus"). An organisation now pays
+    // 129,000 naira per Membership seat, the same as Membership Plus. The live organisation_member_prices default row was closed and a
+    // 12,900,000 kobo row opened at 2026-10-29 06:59:28 UTC through public.set_default_organisation_member_price (audited). At the time
+    // there were no billed seats and no seat pilots, so nobody was invoiced at 100,000. Versions 1 and 2 are kept: version 1 is what the
+    // launch migration inserted and the mirror test pins that history. The limits (floor 50,000, ceiling 200,000) are unchanged.
+    value: { individual_kobo: 12_900_000, organisation_member_kobo: 12_900_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 3,
+    effectiveFrom: "2026-10-29",
+    source: "docs/DECISIONS.md (organisation seat matches Membership Plus, 2026-10-28 answer, applied live 2026-10-29); the live organisation_member_prices row valid from 2026-10-29",
+  },
+  {
     key: "employer.seat_pilot",
     // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
     // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
