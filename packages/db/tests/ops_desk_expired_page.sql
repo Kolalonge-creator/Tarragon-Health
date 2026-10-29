@@ -597,11 +597,23 @@ begin
   perform pg_temp.rec('ready: three of four attested (second link is by the CMO and stands) and no primary active yet, so not ready', 'in_place,false',
     pg_temp.item_state(v_admin, 'backup_power') || ',' || private.ops_desk_org_ready(v_org, true)::text);
   update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c1;
-  perform pg_temp.rec('ready: with all four in place and a primary and a deputy active with confirmed numbers, ready', 'true', private.ops_desk_org_ready(v_org, true)::text);
+  perform pg_temp.rec('ready: with all four in place and a primary and a deputy active with confirmed numbers, ready (a deputy is welcome, not required)', 'true', private.ops_desk_org_ready(v_org, true)::text);
+  -- a deputy is not needed to start (founder decision 2026-10-29): no active deputy contact and a stale "Deputy cover" statement still leave the org ready
+  update public.ops_desk_contacts set is_active = false, activated_by = null, activated_at = null where organisation_id = v_org and role = 'deputy';
   perform pg_temp.backdate_item('deputy_cover', null, interval '91 days');
-  perform pg_temp.rec('stale: a statement older than the configured age stops counting and is shown as out of date', 'true,true',
+  perform pg_temp.rec('deputy optional: no active deputy and a stale deputy-cover statement, still ready', 'true', private.ops_desk_org_ready(v_org, true)::text);
+  -- put the deputy back for the blocks that follow (they expect one on duty)
+  update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where organisation_id = v_org and role = 'deputy';
+  -- ... but a primary is still required
+  update public.ops_desk_contacts set is_active = false, activated_by = null, activated_at = null where id = v_c1;
+  perform pg_temp.rec('primary needed: with no active primary the org is not ready', 'false', private.ops_desk_org_ready(v_org, true)::text);
+  update public.ops_desk_contacts set is_active = true, activated_by = v_admin, activated_at = now() where id = v_c1;
+  perform pg_temp.rec('primary needed: ready again once the primary is active', 'true', private.ops_desk_org_ready(v_org, true)::text);
+  -- the three required items still go stale
+  perform pg_temp.backdate_item('tested_contact_numbers', null, interval '91 days');
+  perform pg_temp.rec('stale: a REQUIRED statement older than the configured age stops counting and is shown as out of date', 'true,true',
     (private.ops_desk_org_ready(v_org, true) is false)::text || ',' ||
-    (select (e ->> 'stale') from jsonb_array_elements((pg_temp.q_as(v_admin, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = 'deputy_cover'));
+    (select (e ->> 'stale') from jsonb_array_elements((pg_temp.q_as(v_admin, 'select public.ops_desk_overview(30)')::jsonb) -> 'checklist') e where e ->> 'item_key' = 'tested_contact_numbers'));
 end $$;
 
 -- the gate: ships OFF, and with the CMO's config ON it holds back only the switching ON of the on-call cover guard
@@ -613,7 +625,7 @@ begin
   perform pg_temp.use_rules('{"checklist_gates_readiness": 1}'::jsonb);
   perform pg_temp.rec('gate on: with the checklist stale the guard cannot be switched on (23514)', '23514', pg_temp.guard_try(true));
   perform pg_temp.rec('gate on: it never blocks switching the guard off', 'ok', pg_temp.guard_try(false));
-  perform pg_temp.backdate_item('deputy_cover', null, interval '0 days');
+  perform pg_temp.backdate_item('tested_contact_numbers', null, interval '0 days');
   -- the gate looks at the real world; the proof's people are test accounts, so move them across for this one check and back
   perform pg_temp.set_world(false);
   perform pg_temp.rec('gate on: with the checklist and roster in place the guard switches on', 'ok', pg_temp.guard_try(true));
