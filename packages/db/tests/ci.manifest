@@ -1654,3 +1654,6 @@ marketing_resources_anon_select_without_is_admin.sql
 breast_and_menopause_symptom_alerts.sql
 vaccination_declined_contraindicated_and_adverse_events.sql
 vaccination_schedule_signoff.sql
+# --- Added 2026-10-29 (screening go-live): the outside-lab path end to end, scheduler to request to upload to filed result to trend ---
+screening_outside_lab_upload_to_trend.sql
+patient_reported_lab_values.sql
