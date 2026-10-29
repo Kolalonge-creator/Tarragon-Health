@@ -10,6 +10,7 @@ import { BiomarkerResultCard } from "@/components/biomarker/biomarker-result-car
 import { LifestyleGuide, type LifestyleItem } from "@/components/biomarker/lifestyle-guide";
 import { ResultExplainer } from "@/components/result-explainer";
 import { activeBiomarkerBands, gradeResult, latestConfirmedConfig } from "@/lib/biomarkers/grade";
+import { filterTrendPoints, parseTrendRange, sourcesIn, TREND_RANGES } from "@/lib/biomarkers/filter";
 import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel, type TrendPoint } from "@/lib/biomarkers/trend";
 import { TrendChart } from "./trend-chart";
 
@@ -37,9 +38,10 @@ function fmt(value: string): string {
  * a sensitive positive) with the laboratory's own range on each. Nothing here
  * invents a range or says what a result means.
  */
-export default async function BiomarkersPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+export default async function BiomarkersPage({ searchParams }: { searchParams: Promise<{ code?: string; range?: string; source?: string }> }) {
   const { subjectId, uiLanguage } = await getPatientDashboardContext();
-  const { code } = await searchParams;
+  const { code, range: rangeParam, source: sourceParam } = await searchParams;
+  const range = parseTrendRange(rangeParam);
   const supabase = await createClient();
 
   const { data: listRaw } = await supabase.rpc("patient_biomarker_list", { p_patient: subjectId });
@@ -51,7 +53,24 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
     const { data } = await supabase.rpc("patient_biomarker_trend", { p_code: selected, p_patient: subjectId });
     series = parseTrend(data);
   }
-  const groups = series ? groupByUnit(series.points) : [];
+  const allSources = series ? sourcesIn(series.points) : [];
+  const source = sourceParam && allSources.includes(sourceParam) ? sourceParam : undefined;
+  const filtered = series ? filterTrendPoints(series.points, range, source) : [];
+  const groups = series ? groupByUnit(filtered) : [];
+  const filterHref = (next: { range?: string; source?: string }) => {
+    const q = new URLSearchParams();
+    if (selected) q.set("code", selected);
+    const r = next.range ?? range;
+    if (r !== "all") q.set("range", r);
+    const s = "source" in next ? next.source : source;
+    if (s) q.set("source", s);
+    return `/patient/biomarkers?${q.toString()}`;
+  };
+  // Switching test keeps the chosen period; the source is dropped because another test may not have it.
+  const codeHref = (c: string) => `/patient/biomarkers?code=${encodeURIComponent(c)}${range === "all" ? "" : `&range=${range}`}`;
+  const KNOWN_SOURCES = ["lab_result", "legacy_report"];
+  const sourceLabel = (s: string) => (KNOWN_SOURCES.includes(s) ? t(`biomarkers.source.${s}` as MessageKey, uiLanguage) : s);
+  const chip = (on: boolean) => `rounded-full border px-3 py-1 text-sm ${on ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"}`;
 
   // One latest-result card per test. The Tarragon grade and range bar appear only once the CMO has confirmed the bands.
   const bands = activeBiomarkerBands();
@@ -101,7 +120,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                   grade={grade}
                   band={band}
                   selected={c === selected}
-                  href={`/patient/biomarkers?code=${encodeURIComponent(c)}`}
+                  href={codeHref(c)}
                   uiLanguage={uiLanguage}
                 >
                   <ResultExplainer kind="lab_analyte" subjectKey={c} label={displayCode(c)} />
@@ -116,7 +135,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                 .map((item) => (
                   <Link
                     key={item.code}
-                    href={`/patient/biomarkers?code=${encodeURIComponent(item.code)}`}
+                    href={codeHref(item.code)}
                     aria-current={item.code === selected ? "page" : undefined}
                     className={`rounded-full border px-3 py-1 text-sm ${
                       item.code === selected ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"
@@ -131,12 +150,38 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
 
           {series && (
             <>
-              {series.unitMixed && (
+              <div className="space-y-3">
+                <nav aria-label={t("biomarkers.filter.range", uiLanguage)} className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.range", uiLanguage)}</span>
+                  {TREND_RANGES.map((r) => (
+                    <Link key={r} href={filterHref({ range: r })} aria-current={r === range ? "true" : undefined} className={chip(r === range)}>
+                      {t(`biomarkers.filter.range.${r}` as MessageKey, uiLanguage)}
+                    </Link>
+                  ))}
+                </nav>
+                {allSources.length > 1 && (
+                  <nav aria-label={t("biomarkers.filter.source", uiLanguage)} className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.source", uiLanguage)}</span>
+                    <Link href={filterHref({ source: undefined })} aria-current={!source ? "true" : undefined} className={chip(!source)}>
+                      {t("biomarkers.filter.source.all", uiLanguage)}
+                    </Link>
+                    {allSources.map((s) => (
+                      <Link key={s} href={filterHref({ source: s })} aria-current={s === source ? "true" : undefined} className={chip(s === source)}>
+                        {sourceLabel(s)}
+                      </Link>
+                    ))}
+                  </nav>
+                )}
+              </div>
+              {groups.length === 0 && (
+                <p role="status" className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.empty", uiLanguage)}</p>
+              )}
+              {groups.length > 1 && (
                 <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   {t("biomarkers.unit_mixed", uiLanguage)}
                 </p>
               )}
-              {series.disputed && (
+              {filtered.some((p) => p.disagrees) && (
                 <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   {t("biomarkers.disputed", uiLanguage)}
                 </p>
