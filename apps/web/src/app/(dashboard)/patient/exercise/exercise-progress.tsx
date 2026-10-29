@@ -145,7 +145,7 @@ export function ExerciseProgressHero({ patientId }: { patientId: string }) {
           ))}
         </div>
 
-        {run > 0 && (
+        {run > 0 && totals.sessions > 0 && (
           <Badge variant="green">
             {run === 1 ? "Active this week" : `Active ${run} weeks in a row`}
           </Badge>

@@ -148,10 +148,16 @@ begin
     pg_temp.try_as(v_pat, format('update public.exercise_session_logs set performed_on = performed_on - 1 where id = %L', v_id)));
   perform pg_temp.try_as(v_pat2, format('update public.exercise_session_logs set duration_minutes = 1 where id = %L', v_id));
   perform pg_temp.ck('the edit by another patient changed nothing', '35', (select duration_minutes::text from public.exercise_session_logs where id = v_id));
+  perform pg_temp.ck('a programme cannot be swapped on a logged session', 'Owner, date and programme of a logged session cannot be changed.',
+    pg_temp.try_as(v_pat, format('update public.exercise_session_logs set enrollment_id = %L where id = %L', pg_temp.f('enrol_pat2'), v_id)));
   perform pg_temp.try_as(v_pat2, format('delete from public.exercise_session_logs where id = %L', v_id));
   perform pg_temp.ck('another patient cannot delete it', '1', (select count(*)::text from public.exercise_session_logs where id = v_id));
   perform pg_temp.try_as(v_pat, format('delete from public.exercise_session_logs where id = %L', v_id));
   perform pg_temp.ck('the owner can delete it', '0', (select count(*)::text from public.exercise_session_logs where id = v_id));
+
+  -- deleting an enrolment that has sessions logged against it works and keeps the sessions
+  perform pg_temp.ck('deleting a used enrolment succeeds', 'ok', pg_temp.try_as(v_pat, format('delete from public.patient_exercise_enrollments where id = %L', pg_temp.f('enrol_pat'))));
+  perform pg_temp.ck('its sessions are kept with no programme', '1', (select count(*)::text from public.exercise_session_logs where patient_id = v_pat and enrollment_id is null and performed_on = pg_temp.lagos_today() and duration_minutes = 15));
 
   -- registries
   perform pg_temp.ck('data_registry carries the table, unreviewed', '1', (select count(*)::text from public.data_registry where table_name = 'exercise_session_logs' and not reviewed));

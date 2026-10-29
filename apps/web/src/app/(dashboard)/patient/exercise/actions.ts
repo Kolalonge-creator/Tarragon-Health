@@ -128,12 +128,14 @@ export async function deleteExerciseSessionAction(
   const ctx = await currentPatient();
   if ("error" in ctx) return { error: ctx.error };
 
-  const { error } = await ctx.supabase
+  const { data, error } = await ctx.supabase
     .from("exercise_session_logs")
     .delete()
     .eq("id", parsed.data.id)
-    .eq("patient_id", ctx.userId);
+    .eq("patient_id", ctx.userId)
+    .select("id");
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "That session was already removed." };
 
   revalidatePath("/patient/exercise");
   return { success: true };

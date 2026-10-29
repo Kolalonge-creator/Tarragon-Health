@@ -114,21 +114,29 @@ function LogMealSection({
   // Photo-first: with estimates on, the photo is the main way in and the typed details sit behind a toggle. With estimates off a photo would
   // only be stored, so the typed route stays open.
   const [showDetails, setShowDetails] = useState(!visionConfigured);
-  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  // The blob URL is made in the event handler (not during render) and released when replaced, removed or on unmount.
+  const [preview, setPreview] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
   useEffect(
     () => () => {
-      if (preview) URL.revokeObjectURL(preview);
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
     },
-    [preview],
+    [],
   );
+  function setPhoto(f: File | null) {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = f ? URL.createObjectURL(f) : null;
+    setPreview(previewRef.current);
+    setFile(f);
+  }
   function choosePhoto(f: File | null) {
     const problem = f ? mealPhotoProblem(f) : null;
     if (problem) {
       setMessage(problem);
-      return setFile(null);
+      return setPhoto(null);
     }
     setMessage(null);
-    setFile(f);
+    setPhoto(f);
   }
   const [description, setDescription] = useState("");
   const addPhrase = (phrase: string) => setDescription((d) => (d.trim() ? `${d.trim()}, ${phrase}` : phrase).slice(0, 500));
@@ -160,7 +168,7 @@ function LogMealSection({
       queryClient.invalidateQueries({ queryKey: ["nutrition-guidance"] });
       formRef.current?.reset();
       setDescription("");
-      setFile(null);
+      setPhoto(null);
       setMealType(defaultMealType());
       if (res?.aiStatus === "estimated") {
         setMessage(t("Logged. We've added an estimate below. Check and confirm it."));
@@ -187,7 +195,10 @@ function LogMealSection({
           onSubmit={(e) => {
             e.preventDefault();
             setMessage(null);
-            mutation.mutate(new FormData(e.currentTarget));
+            const fd = new FormData(e.currentTarget);
+            // The description textarea is unmounted while the details are collapsed; send what was typed from state so it is never dropped.
+            if (description.trim()) fd.set("description", description);
+            mutation.mutate(fd);
           }}
         >
           <div className="grid gap-2">
@@ -202,7 +213,7 @@ function LogMealSection({
                   >
                     {t("Retake")}
                   </label>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setFile(null)}>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setPhoto(null)}>
                     {t("Remove photo")}
                   </Button>
                 </div>
@@ -225,7 +236,6 @@ function LogMealSection({
               id="photo"
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic"
-              capture="environment"
               className="sr-only"
               onChange={(e) => {
                 choosePhoto(e.target.files?.[0] ?? null);

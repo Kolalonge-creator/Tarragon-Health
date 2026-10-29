@@ -68,7 +68,8 @@ create trigger exercise_session_logs_guard
   before insert on public.exercise_session_logs
   for each row execute function private.exercise_session_log_guard();
 
--- A row's owner, date and enrolment never change after the fact (a wrong session is deleted and logged again).
+-- A row's owner, date and enrolment never change after the fact (a wrong session is deleted and logged again). The one allowed change is
+-- enrollment_id going to null, which is the ON DELETE SET NULL of deleting the enrolment; blocking it would make a used enrolment undeletable.
 create or replace function private.exercise_session_log_immutable()
 returns trigger
 language plpgsql
@@ -77,7 +78,7 @@ as $$
 begin
   if new.patient_id is distinct from old.patient_id
      or new.organisation_id is distinct from old.organisation_id
-     or new.enrollment_id is distinct from old.enrollment_id
+     or (new.enrollment_id is distinct from old.enrollment_id and new.enrollment_id is not null)
      or new.performed_on is distinct from old.performed_on then
     raise exception 'Owner, date and programme of a logged session cannot be changed.' using errcode = '22023';
   end if;

@@ -5,6 +5,7 @@ const inserted: Record<string, unknown>[] = [];
 const deleted: { id?: string; patient?: string }[] = [];
 let insertError: { message: string } | null = null;
 let signedIn = true;
+let deleteMatches = true;
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(async () => ({
@@ -37,7 +38,7 @@ jest.mock("@/lib/supabase/server", () => ({
               else rec.patient = v;
               if (rec.id && rec.patient) {
                 deleted.push(rec);
-                return Promise.resolve({ error: null });
+                return { select: async () => ({ data: deleteMatches ? [{ id: rec.id }] : [], error: null }) };
               }
               return chain;
             },
@@ -70,6 +71,7 @@ beforeEach(() => {
   deleted.length = 0;
   insertError = null;
   signedIn = true;
+  deleteMatches = true;
 });
 
 describe("logExerciseSessionAction", () => {
@@ -154,6 +156,11 @@ describe("deleteExerciseSessionAction", () => {
     const id = "6f1c2b1e-9a3d-4c55-8d7e-1a2b3c4d5e6f";
     expect(await deleteExerciseSessionAction(id)).toEqual({ success: true });
     expect(deleted).toEqual([{ id, patient: "patient-1" }]);
+  });
+
+  it("says so when nothing was deleted instead of reporting success", async () => {
+    deleteMatches = false;
+    expect(await deleteExerciseSessionAction("6f1c2b1e-9a3d-4c55-8d7e-1a2b3c4d5e6f")).toEqual({ error: "That session was already removed." });
   });
 
   it("rejects a malformed id", async () => {
