@@ -7,11 +7,10 @@
  * Only switch a whole file at a time: mixing these with the static `colors` in one screen
  * gives dark text on a dark card.
  */
-import { MAX_FONT_SCALE, MIN_TARGET, useLegacyColors } from "./design";
+import { MIN_TARGET, useLegacyColors, useTheme } from "./design";
 import { Children, type ReactNode } from "react";
 import {
   Pressable,
-  Text,
   View,
   type StyleProp,
   type TextStyle,
@@ -21,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "./theme";
 import { AppText } from "./kit/AppText";
 import { Button } from "./kit/Button";
+import { Card as KitCard } from "./kit/Card";
 
 interface ButtonProps {
   title: string;
@@ -38,7 +38,7 @@ export function SecondaryButton({ title, onPress, disabled, loading }: ButtonPro
 }
 
 export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
-  const colors = useLegacyColors();
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -46,7 +46,7 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? colors.brandPressed : colors.brand,
+        backgroundColor: pressed ? colors.brandText : colors.brand,
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
@@ -56,29 +56,15 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
         opacity: disabled ? 0.5 : 1,
       })}
     >
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>{title}</Text>
+      <AppText variant="label" tone="textOnBrand">
+        {title}
+      </AppText>
     </Pressable>
   );
 }
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colors = useLegacyColors();
-  return (
-    <View
-      style={[
-        {
-          backgroundColor: colors.card,
-          borderRadius: radius.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: spacing.card,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <KitCard style={style}>{children}</KitCard>;
 }
 
 export function ScreenTitle({ children }: { children: ReactNode }) {
@@ -108,11 +94,13 @@ export function ErrorText({ children }: { children: ReactNode }) {
 type BadgeTone = "brand" | "neutral";
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
-  const colors = useLegacyColors();
-  const c = tone === "brand" ? { bg: colors.brandTint, text: colors.brandPressed } : { bg: colors.pressed, text: colors.muted };
+  const { colors } = useTheme();
+  const c = tone === "brand" ? { bg: colors.brandTint, text: "brandText" as const } : { bg: colors.surfaceMuted, text: "textMuted" as const };
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{children}</Text>
+      <AppText variant="caption" tone={c.text}>
+        {children}
+      </AppText>
     </View>
   );
 }
@@ -201,9 +189,9 @@ export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron",
     >
       {leading}
       <View style={{ flex: 1 }}>
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "600", color: disabled ? colors.faint : colors.ink }}>
+        <AppText variant="bodyStrong" tone={disabled ? "textSubtle" : "text"}>
           {title}
-        </Text>
+        </AppText>
         {subtitle ? <MutedText>{subtitle}</MutedText> : null}
       </View>
       {trailingNode}
@@ -254,18 +242,9 @@ export function QuickActionButton({
       >
         <Ionicons name={icon} size={21} color={active ? colors.brandPressed : colors.ink} />
       </View>
-      <Text
-        maxFontSizeMultiplier={MAX_FONT_SCALE}
-        numberOfLines={2}
-        style={{
-          fontSize: 11,
-          fontWeight: active ? "700" : "500",
-          color: active ? colors.brandPressed : colors.ink,
-          textAlign: "center",
-        }}
-      >
+      <AppText variant="caption" tone={active ? "brandText" : "text"} align="center" numberOfLines={2}>
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -309,12 +288,14 @@ export function CalloutCard({
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Ionicons name={icon} size={18} color={colors.ink} />
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{title}</Text>
+        <AppText variant="bodyStrong">{title}</AppText>
       </View>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }}>{subtitle}</Text>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, alignSelf: "flex-end", marginTop: 2 }}>
+      <AppText variant="caption" tone="textMuted">
+        {subtitle}
+      </AppText>
+      <AppText variant="label" tone="brandText" style={{ alignSelf: "flex-end", marginTop: 2 }}>
         {ctaLabel.toUpperCase()}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
