@@ -6206,6 +6206,7 @@ export type Database = {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by: string | null
+          booked_via: string
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -6225,6 +6226,7 @@ export type Database = {
           no_show_reason: string | null
           organisation_id: string
           patient_id: string
+          payment_confirm_error: string | null
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
           reason: string | null
           rescheduled_from_id: string | null
@@ -6240,6 +6242,7 @@ export type Database = {
         Insert: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          booked_via?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -6259,6 +6262,7 @@ export type Database = {
           no_show_reason?: string | null
           organisation_id: string
           patient_id: string
+          payment_confirm_error?: string | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
           rescheduled_from_id?: string | null
@@ -6274,6 +6278,7 @@ export type Database = {
         Update: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           booked_by?: string | null
+          booked_via?: string
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -6293,6 +6298,7 @@ export type Database = {
           no_show_reason?: string | null
           organisation_id?: string
           patient_id?: string
+          payment_confirm_error?: string | null
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
           reason?: string | null
           rescheduled_from_id?: string | null
@@ -53953,6 +53959,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      coordinator_find_patient: {
+        Args: { p_query: string }
+        Returns: {
+          full_name: string | null
+          membership_tier: string | null
+          patient_id: string
+          phone: string | null
+          state: string | null
+        }[]
       }
       confirm_appointment_booking: {
         Args: { p_appointment_id: string }

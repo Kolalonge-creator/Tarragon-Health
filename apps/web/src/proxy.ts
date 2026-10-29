@@ -65,6 +65,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Where Paystack returns whoever paid a Care Coordinator's phone-booking pay link. That person may be a relative with no account,
+  // or a patient who is not signed in on this device, and a signed-in one must not be bounced to a dashboard. The page shows no
+  // patient data at all: it only says the payment went through.
+  if (pathname === "/payment-received") {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // No-login prescription check (QR on the prescription PDF). Same reasoning as /emergency/ and
   // /verify-report: it needs no session, must not bounce a signed-in visitor (a pharmacist who is also a
   // user), and the 64-hex token in the path must never leave through a Referer header.

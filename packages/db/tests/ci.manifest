@@ -1646,3 +1646,5 @@ w19_payer_sees_gift_state.sql
 w03_red_page_ladder.sql
 # W-36 RLS shape gate: every patient_id table has row security on, no open read policy, a reviewed helper in its read policy, and a staff_read_scope row when staff can read it (33 known tables baselined, OQ-280). Sabotage: an open policy, an unreviewed helper, an unregistered staff-readable table and a table without row security; all four must flip.
 rls_shape_gate.sql
+# Care Coordinator phone booking: coordinator_find_patient (role gate, audit, fields), Free patient refused / Member held 24h, payment confirms with no session, unpaid release. Sabotage: tier check, payment trigger, coordinator role; all must flip.
+coordinator_phone_booking.sql
