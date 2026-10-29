@@ -139,7 +139,10 @@ export function ReleasedLabResults({ patientId, locale }: { patientId: string; l
   const q = useMyLabResults(patientId);
   const [showAll, setShowAll] = useState(false);
   const all = q.data ?? [];
-  const visible = showAll ? all : all.slice(0, RECENT_RESULTS);
+  // A result with a correction on it is never folded away, however old: the person must see that a result changed.
+  const alwaysShown = (r: MyLabResult, i: number) => i < RECENT_RESULTS || r.correction_kind != null;
+  const visible = showAll ? all : all.filter(alwaysShown);
+  const hiddenCount = all.length - all.filter(alwaysShown).length;
   return (
     <Card>
       <CardHeader>
@@ -152,9 +155,9 @@ export function ReleasedLabResults({ patientId, locale }: { patientId: string; l
             <ResultCard key={r.lab_result_id} r={r} locale={locale} />
           ))}
         </ul>
-        {all.length > RECENT_RESULTS ? (
+        {hiddenCount > 0 || showAll ? (
           <Button type="button" variant="outline" size="sm" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
-            {showAll ? "Show fewer results" : `Show earlier results (${all.length - RECENT_RESULTS})`}
+            {showAll ? "Show fewer results" : `Show earlier results (${hiddenCount})`}
           </Button>
         ) : null}
         <AddOwnResult locale={locale} onDone={() => void q.refetch()} />
