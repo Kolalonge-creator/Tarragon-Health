@@ -67,10 +67,14 @@ export function BookAppointment({
   patientId,
   initialAppointmentType,
   locale = "en",
+  renderPendingPayment,
 }: {
   organisationId: string;
   patientId: string;
   locale?: Locale;
+  /** A Care Coordinator booking on a phone call shows its own payment panel (a pay link for the patient or a relative) instead of
+   * the "Pay to confirm" button, which would start a purchase for the signed-in coordinator. */
+  renderPendingPayment?: (held: { appointmentId: string; productCode: string; slotStart: string; appointmentType: AppointmentType }) => React.ReactNode;
   /** Preselects the type picker — e.g. the Wellbeing page linking straight
    * into "Therapy session" rather than defaulting to GP. */
   initialAppointmentType?: AppointmentType;
@@ -416,7 +420,14 @@ export function BookAppointment({
           </p>
         )}
 
-        {pendingPaymentAppointment && (
+        {pendingPaymentAppointment && renderPendingPayment?.({
+          appointmentId: pendingPaymentAppointment.id,
+          productCode: pendingPaymentAppointment.productCode,
+          slotStart: pendingPaymentAppointment.slotStart,
+          appointmentType: pendingPaymentAppointment.appointmentType,
+        })}
+
+        {pendingPaymentAppointment && !renderPendingPayment && (
           <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 p-3">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm text-charcoal-ink dark:text-night-ink">
