@@ -248,11 +248,11 @@ begin
                       then 'confirmed'::public.appointment_status
                       else 'booked'::public.appointment_status end,
         confirmed_at = case when v_appt.payment_status in ('paid', 'not_required', 'waived') then now() else confirmed_at end,
-        -- A phone booking still awaiting payment keeps its slot for 24 hours from the first confirm attempt, then the sweeper
-        -- releases it. Every other booking behaves exactly as before.
+        -- A phone booking still awaiting payment keeps its slot for 24 hours from the first confirm attempt (never past its own start
+        -- time), then the sweeper releases it. Every other booking behaves exactly as before.
         hold_expires_at = case
           when v_appt.payment_status in ('paid', 'not_required', 'waived') then null
-          when v_appt.booked_via = 'coordinator_phone' and v_appt.status = 'held' then now() + interval '24 hours'
+          when v_appt.booked_via = 'coordinator_phone' and v_appt.status = 'held' then least(now() + interval '24 hours', v_appt.scheduled_for)
           when v_appt.booked_via = 'coordinator_phone' then v_appt.hold_expires_at
           else null end,
         payment_confirm_error = null
@@ -329,7 +329,9 @@ declare
   v_code text;
   v_prev text;
 begin
-  if new.status <> 'active' or old.status = 'active' then
+  -- A purchase becomes usable either by an UPDATE to 'active' (a Paystack payment, a voucher applied to a pending purchase) or by being
+  -- INSERTed active (a free product, a credit a sponsor bought for the patient). Both must confirm a waiting phone booking.
+  if new.status <> 'active' or (tg_op = 'UPDATE' and old.status = 'active') then
     return new;
   end if;
   select code into v_code from public.service_products where id = new.service_product_id;
@@ -364,6 +366,12 @@ drop trigger if exists confirm_phone_bookings_after_payment on public.service_pu
 create trigger confirm_phone_bookings_after_payment
   after update of status on public.service_purchases
   for each row execute function private.confirm_phone_bookings_after_payment();
+
+drop trigger if exists confirm_phone_bookings_after_credit_insert on public.service_purchases;
+create trigger confirm_phone_bookings_after_credit_insert
+  after insert on public.service_purchases
+  for each row when (new.status = 'active')
+  execute function private.confirm_phone_bookings_after_payment();
 
 -- 6. the coordinator's patient search: name, state, phone and tier only ----------------------------------------------------------
 create or replace function public.coordinator_find_patient(p_query text)
@@ -409,6 +417,12 @@ begin
     -- warning, so a wrong scope here would lose the audit line silently (the proof checks the row exists). 'booking' is what this is for.
     perform private.log_care_access(r.id, 'record_viewed', 'booking',
       jsonb_build_object('stage', 'lookup', 'fields', jsonb_build_array('full_name', 'state', 'phone')));
+    -- Fail closed: log_care_access never raises, so check the line is really there before handing over the details.
+    if not exists (select 1 from public.care_access_events e
+                    where e.patient_id = r.id and e.actor_profile_id = v_uid and e.kind = 'record_viewed' and e.scope = 'booking'
+                      and e.occurred_at > now() - interval '1 hour') then
+      raise exception 'the lookup could not be recorded, so nothing was shown' using errcode = 'P0001';
+    end if;
     patient_id := r.id;
     full_name := r.full_name;
     state := r.state;

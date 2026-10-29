@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PAID_APPOINTMENT_PRODUCT_CODE } from "@/app/(dashboard)/patient/appointments/appointment-labels";
 
 export type FoundPatient = {
@@ -77,6 +78,23 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   const productCode = PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type];
   if (!productCode) return { error: "This kind of appointment has nothing to pay for" };
 
+  // One payment link at a time. The patient's pending purchase for this product is shared and holds a single payment reference, so a
+  // second link would replace the first: a payer who already used the first link would be charged with nothing to match it to. A link
+  // older than the 24 hour hold no longer counts, so a lost link cannot block the patient for ever.
+  const { data: outstanding, error: outstandingError } = await createServiceRoleClient()
+    .from("service_purchases")
+    .select("id, service_product:service_products!inner(code)")
+    .eq("patient_id", appt.patient_id)
+    .eq("status", "pending_payment")
+    .not("pending_payment_provider_ref", "is", null)
+    .gt("updated_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .eq("service_product.code", productCode)
+    .limit(1);
+  if (outstandingError) return { error: outstandingError.message };
+  if (outstanding && outstanding.length > 0) {
+    return { error: "A payment link made in the last 24 hours is still out for this patient. Ask the payer to use it; a new one can be made once it has lapsed." };
+  }
+
   const result = await purchaseServiceProduct({
     serviceProductCode: productCode,
     patientId: appt.patient_id,
@@ -88,4 +106,16 @@ export async function createPayLink(input: z.input<typeof payLinkSchema>): Promi
   if (result.checkoutUrl) return { checkoutUrl: result.checkoutUrl };
   if (result.activated) return { activated: true };
   return { error: "Could not start the payment" };
+}
+
+/**
+ * Try to confirm a phone booking again, for the case where the payment arrived but the automatic confirmation did not (it is listed
+ * with its reason). Same rules as any confirm: the database refuses it if the slot is gone or the booking was not paid for.
+ */
+export async function retryConfirm(appointmentId: string): Promise<{ ok: true; status: string } | { error: string }> {
+  if (!z.string().uuid().safeParse(appointmentId).success) return { error: "That appointment could not be found" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("confirm_appointment_booking", { p_appointment_id: appointmentId });
+  if (error) return { error: error.message };
+  return { ok: true, status: data.status };
 }

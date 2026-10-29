@@ -9,6 +9,7 @@ const rpc = jest.fn();
 const maybeSingle = jest.fn();
 const getUser = jest.fn();
 const purchaseServiceProduct = jest.fn();
+const outstandingLimit = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockImplementation(async () => ({
@@ -17,9 +18,19 @@ jest.mock("@/lib/supabase/server", () => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle }) }) }),
   })),
 }));
+jest.mock("@/lib/supabase/service-role", () => ({
+  createServiceRoleClient: () => ({
+    from: () => {
+      const chain: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "not", "gt"]) chain[m] = () => chain;
+      chain.limit = outstandingLimit;
+      return chain;
+    },
+  }),
+}));
 jest.mock("@/lib/billing/purchase-service-product", () => ({ purchaseServiceProduct: (a: unknown) => purchaseServiceProduct(a) }));
 
-import { createPayLink, findPatients } from "./actions";
+import { createPayLink, findPatients, retryConfirm } from "./actions";
 
 const APPT = "11111111-1111-4111-8111-111111111111";
 const waiting = {
@@ -37,6 +48,7 @@ beforeEach(() => {
   getUser.mockResolvedValue({ data: { user: { id: "coord-1" } } });
   maybeSingle.mockResolvedValue({ data: waiting, error: null });
   purchaseServiceProduct.mockResolvedValue({ checkoutUrl: "https://checkout.paystack.com/abc" });
+  outstandingLimit.mockResolvedValue({ data: [], error: null });
 });
 
 describe("findPatients", () => {
@@ -78,6 +90,12 @@ describe("createPayLink", () => {
     );
   });
 
+  it("refuses a second link while one made in the last 24 hours is still out (it would orphan a payment on the first)", async () => {
+    outstandingLimit.mockResolvedValue({ data: [{ id: "purchase-1" }], error: null });
+    expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ error: expect.stringContaining("still out") });
+    expect(purchaseServiceProduct).not.toHaveBeenCalled();
+  });
+
   it("refuses a booking another coordinator made", async () => {
     maybeSingle.mockResolvedValue({ data: { ...waiting, booked_by: "coord-2" }, error: null });
     expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ error: expect.stringContaining("you made yourself") });
@@ -105,5 +123,19 @@ describe("createPayLink", () => {
   it("reports activated when nothing is left to pay (a voucher covered it)", async () => {
     purchaseServiceProduct.mockResolvedValue({ activated: true });
     expect(await createPayLink({ appointmentId: APPT, payerEmail: "son@example.com" })).toEqual({ activated: true });
+  });
+});
+
+describe("retryConfirm", () => {
+  it("refuses a malformed id without calling the database", async () => {
+    expect(await retryConfirm("nope")).toEqual({ error: expect.any(String) });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns the new status, and passes a database refusal through", async () => {
+    rpc.mockResolvedValueOnce({ data: { status: "confirmed" }, error: null });
+    expect(await retryConfirm(APPT)).toEqual({ ok: true, status: "confirmed" });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "that time is no longer open for consultations: pick another slot" } });
+    expect(await retryConfirm(APPT)).toEqual({ error: expect.stringContaining("no longer open") });
   });
 });

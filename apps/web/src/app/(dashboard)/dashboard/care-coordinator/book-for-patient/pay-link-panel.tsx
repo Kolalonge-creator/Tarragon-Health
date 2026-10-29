@@ -59,8 +59,8 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
             </label>
             <div className="flex flex-wrap gap-2">
               <Input id="payer-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="max-w-xs" />
-              <Button size="sm" disabled={busy || email.trim() === ""} onClick={makeLink}>
-                {busy ? "Making the link…" : link ? "Make a new link" : "Make a pay link"}
+              <Button size="sm" disabled={busy || link !== null || email.trim() === ""} onClick={makeLink}>
+                {busy ? "Making the link…" : link ? "Link made" : "Make a pay link"}
               </Button>
             </div>
           </div>
@@ -71,7 +71,7 @@ export function PayLinkPanel({ appointmentId, slotStart, patientName }: { appoin
                 {copied ? "Copied" : "Copy link"}
               </Button>
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                Send this link to the payer. They can pay by card or bank transfer on the page that opens.
+                Send this link to the payer. They can pay by card or bank transfer on the page that opens. Only one link can be out at a time, so keep this page open until you have sent it. If you lose it, the booking appears in the list below with what to do next.
               </p>
             </div>
           )}

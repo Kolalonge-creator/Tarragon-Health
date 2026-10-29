@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { BookAppointment } from "@/app/(dashboard)/patient/appointments/book-appointment";
 import { findPatients, type FoundPatient } from "./actions";
 import { PayLinkPanel } from "./pay-link-panel";
+import { PhoneBookingsList } from "./phone-bookings-list";
 
 /**
  * Find the patient the coordinator is talking to, then book for them with the same picker a patient uses. Free patients can still
@@ -81,7 +82,7 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
                       ) : (
                         "No phone on file"
                       )}{" "}
-                      · {p.membershipTier ? "Member" : "Free"}
+                      · {p.membershipTier === "plus" ? "Membership Plus" : p.membershipTier ? "Membership" : "Free"}
                     </p>
                   </div>
                   <Button size="sm" className="ml-auto" variant={selected?.patientId === p.patientId ? "outline" : "default"} onClick={() => setSelected(p)}>
@@ -93,6 +94,8 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <PhoneBookingsList />
 
       {selected && (
         <div className="space-y-3">

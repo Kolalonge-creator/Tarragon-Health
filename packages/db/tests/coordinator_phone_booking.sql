@@ -12,8 +12,10 @@
 --   5. With a credit already held, the coordinator's booking confirms at once.
 --   6. An unpaid phone booking is released after its 24 hours; a patient's own unpaid 'booked' appointment is left alone.
 --   7. The patient's own booking is stamped 'self'.
---   8. SABOTAGE: tier lookup forced to return a tier (Free patient now holds); payment trigger disabled (booking does not confirm); coordinator
---      role removed (the lookup is refused to nobody else, so it must now fail for the same person). Each must flip, or the proof is vacuous.
+--   4b. A credit inserted already active (sponsor credit, free product) confirms a waiting phone booking too.
+--   8. SABOTAGE: tier lookup forced to return a tier (Free patient now holds); payment trigger disabled (booking does not confirm); the audit
+--      logger made a no-op (the lookup must refuse, not show details unrecorded); coordinator role removed (the lookup is refused to nobody
+--      else, so it must now fail for the same person). Each must flip, or the proof is vacuous.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -84,7 +86,7 @@ declare
   v_admin uuid; v_doc uuid; v_coord uuid; v_free uuid; v_member uuid; v_phone text;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
   v_h text; v_a uuid; v_row public.appointments%rowtype; v_json jsonb; v_res text;
-  v_code text; v_prod uuid; v_purchase uuid; v_cnt integer; v_own uuid;
+  v_code text; v_prod uuid; v_purchase uuid; v_cnt integer; v_own uuid; v_soon timestamptz;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
@@ -180,6 +182,17 @@ begin
   perform pg_temp.rec('the transaction claim is restored after the confirm', 'before-marker', current_setting('request.jwt.claim.sub', true));
   perform set_config('request.jwt.claim.sub', '', true);
 
+  -- ===== 4b. a credit INSERTED active (a sponsor's voucher credit, a free product) also confirms a waiting phone booking =====
+  v_h := pg_temp.hold_as(v_coord, v_member, v_doc, v_start + interval '7 days');
+  perform pg_temp.act(v_coord);
+  perform public.confirm_appointment_booking(v_h::uuid);
+  perform pg_temp.back();
+  perform pg_temp.rec('a second phone booking waits for payment', 'booked', (select status::text from public.appointments where id = v_h::uuid));
+  insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, purchased_at)
+  values (v_org, v_member, v_prod, 'active', coalesce((select price_kobo from public.service_products where id = v_prod), 0), 'NGN', 0, now());
+  perform pg_temp.rec('a credit inserted active confirms it with no session', 'confirmed/paid',
+    (select status::text || '/' || payment_status::text from public.appointments where id = v_h::uuid));
+
   -- ===== 5. a credit already held: confirms at once =====
   insert into public.service_purchases (organisation_id, patient_id, service_product_id, status, amount_kobo, currency, voucher_covered_kobo, purchased_at)
   values (v_org, v_member, v_prod, 'active', coalesce((select price_kobo from public.service_products where id = v_prod), 0), 'NGN', 0, now());
@@ -202,6 +215,15 @@ begin
   perform pg_temp.rec('after 24 hours the unpaid phone booking is released', 'expired', (select status::text from public.appointments where id = v_h::uuid));
   perform pg_temp.rec('a patient''s own unpaid booked appointment is not touched', 'booked', (select status::text from public.appointments where id = v_own));
 
+  -- the unpaid hold never outlives the appointment's own start (a visit 3 hours away is held 3 hours, not 24)
+  v_soon := date_trunc('hour', now()) + interval '3 hours';
+  v_h := pg_temp.hold_as(v_coord, v_member, v_doc, v_soon);
+  perform pg_temp.act(v_coord);
+  perform public.confirm_appointment_booking(v_h::uuid);
+  perform pg_temp.back();
+  perform pg_temp.rec('a phone booking 3 hours away waits for payment and is held no longer than until its start', 'booked/true',
+    (select status::text || '/' || (hold_expires_at <= scheduled_for)::text from public.appointments where id = v_h::uuid));
+
   -- ===== 8. SABOTAGE =====
   -- (a) tier lookup says everyone has a tier: the Free patient now holds, so the refusal above was the tier check
   execute $s$ create or replace function private.patient_membership_tier(p_patient uuid) returns text language sql stable security definer set search_path to '' as $b$ select 'plus'::text $b$ $s$;
@@ -222,6 +244,16 @@ begin
   perform pg_temp.rec('SABOTAGE payment trigger off: the paid booking stays unconfirmed (so section 4 proved the trigger)', 'booked',
     (select status::text from public.appointments where id = v_h::uuid));
   execute 'alter table public.service_purchases enable trigger confirm_phone_bookings_after_payment';
+
+  -- (d) the audit write fails: the lookup must show nothing rather than hand over details unrecorded
+  execute $s$ create or replace function private.log_care_access(p_patient uuid, p_kind public.care_access_event_kind, p_scope text default null, p_metadata jsonb default '{}'::jsonb, p_actor uuid default null)
+              returns void language plpgsql security definer set search_path to '' as $b$ begin return; end $b$ $s$;
+  -- a patient nobody has looked up yet: an earlier audit line (within the hour) would otherwise satisfy the check by itself
+  perform pg_temp.mkuser(v_org, 'zzaudit-patient', 'patient', (current_date - interval '60 years')::date);
+  perform pg_temp.act(v_coord);
+  perform pg_temp.rec('SABOTAGE audit logger does nothing: the lookup is refused instead of showing details unrecorded (P0001)', 'P0001',
+    pg_temp.try('select * from public.coordinator_find_patient(''CPB zzaudit-patient'')'));
+  perform pg_temp.back();
 
   -- (c) the coordinator loses the role: the lookup is refused for the same person who was served above
   update public.profiles set role = 'patient' where id = v_coord;
