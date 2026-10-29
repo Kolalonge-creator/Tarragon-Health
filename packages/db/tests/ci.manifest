@@ -10,6 +10,8 @@
 # runs nowhere is the exact problem this manifest was added to fix.
 care_access_request_identity_and_pending_read_window.sql
 care_access_request_phone_proof.sql
+# P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
+exercise_session_logs.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql
 force_safe_patient_order_insert_defaults.sql
 refund_ledger_reversal.sql
