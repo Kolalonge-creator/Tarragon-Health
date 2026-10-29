@@ -57,3 +57,11 @@ Checked in code before changing anything: most of group A is **already unlinked*
 - **Ask for your records: was linked for everyone from the Health passport nav. Fixed**: the link now shows only when the `records_request_letters` guard is open, or the person already has a request (`lib/records-request/show-link.ts`, 4 tests). A failed read hides it.
 
 Group B (12 folds into hubs) is **not done**: it is a set of separate moves, each touching a hub page, so it should be its own PR.
+
+## Group B folds, done (branch design/p5-folds)
+Checked first: only 5 of the 12 had their own menu entry. Removed those 5 entries and gave each a home (new `HubLinks` row, `components/ui/hub-links.tsx`):
+- Your finances: Receipts, Ask someone to pay, Insurance.
+- Health summary: Yearly health report, Your month, Health score, Doses marked taken (also still linked from the medicines list).
+- Already inside hubs before this change: Biomarkers and Summary of what is inside (Health passport nav), Immunisation card and My phones (My Health cards).
+- Not done: Your visits (`/patient/directory/bookings`) has no link from anywhere and no obvious hub; needs a placement decision.
+- Menu test added: the five paths are gone from the patient menu, the three hubs remain. Routes are untouched, so old links and notifications still work. Not seen in a browser.
