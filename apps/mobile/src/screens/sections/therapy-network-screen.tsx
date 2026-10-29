@@ -9,7 +9,7 @@ import {
   type TherapySession,
 } from "@/lib/therapy";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -103,7 +103,7 @@ function ProviderRow({ provider, organisationId, patientId }: ProviderRowProps) 
               key={option}
               onPress={() => setModality(option)}
               style={{
-                fontSize: 11.5,
+                ...textStyles.caption,
                 paddingVertical: 6,
                 paddingHorizontal: 10,
                 borderRadius: 999,
@@ -228,7 +228,7 @@ export function TherapyNetworkScreen({ organisationId, patientId, onClose }: The
             key={option.label}
             onPress={() => setType(option.value)}
             style={{
-              fontSize: 12,
+              ...textStyles.caption,
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 999,
@@ -243,7 +243,7 @@ export function TherapyNetworkScreen({ organisationId, patientId, onClose }: The
         <Text
           onPress={() => setTelemedicineOnly((v) => !v)}
           style={{
-            fontSize: 12,
+            ...textStyles.caption,
             paddingVertical: 6,
             paddingHorizontal: 10,
             borderRadius: 999,

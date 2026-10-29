@@ -20,7 +20,7 @@ import {
 } from "@/lib/symptoms";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { radius, spacing } from "@/ui/theme";
-import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
+import { lightPalette, useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { SymptomCheckerCard } from "@/screens/sections/symptom-checker-card";
@@ -240,7 +240,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                       backgroundColor: isOn ? colors.status.emergency : colors.card,
                     }}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: isOn ? colors.onBrand : colors.ink }}>
+                    <Text style={{ ...textStyles.label, color: isOn ? colors.onBrand : colors.ink }}>
                       {DANGER_SIGN_LABEL[sign]}
                     </Text>
                   </Pressable>
@@ -290,7 +290,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 backgroundColor: symptomType === t ? colors.brand : colors.pressed,
               }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? colors.onBrand : colors.muted }}>
+              <Text style={{ ...textStyles.label, color: symptomType === t ? colors.onBrand : colors.muted }}>
                 {SYMPTOM_LABEL[t]}
               </Text>
             </Pressable>
@@ -331,7 +331,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                     backgroundColor: isOn ? severityChipColor(n) : colors.pressed,
                   }}
                 >
-                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? colors.onBrand : colors.muted }}>{n}</Text>
+                  <Text style={{ ...textStyles.label, color: isOn ? colors.onBrand : colors.muted }}>{n}</Text>
                 </Pressable>
               );
             })}
@@ -356,7 +356,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
               borderRadius: radius.control,
               paddingHorizontal: 10,
               paddingVertical: 8,
-              fontSize: 14,
+              ...textStyles.body,
               color: colors.ink,
               textAlignVertical: "top",
             }}

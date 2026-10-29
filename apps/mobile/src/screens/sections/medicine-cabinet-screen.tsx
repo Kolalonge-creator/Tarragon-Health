@@ -82,7 +82,7 @@ import {
   type RepeatRequestItem,
 } from "@/lib/medications";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { Button, EmptyState, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
@@ -100,7 +100,7 @@ const inputStyle = (colors: ReturnType<typeof useLegacyColors>) =>
     borderColor: colors.border,
     borderRadius: radius.control,
     paddingHorizontal: 12,
-    fontSize: 14,
+    ...textStyles.body,
     color: colors.ink,
     backgroundColor: colors.card,
   }) as const;
@@ -142,7 +142,7 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{children}</Text>
+      <Text style={{ ...textStyles.label, color: s.text }}>{children}</Text>
     </View>
   );
 }

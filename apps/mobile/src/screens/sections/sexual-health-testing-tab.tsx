@@ -25,7 +25,7 @@ import {
 } from "@/lib/sti";
 import type { PanelBundle } from "@/lib/labs";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -39,8 +39,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
@@ -278,7 +278,7 @@ function StageTracker({ status }: { status: StiCaseStatus }) {
               backgroundColor: state === "upcoming" ? colors.groupBg : state === "current" ? colors.brand : colors.brandTint,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "600", color: state === "current" ? colors.onBrand : state === "complete" ? colors.brandPressed : colors.muted }}>
+            <Text style={{ ...textStyles.label, color: state === "current" ? colors.onBrand : state === "complete" ? colors.brandPressed : colors.muted }}>
               {label}
             </Text>
           </View>
@@ -369,13 +369,13 @@ function PartnerNotifyFlow({ episode, patientId, organisationId }: { episode: St
           </MutedText>
           <View style={{ gap: 4 }}>
             <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>Text message</AppText>
-            <Text selectable style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
+            <Text selectable style={{ ...textStyles.body, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
               {templates.smsTemplate}
             </Text>
           </View>
           <View style={{ gap: 4 }}>
             <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>Longer message</AppText>
-            <Text selectable style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
+            <Text selectable style={{ ...textStyles.body, color: colors.ink, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
               {templates.longerTemplate}
             </Text>
           </View>

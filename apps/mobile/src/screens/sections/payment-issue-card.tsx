@@ -6,7 +6,7 @@ import { startThread } from "@/lib/messages";
 import { cancelPendingServicePurchase, formatPrice, type PendingPaymentIssue } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { AppText } from "@/ui/kit/AppText";
 
 interface PaymentIssueCardProps {
@@ -160,7 +160,7 @@ function ActionPill({
       {loading ? (
         <ActivityIndicator size="small" color={tone === "brand" ? colors.onBrand : colors.ink} />
       ) : (
-        <Text style={{ fontSize: 13, fontWeight: "600", color: textColor }}>{title}</Text>
+        <Text style={{ ...textStyles.label, color: textColor }}>{title}</Text>
       )}
     </Pressable>
   );

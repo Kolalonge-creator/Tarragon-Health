@@ -10,7 +10,7 @@ import { getLocationSource } from "@/lib/routes/location-source";
 import { startRouteSession, type RouteSession } from "@/lib/routes/route-session";
 import { summarise, type RouteState } from "@/lib/routes/route-recorder";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit";
 
@@ -81,7 +81,7 @@ export function WeeklyGoalEditor({ patientId, current, onSaved }: { patientId: s
             keyboardType="number-pad"
             placeholder="Minutes a week, like 150"
             placeholderTextColor={colors.subtle}
-            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12, fontSize: 16, color: colors.ink }}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12, ...textStyles.bodyLarge, color: colors.ink }}
           />
           {error ? <ErrorText>{error}</ErrorText> : null}
           <PrimaryButton title="Save goal" loading={saving} onPress={() => void save()} />

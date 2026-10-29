@@ -12,7 +12,7 @@ import {
   type HandoverState,
   type PendingProxySetup,
 } from "@/lib/proxy";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -21,7 +21,7 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
   return (
     <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => onChange(!checked)} style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
       <View style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: checked ? colors.brand : "transparent" }}>
-        {checked && <Text style={{ color: "#fff", fontSize: 14 }}>✓</Text>}
+        {checked && <Text style={{ color: "#fff", ...textStyles.body }}>✓</Text>}
       </View>
       <AppText variant="body" style={{ flex: 1 }}>{label}</AppText>
     </Pressable>

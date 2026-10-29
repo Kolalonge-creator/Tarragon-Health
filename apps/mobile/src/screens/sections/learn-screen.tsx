@@ -35,7 +35,7 @@ import { AppText } from "@/ui/kit/AppText";
 import { BreathingScreen } from "@/screens/sections/breathing-screen";
 import { CourseCard, CourseScreen } from "@/screens/sections/course-screen";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -238,7 +238,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
                 key={c.value}
                 onPress={() => (count > 0 ? setActiveCategory(c.value) : null)}
                 style={{
-                  fontSize: 13.5,
+                  ...textStyles.body,
                   color: count > 0 ? colors.ink : colors.faint,
                   paddingVertical: 8,
                   borderTopWidth: 1,
@@ -261,8 +261,8 @@ function LevelChip({ label, active, onPress }: { label: string; active: boolean;
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 5,
         paddingHorizontal: 10,
         borderRadius: 999,
@@ -338,12 +338,12 @@ function HealthLiteracyPrompt({
               width: 32,
               height: 32,
               textAlign: "center",
+              ...textStyles.label,
               lineHeight: 32,
               borderRadius: 16,
               borderWidth: 1,
               borderColor: colors.border,
-              fontSize: 13,
-              fontWeight: "600",
+              
               color: colors.ink,
             }}
           >
@@ -488,7 +488,7 @@ function KnowledgeCheck({
                 key={oi}
                 onPress={() => (result === null ? setAnswers((prev) => prev.map((a, i) => (i === qi ? oi : a))) : null)}
                 style={{
-                  fontSize: 13,
+                  ...textStyles.body,
                   paddingVertical: 4,
                   paddingHorizontal: 8,
                   borderRadius: radius.control,
@@ -539,7 +539,7 @@ function ContentFeedbackRow({ contentId, userId, organisationId }: { contentId: 
           key={opt.value}
           onPress={() => send(opt.value)}
           style={{
-            fontSize: 12,
+            ...textStyles.caption,
             paddingVertical: 4,
             paddingHorizontal: 9,
             borderRadius: 999,

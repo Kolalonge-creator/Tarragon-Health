@@ -13,7 +13,7 @@ import { categoryMessageKey, keepMoreUrgent, offlineResult, viewFor } from "@/li
 import { screenRedFlagsOnDevice } from "@/lib/symptom-red-flags";
 import { newDescribeSessionKey, phoneExtras, uxFromState } from "@/lib/symptom-ux-model";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { NotADiagnosis } from "@/ui/not-a-diagnosis";
 import { DescribeBox, SafetyBlock, SaveCard, WhyBlock } from "@/screens/sections/symptom-assessment-extras";
 import { AppText } from "@/ui/kit/AppText";
@@ -281,7 +281,7 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
       {stage.step === "result" && (
         <View style={{ gap: 10, marginTop: 8 }}>
           <View accessibilityRole="alert">
-            <Text style={{ fontSize: 15, fontWeight: "600", color: stage.category === "emergency" ? colors.danger : colors.ink }}>
+            <Text style={{ ...textStyles.bodyLargeStrong, color: stage.category === "emergency" ? colors.danger : colors.ink }}>
               {t(categoryMessageKey(stage.category))}
             </Text>
           </View>

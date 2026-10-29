@@ -11,7 +11,7 @@ import {
 import { EnrollCta, EnrollmentCard, when } from "@/screens/sections/lifestyle-shared";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -116,7 +116,7 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
           <ScreenTitle>Lifestyle coaching</ScreenTitle>
           <MutedText>Small, steady changes, logged here, supported by your care team.</MutedText>
         </View>
-        <Text onPress={() => setPastGoalsOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingTop: 4 }}>
+        <Text onPress={() => setPastGoalsOpen(true)} style={{ ...textStyles.label, color: colors.brandPressed, paddingTop: 4 }}>
           Past goals
         </Text>
       </View>

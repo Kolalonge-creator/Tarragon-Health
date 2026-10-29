@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { saveEmergencyCoverage, type EmergencyFacts } from "@/lib/emergency";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit";
 
@@ -19,7 +19,7 @@ export function EmergencyCoverageCard({ initial, onChanged }: { initial: Emergen
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const inputStyle = { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.ink, fontSize: 15 } as const;
+  const inputStyle = { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.ink, ...textStyles.bodyLarge } as const;
 
   async function save(clear: boolean) {
     setSaving(true);

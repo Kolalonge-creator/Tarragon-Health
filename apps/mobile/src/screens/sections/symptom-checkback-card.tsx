@@ -21,7 +21,7 @@ import {
 import { followUpIsEmergencyOnDevice, followUpResultView, keepEmergency } from "@/lib/symptom-checkback-model";
 import { uxFromState } from "@/lib/symptom-ux-model";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { NotADiagnosis } from "@/ui/not-a-diagnosis";
 import { SafetyBlock } from "@/screens/sections/symptom-assessment-extras";
 import { AppText } from "@/ui/kit/AppText";
@@ -123,7 +123,7 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
     return (
       <Card>
         <View accessibilityRole="alert" style={{ gap: 10 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: done.action === "emergency" ? colors.danger : colors.ink }}>{t(result.messageKey as MessageKey)}</Text>
+          <Text style={{ ...textStyles.bodyLargeStrong, color: done.action === "emergency" ? colors.danger : colors.ink }}>{t(result.messageKey as MessageKey)}</Text>
           {result.told && <MutedText>{t("symptom.checkback.result.told")}</MutedText>}
           {!done.recorded && <MutedText>{t("symptom.checkback.error")}</MutedText>}
           <NotADiagnosis />

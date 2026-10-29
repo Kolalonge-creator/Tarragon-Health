@@ -12,7 +12,7 @@ import {
 import type { Enums } from "@tarragon/shared";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -47,7 +47,7 @@ const ALLERGY_SEVERITY_LABEL: Record<AllergySeverity, string> = {
 function StatusChip({ label, bg, text }: { label: string; bg: string; text: string }) {
   return (
     <View style={{ backgroundColor: bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: text }}>{label}</Text>
+      <Text style={{ ...textStyles.label, color: text }}>{label}</Text>
     </View>
   );
 }
@@ -63,7 +63,7 @@ const textInputStyle = (colors: ReturnType<typeof useLegacyColors>) =>
     borderRadius: radius.control,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    fontSize: 14,
+    ...textStyles.body,
     color: colors.ink,
     backgroundColor: colors.card,
   }) as const;
@@ -216,8 +216,8 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
                   key={s}
                   onPress={() => setSeverity(severity === s ? "" : s)}
                   style={{
-                    fontSize: 12,
-                    fontWeight: "600",
+                    ...textStyles.label,
+                    
                     paddingVertical: 6,
                     paddingHorizontal: 10,
                     borderRadius: 999,

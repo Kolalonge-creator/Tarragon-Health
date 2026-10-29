@@ -23,7 +23,7 @@ import { ResultPassportCard } from "./result-passport-card";
 import { supabase } from "@/lib/supabase";
 import { API_BASE_URL } from "@/lib/api";
 import { spacing, radius } from "@/ui/theme";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -49,7 +49,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         paddingHorizontal: 12,
       }}
     >
-      <Text style={{ color: active ? "#fff" : colors.ink, fontSize: 13.5 }}>{label}</Text>
+      <Text style={{ color: active ? "#fff" : colors.ink, ...textStyles.body }}>{label}</Text>
     </Pressable>
   );
 }

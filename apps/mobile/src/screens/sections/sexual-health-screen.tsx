@@ -42,7 +42,7 @@ import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryI
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -52,8 +52,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
@@ -222,7 +222,7 @@ function SexualHealthHub({
         <ScreenTitle>Sexual & reproductive health</ScreenTitle>
         <MutedText>Testing, contraception, fertility, and wellness: private, and reviewed by your care team.</MutedText>
         <View style={{ borderWidth: 1, borderColor: colors.navy, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
-          <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.navy }}>
+          <Text style={{ ...textStyles.label, color: colors.navy }}>
             Your answers here stay between you and your care team, and are not shown to a family member, an
             employer, or an HMO, even one that pays for your plan.
           </Text>
@@ -442,7 +442,7 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <AppText variant="label" style={{ flex: 1 }}>{method.name}</AppText>
                   {method.requires_prescription && (
-                    <Text style={{ fontSize: 10.5, fontWeight: "700", color: colors.navy }}>Needs a clinician</Text>
+                    <Text style={{ ...textStyles.label, color: colors.navy }}>Needs a clinician</Text>
                   )}
                 </View>
                 <MutedText>{method.description}</MutedText>
@@ -604,7 +604,7 @@ function SexualWellnessCard() {
             <Text
               key={option}
               onPress={() => pick(option)}
-              style={{ borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12, fontSize: 13.5, fontWeight: "600", color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12, ...textStyles.bodyStrong, color: colors.ink }}
             >
               {SEXUAL_HEALTH_INSTRUMENT_LABEL[option]}
             </Text>

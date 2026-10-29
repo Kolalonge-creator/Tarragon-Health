@@ -14,7 +14,7 @@ import {
 } from "@/lib/screening-days";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -151,8 +151,8 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
               key={b.id}
               onPress={() => setPanelBundleId(b.id)}
               style={{
-                fontSize: 13,
-                fontWeight: "600",
+                ...textStyles.label,
+                
                 paddingVertical: 8,
                 paddingHorizontal: 10,
                 borderRadius: radius.control,

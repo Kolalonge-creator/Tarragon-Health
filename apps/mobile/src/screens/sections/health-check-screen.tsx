@@ -18,7 +18,7 @@ import {
 import type { SectionId } from "@/lib/sections";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -48,7 +48,7 @@ function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
   const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
+      <Text style={{ ...textStyles.label, color: c.text }}>{text}</Text>
     </View>
   );
 }
@@ -327,8 +327,8 @@ function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoCon
             key={slot}
             onPress={() => (pending ? null : pick(slot))}
             style={{
-              fontSize: 12.5,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 7,
               paddingHorizontal: 11,
               borderRadius: 999,

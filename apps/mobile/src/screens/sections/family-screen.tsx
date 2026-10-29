@@ -33,7 +33,7 @@ import { CohortsSection } from "./cohorts-section";
 import { ProxySetupSection } from "./proxy-setup-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -63,8 +63,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,

@@ -9,7 +9,7 @@ import {
   type DirectoryRow, type ReportField, type SearchFilters,
 } from "@/lib/directory/model";
 import { spacing } from "@/ui/theme";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -45,7 +45,7 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
               onPress={() => setField(f)}
               style={{ borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12, minHeight: 44, justifyContent: "center", backgroundColor: selected ? colors.brand : colors.groupBg }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
+              <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
             </Pressable>
           );
         })}

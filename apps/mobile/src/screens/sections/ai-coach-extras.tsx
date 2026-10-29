@@ -16,7 +16,7 @@ import {
   type ReportCategory,
 } from "@/lib/ai-coach-safety";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -57,7 +57,7 @@ export function EmergencyBlock({ patientId }: { patientId: string }) {
               {guidance.title}
             </AppText>
             {guidance.lines.map((line) => (
-              <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
+              <Text key={line} style={{ ...textStyles.bodyLarge, color: colors.ink }}>
                 {line}
               </Text>
             ))}
@@ -65,7 +65,7 @@ export function EmergencyBlock({ patientId }: { patientId: string }) {
               {SELF_HARM_GUIDANCE.title}
             </AppText>
             {SELF_HARM_GUIDANCE.lines.map((line) => (
-              <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
+              <Text key={line} style={{ ...textStyles.bodyLarge, color: colors.ink }}>
                 {line}
               </Text>
             ))}
@@ -127,7 +127,7 @@ export function ReportBlock({ interactionId }: { interactionId: string | null })
         value={text}
         onChangeText={setText}
         accessibilityLabel="What was wrong with the answer"
-        style={{ minHeight: 70, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card, textAlignVertical: "top" }}
+        style={{ minHeight: 70, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink, backgroundColor: colors.card, textAlignVertical: "top" }}
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -215,7 +215,7 @@ export function MemoryBlock() {
                     maxLength={state.maxChars}
                     onChangeText={(t) => setEditing({ id: item.id, text: t })}
                     accessibilityLabel="Change this item"
-                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card }}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, backgroundColor: colors.card }}
                   />
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <SecondaryButton title="Save" onPress={() => void run(() => updateMemoryItem(item.id, editing.text)).then((ok) => ok && setEditing(null))} />
@@ -247,7 +247,7 @@ export function MemoryBlock() {
             maxLength={state.maxChars}
             onChangeText={setDraft}
             accessibilityLabel="What to remember"
-            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card }}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, backgroundColor: colors.card }}
           />
           <SecondaryButton
             title="Remember"

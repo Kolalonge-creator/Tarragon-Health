@@ -45,7 +45,7 @@ import {
 } from "@/lib/mental-health";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
@@ -65,9 +65,9 @@ function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: 
             borderRadius: 17,
             textAlign: "center",
             textAlignVertical: "center",
+            ...textStyles.label,
             lineHeight: 34,
-            fontSize: 13,
-            fontWeight: "700",
+            
             backgroundColor: value === n ? colors.brand : colors.groupBg,
             color: value === n ? colors.onBrand : colors.ink,
             overflow: "hidden",
@@ -89,7 +89,7 @@ function OptionPicker({ options, value, onChange }: { options: readonly string[]
           key={v}
           onPress={() => onChange(v)}
           style={{
-            fontSize: 12.5,
+            ...textStyles.body,
             paddingVertical: 7,
             paddingHorizontal: 10,
             borderRadius: radius.control,
@@ -377,7 +377,7 @@ function CheckinForm({
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
                 onPress={() => setTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : cleanWellbeingTags([...prev, tag])))}
-                style={{ fontSize: 12, fontWeight: "600", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? colors.brand : colors.groupBg, color: on ? colors.onBrand : colors.ink, overflow: "hidden" }}
+                style={{ ...textStyles.label, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? colors.brand : colors.groupBg, color: on ? colors.onBrand : colors.ink, overflow: "hidden" }}
               >
                 {wellbeingTagLabel(tag)}
               </Text>
@@ -414,8 +414,8 @@ function CheckinForm({
               key={o.value}
               onPress={() => void saveFrequency(o.value)}
               style={{
-                fontSize: 12,
-                fontWeight: "600",
+                ...textStyles.label,
+                
                 paddingVertical: 6,
                 paddingHorizontal: 10,
                 borderRadius: 999,
@@ -606,7 +606,7 @@ function FrequencyQuestion({ prompt, value, onChange }: { prompt: string; value:
             key={opt.value}
             onPress={() => onChange(opt.value)}
             style={{
-              fontSize: 11.5,
+              ...textStyles.caption,
               paddingVertical: 6,
               paddingHorizontal: 9,
               borderRadius: radius.control,

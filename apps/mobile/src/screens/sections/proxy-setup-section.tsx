@@ -13,7 +13,7 @@ import {
   type PendingProxySetup,
   type RpcCall,
 } from "@/lib/proxy-setup";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -40,8 +40,8 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
       accessibilityState={{ checked: on }}
       onPress={onPress}
       style={{
-        fontSize: 13,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 999,

@@ -30,7 +30,7 @@ import {
 } from "@/lib/healthy-ageing";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -53,7 +53,7 @@ function StatusBadge({ text, tone }: { text: string; tone: "brand" | "warn" | "d
   const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
+      <Text style={{ ...textStyles.label, color: c.text }}>{text}</Text>
     </View>
   );
 }
@@ -316,7 +316,7 @@ function AgeingAssessmentCard({
                   multiline
                   value={answers[domain]?.note ?? ""}
                   onChangeText={(text) => setAnswers((prev) => ({ ...prev, [domain]: { outcome: prev[domain]?.outcome ?? null, note: text } }))}
-                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13, color: colors.ink, minHeight: 50, textAlignVertical: "top" }}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, minHeight: 50, textAlignVertical: "top" }}
                 />
               )}
             </View>
@@ -547,7 +547,7 @@ function HomeCareCard({
             maxLength={500}
             multiline
             numberOfLines={3}
-            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13, color: colors.ink, minHeight: 70, textAlignVertical: "top" }}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, minHeight: 70, textAlignVertical: "top" }}
           />
           {error && <ErrorText>{error}</ErrorText>}
           <PrimaryButton title="Request a home visit" onPress={submit} disabled={!reason.trim()} loading={submitting} />

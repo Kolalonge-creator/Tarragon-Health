@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Share, Text, TextInput, View } from "react-native";
 import { asLocale } from "@tarragon/i18n";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { radius } from "@/ui/theme";
 import { supabase } from "@/lib/supabase";
@@ -86,7 +86,7 @@ export function BackupCodesSection() {
     borderColor: colors.border,
     borderRadius: radius.control,
     padding: 14,
-    fontSize: 16,
+    ...textStyles.bodyLarge,
     color: colors.ink,
     backgroundColor: colors.card,
   } as const;

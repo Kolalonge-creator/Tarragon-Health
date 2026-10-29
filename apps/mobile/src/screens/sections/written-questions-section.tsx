@@ -34,7 +34,7 @@ import {
   type WrittenQuestionCategory,
 } from "@/lib/written-questions/types";
 import { colors as themeColors, radius, spacing } from "@/ui/theme";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit";
 
@@ -366,7 +366,7 @@ export function WrittenQuestionsSection() {
                     backgroundColor: selected ? colors.brand : colors.groupBg,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>
+                  <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>
                     {tr(`wq.category.${c}` as MessageKey)}
                   </Text>
                 </Pressable>
@@ -513,7 +513,7 @@ function RedFlagModal({
             </Text>
           </View>
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
-            <Text style={{ fontSize: 16, lineHeight: 24, color: themeColors.ink }}>{tr("wq.red_flag.body")}</Text>
+            <Text style={{ ...textStyles.bodyLarge, lineHeight: 24, color: themeColors.ink }}>{tr("wq.red_flag.body")}</Text>
             <PrimaryButton title={tr("wq.red_flag.back")} onPress={onBack} />
             <SecondaryButton title={tr("wq.red_flag.dismiss")} onPress={onAcknowledge} />
           </ScrollView>

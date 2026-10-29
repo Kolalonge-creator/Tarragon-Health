@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, Share, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { t } from "@tarragon/i18n";
 import { isPassportOpen, PASSPORT_DEFAULT_ON, PASSPORT_PERIOD_DAYS, PASSPORT_SECTIONS, savePassportCopy, type PassportSection } from "@/lib/result-passport";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -85,7 +85,7 @@ export function ResultPassportCard() {
           <AppText variant="bodyLargeStrong">{t("resultpassport.saved_phone")}</AppText>
           <MutedText>{saved.name}</MutedText>
           <Pressable accessibilityRole="button" onPress={() => void Share.share({ url: saved.uri, title: saved.name })} style={{ minHeight: 44, justifyContent: "center" }}>
-            <Text style={{ color: colors.brand, fontSize: 16, fontWeight: "700" }}>{t("resultpassport.open_send")}</Text>
+            <Text style={{ color: colors.brand, ...textStyles.bodyLargeStrong, }}>{t("resultpassport.open_send")}</Text>
           </Pressable>
         </View>
       ) : null}

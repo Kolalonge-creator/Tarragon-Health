@@ -11,7 +11,7 @@ import { Pressable, ScrollView, Text, TextInput, View, type TextInputProps } fro
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -58,7 +58,7 @@ function Input(props: TextInputProps) {
         borderColor: colors.border,
         borderRadius: radius.control,
         paddingHorizontal: 10,
-        fontSize: 14,
+        ...textStyles.body,
         color: colors.ink,
         backgroundColor: colors.card,
       }}
@@ -222,7 +222,7 @@ function GlucoseUnitSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? colors.onBrand : colors.ink }}>
+            <Text style={{ ...textStyles.bodyStrong, color: value === option ? colors.onBrand : colors.ink }}>
               {GLUCOSE_UNIT_LABEL[option]}
             </Text>
           </Pressable>
@@ -307,7 +307,7 @@ function MeasurementUnitsSection({
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: selected ? colors.onBrand : colors.ink }}>{o.label}</Text>
+                  <Text style={{ ...textStyles.bodyStrong, color: selected ? colors.onBrand : colors.ink }}>{o.label}</Text>
                 </Pressable>
               );
             })}
@@ -385,7 +385,7 @@ function ConditionLanguageSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? colors.onBrand : colors.ink }}>
+            <Text style={{ ...textStyles.bodyStrong, color: value === option ? colors.onBrand : colors.ink }}>
               {option === "gentle" ? "Gentle" : "Clinical"}
             </Text>
           </Pressable>
@@ -575,7 +575,7 @@ function IdentityVerificationSection({
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <AppText variant="bodyStrong">Status</AppText>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: verificationColor(colors)[status] }}>
+          <Text style={{ ...textStyles.label, color: verificationColor(colors)[status] }}>
             {VERIFICATION_LABEL[status]}
           </Text>
         </View>
@@ -676,7 +676,7 @@ function RequestStatusBadge({ status }: { status: string }) {
   const tint = requestStatusColor(colors)[status] ?? colors.muted;
   return (
     <View style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 10.5, fontWeight: "700", color: tint }}>{formatRequestStatus(status)}</Text>
+      <Text style={{ ...textStyles.label, color: tint }}>{formatRequestStatus(status)}</Text>
     </View>
   );
 }

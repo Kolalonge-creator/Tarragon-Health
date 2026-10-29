@@ -18,7 +18,7 @@ import { asLocale } from "@tarragon/i18n";
 import { deviceSyncLine } from "@/lib/device-sync-line";
 import { useUiLanguage } from "@/lib/ui-language";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -479,7 +479,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                   borderRadius: radius.control,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
-                  fontSize: 13.5,
+                  ...textStyles.body,
                   color: colors.ink,
                   backgroundColor: colors.card,
                   textAlignVertical: "top",

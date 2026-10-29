@@ -9,7 +9,7 @@ import {
   type WellbeingBand,
 } from "@/lib/wellbeing";
 import { radius } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -93,8 +93,8 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
             key={key}
             onPress={() => setMode(key)}
             style={{
-              fontSize: 12.5,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 6,
               paddingHorizontal: 12,
               borderRadius: 999,
@@ -126,8 +126,8 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
                   <View key={row.checked_in_at + index} style={{ width: COLUMN_WIDTH, alignItems: "center" }}>
                     <Text
                       style={{
-                        fontSize: 11,
-                        fontWeight: "700",
+                        ...textStyles.label,
+                        
                         color: colors.ink,
                         height: 14,
                         opacity: isLast ? 1 : 0,

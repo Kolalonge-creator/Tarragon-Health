@@ -5,7 +5,7 @@ import { t } from "@tarragon/i18n";
 import { lastTryAndCount, loadPhones, removePhone, savePhoneDetails, type ThisPhoneUnsent } from "@/lib/my-phones";
 import { probeReachable } from "@/lib/reachability";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const formatWhen = (value: string) =>
@@ -137,7 +137,7 @@ export function MyPhonesScreen({ userId, acting }: Props) {
               const manageable = p.status === "active" || p.status === "lapsed";
               return (
                 <Card key={p.deviceId}>
-                  <Text accessibilityRole="header" style={{ ...ink, fontWeight: "600", fontSize: 17 }}>
+                  <Text accessibilityRole="header" style={{ ...ink, ...textStyles.bodyLargeStrong }}>
                     {p.name}
                     {p.isThisPhone ? `  (${t("my_phones.this_phone")})` : ""}
                     {p.shared ? `  (${t("my_phones.shared_badge")})` : ""}

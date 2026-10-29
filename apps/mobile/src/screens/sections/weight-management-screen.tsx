@@ -14,7 +14,7 @@ import {
 } from "@/lib/weight-management";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -415,8 +415,8 @@ function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }) {
             key={t}
             onPress={() => setType(t)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 999,
@@ -483,8 +483,8 @@ function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; onAdded:
             key={m}
             onPress={() => setModule(m)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 5,
               paddingHorizontal: 9,
               borderRadius: 999,

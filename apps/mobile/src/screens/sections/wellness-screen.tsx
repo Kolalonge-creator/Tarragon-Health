@@ -33,7 +33,7 @@ import {
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -59,7 +59,7 @@ function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
   const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
+      <Text style={{ ...textStyles.label, color: c.text }}>{text}</Text>
     </View>
   );
 }
@@ -309,7 +309,7 @@ function PointsCard({
         {ledger.map((entry) => (
           <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
             <AppText variant="body">{reasonLabel(entry.reason)}</AppText>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
+            <Text style={{ ...textStyles.label, color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
               {entry.points > 0 ? "+" : ""}
               {entry.points}
             </Text>

@@ -26,7 +26,7 @@ import {
 } from "@/lib/cycle-prediction";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { PrivateSection } from "@/ui/private-section";
 import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
@@ -99,8 +99,8 @@ function Chip({ label, active, onPress, tone = "neutral" }: { label: string; act
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
@@ -307,7 +307,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <AppText variant="bodyStrong">Where you are now</AppText>
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: confidenceColor(colors)[prediction.confidence] }}>
+          <Text style={{ ...textStyles.label, color: confidenceColor(colors)[prediction.confidence] }}>
             {CONFIDENCE_LABEL[prediction.confidence]}
           </Text>
         </View>

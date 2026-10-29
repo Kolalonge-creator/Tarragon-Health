@@ -9,7 +9,7 @@ import {
 import { uploadEcgReport, uploadLabResult } from "@/lib/labs";
 import { testCodeLabel } from "@/lib/lab-catalogue-content";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -161,7 +161,7 @@ export function LabOrderTestChecklist({
                       backgroundColor: active ? colors.brand : pressed ? colors.pressed : "transparent",
                     })}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: active ? colors.onBrand : colors.ink }}>
+                    <Text style={{ ...textStyles.label, color: active ? colors.onBrand : colors.ink }}>
                       {opt.label}
                     </Text>
                   </Pressable>

@@ -35,7 +35,7 @@ import { getLabRequestPrintUrl } from "@/lib/lab-orders";
 import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel, StatusChip, type StatusTone } from "@/ui/legacy-kit";
@@ -692,7 +692,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderColor: colors.border,
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                   }}
                 />
@@ -708,7 +708,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderColor: colors.border,
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                   }}
                 />
@@ -740,7 +740,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
                     paddingVertical: 10,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                     textAlignVertical: "top",
                   }}

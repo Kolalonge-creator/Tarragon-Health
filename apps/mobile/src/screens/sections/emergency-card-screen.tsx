@@ -14,7 +14,7 @@ import {
   type ShareLink,
 } from "@/lib/emergency";
 import { spacing } from "@/ui/theme";
-import { lightPalette, useLegacyColors } from "@/ui/design";
+import { lightPalette, useLegacyColors, textStyles } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
 import { EmergencyCardFieldsCard } from "@/screens/sections/emergency-card-fields-card";
 import { COVERAGE_SCHEME_LABEL } from "@tarragon/shared";
@@ -280,8 +280,8 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
-      <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>{label}</Text>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff", flexShrink: 1, textAlign: "right" }}>{value}</Text>
+      <Text style={{ ...textStyles.body, color: "rgba(255,255,255,0.85)" }}>{label}</Text>
+      <Text style={{ ...textStyles.label, color: "#fff", flexShrink: 1, textAlign: "right" }}>{value}</Text>
     </View>
   );
 }

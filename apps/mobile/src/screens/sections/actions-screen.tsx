@@ -10,7 +10,7 @@ import {
 } from "@/lib/actions";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -71,7 +71,7 @@ function Bucket({
   if (items.length === 0) return null;
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: danger ? colors.danger : colors.ink }}>{title}</Text>
+      <Text style={{ ...textStyles.bodyLargeStrong, color: danger ? colors.danger : colors.ink }}>{title}</Text>
       <Card style={{ paddingVertical: 2 }}>
         {items.map((item, i) => (
           <View key={i} style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : undefined}>

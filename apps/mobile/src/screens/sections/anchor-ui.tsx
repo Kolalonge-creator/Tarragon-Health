@@ -12,7 +12,7 @@ import {
 } from "@tarragon/medicines";
 import { anchorPhrase, anchorTitle, asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { MutedText, SectionLabel } from "@/ui/legacy-kit";
 import { loadDoseAnchorConfig } from "@/lib/anchor-config";
 import { anchorProfileFor, refreshAnchorProfile, type DayShiftRow } from "@/lib/anchor-profile";
@@ -74,7 +74,7 @@ function ActionButton({ title, onPress, disabled, tone }: { title: string; onPre
         opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
       })}
     >
-      <Text style={{ fontSize: 15, fontWeight: "700", color: tone === "plain" ? colors.ink : "#fff" }}>{title}</Text>
+      <Text style={{ ...textStyles.bodyLargeStrong, color: tone === "plain" ? colors.ink : "#fff" }}>{title}</Text>
     </Pressable>
   );
 }
@@ -174,7 +174,7 @@ export function AnchorPicker({ patientId, value, onChange, drafts, onDrafts }: A
               placeholderTextColor={colors.subtle}
               keyboardType="numbers-and-punctuation"
               maxLength={5}
-              style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, fontSize: 16 }}
+              style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, ...textStyles.bodyLarge }}
             />
           </View>
         );
@@ -296,7 +296,7 @@ export function MyDaySection({ patientId }: { patientId: string }) {
                   placeholderTextColor={colors.subtle}
                   keyboardType="numbers-and-punctuation"
                   maxLength={5}
-                  style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, fontSize: 16 }}
+                  style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, ...textStyles.bodyLarge }}
                 />
               </View>
             );
@@ -311,7 +311,7 @@ export function MyDaySection({ patientId }: { patientId: string }) {
       ) : null}
       {notice ? (
         <View accessibilityLiveRegion="polite">
-          <Text style={{ fontSize: 14, color: notice.kind === "error" ? colors.danger : colors.ink }}>{notice.text}</Text>
+          <Text style={{ ...textStyles.body, color: notice.kind === "error" ? colors.danger : colors.ink }}>{notice.text}</Text>
         </View>
       ) : null}
     </View>
@@ -367,7 +367,7 @@ function ShiftSheet({ patientId, maxDays, choices, onDone }: { patientId: string
         onChangeText={setFrom}
         placeholder="YYYY-MM-DD"
         placeholderTextColor={colors.subtle}
-        style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, fontSize: 16 }}
+        style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, ...textStyles.bodyLarge }}
       />
       <MutedText>{t("doseanchor.myday.shift_to", locale)}</MutedText>
       <TextInput
@@ -377,7 +377,7 @@ function ShiftSheet({ patientId, maxDays, choices, onDone }: { patientId: string
         onChangeText={setTo}
         placeholder="YYYY-MM-DD"
         placeholderTextColor={colors.subtle}
-        style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, fontSize: 16 }}
+        style={{ minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.ink, ...textStyles.bodyLarge }}
       />
       {ANCHOR_IDS.map((id) => (
         <View key={id} style={{ gap: 6 }}>

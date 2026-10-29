@@ -14,7 +14,7 @@ import {
 import { formatPrice } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import {
   Badge,
   Card,
@@ -178,7 +178,7 @@ export function VideoVisitBookingSection({
 
       {message && (
         <Card style={{ backgroundColor: message.tone === "error" ? colors.status.warnBg : colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: message.tone === "error" ? colors.status.warn : colors.brandPressed }}>
+          <Text style={{ ...textStyles.body, color: message.tone === "error" ? colors.status.warn : colors.brandPressed }}>
             {message.text}
           </Text>
         </Card>

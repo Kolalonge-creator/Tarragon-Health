@@ -9,7 +9,7 @@ import {
 } from "@/lib/video-visit";
 import { startThread } from "@/lib/messages";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -198,7 +198,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
               placeholderTextColor={colors.subtle}
               multiline
               numberOfLines={3}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
             />
             <SecondaryButton title="Save" loading={savingNotes} onPress={() => void handleSaveNotes()} />
             {notesMessage ? <MutedText>{notesMessage}</MutedText> : null}
@@ -223,7 +223,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
                   placeholderTextColor={colors.subtle}
                   multiline
                   numberOfLines={2}
-                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
                 />
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <SecondaryButton

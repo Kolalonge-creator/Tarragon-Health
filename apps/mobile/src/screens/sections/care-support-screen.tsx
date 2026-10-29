@@ -59,7 +59,7 @@ import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
 import { Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import {
   Badge,
   CalloutCard,
@@ -824,7 +824,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                     backgroundColor: selected ? colors.brand : colors.groupBg,
                   }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>
+                  <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>
                     {NAVIGATION_REQUEST_CATEGORY_LABEL[c]}
                   </Text>
                 </Pressable>
@@ -866,7 +866,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
               <AppText variant="body">{r.description}</AppText>
               <MutedText>Sent {when(r.created_at)}</MutedText>
               {r.status === "resolved" && r.resolution_note && (
-                <Text style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, padding: 8, borderRadius: radius.control }}>
+                <Text style={{ ...textStyles.body, color: colors.ink, backgroundColor: colors.groupBg, padding: 8, borderRadius: radius.control }}>
                   {r.resolution_note}
                 </Text>
               )}

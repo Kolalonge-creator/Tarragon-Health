@@ -14,7 +14,7 @@ import {
   type LpeGoalModule,
 } from "@/lib/weight-management";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -294,8 +294,8 @@ export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }
             key={t}
             onPress={() => setType(t)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 999,
@@ -364,8 +364,8 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
             key={m}
             onPress={() => setModule(m)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 5,
               paddingHorizontal: 9,
               borderRadius: 999,

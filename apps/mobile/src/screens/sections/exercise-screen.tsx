@@ -24,7 +24,7 @@ import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/wo
 import { usePatientAge } from "@/lib/use-patient-age";
 import { ActivityGateCard } from "@/screens/sections/movement-extras";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -192,10 +192,10 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                     borderColor: answers[q.name] ? colors.brand : colors.border,
                     backgroundColor: answers[q.name] ? colors.brand : "transparent",
                     textAlign: "center",
+                    ...textStyles.label,
                     lineHeight: 20,
                     color: "#fff",
-                    fontSize: 13,
-                    fontWeight: "700",
+                    
                   }}
                 >
                   {answers[q.name] ? "✓" : ""}
@@ -213,7 +213,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
               maxLength={300}
               multiline
               numberOfLines={2}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
             />
             {screenError ? <ErrorText>{screenError}</ErrorText> : null}
             <PrimaryButton title="Submit" loading={screenSubmitting} onPress={() => void handleSubmitReadiness()} />

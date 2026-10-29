@@ -18,7 +18,7 @@ import {
 } from "@/lib/ai-coach";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { EmergencyBlock, LimitsBlock, MemoryBlock, ReportBlock } from "./ai-coach-extras";
 import { AppText } from "@/ui/kit/AppText";
@@ -265,7 +265,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                     : tierStyle(item.tier, colors)),
                 }}
               >
-                <Text style={{ fontSize: 13.5, color: fromMe ? "#fff" : colors.ink }}>{item.content}</Text>
+                <Text style={{ ...textStyles.body, color: fromMe ? "#fff" : colors.ink }}>{item.content}</Text>
                 {!fromMe && item.sources && item.sources.length > 0 ? (
                   <View style={{ marginTop: 4 }}>
                     <MutedText>{"Sources: " + item.sources.map((s: CoachSource) => describeCoachSource(s)).join("; ")}</MutedText>
@@ -273,7 +273,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                 ) : null}
                 <Text
                   style={{
-                    fontSize: 10,
+                    ...textStyles.caption,
                     marginTop: 2,
                     color: fromMe ? "rgba(255,255,255,0.7)" : colors.faint,
                   }}
@@ -333,7 +333,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
               borderColor: colors.border,
               borderRadius: radius.control,
               padding: 10,
-              fontSize: 13.5,
+              ...textStyles.body,
               color: colors.ink,
               backgroundColor: colors.card,
               textAlignVertical: "top",
@@ -377,7 +377,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
             borderColor: colors.border,
             borderRadius: radius.control,
             paddingHorizontal: 12,
-            fontSize: 13.5,
+            ...textStyles.body,
             color: colors.ink,
             backgroundColor: colors.card,
           }}

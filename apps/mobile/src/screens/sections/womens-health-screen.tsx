@@ -59,7 +59,7 @@ import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { PregnancyDangerGuideCard, PregnancyTools } from "@/screens/sections/pregnancy-tools";
 import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { Button, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
@@ -81,8 +81,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
@@ -314,8 +314,8 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
           <MutedText>Next screening</MutedText>
           <Text
             style={{
-              fontSize: 15,
-              fontWeight: "700",
+              ...textStyles.bodyLargeStrong,
+              
               color: nextScreening?.isOverdue ? colors.danger : colors.brandPressed,
             }}
           >

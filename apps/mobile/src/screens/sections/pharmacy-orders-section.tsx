@@ -11,7 +11,7 @@ import {
   type PharmacyOrderStatus,
 } from "@/lib/prescription-renewal";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -48,7 +48,7 @@ function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
+      <Text style={{ ...textStyles.label, color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
     </View>
   );
 }

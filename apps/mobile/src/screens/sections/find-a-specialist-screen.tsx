@@ -9,7 +9,7 @@ import {
   type SpecialistType,
 } from "@/lib/find-a-specialist";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -91,7 +91,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
                   backgroundColor: selected ? colors.brand : colors.groupBg,
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>
+                <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>
                   {specialtyLabel(t)}
                 </Text>
               </Pressable>
