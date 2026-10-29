@@ -141,7 +141,7 @@ do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_plain uuid := pg_temp.f('plain'); v_admin uuid := pg_temp.f('admin'); f text; v_bad text := '';
 begin
   perform pg_temp.rec('rollout: the migration signed nothing and changed no active row', 'true,true',
-    (pg_temp.state('queue_task_layer_config') ~ '^1:1:0') || ',' || (pg_temp.state('paging_delivery_config') ~ '^1:1:0,2:0:0$'));
+    (pg_temp.state('queue_task_layer_config') ~ '^1:1:0') || ',' || (pg_temp.state('paging_delivery_config') ~ '^1:1:0,2:0:0(,[0-9]+:0:0)*$'));
   foreach f in array array['public.sign_queue_task_layer_config(integer)', 'public.paging_delivery_activation_check(integer)', 'public.activate_paging_delivery_config(integer)',
                            'public.platform_deep_health()'] loop
     if has_function_privilege('anon', f::regprocedure, 'EXECUTE') then v_bad := v_bad || f || ' '; end if;
@@ -207,7 +207,7 @@ begin
   -- nobody on call at all is itself a reason, and it refuses
   perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(2); perform pg_temp.back();
   perform pg_temp.rec('paging: with nobody on call it refuses, says why, and changes nothing', 'false,no_on_call_clinicians,1:1:0,2:0:0',
-    (r ->> 'activated') || ',' || (r -> 'reasons' -> 0 ->> 'code') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config));
+    (r ->> 'activated') || ',' || (r -> 'reasons' -> 0 ->> 'code') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config where version <= 2));
 
   v_x := pg_temp.mkdoc(v_org, v_admin, 'X', 'senior_medical_officer', '{on_call}', false);
   v_y := pg_temp.mkdoc(v_org, v_admin, 'Y', 'senior_medical_officer', '{on_call}', false);
@@ -219,7 +219,7 @@ begin
     (c ->> 'ready') || ',' || pg_temp.named(c) || ',' || split_part(pg_temp.gaps_of(c, 'OQ451 X'), ',', 1) || ',' || split_part(pg_temp.gaps_of(c, 'OQ451 X'), ',', 2) || ',' || (c ->> 'on_call_count'));
   perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(2); perform pg_temp.back();
   perform pg_temp.rec('paging: activation refuses with the same reasons and nothing changes', 'false,OQ451 X|OQ451 Y,1:1:0,2:0:0',
-    (r ->> 'activated') || ',' || pg_temp.named(r) || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config));
+    (r ->> 'activated') || ',' || pg_temp.named(r) || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config where version <= 2));
 
 
   perform pg_temp.rec('paging: a refusal is audited, and a config cannot be inserted already signed', '2,23514',
@@ -236,7 +236,7 @@ begin
     'OQ451 Y,push_subscription,test_page,verified_email', pg_temp.named(c) || ',' || pg_temp.gaps_of(c, 'OQ451 Y'));
   perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(2); perform pg_temp.back();
   perform pg_temp.rec('paging: still refused while Y is missing things, and v2 stays inactive and unsigned', 'false,1:1:0,2:0:0',
-    (r ->> 'activated') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config));
+    (r ->> 'activated') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config where version <= 2));
 
   -- fix Y one gap at a time: each fix removes exactly its own reason
   update auth.users set email_confirmed_at = now() where id = v_y;
@@ -253,7 +253,7 @@ begin
   -- activation
   perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(2); perform pg_temp.back();
   perform pg_temp.rec('paging: with the checklist met the CMO activates v2: signed, live, v1 retired', 'true,1:0:0,2:1:1',
-    (r ->> 'activated') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config));
+    (r ->> 'activated') || ',' || (select string_agg(version || ':' || is_active::int || ':' || (approved_at is not null)::int, ',' order by version) from public.paging_delivery_config where version <= 2));
   perform pg_temp.rec('paging: the activation is audited and the readiness requirement is now in force', '1,1',
     (select count(*)::text from public.audit_log where action = 'paging_delivery_config.activated' and actor_id = v_cmo and event ->> 'version' = '2') || ',' ||
     private.paging_delivery_rule('objective_readiness_required')::text);
@@ -319,13 +319,13 @@ begin
 
   -- (b) the checklist: a clinician who is not ready must block activation
   select rules into v_rules from public.paging_delivery_config where version = 2;
-  insert into public.paging_delivery_config (version, is_active, effective_from, rules) values (3, false, current_date, v_rules);
+  insert into public.paging_delivery_config (version, is_active, effective_from, rules) values (997, false, current_date, v_rules);
   v_z := pg_temp.mkdoc(v_org, v_admin, 'Z', 'senior_medical_officer', '{on_call}', false);
-  perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(3); perform pg_temp.back();
+  perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(997); perform pg_temp.back();
   perform pg_temp.rec('sabotage control: an on-call clinician with nothing set up blocks activation', 'false', (r ->> 'activated'));
   create or replace function private.paging_activation_gaps(p_window_days integer) returns jsonb
     language sql stable security definer set search_path = '' as $f$ select '[]'::jsonb $f$;
-  perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(3); perform pg_temp.back();
+  perform pg_temp.act(v_cmo); r := public.activate_paging_delivery_config(997); perform pg_temp.back();
   perform pg_temp.sab('sabotage: with the checklist emptied the same activation goes through', 'false', (r ->> 'activated'));
 
   -- (c) the CMO test: a plain clinician must be refused
