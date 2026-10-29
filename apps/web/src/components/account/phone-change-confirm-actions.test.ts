@@ -98,6 +98,18 @@ describe("confirmPhoneChangeIdentity", () => {
     expect(svcRpc).toHaveBeenCalledWith("authorise_phone_change", { p_user: "u1", p_method: "email" });
   });
 
+  it("accepts the 8 digit code this project emails (email OTP length is 8; SMS is 6)", async () => {
+    const res = await confirmPhoneChangeIdentity(undefined, form({ method: "email", token: "12345678" }));
+    expect(res).toMatchObject({ confirmed: true });
+    expect(verifyOtp).toHaveBeenCalledWith({ email: "ada@example.ng", token: "12345678", type: "email" });
+  });
+
+  it("an SMS code is still exactly 6 digits: an 8 digit code for the old number never reaches Auth", async () => {
+    await confirmPhoneChangeIdentity(undefined, form({ method: "old_phone", token: "12345678" }));
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(svcRpc).not.toHaveBeenCalled();
+  });
+
   it("verifies the old number with type sms", async () => {
     await confirmPhoneChangeIdentity(undefined, form({ method: "old_phone", token: "123456" }));
     expect(verifyOtp).toHaveBeenCalledWith({ phone: "+2348031234567", token: "123456", type: "sms" });
