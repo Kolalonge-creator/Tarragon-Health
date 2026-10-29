@@ -238,7 +238,8 @@ Not adopted: serif headlines (brand fixes Sora/Inter), streak penalties, gamifie
 **P2 - flagship screens on both surfaces together (Home, Vitals, Medications, Messages, Auth)**
 12. Home, Vitals, Medications, Messages, Sign-in/Signup rebuilt to the spec, web catching up to mobile on Vitals and Home, mobile catching up to web on auth warmth and brand.
    - **Vitals (web): done.** A latest-blood-pressure hero (big number, worded status chip, time, 7-day average) now leads the page, built on `HeroMetric`, the shared reading-status classifier and the audited readings hook. Wearable estimates are never graded or averaged. Checked in the browser at phone width. Still open on Vitals: the trend chart stays on "Loading..." for several seconds on first view (lazy chart), and the floating emergency button covers content near the bottom edge while scrolling.
-   - Home, Medications (web), Messages and auth: not started.
+   - **Medications (web): done.** Today's doses now leads the page (and the single phone column), the medicine list follows, and "Add a medication" is a button that opens the form in a sheet instead of a long form on the page. Secondary cards (My day, reconciliation, check-ins, lab monitoring) stay in the second column. Checked in the browser at phone width.
+   - Home, Messages and auth: not started.
 
 **P3 - the long pages (REBUILD verdicts)**
 13. Labs (11,624px), Health Check (8,710), Wellbeing (7,188), Profile (5,972), Care & support (4,983), Care Circle (3,756), Appointments/Find a specialist/Directory (results-first cards).
