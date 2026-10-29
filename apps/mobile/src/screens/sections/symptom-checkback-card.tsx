@@ -40,7 +40,6 @@ const symptomLabel = (key: string): string => {
 };
 
 export function SymptomCheckbackCard({ actingForSomeoneElse }: { actingForSomeoneElse: boolean }) {
-  const colors = useLegacyColors();
   const [ids, setIds] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -58,7 +57,7 @@ export function SymptomCheckbackCard({ actingForSomeoneElse }: { actingForSomeon
     return (
       <Card>
         <View accessibilityRole="alert" style={{ gap: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.banner")}</Text>
+          <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.checkback.banner")}</AppText>
           <PrimaryButton title={t("symptom.checkback.banner_cta")} onPress={() => setOpenId(ids[0] ?? null)} />
         </View>
       </Card>
@@ -138,7 +137,7 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
   const toggle = (k: string) => setSigns((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.checkback.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.checkback.title")}</AppText>
       <AppText variant="bodyStrong" style={{ marginTop: 4 }}>{v.complaint_label}</AppText>
       <MutedText>{t("symptom.checkback.intro")}</MutedText>
       <View style={{ gap: 6, marginTop: 8 }}>

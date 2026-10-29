@@ -159,7 +159,7 @@ export function VideoVisitBookingSection({
   if (loading) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Book a video visit</Text>
+        <AppText variant="bodyLargeStrong">Book a video visit</AppText>
         <ActivityIndicator color={colors.brand} />
       </View>
     );

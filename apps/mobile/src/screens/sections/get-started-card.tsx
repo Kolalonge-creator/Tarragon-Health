@@ -105,9 +105,9 @@ export function GetStartedCard({
           {doneCount} {copy.of} {steps.length} done
         </Text>
       </View>
-      <Text style={{ fontSize: typeScale.body, lineHeight: 20, color: colors.muted }}>
+      <AppText variant="body" tone="textMuted">
         {copy.intro}
-      </Text>
+      </AppText>
 
       {steps.map((step, index) => (
         <View
@@ -170,9 +170,9 @@ export function GetStartedCard({
                     paddingHorizontal: 16,
                   }}
                 >
-                  <Text style={{ fontSize: typeScale.body, fontWeight: "700", color: colors.onBrand }}>
+                  <AppText variant="bodyStrong" tone="textOnBrand">
                     {step.cta}
-                  </Text>
+                  </AppText>
                   <Ionicons name="chevron-forward" size={15} color={colors.onBrand} />
                 </Pressable>
               </>

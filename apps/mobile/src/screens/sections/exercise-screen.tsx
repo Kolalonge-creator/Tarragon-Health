@@ -244,7 +244,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                 <View key={i} style={{ gap: 2 }}>
                   <MutedText>{`${s.minutes} ${t("activity.plans.minutes")}`}</MutedText>
                   {s.steps.map((step, j) => (
-                    <Text key={j} style={{ fontSize: 13.5, color: colors.ink }}>{`${j + 1}. ${step}`}</Text>
+                    <AppText variant="body" key={j}>{`${j + 1}. ${step}`}</AppText>
                   ))}
                 </View>
               ))}

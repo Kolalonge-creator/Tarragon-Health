@@ -1,4 +1,4 @@
-import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -59,10 +59,10 @@ export function HealthConnectRationaleModal({
           Share Health Connect data with TarragonHealth?
         </AppText>
 
-        <Text style={{ fontSize: 14.5, lineHeight: 21, color: colors.ink }}>
+        <AppText variant="body">
           Before Android asks you to choose which permissions to grant, here is exactly what that
           will let us read and why:
-        </Text>
+        </AppText>
 
         <View style={{ gap: 10 }}>
           <RationaleRow
@@ -77,13 +77,13 @@ export function HealthConnectRationaleModal({
         </View>
 
         <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 12, gap: 6 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink, lineHeight: 20 }}>
+          <AppText variant="body">
             We only read this data — TarragonHealth never writes anything back to Health Connect.
             Your care team sees it alongside the rest of your record, the same as a reading you
             type in yourself. You choose exactly which of these Android lets you grant on the next
             screen, and you can change or revoke any of them later in Health Connect's own app
             settings.
-          </Text>
+          </AppText>
         </View>
 
         <Pressable
@@ -110,7 +110,7 @@ function RationaleRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; te
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
       <Ionicons name={icon} size={18} color={colors.brand} style={{ marginTop: 2 }} />
-      <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>{text}</Text>
+      <AppText variant="body" style={{ flex: 1 }}>{text}</AppText>
     </View>
   );
 }

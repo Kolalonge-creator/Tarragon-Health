@@ -19,7 +19,6 @@ import { AppText } from "@/ui/kit/AppText";
 
 /** "Please check this reading": a value that cannot be real, waiting for the person (18.9). */
 export function HeldReadingsSection({ patientId, onEnterAgain }: { patientId: string; onEnterAgain: () => void }) {
-  const colors = useLegacyColors();
   const [state, setState] = useState<{ phase: "loading" } | { phase: "failed" } | { phase: "ok"; items: HeldReading[] }>({ phase: "loading" });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -38,7 +37,7 @@ export function HeldReadingsSection({ patientId, onEnterAgain }: { patientId: st
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{HELD_READING_COPY.title}</Text>
+      <AppText variant="bodyLargeStrong">{HELD_READING_COPY.title}</AppText>
       <MutedText>{HELD_READING_COPY.body}</MutedText>
       {state.items.map((item) => (
         <View key={item.id} style={{ gap: 6 }}>

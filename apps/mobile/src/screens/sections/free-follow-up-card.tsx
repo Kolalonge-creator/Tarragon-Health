@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, Text, View } from "react-native";
+import { Linking, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { Card, SecondaryButton } from "@/ui/legacy-kit";
-import { useLegacyColors } from "@/ui/design";
 import { AppText } from "@/ui/kit/AppText";
 
 /**
@@ -17,7 +16,6 @@ const ANSWERS = ["got_care", "going_now", "not_yet"] as const;
 type Answer = (typeof ANSWERS)[number];
 
 export function FreeFollowUpCard() {
-  const colors = useLegacyColors();
   const [guidance, setGuidance] = useState<Guidance | null>(null);
   const [checkinId, setCheckinId] = useState<string | null>(null);
   const [done, setDone] = useState<Answer | null>(null);
@@ -62,10 +60,10 @@ export function FreeFollowUpCard() {
     <Card style={{ gap: 10 }}>
       {guidance ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink }}>
+          <AppText variant="body">
             {guidance.kind === "heart_failure" ? t("freered.heart_failure.body", "en") : t("freered.amber.body", "en")}
-          </Text>
-          <Text style={{ fontSize: 13, lineHeight: 19, fontWeight: "700", color: colors.ink }}>{t("freered.no_doctor", "en")}</Text>
+          </AppText>
+          <AppText variant="label">{t("freered.no_doctor", "en")}</AppText>
           <SecondaryButton title={t("freered.join", "en")} onPress={() => Linking.openURL(`${PLATFORM_URL}/patient/membership`)} />
           <SecondaryButton title={t("freered.guidance.ok", "en")} onPress={acknowledge} />
         </View>

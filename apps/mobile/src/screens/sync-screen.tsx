@@ -286,7 +286,7 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
             {item.status === "saved" && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                <Text style={{ color: colors.success, fontWeight: "600" }}>Saved</Text>
+                <AppText variant="bodyStrong" tone="brandText">Saved</AppText>
               </View>
             )}
             {item.status === "held" && (

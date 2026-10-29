@@ -187,12 +187,11 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
  * comparison, no loss wording, and the database returns nothing while an emergency is open, so a red flow always comes first.
  */
 function MilestoneCard({ milestone, onDismiss }: { milestone: PendingMilestone; onDismiss: () => void }) {
-  const colors = useLegacyColors();
   const copy = milestoneCopy(milestone.code);
   return (
     <Card style={{ gap: 6 }}>
       <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>{t("points.milestone.heading")}</AppText>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{copy.title}</Text>
+      <AppText variant="bodyLargeStrong">{copy.title}</AppText>
       <MutedText>{copy.body}</MutedText>
       <PrimaryButton title={t("points.milestone.dismiss")} onPress={onDismiss} />
     </Card>

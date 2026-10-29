@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isHealthKitAvailable } from "@/lib/healthkit";
 import { syncAppleHealth, type HealthSyncResult } from "@/lib/health-sync";
@@ -70,7 +70,7 @@ export function AppleHealthCard() {
           <Ionicons name="fitness-outline" size={20} color={colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Apple Health</Text>
+          <AppText variant="bodyLargeStrong">Apple Health</AppText>
           <AppText variant="body" tone="textMuted">
             Bring across readings you already track on your iPhone
           </AppText>
@@ -98,7 +98,6 @@ export function AppleHealthCard() {
 }
 
 function SyncMessage({ result }: { result: HealthSyncResult }) {
-  const colors = useLegacyColors();
   if (result.status === "error") return <ErrorText>{result.message}</ErrorText>;
 
   if (result.status === "no_new_data") {
@@ -121,11 +120,11 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
   const saved = result.vitals + result.wearable;
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
+      <AppText variant="bodyStrong" tone="brandText">
         {saved === 0
           ? "Already up to date. These readings were on your record."
           : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
-      </Text>
+      </AppText>
       {result.partial ? <PartialSyncNote /> : null}
       {result.recovered ? <RecoveredSyncNote count={result.recovered} /> : null}
       {result.queued ? <QueuedSyncNote count={result.queued} /> : null}

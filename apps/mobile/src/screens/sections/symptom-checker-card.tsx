@@ -124,7 +124,7 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
   if (view.kind === "closed") {
     return (
       <Card>
-        <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.mobile.title")}</Text>
+        <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.mobile.title")}</AppText>
         <MutedText>{t("symptom.mobile.closed")}</MutedText>
       </Card>
     );
@@ -133,7 +133,7 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
     const reason = view.kind === "blocked" ? view.reason : (stage as Extract<Stage, { step: "blocked" }>).reason;
     return (
       <Card>
-        <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.mobile.title")}</Text>
+        <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.mobile.title")}</AppText>
         <View accessibilityRole="alert">
           <MutedText>{t(reason === "under_18" ? "symptom.mobile.blocked.under18" : "symptom.mobile.blocked.dob")}</MutedText>
         </View>
@@ -241,7 +241,7 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
 
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.mobile.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.mobile.title")}</AppText>
       {stage.step === "pick" && (
         <View style={{ gap: 8, marginTop: 8 }}>
           {cleared && (
@@ -267,7 +267,7 @@ export function SymptomCheckerCard({ actingForSomeoneElse }: { actingForSomeoneE
       {stage.step === "capture" && <CaptureForm complaintKey={stage.complaintKey} busy={busy} onSubmit={submitCapture} />}
       {stage.step === "question" && (
         <View style={{ gap: 10, marginTop: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{stage.question.prompt}</Text>
+          <AppText variant="bodyLargeStrong" accessibilityRole="header">{stage.question.prompt}</AppText>
           {stage.question.kind === "boolean" ? (
             <View style={{ gap: 8 }}>
               <PrimaryButton title={t("symptom.mobile.yes")} disabled={busy} onPress={() => submitAnswer(stage, true)} />

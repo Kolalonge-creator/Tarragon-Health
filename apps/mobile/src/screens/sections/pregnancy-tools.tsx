@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Switch, Text, TextInput, View } from "react-native";
+import { Switch, TextInput, View } from "react-native";
 import {
   birthPlanFlags,
   birthPlanToForm,
@@ -31,7 +31,7 @@ import {
 import { pregnancyDangerGuide, DANGER_GUIDE_ACTION } from "@/lib/pregnancy-danger-guide";
 import { evaluateContractionsNow, evaluateKickNow, finishContractionSession, finishKickSession, kickCounterOffered } from "@/lib/pregnancy-sessions";
 import { todayIsoDate } from "@/lib/medications";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -48,12 +48,11 @@ const SIGN_KEY: Record<InstantGoSign, Parameters<typeof t>[0]> = {
  * personal figure and are never put behind the PIN lock.
  */
 function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; extra?: string }) {
-  const colors = useLegacyColors();
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: "#DC2626", gap: 4 }}>
-      <Text accessibilityRole="alert" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyLargeStrong" accessibilityRole="alert">
         {variant === "go_now" ? t("preg.card.go_now.title") : t("preg.card.contact_today.title")}
-      </Text>
+      </AppText>
       <AppText variant="body">{variant === "go_now" ? t("preg.card.go_now.body") : t("preg.card.contact_today.body")}</AppText>
       {extra ? <AppText variant="body">{extra}</AppText> : null}
     </Card>
@@ -65,14 +64,13 @@ function ActionCard({ variant, extra }: { variant: "contact_today" | "go_now"; e
  * `outside` slot of the lock, not inside it.
  */
 export function PregnancyDangerGuideCard() {
-  const colors = useLegacyColors();
   const entries = pregnancyDangerGuide();
   return (
     <Card style={{ borderLeftWidth: 4, borderLeftColor: "#DC2626", gap: 6 }}>
       <AppText variant="bodyStrong">{t("preg.ui.offline.title")}</AppText>
       <MutedText>{t("preg.ui.offline.intro")}</MutedText>
       {entries.map((e) => (
-        <Text key={e.sign} style={{ fontSize: 13.5, color: colors.ink }}>{`• ${e.label}`}</Text>
+        <AppText variant="body" key={e.sign}>{`• ${e.label}`}</AppText>
       ))}
       <AppText variant="bodyStrong">{DANGER_GUIDE_ACTION}</AppText>
     </Card>
@@ -405,7 +403,6 @@ function BirthPlanPanel({ subjectId, organisationId, state, onSaved }: { subject
 }
 
 function WeekCardPanel({ week }: { week: number | null }) {
-  const colors = useLegacyColors();
   const [state, setState] = useState<WeekCardState>({ kind: "unknown_week" });
   useEffect(() => {
     void loadWeekCard(week).then(setState);
@@ -423,7 +420,7 @@ function WeekCardPanel({ week }: { week: number | null }) {
       {state.kind === "content" && (
         <>
           <AppText variant="bodyStrong">{t("preg.ui.week.heading", "en", { week: state.week })}</AppText>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{state.title}</Text>
+          <AppText variant="bodyLargeStrong">{state.title}</AppText>
           <AppText variant="body">{state.body}</AppText>
         </>
       )}
@@ -471,7 +468,6 @@ function SchedulePanel({ subjectId }: { subjectId: string }) {
  * until the `maternal_enabled` go-live guard is open for this person (test accounts pass; real patients see nothing while it is off).
  */
 export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjectId: string; organisationId: string; lmp: string | null; edd: string | null }) {
-  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState<BirthPlanState | null>(null);
   const week = gestationalAge({ lmp, edd, today: todayIsoDate() })?.weeks ?? null;
@@ -498,7 +494,7 @@ export function PregnancyTools({ subjectId, organisationId, lmp, edd }: { subjec
     <PregnancyPrivateSection>
       <View style={{ gap: 16 }}>
         <View style={{ gap: 2 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("preg.ui.section_title")}</Text>
+          <AppText variant="bodyLargeStrong">{t("preg.ui.section_title")}</AppText>
           <MutedText>{t("preg.ui.section_intro")}</MutedText>
         </View>
         <WeekCardPanel week={week} />

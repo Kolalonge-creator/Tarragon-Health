@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { REASON_KIND_LABEL, type EatingGuidance, type EatingPlan, type FoodCatalogueItem, type FoodSwap, type SwapReasonKind } from "@tarragon/shared";
 import { Card, MutedText, SectionLabel } from "@/ui/legacy-kit";
-import { typeScale } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
 import { isOwnAccount, loadEatingPlans, loadNutritionReferral, type ReferralStatus } from "@/lib/eating-plans";
 import { recordSyncError } from "@/lib/sync-diagnostics";
 import { referralStatusLabel, referralStatusText } from "@/lib/eating-plans-model";
@@ -27,7 +25,6 @@ export function swapSentence(swap: FoodSwap, foods: readonly FoodCatalogueItem[]
 }
 
 function PlanBlock({ plan }: { plan: EatingPlan }) {
-  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -44,7 +41,7 @@ function PlanBlock({ plan }: { plan: EatingPlan }) {
         <View style={{ gap: 6 }}>
           <MutedText>{plan.intro}</MutedText>
           {plan.tips.map((t) => (
-            <Text key={t.heading} style={{ fontSize: typeScale.body, color: colors.ink }}>{`${t.heading}. ${t.body}`}</Text>
+            <AppText variant="body" key={t.heading}>{`${t.heading}. ${t.body}`}</AppText>
           ))}
           <MutedText>{plan.careTeamPrompt}</MutedText>
         </View>

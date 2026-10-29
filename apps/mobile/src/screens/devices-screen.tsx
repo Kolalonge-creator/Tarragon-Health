@@ -274,16 +274,16 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           >
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="cloud-offline-outline" size={28} color={colors.faint} />
-              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 We couldn&apos;t load this right now
-              </Text>
+              </AppText>
               <MutedText>Your paired devices are safe. Tap to retry.</MutedText>
             </Card>
           </Pressable>
         ) : devices.length === 0 ? (
           <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
             <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
-            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>No devices paired yet</Text>
+            <AppText variant="bodyLargeStrong">No devices paired yet</AppText>
             <MutedText>
               Pair your BP cuff, glucometer, scale, thermometer, or pulse oximeter to sync readings automatically.
             </MutedText>
@@ -427,9 +427,9 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
               >
                 {({ pressed }) => (
                   <Card style={{ opacity: pressed ? 0.7 : 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+                    <AppText variant="bodyLargeStrong">
                       {item.device.name ?? item.device.localName ?? item.device.id}
-                    </Text>
+                    </AppText>
                     <AppText variant="body" tone="textMuted">
                       {deviceLabel(item.deviceType)} · Tap to pair
                     </AppText>
@@ -458,7 +458,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           {faultSuccess ? (
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="checkmark-circle-outline" size={28} color={colors.brand} />
-              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Thanks — we've got it</Text>
+              <AppText variant="bodyLargeStrong">Thanks — we've got it</AppText>
               <MutedText>Your care team will follow up if this device needs troubleshooting or replacing.</MutedText>
               <PrimaryButton title="Done" onPress={() => setFaultTarget(null)} />
             </Card>

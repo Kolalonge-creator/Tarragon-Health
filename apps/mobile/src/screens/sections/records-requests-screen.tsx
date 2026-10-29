@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import {
   formatRequestDate,
@@ -55,7 +55,7 @@ export function RecordsRequestsScreen({ actingForOther = false }: { actingForOth
   if (loadError) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.screen, gap: 12, backgroundColor: colors.background }}>
-        <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>{t("records_request.load_failed")}</Text>
+        <AppText variant="bodyLargeStrong">{t("records_request.load_failed")}</AppText>
         <PrimaryButton title={t("records_request.try_again")} onPress={load} />
       </View>
     );
@@ -80,7 +80,7 @@ export function RecordsRequestsScreen({ actingForOther = false }: { actingForOth
 
       {open ? (
         <Card>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{open.facility_name}</Text>
+          <AppText variant="bodyLargeStrong">{open.facility_name}</AppText>
           <MutedText>{t(`records_request.state.${open.state}`)}</MutedText>
           {open.requested_at ? <MutedText>{t("records_request.asked_on", undefined, { date: formatRequestDate(open.requested_at) })}</MutedText> : null}
           {open.is_overdue && open.due_at ? <AppText variant="body">{t("records_request.overdue", undefined, { date: formatRequestDate(open.due_at) })}</AppText> : null}
@@ -106,7 +106,7 @@ export function RecordsRequestsScreen({ actingForOther = false }: { actingForOth
           ) : (
             rows.map((r) => (
               <Card key={r.id}>
-                <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{r.facility_name}</Text>
+                <AppText variant="bodyLargeStrong" accessibilityRole="header">{r.facility_name}</AppText>
                 <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
                   <Badge tone={r.is_overdue ? "brand" : "neutral"}>{r.is_overdue ? t("records_request.state.overdue") : t(`records_request.state.${r.state}`)}</Badge>
                 </View>

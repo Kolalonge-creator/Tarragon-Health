@@ -558,18 +558,18 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   {bundle.description ? <MutedText>{bundle.description}</MutedText> : null}
                   <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
                     {bundle.indicative_price_kobo ? (
-                      <Text style={{ fontSize: 12.5, lineHeight: 18, color: colors.ink }}>
+                      <AppText variant="body">
                         About ₦{koboToNaira(bundle.indicative_price_kobo).toLocaleString("en-NG")} at a
                         major private laboratory. Smaller laboratories are often cheaper for the same
                         test, so it is worth asking two. You pay the laboratory directly, at their
                         price. Tarragon adds nothing and takes no cut.
-                      </Text>
+                      </AppText>
                     ) : (
-                      <Text style={{ fontSize: 12.5, lineHeight: 18, color: colors.ink }}>
+                      <AppText variant="body">
                         Ask the laboratory for their current price. We do not have a reliable figure
                         for this one, so we would rather say so than guess. You pay them directly;
                         Tarragon adds nothing.
-                      </Text>
+                      </AppText>
                     )}
                     {bundle.where_to_get ? <MutedText>{bundle.where_to_get}</MutedText> : null}
                   </View>
@@ -689,12 +689,12 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               gap: 12,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="bodyLargeStrong">
               {actionTarget?.item.screenTypeName ?? "Screening"}
-            </Text>
+            </AppText>
             {actionDoneLabel ? (
               <>
-                <Text style={{ fontSize: 13.5, color: colors.brandPressed, lineHeight: 19 }}>{actionDoneLabel}</Text>
+                <AppText variant="body" tone="brandText">{actionDoneLabel}</AppText>
                 <SecondaryButton title="Close" onPress={closeAction} />
               </>
             ) : actionTarget?.mode === "confirm" ? (

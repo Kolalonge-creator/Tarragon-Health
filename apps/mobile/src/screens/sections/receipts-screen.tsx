@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
@@ -105,7 +105,7 @@ function OrdersAndRefunds() {
   const paidRow = orders.find((o) => o.state === "paid") ?? null;
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tr("receipts.orders.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{tr("receipts.orders.title")}</AppText>
       {orders.map((o) => {
         const covered = o.amountKobo === 0 && o.sponsorShareKobo > 0;
         const split = orderSplit(o);

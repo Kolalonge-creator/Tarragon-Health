@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, View } from "react-native";
 import { getHealthPassportSummary, type HealthPassportSummary } from "@/lib/health-passport";
 import { formatDoctorName } from "@/lib/doctor-name";
 import { spacing } from "@/ui/theme";
@@ -78,9 +78,9 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
           backgroundColor: colors.background,
         }}
       >
-        <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+        <AppText variant="bodyLargeStrong">
           We couldn&apos;t load this right now
-        </Text>
+        </AppText>
         <MutedText>Your record is safe. Check your connection and try again.</MutedText>
         <PrimaryButton title="Tap to retry" onPress={load} />
       </View>

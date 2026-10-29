@@ -1,8 +1,6 @@
-import { Text } from "react-native";
 import { asLocale, circleMonthlyLines, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import type { SupporterView } from "@/lib/care-circle/parse";
-import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -18,7 +16,6 @@ function lagosDateTime(iso: string): string {
  * preview, so the preview cannot show anything the real page does not. A block that is absent is simply not shared.
  */
 export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly"> }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const dir = view.bpTrend?.direction ?? null;
   const monthly = (view.monthly ?? []).filter((r) => circleMonthlyLines(r, locale).length > 0);
@@ -40,11 +37,11 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
           <AppText variant="bodyStrong">{t("circle.view.bp.title", locale)}</AppText>
           {view.bpTrend.weeks.every((w) => w.readings === 0) ? <MutedText>{t("circle.view.bp.none", locale)}</MutedText> : null}
           {view.bpTrend.weeks.filter((w) => w.readings > 0).map((w) => (
-            <Text key={w.weekStart} style={{ color: colors.ink }}>
+            <AppText variant="body" key={w.weekStart}>
               {w.systolic !== null && w.diastolic !== null
                 ? t("circle.view.bp.row", locale, { date: lagosDate(w.weekStart), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })
                 : t("supporterview.bp.row_few", locale, { date: lagosDate(w.weekStart) })}
-            </Text>
+            </AppText>
           ))}
           {dir ? <AppText variant="bodyStrong">{t(`circle.view.bp.${dir}`, locale)}</AppText> : null}
         </Card>
@@ -53,7 +50,7 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
       {monthly.length > 0 ? (
         <Card style={{ gap: 4 }}>
           <AppText variant="bodyStrong">{t("circle.view.monthly.title", locale)}</AppText>
-          {monthly.flatMap((r) => circleMonthlyLines(r, locale).map((l) => <Text key={`${r.month}-${l}`} style={{ color: colors.ink }}>{l}</Text>))}
+          {monthly.flatMap((r) => circleMonthlyLines(r, locale).map((l) => <AppText variant="body" key={`${r.month}-${l}`}>{l}</AppText>))}
         </Card>
       ) : null}
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   cacheSession, clearCachedSession, enqueueCompletion, evaluateEntryScreen, flushQueue, isMskProgrammeCode, isTherapyProgrammeCode, readCachedSession, therapyExclusionRules, validateScores,
@@ -116,7 +116,7 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
   if (data.questions.length === 0) return <Guidance route={null} onBack={onBack} />;
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700" }}>{programme.title}</Text>
+      <AppText variant="bodyLargeStrong">{programme.title}</AppText>
       <MutedText>{t("therapy.enrol.intro")}</MutedText>
       <Questions questions={data.questions} label={t("therapy.enrol.submit")} busy={busy} onSubmit={submit} />
     </Card>
@@ -232,7 +232,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   if (view.kind === "recheck") {
     return (
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("therapy.player.recheck_title")}</Text>
+        <AppText variant="bodyLargeStrong">{t("therapy.player.recheck_title")}</AppText>
         <MutedText>{t("therapy.player.recheck_intro")}</MutedText>
         <Questions questions={view.q.questions} label={t("therapy.player.start")} busy={busy} onSubmit={start} />
       </Card>
@@ -244,10 +244,10 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     <View style={{ gap: 12 }}>
       <Card style={{ gap: 8 }}>
         <MutedText>{s.programmeTitle} · {t("therapy.player.session_of", "en", { n: s.ordinal, total })}</MutedText>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{s.title}</Text>
+        <AppText variant="bodyLargeStrong">{s.title}</AppText>
         {"draftContent" in s && s.draftContent && <MutedText>{t("therapy.programme.draft_notice")}</MutedText>}
         <MutedText>{t("therapy.player.audio_none")}</MutedText>
-        <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{s.text}</Text>
+        <AppText variant="body">{s.text}</AppText>
       </Card>
       {s.msk && <MskDaySetNative enrolmentId={enrolmentId} ordinal={ordinal} extras={s.msk} />}
       <Card style={{ gap: 6 }}>
@@ -340,7 +340,7 @@ export function TherapyProgrammesScreen({ onBack }: { onBack: () => void }) {
           const mine = data.enrolments.find((e) => e.programme_id === p.id && (e.state === "active" || e.state === "paused"));
           return (
             <Card key={p.id} style={{ gap: 6 }}>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{p.title}</Text>
+              <AppText variant="bodyLargeStrong">{p.title}</AppText>
               <MutedText>{p.summary}</MutedText>
               {mine?.state === "paused" ? <MutedText>{t("therapy.player.paused_review")}</MutedText> : (
                 <PrimaryButton

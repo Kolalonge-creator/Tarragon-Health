@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import type { ConsentReceiptRow } from "@tarragon/shared";
 import {
@@ -201,7 +201,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       />
 
       <View>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink, marginBottom: 4 }}>Your data rights</Text>
+        <AppText variant="bodyLargeStrong" style={{ marginBottom: 4 }}>Your data rights</AppText>
         <MutedText>
           Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or erase the data we
           hold about you.

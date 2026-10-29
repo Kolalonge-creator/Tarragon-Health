@@ -184,7 +184,6 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
 // ---------------------------------------------------------------------------
 
 function CarePlanSection({ patientId }: { patientId: string }) {
-  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [plans, setPlans] = useState<CarePlanSummaryItem[]>([]);
@@ -216,7 +215,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
   if (loading) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
+        <AppText variant="bodyLargeStrong">Your care plan</AppText>
         <LoadingRows />
       </View>
     );
@@ -225,7 +224,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
   if (!hasAccess) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
+        <AppText variant="bodyLargeStrong">Your care plan</AppText>
         <Card style={{ gap: 8, borderStyle: "dashed" }}>
           <AppText variant="bodyStrong">
             A doctor-set care plan is a paid service
@@ -250,7 +249,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
+      <AppText variant="bodyLargeStrong">Your care plan</AppText>
       <Card style={{ gap: 12 }}>
         {plans.length === 0 ? (
           <MutedText>
@@ -407,7 +406,7 @@ function EscalationsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Care follow-ups</Text>
+      <AppText variant="bodyLargeStrong">Care follow-ups</AppText>
       <Card style={{ gap: 0 }}>
         {escalations.map((escalation, i) => (
           <View
@@ -452,7 +451,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Specialist referrals</Text>
+      <AppText variant="bodyLargeStrong">Specialist referrals</AppText>
       <Card style={{ gap: 0 }}>
         {referrals.map((referral, i) => (
           <View
@@ -474,10 +473,10 @@ function ReferralsSection({ patientId }: { patientId: string }) {
             {referral.status === "closed" && referral.carePlanUpdateNote ? (
               <AppText variant="caption">What changed: {referral.carePlanUpdateNote}</AppText>
             ) : (
-              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>
+              <AppText variant="caption" tone="textSubtle">
                 Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
                 directly. Download your referral letter and upload what they give you back on web.
-              </Text>
+              </AppText>
             )}
           </View>
         ))}
@@ -491,7 +490,6 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -508,7 +506,7 @@ function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: s
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Hospital admissions</Text>
+        <AppText variant="bodyLargeStrong">Hospital admissions</AppText>
         {!formOpen && <SecondaryButton title="Log admission" onPress={() => setFormOpen(true)} />}
       </View>
       <MutedText>
@@ -802,7 +800,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Need help with something?</Text>
+        <AppText variant="bodyLargeStrong">Need help with something?</AppText>
         {!open && <SecondaryButton title="I need help" onPress={() => setOpen(true)} />}
       </View>
       <MutedText>

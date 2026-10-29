@@ -436,7 +436,7 @@ function EducationItemRow({
       )}
       {open && !membersOnly && (
         <View style={{ gap: 10, paddingTop: 4 }}>
-          <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 19 }}>{item.body}</Text>
+          <AppText variant="body">{item.body}</AppText>
 
           {questions ? (
             <KnowledgeCheck questions={questions} pending={marking} onComplete={completeCheck} />

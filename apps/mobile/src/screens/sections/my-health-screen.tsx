@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, View } from "react-native";
 import { getProposedConfig } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import {
@@ -126,7 +126,7 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
           <ImmunisationSummary patientId={userId} />
           <OutsideRecordsSection patientId={userId} />
           <Card>
-            <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 16 }}>{t("my_health.pass.title")}</Text>
+            <AppText variant="bodyLargeStrong">{t("my_health.pass.title")}</AppText>
             <MutedText>{t("my_health.pass.description")}</MutedText>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
               <AppText variant="body" style={{ flex: 1, marginRight: 12 }}>{t("my_health.pass.toggle")}</AppText>
@@ -144,9 +144,9 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
               <View style={{ marginTop: 8, gap: 4 }}>
                 <AppText variant="bodyStrong">{t("my_health.pass.preview")}</AppText>
                 {pass.cardPayload.rows.map((r) => (
-                  <Text key={r.key} style={{ color: colors.ink }}>
+                  <AppText variant="body" key={r.key}>
                     {r.label}: {r.value}
-                  </Text>
+                  </AppText>
                 ))}
               </View>
             ) : null}

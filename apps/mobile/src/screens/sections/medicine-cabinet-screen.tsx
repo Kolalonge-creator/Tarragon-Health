@@ -468,7 +468,7 @@ function MedicationCard({
   return (
     <Card style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{medication.drug_name}</Text>
+        <AppText variant="bodyLargeStrong">{medication.drug_name}</AppText>
         <Pill tone={medication.source === "clinician" ? "green" : medication.source === "specialist" ? "amber" : "grey"}>
           {SOURCE_LABEL[medication.source] ?? "Self-added"}
         </Pill>
@@ -1539,20 +1539,20 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
         {result && verdict ? (
           <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 2 }}>
             <Pill tone={verdict.tone}>{verdict.label}</Pill>
-            <Text style={{ fontSize: 13.5, color: colors.ink, lineHeight: 19 }}>{verdict.body}</Text>
+            <AppText variant="body">{verdict.body}</AppText>
             {result.verdict === "strength_differs" ? (
               <View style={{ backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 10 }}>
-                <Text style={{ fontSize: 12.5, color: colors.status.warn, lineHeight: 18 }}>
+                <AppText variant="body" tone="warnText">
                   The pack says {result.packStrength?.value}
                   {result.packStrength?.unit}. Your record says {result.prescribedStrength?.value}
                   {result.prescribedStrength?.unit} of {result.matchedDrugName}. Ask your care team before taking it.
-                </Text>
+                </AppText>
               </View>
             ) : null}
             <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
               <AppText variant="label">Is it genuine? We cannot tell you that. NAFDAC can.</AppText>
-              <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 17 }}>{NAFDAC_MAS.howTo}</Text>
-              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
+              <AppText variant="caption" tone="textMuted">{NAFDAC_MAS.howTo}</AppText>
+              <AppText variant="caption" tone="textSubtle">{NAFDAC_MAS.caveat}</AppText>
             </View>
           </View>
         ) : null}

@@ -69,13 +69,12 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
 }
 
 function Stat({ label, value, badge }: { label: string; value: string; badge?: { text: string; tone: "brand" | "warn" | "danger" | "neutral" } }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ flexBasis: "47%", flexGrow: 1, gap: 4 }}>
       <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
         {label}
       </AppText>
-      <Text style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{value}</Text>
+      <AppText variant="bodyLargeStrong">{value}</AppText>
       {badge && <StatusBadge text={badge.text} tone={badge.tone} />}
     </View>
   );

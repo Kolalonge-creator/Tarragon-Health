@@ -82,7 +82,7 @@ export function ResultPassportCard() {
       {error ? <ErrorText>{error}</ErrorText> : null}
       {saved ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{t("resultpassport.saved_phone")}</Text>
+          <AppText variant="bodyLargeStrong">{t("resultpassport.saved_phone")}</AppText>
           <MutedText>{saved.name}</MutedText>
           <Pressable accessibilityRole="button" onPress={() => void Share.share({ url: saved.uri, title: saved.name })} style={{ minHeight: 44, justifyContent: "center" }}>
             <Text style={{ color: colors.brand, fontSize: 16, fontWeight: "700" }}>{t("resultpassport.open_send")}</Text>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { loadNoteIndex, loadReleasedNotes, requestNoteCorrection, requestNoteRelease } from "@/lib/patient-notes";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -56,9 +56,9 @@ export function PatientNotesSection() {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">
         {tr("notes.title")}
-      </Text>
+      </AppText>
       <MutedText>{tr("notes.intro")}</MutedText>
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {!loading && index.length === 0 ? <MutedText>{tr("notes.empty")}</MutedText> : null}
@@ -178,7 +178,7 @@ function ReleasedNoteBody({ note, tr, onChanged }: { note: ReleasedNote; tr: Tra
       {visibleSections(note).map((s) => (
         <View key={s.key} style={{ gap: 2 }}>
           <AppText variant="label">{tr(s.key)}</AppText>
-          <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{s.text}</Text>
+          <AppText variant="body">{s.text}</AppText>
         </View>
       ))}
 

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { saveEmergencyCoverage, type EmergencyFacts } from "@/lib/emergency";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit";
 
 /**
  * Optional HMO / NHIA cover for the emergency card (S09y). Typed by the person, shown on the card only once filled in, patient entered and unchecked,
@@ -40,7 +41,7 @@ export function EmergencyCoverageCard({ initial, onChanged }: { initial: Emergen
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("ecf.coverage.title")}</Text>
+      <AppText variant="bodyLargeStrong">{t("ecf.coverage.title")}</AppText>
       <MutedText>{t("ecf.coverage.description")}</MutedText>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <ChoiceChip title={`${scheme === "hmo" ? "✓ " : ""}${t("ecf.coverage.scheme_hmo")}`} onPress={() => setScheme("hmo")} />

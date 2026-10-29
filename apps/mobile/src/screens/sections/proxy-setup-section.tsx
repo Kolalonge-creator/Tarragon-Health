@@ -75,7 +75,7 @@ function PendingRequest({ setup, onDone }: { setup: PendingProxySetup; onDone: (
 
   return (
     <Card>
-      <Text style={{ fontSize: 16, fontWeight: "700" }}>{t("proxy.confirm.title", "en", { name })}</Text>
+      <AppText variant="bodyLargeStrong">{t("proxy.confirm.title", "en", { name })}</AppText>
       <MutedText>{t("proxy.confirm.body", "en", { name })}</MutedText>
       <AppText variant="label">{t("proxy.confirm.categories_label", "en", { name })}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -142,7 +142,7 @@ export function ProxySetupSection() {
       ))}
       {loadFailed ? <MutedText>We could not check for requests just now.</MutedText> : null}
       <Card>
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>{t("proxy.setup.title", "en")}</Text>
+        <AppText variant="bodyLargeStrong">{t("proxy.setup.title", "en")}</AppText>
         <MutedText>{t("proxy.setup.intro", "en")}</MutedText>
         {sentHours !== null ? (
           <Text accessibilityRole="alert">{t("proxy.setup.sent", "en", { hours: String(sentHours) })}</Text>

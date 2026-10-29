@@ -61,9 +61,9 @@ export function EmergencyBlock({ patientId }: { patientId: string }) {
                 {line}
               </Text>
             ))}
-            <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink, marginTop: 8 }}>
+            <AppText variant="bodyLargeStrong" accessibilityRole="header" style={{ marginTop: 8 }}>
               {SELF_HARM_GUIDANCE.title}
-            </Text>
+            </AppText>
             {SELF_HARM_GUIDANCE.lines.map((line) => (
               <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
                 {line}

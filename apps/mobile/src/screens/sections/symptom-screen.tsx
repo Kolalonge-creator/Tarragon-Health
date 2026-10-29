@@ -264,7 +264,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
               {dangerSaving ? (
                 <ActivityIndicator color={colors.onBrand} />
               ) : (
-                <Text style={{ color: colors.onBrand, fontSize: 15, fontWeight: "700" }}>Get emergency guidance</Text>
+                <AppText variant="bodyLargeStrong" tone="textOnBrand">Get emergency guidance</AppText>
               )}
             </Pressable>
           </View>
@@ -394,9 +394,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 trailing={
                   symptom.is_red_flag ? (
                     <View style={{ backgroundColor: "#FEE2E2", borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.status.critical }}>
+                      <AppText variant="label" tone="dangerText">
                         Flagged for review
-                      </Text>
+                      </AppText>
                     </View>
                   ) : (
                     "none"

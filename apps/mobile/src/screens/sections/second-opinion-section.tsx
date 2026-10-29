@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -220,7 +220,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Second opinion</Text>
+      <AppText variant="bodyLargeStrong">Second opinion</AppText>
       <MutedText>
         Already have a result or diagnosis from somewhere else? A doctor on your care team reviews
         it and writes back their own assessment, no visit needed.

@@ -99,7 +99,7 @@ function CautionNote({ text }: { text: string }) {
   const colors = useLegacyColors();
   return (
     <View style={{ backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 10, gap: 2 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.status.warn }}>Worth discussing with your care team</Text>
+      <AppText variant="label" tone="warnText">Worth discussing with your care team</AppText>
       <AppText variant="body">{text}</AppText>
     </View>
   );
@@ -300,14 +300,14 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
       <Card style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
         <View style={{ flexBasis: "30%", flexGrow: 1 }}>
           <MutedText>Cycle</MutedText>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyLargeStrong">
             {reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"}
-          </Text>
+          </AppText>
         </View>
         {gestationalEstimate && (
           <View style={{ flexBasis: "30%", flexGrow: 1 }}>
             <MutedText>Antenatal</MutedText>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Week {gestationalEstimate.weeks}</Text>
+            <AppText variant="bodyLargeStrong">Week {gestationalEstimate.weeks}</AppText>
           </View>
         )}
         <Pressable accessibilityRole="button" style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("prevention")}>
@@ -489,9 +489,9 @@ function ReproductiveHealthCard({
       {nudges.length > 0 && (
         <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 4 }}>
           {nudges.map((n) => (
-            <Text key={n.id} style={{ fontSize: 12, color: colors.ink }}>
+            <AppText variant="caption" key={n.id}>
               {n.label}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -898,11 +898,11 @@ function PostnatalCheckinSection({
     <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
       <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>Check-ins</AppText>
       {checkins.map((c) => (
-        <Text key={c.id} style={{ fontSize: 13, color: colors.ink }}>
+        <AppText variant="body" key={c.id}>
           {CHECKIN_LABEL[c.checkin_window as CheckinWindow]}
           {c.breastfeeding_status ? ` · ${BREASTFEEDING_LABEL[c.breastfeeding_status as BreastfeedingStatus]}` : ""}
           {c.contraception_discussed ? " · Contraception discussed" : ""}
-        </Text>
+        </AppText>
       ))}
 
       <AppText variant="label">Check-in</AppText>
@@ -1022,9 +1022,9 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
             Past reports
           </AppText>
           {reports.slice(0, 5).map((r) => (
-            <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={r.id}>
               {when(r.created_at)}: {(r.symptom_types as BreastSymptomType[]).map((t) => BREAST_SYMPTOM_LABEL[t]).join(", ")}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -1105,9 +1105,9 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
         I&apos;ve had bleeding since menopause
       </AppText>
       {bleeding && (
-        <Text accessibilityRole="alert" style={{ fontSize: 13, fontWeight: "700", color: colors.status.warn }}>
+        <AppText variant="label" tone="warnText" accessibilityRole="alert">
           {t("menopause.bleeding_urgent")}
-        </Text>
+        </AppText>
       )}
 
       <AppText variant="label">Notes (optional)</AppText>
@@ -1121,10 +1121,10 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
         <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
           <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>Recent</AppText>
           {logs.slice(0, 5).map((log) => (
-            <Text key={log.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={log.id}>
               {when(log.logged_at)}: {(log.symptom_types as MenopauseSymptomType[]).map((t) => MENOPAUSE_SYMPTOM_LABEL[t]).join(", ") || "no symptoms"}
               {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -1191,9 +1191,9 @@ function FertilityRequestCard({
       {requests.length > 0 && (
         <View style={{ gap: 4 }}>
           {requests.map((r) => (
-            <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={r.id}>
               {when(r.created_at)}: {fertilityStatusLabel(r.status)}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}

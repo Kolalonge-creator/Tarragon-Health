@@ -279,7 +279,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
         return (
           <Card key={item.code}>
             {tierCard ? <MutedText>{tr(panelIncluded(item.code) ? "shop.tier.panel_yes" : "shop.tier.panel_no")}</MutedText> : null}
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tierCard ? tr(panelIncluded(item.code) ? "shop.tier.evergreen_plus.name" : "shop.tier.evergreen.name") : copy(item.nameKey)}</Text>
+            <AppText variant="bodyLargeStrong">{tierCard ? tr(panelIncluded(item.code) ? "shop.tier.evergreen_plus.name" : "shop.tier.evergreen.name") : copy(item.nameKey)}</AppText>
             <MutedText>{copy(item.descriptionKey)}</MutedText>
             {tierCard && monthlyOn ? <MutedText>{tr("shop.tier.monthly", { amount: naira(monthlyFramingKobo(quote?.amountDueKobo ?? item.amountKobo)) })}</MutedText> : null}
             {needsStateFor(item) && !blocked ? (
@@ -320,15 +320,15 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             ) : null}
             <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("shop.included")}</AppText>
             {item.includedKeys.map((k) => (
-              <Text key={k} style={{ color: colors.ink }}>{`• ${copy(k)}`}</Text>
+              <AppText variant="body" key={k}>{`• ${copy(k)}`}</AppText>
             ))}
             {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").length > 0 ? (
               <View style={{ marginTop: 8 }}>
                 <AppText variant="bodyStrong">{tr("notincl.title")}</AppText>
                 {(notIncluded[item.code] ?? []).filter((e) => copy(e.labelKey) !== "").map((e) => (
-                  <Text key={e.labelKey} style={{ color: colors.ink }} accessibilityLabel={e.extraCode !== null && e.amountKobo === null ? tr("notincl.ask_us_label", { name: copy(e.labelKey) }) : undefined}>
+                  <AppText variant="body" key={e.labelKey} accessibilityLabel={e.extraCode !== null && e.amountKobo === null ? tr("notincl.ask_us_label", { name: copy(e.labelKey) }) : undefined}>
                     {e.extraCode === null ? `• ${copy(e.labelKey)}` : `• ${copy(e.labelKey)}: ${e.amountKobo !== null ? naira(e.amountKobo) : tr("notincl.ask_us")}`}
-                  </Text>
+                  </AppText>
                 ))}
                 {(notIncluded[item.code] ?? []).some((e) => e.extraCode !== null) ? <MutedText>{tr("notincl.sold_separately")}</MutedText> : null}
               </View>

@@ -172,7 +172,6 @@ export function WeightManagementScreen({ userId, onNavigate }: WeightManagementS
 }
 
 function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
-  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -202,7 +201,7 @@ function EnrollCta({ onEnrolled }: { onEnrolled: () => void }) {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Start your weight management programme</Text>
+      <AppText variant="bodyLargeStrong">Start your weight management programme</AppText>
       <MutedText>A structured programme with goals you set, weekly check-ins, and doctor review, at your pace.</MutedText>
       {message && <MutedText>{message}</MutedText>}
       {error && <ErrorText>{error}</ErrorText>}
@@ -302,13 +301,12 @@ function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () =>
 }
 
 function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
-  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyLargeStrong">
           {enrollment.programmeName ?? enrollment.condition}
-        </Text>
+        </AppText>
         <Badge tone={enrollment.status === "active" ? "brand" : "neutral"}>{enrollment.status}</Badge>
       </View>
 

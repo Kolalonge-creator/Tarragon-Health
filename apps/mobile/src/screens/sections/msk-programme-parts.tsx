@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import Svg, { Circle, G, Polyline } from "react-native-svg";
 import {
   MSK_VIEWBOX, arrowHead, mskShapesForNative, MSK_DRAWING_ALT, selectDailySet, stepDownActive, type EntryQuestion, type MskStartExtras, type TherapyAnswers, type TherapyRoute,
@@ -45,7 +45,6 @@ function lagosToday(): string {
 
 /** The day's exercises for a pain programme (S96) on the phone: steps plus drawing, a rating after each, lighter plan and gate states. */
 export function MskDaySetNative({ enrolmentId, ordinal, extras }: { enrolmentId: string; ordinal: number; extras: MskStartExtras }) {
-  const colors = useLegacyColors();
   const [rated, setRated] = useState<Record<string, number>>({});
   const [easier, setEasier] = useState<Record<string, boolean>>({});
   const [error, setError] = useState(false);
@@ -64,7 +63,7 @@ export function MskDaySetNative({ enrolmentId, ordinal, extras }: { enrolmentId:
 
   return (
     <View style={{ gap: 12 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("therapy.msk.today_title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("therapy.msk.today_title")}</AppText>
       <MutedText>{t("therapy.msk.today_intro")}</MutedText>
       {stepDownRunning && extras.stepDown && <Card><MutedText>{t("therapy.msk.step_down_banner", "en", { date: extras.stepDown.until })}</MutedText></Card>}
       {!stepDownRunning && set.reason === "activity_gate" && set.exercises.length > 0 && <Card><MutedText>{t("therapy.msk.gate_gentle")}</MutedText></Card>}
@@ -75,7 +74,7 @@ export function MskDaySetNative({ enrolmentId, ordinal, extras }: { enrolmentId:
           <MskDrawingNative exerciseKey={ex.key} />
           <AppText variant="body">{t("therapy.msk.how_much")}: {ex.dose}</AppText>
           <AppText variant="label">{t("therapy.msk.how_to")}</AppText>
-          {ex.steps.map((step, i) => <Text key={step} style={{ fontSize: 14, color: colors.ink }}>{i + 1}. {step}</Text>)}
+          {ex.steps.map((step, i) => <AppText variant="body" key={step}>{i + 1}. {step}</AppText>)}
           <AppText variant="body">{t("therapy.msk.easier")}: {ex.easier}</AppText>
           <AppText variant="body">{t("therapy.msk.harder")}: {ex.harder}</AppText>
           <AppText variant="body">{t("therapy.msk.stop_if")}: {ex.stop_if}</AppText>
@@ -152,7 +151,7 @@ export function MskFlareUpNative({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("therapy.msk.flare_title")}</Text>
+      <AppText variant="bodyLargeStrong">{t("therapy.msk.flare_title")}</AppText>
       <MutedText>{t("therapy.msk.flare_intro")}</MutedText>
       <AppText variant="body">{t("therapy.msk.flare_pain_now")}</AppText>
       <TextInput

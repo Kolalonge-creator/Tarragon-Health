@@ -201,9 +201,9 @@ function SupporterDosesSection({ beneficiaryId, name }: { beneficiaryId: string;
       <AppText variant="label">{t("supporter.doses.title", locale)}</AppText>
       {view.doses.length === 0 ? <MutedText>{t(view.activeMedicines === 0 ? "supporter.doses.no_medicines" : "supporter.doses.none_scheduled", locale)}</MutedText> : null}
       {view.doses.map((dose) => (
-        <Text key={`${dose.medicationId}-${dose.time}`} style={{ fontSize: 13, color: colors.ink }}>
+        <AppText variant="body" key={`${dose.medicationId}-${dose.time}`}>
           {`${dose.time} · ${dose.name} · ${t(DOSE_STATE_KEY[supporterDoseState(dose, now)], locale)}`}
-        </Text>
+        </AppText>
       ))}
       <MutedText>{t("supporter.doses.schedule_only", locale)}</MutedText>
       <MutedText>{t("supporter.doses.read_only", locale, { name })}</MutedText>
@@ -273,7 +273,7 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink, flexShrink: 1 }}>{name}</Text>
+        <AppText variant="bodyLargeStrong" style={{ flexShrink: 1 }}>{name}</AppText>
         <Badge tone={person.permissionLevel === "manage" ? "brand" : "neutral"}>
           {person.permissionLevel === "manage" ? "You can act for them" : "You can follow"}
         </Badge>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { availableLifecycleKinds, type LifecycleKind } from "@tarragon/shared";
 import { confirmLifecycleEvent, loadFeedLog, loadMyLifecycle, logFeed, requestTrackerDeletion, type FeedLogRow, type MyLifecycle } from "@/lib/maternal-child";
@@ -59,7 +59,6 @@ const FEED_CHOICES: { value: FeedLogRow["feed_type"]; key: Parameters<typeof t>[
 
 /** A one-tap feed log and the delete request. The feed log is closed (a calm line) until the care team switches maternal care on. */
 export function FeedLogCardMobile({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
   const [rows, setRows] = useState<FeedLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -85,7 +84,7 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
       </View>
       {error && <ErrorText>{error}</ErrorText>}
       {rows.length === 0 ? <MutedText>{t("mch.feed.empty")}</MutedText> : rows.slice(0, 5).map((r) => (
-        <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>{new Date(r.fed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
+        <AppText variant="body" key={r.id}>{new Date(r.fed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</AppText>
       ))}
       <MutedText>{t("mch.feed.support_pending")}</MutedText>
       {!deleted ? (

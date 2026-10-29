@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { loadMySeniorCaseReviews, type SeniorCaseReviewWithReviewer } from "@/lib/senior-case-review";
 import { formatCareDate } from "@/lib/care";
 import { formatDoctorName } from "@/lib/doctor-name";
@@ -40,7 +40,7 @@ export function SeniorCaseReviewSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Senior case review</Text>
+      <AppText variant="bodyLargeStrong">Senior case review</AppText>
       <View style={{ gap: 10 }}>
         {reviews.map((r) => {
           const completed = r.status === "completed";

@@ -168,7 +168,6 @@ export function EnrollCta({
   description: string;
   onEnrolled: () => void;
 }) {
-  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -198,7 +197,7 @@ export function EnrollCta({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{title}</Text>
+      <AppText variant="bodyLargeStrong">{title}</AppText>
       <MutedText>{description}</MutedText>
       {message && <MutedText>{message}</MutedText>}
       {error && <ErrorText>{error}</ErrorText>}
@@ -387,13 +386,12 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
 }
 
 export function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
-  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyLargeStrong">
           {enrollment.programmeName ?? enrollment.condition}
-        </Text>
+        </AppText>
         <Badge tone={enrollment.status === "active" ? "brand" : "neutral"}>{enrollment.status}</Badge>
       </View>
 

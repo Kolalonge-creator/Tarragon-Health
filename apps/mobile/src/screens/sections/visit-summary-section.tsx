@@ -58,9 +58,9 @@ export function VisitSummarySection({ onOpenMessages }: { onOpenMessages?: () =>
 
   return (
     <View style={{ gap: 10 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">
         {tr("avs.title")}
-      </Text>
+      </AppText>
       <MutedText>{tr("avs.intro")}</MutedText>
       {failed ? <ErrorText>{tr("avs.error.generic")}</ErrorText> : null}
       {summaries.map((s) => (
@@ -115,7 +115,7 @@ function SummaryCard({
             : tr("avs.checked_on", { date: lagosDate(summary.approvedAt) })}
         </AppText>
       ) : null}
-      <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{summary.summaryText}</Text>
+      <AppText variant="body">{summary.summaryText}</AppText>
 
       <AppText variant="bodyStrong" accessibilityRole="header">
         {tr("avs.what_next")}
@@ -147,9 +147,9 @@ function SummaryCard({
                 {done ? <Text style={{ color: "#fff", fontWeight: "700" }}>{"✓"}</Text> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink, textDecorationLine: done ? "line-through" : "none" }}>
+                <AppText variant="body" style={{ textDecorationLine: done ? "line-through" : "none" }}>
                   {avsItemLabel({ kind: item.kind, params: item.params, customText: item.customText }, locale)}
-                </Text>
+                </AppText>
                 {item.dueOn ? <MutedText>{tr("avs.item.due", { date: lagosDate(item.dueOn) })}</MutedText> : null}
               </View>
             </Pressable>
@@ -176,7 +176,7 @@ function SummaryCard({
 
       <View accessibilityRole="summary" style={{ gap: 4, padding: 12, borderRadius: 10, backgroundColor: colors.border }}>
         <AppText variant="bodyStrong">{tr("avs.urgent.title")}</AppText>
-        <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink }}>{tr(AVS_URGENT_KEY)}</Text>
+        <AppText variant="body">{tr(AVS_URGENT_KEY)}</AppText>
       </View>
     </Card>
   );

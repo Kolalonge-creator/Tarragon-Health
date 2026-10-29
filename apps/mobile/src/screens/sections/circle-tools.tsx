@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { asLocale, circleToolsCanKey, circleToolsSeesKey, circleToolsTaskKindKey, t } from "@tarragon/i18n";
 import { CIRCLE_TASK_KINDS, permissionsForPreset, presetOfPermissions, previewForPermissions, type CirclePresetChoice } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -40,9 +40,9 @@ export function PermissionSummary({ permissions, audience, name }: { permissions
       <AppText variant="bodyStrong" accessibilityRole="header">{t(invitee ? "cctools.preview.title.invitee" : "cctools.preview.title.sender", locale)}</AppText>
       {empty ? <MutedText>{t("cctools.preview.none", locale)}</MutedText> : null}
       {p.sees.length > 0 ? <AppText variant="bodyStrong">{t(invitee ? "cctools.preview.sees.invitee" : "cctools.preview.sees", locale)}</AppText> : null}
-      {p.sees.map((c) => <Text key={c} style={{ color: colors.ink }}>{`• ${t(circleToolsSeesKey(c), locale)}`}</Text>)}
+      {p.sees.map((c) => <AppText variant="body" key={c}>{`• ${t(circleToolsSeesKey(c), locale)}`}</AppText>)}
       {p.can.length > 0 ? <AppText variant="bodyStrong">{t(invitee ? "cctools.preview.can.invitee" : "cctools.preview.can", locale)}</AppText> : null}
-      {p.can.map((c) => <Text key={c} style={{ color: colors.ink }}>{`• ${t(circleToolsCanKey(c), locale)}`}</Text>)}
+      {p.can.map((c) => <AppText variant="body" key={c}>{`• ${t(circleToolsCanKey(c), locale)}`}</AppText>)}
       {empty ? null : <AppText variant="body">{t("cctools.preview.never", locale)}</AppText>}
       <MutedText>{invitee ? t("cctools.preview.control.invitee", locale, { name: name ?? "They" }) : t("cctools.preview.control.sender", locale)}</MutedText>
     </View>
@@ -150,7 +150,6 @@ export function TasksCard({ patientId, tools }: { patientId: string; tools: Tool
 
 /** A short weekly note for a supporter, built by the database from the permissions held. Nothing while off. */
 export function DigestCard({ patientId, tools }: { patientId: string; tools: ToolsStatus }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [digest, setDigest] = useState<CircleDigest | null>(null);
   useEffect(() => {
@@ -173,7 +172,7 @@ export function DigestCard({ patientId, tools }: { patientId: string; tools: Too
     <Card style={{ gap: 6 }}>
       <AppText variant="bodyStrong" accessibilityRole="header">{t("cctools.digest.title", locale)}</AppText>
       <MutedText>{t("cctools.digest.note", locale, { name: digest.name })}</MutedText>
-      {lines.length === 0 ? <AppText variant="body">{t("cctools.digest.empty", locale)}</AppText> : lines.map((l) => <Text key={l} style={{ color: colors.ink }}>{l}</Text>)}
+      {lines.length === 0 ? <AppText variant="body">{t("cctools.digest.empty", locale)}</AppText> : lines.map((l) => <AppText variant="body" key={l}>{l}</AppText>)}
     </Card>
   );
 }

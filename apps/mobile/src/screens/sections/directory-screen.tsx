@@ -73,7 +73,6 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
 }
 
 function Listing({ row, hmo, locale }: { row: DirectoryRow; hmo: string; locale: Locale }) {
-  const colors = useLegacyColors();
   const [reporting, setReporting] = useState(false);
   const tel = telHref(row.phone);
   const maps = directionsHref(
@@ -85,7 +84,7 @@ function Listing({ row, hmo, locale }: { row: DirectoryRow; hmo: string; locale:
   const nhiaLine = nhiaKey(row.nhia_status);
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{row.name}</Text>
+      <AppText variant="bodyLargeStrong">{row.name}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         <Badge tone={row.tier === "seed_only" ? "neutral" : "brand"}>{t(tierKey(row.tier), locale)}</Badge>
         <MutedText>{row.last_verified_at ? t("directory.last_verified", locale, { date: lagosDate(row.last_verified_at) }) : t("directory.never_verified", locale)}</MutedText>

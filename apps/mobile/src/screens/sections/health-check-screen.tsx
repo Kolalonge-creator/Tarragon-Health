@@ -232,10 +232,10 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
                 {meta.short}
                 {meta.computed ? " (computed)" : ""}
               </MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {reading ? `${reading.value} ` : "—"}
                 {reading && <AppText variant="caption" tone="textMuted">{meta.unit}</AppText>}
-              </Text>
+              </AppText>
             </View>
           );
         })}
@@ -251,7 +251,6 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
 }
 
 function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
-  const colors = useLegacyColors();
   const elevated = signals.filter((s) => RISK_LEVEL_COPY[s.riskLevel] != null);
 
   return (
@@ -270,11 +269,11 @@ function RiskSignalsCard({ signals }: { signals: RiskSignal[] }) {
           </MutedText>
           <View style={{ gap: 4 }}>
             {elevated.map((s) => (
-              <Text key={s.scoreType} style={{ fontSize: 13, color: colors.ink }}>
+              <AppText variant="body" key={s.scoreType}>
                 <AppText variant="bodyStrong">{SCORE_TYPE_LABEL[s.scoreType] ?? s.scoreType.replace(/_/g, " ")}</AppText>
                 {": "}
                 {RISK_LEVEL_COPY[s.riskLevel]}
-              </Text>
+              </AppText>
             ))}
           </View>
         </>

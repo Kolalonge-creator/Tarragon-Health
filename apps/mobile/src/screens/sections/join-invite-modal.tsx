@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { withoutCrossOrganisation } from "@tarragon/shared";
@@ -83,7 +83,7 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
             <PermissionSummary permissions={preview.crossOrganisation ? withoutCrossOrganisation(preview.permissions) : preview.permissions} audience="invitee" name={preview.inviterFirstName} />
             {preview.crossOrganisation ? <MutedText>{t("cctools.preview.cross_org", locale)}</MutedText> : null}
             <AppText variant="bodyStrong">{t("circle.join.sees", locale)}</AppText>
-            {preview.permissions.map((perm) => <Text key={perm} style={{ color: colors.ink }}>{`\u2022 ${t(permissionKey(perm), locale)}`}</Text>)}
+            {preview.permissions.map((perm) => <AppText variant="body" key={perm}>{`\u2022 ${t(permissionKey(perm), locale)}`}</AppText>)}
             <PrimaryButton
               title={t("circle.join.accept", locale)}
               disabled={busy}

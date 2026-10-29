@@ -496,16 +496,12 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                   record, or end a conversation you are having. You will see every message they send.
                 </MutedText>
                 {CARE_ACCESS_CATEGORIES.map((cat) => (
-                  <Text
-                    key={cat.value}
-                    onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, cat.value)))}
-                    style={{ fontSize: 13, color: colors.ink, paddingVertical: 3 }}
-                  >
+                  <AppText variant="body" key={cat.value} onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, cat.value)))} style={{ paddingVertical: 3 }}>
                     <Text style={{ fontWeight: "700", color: follower.categories.includes(cat.value) ? colors.brandPressed : colors.faint }}>
                       {follower.categories.includes(cat.value) ? "☑ " : "☐ "}
                     </Text>
                     {cat.label}
-                  </Text>
+                  </AppText>
                 ))}
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, backgroundColor: colors.card, padding: 10, gap: 4 }}>
                   <AppText variant="label" onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "reproductive_health")))}>

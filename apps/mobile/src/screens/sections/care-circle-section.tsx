@@ -14,7 +14,7 @@ import { HelpAlertCard } from "./care-circle-help-card";
 import { PermissionSummary, PresetPicker, TasksCard, useToolsStatus } from "./circle-tools";
 import { supabase } from "@/lib/supabase";
 import { SupporterBlocks } from "./supporter-blocks";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -439,7 +439,6 @@ function InviteForm({ onMade }: { onMade: () => void }) {
  * The invite link is shared from the patient's own phone (the platform sends no SMS); the token is shown once.
  */
 export function CareCircleSection() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [circle, setCircle] = useState<MyCircle | null>(null);
   const [log, setLog] = useState<ViewLogRow[]>([]);
@@ -494,7 +493,7 @@ export function CareCircleSection() {
       <Card style={{ gap: 4 }}>
         <AppText variant="bodyStrong">{t("circle.log.title", locale)}</AppText>
         {log.length === 0 ? <MutedText>{t("circle.log.empty", locale)}</MutedText> : null}
-        {log.map((row) => <Text key={`${row.viewer}-${row.at}`} style={{ color: colors.ink }}>{t("circle.log.line", locale, { name: row.viewer, date: lagosDateTime(row.at) })}</Text>)}
+        {log.map((row) => <AppText variant="body" key={`${row.viewer}-${row.at}`}>{t("circle.log.line", locale, { name: row.viewer, date: lagosDateTime(row.at) })}</AppText>)}
       </Card>
     </View>
   );

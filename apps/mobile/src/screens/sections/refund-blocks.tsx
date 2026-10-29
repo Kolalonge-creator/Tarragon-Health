@@ -55,7 +55,7 @@ export function RefundStatusCard({ refreshKey = 0 }: { refreshKey?: number }) {
   if (rows.length === 0) return null;
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("refund.status.title", locale)}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("refund.status.title", locale)}</AppText>
       {rows.map((r) => {
         const note = refundTimingNote(r.state, policy);
         return (

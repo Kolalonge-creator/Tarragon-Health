@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Switch, Text, View } from "react-native";
+import { Switch, View } from "react-native";
 import { answerProxyReview, dueReviews, loadProxyReviews, reviewCategoryLabel, type ProxyReviewRow } from "@/lib/proxy-review";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -94,7 +93,6 @@ function ReviewItem({ row, onAnswered }: { row: ProxyReviewRow; onAnswered: (mes
  * answers. Not answering never removes anything; the item stays here until the person answers. Renders nothing when no one is due.
  */
 export function ProxyReviewCard() {
-  const colors = useLegacyColors();
   const [rows, setRows] = useState<ProxyReviewRow[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [notices, setNotices] = useState<string[]>([]);
@@ -130,9 +128,9 @@ export function ProxyReviewCard() {
       <AppText variant="bodyStrong">Yearly check on who can help you</AppText>
       <MutedText>Once a year we ask whether the people who help you still need access. Nothing changes unless you choose.</MutedText>
       {notices.map((notice) => (
-        <Text key={notice} style={{ color: colors.ink }} accessibilityRole="alert">
+        <AppText variant="body" key={notice} accessibilityRole="alert">
           {notice}
-        </Text>
+        </AppText>
       ))}
       {due.map((row) => (
         <ReviewItem

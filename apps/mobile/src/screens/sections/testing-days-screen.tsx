@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   bookTestingDay,
@@ -119,7 +119,7 @@ export function TestingDaysScreen() {
 
       {!notMember && (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{live ? "Other days" : "Upcoming testing days"}</Text>
+          <AppText variant="bodyLargeStrong">{live ? "Other days" : "Upcoming testing days"}</AppText>
           {!loading && others.length === 0 && <MutedText>No other days are open right now. Please check back soon.</MutedText>}
           {others.map((d) => (
             <Card key={d.id} style={{ gap: 6 }}>
@@ -149,7 +149,7 @@ export function TestingDaysScreen() {
 
       {(poc.results.length > 0 || poc.ecgs.length > 0) && (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>Results from your visit</Text>
+          <AppText variant="bodyLargeStrong">Results from your visit</AppText>
           {poc.results.map((r) => (
             <Card key={r.id} style={{ gap: 4 }}>
               <AppText variant="bodyStrong">{r.kind === "urinalysis" ? "Urine test" : "Sugar control (HbA1c)"}</AppText>

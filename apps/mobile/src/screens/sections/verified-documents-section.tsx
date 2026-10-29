@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   loadMyVerifiedDocuments,
@@ -59,7 +59,7 @@ export function VerifiedDocumentsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Verified documents</Text>
+      <AppText variant="bodyLargeStrong">Verified documents</AppText>
       {error && <ErrorText>{error}</ErrorText>}
       <View style={{ gap: 10 }}>
         {documents.map((d) => (

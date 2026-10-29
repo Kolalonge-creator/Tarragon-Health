@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Share, Text, TextInput, View } from "react-native";
+import { Share, TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { explainerFactText, MAX_DESCRIBE_CHARS, safetyNetLines, type Explanation, type SafetyNet } from "@tarragon/symptom-triage-engine";
 import { MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -49,7 +49,7 @@ export function DescribeBox({
 
   return (
     <View style={{ gap: 8, marginTop: 12 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{t("symptom.describe.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.describe.title")}</AppText>
       <MutedText>{t("symptom.describe.intro")}</MutedText>
       <TextInput
         accessibilityLabel={t("symptom.describe.label")}
@@ -123,7 +123,7 @@ export function SafetyBlock({ net }: { net: SafetyNet }) {
     <View testID="safety-net" style={{ gap: 4, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
       <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.net.title")}</AppText>
       {lines.map((l) => (
-        <Text key={l} style={{ fontSize: 14, color: colors.ink }}>{`- ${l}`}</Text>
+        <AppText variant="body" key={l}>{`- ${l}`}</AppText>
       ))}
       {closing.map((c) => (
         <MutedText key={c}>{c}</MutedText>

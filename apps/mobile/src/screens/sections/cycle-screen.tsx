@@ -355,9 +355,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
             <View style={{ flexBasis: "45%", flexGrow: 1 }}>
               <MutedText>{prediction.isOverdue ? "Was expected" : "Next period"}</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {longDate(prediction.predictedNextPeriodDate)}
-              </Text>
+              </AppText>
               {prediction.predictedNextPeriodEarliest && (
                 <MutedText>
                   Most likely {shortDate(prediction.predictedNextPeriodEarliest)} to{" "}
@@ -369,9 +369,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
             {planningMode && (
               <View style={{ flexBasis: "45%", flexGrow: 1 }}>
                 <MutedText>Estimated ovulation</MutedText>
-                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyLargeStrong">
                   {longDate(prediction.predictedOvulationDate)}
-                </Text>
+                </AppText>
                 {prediction.fertileWindowStart && (
                   <MutedText>
                     Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
@@ -438,9 +438,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Average cycle</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.averageCycleLengthDays} days
-              </Text>
+              </AppText>
               {prediction.stats.shortestCycleDays !== null && (
                 <MutedText>
                   {prediction.stats.shortestCycleDays}–{prediction.stats.longestCycleDays} days
@@ -449,21 +449,21 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Period length</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.averagePeriodDurationDays !== null
                   ? `${prediction.stats.averagePeriodDurationDays} days`
                   : "Not logged"}
-              </Text>
+              </AppText>
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Regularity</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.regularity === "regular"
                   ? "Regular"
                   : prediction.stats.regularity === "irregular"
                     ? "Variable"
                     : "Not enough data"}
-              </Text>
+              </AppText>
             </View>
           </View>
         </Card>

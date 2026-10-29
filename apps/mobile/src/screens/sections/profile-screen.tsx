@@ -420,7 +420,7 @@ function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: 
       >
         {checked ? <Ionicons name="checkmark" size={14} color={colors.onBrand} /> : null}
       </View>
-      <Text style={{ flex: 1, fontSize: 12.5, color: colors.muted, lineHeight: 18 }}>{label}</Text>
+      <AppText variant="body" tone="textMuted" style={{ flex: 1 }}>{label}</AppText>
     </Pressable>
   );
 }

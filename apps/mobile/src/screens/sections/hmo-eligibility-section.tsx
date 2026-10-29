@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Text, TextInput, View } from "react-native";
+import { AppState, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { HMO_RESULT_KEYS, hmoErrorKey, isPlausibleMemberNumber, loadHmoPlans, loadMyHmoChecks, requestHmoCheck, type HmoCheckRow, type HmoPlan } from "@/lib/commerce/hmo";
@@ -76,7 +76,7 @@ export function HmoEligibilitySection({ onChecked }: { onChecked?: () => void })
 
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tr("hmo.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{tr("hmo.title")}</AppText>
       <MutedText>{tr("hmo.intro")}</MutedText>
       <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.field.plan")}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

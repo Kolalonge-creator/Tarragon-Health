@@ -92,7 +92,7 @@ export function SponsorSharingControl({ organisationId }: { organisationId: stri
                     {LEVEL_COPY[level].title}
                   </AppText>
                   {"\n"}
-                  <Text style={{ fontSize: 11.5, color: colors.muted, lineHeight: 16 }}>{LEVEL_COPY[level].body}</Text>
+                  <AppText variant="caption" tone="textMuted">{LEVEL_COPY[level].body}</AppText>
                 </Text>
               );
             })}

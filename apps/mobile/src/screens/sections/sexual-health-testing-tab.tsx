@@ -173,9 +173,9 @@ export function SexualHealthTestingTab() {
             <>
               <MutedText>Based on your answers, it&apos;s worth getting these tests done:</MutedText>
               {result.recommendedScreenCodes.map((code) => (
-                <Text key={code} style={{ fontSize: 13, color: colors.ink }}>
+                <AppText variant="body" key={code}>
                   • {RECOMMENDED_SCREEN_LABEL[code] ?? code.replace(/_/g, " ")}
-                </Text>
+                </AppText>
               ))}
               <MutedText>
                 This isn&apos;t a diagnosis, just a nudge based on what you told us. Testing is quick,

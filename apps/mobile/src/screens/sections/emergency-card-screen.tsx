@@ -250,7 +250,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
 
       {lockOptIn ? (
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("lsi.title", locale)}</Text>
+          <AppText variant="bodyLargeStrong">{t("lsi.title", locale)}</AppText>
           <MutedText>{t("lsi.intro", locale)}</MutedText>
           <ErrorText>{t("lsi.warning", locale)}</ErrorText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>

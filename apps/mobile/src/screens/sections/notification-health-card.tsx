@@ -6,9 +6,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import { loadDeliveryHealth } from "@/lib/notification-settings";
 import { getNotificationPermission } from "@/lib/reminder-notifications";
 import { supabase } from "@/lib/supabase";
-import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText, PrimaryButton } from "@/ui/legacy-kit";
-import { Text } from "react-native";
 import { AppText } from "@/ui/kit/AppText";
 
 const FINDING_KEY: Record<DiagnosisFinding, MessageKey> = {
@@ -32,7 +30,6 @@ const androidConstants = (): AndroidConstants => (Platform.OS === "android" ? ((
  * still see the Tecno, Infinix and Itel steps under "not sure which phone".
  */
 export function NotificationHealthCard() {
-  const colors = useLegacyColors();
   const language = asLocale(useUiLanguage());
   const tr = (key: MessageKey) => t(key, language);
   const [state, setState] = useState<{ permission: PermissionLevel; health: DeliveryHealth | null } | null>(null);
@@ -69,9 +66,9 @@ export function NotificationHealthCard() {
       <AppText variant="bodyStrong">{tr("notif.diag.title")}</AppText>
       <MutedText>{tr("notif.diag.intro")}</MutedText>
       {d.findings.map((f) => (
-        <Text key={f} style={{ fontSize: 13.5, color: colors.ink }}>
+        <AppText variant="body" key={f}>
           {tr(FINDING_KEY[f])}
-        </Text>
+        </AppText>
       ))}
       {needsSteps && (
         <View style={{ gap: 6 }}>

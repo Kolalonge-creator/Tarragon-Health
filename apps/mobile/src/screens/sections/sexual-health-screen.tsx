@@ -172,7 +172,7 @@ function PrivacyGate({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: spacing.screen, gap: 14 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>Enter your privacy PIN</Text>
+      <AppText variant="bodyLargeStrong">Enter your privacy PIN</AppText>
       <MutedText>You set this up so this section stays private on shared devices.</MutedText>
 
       {isLocked ? (
