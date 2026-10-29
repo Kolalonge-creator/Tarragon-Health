@@ -567,6 +567,15 @@ Recorded in chat by the founder, who stated they are acting as CMO. These are fo
 | **Membership and Membership Plus switched on.** | The founder, 2026-10-27, in chat. `membership_two_member_tiers` was switched on in the live database by the admin account, with the reason recorded in the audit log. Plus now needs an admin-approved collection state at checkout (Lagos, Oyo, Osun and Ogun approved); Membership and Free are never limited by state. |
 | **Launch conditions knowingly open at switch-on.** | (1) The baseline-labs prescribing rule is drafted (`docs/design/baseline-labs-rule-proposal.md`) but unsigned and its check is not built; it waits for the CMO's answers to its four questions, then a build, then the CMO signs on the sign-off hub. (2) No live Paystack payment and refund has been run for the new tiers yet. The founder chose to proceed without either. |
 
+## Founder decisions, 2026-10-29 (Care Coordinator phone booking; extra online meeting)
+
+| Decision | Ruling | Why | Where built |
+|---|---|---|---|
+| **A Care Coordinator may book for a patient who phones in** | A coordinator finds the patient by name or phone and books on their behalf. They see name, state, phone and tier only; every lookup is audited and refused if its audit line cannot be written. The booking is a normal appointment stamped `booked_via = coordinator_phone` and attributed to the coordinator. The coordinator never takes card details or cash. | Elderly or low-literacy patients cannot use the app. It is logistics, not clinical judgement, and does not put a coordinator between a patient and a doctor by default. | PR #1409, #1410 |
+| **Membership includes one online meeting a month** | The monthly meeting is booked from times the patient's doctor has offered. A coordinator may pick one of those times for the patient. It costs nothing. | The monthly meeting already exists as an entitlement; the coordinator is only given the patient's own way of choosing. | this change |
+| **An extra online meeting costs 5,000 naira and is for paid Members only** | A Member can request an extra meeting at any time and pays 5,000 naira (500,000 kobo) for it. A patient who is not a paid Member cannot book or buy one, in the app or through a coordinator. A patient who already holds an unspent credit for it is let through. | Partly reverses the 2026-10-12 two-tier rule that no doctor-time product is for sale: `video_visit_credit` is switched back on at 500,000 kobo (it was 1,000,000, off), Members-only like the second opinion, and kept off the public price list. Every other doctor-time product stays closed. | this change |
+| **Free patient, extra meeting** | Refused with "needs to join Membership first", in the patient's app and on the coordinator screen. Staff (for example a doctor adding a result discussion) are not held to it. | Matches "the patient must be a paid member". | this change |
+
 ## CMO decisions, 2026-10-28 (baseline labs rule, version 2)
 
 | Decision | Chosen |

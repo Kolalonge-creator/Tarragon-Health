@@ -6,6 +6,7 @@ import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { verifyTransactionDetail } from "@/lib/paystack/transactions";
 import { PAID_APPOINTMENT_PRODUCT_CODE } from "@/app/(dashboard)/patient/appointments/appointment-labels";
+import { describeFollowupError, formatLagos, myFollowupsSchema, pickResultSchema, type MyFollowups } from "@/lib/followups/followups";
 
 export type FoundPatient = {
   patientId: string;
@@ -178,4 +179,43 @@ export async function retryConfirm(appointmentId: string): Promise<{ ok: true; s
   const { data, error } = await supabase.rpc("confirm_appointment_booking", { p_appointment_id: appointmentId });
   if (error) return { error: error.message };
   return { ok: true, status: data.status };
+}
+
+/**
+ * A Member's included monthly meeting: the doctor offers times and the patient picks one. This reads what has been offered to the patient
+ * the coordinator is speaking to. The database function admits a care coordinator of the patient's own organisation and nobody else, so an
+ * unrelated id answers with nothing rather than someone's offers.
+ */
+export async function getMonthlyMeeting(patientId: string): Promise<{ meeting: MyFollowups } | { error: string }> {
+  if (!appointmentIdSchema.safeParse(patientId).success) return { error: "That patient could not be found" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_followups" as never, { p_patient: patientId } as never);
+  if (error) return { error: "Could not load this patient's monthly meeting. Try again." };
+  const parsed = myFollowupsSchema.safeParse(data);
+  if (!parsed.success) return { error: "Could not read this patient's monthly meeting. Try again." };
+  return { meeting: parsed.data };
+}
+
+/**
+ * The coordinator picks one of the offered times for the patient, on the call. Same function the patient uses: it runs the live hold and
+ * confirm, spends the month's included meeting (no payment), and stamps the booking as made by the coordinator by phone.
+ */
+export async function pickMonthlySlot(slotId: string): Promise<{ message: string } | { error: string }> {
+  if (!appointmentIdSchema.safeParse(slotId).success) return { error: "That time could not be found" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("pick_followup_slot" as never, { p_slot: slotId, p_ask_longer: false } as never);
+  if (error) return { error: describeFollowupError(error, "Could not book that time. Try again or pick another.") };
+  const parsed = pickResultSchema.safeParse(data);
+  if (!parsed.success) return { error: "Could not book that time. Try again or pick another." };
+  switch (parsed.data.status) {
+    case "booked":
+      return { message: `Booked for ${parsed.data.starts_at ? formatLagos(parsed.data.starts_at) : "the chosen time"}. It is on the patient's appointments now.` };
+    case "unavailable":
+      return { error: "That time was just taken. Pick another." };
+    case "expired":
+    case "withdrawn":
+      return { error: "These times have expired. The doctor will offer new ones." };
+    default:
+      return { error: "Could not book that time. Try again or pick another." };
+  }
 }

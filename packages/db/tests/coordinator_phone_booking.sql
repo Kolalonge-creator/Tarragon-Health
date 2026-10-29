@@ -144,9 +144,11 @@ begin
   perform pg_temp.rec('coordinator cannot hold a paid item for a Free patient (P0001, upgrade_first)', 'true',
     (v_h like 'ERR P0001:%join Membership%|upgrade_first')::text);
   v_h := pg_temp.hold_as(v_free, v_free, v_doc, v_start + interval '1 day');
-  perform pg_temp.rec('a Free patient booking for themselves is not touched by that rule', 'true', (v_h !~ '^ERR')::text);
+  perform pg_temp.rec('a Free patient booking an extra meeting for themselves is refused too (decision 2026-10-29)', 'true',
+    (v_h like 'ERR P0001:You need to join Membership%|upgrade_first')::text);
+  v_h := pg_temp.hold_as(v_member, v_member, v_doc, v_start + interval '1 day');
   v_own := case when v_h !~ '^ERR' then v_h::uuid end;
-  perform pg_temp.rec('the patient''s own booking is stamped self', 'self/' || v_free::text,
+  perform pg_temp.rec('a Member booking for themselves is stamped self', 'self/' || v_member::text,
     (select booked_via || '/' || booked_by::text from public.appointments where id = v_own));
 
   -- ===== 3. a Member, no credit: held for payment =====
