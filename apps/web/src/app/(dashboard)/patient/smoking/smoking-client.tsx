@@ -44,9 +44,9 @@ export function SmokingClient({ patientId }: { patientId: string }) {
       {(status === "current" || status === "former") && (
         <HeroMetric
           label={t("Smoke-free")}
-          value={checkIns.isLoading ? null : streak > 0 ? String(streak) : null}
+          value={checkIns.isLoading || checkIns.isError ? null : streak > 0 ? String(streak) : null}
           unit={streak === 1 ? "day in a row" : "days in a row"}
-          emptyText={checkIns.isLoading ? t("Loading…") : t("Log a check-in to start your streak.")}
+          emptyText={checkIns.isError ? t("We couldn't load this just now. Try again in a moment.") : checkIns.isLoading ? t("Loading…") : t("Log a check-in to start your streak.")}
         />
       )}
 
