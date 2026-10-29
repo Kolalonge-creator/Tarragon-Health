@@ -369,25 +369,6 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
       {/* Choose a pharmacy for prescribed medicines and show the collection code (S28e). Shows nothing while collection is not open or nothing is waiting. */}
       {ownsReminders ? <PharmacyCollectCard tr={tr} /> : null}
 
-      {ownsReminders && issues.length > 0 ? (
-        <Card style={{ gap: space.sm }}>
-          <AppText variant="bodyStrong">{tr("meds.reminder_health.title")}</AppText>
-          {issues.map((issue) => (
-            <InlineAlert key={issue} tone="info" message={tr(ISSUE_TEXT[issue])} />
-          ))}
-          <AppText variant="caption" tone="textMuted">
-            {tr("meds.reminder_health.list_still_right")}
-          </AppText>
-          <Button title={tr("meds.reminder_health.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
-          <Button title={tr("meds.reminder_health.send_test")} variant="ghost" onPress={() => void testReminder()} />
-        </Card>
-      ) : null}
-
-      {ownsReminders ? <ReminderReliabilityCard /> : null}
-
-      {Platform.OS === "android" && ownsReminders ? (
-        <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
-      ) : null}
 
       <View style={{ gap: space.md }}>
         <AppText variant="title" heading>
@@ -541,6 +522,27 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
           </>
         )}
       </View>
+
+      {/* Reminder health sits under Today's doses: doses are the job of this screen, fixing reminders is secondary. */}
+      {ownsReminders && issues.length > 0 ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="bodyStrong">{tr("meds.reminder_health.title")}</AppText>
+          {issues.map((issue) => (
+            <InlineAlert key={issue} tone="info" message={tr(ISSUE_TEXT[issue])} />
+          ))}
+          <AppText variant="caption" tone="textMuted">
+            {tr("meds.reminder_health.list_still_right")}
+          </AppText>
+          <Button title={tr("meds.reminder_health.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
+          <Button title={tr("meds.reminder_health.send_test")} variant="ghost" onPress={() => void testReminder()} />
+        </Card>
+      ) : null}
+
+      {ownsReminders ? <ReminderReliabilityCard /> : null}
+
+      {Platform.OS === "android" && ownsReminders ? (
+        <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
+      ) : null}
 
       {ranOutPrompt ? (
         <Card style={{ gap: space.sm }}>

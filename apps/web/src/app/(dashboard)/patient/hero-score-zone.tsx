@@ -45,11 +45,11 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
       )}
 
       {!isLoading && !isError && !hasScore && (
-        // A brand-new patient has no score yet — an honest invitation, never
+        // No score is stored yet (new patient, or readings not scored yet) — an honest invitation, never
         // a fake number or a fabricated status word.
         <p className="max-w-sm text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Log your first readings and your score appears here. It builds from the everyday
-          numbers you already track.
+          Your score appears here once we have a few days of your readings. It builds from the
+          everyday numbers you already track.
         </p>
       )}
 
