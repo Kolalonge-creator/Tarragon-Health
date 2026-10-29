@@ -79,7 +79,7 @@ function DraftForm({ draft, uiLanguage }: { draft: ReportDraft; uiLanguage: UiLa
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor={dateId}>{t("biomarkers.reported.date", uiLanguage)}</Label>
-            <Input id={dateId} type="date" required value={date} max={new Date().toISOString().slice(0, 10)} min="1990-01-01" onChange={(e) => setDate(e.target.value)} className="max-w-[12rem]" />
+            <Input id={dateId} type="date" required value={date} min="1990-01-01" onChange={(e) => setDate(e.target.value)} className="max-w-[12rem]" />
           </div>
           <ul className="space-y-3">
             {draft.rows.map((r) => {

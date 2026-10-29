@@ -25,8 +25,9 @@ export async function confirmMyLabReport(input: unknown): Promise<ConfirmReporte
     p_report_date: parsed.data.reportDate,
   });
   if (error) {
-    // the database messages are written for people ("give the date printed on the report"), never a raw error
-    return { ok: false, error: error.code === "22023" || error.code === "42501" ? error.message : "We could not save these numbers. Try again." };
+    // 22023 messages are written for people ("give the date printed on the report"). Anything else, including a permission error, is
+    // never shown raw: it can carry internal wording.
+    return { ok: false, error: error.code === "22023" ? error.message : "We could not save these numbers. Try again." };
   }
   revalidatePath("/patient/biomarkers");
   return { ok: true, saved: typeof data === "number" ? data : 0 };

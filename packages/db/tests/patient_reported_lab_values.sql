@@ -81,7 +81,9 @@ begin
           '[{"code":"hba1c","value":6.8,"unit":"%","reportedLabel":"HbA1c"},
             {"code":"ldl","value":3.4,"unit":"mmol/L","reportedLabel":"LDL"},
             {"code":"hiv","value":null,"valueText":"non reactive"},
-            {"code":"hep_b","value":1,"unit":"","reportedLabel":"HBsAg"}]'::jsonb)
+            {"code":"hep_b","value":1,"unit":"","reportedLabel":"HBsAg"},
+            {"code":"hbv_dna","value":400,"unit":"IU/mL","reportedLabel":"HBV DNA"},
+            {"code":"cd4_count","value":350,"unit":"cells/uL","reportedLabel":"CD4"}]'::jsonb)
   returning id into v_ext;
   insert into public.lab_report_extractions (organisation_id, patient_id, document_id, status, report_date, rows)
   values (v_org, v_patient, v_doc_clinic, 'extracted', date '2026-09-01', '[{"code":"hba1c","value":9.9,"unit":"%"}]'::jsonb)
@@ -94,7 +96,7 @@ begin
   reset role;
   if jsonb_array_length(v_json) <> 1 then raise exception 'FAIL 1: expected 1 draft for the patient (their own upload only), got %', jsonb_array_length(v_json); end if;
   if jsonb_array_length(v_json -> 0 -> 'rows') <> 2 then
-    raise exception 'FAIL 1: expected 2 offered numbers (hba1c, ldl; not hiv or hep_b), got %', v_json -> 0 -> 'rows';
+    raise exception 'FAIL 1: expected 2 offered numbers (hba1c, ldl; not hiv, hep_b, hbv_dna or cd4_count), got %', v_json -> 0 -> 'rows';
   end if;
   if (v_json -> 0 ->> 'confirmed')::boolean then raise exception 'FAIL 1: draft reads as already confirmed'; end if;
 
