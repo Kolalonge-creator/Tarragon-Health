@@ -205,3 +205,6 @@ begin
     raise exception 'hold_appointment_slot was not updated';
   end if;
 end $$;
+
+-- the analytics views are rebuilt when a base table gains a column (oq39_analytics_clean_views_drift proof)
+select private.rebuild_analytics_clean_views();
