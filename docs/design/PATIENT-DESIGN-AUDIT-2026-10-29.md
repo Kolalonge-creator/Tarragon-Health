@@ -248,7 +248,8 @@ P2 status: all five flagship screens have had their pass on web/mobile as descri
 **P3 - the long pages (REBUILD verdicts)**
 13. Labs (11,624px), Health Check (8,710), Wellbeing (7,188), Profile (5,972), Care & support (4,983), Care Circle (3,756), Appointments/Find a specialist/Directory (results-first cards).
    - **Labs (web): done in code.** Results stay first and order/booking status stays visible. The long ordering material (annual bundle, full test catalogue, branch directory) is folded into one "Request a lab test" section (new shared `Disclosure` component). Released results show the latest three with "Show earlier results (N)"; interpreted results show three with the rest folded. Verified structurally in the browser on the local patient (no lab data there, so the 11,624px page was NOT reproduced and the new height is not measured on real data).
-   - Health Check, Wellbeing, Profile, Care & support, Care Circle, Appointments: not started.
+   - **Health Check (web): done.** Measured in the browser at phone width: 8,972px down to 2,008px. The five steps now show progress ("N of 4 steps done", only when every step could be read) and each row is one full tap target; step 2 links to the wellbeing section. The lab-booking card keeps the Health Check packages visible and folds "Confidential screenings" and "Other self-service tests". The wellbeing questionnaire (about 4,400px; PHQ-9, GAD-7, AUDIT-C, EPDS) is folded by default and its questions are untouched, since it is a clinical instrument. A one-question-at-a-time version is a separate clinical-sign-off decision. Fixed on the way: a confidential test could have been preselected inside a folded list; the default is now the Core package only (regression test added).
+   - Wellbeing, Profile, Care & support, Care Circle, Appointments: not started.
 
 **P4 - the tracker family (Weight, Sleep, Alcohol, Smoking, Nutrition, Fasting, Exercise, Activity)** as one Metric template.
 

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { Disclosure } from "@/components/ui/disclosure";
 import { NAV_ICON } from "@/lib/icons";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
@@ -162,7 +163,7 @@ export default async function HealthCheckPage() {
       title: "2. Mental wellbeing",
       state: wellbeingStage.kind,
       label: wellbeingStage.label,
-      href: null,
+      href: "#wellbeing",
     },
     {
       title: "3. Your measurements",
@@ -196,6 +197,13 @@ export default async function HealthCheckPage() {
     },
   ];
 
+  // Progress counts the four steps that can be proved; Immunisations is always a review, never "done". Shown only when every
+  // counted step could be read, so a failed read never turns into a misleading number.
+  const counted = stages.slice(0, 4);
+  const progress = counted.every((st) => st.state !== "neutral")
+    ? { done: counted.filter((st) => st.state === "done").length, total: counted.length }
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -215,28 +223,51 @@ export default async function HealthCheckPage() {
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-base">Your {year} check</CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {stages.map((stage) => (
-            <div key={stage.title} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-              <div>
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {stage.state !== "neutral" && (
-                  <Badge variant={stage.state === "done" ? "green" : "amber"}>
-                    {stage.state === "done" ? "Done" : "To do"}
-                  </Badge>
-                )}
-                {stage.href && (
-                  <Link href={stage.href} className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
-                    Open →
-                  </Link>
-                )}
+          {progress && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                {progress.done} of {progress.total} steps done
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Health Check progress"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.done}
+                className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15"
+              >
+                <div className="h-full rounded-full bg-brand-green" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
               </div>
             </div>
-          ))}
+          )}
+        </CardHeader>
+        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+          {stages.map((stage) => {
+            const body = (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {stage.state !== "neutral" && (
+                    <Badge variant={stage.state === "done" ? "green" : "amber"}>
+                      {stage.state === "done" ? "Done" : "To do"}
+                    </Badge>
+                  )}
+                  {stage.href && <span aria-hidden className="text-sm text-brand-green dark:text-brand-green-bright">→</span>}
+                </div>
+              </>
+            );
+            const rowClass = "flex min-h-11 items-center justify-between gap-3 py-3 first:pt-0 last:pb-0";
+            return stage.href ? (
+              <Link key={stage.title} href={stage.href} className={`${rowClass} hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green`}>
+                {body}
+              </Link>
+            ) : (
+              <div key={stage.title} className={rowClass}>{body}</div>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -307,11 +338,16 @@ export default async function HealthCheckPage() {
 
       <HealthCheckVideoConsultCard consult={check?.video_consult ?? null} />
 
-      <MentalHealthSummary patientId={profile.id} />
-
-      <div>
-        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Mental wellbeing check-in</h2>
-        <MentalHealthScreenForm patientId={profile.id} />
+      {/* Step 2 lives here. Always folded (the questionnaire is about 4,400px tall): the step row above links to it, and the
+          patient opens it on purpose. The questions themselves are a clinical instrument and are shown exactly as signed. */}
+      <div id="wellbeing" className="scroll-mt-20">
+        <Disclosure
+          title="Mental wellbeing check-in"
+          hint={wellbeingStage.label}
+        >
+          <MentalHealthSummary patientId={profile.id} />
+          <MentalHealthScreenForm patientId={profile.id} />
+        </Disclosure>
       </div>
     </div>
   );
