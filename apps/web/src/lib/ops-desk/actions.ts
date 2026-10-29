@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { rpcVoid } from "@/lib/rota/rpc";
+import { RotaError, rpcVoid } from "@/lib/rota/rpc";
 import { runAndRedirect } from "@/lib/rota/run";
-import { calleeKindSchema, callOutcomeSchema, parseWindowLines } from "./schemas";
+import { calleeKindSchema, callOutcomeSchema, parseWindowLines, toE164ForTestCall } from "./schemas";
 
 /**
  * The ops desk forms (OQ-441). Every rule lives in the database: who may do what, that a number must be confirmed and real before a
@@ -70,5 +70,16 @@ export async function attestItem(fd: FormData): Promise<void> {
       p_evidence: text(fd, "evidence"),
     });
     return "Your statement was recorded under your name and today's date.";
+  });
+}
+
+/** Records that a person phoned this number and the contact answered. Replaces confirming the number by a texted code, which this platform cannot send. */
+export async function recordTestCall(fd: FormData): Promise<void> {
+  // both ops desk pages post their own path as returnTo
+  await runAndRedirect(fd, PAGE, async () => {
+    const phone = toE164ForTestCall(text(fd, "phone"));
+    if (!phone) throw new RotaError("Enter the number with its country code, for example +2348012345678, or a Nigerian number starting with 0.", "22023");
+    await rpcVoid(await createClient(), "record_ops_contact_test_call", { p_profile: z.uuid().parse(text(fd, "profile")), p_phone: phone, p_note: text(fd, "note") });
+    return "The test call was recorded under your name. The number now counts as confirmed for this contact.";
   });
 }

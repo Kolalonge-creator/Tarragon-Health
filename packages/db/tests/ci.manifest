@@ -1356,6 +1356,8 @@ cgj_caregiver_in_consultation.sql
 oq451_oq452_signing_and_deep_health.sql
 # The CMO chooses the test page window (set_paging_test_page_days): CMO only, input bounds, one new signed version changing only the days, old version kept, audited, refused with reasons when an on-call clinician would be left unready. Sabotage: CMO made inactive; the change check flips.
 cmo_sets_test_page_days.sql
+# Ops desk contact number confirmed by a recorded test call when no texted code is possible: admin or CMO only, admin target, E.164 and not a placeholder, note required, activation needs it, newest wins, audited. Sabotage: records removed; the number check flips.
+ops_contact_test_call_phone.sql
 proxy_yearly_access_review.sql
 
 # --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
