@@ -1665,4 +1665,6 @@ patient_reported_lab_values.sql
 screening_result_chase_task.sql
 # On-call cover guard: the Chief Medical Officer switches on_call_cover_ok (admin no longer can switch it on, still can switch it off); the CMO passes the role check and is stopped only by the unmet 7-day rota condition. Sabotage: handing the guard back to the admin flips both role checks.
 on_call_cover_guard_cmo_switch.sql
+# CMO availability window: a Chief Medical Officer can declare their own availability up to 120 days ahead; everyone else stays at 31 days; a start in the past is still refused. Sabotage: the old 31 day function put back refuses the CMO's 100 day block.
+cmo_availability_window.sql
 membership_start_routes_prior_uploads.sql
