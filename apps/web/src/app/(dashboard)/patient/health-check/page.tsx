@@ -192,7 +192,7 @@ export default async function HealthCheckPage({
       title: "4. Screenings",
       state: screenings.kind,
       label: screenings.label,
-      href: "/patient/prevention#screenings",
+      href: "/patient/health-check?step=tests",
     },
     {
       title: "5. Immunisations",
@@ -237,6 +237,9 @@ export default async function HealthCheckPage({
         </div>
       ) : view === "tests" ? (
         <>
+          <Link href="/patient/prevention#screenings" className="text-sm font-medium text-brand-green underline dark:text-brand-green-bright">
+            See all your screenings
+          </Link>
           {/* The lab tests behind the screenings step. Self-arranged: we write the request, the patient uses any lab and uploads the result back here. */}
           <AnnualHealthCheckBooking
             patientId={profile.id}
@@ -301,16 +304,6 @@ export default async function HealthCheckPage({
               <div key={stage.title} className={rowClass}>{body}</div>
             );
           })}
-          <Link
-            href="/patient/health-check?step=tests"
-            className="flex min-h-11 items-center justify-between gap-3 py-3 last:pb-0 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-          >
-            <div>
-              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Lab tests for your check</p>
-              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Request them, then add your results</p>
-            </div>
-            <span aria-hidden className="text-sm text-brand-green dark:text-brand-green-bright">→</span>
-          </Link>
         </CardContent>
       </Card>
 

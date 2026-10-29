@@ -70,7 +70,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-4">
-      {isError ? (
+      {isLatestError ? (
         <p className="rounded-2xl bg-white p-5 text-sm text-red-600 dark:bg-night-card dark:text-red-300">
           We couldn&apos;t load your Health Score just now. Try again in a moment.
         </p>

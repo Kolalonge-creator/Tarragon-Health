@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { HeroMetric } from "@/components/ui/hero-metric";
-import { useWeeklyActivityMinutes } from "@/lib/queries/activity";
+import { useActivityGoal, useWeeklyActivityMinutes } from "@/lib/queries/activity";
 import { WHO_WEEKLY_TARGET_MINUTES } from "@/lib/activity/intensity";
 import { Disclosure } from "@/components/ui/disclosure";
 
@@ -56,6 +56,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
   const resting = gate?.decision === "rest";
   const weekly = useWeeklyActivityMinutes(patientId);
+  const goalMinutes = useActivityGoal(patientId).data?.weekly_active_minutes_goal ?? WHO_WEEKLY_TARGET_MINUTES;
   const activeCount = (enrollments.data ?? []).filter((e) => e.status === "active").length;
 
   return (
@@ -73,7 +74,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
           <HeroMetric
             label="Active this week"
             value={weekly.isLoading ? null : Math.round(weekly.data ?? 0)}
-            unit={`of ${WHO_WEEKLY_TARGET_MINUTES} minutes`}
+            unit={`of ${goalMinutes} minutes`}
             caption={
               (weekly.data ?? 0) === 0
                 ? "Nothing logged in the last 7 days. Any movement counts, and a short walk is a good start."

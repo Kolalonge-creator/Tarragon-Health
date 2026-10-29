@@ -6,7 +6,8 @@ import { ExerciseClient } from "./exercise-client";
 const weekly = { isLoading: false, isError: false, data: 90 as number | undefined };
 const gateState = { data: { gate: { decision: "ok" } } as unknown };
 
-jest.mock("@/lib/queries/activity", () => ({ useWeeklyActivityMinutes: () => weekly }));
+const goalState = { data: { weekly_active_minutes_goal: 100 } as { weekly_active_minutes_goal: number } | null };
+jest.mock("@/lib/queries/activity", () => ({ useWeeklyActivityMinutes: () => weekly, useActivityGoal: () => goalState }));
 jest.mock("@/lib/queries/exercise", () => ({
   useExerciseProgrammes: () => ({ data: [] }),
   useLatestReadinessScreen: () => ({ data: null }),
@@ -29,7 +30,13 @@ describe("Exercise page weekly progress", () => {
   it("shows the minutes from the workout log", () => {
     render(<ExerciseClient patientId="p1" />);
     expect(screen.getByText("90")).toBeTruthy();
+    expect(screen.getByText(/of 100 minutes/)).toBeTruthy();
+  });
+  it("falls back to the 150-minute guideline when there is no saved goal", () => {
+    goalState.data = null;
+    render(<ExerciseClient patientId="p1" />);
     expect(screen.getByText(/of 150 minutes/)).toBeTruthy();
+    goalState.data = { weekly_active_minutes_goal: 100 };
   });
   it("a failed read is a retry line, not a zero", () => {
     weekly.isError = true;

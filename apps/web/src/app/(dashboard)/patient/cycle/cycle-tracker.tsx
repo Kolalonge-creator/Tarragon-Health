@@ -188,6 +188,12 @@ export function CycleTracker({
   const { stats } = prediction;
   const confidence = CONFIDENCE_BADGE[prediction.confidence];
   const hasHistory = cycles.length > 0;
+  // The countdown only makes sense while periods are expected: not for a pregnant or menopausal life stage, and never beside an urgent flag,
+  // where the flag is the one thing the page should lead with.
+  const hero = cycleHero(prediction);
+  const showHero =
+    (lifeStage === "menstruating" || lifeStage === "trying_to_conceive") &&
+    !prediction.flags.some((flag) => flag.severity === "urgent");
   const reading = suggestCycleReading({
     phase: prediction.currentPhase,
     lifeStage,
@@ -219,18 +225,15 @@ export function CycleTracker({
     <div className="space-y-6">
       <FlagCard flags={prediction.flags} />
 
-      {(() => {
-        const hero = cycleHero(prediction);
-        return (
-          <HeroMetric
-            label="Period countdown"
-            value={hero.value}
-            unit={hero.unit}
-            caption={hero.value === null ? undefined : hero.caption}
-            emptyText={hero.caption}
-          />
-        );
-      })()}
+      {showHero && (
+        <HeroMetric
+          label="Period countdown"
+          value={hero.value}
+          unit={hero.unit}
+          caption={hero.value === null ? undefined : hero.caption}
+          emptyText={hero.caption}
+        />
+      )}
 
       {/* ---------- Where you are now ---------- */}
       <Card>
