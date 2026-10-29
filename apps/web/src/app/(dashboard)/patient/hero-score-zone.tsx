@@ -45,11 +45,11 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
       )}
 
       {!isLoading && !isError && !hasScore && (
-        // No score is stored yet (new patient, or readings not scored yet) — an honest invitation, never
+        // No score is stored yet. It is computed when a blood pressure or weight reading is logged (by hand or from a paired device), so one reading is enough: no waiting period — an honest invitation, never
         // a fake number or a fabricated status word.
         <p className="max-w-sm text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Your score appears here once we have a few days of your readings. It builds from the
-          everyday numbers you already track.
+          Your score appears here after your next blood pressure or weight reading. It builds from
+          the everyday numbers you already track.
         </p>
       )}
 
