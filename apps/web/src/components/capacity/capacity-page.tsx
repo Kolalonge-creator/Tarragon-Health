@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
@@ -46,6 +47,15 @@ export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath
           {o.surge_active ? <Badge variant="amber">Surge mode on</Badge> : null}
           {o.pause_active ? <Badge variant="red">Pause on</Badge> : null}
         </div>
+        {isCmo && basePath === "/clinician/capacity" ? (
+          <p className="text-sm text-muted-foreground">
+            You switch the on-call cover guard on or off on the{" "}
+            <Link href="/clinician/go-live" className="font-medium text-brand-green underline underline-offset-2">
+              Go-live guards page
+            </Link>
+            . Switching it on needs a note and a rota with a primary and an eligible backup for the next 7 days. Switching it off is always allowed and takes effect at once: new care pack sales are then refused while the intake gate is on.
+          </p>
+        ) : null}
         <ul className="list-disc space-y-1 pl-5 text-sm">
           <li>
             Places with lead clinicians: {g.lead_free} free of {g.lead_capacity} ({g.lead_in_use} in use). Sales stop below {g.min_lead_headroom} free.
