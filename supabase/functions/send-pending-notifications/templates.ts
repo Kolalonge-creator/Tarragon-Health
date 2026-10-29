@@ -121,7 +121,6 @@ function ackTimeoutEmail(message: string): { subject: string; html: string; text
   };
 }
 
-
 export function renderBroadcastEmailHtml(
   content: BroadcastEmailContent | null | undefined,
   fallbackSubject: string,
