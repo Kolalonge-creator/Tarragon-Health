@@ -460,7 +460,7 @@
   },
   {
    "file": "apps/web/src/lib/ai-governance/run-document-capture-eval-suites.ts",
-   "category": "app server code (AI-018 evaluation runner: read-only service-role reads of admin-scoped AI governance tables; records nothing itself)"
+   "category": "AI-018 evaluation runner: service-role client READS ai_systems, ai_evaluation_suites and ai_evaluation_cases only (admin-scoped governance tables); it writes no table (reviewed 2026-10-29)"
   },
   {
    "file": "apps/web/src/lib/ai-governance/run-imaging-eval-suites.ts",
