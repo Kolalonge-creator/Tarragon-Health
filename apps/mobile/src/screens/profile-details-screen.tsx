@@ -5,7 +5,7 @@ import { ta } from "@/lib/auth/auth-locale";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { planDemographicsUpdate, SEX_OPTIONS, type DemographicsReason } from "@/lib/demographics";
 import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText, PrimaryButton } from "@/ui/components";
+import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
 const inputStyle = {
   borderWidth: 1,
@@ -32,10 +32,13 @@ export function ProfileDetailsScreen({
   userId,
   current,
   onDone,
+  onSignOut,
 }: {
   userId: string;
   current: { sex: string | null; dateOfBirth: string | null };
   onDone: (saved: { sex: string | null; dateOfBirth: string | null }) => void;
+  /** This screen stops the app opening, so it must never trap anyone: they can always sign out. */
+  onSignOut: () => void;
 }) {
   const locale = DEFAULT_LOCALE;
   const [sex, setSex] = useState<string | null>(current.sex);
@@ -127,6 +130,10 @@ export function ProfileDetailsScreen({
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       <PrimaryButton title="Continue" onPress={() => void save()} loading={saving} />
+
+      {/* A gate that stops the app opening must not stand between a person and help. Wording for the CMO to confirm. */}
+      <MutedText>If this is an emergency, call 112 or go to the nearest hospital now.</MutedText>
+      <SecondaryButton title="Sign out" onPress={onSignOut} />
     </ScrollView>
   );
 }

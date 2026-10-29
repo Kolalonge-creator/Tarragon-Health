@@ -433,6 +433,7 @@ function AppContent() {
           userId={session.user.id}
           current={{ sex: identity.sex, dateOfBirth: identity.dateOfBirth }}
           onDone={(saved) => setIdentity((prev) => (prev ? { ...prev, sex: saved.sex, dateOfBirth: saved.dateOfBirth } : prev))}
+          onSignOut={() => void signOutOfThisPhone()}
         />
       </SafeAreaView>
     );
