@@ -169,10 +169,11 @@ begin
     exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and not is_on));
   -- G-01: a feature opens without a condition branch; it is held again at once (with a reason) so the closed checks below keep their meaning
   v_t := pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', true, 'G-01 proof: a feature opens without a condition')$q$);
-  perform pg_temp.ck('R2 G-01: the CMO opens it without a condition, and holds it again with a reason',
-    v_t = 'ok'
-    and pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', false, 'G-01 proof: held again for the closed checks')$q$) = 'ok'
-    and not exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and is_on));
+  perform pg_temp.ck('R2a G-01: the CMO opens it without a condition', v_t = 'ok');
+  -- separate statements: an uncorrelated subquery in the same expression is evaluated before the switch and would read the old row
+  v_t := pg_temp.as_try(v_cmo, $q$select public.set_go_live_guard('record_triggered_lessons_enabled', false, 'G-01 proof: held again for the closed checks')$q$);
+  perform pg_temp.ck('R2b G-01: ...and holds it again with a reason', v_t = 'ok');
+  perform pg_temp.ck('R2c ...and it is off again', not exists (select 1 from public.go_live_guards where key = 'record_triggered_lessons_enabled' and is_on));
   perform pg_temp.ck('R3 the six lessons it points at are draft placeholders',
     (select count(*) = 6 and bool_and(content_status = 'draft' and is_placeholder) from public.health_education_content
       where code in ('record-bp-in-target', 'record-bp-above-target', 'record-glucose-in-target', 'record-glucose-above-target', 'record-lab-hba1c-normal', 'record-lab-hba1c-high')));

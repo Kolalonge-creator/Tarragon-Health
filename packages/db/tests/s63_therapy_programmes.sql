@@ -372,14 +372,19 @@ begin
   delete from public.therapy_exclusion_list_versions where programme_code = 'panic_breathing' and version = 2;
 end $$;
 
--- 7. Go-live guards: seven, off, cannot be switched on from unmet conditions -------------------------------------------------------
+-- 7. Go-live guards: seven, off, features under the clinical operations master (G-01) -------------------------------------------------------
 do $$
 begin
   perform pg_temp.ck('seven therapy guards exist', '7', (select count(*)::text from public.go_live_guards where key like 'therapy\_%\_enabled'));
   perform pg_temp.ck('...all off', '0', (select count(*)::text from public.go_live_guards where key like 'therapy\_%\_enabled' and is_on));
-  perform pg_temp.ck('the CMO cannot switch one on while conditions are unmet', 'true',
-    (pg_temp.try_as(pg_temp.f('cmo'), $q$select public.set_go_live_guard('therapy_panic_breathing_enabled', true, 'trying it out for a test')$q$) <> 'ok')::text);
-  perform pg_temp.ck('...it is still off', 'false', (select is_on::text from public.go_live_guards where key = 'therapy_panic_breathing_enabled'));
+  -- G-01: a therapy guard is a feature under clinical_operations_enabled. The CMO may switch it on without a condition, but it stays
+  -- closed while that master is off, and it can be held again with a reason.
+  perform pg_temp.ck('the CMO can switch one on with conditions unmet (G-01)', 'ok',
+    pg_temp.try_as(pg_temp.f('cmo'), $q$select public.set_go_live_guard('therapy_panic_breathing_enabled', true, 'trying it out for a test')$q$));
+  perform pg_temp.ck('...but it reads closed while the clinical operations master is off', 'false', private.go_live_guard_on('therapy_panic_breathing_enabled')::text);
+  perform pg_temp.ck('...and the CMO holds it again with a reason', 'ok',
+    pg_temp.try_as(pg_temp.f('cmo'), $q$select public.set_go_live_guard('therapy_panic_breathing_enabled', false, 'Held again after the proof check')$q$));
+  perform pg_temp.ck('...it is off again', 'false', (select is_on::text from public.go_live_guards where key = 'therapy_panic_breathing_enabled'));
   perform pg_temp.ck('content_approved is unmet while the version is a draft', 'false',
     (select (c ->> 'met') from jsonb_array_elements(private.go_live_conditions('therapy_pelvic_floor_enabled', null)) c where c ->> 'code' = 'content_approved'));
   perform pg_temp.ck('a CMO can attest cover', 'ok',

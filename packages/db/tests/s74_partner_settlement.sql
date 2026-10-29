@@ -183,8 +183,9 @@ end $$;
 do $$
 declare v_t1 uuid := pg_temp.f('t1'); v_t2 uuid := pg_temp.f('t2'); j text;
 begin
-  perform pg_temp.r('4.1 the guard cannot be switched on while no term is approved (gate refuses)', 'true',
-    (pg_temp.msg_as(pg_temp.f('a2'), $q$select public.set_go_live_guard('partner_settlement_enabled', true, 'Trying before any terms are approved')::text$q$) like 'ERR:%')::text);
+  -- G-01: partner_settlement_enabled is a feature. The approved-term condition is still reported on the dashboard, but it no longer blocks the switch.
+  perform pg_temp.r('4.1 the approved-term condition reads unmet while no term is approved (reported, not enforced)', 'false',
+    (select c ->> 'met' from jsonb_array_elements(private.go_live_conditions('partner_settlement_enabled', pg_temp.f('org'))) c where c ->> 'code' = 'settlement_terms_approved'));
   perform pg_temp.r('4.2 ...and it stayed off', 'false', (select is_on::text from public.go_live_guards where key = 'partner_settlement_enabled'));
   perform pg_temp.do_as(pg_temp.f('a2'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t1));
   perform pg_temp.do_as(pg_temp.f('a2'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t2));
