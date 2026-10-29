@@ -181,6 +181,20 @@ function isPrinted(needleCompact: string, printedCompact: string): boolean {
 const VERDICT_TERM =
   /\b(normal|abnormal|high|low|elevated|raised|borderline|healthy|unhealthy|concerning|worrying|critical|dangerous|serious|good|bad|within (?:the )?(?:normal |reference )?range|out of range|in range|should|recommend(?:ed|s)?|advis(?:e|ed|ing)|consult|avoid|safe|diagnos\w*|indicat(?:es|ing)|suggest(?:s|ing)?)\b/gi;
 
+/**
+ * A field label is a name, not a transcribed value: "Haemoglobin Reference
+ * range" is a fair name for the Reference-range cell of the Haemoglobin row, even
+ * though the page prints the two words in different places (row and column
+ * header). So a label passes when every word in it is printed somewhere on the
+ * page. An invented name still fails, because its word is not on the page.
+ * Values and units stay strictly literal (isPrinted on the whole text).
+ */
+function isLabelPrinted(label: string, printedCompact: string): boolean {
+  if (isPrinted(compact(label), printedCompact)) return true;
+  const words = label.split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.every((w) => isPrinted(compact(w), printedCompact));
+}
+
 function verdictTerms(text: string): string[] {
   return Array.from(text.matchAll(VERDICT_TERM), (m) => m[0].toLowerCase());
 }
@@ -209,7 +223,8 @@ function commonViolations(suggestions: Suggestions, printed: string): Violation[
       ["unit", f.unit],
     ];
     for (const [part, text] of parts) {
-      if (!text || isPrinted(compact(text), printedCompact)) continue;
+      if (!text) continue;
+      if (part === "label" ? isLabelPrinted(text, printedCompact) : isPrinted(compact(text), printedCompact)) continue;
       violations.push({
         kind: verdictTerms(text).length > 0 ? "commentary" : "not_printed",
         detail: `field ${JSON.stringify(f.key)} ${part}=${JSON.stringify(text)}`,
@@ -435,7 +450,7 @@ export function scoreBaselineSuite(
  */
 export async function runAiDocumentCaptureEvalSuites(options?: {
   onSuiteComplete?: (result: EvalSuiteResult, context: { aiSystemId: string }) => Promise<void> | void;
-}): Promise<{ aiSystemId: string; suites: EvalSuiteResult[] }> {
+}): Promise<{ aiSystemId: string; suites: EvalSuiteResult[]; extractedByCase: Record<string, DocumentCaptureResult> }> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. This eval makes real model calls and needs it.");
   }
@@ -456,5 +471,5 @@ export async function runAiDocumentCaptureEvalSuites(options?: {
     suites.push(baselineResult);
   }
 
-  return { aiSystemId, suites };
+  return { aiSystemId, suites, extractedByCase: rawByCase };
 }
