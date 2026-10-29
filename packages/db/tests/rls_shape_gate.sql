@@ -79,7 +79,9 @@ language sql as $$
      -- baseline: owner-only by supporter_id = auth.uid() (a supporter reads their own acknowledgements); found live 2026-10-27, the only one
      and pt.t not in ('care_circle_alert_acks',
                       -- S90: the read policy is an EXISTS over care_gaps, so it inherits care_gaps' own tied policy (reviewed 2026-10-28)
-                      'care_gap_attempts')
+                      'care_gap_attempts',
+                      -- W-01: owner-only by clinician_profile_id = auth.uid(); a clinician reads their own time rows, no patient or staff path (reviewed 2026-10-29)
+                      'clinician_time_entries')
   union all
   select 'staff_read_not_registered', pt.t from pt
    where exists (select 1 from readpol r, staffy s where r.t = pt.t and r.q ~ s.re)
