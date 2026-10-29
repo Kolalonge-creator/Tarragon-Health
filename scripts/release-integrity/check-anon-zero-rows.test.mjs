@@ -97,3 +97,24 @@ test("the local-replay variant ends in one JSON aggregate that extractRows can r
   // what psql -q -A -t prints for that final statement: one line holding the array
   assert.equal(extractRows(JSON.stringify(sample)).length, 2);
 });
+
+const allPublicOk = () => [...PUBLIC_BY_DESIGN].map((t) => { const [s, n] = t.split("."); return rel(s, n, { row_count: t === POSITIVE_CONTROL ? 1 : 0 }); });
+
+test("a public-by-design table anon is refused on is broken, not safe (sabotage: the 2026-10-29 marketing_resources / public_impact_metrics 42501)", () => {
+  assert.deepEqual(evaluate(allPublicOk()).brokenPublic, []);
+  const rows = allPublicOk().map((r) => (r.rel_name === "marketing_resources" || r.rel_name === "public_impact_metrics" ? { ...r, status: "denied", row_count: 0 } : r));
+  const r = evaluate(rows);
+  assert.equal(r.brokenPublic.length, 2);
+  assert.match(r.brokenPublic.join(" "), /public\.marketing_resources \(denied\)/);
+  assert.match(r.brokenPublic.join(" "), /public\.public_impact_metrics \(denied\)/);
+  assert.equal(r.controlOk, true);
+});
+
+test("a public-by-design table that is missing from the scan is flagged (stale allowlist or dropped table)", () => {
+  const r = evaluate(allPublicOk().filter((x) => x.rel_name !== "passport_signing_keys"));
+  assert.deepEqual(r.brokenPublic, ["public.passport_signing_keys (not found in the scan)"]);
+});
+
+test("a denied table that is NOT public by design stays fine", () => {
+  assert.deepEqual(evaluate([...allPublicOk(), rel("public", "profiles", { status: "denied" })]).brokenPublic, []);
+});
