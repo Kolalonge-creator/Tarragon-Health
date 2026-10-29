@@ -10,6 +10,8 @@
 # runs nowhere is the exact problem this manifest was added to fix.
 care_access_request_identity_and_pending_read_window.sql
 care_access_request_phone_proof.sql
+# P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
+exercise_session_logs.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql
 force_safe_patient_order_insert_defaults.sql
 refund_ledger_reversal.sql
@@ -1352,6 +1354,8 @@ s19e_native_page_receipts.sql
 cgj_caregiver_in_consultation.sql
 # OQ-451 and OQ-452: signing/activation functions for the task layer and paging delivery configs (CMO only; version frozen once signed or in force; a new version is a new row; a version older than one signed is never made live; the paging activation REFUSES with a reason list until every non-test on-call clinician has a working push subscription, a verified email and a test page acknowledged inside the version window; nobody on call is itself a refusal) and platform_deep_health() (service role only; stale or missing queue and pager heartbeats, open sev1 count). Sabotage: the freeze guard, the checklist and the CMO test each removed; each must flip.
 oq451_oq452_signing_and_deep_health.sql
+# The CMO chooses the test page window (set_paging_test_page_days): CMO only, input bounds, one new signed version changing only the days, old version kept, audited, refused with reasons when an on-call clinician would be left unready. Sabotage: CMO made inactive; the change check flips.
+cmo_sets_test_page_days.sql
 proxy_yearly_access_review.sql
 
 # --- Added 2026-10-16 (hardening: result document replacement supersedes) ---
@@ -1665,6 +1669,8 @@ patient_reported_lab_values.sql
 screening_result_chase_task.sql
 # On-call cover guard: the Chief Medical Officer switches on_call_cover_ok (admin no longer can switch it on, still can switch it off); the CMO passes the role check and is stopped only by the unmet 7-day rota condition. Sabotage: handing the guard back to the admin flips both role checks.
 on_call_cover_guard_cmo_switch.sql
+# Extra online meeting (5,000 naira, paid members only) and a coordinator booking a Member monthly meeting: product on sale and hidden from the public list; Members-only trigger; Membership gate on every self/caregiver/coordinator booking; coordinator may list and pick offered monthly times (own organisation only). Sabotage: coordinator check, Membership trigger, tier gate must each flip.
+coordinator_extra_meeting_and_monthly_booking.sql
 # CMO availability window: a Chief Medical Officer can declare their own availability up to 120 days ahead; everyone else stays at 31 days; a start in the past is still refused. Sabotage: the old 31 day function put back refuses the CMO's 100 day block.
 cmo_availability_window.sql
 membership_start_routes_prior_uploads.sql
