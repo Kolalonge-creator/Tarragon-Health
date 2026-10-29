@@ -36,7 +36,7 @@ create index exercise_session_logs_enrollment_idx on public.exercise_session_log
 comment on table public.exercise_session_logs is
   'Exercise sessions a patient recorded as done. The only source for exercise progress: nothing else counts a session. Self-reported, never a clinical measurement.';
 comment on column public.exercise_session_logs.symptom_during is
-  'Patient''s own answer to "chest pain, dizziness or unusual breathlessness during it". Shown to staff only through a care tie. A Member's symptom also opens a clinician alert (20261029211315).';
+  'Patient''s own answer to "chest pain, dizziness or unusual breathlessness during it". Shown to staff only through a care tie. For a Member it also opens a clinician alert (20261029211315).';
 
 -- Date bounds and enrolment ownership. Insert only: a later correction (typo in minutes) must not be blocked by the 30-day window.
 create or replace function private.exercise_session_log_guard()
