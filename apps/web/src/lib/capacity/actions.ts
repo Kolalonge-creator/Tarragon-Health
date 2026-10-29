@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { rpcVoid } from "@/lib/rota/rpc";
+import { RotaError, rpcParsed, rpcVoid } from "@/lib/rota/rpc";
+import { describeActivationReason } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { runAndRedirect } from "@/lib/rota/run";
 import { lagosLocalToIso } from "@/lib/rota/time";
 
@@ -87,5 +88,26 @@ export async function respondCoverOffer(fd: FormData): Promise<void> {
     const fit = text(fd, "answer") === "fit";
     await rpcVoid(await createClient(), "respond_cover_offer", { p_offer: z.uuid().parse(text(fd, "id")), p_fit: fit, p_note: text(fd, "note") || null });
     return fit ? "Thank you. Your answer is recorded." : "Thank you. The clinical lead has been asked to arrange cover for that shift.";
+  });
+}
+
+const testPageDays = z.coerce.number().int().min(1).max(365);
+const testPageDaysAnswer = z.object({
+  changed: z.boolean(),
+  version: z.number().int().optional(),
+  days: z.number().int().optional(),
+  reasons: z.array(z.object({ clinician_id: z.string().optional(), name: z.string().nullish(), gaps: z.array(z.string()).optional() })).default([]),
+});
+
+/** The Chief Medical Officer chooses how many days an acknowledged test page keeps an on-call clinician ready. The database does the signing. */
+export async function setPagingTestPageDays(fd: FormData): Promise<void> {
+  await runAndRedirect(fd, "/clinician/capacity", async () => {
+    const days = testPageDays.parse(text(fd, "days"));
+    const answer = await rpcParsed(await createClient(), "set_paging_test_page_days", { p_days: days, p_reason: text(fd, "reason") }, testPageDaysAnswer);
+    if (!answer.changed) {
+      const who = answer.reasons.slice(0, 3).map((r) => describeActivationReason({ code: "clinician_not_ready", ...r }));
+      throw new RotaError(`Not changed. With ${days} days these on-call clinicians would not be ready: ${who.join("; ")}${answer.reasons.length > 3 ? ` and ${answer.reasons.length - 3} more` : ""}.`, "22023");
+    }
+    return `A test page now keeps a clinician ready for ${days} days. It is signed in your name as paging configuration version ${answer.version}.`;
   });
 }

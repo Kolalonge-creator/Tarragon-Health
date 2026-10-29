@@ -37,3 +37,18 @@ export async function getOpsModeStatus(): Promise<OpsModeStatus | null> {
     return null;
   }
 }
+
+/** The test page window in force (paging_delivery_config.readiness_test_page_days), in days. Never throws: null hides the control's current value. */
+export async function getPagingTestPageDays(): Promise<number | null> {
+  try {
+    const client = (await createClient()) as unknown as {
+      from(table: string): { select(c: string): { eq(c: string, v: boolean): { order(c: string, o: { ascending: boolean }): { limit(n: number): PromiseLike<{ data: { rules: unknown }[] | null; error: unknown }> } } } };
+    };
+    const { data, error } = await client.from("paging_delivery_config").select("version, rules").eq("is_active", true).order("version", { ascending: false }).limit(1);
+    if (error || !data?.[0]) return null;
+    const days = (data[0].rules as Record<string, unknown> | null)?.readiness_test_page_days;
+    return typeof days === "number" && Number.isInteger(days) && days > 0 ? days : null;
+  } catch {
+    return null;
+  }
+}

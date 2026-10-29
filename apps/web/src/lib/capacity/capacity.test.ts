@@ -11,7 +11,7 @@ jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: (f
 import { safeRotaReturnTo } from "@/lib/rota/return-to";
 import { DEVICE_GUIDES, GENERAL_DEVICE_STEPS } from "./device-guides";
 import { coverOverviewSchema, fireDrillReportSchema, GATE_REASON_LABEL, intakeOverviewSchema, myCoverOffersSchema, opsModeStatusSchema } from "./schemas";
-import { decidePause, overrideRestRule, requestPause, respondCoverOffer, setIntakeOverride, startOpsMode } from "./actions";
+import { decidePause, overrideRestRule, requestPause, respondCoverOffer, setIntakeOverride, setPagingTestPageDays, startOpsMode } from "./actions";
 
 const form = (o: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.set(k, v); return f; };
 const run = async (fn: (f: FormData) => Promise<void>, f: FormData) => { try { await fn(f); return "no redirect"; } catch (e) { return decodeURIComponent((e as Error).message); } };
@@ -116,5 +116,32 @@ describe("the actions send the right call and show the database's sentence", () 
     expect(rpc).toHaveBeenLastCalledWith("respond_cover_offer", { p_offer: ID, p_fit: true, p_note: null });
     await run(respondCoverOffer, form({ id: ID, answer: "cover", note: "Please arrange cover" }));
     expect(rpc).toHaveBeenLastCalledWith("respond_cover_offer", { p_offer: ID, p_fit: false, p_note: "Please arrange cover" });
+  });
+});
+
+describe("the CMO's test page window", () => {
+  it("sends the days and the reason and says it is signed", async () => {
+    rpc.mockResolvedValueOnce({ data: { changed: true, version: 4, days: 60, reasons: [] }, error: null });
+    const out = await run(setPagingTestPageDays, form({ days: "60", reason: "two months is enough", returnTo: "/clinician/capacity" }));
+    expect(rpc).toHaveBeenCalledWith("set_paging_test_page_days", { p_days: 60, p_reason: "two months is enough" });
+    expect(out).toMatch(/REDIRECT \/clinician\/capacity\?ok=.*60 days.*version 4/);
+  });
+
+  it("shows who is not ready and says nothing was changed", async () => {
+    rpc.mockResolvedValueOnce({ data: { changed: false, reasons: [{ clinician_id: ID, name: "Dr Isaac Longe", gaps: ["test_page"] }] }, error: null });
+    const out = await run(setPagingTestPageDays, form({ days: "7", reason: "back to a week", returnTo: "/clinician/capacity" }));
+    expect(out).toMatch(/error=.*Not changed.*Dr Isaac Longe.*test page/);
+  });
+
+  it("refuses days outside 1 to 365 before asking the database", async () => {
+    const out = await run(setPagingTestPageDays, form({ days: "400", reason: "far too long a window", returnTo: "/clinician/capacity" }));
+    expect(rpc).not.toHaveBeenCalled();
+    expect(out).toMatch(/error=/);
+  });
+
+  it("shows the database's own sentence when it refuses", async () => {
+    rpc.mockResolvedValueOnce({ error: { message: "the test page window is already 90 days", code: "23514" } });
+    const out = await run(setPagingTestPageDays, form({ days: "90", reason: "same as before", returnTo: "/clinician/capacity" }));
+    expect(out).toMatch(/error=.*already 90 days/);
   });
 });
