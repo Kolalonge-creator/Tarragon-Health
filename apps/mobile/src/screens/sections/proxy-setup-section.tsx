@@ -46,7 +46,7 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
         paddingHorizontal: 12,
         borderRadius: 999,
         backgroundColor: on ? colors.brand : colors.groupBg,
-        color: on ? "#FFFFFF" : colors.ink,
+        color: on ? colors.onBrand : colors.ink,
       }}
     >
       {label}

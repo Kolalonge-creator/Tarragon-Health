@@ -53,7 +53,7 @@ export function AppearanceSetting() {
                 backgroundColor: active ? colors.brand : colors.card,
               }}
             >
-              <Text style={{ fontSize: 15, fontWeight: "600", color: active ? "#FFFFFF" : colors.ink }}>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: active ? colors.onBrand : colors.ink }}>
                 {t(choice.label, locale)}
               </Text>
             </Pressable>

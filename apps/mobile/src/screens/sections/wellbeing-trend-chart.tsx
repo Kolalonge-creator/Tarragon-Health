@@ -99,7 +99,7 @@ export function WellbeingTrendChart({ patientId, reloadToken }: { patientId: str
               paddingHorizontal: 12,
               borderRadius: 999,
               backgroundColor: mode === key ? colors.brand : colors.groupBg,
-              color: mode === key ? "#FFFFFF" : colors.ink,
+              color: mode === key ? colors.onBrand : colors.ink,
               overflow: "hidden",
             }}
           >

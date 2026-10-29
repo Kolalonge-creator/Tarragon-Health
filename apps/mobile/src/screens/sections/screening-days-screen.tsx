@@ -157,7 +157,7 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
                 paddingHorizontal: 10,
                 borderRadius: radius.control,
                 backgroundColor: selected ? colors.brand : colors.groupBg,
-                color: selected ? "#FFFFFF" : colors.ink,
+                color: selected ? colors.onBrand : colors.ink,
               }}
             >
               {b.name} ({b.price_kobo ? naira(b.price_kobo) : "price on request"})

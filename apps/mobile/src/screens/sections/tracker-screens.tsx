@@ -596,7 +596,7 @@ function PrimaryButtonChip({
         style={{
           fontSize: typeScale.body,
           fontWeight: "600",
-          color: selected ? "#FFFFFF" : colors.ink,
+          color: selected ? colors.onBrand : colors.ink,
         }}
       >
         {label}

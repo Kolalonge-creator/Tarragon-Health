@@ -240,7 +240,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                       backgroundColor: isOn ? colors.status.emergency : colors.card,
                     }}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: isOn ? "#FFFFFF" : colors.ink }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: isOn ? colors.onBrand : colors.ink }}>
                       {DANGER_SIGN_LABEL[sign]}
                     </Text>
                   </Pressable>
@@ -262,9 +262,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
               })}
             >
               {dangerSaving ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.onBrand} />
               ) : (
-                <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Get emergency guidance</Text>
+                <Text style={{ color: colors.onBrand, fontSize: 15, fontWeight: "700" }}>Get emergency guidance</Text>
               )}
             </Pressable>
           </View>
@@ -290,7 +290,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 backgroundColor: symptomType === t ? colors.brand : colors.pressed,
               }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? "#FFFFFF" : colors.muted }}>
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? colors.onBrand : colors.muted }}>
                 {SYMPTOM_LABEL[t]}
               </Text>
             </Pressable>
@@ -331,7 +331,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                     backgroundColor: isOn ? severityChipColor(n) : colors.pressed,
                   }}
                 >
-                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? "#FFFFFF" : colors.muted }}>{n}</Text>
+                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? colors.onBrand : colors.muted }}>{n}</Text>
                 </Pressable>
               );
             })}

@@ -222,7 +222,7 @@ export function HealthSummaryScreen({ patientId, onNavigate }: HealthSummaryScre
                     paddingHorizontal: 10,
                     borderRadius: 999,
                     backgroundColor: severity === s ? colors.brand : colors.groupBg,
-                    color: severity === s ? "#FFFFFF" : colors.ink,
+                    color: severity === s ? colors.onBrand : colors.ink,
                     overflow: "hidden",
                   }}
                 >

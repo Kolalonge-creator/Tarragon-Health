@@ -33,7 +33,7 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
       onPress={onPress}
       style={{ minHeight: TOUCH, justifyContent: "center", paddingHorizontal: 14, borderRadius: radius.control, backgroundColor: selected ? colors.brand : colors.groupBg }}
     >
-      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>{label}</Text>
+      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>{label}</Text>
     </Pressable>
   );
 }

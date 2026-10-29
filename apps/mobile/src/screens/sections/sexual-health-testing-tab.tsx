@@ -45,7 +45,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         paddingHorizontal: 11,
         borderRadius: 999,
         backgroundColor: active ? colors.brand : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}
@@ -278,7 +278,7 @@ function StageTracker({ status }: { status: StiCaseStatus }) {
               backgroundColor: state === "upcoming" ? colors.groupBg : state === "current" ? colors.brand : colors.brandTint,
             }}
           >
-            <Text style={{ fontSize: 11, fontWeight: "600", color: state === "current" ? "#FFFFFF" : state === "complete" ? colors.brandPressed : colors.muted }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: state === "current" ? colors.onBrand : state === "complete" ? colors.brandPressed : colors.muted }}>
               {label}
             </Text>
           </View>

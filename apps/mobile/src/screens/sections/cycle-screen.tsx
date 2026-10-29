@@ -105,7 +105,7 @@ function Chip({ label, active, onPress, tone = "neutral" }: { label: string; act
         paddingHorizontal: 11,
         borderRadius: 999,
         backgroundColor: active ? (tone === "period" ? colors.danger : colors.brand) : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}

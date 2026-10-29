@@ -69,7 +69,7 @@ function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: 
             fontSize: 13,
             fontWeight: "700",
             backgroundColor: value === n ? colors.brand : colors.groupBg,
-            color: value === n ? "#FFFFFF" : colors.ink,
+            color: value === n ? colors.onBrand : colors.ink,
             overflow: "hidden",
           }}
         >
@@ -377,7 +377,7 @@ function CheckinForm({
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
                 onPress={() => setTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : cleanWellbeingTags([...prev, tag])))}
-                style={{ fontSize: 12, fontWeight: "600", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? colors.brand : colors.groupBg, color: on ? "#FFFFFF" : colors.ink, overflow: "hidden" }}
+                style={{ fontSize: 12, fontWeight: "600", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: on ? colors.brand : colors.groupBg, color: on ? colors.onBrand : colors.ink, overflow: "hidden" }}
               >
                 {wellbeingTagLabel(tag)}
               </Text>
@@ -420,7 +420,7 @@ function CheckinForm({
                 paddingHorizontal: 10,
                 borderRadius: 999,
                 backgroundColor: freq === o.value ? colors.brand : colors.groupBg,
-                color: freq === o.value ? "#FFFFFF" : colors.ink,
+                color: freq === o.value ? colors.onBrand : colors.ink,
                 opacity: savingFreq ? 0.6 : 1,
               }}
             >

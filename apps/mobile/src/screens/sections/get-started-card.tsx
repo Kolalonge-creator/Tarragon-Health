@@ -133,7 +133,7 @@ export function GetStartedCard({
             }}
           >
             {step.done ? (
-              <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={15} color={colors.onBrand} />
             ) : (
               <AppText variant="label">{index + 1}</AppText>
             )}
@@ -170,10 +170,10 @@ export function GetStartedCard({
                     paddingHorizontal: 16,
                   }}
                 >
-                  <Text style={{ fontSize: typeScale.body, fontWeight: "700", color: "#FFFFFF" }}>
+                  <Text style={{ fontSize: typeScale.body, fontWeight: "700", color: colors.onBrand }}>
                     {step.cta}
                   </Text>
-                  <Ionicons name="chevron-forward" size={15} color="#FFFFFF" />
+                  <Ionicons name="chevron-forward" size={15} color={colors.onBrand} />
                 </Pressable>
               </>
             )}

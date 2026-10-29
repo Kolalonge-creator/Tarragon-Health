@@ -161,7 +161,7 @@ export function LabOrderTestChecklist({
                       backgroundColor: active ? colors.brand : pressed ? colors.pressed : "transparent",
                     })}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: active ? "#FFFFFF" : colors.ink }}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: active ? colors.onBrand : colors.ink }}>
                       {opt.label}
                     </Text>
                   </Pressable>

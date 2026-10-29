@@ -301,7 +301,7 @@ export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }
               paddingHorizontal: 10,
               borderRadius: 999,
               backgroundColor: type === t ? colors.brand : colors.groupBg,
-              color: type === t ? "#FFFFFF" : colors.ink,
+              color: type === t ? colors.onBrand : colors.ink,
             }}
           >
             {TYPE_LABEL[t]}
@@ -371,7 +371,7 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
               paddingHorizontal: 9,
               borderRadius: 999,
               backgroundColor: module === m ? colors.brand : colors.groupBg,
-              color: module === m ? "#FFFFFF" : colors.ink,
+              color: module === m ? colors.onBrand : colors.ink,
               textTransform: "capitalize",
             }}
           >

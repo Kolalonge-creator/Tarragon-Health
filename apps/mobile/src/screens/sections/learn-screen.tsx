@@ -267,7 +267,7 @@ function LevelChip({ label, active, onPress }: { label: string; active: boolean;
         paddingHorizontal: 10,
         borderRadius: 999,
         backgroundColor: active ? colors.brand : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}

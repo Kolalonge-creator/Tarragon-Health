@@ -222,7 +222,7 @@ function GlucoseUnitSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? colors.onBrand : colors.ink }}>
               {GLUCOSE_UNIT_LABEL[option]}
             </Text>
           </Pressable>
@@ -307,7 +307,7 @@ function MeasurementUnitsSection({
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: selected ? "#FFFFFF" : colors.ink }}>{o.label}</Text>
+                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: selected ? colors.onBrand : colors.ink }}>{o.label}</Text>
                 </Pressable>
               );
             })}
@@ -385,7 +385,7 @@ function ConditionLanguageSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? colors.onBrand : colors.ink }}>
               {option === "gentle" ? "Gentle" : "Clinical"}
             </Text>
           </Pressable>
@@ -418,7 +418,7 @@ function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: 
           justifyContent: "center",
         }}
       >
-        {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+        {checked ? <Ionicons name="checkmark" size={14} color={colors.onBrand} /> : null}
       </View>
       <Text style={{ flex: 1, fontSize: 12.5, color: colors.muted, lineHeight: 18 }}>{label}</Text>
     </Pressable>

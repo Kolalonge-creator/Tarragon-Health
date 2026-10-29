@@ -45,7 +45,7 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
               onPress={() => setField(f)}
               style={{ borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12, minHeight: 44, justifyContent: "center", backgroundColor: selected ? colors.brand : colors.groupBg }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
             </Pressable>
           );
         })}

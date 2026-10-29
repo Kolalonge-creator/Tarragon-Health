@@ -108,7 +108,7 @@ function ProviderRow({ provider, organisationId, patientId }: ProviderRowProps) 
                 paddingHorizontal: 10,
                 borderRadius: 999,
                 backgroundColor: modality === option ? colors.brand : colors.groupBg,
-                color: modality === option ? "#FFFFFF" : colors.ink,
+                color: modality === option ? colors.onBrand : colors.ink,
                 overflow: "hidden",
               }}
             >
@@ -233,7 +233,7 @@ export function TherapyNetworkScreen({ organisationId, patientId, onClose }: The
               paddingHorizontal: 10,
               borderRadius: 999,
               backgroundColor: type === option.value ? colors.navy : colors.groupBg,
-              color: type === option.value ? "#FFFFFF" : colors.ink,
+              color: type === option.value ? colors.onBrand : colors.ink,
               overflow: "hidden",
             }}
           >
@@ -248,7 +248,7 @@ export function TherapyNetworkScreen({ organisationId, patientId, onClose }: The
             paddingHorizontal: 10,
             borderRadius: 999,
             backgroundColor: telemedicineOnly ? colors.navy : colors.groupBg,
-            color: telemedicineOnly ? "#FFFFFF" : colors.ink,
+            color: telemedicineOnly ? colors.onBrand : colors.ink,
             overflow: "hidden",
           }}
         >

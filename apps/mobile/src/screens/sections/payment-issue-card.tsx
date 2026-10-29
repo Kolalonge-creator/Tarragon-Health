@@ -136,7 +136,7 @@ function ActionPill({
       : tone === "outline"
         ? { borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" }
         : { backgroundColor: "transparent" };
-  const textColor = tone === "brand" ? "#FFFFFF" : colors.ink;
+  const textColor = tone === "brand" ? colors.onBrand : colors.ink;
 
   return (
     <Pressable
@@ -158,7 +158,7 @@ function ActionPill({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={tone === "brand" ? "#FFFFFF" : colors.ink} />
+        <ActivityIndicator size="small" color={tone === "brand" ? colors.onBrand : colors.ink} />
       ) : (
         <Text style={{ fontSize: 13, fontWeight: "600", color: textColor }}>{title}</Text>
       )}

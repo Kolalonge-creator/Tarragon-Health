@@ -365,7 +365,7 @@ export function WrittenQuestionsSection() {
                     backgroundColor: selected ? colors.brand : colors.groupBg,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>
                     {tr(`wq.category.${c}` as MessageKey)}
                   </Text>
                 </Pressable>
@@ -504,10 +504,10 @@ function RedFlagModal({
       >
         <View
           accessibilityViewIsModal
-          style={{ backgroundColor: "#FFFFFF", borderRadius: radius.card, overflow: "hidden", maxHeight: "85%" }}
+          style={{ backgroundColor: themeColors.card, borderRadius: radius.card, overflow: "hidden", maxHeight: "85%" }}
         >
           <View style={{ backgroundColor: themeColors.status.emergency, padding: spacing.screen }}>
-            <Text accessibilityRole="header" style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}>
+            <Text accessibilityRole="header" style={{ color: themeColors.onBrand, fontSize: 18, fontWeight: "700" }}>
               {tr("wq.red_flag.title")}
             </Text>
           </View>

@@ -826,7 +826,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                     backgroundColor: selected ? colors.brand : colors.groupBg,
                   }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>
                     {NAVIGATION_REQUEST_CATEGORY_LABEL[c]}
                   </Text>
                 </Pressable>
