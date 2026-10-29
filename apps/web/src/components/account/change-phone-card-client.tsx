@@ -18,7 +18,7 @@ import { EMAIL_OTP_MAX_LENGTH } from "@/lib/validation/otp";
 
 /**
  * Change the sign-in phone number (S03, S03b). Three steps, and nothing about the account changes until the last one:
- *  1. "Confirm it is you": a 6-digit code to the CURRENT number or the VERIFIED email (skipped when the account has neither,
+ *  1. "Confirm it is you": a code (6 digits by text, 8 by email) to the CURRENT number or the VERIFIED email (skipped when the account has neither,
  *     because then there is nothing to confirm with). The database refuses a number change without this, even if someone calls
  *     Auth directly, so this card is the friendly way through the gate, not the gate.
  *  2. The new number, which gets its own 6-digit code.
@@ -109,7 +109,7 @@ export function ChangePhoneCardClient({ locale = "en", options }: { locale?: Loc
             <input type="hidden" name="method" value={method} />
             <p className="text-sm text-charcoal-ink/60">{t("auth.phone_change.confirm_sent", locale)}</p>
             <div className="space-y-1.5">
-              <Label htmlFor="change-phone-identity-token">{t("auth.field.code", locale)}</Label>
+              <Label htmlFor="change-phone-identity-token">{t("auth.field.code_any", locale)}</Label>
               <Input
                 id="change-phone-identity-token"
                 name="token"

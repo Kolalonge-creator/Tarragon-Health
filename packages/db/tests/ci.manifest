@@ -1680,3 +1680,5 @@ governed_config_never_live_without_signature.sql
 owed_signoffs_ledger.sql
 # G-01 gate model: nine masters, features under a parent, holds with a reason, feature switching without conditions. Sabotage: the pre-G-01 lookup body.
 gate_model_masters_and_features.sql
+# Screening safety case HZ-SCR-03/06: skipped-profile count + one owned sev3 incident, request-failure incident owned by the CMO, no patient named. Sabotage: delete the v_missing block or the owner on the failure incident and steps 1/6 must fail.
+screening_scheduler_skipped_profiles_alert.sql
