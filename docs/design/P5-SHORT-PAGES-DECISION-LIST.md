@@ -45,3 +45,15 @@ Rules I applied: a safety surface is never hidden; nothing shows a fake number o
 | Group screening days, Testing days | "Part of Membership" / request form. Hide, or keep as a request form? A real waitlist needs a new table and an owner for the list. |
 
 Counts: A 6, B 12, C 4 rows, D 3. Total about 25 rows (some audit rows hold two pages), consistent with the audit's 34 pages.
+
+## Decisions taken (2026-10-29) and what was found
+Founder answers: group B = fold into hubs; group A = hide the link.
+
+Checked in code before changing anything: most of group A is **already unlinked**. The audit reached them by typing the address, not through a menu.
+- Lowcarb: linked only for someone a clinician has offered it (`LowCarbLink`). Already hidden.
+- Diary: link shown only when `guards.diaryEntryOpen`. Already hidden.
+- Result passport, Yearly reports page body: no menu link to the first; "Yearly reports for people you support" is a menu entry for everyone (left as is: it is a real feature for supporters, and hiding it needs a new supporter check in the layout).
+- Contraception: a card inside Women's health, not a menu page.
+- **Ask for your records: was linked for everyone from the Health passport nav. Fixed**: the link now shows only when the `records_request_letters` guard is open, or the person already has a request (`lib/records-request/show-link.ts`, 4 tests). A failed read hides it.
+
+Group B (12 folds into hubs) is **not done**: it is a set of separate moves, each touching a hub page, so it should be its own PR.
