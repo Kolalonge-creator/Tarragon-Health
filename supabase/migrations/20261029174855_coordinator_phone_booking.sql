@@ -448,3 +448,6 @@ begin
     raise exception 'appointments.booked_via missing';
   end if;
 end $$;
+
+-- 8. the analytics views are rebuilt when a base table gains columns (oq39_analytics_clean_views_drift proof)
+select private.rebuild_analytics_clean_views();
