@@ -220,3 +220,32 @@ describe("BookAppointment accessibility", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+describe("BookAppointment while consultations are closed (design audit P3)", () => {
+  beforeEach(() => {
+    slots = undefined;
+    isLoading = false;
+    guardOpen = true;
+    guardError = false;
+    terms = (type) => pricedTerms(type);
+  });
+
+  it("shows only the closed notice, not the appointment-type form", () => {
+    guardOpen = false;
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.getByRole("status")).not.toBeNull();
+    expect(screen.queryByLabelText("Appointment type")).toBeNull();
+  });
+
+  it("shows the appointment-type form once consultations are open", () => {
+    guardOpen = true;
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.getByLabelText("Appointment type")).not.toBeNull();
+  });
+
+  it("shows no form while the guard is still being read", () => {
+    guardOpen = undefined;
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.queryByLabelText("Appointment type")).toBeNull();
+  });
+});
