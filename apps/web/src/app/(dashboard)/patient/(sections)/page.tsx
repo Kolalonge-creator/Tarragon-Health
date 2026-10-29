@@ -163,25 +163,13 @@ export default async function PatientOverviewPage() {
           DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
       <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
 
-      {/* States plainly whether a clinician is actually watching this account
-          right now -- a founder-commissioned launch-scope audit's core
-          service-boundary rule (a local document, not tracked in this repo --
-          see the PR that introduced this card for the one it was written
-          against): a free/self-tracking patient must never be left to infer a
-          funded clinician relationship that doesn't exist. Right under the
-          hero, above the informational "since you were last here" reel. */}
+      {/* States plainly whether a clinician is actually watching this account right now: a free/self-tracking patient must never be
+          left to infer a funded clinician relationship that does not exist. */}
       <ServiceStatusCard patientId={subjectId} acting={!!acting} />
 
-      {/* A short, honest "while you were away" highlight reel — only renders
-          when the patient is returning after a real gap and something
-          actually happened (engagement/retention gap #6, 2026-08-31). Below
-          the hero deliberately: OverviewHero is the one actionable/status
-          thing the page leads with, this is informational context. */}
+      {/* Informational "while you were away" reel; renders only after a real gap and only when something happened. */}
       <SinceYouWereLastHere patientId={subjectId} acting={!!acting} />
 
-      {/* Above Quick actions, not below it: while these steps are outstanding
-          they are the most useful thing on the page, and two of the three are
-          the same destinations the quick-action row offers anyway. */}
       {showGetStarted && (
         <GetStartedCard
           progress={progress}
@@ -189,222 +177,153 @@ export default async function PatientOverviewPage() {
         />
       )}
 
-      {/* The everyday jobs, one tap from the top of the page — including the
-          Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
-          Above the stat tiles deliberately: doing beats reading, and on a
-          phone this row is what's on screen when the page opens. */}
-      <Suspense fallback={<CardSkeleton className="h-32" />}>
-        <YourFocusCard patientId={subjectId} acting={!!acting} />
-      </Suspense>
-
+      {/* The everyday jobs, one tap from the top of the page. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
-      {/* Prominent, single-screen "ask" entry point -- composes the already-
-          governed AI Coach (symptom text) and result-upload + AI summary
-          (lab result) pipelines that otherwise sit buried in Care & support
-          and Labs & bookings respectively. Above the !firstRun gate
-          deliberately: a brand-new patient with nothing logged yet is
-          exactly who most needs a fast way to ask a question or hand over a
-          result, and neither path depends on any existing record data. */}
-      <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
+      {/* A brand-new patient has nothing else to read yet, so the "ask" card stays in view for them; everyone else finds it under "More". */}
+      {firstRun && <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />}
 
-      {/* S55: this week's micro-lesson (spec 9.2). Renders nothing when there is no in-date lesson. */}
-      {profile.organisation_id && !acting && (
-        <WeeklyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
-      )}
-
-      {/* Item 7: "what this reading means" after a banded reading. Behind a go-live guard that is OFF, so it renders nothing by default; the urgent-help box always outranks it. */}
-      {profile.organisation_id && !acting && <RecordLessonCard patientId={subjectId} />}
-
-      {/* On a genuinely empty account everything below this point can only
-          report an absence, so it is not rendered at all until there is
-          something real to say. GetStartedCard above is what stands in its
-          place. */}
+      {/* Home is a short "today" list (design audit P2): today's doses, the readings the patient pins, the next appointment, and any
+          clinical risk signals. Everything else sits under "More about your health" below. On an empty account none of this can say
+          anything but "nothing yet", so it is not rendered until there is something real (GetStartedCard stands in its place). */}
       {!firstRun && (
-      <>
-      {/* Dual-state overview: a patient in a chronic programme leads with
-          monitoring numbers; a healthy patient leads with prevention. Both
-          states read the same shared record — nothing is hidden, only led
-          with differently. */}
-      {prevention.hasActiveCarePlan ? null : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {/* Without a risk assessment there's no calendar to count against —
-                a friendly hint, never a bare display-scale dash. */}
-            {prevention.hasRiskAssessment ? (
-              <StatTile
-                icon={SEMANTIC_ICON.preventive}
-                label="Screenings due"
-                value={String(prevention.screeningsDueCount)}
-              />
-            ) : (
-              <StatTile
-                icon={SEMANTIC_ICON.preventive}
-                label="Screenings due"
-                empty={{ hint: "None scheduled yet" }}
-              />
+        <>
+          <TodaysDoses patientId={subjectId} />
+
+          <section aria-label="Pinned tiles" className="space-y-3">
+            {!acting && (
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">Pinned</h2>
+                {/* Hidden when the saved layout could not be read: saving from the defaults would overwrite it. */}
+                {!storedPins.readFailed && <ManageHomePins initialPins={allPins} lockedPins={lockedHomePins(pinContext)} />}
+              </div>
             )}
-            <StatTile
-              icon={SEMANTIC_ICON.labs}
-              label="Next screening"
-              {...statTileValue(
-                prevention.nextScreening
-                  ? formatPatientDate(prevention.nextScreening.dueDate, {
-                      day: "numeric",
-                      month: "short",
-                    })
-                  : null,
-                "None scheduled yet"
-              )}
+            <HomePinTiles
+              patientId={subjectId}
+              pins={pins}
+              stats={stats}
+              glucoseUnit={glucoseUnit}
+              units={measurementUnits}
+              screeningsDue={{ hasRiskAssessment: prevention.hasRiskAssessment, count: prevention.screeningsDueCount }}
+              bpTileProps={bpTileProps}
             />
-            {prevention.hasRiskAssessment ? (
-              <StatTile
-                icon={NAV_ICON.vaccination}
-                label="Vaccines due"
-                value={String(prevention.vaccinationsDueCount)}
-              />
-            ) : (
-              <StatTile
-                icon={NAV_ICON.vaccination}
-                label="Vaccines due"
-                empty={{ hint: "None scheduled yet" }}
-              />
-            )}
-        </div>
-      )}
+          </section>
 
-      {/* The tiles the patient keeps in view. Vitals and medications to start
-          with; anything else is their own choice (Customise). A patient who
-          has never customised sees what the Overview has always led with. */}
-      <section aria-label="Pinned tiles" className="space-y-3">
-        {!acting && (
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">Pinned</h2>
-            {/* Hidden when the saved layout could not be read: saving from the defaults would overwrite it. */}
-            {!storedPins.readFailed && <ManageHomePins initialPins={allPins} lockedPins={lockedHomePins(pinContext)} />}
-          </div>
-        )}
-        <HomePinTiles
-          patientId={subjectId}
-          pins={pins}
-          stats={stats}
-          glucoseUnit={glucoseUnit}
-          units={measurementUnits}
-          screeningsDue={{ hasRiskAssessment: prevention.hasRiskAssessment, count: prevention.screeningsDueCount }}
-          bpTileProps={bpTileProps}
-        />
-      </section>
+          <Suspense fallback={<CardSkeleton className="h-56" />}>
+            <CareScheduleCard patientId={subjectId} />
+          </Suspense>
 
-      {/* The catalogue's cheapest currently-buyable services, directly on the
-          page every patient lands on — this is where the paid-per-service
-          doctor-time revenue actually gets bought, and until now the only
-          way in was four rows down "Your account" in the sidebar. Self-hides
-          once nothing is left to buy. Placed after the clinical snapshot
-          above (brand voice: no upsell-first dashboard) but before the
-          score/progress detail cards, so it stays in the upper half of the
-          page without displacing "how am I doing" as the thing the page
-          leads with. */}
-      <ServicesPromoCard />
+          {/* Clinical signals stay in view: they self-hide when there is nothing behind them. */}
+          <RiskSignalsCard patientId={subjectId} />
 
-      {/* Paired on lg: the breakdown behind the hero's score (the hero band
-          owns the display-scale figure now — this card is "Score details",
-          never a second hero number) beside the preventive-care checklist.
-          The checklist stays deliberately separate from the score — a
-          completion view by area (spec: "avoid presenting a misleading
-          single health score ... a prevention completion dashboard is safer
-          and more actionable"), answering "what's outstanding" rather than
-          "how am I doing overall". */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <HealthScoreCard patientId={subjectId} />
-        <Suspense fallback={<CardSkeleton className="h-32" />}>
-          <PreventionCompletionCard patientId={subjectId} />
-        </Suspense>
-      </div>
+          <details className="group rounded-2xl border border-charcoal-ink/10 bg-white p-1 dark:border-night-ink/15 dark:bg-night-card">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-4 py-2 text-sm font-semibold text-charcoal-ink hover:bg-charcoal-ink/[0.03] dark:text-night-ink [&::-webkit-details-marker]:hidden">
+              More about your health
+              <span aria-hidden className="text-charcoal-ink/60 transition-transform group-open:rotate-180 dark:text-night-ink/60">⌄</span>
+            </summary>
+            <div className="space-y-6 p-3 pt-4">
+              {/* The long "ask" form lives here; Quick actions above already offers "Upload a result" and "Message your care team". */}
+              <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
 
-      {/* Gated off by default behind the `heart_age_card` feature flag (see
-          heart-age-card.tsx's module doc) — a SCORE2 risk-age conversion,
-          deliberately NOT paired into the grid above it: this page already
-          documents "avoid presenting a misleading single health score" as
-          the reason HealthScoreCard isn't the page's only number, and a
-          second age-framed number sitting right next to it would cut
-          against that same reasoning. Renders null entirely while the flag
-          is off, so this is inert until a Clinical Director actually
-          reviews and enables it. Replaces the retired Biological Age card
-          (a linear rescale of the Health Score, no biomarkers of its own,
-          no validated methodology). */}
-      <HeartAgeCard patientId={subjectId} />
+              <Suspense fallback={<CardSkeleton className="h-32" />}>
+                <YourFocusCard patientId={subjectId} acting={!!acting} />
+              </Suspense>
 
-      {/* Behavioural engagement across areas (Patient Engagement Engine
-          spec §16.5) — distinct from both cards above: HealthScoreCard is
-          clinical status, PreventionCompletionCard is prevention-specific
-          completion. This one answers "am I keeping up" more broadly
-          (monitoring, appointments, medication, lifestyle, prevention, care
-          plan), same self-hiding + no-single-score conventions. */}
-      <Suspense fallback={<CardSkeleton className="h-32" />}>
-        <HealthProgressCard patientId={subjectId} />
-      </Suspense>
+              {/* S55: this week's micro-lesson (spec 9.2). Renders nothing when there is no in-date lesson. */}
+              {profile.organisation_id && !acting && (
+                <WeeklyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
+              )}
+              {/* Item 7: "what this reading means"; behind a go-live guard that is OFF, so it renders nothing by default. */}
+              {profile.organisation_id && !acting && <RecordLessonCard patientId={subjectId} />}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-        <LazyVitalsTrendChart patientId={subjectId} />
-        <TodaysDoses patientId={subjectId} />
-      </div>
+      {/* Dual-state overview: a patient in a chronic programme leads with
+              monitoring numbers; a healthy patient leads with prevention. Both
+              states read the same shared record — nothing is hidden, only led
+              with differently. */}
+          {prevention.hasActiveCarePlan ? null : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {/* Without a risk assessment there's no calendar to count against —
+                    a friendly hint, never a bare display-scale dash. */}
+                {prevention.hasRiskAssessment ? (
+                  <StatTile
+                    icon={SEMANTIC_ICON.preventive}
+                    label="Screenings due"
+                    value={String(prevention.screeningsDueCount)}
+                  />
+                ) : (
+                  <StatTile
+                    icon={SEMANTIC_ICON.preventive}
+                    label="Screenings due"
+                    empty={{ hint: "None scheduled yet" }}
+                  />
+                )}
+                <StatTile
+                  icon={SEMANTIC_ICON.labs}
+                  label="Next screening"
+                  {...statTileValue(
+                    prevention.nextScreening
+                      ? formatPatientDate(prevention.nextScreening.dueDate, {
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : null,
+                    "None scheduled yet"
+                  )}
+                />
+                {prevention.hasRiskAssessment ? (
+                  <StatTile
+                    icon={NAV_ICON.vaccination}
+                    label="Vaccines due"
+                    value={String(prevention.vaccinationsDueCount)}
+                  />
+                ) : (
+                  <StatTile
+                    icon={NAV_ICON.vaccination}
+                    label="Vaccines due"
+                    empty={{ hint: "None scheduled yet" }}
+                  />
+                )}
+            </div>
+          )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Suspense fallback={<CardSkeleton className="h-56" />}>
-          <CareScheduleCard patientId={subjectId} />
-        </Suspense>
-        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" linkBasePath="/patient" />
-      </div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <HealthScoreCard patientId={subjectId} />
+                <Suspense fallback={<CardSkeleton className="h-32" />}>
+                  <PreventionCompletionCard patientId={subjectId} />
+                </Suspense>
+              </div>
 
-      {/* Conditional clinical cards — each self-hides when the patient has no
-          data behind it, so for most people this band renders nothing at all.
-          Kept full-width and stacked rather than paired into a grid for that
-          reason: a two-column row whose other half returns null leaves a hole
-          in the page. */}
-      <HealthResetCard patientId={subjectId} />
-      {/* Renders nothing without an active lifestyle-programme enrolment
-          (lib/lpe/weekly-plan.ts) — additive, not a forced habit tracker for
-          every patient, same self-hiding convention as the cards above. */}
-      <WeeklyPlanCard patientId={subjectId} />
-      <RiskSignalsCard patientId={subjectId} />
-      {/* Renders nothing until at least one clinician-reviewed lab result is
-          on file — never a fabricated good/needs-attention judgement from
-          an ML-only or orientation-only signal (lib/lab-reports/
-          biomarker-categories.ts). */}
-      <BiomarkerCategoriesCard patientId={subjectId} />
-      {/* Same underlying signals as RiskSignalsCard/BiomarkerCategoriesCard
-          above, regrouped into a patient-facing "today's energy / future
-          health" mental model rather than a clinical worklist framing.
-          canViewReproductive is never inferred for a caregiver/supporter —
-          `!acting` is only true when the viewer IS the patient. */}
-      <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
-      {/* The thing a one-off lab visit structurally cannot tell someone: what
-          has moved across several results. Renders nothing until there is
-          genuinely enough history for a pattern. */}
-      <HealthTrendsCard patientId={subjectId} audience="patient" />
+              <HeartAgeCard patientId={subjectId} />
 
-      {/* Who's looking after you, and how to reach them. Full-width like the
-          clinical cards above, matching the same "a two-column row whose
-          other half returns null leaves a hole" reasoning — no longer paired
-          with HealthScoreCard now that the score leads the page in the hero
-          band. Reaching the care team
-          no longer depends on scrolling this far — "Message your care team"
-          is a quick action at the top of the page — but the thread itself
-          still belongs on Overview rather than buried in Care & support
-          (2026-07-30 patient-experience pass). */}
-      <Suspense fallback={<CardSkeleton className="h-40" />}>
-        <YourCareTeam patientId={subjectId} />
-      </Suspense>
-      {/* Deliberately inside the !firstRun block: an upgrade prompt was the
-          last thing a brand-new patient saw on their first ever visit,
-          before they had logged a single reading or been given any reason to
-          want a doctor's time. */}
-      <RequiresEntitlement
-        feature="doctor_checkin"
-        fallback={<UpgradePrompt feature="doctor_checkin" />}
-      >
-        <CareTeamContact patientId={subjectId} />
-      </RequiresEntitlement>
-      </>
+              <Suspense fallback={<CardSkeleton className="h-32" />}>
+                <HealthProgressCard patientId={subjectId} />
+              </Suspense>
+
+              <LazyVitalsTrendChart patientId={subjectId} />
+              <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" linkBasePath="/patient" />
+
+              <ServicesPromoCard />
+
+              {/* Conditional clinical cards: each self-hides when the patient has no data behind it. */}
+              <HealthResetCard patientId={subjectId} />
+              <WeeklyPlanCard patientId={subjectId} />
+              <BiomarkerCategoriesCard patientId={subjectId} />
+              <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
+              <HealthTrendsCard patientId={subjectId} audience="patient" />
+
+              <Suspense fallback={<CardSkeleton className="h-40" />}>
+                <YourCareTeam patientId={subjectId} />
+              </Suspense>
+              {/* Inside the first-run gate: an upgrade prompt must not be the last thing a brand-new patient sees. */}
+              <RequiresEntitlement
+                feature="doctor_checkin"
+                fallback={<UpgradePrompt feature="doctor_checkin" />}
+              >
+                <CareTeamContact patientId={subjectId} />
+              </RequiresEntitlement>
+            </div>
+          </details>
+        </>
       )}
     </div>
   );
