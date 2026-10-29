@@ -1667,4 +1667,6 @@ screening_result_chase_task.sql
 on_call_cover_guard_cmo_switch.sql
 # Extra online meeting (5,000 naira, paid members only) and a coordinator booking a Member monthly meeting: product on sale and hidden from the public list; Members-only trigger; Membership gate on every self/caregiver/coordinator booking; coordinator may list and pick offered monthly times (own organisation only). Sabotage: coordinator check, Membership trigger, tier gate must each flip.
 coordinator_extra_meeting_and_monthly_booking.sql
+# CMO availability window: a Chief Medical Officer can declare their own availability up to 120 days ahead; everyone else stays at 31 days; a start in the past is still refused. Sabotage: the old 31 day function put back refuses the CMO's 100 day block.
+cmo_availability_window.sql
 membership_start_routes_prior_uploads.sql

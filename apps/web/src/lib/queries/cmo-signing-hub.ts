@@ -412,7 +412,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: OPS_DESK_CONFIG_ITEM_KEY,
       title: "Ops desk checklist gate",
-      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary and deputy ops contact are active.`,
+      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary ops contact is active (a deputy is optional).`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,

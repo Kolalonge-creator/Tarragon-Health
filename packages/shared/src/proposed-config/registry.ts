@@ -1248,6 +1248,37 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; paging_delivery_config version 2 (inactive)",
   },
   {
+    key: "paging.delivery_rules_v3",
+    // The v2 delivery rules with the on-call test page valid for 90 days (three months) instead of 7: readiness_test_page_days 90. Shipped as an
+    // INACTIVE, unsigned row (the next paging_delivery_config version); the CMO activates it. Everything else is exactly v2. The CMO asked for a
+    // dashboard control to change this number later; until then a change is a new version signed from the sign-off hub.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 90,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-29",
+    source: "supabase/migrations/*_paging_delivery_config_v3_test_page_90_days_draft.sql; paging_delivery_config next version (inactive)",
+  },
+  {
     key: "paging.unified_red_rules",
     // Unified red-event paging (S19d, S16-S20 review Stage 3, CMO decision 11 part 3, defect P5). Live values are the active row of
     // `unified_red_paging_config`; this entry mirrors version 1 and a test fails if the migration seed and this value drift. The row ships
