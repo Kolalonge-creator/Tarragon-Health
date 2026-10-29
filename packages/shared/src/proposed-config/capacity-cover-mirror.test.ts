@@ -6,14 +6,14 @@ import { getProposedConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
-function migrationSql(): string {
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s16_s20_capacity_cover.sql"));
-  if (!file) throw new Error("capacity and cover migration not found");
+function migrationSql(suffix = "_s16_s20_capacity_cover.sql"): string {
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith(suffix));
+  if (!file) throw new Error(`migration ending ${suffix} not found`);
   return readFileSync(join(MIGRATIONS, file), "utf8");
 }
 
-function seeded(marker: string): Record<string, unknown> {
-  const match = new RegExp(marker + "[\\s\\S]*?\\$json\\$([\\s\\S]*?)\\$json\\$").exec(migrationSql());
+function seeded(marker: string, file = "_s16_s20_capacity_cover.sql"): Record<string, unknown> {
+  const match = new RegExp(marker + "[\\s\\S]*?\\$json\\$([\\s\\S]*?)\\$json\\$").exec(migrationSql(file));
   if (!match?.[1]) throw new Error(`seed ${marker} not found in the migration`);
   return JSON.parse(match[1]) as Record<string, unknown>;
 }
@@ -38,6 +38,16 @@ describe("capacity.cover_rules mirrors the migration seed", () => {
     }
   });
 
+  it("v3 mirrors its draft migration and differs from v2 only in leaving the intake gate unenforced", () => {
+    const v2 = getProposedConfig("capacity.cover_rules_v2").value as Record<string, unknown>;
+    const v3 = getProposedConfig("capacity.cover_rules_v3").value as Record<string, unknown>;
+    expect(seeded("capacity-cover-rules-v3-begin", "_capacity_cover_config_v3_gate_off_draft.sql")).toEqual(v3);
+    expect({ ...v3, gate_enforce: 1 }).toEqual(v2);
+    expect(v3.gate_enforce).toBe(0);
+    expect(v3.hard_rest_enforce).toBe(1);
+    expect(v3.drill_enabled).toBe(1);
+  });
+
   it("holds the 11 hour rest rule, the 90 percent within 5 minutes drill target and the 72 hour rota horizon", () => {
     const v = getProposedConfig("capacity.cover_rules").value as Record<string, number>;
     expect(v.rest_hours).toBe(11);
@@ -49,7 +59,7 @@ describe("capacity.cover_rules mirrors the migration seed", () => {
   });
 
   it("is proposed and owned by the CMO, never confirmed by the agent", () => {
-    for (const key of ["capacity.cover_rules", "capacity.cover_rules_v2", "capacity.pilot_lead_cap"]) {
+    for (const key of ["capacity.cover_rules", "capacity.cover_rules_v2", "capacity.cover_rules_v3", "capacity.pilot_lead_cap"]) {
       const e = getProposedConfig(key);
       expect(e.owner).toBe("CMO");
       expect(e.status).toBe("proposed");
