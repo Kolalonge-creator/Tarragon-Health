@@ -459,6 +459,10 @@
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },
   {
+   "file": "apps/web/src/lib/ai-governance/run-document-capture-eval-suites.ts",
+   "category": "app server code (AI-018 evaluation runner: read-only service-role reads of admin-scoped AI governance tables; records nothing itself)"
+  },
+  {
    "file": "apps/web/src/lib/ai-governance/run-imaging-eval-suites.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },
