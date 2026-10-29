@@ -314,6 +314,15 @@ export async function loadActivityState(patientId: string): Promise<QueryResult<
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
+/** The meal a person is most likely logging, from the Lagos hour. Only a starting choice; one tap changes it. Mirrors the web helper. */
+export function defaultMealType(now: Date = new Date()): MealType {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hour12: false }).format(now)) % 24;
+  if (hour >= 4 && hour < 11) return "breakfast";
+  if (hour >= 11 && hour < 16) return "lunch";
+  if (hour >= 18 && hour < 22) return "dinner";
+  return "snack";
+}
+
 /** Mirrors mealEstimateSchema in apps/web/src/lib/nutrition/meal-vision.ts. */
 export interface MealPhotoEstimate {
   items: { name: string; portion: string; est_carbs_g: number }[];
