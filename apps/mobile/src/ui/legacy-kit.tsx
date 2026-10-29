@@ -91,6 +91,31 @@ export function ErrorText({ children }: { children: ReactNode }) {
   );
 }
 
+export type StatusTone = "green" | "amber" | "red" | "blue" | "grey";
+
+/**
+ * A clinical-status chip (green, amber, red, blue, grey: a separate system from brand colour). Draws with the kit colours
+ * Badge, so it follows Light and Dark and carries its meaning in words and an icon, not colour alone.
+ */
+export function StatusChip({ tone, label }: { tone: StatusTone; label: string }) {
+  const { colors } = useTheme();
+  const spec =
+    tone === "green"
+      ? { bg: colors.brandTint, text: "brandText" as const }
+      : tone === "amber"
+        ? { bg: colors.warnBg, text: "warnText" as const }
+        : tone === "red"
+          ? { bg: colors.dangerBg, text: "dangerText" as const }
+          : { bg: colors.surfaceMuted, text: "textMuted" as const };
+  return (
+    <View accessible accessibilityLabel={label} style={{ alignSelf: "flex-start", backgroundColor: spec.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
+      <AppText variant="caption" tone={spec.text}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
+
 type BadgeTone = "brand" | "neutral";
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {

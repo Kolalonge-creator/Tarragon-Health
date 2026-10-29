@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { koboToNaira } from "@tarragon/shared";
 import {
   CONDITION_LABEL,
@@ -38,7 +38,7 @@ import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
-import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel, StatusChip, type StatusTone } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
   /** The subject whose prevention record this is — the acting-for subject's
@@ -49,19 +49,8 @@ interface PreventionScreenProps {
   organisationId?: string;
 }
 
-/** Clinical-status tones (green/amber/red/grey — a separate system from
- * brand colour, per CLAUDE.md), literal hexes mirroring the web badge
- * palette rather than ui/theme.ts's brand tokens — same convention as
- * bp-classification.ts's BP_LEVEL_COLORS. */
-const TONE = {
-  green: { bg: "#DCFCE7", text: "#15803D" },
-  amber: { bg: "#FEF3C7", text: "#B45309" },
-  red: { bg: "#FEE2E2", text: "#B91C1C" },
-  blue: { bg: "#DBEAFE", text: "#1D4ED8" },
-  grey: { bg: "#EEEEEC", text: "#57534E" },
-} as const;
 
-const TIER_TONE: Record<RiskTierValue, keyof typeof TONE> = {
+const TIER_TONE: Record<RiskTierValue, StatusTone> = {
   low: "green",
   moderate: "amber",
   high: "red",
@@ -79,7 +68,7 @@ const TIER_LABEL: Record<RiskTierValue, string> = {
 
 type ScheduleStatus = ScreeningItem["status"] | VaccinationDueItem["status"];
 
-const STATUS_TONE: Record<ScheduleStatus, keyof typeof TONE> = {
+const STATUS_TONE: Record<ScheduleStatus, StatusTone> = {
   pending: "amber",
   booked: "blue",
   completed: "green",
@@ -101,12 +90,7 @@ const STATUS_LABEL: Record<ScheduleStatus, string> = {
 
 function StatusBadge({ status, overdue }: { status: ScheduleStatus; overdue?: boolean }) {
   const effective = overdue ? "overdue" : status;
-  const tone = TONE[STATUS_TONE[effective]];
-  return (
-    <View style={{ backgroundColor: tone.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: tone.text }}>{STATUS_LABEL[effective]}</Text>
-    </View>
-  );
+  return <StatusChip tone={STATUS_TONE[effective]} label={STATUS_LABEL[effective]} />;
 }
 
 function humanizeFactor(factor: string): string {
@@ -410,7 +394,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         ) : (
           <GroupedList>
             {risk.data.map((score) => {
-              const tone = TONE[TIER_TONE[score.tier]];
+              const tone = TIER_TONE[score.tier];
               const isUnknown = score.tier === "unknown";
               const detail = isUnknown
                 ? "Not enough information yet to assess this. It isn't the same as being low risk."
@@ -425,11 +409,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   title={CONDITION_LABEL[score.condition]}
                   subtitle={detail}
                   trailing={
-                    <View style={{ backgroundColor: tone.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: tone.text }}>
-                        {isUnknown ? "Unknown" : TIER_LABEL[score.tier]}
-                      </Text>
-                    </View>
+                    <StatusChip tone={tone} label={isUnknown ? "Unknown" : TIER_LABEL[score.tier]} />
                   }
                 />
               );

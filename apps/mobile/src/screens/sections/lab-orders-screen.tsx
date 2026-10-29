@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -37,7 +37,10 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
+  StatusChip,
+  type StatusTone,
 } from "@/ui/legacy-kit";
+import { InlineAlert } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 
 interface CapturedPhoto {
@@ -162,23 +165,12 @@ function groupDocumentsByTestType(documents: ResultDocumentItem[]): { label: str
     .map((label) => ({ label, documents: byLabel.get(label)! }));
 }
 
-/** Clinical-status tones (green/amber/red/blue/grey — a separate system from
- * brand colour, per CLAUDE.md) — same literal palette as
- * prevention-screen.tsx's TONE, colocated rather than shared since each
- * screen owns a small, different set of statuses. */
-const TONE = {
-  green: { bg: "#DCFCE7", text: "#15803D" },
-  amber: { bg: "#FEF3C7", text: "#B45309" },
-  red: { bg: "#FEE2E2", text: "#B91C1C" },
-  blue: { bg: "#DBEAFE", text: "#1D4ED8" },
-  grey: { bg: "#EEEEEC", text: "#57534E" },
-} as const;
 
 /** Mirrors lab-orders-list.tsx's LAB_ORDER_STATUS_BADGE. Self-arranged: the
  * states that matter to a patient are "we've written it, go when you can"
  * and "the result is in". Payment states are retained because the enum
  * still carries them for the dormant partner path. */
-const ORDER_STATUS: Record<LabOrderStatus, { tone: keyof typeof TONE; label: string }> = {
+const ORDER_STATUS: Record<LabOrderStatus, { tone: StatusTone; label: string }> = {
   pending_payment: { tone: "amber", label: "Awaiting payment" },
   payment_confirmed: { tone: "blue", label: "Ready to take to a lab" },
   ordered: { tone: "blue", label: "Ready to take to a lab" },
@@ -190,7 +182,7 @@ const ORDER_STATUS: Record<LabOrderStatus, { tone: keyof typeof TONE; label: str
 };
 
 /** Mirrors result-status-badge.ts's RESULT_STATUS_BADGE. */
-const RESULT_STATUS: Record<ResultStatus, { tone: keyof typeof TONE; label: string }> = {
+const RESULT_STATUS: Record<ResultStatus, { tone: StatusTone; label: string }> = {
   normal: { tone: "green", label: "Normal" },
   borderline: { tone: "amber", label: "Borderline" },
   indeterminate: { tone: "amber", label: "Needs repeat testing" },
@@ -198,13 +190,8 @@ const RESULT_STATUS: Record<ResultStatus, { tone: keyof typeof TONE; label: stri
   critical: { tone: "red", label: "Needs urgent follow-up" },
 };
 
-function StatusPill({ tone, label }: { tone: keyof typeof TONE; label: string }) {
-  const c = TONE[tone];
-  return (
-    <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10, alignSelf: "flex-start" }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{label}</Text>
-    </View>
-  );
+function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+  return <StatusChip tone={tone} label={label} />;
 }
 
 function formatDate(value: string): string {
@@ -478,15 +465,7 @@ export function LabOrdersScreen() {
                   {order.orderedByName ? <MutedText>Ordered by Dr. {order.orderedByName}</MutedText> : null}
                   {order.clinicalIndication ? <MutedText>Reason: {order.clinicalIndication}</MutedText> : null}
                   {order.preparationInstructions ? (
-                    <View
-                      style={{
-                        backgroundColor: "#DBEAFE",
-                        borderRadius: 10,
-                        padding: 10,
-                      }}
-                    >
-                      <Text style={{ fontSize: 12.5, color: "#1D4ED8" }}>{order.preparationInstructions}</Text>
-                    </View>
+                    <InlineAlert tone="info" message={order.preparationInstructions} />
                   ) : null}
                   {awaiting ? (
                     <>
@@ -573,7 +552,7 @@ export function LabOrdersScreen() {
                         {doc.aiSummaryStatus === "pending" ? (
                           <MutedText>Preparing an automatic summary…</MutedText>
                         ) : doc.aiSummaryStatus === "flagged" ? (
-                          <View style={{ backgroundColor: TONE.amber.bg, borderRadius: 10, padding: 10 }}>
+                          <View style={{ backgroundColor: colors.status.warnBg, borderRadius: 10, padding: 10 }}>
                             <OutputKindLabel kind="automated_information" note="Automated summary. Not a medical opinion." />
                             <AppText variant="body" style={{ marginTop: 2 }}>
                               {doc.aiFlaggedAnalytes.length > 0
