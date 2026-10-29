@@ -1649,10 +1649,12 @@ w03_red_page_ladder.sql
 rls_shape_gate.sql
 # Care Coordinator phone booking: coordinator_find_patient (role gate, audit, fields), Free patient refused / Member held 24h, payment confirms with no session, unpaid release. Sabotage: tier check, payment trigger, coordinator role; all must flip.
 coordinator_phone_booking.sql
-# public_impact_metrics: anon reads published rows with no private.has_permission() call in its policy (the 2026-08-28 anon grant was revoked again by the 2026-08-29 resweep, so the policy is the fix). Simulated anon, non-admin and admin sessions; anon still lacks EXECUTE and cannot write. Sabotage: the old combined policy is restored and anon must fail with 42501 naming has_permission.
-public_impact_metrics_anon_select_without_has_permission.sql
 # marketing_resources_anon_select_without_is_admin.sql: anon read of marketing_resources used to fail 42501 (is_admin() in the shared policy); proves anon sees published rows only without an error, non-admin published only, admin all, anon still cannot execute is_admin() or write. Sabotage: the old combined policy is restored and anon's read must fail with 42501.
 marketing_resources_anon_select_without_is_admin.sql
+# Coordinator phone booking follow-ups: a Free patient with an unspent credit can be booked and the credit is spent; expired, redeemed and other-item credits do not count. Sabotage: credit check forced false and forced true must both flip.
+coordinator_phone_booking_followups.sql
+# public_impact_metrics: anon reads published rows with no private.has_permission() call in its policy (the 2026-08-28 anon grant was revoked again by the 2026-08-29 resweep, so the policy is the fix). Simulated anon, non-admin and admin sessions; anon still lacks EXECUTE and cannot write. Sabotage: the old combined policy is restored and anon must fail with 42501 naming has_permission.
+public_impact_metrics_anon_select_without_has_permission.sql
 # --- Repaired 2026-10-29 (preventive-pathway audit): fixtures rebuilt against the tied-staff access model, the v2 schedule_config CHECK and purged seed accounts ---
 breast_and_menopause_symptom_alerts.sql
 vaccination_declined_contraindicated_and_adverse_events.sql
