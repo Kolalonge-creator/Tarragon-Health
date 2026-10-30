@@ -34,6 +34,7 @@ import { ProxySetupSection } from "./proxy-setup-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -205,6 +206,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
         followers.length > 0 && <CareVisibilityCard followers={followers} onChanged={refresh} />
       )}
 
+      <Disclosure title="Review access and see who looked" hint="Who can see your record, and the log of what they opened.">
       {activityLogError ? (
         <Card>
           <ErrorText>We couldn&apos;t load your access history just now. Refresh to try again.</ErrorText>
@@ -217,6 +219,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
       <ProxyArrangementsCard />
 
       <ProxySetupCard />
+      </Disclosure>
 
       <CalloutCard
         icon="people-circle-outline"

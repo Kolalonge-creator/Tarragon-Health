@@ -69,3 +69,18 @@ export function compareThreads(a: TriageableThread, b: TriageableThread): number
   if (aClosed !== bClosed) return aClosed ? 1 : -1;
   return b.last_message_at.localeCompare(a.last_message_at);
 }
+
+/**
+ * Past the reply target: the patient's side spoke last and the care team has not answered within `targetHours`.
+ * Unlike "awaiting" this does not clear when someone merely opens the thread; only a reply (or closing) does,
+ * because the target is about the patient being answered, not about the message being seen.
+ */
+export function isPastReplyTarget(
+  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role">,
+  targetHours: number,
+  now: number = Date.now(),
+): boolean {
+  if (thread.status !== "open") return false;
+  if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
+  return now - new Date(thread.last_message_at).getTime() > targetHours * 3_600_000;
+}
