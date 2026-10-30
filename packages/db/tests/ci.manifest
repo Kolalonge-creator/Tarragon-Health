@@ -857,6 +857,10 @@ events_lab_order_to_specimen_notices.sql
 s21_encounters_consultations.sql
 # E9: the repeat and renewal request loop from the patient and doctor seats. Patient asks, own doctor sees it pending, another patient does not; a patient cannot approve their own; doctor approval is stamped, a denial needs a reason the patient can read, a decision is final; renewal needs membership or a credit, a Member own request is closed, a care coordinator cannot decide one; and no request or decision queues a notification today (asserted so a change is a visible edit). Sabotage: disabling the repeat-request review trigger fails section 2; queuing a repeat notification fails section 4.
 events_repeat_and_renewal_request_loop.sql
+# Events harness: critical screening result and red-flag symptom reach the clinician queue read as the clinician (RLS), paging per clinician, org boundary with control. Sabotage: clinician read policy narrowed, symptom red-flag trigger disabled.
+events_reach_clinician_queue_end_to_end.sql
+# Events harness 2: escalation routing (owner continuity, leave skipped, nobody-free stays visible) and the unacknowledged-alert ladder (1x backup, 2x seniors, 3x admins, once only, acknowledged never climbs, sweep scheduled). Sabotage: leave check, escalation triggers, ladder sweep, acknowledgement each removed.
+events_escalation_routing_and_page_ladder.sql
 # S21h the record of a clinician's Zoom host key being issued: only the server can write it, never a signed-in user or anon, no key or name ever stored (payload whitelist), unknown consultation refused; sabotage: the recorder reverted to its old kinds
 s21h_host_key_issued.sql
 # S21g scribe consent is the patient's own in-app answer only (a clinician cannot create a granted consent from nothing; the row is tied to that encounter; a withdrawal revokes it and deletes the transcript; skipped when the S23 tables are absent) and chart access after Finish (kept until a signed note exists, capped at 72 hours, lost to another clinician); sabotage: the trigger dropped, the old function body
