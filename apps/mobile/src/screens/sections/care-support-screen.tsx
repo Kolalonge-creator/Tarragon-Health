@@ -68,7 +68,6 @@ import {
   MutedText,
   PrimaryButton,
   SecondaryButton,
-  SectionLabel,
 } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
