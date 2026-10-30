@@ -76,7 +76,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "What to actually do",
         paragraphs: [
           "If you have not had your blood pressure checked, have it measured at a pharmacy, a laboratory or at home with a cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
-          "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your doctor can see whether the plan is working.",
+          "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your care team can see whether the plan is working.",
         ],
       },
     ],
@@ -102,7 +102,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "Reading your result",
         paragraphs: [
           "As a widely used guide: below 5.7% is in the normal range; 5.7–6.4% is called prediabetes, a warning zone where change still prevents diabetes; 6.5% or higher on a proper laboratory test supports a diagnosis of diabetes.",
-          "If you already live with diabetes, your doctor will set a personal target, often around 7%, balancing control against the risk of sugar going too low. Your target is a conversation, not a universal number.",
+          "If you already live with diabetes, a doctor will set a personal target, often around 7%, balancing control against the risk of sugar going too low. Your target is a conversation, not a universal number.",
         ],
       },
       {
@@ -203,7 +203,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "diabetes-just-diagnosed",
     title: "Newly diagnosed with diabetes: what happens next",
     description:
-      "The first week, the questions worth asking your doctor, and what actually changes versus what does not.",
+      "The first week, the questions worth asking a doctor, and what actually changes versus what does not.",
     category: "Diabetes",
     readMinutes: 5,
     relatedHref: "/diabetes",
@@ -218,7 +218,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually needs to happen this week",
         paragraphs: [
-          "Your doctor will confirm the type (type 1, type 2, or gestational, if you are pregnant), because that changes the plan. Expect baseline tests beyond the sugar result itself: HbA1c, kidney function, cholesterol, and blood pressure, plus a referral for an eye check. If a medicine is prescribed, start it as instructed even before you have mastered the diet side; the two work together, not in sequence.",
+          "A doctor will confirm the type (type 1, type 2, or gestational, if you are pregnant), because that changes the plan. Expect baseline tests beyond the sugar result itself: HbA1c, kidney function, cholesterol, and blood pressure, plus a referral for an eye check. If a medicine is prescribed, start it as instructed even before you have mastered the diet side; the two work together, not in sequence.",
         ],
       },
       {
@@ -296,7 +296,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The real risk is not trying them, it is stopping what works",
         paragraphs: [
-          "Do not replace a prescribed diabetes medicine with a herbal product without your doctor knowing. Tell your care team about anything you are taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
+          "Do not replace a prescribed diabetes medicine with a herbal product without your care team knowing. Tell your care team about anything you are taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
         ],
       },
       {
@@ -362,7 +362,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Monitoring: what each check actually tells you",
         paragraphs: [
-          "A home glucose check, if your doctor has prescribed one, shows today's number: useful, but a single snapshot. HbA1c, done every three to six months, shows the bigger three-month trend. They answer different questions; neither replaces the other.",
+          "A home glucose check, if a doctor has prescribed one, shows today's number: useful, but a single snapshot. HbA1c, done every three to six months, shows the bigger three-month trend. They answer different questions; neither replaces the other.",
         ],
       },
       {
@@ -418,7 +418,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "weight-loss-medication-questions-for-your-doctor",
-    title: "Weight-loss medication: what to ask your doctor before you start",
+    title: "Weight-loss medication: what to ask a doctor before you start",
     description:
       "What these medicines actually do, who they are usually considered for, and the questions worth taking to that conversation.",
     category: "Weight",
@@ -629,7 +629,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The actual risk of not taking it",
         paragraphs: [
-          "For someone whose doctor has assessed real cardiovascular risk and recommended a statin, stopping it quietly, without a conversation, removes one of the best-proven protections against a heart attack or stroke you can have. If side effects are genuinely bothering you, that is a reason to call your doctor, not to simply stop; there is almost always another option.",
+          "For someone whose doctor has assessed real cardiovascular risk and recommended a statin, stopping it quietly, without a conversation, removes one of the best-proven protections against a heart attack or stroke you can have. If side effects are genuinely bothering you, that is a reason to call a doctor, not to simply stop; there is almost always another option.",
         ],
       },
     ],
@@ -638,7 +638,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "home-blood-pressure-monitoring",
     title: "How to measure your blood pressure at home, properly",
     description:
-      "The five mistakes that quietly inflate a home reading, and how to build a measurement habit your doctor can actually trust.",
+      "The five mistakes that quietly inflate a home reading, and how to build a measurement habit your care team can actually trust.",
     category: "Blood pressure",
     readMinutes: 4,
     relatedHref: "/hypertension",
@@ -659,7 +659,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "A simple routine that removes the guesswork",
         paragraphs: [
-          "Sit quietly for five minutes first. Feet flat on the floor, back supported, arm resting at heart height. Take two readings, one minute apart, and record both rather than only the lower one. Do this at roughly the same time each day, morning and evening if your doctor has asked for that, for at least a week before any decision is made from the pattern.",
+          "Sit quietly for five minutes first. Feet flat on the floor, back supported, arm resting at heart height. Take two readings, one minute apart, and record both rather than only the lower one. Do this at roughly the same time each day, morning and evening if a doctor has asked for that, for at least a week before any decision is made from the pattern.",
         ],
       },
       {
@@ -701,7 +701,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "If cost or access is the real reason",
         paragraphs: [
-          "Tell your doctor. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that delivers, rather than a plan quietly falling apart in silence.",
+          "Tell your care team. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that delivers, rather than a plan quietly falling apart in silence.",
         ],
       },
     ],
@@ -947,7 +947,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually reverses it",
         paragraphs: [
-          "Losing 5 to 7% of body weight, regular movement, cutting sugary drinks, and eating more fibre are the changes with real evidence behind them. Most people at this stage do not need medication to turn things around, though that is a conversation for your doctor based on your specific numbers.",
+          "Losing 5 to 7% of body weight, regular movement, cutting sugary drinks, and eating more fibre are the changes with real evidence behind them. Most people at this stage do not need medication to turn things around, though that is a conversation to have with a doctor, based on your specific numbers.",
         ],
       },
       {
@@ -962,7 +962,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "diabetes-medications-explained",
     title: "Diabetes medications explained: how the tablets actually work",
     description:
-      "The main classes of diabetes tablets, in plain language, and what to actually ask your doctor or pharmacist about yours.",
+      "The main classes of diabetes tablets, in plain language, and what to actually ask a doctor or pharmacist about yours.",
     category: "Diabetes",
     readMinutes: 5,
     relatedHref: "/diabetes",
@@ -971,7 +971,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why there is not just one diabetes tablet",
         paragraphs: [
-          "Different tablets work on different parts of the problem: some help the body respond to its own insulin better, some help the pancreas release more insulin, and some help the kidneys clear excess sugar directly. Your doctor picks based on your numbers, kidney function, other conditions and cost, not a single default answer.",
+          "Different tablets work on different parts of the problem: some help the body respond to its own insulin better, some help the pancreas release more insulin, and some help the kidneys clear excess sugar directly. A doctor picks based on your numbers, kidney function, other conditions and cost, not a single default answer.",
         ],
       },
       {
@@ -1105,7 +1105,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "diabetes-and-sexual-health",
-    title: "Diabetes and sexual health: a common complication worth raising with your doctor",
+    title: "Diabetes and sexual health: a common complication worth raising with a doctor",
     description:
       "Why diabetes can affect sexual health in both men and women, and why it is a medical conversation, not an embarrassing one.",
     category: "Diabetes",
@@ -1191,7 +1191,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Why your doctor picked the one you are on",
+        heading: "Why a doctor picked the one you are on",
         paragraphs: [
           "Age, kidney function, other conditions like diabetes, pregnancy plans, and even evidence about how different groups respond, all factor into the choice. There is genuine science behind why two people with the same blood pressure reading might be started on different tablets.",
         ],
@@ -1479,7 +1479,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What helps in practice",
         paragraphs: [
-          "Setting an actual quit date rather than a vague intention, telling people around you so they can support rather than tempt, removing cigarettes and lighters from the house ahead of time, and having a plan for the specific moments that usually trigger a cigarette. Raise it with your doctor too; there are safe, effective aids that make quitting materially easier.",
+          "Setting an actual quit date rather than a vague intention, telling people around you so they can support rather than tempt, removing cigarettes and lighters from the house ahead of time, and having a plan for the specific moments that usually trigger a cigarette. Raise it with a doctor too; there are safe, effective aids that make quitting materially easier.",
         ],
       },
     ],

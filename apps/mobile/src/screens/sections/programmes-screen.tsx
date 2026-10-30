@@ -5,7 +5,7 @@ import { sponsorMinimumGroupSize } from "@tarragon/shared";
 import { joinProgramme, leaveProgramme, loadMemberships, loadSharingText, setSharing, type MembershipsLoad } from "@/lib/programmes";
 import { useUiLanguage } from "@/lib/ui-language";
 import { space } from "@/ui/design";
-import { AppText, Button, Card, EmptyState, Field, InlineAlert, Screen, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText, Button, Card, Disclosure, EmptyState, Field, InlineAlert, Screen, Skeleton, SkeletonGroup } from "@/ui/kit";
 
 const JOIN_MESSAGE: Record<string, MessageKey> = { joined: "programme.joined", already: "programme.already", code_invalid: "programme.code_invalid", error: "programme.error" };
 
@@ -58,22 +58,6 @@ export function ProgrammesScreen({ acting = false }: { acting?: boolean }) {
         </AppText>
       </View>
       {message ? <InlineAlert tone={message === "programme.error" || message === "programme.code_invalid" ? "warn" : "info"} message={t(message, locale)} /> : null}
-      <Card style={{ gap: space.xs }}>
-        <AppText variant="body" heading>
-          {t("programme.sponsor_sees_title", locale)}
-        </AppText>
-        <AppText variant="body" tone="textMuted">
-          {t("programme.sponsor_sees_body", locale, { minimum: sponsorMinimumGroupSize() })}
-        </AppText>
-      </Card>
-      <Card style={{ gap: space.xs }}>
-        <AppText variant="body" heading>
-          {t("programme.who_pays_title", locale)}
-        </AppText>
-        <AppText variant="body" tone="textMuted">
-          {t("programme.who_pays_body", locale)}
-        </AppText>
-      </Card>
       <Card style={{ gap: space.md }}>
         <Field label={t("programme.code_label", locale)} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} maxLength={20} />
         <Button
@@ -86,6 +70,24 @@ export function ProgrammesScreen({ acting = false }: { acting?: boolean }) {
           })}
         />
       </Card>
+      <Disclosure title="What your sponsor sees and who pays" hint="Read this before you join.">
+      <View style={{ gap: space.xs }}>
+        <AppText variant="body" heading>
+          {t("programme.sponsor_sees_title", locale)}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {t("programme.sponsor_sees_body", locale, { minimum: sponsorMinimumGroupSize() })}
+        </AppText>
+      </View>
+      <View style={{ gap: space.xs }}>
+        <AppText variant="body" heading>
+          {t("programme.who_pays_title", locale)}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {t("programme.who_pays_body", locale)}
+        </AppText>
+      </View>
+      </Disclosure>
       {data === null ? (
         <SkeletonGroup label={t("programme.title", locale)}>
           <Skeleton width="100%" height={120} />

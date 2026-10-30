@@ -3,6 +3,7 @@ import {
   compareThreads,
   formatWait,
   isAwaitingCareTeam,
+  isPastReplyTarget,
   waitingMs,
   type TriageableThread,
 } from "./message-triage";
@@ -94,5 +95,19 @@ describe("compareThreads", () => {
     const older = thread({ last_message_author_role: "care_team", last_message_at: at(-600) });
     const newer = thread({ last_message_author_role: "care_team", last_message_at: at(-10) });
     expect([older, newer].sort(compareThreads)).toEqual([newer, older]);
+  });
+});
+
+describe("isPastReplyTarget", () => {
+  const now = new Date("2026-10-31T12:00:00Z").getTime();
+  const open = { status: "open", last_message_author_role: "patient" };
+  it("is past once the patient has waited longer than the target", () => {
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-30T11:00:00Z" }, 24, now)).toBe(true);
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-30T13:00:00Z" }, 24, now)).toBe(false);
+  });
+  it("stays past even if someone opened the thread, and clears on a care-team reply or closing", () => {
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(true);
+    expect(isPastReplyTarget({ status: "open", last_message_author_role: "care_team", last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(false);
+    expect(isPastReplyTarget({ status: "closed", last_message_author_role: "patient", last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(false);
   });
 });
