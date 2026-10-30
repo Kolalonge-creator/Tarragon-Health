@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, Text, View } from "react-native";
+import { Linking, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { answerCallInvite, callInviteWebPath, loadMyCallInvites, type CallInvite } from "@/lib/care-circle/call-invites";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -17,7 +17,6 @@ function when(iso: string): string {
  * NOT run on a real phone.
  */
 export function CallInvitesSection() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [invites, setInvites] = useState<CallInvite[]>([]);
   const [failed, setFailed] = useState(false);
@@ -34,10 +33,10 @@ export function CallInvitesSection() {
   if (invites.length === 0) return null;
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("consult.cg.invites_title", locale)}</Text>
+      <AppText variant="title">{t("consult.cg.invites_title", locale)}</AppText>
       {invites.map((i) => (
         <Card key={i.pass_id} style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("consult.cg.invited_on", locale, { name: i.patient_first_name, when: when(i.scheduled_at) })}</Text>
+          <AppText variant="bodyStrong">{t("consult.cg.invited_on", locale, { name: i.patient_first_name, when: when(i.scheduled_at) })}</AppText>
           {i.state === "invited" ? (
             <View style={{ gap: 8 }}>
               <PrimaryButton

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
+import { HubLinks } from "@/components/ui/hub-links";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ConditionsList } from "@/components/patient/conditions-list";
 import { AllergiesList } from "@/components/patient/allergies-list";
@@ -48,6 +49,15 @@ export default async function HealthSummaryPage() {
         title="Your health summary"
         icon={SEMANTIC_ICON.carePlan}
         description="Everything about your care in one place: conditions, medicines, allergies, recent readings, investigations, care programmes, appointments, referrals, and what's still outstanding."
+      />
+      <HubLinks
+        label="Related to your health summary"
+        links={[
+          { href: "/patient/health-report", label: "Yearly health report" },
+          { href: "/patient/progress", label: "Your month" },
+          { href: "/patient/health-score", label: "Health score" },
+          { href: "/patient/medicine-report", label: "Doses marked taken" },
+        ]}
       />
 
       <div className="space-y-3">

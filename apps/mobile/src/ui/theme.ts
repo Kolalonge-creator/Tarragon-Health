@@ -12,6 +12,8 @@ export const colors = {
   /** Soft brand-green fill behind avatar initials, active nav tiles, and
    * brand-toned badges. */
   brandTint: "#E7EEE7",
+  /** Text and icons on a brand-green fill. White in both schemes. */
+  onBrand: "#FFFFFF",
   /** Slightly cooler brand-green fill used behind device/health-sync icons
    * (Devices list, Apple Health / Health Connect cards). */
   brandTintAlt: "#E8F3EE",

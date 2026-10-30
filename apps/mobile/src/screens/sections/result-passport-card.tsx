@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, Share, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { t } from "@tarragon/i18n";
 import { isPassportOpen, PASSPORT_DEFAULT_ON, PASSPORT_PERIOD_DAYS, PASSPORT_SECTIONS, savePassportCopy, type PassportSection } from "@/lib/result-passport";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Result passport on the phone (item 10): choose what goes in, build the PDF and keep a copy on this phone for a clinic with no signal.
@@ -46,7 +47,7 @@ export function ResultPassportCard() {
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("resultpassport.title")}</Text>
+      <AppText variant="title">{t("resultpassport.title")}</AppText>
       <MutedText>{t("resultpassport.description")}</MutedText>
       {PASSPORT_SECTIONS.map((s) => {
         const on = picked.includes(s.id);
@@ -59,7 +60,7 @@ export function ResultPassportCard() {
             style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6, minHeight: 44 }}
           >
             <Ionicons name={on ? "checkbox" : "square-outline"} size={26} color={on ? colors.brand : colors.muted} />
-            <Text style={{ color: colors.ink, fontSize: 16, flexShrink: 1 }}>{s.label}</Text>
+            <AppText variant="bodyLarge" style={{ flexShrink: 1 }}>{s.label}</AppText>
           </Pressable>
         );
       })}
@@ -81,10 +82,10 @@ export function ResultPassportCard() {
       {error ? <ErrorText>{error}</ErrorText> : null}
       {saved ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{t("resultpassport.saved_phone")}</Text>
+          <AppText variant="bodyLargeStrong">{t("resultpassport.saved_phone")}</AppText>
           <MutedText>{saved.name}</MutedText>
           <Pressable accessibilityRole="button" onPress={() => void Share.share({ url: saved.uri, title: saved.name })} style={{ minHeight: 44, justifyContent: "center" }}>
-            <Text style={{ color: colors.brand, fontSize: 16, fontWeight: "700" }}>{t("resultpassport.open_send")}</Text>
+            <Text style={{ color: colors.brand, ...textStyles.bodyLargeStrong, }}>{t("resultpassport.open_send")}</Text>
           </Pressable>
         </View>
       ) : null}

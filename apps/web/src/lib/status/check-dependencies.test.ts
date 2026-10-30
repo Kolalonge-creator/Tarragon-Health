@@ -79,11 +79,11 @@ describe("checkSupabase", () => {
 });
 
 describe("checkMlService", () => {
-  it("reports down without throwing when ML_SERVICE_URL/KEY are unset", async () => {
+  it("reports not_deployed, not down, without throwing when ML_SERVICE_URL/KEY are unset", async () => {
     delete process.env.ML_SERVICE_URL;
     delete process.env.ML_SERVICE_KEY;
     const result = await checkMlService();
-    expect(result.status).toBe("down");
+    expect(result.status).toBe("not_deployed");
   });
 
   it("reports up when the ML service's own /health responds ok", async () => {
@@ -116,7 +116,7 @@ describe("checkDependencies", () => {
     const report = await checkDependencies();
 
     expect(report.supabase.status).toBe("up");
-    expect(report.ml_service.status).toBe("down");
+    expect(report.ml_service.status).toBe("not_deployed");
     expect(report.termii).toEqual({ status: "configured" });
     expect(typeof report.checked_at).toBe("string");
   });

@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { grantFeatureConsent, loadFeatureConsentOn, type FeatureConsentType } from "@/lib/feature-consent";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -54,7 +54,7 @@ export function FeatureConsentGate({ dataType, title, children }: { dataType: Fe
         <MutedText>{t("consent.feature.declined")}</MutedText>
       ) : (
         <>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("consent.feature.ask_title")}</Text>
+          <Text style={{ ...textStyles.bodyLargeStrong, color: colors.ink }}>{t("consent.feature.ask_title")}</Text>
           <MutedText>{t(`consent.feature.${dataType}.ask` as MessageKey)}</MutedText>
           <MutedText>{t("consent.matrix.off_stops_feature_only")}</MutedText>
           {error ? <ErrorText>{error}</ErrorText> : null}

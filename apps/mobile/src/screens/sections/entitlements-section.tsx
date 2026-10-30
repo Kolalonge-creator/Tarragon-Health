@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { entitlementLines, entitlementSource, type EntitlementView, type WordingLine } from "@tarragon/commerce";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadEntitlements } from "@/lib/commerce/api";
-import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const isKey = (k: string): k is MessageKey => Object.hasOwn(en, k);
 const STATE_KEY = { active: "entitlement.state.active", expired: "entitlement.state.expired", used: "entitlement.state.used", revoked: "entitlement.state.revoked" } as const;
@@ -15,7 +15,6 @@ const STATE_KEY = { active: "entitlement.state.active", expired: "entitlement.st
  * supporter, a sponsor, the Community Access Fund). Plain text only, so it stays light on a slow connection. Never money (INV-09).
  */
 export function EntitlementsSection({ refreshKey = 0 }: { refreshKey?: number }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [rows, setRows] = useState<EntitlementView[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -34,14 +33,14 @@ export function EntitlementsSection({ refreshKey = 0 }: { refreshKey?: number })
   if (!loaded) return null;
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{t("entitlement.title", locale)}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("entitlement.title", locale)}</AppText>
       {rows.length === 0 ? <MutedText>{t("entitlement.empty", locale)}</MutedText> : null}
       {rows.map((e) => {
         const nameKey = e.nameKey;
         return (
           <View key={e.id} style={{ paddingVertical: 8, gap: 2 }} accessible accessibilityLabel={`${isKey(nameKey) ? t(nameKey, locale) : e.kind}`}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ color: colors.ink, fontWeight: "600", flexShrink: 1 }}>{isKey(nameKey) ? t(nameKey, locale) : e.kind}</Text>
+              <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>{isKey(nameKey) ? t(nameKey, locale) : e.kind}</AppText>
               <Badge tone={e.state === "active" ? "brand" : "neutral"}>{t(STATE_KEY[e.state], locale)}</Badge>
             </View>
             {entitlementLines(e).filter((l) => !l.key.startsWith("entitlement.state.")).map((l) => (<MutedText key={l.key}>{say(l)}</MutedText>))}

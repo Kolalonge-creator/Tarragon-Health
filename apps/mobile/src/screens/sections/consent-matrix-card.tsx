@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { CONSENT_DATA_TYPES, CONSENT_PURPOSES, bundleState, findCell, optionalOnCount, type ConsentMatrix } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/consent-matrix";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const key = (k: string) => k as MessageKey;
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -60,7 +61,7 @@ export function ConsentMatrixCard() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("consent.matrix.title")}</Text>
+      <AppText variant="bodyStrong">{t("consent.matrix.title")}</AppText>
       <MutedText>{t("consent.matrix.intro")}</MutedText>
       <MutedText>{t("consent.draft_notice")}</MutedText>
       {error && <ErrorText>{error}</ErrorText>}
@@ -72,7 +73,7 @@ export function ConsentMatrixCard() {
           return (
             <View key={bundle.code} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ flex: 1, fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t(key(bundle.text_key))}</Text>
+                <AppText variant="bodyStrong" style={{ flex: 1 }}>{t(key(bundle.text_key))}</AppText>
                 <Badge tone={state === "on" ? "brand" : "neutral"}>{t(key(`consent.bundle.state.${state}`))}</Badge>
               </View>
               <MutedText>{t(key(`${bundle.text_key}.body`))}</MutedText>
@@ -104,7 +105,7 @@ export function ConsentMatrixCard() {
       {advanced &&
         CONSENT_DATA_TYPES.map((dataType) => (
           <View key={dataType} style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{t(key(`consent.data.${dataType}`))}</Text>
+            <AppText variant="bodyStrong">{t(key(`consent.data.${dataType}`))}</AppText>
             {CONSENT_PURPOSES.map((purpose) => {
               const cell = findCell(matrix, dataType, purpose);
               if (!cell) return null;
@@ -112,7 +113,7 @@ export function ConsentMatrixCard() {
               return (
                 <View key={armKey} style={{ gap: 2 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t(key(`consent.purpose.${purpose}`))}</Text>
+                    <AppText variant="body" style={{ flex: 1 }}>{t(key(`consent.purpose.${purpose}`))}</AppText>
                     {cell.required_for_care ? (
                       <Badge tone="brand">{t("consent.matrix.required")}</Badge>
                     ) : (
@@ -140,9 +141,9 @@ export function ConsentMatrixCard() {
         ))}
 
       <Pressable accessibilityRole="button" onPress={() => setAdvanced((v) => !v)} hitSlop={8}>
-        <Text style={{ fontSize: 12.5, color: colors.muted, textDecorationLine: "underline" }}>
+        <AppText variant="body" tone="textMuted" style={{ textDecorationLine: "underline" }}>
           {advanced ? t("consent.matrix.simple") : t("consent.matrix.advanced")}
-        </Text>
+        </AppText>
       </Pressable>
       {optionalOnCount(matrix) > 0 &&
         (armed === "all" ? (
@@ -152,7 +153,7 @@ export function ConsentMatrixCard() {
         ))}
       <MutedText>{t("consent.matrix.care_unchanged")}</MutedText>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{t("consent.matrix.history.title")}</Text>
+      <AppText variant="label">{t("consent.matrix.history.title")}</AppText>
       {history.length === 0 ? (
         <MutedText>{t("consent.matrix.history.empty")}</MutedText>
       ) : (

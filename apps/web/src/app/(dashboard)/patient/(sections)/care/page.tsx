@@ -2,6 +2,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { createClient } from "@/lib/supabase/server";
 import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { DashboardSection } from "@/components/ui/dashboard-section";
+import { Disclosure } from "@/components/ui/disclosure";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -74,9 +75,6 @@ export default async function PatientCarePage() {
           <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
-          {/* Not entitlement-gated: lifestyle coaching is free to every
-              patient since the pay-per-service rework. */}
-          <LifestyleProgressSummary patientId={subjectId} />
         </div>
 
         <div className="space-y-4">
@@ -86,29 +84,39 @@ export default async function PatientCarePage() {
           {/* Member benefit with a monthly allowance (S22): the card reads its own allowance, never shows a price. */}
           <WrittenQuestionCard patientId={subjectId} locale={uiLanguage} />
           <VisitSummaryCard locale={uiLanguage} patientId={subjectId} readOnly={subjectId !== profile.id} />
-          <PatientNotesCard locale={uiLanguage} />
-          {/* Pure pay-per-service — no plan bypass, the card carries its own
-              buy-a-credit prompt. */}
-          <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
-          {/* Both retired from purchase 2026-09-24 (no request form left) —
-              read-only history, so each renders nothing once a patient has
-              none of its own. */}
-          <VerifiedDocumentsCard patientId={subjectId} />
-          <SeniorCaseReviewCard patientId={subjectId} />
-          {coachAccess ? <AiCoachChat patientId={subjectId} /> : <AssistantEmergencyButton />}
-          <ServiceNavigationAssistant />
-          <CareCircleCard showCommunity={showCommunity} />
           <YourReferrals patientId={subjectId} />
           <NavigationRequests patientId={subjectId} />
+          {coachAccess ? <AiCoachChat patientId={subjectId} /> : <AssistantEmergencyButton />}
         </div>
       </div>
 
+      {/* Folded to keep the page short (design audit P3): the care content above is what a patient checking in needs; these are
+          reference material and optional services. Nothing inside was changed. */}
+      <Disclosure title="Notes, documents and second opinions" hint="Your notes, verified documents and extra reviews">
+        <PatientNotesCard locale={uiLanguage} />
+        {/* Pure pay-per-service — no plan bypass, the card carries its own buy-a-credit prompt. */}
+        <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
+        {/* Both retired from purchase 2026-09-24 (no request form left): read-only history, so each renders nothing once a patient has
+            none of its own. */}
+        <VerifiedDocumentsCard patientId={subjectId} />
+        <SeniorCaseReviewCard patientId={subjectId} />
+      </Disclosure>
+
+      <Disclosure title="Help with services and people who support you" hint="Find a service, your care circle and community">
+        <ServiceNavigationAssistant />
+        <CareCircleCard showCommunity={showCommunity} />
+      </Disclosure>
+
       {/* Discretionary / engagement surfaces — real features, deliberately
           lower priority than anything above. */}
-      <CareVouchersCard patientId={subjectId} />
-      <WellnessPointsSummary patientId={subjectId} />
-      <GoalsAndMilestonesCard patientId={subjectId} />
-      <TestimonialForm />
+      <Disclosure title="Goals, rewards and feedback" hint="Lifestyle progress, goals, wellness points, vouchers and a testimonial">
+        {/* Not entitlement-gated: lifestyle coaching is free to every patient since the pay-per-service rework. */}
+        <LifestyleProgressSummary patientId={subjectId} />
+        <GoalsAndMilestonesCard patientId={subjectId} />
+        <WellnessPointsSummary patientId={subjectId} />
+        <CareVouchersCard patientId={subjectId} />
+        <TestimonialForm />
+      </Disclosure>
     </DashboardSection>
   );
 }

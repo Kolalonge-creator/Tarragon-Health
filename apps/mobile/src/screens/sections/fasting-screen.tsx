@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { fastingMessageKey, mayStartFast, type Fast } from "@tarragon/clinical/fasting-safety";
 import { UNAVAILABLE_DETAILS, type FastingDetails } from "@tarragon/clinical/fasting-details";
 import { endFastingPlan, loadFastingDetails, startFastingPlan } from "@/lib/fasting";
 import type { SectionId } from "@/lib/sections";
-import { radius, spacing, typeScale } from "@/ui/theme";
+import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const FASTS: readonly Fast[] = ["ramadan", "lent"];
 
@@ -93,7 +94,7 @@ export function FastingScreen({ acting, onNavigate }: { acting: boolean; onNavig
         <>
           <Card style={{ gap: 8 }} >
             <Badge tone={ok && answer.decision === "may_fast_with_guidance" ? "brand" : "neutral"}>{label}</Badge>
-            <Text accessibilityLiveRegion="polite" style={{ fontSize: typeScale.body, color: colors.ink }}>{t(fastingMessageKey(answer))}</Text>
+            <AppText variant="body" accessibilityLiveRegion="polite">{t(fastingMessageKey(answer))}</AppText>
           </Card>
 
           {ok ? (
@@ -104,10 +105,10 @@ export function FastingScreen({ acting, onNavigate }: { acting: boolean; onNavig
 
           {details.timingPlans.length > 0 ? (
             <Card style={{ gap: 8 }}>
-              <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{t("fasting.timing_plan.title")}</Text>
+              <AppText variant="bodyStrong">{t("fasting.timing_plan.title")}</AppText>
               {details.timingPlans.map((p) => (
                 <View key={`${p.signedAt}-${p.validTo}`} style={{ gap: 4 }}>
-                  <Text style={{ fontSize: typeScale.body, color: colors.ink }}>{p.summary}</Text>
+                  <AppText variant="body">{p.summary}</AppText>
                   <MutedText>
                     {t("fasting.timing_plan.signed_by", "en", { name: p.signedByName ?? "your care team", date: p.signedAt.slice(0, 10), from: p.validFrom, to: p.validTo })}
                   </MutedText>
@@ -119,9 +120,9 @@ export function FastingScreen({ acting, onNavigate }: { acting: boolean; onNavig
 
           {details.plan ? (
             <Card style={{ gap: 10 }}>
-              <Text style={{ fontSize: typeScale.body, color: colors.ink }}>
+              <AppText variant="body">
                 {t("fasting.plan.active", "en", { fast: t(`fasting.fast.${details.plan.fast}`), start: details.plan.startsOn, end: details.plan.endsOn })}
-              </Text>
+              </AppText>
               {details.planPaused ? <ErrorText>{t("fasting.plan.paused")}</ErrorText> : null}
               {endFailed ? <ErrorText>{t("fasting.plan.end_failed")}</ErrorText> : null}
               <SecondaryButton title={t("fasting.plan.finished")} disabled={busy} onPress={() => void stop("finished")} />
@@ -129,7 +130,7 @@ export function FastingScreen({ acting, onNavigate }: { acting: boolean; onNavig
             </Card>
           ) : mayStartFast(answer) ? (
             <Card style={{ gap: 10 }}>
-              <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{t("fasting.start.title")}</Text>
+              <AppText variant="bodyStrong">{t("fasting.start.title")}</AppText>
               <MutedText>{t("fasting.start.starts")} (YYYY-MM-DD)</MutedText>
               <TextInput value={starts} onChangeText={setStarts} placeholder="2027-02-08" autoCapitalize="none" keyboardType="numbers-and-punctuation" accessibilityLabel={t("fasting.start.starts")} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12, minHeight: 44, color: colors.ink }} />
               <MutedText>{t("fasting.start.ends")} (YYYY-MM-DD)</MutedText>

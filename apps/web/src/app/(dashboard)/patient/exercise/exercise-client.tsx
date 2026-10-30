@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Disclosure } from "@/components/ui/disclosure";
 
 const SCREEN_KEY = "exercise-readiness-screen";
 const ENROLLMENTS_KEY = "exercise-enrollments";
@@ -53,6 +54,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const plans = useWorkoutPlans();
   const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
   const resting = gate?.decision === "rest";
+  const activeCount = (enrollments.data ?? []).filter((e) => e.status === "active").length;
 
   return (
     <div className="space-y-6">
@@ -84,11 +86,8 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
       {(plans.data?.length ?? 0) > 0 && !resting && <WorkoutPlansCard plans={plans.data ?? []} patientId={patientId} />}
 
       {!resting && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Programme catalogue</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <Disclosure title="Programme catalogue" hint="Choose a programme to start" defaultOpen={activeCount === 0}>
+          <div className="space-y-3">
             {(programmes.isLoading || gateQuery.isLoading) && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
             {gate !== null &&
               (programmes.data ?? []).map((p) => (
@@ -100,9 +99,13 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
                   gateAllows={intensityAllowed(gate, p.intensity_level === "beginner" ? "gentle" : p.intensity_level)}
                 />
               ))}
-          </CardContent>
-        </Card>
+          </div>
+        </Disclosure>
       )}
+
+      <Disclosure title="Exercise readiness" hint="A few safety questions for moderate or vigorous programmes">
+        <ReadinessCard patientId={patientId} screen={screen.data} />
+      </Disclosure>
     </div>
   );
 }

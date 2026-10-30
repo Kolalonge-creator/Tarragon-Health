@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { cycleCopy, t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { MutedText } from "@/ui/legacy-kit";
 
 /**
@@ -23,7 +23,7 @@ export function ContraceptionEducation() {
   if (!open) return <MutedText>{t("contraception.edu.closed")}</MutedText>;
   return (
     <View style={{ gap: 8 }}>
-      <Text onPress={() => setShown(!shown)} style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed }}>
+      <Text onPress={() => setShown(!shown)} style={{ ...textStyles.label, color: colors.brandPressed }}>
         {shown ? "Hide the options" : t("contraception.edu.title")}
       </Text>
       {shown && (
@@ -31,15 +31,15 @@ export function ContraceptionEducation() {
           <MutedText>{t("contraception.edu.intro")}</MutedText>
           <MutedText>{t("contraception.edu.not_tracking")}</MutedText>
           {METHOD_KEYS.map((k) => (
-            <Text key={k} style={{ fontSize: 13, color: colors.ink }}>
+            <Text key={k} style={{ ...textStyles.body, color: colors.ink }}>
               {"• "}
               {t(k)}
             </Text>
           ))}
           <MutedText>{t("contraception.edu.cautions")}</MutedText>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{t("contraception.edu.emergency_title")}</Text>
+          <Text style={{ ...textStyles.label, color: colors.ink }}>{t("contraception.edu.emergency_title")}</Text>
           <MutedText>{t("contraception.edu.emergency_body")}</MutedText>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{t("contraception.edu.refer_title")}</Text>
+          <Text style={{ ...textStyles.label, color: colors.ink }}>{t("contraception.edu.refer_title")}</Text>
           <MutedText>{t("contraception.edu.refer_body")}</MutedText>
         </>
       )}

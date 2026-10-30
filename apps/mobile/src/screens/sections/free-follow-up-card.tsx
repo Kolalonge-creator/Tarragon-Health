@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, Text, View } from "react-native";
+import { Linking, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { Card, SecondaryButton } from "@/ui/legacy-kit";
-import { useLegacyColors } from "@/ui/design";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Two-tier (founder 2026-10-12): the Free rule's follow-up on the phone. Calm guidance after an amber event or a rapid weight
@@ -16,7 +16,6 @@ const ANSWERS = ["got_care", "going_now", "not_yet"] as const;
 type Answer = (typeof ANSWERS)[number];
 
 export function FreeFollowUpCard() {
-  const colors = useLegacyColors();
   const [guidance, setGuidance] = useState<Guidance | null>(null);
   const [checkinId, setCheckinId] = useState<string | null>(null);
   const [done, setDone] = useState<Answer | null>(null);
@@ -61,28 +60,28 @@ export function FreeFollowUpCard() {
     <Card style={{ gap: 10 }}>
       {guidance ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink }}>
+          <AppText variant="body">
             {guidance.kind === "heart_failure" ? t("freered.heart_failure.body", "en") : t("freered.amber.body", "en")}
-          </Text>
-          <Text style={{ fontSize: 13, lineHeight: 19, fontWeight: "700", color: colors.ink }}>{t("freered.no_doctor", "en")}</Text>
+          </AppText>
+          <AppText variant="label">{t("freered.no_doctor", "en")}</AppText>
           <SecondaryButton title={t("freered.join", "en")} onPress={() => Linking.openURL(`${PLATFORM_URL}/patient/membership`)} />
           <SecondaryButton title={t("freered.guidance.ok", "en")} onPress={acknowledge} />
         </View>
       ) : null}
       {checkinId ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("freered.checkin.title", "en")}</Text>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("freered.checkin.question", "en")}</Text>
+          <AppText variant="bodyStrong">{t("freered.checkin.title", "en")}</AppText>
+          <AppText variant="body">{t("freered.checkin.question", "en")}</AppText>
           {ANSWERS.map((a) => (
             <SecondaryButton key={a} title={t(`freered.checkin.${a}`, "en")} onPress={() => answer(a)} />
           ))}
-          {failed ? <Text style={{ fontSize: 12.5, color: colors.ink }}>{t("freered.checkin.error", "en")}</Text> : null}
+          {failed ? <AppText variant="body">{t("freered.checkin.error", "en")}</AppText> : null}
         </View>
       ) : null}
       {done ? (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("freered.checkin.thanks", "en")}</Text>
-          {done === "not_yet" ? <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{t("freered.checkin.not_yet_note", "en")}</Text> : null}
+          <AppText variant="body">{t("freered.checkin.thanks", "en")}</AppText>
+          {done === "not_yet" ? <AppText variant="bodyStrong">{t("freered.checkin.not_yet_note", "en")}</AppText> : null}
         </View>
       ) : null}
     </Card>

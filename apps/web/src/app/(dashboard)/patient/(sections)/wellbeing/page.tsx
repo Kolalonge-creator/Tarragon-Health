@@ -2,6 +2,7 @@ import Link from "next/link";
 import { t } from "@tarragon/i18n";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
+import { Disclosure } from "@/components/ui/disclosure";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { WellbeingTiles } from "@/app/(dashboard)/patient/wellbeing-tiles";
 import { WellbeingTrendChart } from "@/app/(dashboard)/patient/wellbeing-trend-chart";
@@ -57,9 +58,11 @@ export default async function PatientWellbeingPage() {
 
       <SharedPhoneGate>
         <WellbeingTiles patientId={subjectId} />
+        {/* The daily check-in is the main job on this page, so it sits straight under the tiles. */}
+        <WellbeingCheckinForm patientId={subjectId} calmToolEnabled={features.panic} />
         <WellbeingTrendChart patientId={subjectId} />
-        <MoodBesideReadings patientId={subjectId} />
-        {ownProfile && features.insights && <MoodPatterns patientId={subjectId} hidden={features.insightsHidden} />}
+        {/* A care-team hand-off notice is never folded away. */}
+        <MentalHealthHandoffCard patientId={subjectId} />
 
         <Card>
           <CardHeader>
@@ -76,17 +79,20 @@ export default async function PatientWellbeingPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <WellbeingCheckinForm patientId={subjectId} calmToolEnabled={features.panic} />
-          <div className="space-y-4">
-            <MentalHealthSummary patientId={subjectId} />
-            <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
-              <MentalHealthScreenForm patientId={subjectId} />
-            </FeatureConsentGate>
-            <MentalHealthHandoffCard patientId={subjectId} />
-            {ownProfile && <ShareSummaryCard enabled={features.share} />}
-          </div>
-        </div>
+        {/* Folded to keep the page short (design audit P3). Each opens in place; nothing inside was changed. */}
+        <Disclosure title="Mood alongside your readings" hint="How your mood lines up with your health numbers">
+          <MoodBesideReadings patientId={subjectId} />
+          {ownProfile && features.insights && <MoodPatterns patientId={subjectId} hidden={features.insightsHidden} />}
+        </Disclosure>
+
+        <Disclosure title="Mental health check-in" hint="The longer questionnaire your care team reads, and your past answers">
+          <MentalHealthSummary patientId={subjectId} />
+          <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
+            <MentalHealthScreenForm patientId={subjectId} />
+          </FeatureConsentGate>
+        </Disclosure>
+
+        {ownProfile && <ShareSummaryCard enabled={features.share} />}
       </SharedPhoneGate>
 
       {/* Two routes, deliberately side by side and clearly distinguished.
@@ -112,13 +118,17 @@ export default async function PatientWellbeingPage() {
         </CardContent>
       </Card>
 
-      <TherapyNetwork organisationId={organisationId} patientId={subjectId} />
+      <Disclosure title="Independent therapists" hint="Verified private practitioners, a different relationship from our own therapists">
+        <TherapyNetwork organisationId={organisationId} patientId={subjectId} />
+      </Disclosure>
 
-      <CategoryDetail
-        category="mental_health"
-        patientId={subjectId}
-        organisationId={organisationId}
-      />
+      <Disclosure title="Learn about mental health" hint="Short reads and guidance">
+        <CategoryDetail
+          category="mental_health"
+          patientId={subjectId}
+          organisationId={organisationId}
+        />
+      </Disclosure>
 
       {/* Module 46 §46.10: a mental-health medication (e.g. an SSRI) flows
           through the same medications/medication_reviews/adherence stack as

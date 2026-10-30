@@ -1,4 +1,5 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { HubLinks } from "@/components/ui/hub-links";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { t } from "@tarragon/i18n";
@@ -11,6 +12,7 @@ export default async function DirectoryPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("directory.title", uiLanguage)} icon={SEMANTIC_ICON.family} backTo={{ href: "/patient", label: "Home" }} />
+      <HubLinks label={t("directory.title", uiLanguage)} links={[{ href: "/patient/directory/bookings", label: t("directory.bookings.title", uiLanguage) }]} />
       <p>{t("directory.intro", uiLanguage)}</p>
       <DirectorySearch locale={uiLanguage} />
     </div>
