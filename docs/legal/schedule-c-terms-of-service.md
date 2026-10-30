@@ -46,7 +46,7 @@ Membership and Membership Plus are the same care. You get the same care team, th
 
 **How the monthly call works.** Each month your doctor offers you times and you choose one. The call is by video. If video does not work for you, it can be by audio only or by phone. "Every month" is the pace we plan for. It is not a promise that a call can never move by a few days. If we miss a month for a reason on our side, "Refunds, and if we do not deliver" below applies.
 
-**The yearly blood test.** The yearly blood panel is a fixed set of tests. The list is shown on our pricing page and on the screen where you pay. Membership Plus blood tests are collected in the state you choose when you buy, and that state stays fixed. If you later move somewhere we do not collect, you will need to come back to that state for your yearly tests. Membership without Plus has no state limit. On any plan, including Free, you can ask for the yearly test request, take it to a laboratory and pay the laboratory directly. We do not collect blood on that route.
+**The yearly blood test.** The yearly blood panel is a fixed set of tests. The list is shown on our pricing page and on the screen where you pay. Membership Plus blood tests are collected in the state you choose when you buy, and that state stays fixed. If you later move somewhere we do not collect, you will need to come back to that state for your yearly tests. On any plan, including Free, you can ask for the yearly test request, take it to a laboratory and pay the laboratory directly. We do not collect blood on that route.
 
 **Not included.**
 
@@ -95,7 +95,7 @@ When you pay for a health check or screening ahead of time, you receive a Care V
 
 **After 21 days.** After 21 days, a plan is not refundable, except as set out under "If we do not deliver" below and except where the law requires a refund.
 
-**What happens to your access.** When we approve a refund, your Member access ends straight away. You move to the Free plan, with no 14-day grace period. Your health record is kept and stays yours.
+**What happens to your access.** When we approve a refund, your Member access ends straight away. You move to the Free plan, with no 14-day grace period. Your health record is kept and stays yours. The one exception is a refund of only the extra payment for moving up to Membership Plus. In that case you go back to Membership for the rest of your year, and you keep your Member access.
 
 **How to ask.** Use the Request a refund option on your Membership page in the app, or write to legal@tarragonhealth.ng from the email address on your account. Tell us your name and the date you bought. You do not need to give a reason. If an organisation paid for your Membership, only the organisation can ask, and we will not accept a refund request from the Member.
 
@@ -162,7 +162,7 @@ The platform and the services are provided with reasonable care and skill. Remot
 Nothing in these terms excludes or limits our liability for death or personal injury caused by our negligence, for fraud, or for anything else that the law does not allow us to exclude or limit. Any other limit on our liability applies only to the extent the law allows, and we will not rely on it where it would be unfair to you.
 
 ## Termination
-We may suspend or terminate your account if you breach these terms, do not pay a fee that is due, or engage in conduct that puts our staff, other users, or the platform at risk. If we end your Membership because of your breach, we will tell you why. If we end it and you did nothing wrong, we refund the unused part of the price.
+We may suspend or terminate your account if you breach these terms, do not pay a fee that is due, or engage in conduct that puts our staff, other users, or the platform at risk. If we end your Membership because of your breach, we will tell you why. If we end it and you did nothing wrong, we refund the unused part of the price, valued in the same way as under "If we do not deliver" above.
 
 ## Changes to these terms
 We may update these terms as the platform changes. We will show you the current version and ask you to accept it again if a material change affects your rights or obligations. A change never reduces what you have already paid for.

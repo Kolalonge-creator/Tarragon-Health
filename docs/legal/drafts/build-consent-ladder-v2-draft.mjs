@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const legal = join(here, "..");
-const version = process.argv[2] ?? "SET-AT-PUBLISH";
+// --check regenerates with the placeholder and fails if the committed file differs.
+const check = process.argv.includes("--check");
+const version = process.argv.slice(2).find((a) => a !== "--check") ?? "SET-AT-PUBLISH";
+if (!/^[A-Za-z0-9._-]+$/.test(version)) throw new Error(`bad version string: ${version}`);
 
 function patientText(file) {
   const text = readFileSync(join(legal, file), "utf8");
@@ -84,15 +87,13 @@ begin
     raise exception 'version is still the placeholder; the owner has not signed';
   end if;
 
-  select title into v_terms_title
+  -- strict: raises if there is no current row, or more than one.
+  select title into strict v_terms_title
     from public.consent_versions
    where consent_type = 'terms_of_service' and is_current;
-  select title into v_tele_title
+  select title into strict v_tele_title
     from public.consent_versions
    where consent_type = 'telehealth' and is_current;
-  if v_terms_title is null or v_tele_title is null then
-    raise exception 'no current terms_of_service or telehealth row to supersede';
-  end if;
 
   if exists (select 1 from public.consent_versions
               where consent_type in ('terms_of_service', 'telehealth')
@@ -164,5 +165,13 @@ end $$;
 `;
 
 const out = join(here, "consent_membership_ladder_v2_DRAFT.sql");
+if (check) {
+  if (readFileSync(out, "utf8") !== sql) {
+    console.error("consent_membership_ladder_v2_DRAFT.sql is out of date; rerun this script");
+    process.exit(1);
+  }
+  console.log("draft script matches the two consent files");
+  process.exit(0);
+}
 writeFileSync(out, sql);
 console.log(`wrote ${out} (${sql.length} chars, version ${version})`);

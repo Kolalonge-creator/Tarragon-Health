@@ -60,6 +60,8 @@ These are statements in the patient text. Each one must be true on the day the t
 - [ ] Moving up from Membership to Plus charges only the difference and does not move the end date.
 - [ ] An extra online meeting is paid for only when a doctor accepts, and a decline or a time-out refunds the payment. **Check how the payment is held (an authorisation hold, or a charge followed by a refund), since the text says "held" and "refunded".**
 - [ ] Second opinion and extra meeting are not offered to Free accounts.
+- [ ] Refunding only the Plus upgrade payment returns the person to Membership and keeps their Member access (the text says so).
+- [ ] On the Free plan, the later check-in answers after a dangerous reading stay in the patient's own record and reach no doctor. The text says "not sent to a doctor". If any path alerts a clinician, change the sentence before publishing.
 - [ ] The Free plan red-event screen shows the Free statement and says no doctor was alerted.
 - [ ] Email and SMS never carry results or clinical advice. SMS is used for verification codes only.
 - [ ] The doctor phones or video-calls the patient for urgent and emergency findings, and a note of the call goes into the record.
@@ -70,6 +72,7 @@ These are statements in the patient text. Each one must be true on the day the t
 ## Not covered by this change
 - A 30-day first-purchase guarantee is not in the text, because it is not an adopted rule. Say so if you want one.
 - A Membership bought by a sponsor for someone else is not described. The text covers vouchers bought for another person only.
+- **Reconcile before publishing:** Schedule A line 104 still says a person can withdraw "any of the specific consents listed above at any time". Schedules B and C now say a required consent is ended by closing the account. If Schedule A lists a required consent, the three documents disagree. Change Schedule A in the same release, or decide that it stays as is.
 - Schedule A (Data Processing Consent) still has the unset retention schedule and the open DPO name, DPO email and NDPC registration reference. Those are your inputs and are tracked in `facts.json`.
 - The signed escalation SLA record still names a channel that was removed. That is an engineering fix, not a text change.
 - Counsel items A to K in `membership-terms-nigeria-review.md` stay open for any lawyer you choose to use. The review memo now has a v2 addendum that says which of them changed.
@@ -89,7 +92,7 @@ Nothing is signed. Signing is yours alone, and an agent must never sign for you.
 2. Regenerate the script from the two signed files, so the script and the files cannot drift:
    `node docs/legal/drafts/build-consent-ladder-v2-draft.mjs <final version>`
    Without a version argument the script keeps the `SET-AT-PUBLISH` placeholder and refuses to run.
-3. Run `legal-docs-facts.test.ts` and the lint step. The Terms must still contain the words "21-day refund".
+3. Run `node docs/legal/drafts/build-consent-ladder-v2-draft.mjs --check <final version>` (it fails if the script no longer matches the two files), then `legal-docs-facts.test.ts` and the lint step. The Terms must still contain the words "21-day refund".
 4. Cut a PR into `main-dev` with the final files and the copy changes you listed under the product checklist. Run `/code-review high` on the diff first, as the repository rules require.
 5. Copy the script into `supabase/migrations` with a fresh timestamp taken after `list_migrations` on the live project, never a round number. Prove it on a local `supabase db reset`.
 6. Apply to the live project `koiplnmbgnqnbywhpjlf` using `execute_sql` in one transaction, with the `schema_migrations` row at the file's version. Never use `apply_migration` for this.
