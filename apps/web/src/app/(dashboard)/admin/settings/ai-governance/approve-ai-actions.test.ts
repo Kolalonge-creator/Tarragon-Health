@@ -15,7 +15,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }),
 }));
 
-import { approveAiGuardrailsAction, approveAiKnowledgeSourcesAction } from "./actions";
+import { approveAiGuardrailsAction, approveAiKnowledgeSourcesAction, reviewAiEvaluationRunAction } from "./actions";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -49,6 +49,27 @@ describe("approveAiKnowledgeSourcesAction", () => {
     rpc.mockResolvedValue({ data: null, error: { message: "only the active Chief Medical Officer can approve AI knowledge sources" } });
     const res = await approveAiKnowledgeSourcesAction(undefined, form([["ids", A]]));
     expect(res?.error).toContain("Chief Medical Officer");
+    expect(res?.success).toBeUndefined();
+  });
+});
+
+describe("reviewAiEvaluationRunAction", () => {
+  it("forwards the run and the outcome the person saw to review_ai_evaluation_run", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    const res = await reviewAiEvaluationRunAction(undefined, form([["runId", A], ["expectedOutcome", "fail"], ["note", "read the two failures"]]));
+    expect(rpc).toHaveBeenCalledWith("review_ai_evaluation_run", { p_run_id: A, p_expected_outcome: "fail", p_note: "read the two failures" });
+    expect(res?.success).toContain("under your name");
+  });
+  it("refuses a missing outcome or a run id that is not a uuid without calling the database", async () => {
+    expect((await reviewAiEvaluationRunAction(undefined, form([["runId", A]])))?.error).toBeDefined();
+    expect((await reviewAiEvaluationRunAction(undefined, form([["runId", "nope"], ["expectedOutcome", "pass"]])))?.error).toBeDefined();
+    expect((await reviewAiEvaluationRunAction(undefined, form([["runId", A], ["expectedOutcome", "approved"]])))?.error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("shows the database refusal as it is (a non-CMO, or a result rescored since the page loaded)", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "that run's outcome is fail, not pass: reload the result and try again" } });
+    const res = await reviewAiEvaluationRunAction(undefined, form([["runId", A], ["expectedOutcome", "pass"]]));
+    expect(res?.error).toContain("reload the result");
     expect(res?.success).toBeUndefined();
   });
 });
