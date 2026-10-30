@@ -10,6 +10,7 @@ import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
 import { useComplianceCalendar, financeKeys, fetchComplianceSuggestedAmount } from "@/lib/finance/queries";
 import { markFiledAction, unmarkFiledAction } from "@/lib/finance/actions";
 import type { ComplianceObligation } from "@/lib/finance/schemas";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { statTileValue } from "@/components/ui/stat-tile-value";
 import { parseOptionalMoney } from "@/lib/finance/money-input";
@@ -24,6 +25,7 @@ const STATUS_VARIANT: Record<string, "green" | "amber" | "red" | "grey"> = {
 export function ComplianceCalendar() {
   const qc = useQueryClient();
   const calendar = useComplianceCalendar(3);
+  const { ask, dialog } = useConfirmAction();
   const [open, setOpen] = useState<string | null>(null);
   const [ref, setRef] = useState("");
   const [amount, setAmount] = useState("");
@@ -151,7 +153,20 @@ export function ComplianceCalendar() {
                       <button
                         type="button"
                         className="text-xs text-charcoal-ink/50 hover:text-red-600"
-                        onClick={() => unmarkFiled(o)}
+                        onClick={() =>
+                          ask({
+                            title: "Mark this filing as not filed?",
+                            description: "The obligation goes back to its due status and the remittance reference is cleared. The change is recorded in the audit trail.",
+                            facts: [
+                              { label: "Obligation", value: o.obligation_name },
+                              { label: "Period", value: o.period_label },
+                              { label: "Reference", value: o.remittance_reference ?? "None recorded" },
+                              ...(o.amount_minor != null ? [{ label: "Amount filed", value: formatMinor(o.amount_minor, "NGN") }] : []),
+                            ],
+                            confirmLabel: "Mark as not filed",
+                            run: () => unmarkFiled(o),
+                          })
+                        }
                       >
                         Undo
                       </button>
@@ -191,6 +206,7 @@ export function ComplianceCalendar() {
           </TableShell>
         )}
       </SectionCard>
+      {dialog}
     </div>
   );
 }

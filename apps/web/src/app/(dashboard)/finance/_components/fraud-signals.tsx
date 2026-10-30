@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFraudSignals, financeKeys } from "@/lib/finance/queries";
 import type { FraudSignal } from "@/lib/finance/schemas";
 import { resolveFraudSignalAction } from "@/lib/finance/actions";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { formatPatientDateTime } from "@/lib/format-date";
 
@@ -61,6 +62,7 @@ function SignalRow({ signal, onResolve }: { signal: FraudSignal; onResolve: (id:
  */
 export function FraudSignals() {
   const qc = useQueryClient();
+  const { ask, dialog } = useConfirmAction();
   const fraud = useFraudSignals("open");
   const signals = fraud.data;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -101,12 +103,32 @@ export function FraudSignals() {
           </thead>
           <tbody>
             {(signals ?? []).map((s) => (
-              <SignalRow key={s.id} signal={s} onResolve={resolve} />
+              <SignalRow
+                key={s.id}
+                signal={s}
+                onResolve={(id, status) =>
+                  status === "ignored"
+                    ? ask({
+                        title: "Ignore this fraud signal?",
+                        description: "It leaves the open list without being investigated. Use Resolve instead if it was looked into.",
+                        facts: [
+                          { label: "Signal", value: SIGNAL_LABEL[s.signal_type] ?? s.signal_type },
+                          { label: "Severity", value: s.severity },
+                          { label: "Detected", value: formatPatientDateTime(s.detected_at) },
+                          ...(s.amount_minor != null ? [{ label: "Amount", value: formatMinor(s.amount_minor, s.currency ?? "NGN") }] : []),
+                        ],
+                        confirmLabel: "Ignore signal",
+                        run: () => resolve(id, status),
+                      })
+                    : resolve(id, status)
+                }
+              />
             ))}
           </tbody>
         </TableShell>
       )}
       {msg && <p className={`mt-3 text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
+      {dialog}
     </SectionCard>
   );
 }
