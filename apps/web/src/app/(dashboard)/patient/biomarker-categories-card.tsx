@@ -70,8 +70,7 @@ export function BiomarkerCategoriesCard({ patientId }: { patientId: string }) {
           Your results, by area
         </CardTitle>
         <CardDescription>
-          Reviewed lab results grouped by what they say about your body, not a longer list of
-          numbers.
+          Your reviewed laboratory results, grouped by the part of your health they relate to.
         </CardDescription>
       </CardHeader>
       <CardContent>

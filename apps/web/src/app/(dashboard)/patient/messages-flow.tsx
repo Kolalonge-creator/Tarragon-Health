@@ -220,8 +220,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   id="care-message-subject-hint"
                   className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
                 >
-                  At least three characters, so your care team can see what it
-                  is about.
+                  Enter at least three characters, so that your care team can see what the message is about.
                 </p>
               </div>
               <div className="grid gap-2">

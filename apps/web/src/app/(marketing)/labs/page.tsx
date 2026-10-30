@@ -40,16 +40,16 @@ export default async function LabsPage() {
           />
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Any lab, one record
+              Any laboratory, one record
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Photograph a result, we read it into your record
+              Photograph a result and we add it to your record
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You pay the lab directly and take the test wherever you like. We&apos;re partnered
-              with Synlab Nigeria and trust their results, so they&apos;re a solid default if you
-              don&apos;t already have a lab in mind, but any laboratory works. Snap a photo of the
-              result and it&apos;s on your record, in plain language, with a doctor reviewing it.
+              You pay the laboratory directly and can have the test wherever you like. We partner
+              with Synlab Nigeria and trust their results, so it is a reliable choice if you do not
+              already have a laboratory in mind, but any laboratory works. Take a photo of the
+              result and it is added to your record, explained in plain language and reviewed by a doctor.
             </p>
           </div>
         </div>
@@ -57,7 +57,7 @@ export default async function LabsPage() {
 
       {labsArticles.length > 0 ? (
         <Section variant="sage">
-          <ResourceCarousel title="Explore more Labs resources" articles={labsArticles} />
+          <ResourceCarousel title="More resources on laboratory tests" articles={labsArticles} />
         </Section>
       ) : null}
     </ProductPageTemplate>

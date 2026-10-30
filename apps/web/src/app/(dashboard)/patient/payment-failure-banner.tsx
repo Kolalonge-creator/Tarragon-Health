@@ -56,7 +56,7 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
           </p>
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {koboToNaira(purchase.payable_kobo ?? 0).toLocaleString()} {purchase.currency} is still
-            unpaid. Pick up where you left off with the same or a different card.
+            unpaid. You can complete the payment with the same card or a different one.
           </p>
         </div>
       </div>

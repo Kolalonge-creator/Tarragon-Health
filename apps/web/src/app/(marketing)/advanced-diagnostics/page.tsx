@@ -16,30 +16,30 @@ export const metadata: Metadata = pageMetadata({
 const WHAT_THIS_IS = [
   {
     title: "A referral, not a scanner we own",
-    body: "Tarragon doesn't buy or run imaging equipment. This will work like our lab network already does: we tell you which scan fits what you're asking, connect you with an imaging partner, and you pay that partner directly.",
+    body: "Tarragon does not buy or run imaging equipment. This will work in the same way as our laboratory network: we tell you which scan suits your question, connect you with an imaging partner, and you pay that partner directly.",
   },
   {
     title: "A doctor reads it with you",
-    body: "Whatever comes back goes into your Tarragon record and is read by a doctor against your history, not handed to you as a report to interpret alone.",
+    body: "The result is added to your Tarragon record and read by a doctor against your history, so you are not left to interpret a report alone.",
   },
   {
-    title: "For looking further, not for worry",
-    body: "This sits alongside your Annual Health Check and screening calendar, for a broader look, not a replacement for either. It's not something to reach for out of anxiety instead of talking to your doctor first.",
+    title: "For a broader look, not for reassurance",
+    body: "This sits alongside your Annual Health Check and screening calendar. It gives a broader look and does not replace either. If you are worried about a symptom, talk to your doctor first rather than ordering a scan.",
   },
 ];
 
 const HONEST_EXPECTATIONS = [
   {
-    title: "No imaging partner is signed yet",
-    body: "We're not going to advertise a service we can't actually deliver. This page exists so you can tell us you're interested before there's anything to book.",
+    title: "No imaging partner has signed yet",
+    body: "We will not advertise a service that we cannot deliver. This page exists so that you can tell us you are interested before there is anything to book.",
   },
   {
-    title: "You'll always pay the imaging provider, not us",
-    body: "The same self-arranged-fulfilment principle as our lab network: whatever this costs is set by the imaging partner, not marked up by Tarragon. Our part is coordination and the doctor's read.",
+    title: "You will pay the imaging provider, not Tarragon",
+    body: "The same principle applies as in our laboratory network: the cost is set by the imaging partner and is not marked up by Tarragon. Our part is coordination and the doctor's review of the result.",
   },
   {
-    title: "We'll say so before it's real",
-    body: "Everything above is the plan, not a live product. If you join the list below, we'll tell you honestly when there's an actual partner and a real price, not before.",
+    title: "We will tell you before it is available",
+    body: "Everything above describes a plan, not a live service. If you join the list below, we will tell you when there is an actual partner and a confirmed price, and not before.",
   },
 ];
 
@@ -55,8 +55,8 @@ export default function AdvancedDiagnosticsPage() {
             Advanced diagnostic imaging
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            For people who want to look further than routine bloodwork and screening go: a
-            whole-body or targeted imaging referral, coordinated through Tarragon and read by
+            For people who want to look further than routine blood tests and screening: a
+            whole-body or targeted imaging referral, coordinated through Tarragon and reviewed by
             your doctor against the record you already have with us.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -75,7 +75,7 @@ export default function AdvancedDiagnosticsPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="What this will be"
-          title="A referral relationship, not a Tarragon-owned scanner"
+          title="A referral arrangement, not a Tarragon-owned scanner"
         />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
           {WHAT_THIS_IS.map((item) => (
@@ -88,7 +88,7 @@ export default function AdvancedDiagnosticsPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="Before you get excited" title="What we can actually promise you today" />
+        <SectionHeading eyebrow="Before you sign up" title="What we can promise today" />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {HONEST_EXPECTATIONS.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-5">
@@ -104,8 +104,8 @@ export default function AdvancedDiagnosticsPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Want to know when this is real?"
-          description="Tell us you're interested and we'll follow up personally once there's an actual imaging partner and a real price, not before."
+          title="Would you like to know when this is available?"
+          description="Tell us you are interested and we will contact you personally once there is an imaging partner and a confirmed price, and not before."
           primaryHref={`${MARKETING_ROUTES.contact}?source=advanced-diagnostics`}
           primaryLabel="Join the waitlist"
         />

@@ -11,7 +11,7 @@ export default async function PatientDevicesPage() {
     <DashboardSection
       id="devices"
       title="Get a device"
-      description="Clinically vetted BP monitors, scales and glucometers that connect straight into your Tarragon record."
+      description="Clinically vetted blood pressure monitors, scales and glucose meters that connect directly to your Tarragon record."
       icon={NAV_ICON.devices}
     >
       <DeviceShop />

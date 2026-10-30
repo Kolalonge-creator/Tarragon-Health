@@ -10,7 +10,7 @@ type SinceLastVisitSummary = {
 };
 
 const HIGHLIGHT_LABEL: Record<string, string> = {
-  lab_completed: "A lab result came back",
+  lab_completed: "A laboratory result is available",
   screening_completed: "A screening was completed",
   vaccination_recorded: "A vaccination was recorded",
   care_plan_updated: "Your care plan was updated",

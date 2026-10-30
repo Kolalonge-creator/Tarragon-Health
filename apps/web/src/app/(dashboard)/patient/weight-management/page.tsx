@@ -61,7 +61,7 @@ export default async function WeightManagementPage() {
         backTo={{ href: "/patient", label: "Dashboard" }}
         title={`${label} management`}
         icon={SEMANTIC_ICON.weight}
-        description="Your assessment, your programme, your trackers, and what your care team is doing for you, all in one place."
+        description="Your assessment, programme and trackers, together with what your care team is doing for you, in one place."
         actions={
           obesityEnrollment && (
             <GoalsDialog enrollments={[obesityEnrollment]} pastGoals={obesityGoals} />

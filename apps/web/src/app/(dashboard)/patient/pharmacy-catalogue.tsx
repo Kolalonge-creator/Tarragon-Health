@@ -169,7 +169,7 @@ export function PharmacyCatalogue({
         )}
         {catalogue && catalogue.length > 0 && drugGroups.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            No pharmacies match that location, try a nearby city or clear the filter.
+            No pharmacies match that location. Try a nearby city, or clear the filter.
           </p>
         )}
 

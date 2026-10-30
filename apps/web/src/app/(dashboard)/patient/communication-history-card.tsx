@@ -60,7 +60,7 @@ export function CommunicationHistoryCard() {
       </CardHeader>
       <CardContent>
         {rows.length === 0 && !isLoading ? (
-          <p className="py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">Nothing sent yet.</p>
+          <p className="py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">No messages have been sent to you yet.</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {rows.map((row) => {

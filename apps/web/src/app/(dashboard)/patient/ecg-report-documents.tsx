@@ -42,7 +42,7 @@ export async function EcgReportDocuments({ patientId }: { patientId: string }) {
       renderPending={(doc) => (
         <>
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as
+            Your care team has not reviewed this yet. We will show a message here as soon as
             they have.
           </p>
           <AiEcgSummary status={doc.aiSummaryStatus} statement={doc.aiRhythmStatement} />
