@@ -364,7 +364,7 @@ $$ select '[{"loinc":"1558-6","value":' || p_glucose || ',"unit":"' || p_glucose
   || '{"loinc":"2823-3","value":4.1,"unit":"mmol/L"},{"loinc":"2951-2","value":140,"unit":"mmol/L"},{"loinc":"2093-3","value":170,"unit":"mg/dL"},'
   || '{"loinc":"13457-7","value":100,"unit":"mg/dL"},{"loinc":"2085-9","value":55,"unit":"mg/dL"},{"loinc":"2571-8","value":110,"unit":"mg/dL"},{"loinc":"1742-6","value":24,"unit":"U/L"},'
   || '{"loinc":"1920-8","value":22,"unit":"U/L"},{"loinc":"718-7","value":14,"unit":"g/dL"},{"loinc":"6690-2","value":6,"unit":"10^9/L"},'
-  || '{"loinc":"777-3","value":250,"unit":"10^9/L"},{"loinc":"3016-3","value":2,"unit":"mIU/L"},'
+  || '{"loinc":"777-3","value":250,"unit":"10^9/L"},'
   -- the live membership_annual panel requires these three every year (CMO decisions C1 and C6), so a complete result carries them
   || '{"loinc":"75622-1","value_text":"negative","unit":""},{"loinc":"5196-1","value_text":"negative","unit":""},{"loinc":"16128-1","value_text":"negative","unit":""}]' $$;
 create function pg_temp.push(p_uid uuid, p_order uuid, p_msg text, p_items text) returns text language sql as
@@ -405,7 +405,7 @@ begin
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '75622-1', '', 'hiv_screen', '')::text$q$, v_lab));
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '5196-1', '', 'hbsag', '')::text$q$, v_lab));
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '16128-1', '', 'hcv_ab', '')::text$q$, v_lab));
-  perform pg_temp.ck('5c sixteen numeric mappings and three qualitative are proposed', '19', (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'proposed'));
+  perform pg_temp.ck('5c fifteen numeric mappings and three qualitative are proposed', '18', (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'proposed'));
   perform pg_temp.ck('5d a stored unit that is not the panel''s own is refused', 'ERR:lab_unit_mismatch',
     pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '2160-0', 'umol/L', 'creatinine', 'umol/L', 1)::text$q$, v_lab)));
   perform pg_temp.ck('5e an analyte that is on no panel is refused', 'ERR:lab_unknown_analyte',
@@ -431,9 +431,9 @@ begin
   for m in select id from public.lab_code_mappings where lab_provider_id = v_lab loop
     perform pg_temp.q_as(v_cmo, format('select public.confirm_lab_code_mapping(%L)::text', m.id));
   end loop;
-  perform pg_temp.ck('5l the CMO confirms them all, with a name and a time', '19',
+  perform pg_temp.ck('5l the CMO confirms them all, with a name and a time', '18',
     (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'confirmed' and confirmed_by is not null and confirmed_at is not null));
-  perform pg_temp.ck('5m a lab sees its own mappings; another lab sees none', '19|0',
+  perform pg_temp.ck('5m a lab sees its own mappings; another lab sees none', '18|0',
     pg_temp.q_as(v_labu, 'select count(*)::text from public.lab_code_mappings') || '|' || pg_temp.q_as(v_labu2, 'select count(*)::text from public.lab_code_mappings'));
 
   -- 5n. ranges are not signed yet: an all-normal push is accepted but HELD
@@ -441,7 +441,7 @@ begin
   perform pg_temp.ck('5n an all-normal push against UNSIGNED ranges is received and held', 'received|held', (v_j ->> 'status') || '|' || (v_j ->> 'state'));
   select id into v_rid from public.lab_results where lab_order_id = v_o1;
   perform pg_temp.ck('5o ...it is not visible to the patient (INV-03)', '0', pg_temp.q_as(v_pat2, format('select count(*)::text from public.lab_results where id = %L', v_rid)));
-  perform pg_temp.ck('5p ...eighteen items stored in the panel unit', '18|mg/dL',
+  perform pg_temp.ck('5p ...seventeen items stored in the panel unit', '17|mg/dL',
     (select count(*)::text || '|' || (select unit from public.lab_result_items where lab_result_id = v_rid and analyte_code = 'creatinine') from public.lab_result_items where lab_result_id = v_rid));
   perform pg_temp.ck('5q the push is recorded, accepted, with the items exactly as received', 'accepted|1558-6',
     (select outcome || '|' || (items_received -> 0 ->> 'loinc') from public.lab_result_pushes where lab_provider_id = v_lab and message_id = 'msg-000003'));

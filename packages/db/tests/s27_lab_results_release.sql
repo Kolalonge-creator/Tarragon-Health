@@ -198,7 +198,7 @@ begin
   perform pg_temp.ck('...no clinician reviewed it', 'null', (select coalesce(reviewed_by::text, 'null') from public.lab_results where id = rid));
   perform pg_temp.ck('...no task was created', '0', (select count(*)::text from public.clinical_tasks where dedup_key = 'lab_result:' || rid));
   perform pg_temp.ck('...the patient can see it', '1', pg_temp.visible_to(v_pat, rid));
-  perform pg_temp.ck('...and its eighteen items (the three screening tests are required, CMO C1/C6)', '18', pg_temp.items_visible_to(v_pat, rid));
+  perform pg_temp.ck('...and its seventeen items (the three screening tests are required, CMO C1/C6)', '17', pg_temp.items_visible_to(v_pat, rid));
   perform pg_temp.ck('...the order is resulted', 'resulted', pg_temp.order_status(o));
   perform pg_temp.ck('...the patient got one neutral notice', '1', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('...whose payload names no value', 'true',
