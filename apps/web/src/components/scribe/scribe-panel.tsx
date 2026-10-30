@@ -334,6 +334,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           patientSummary={state.patientSummary}
           warnings={state.warnings}
           sourceText={text}
+          confirmedFacts={state.facts}
           onReport={async (r) => (await reportScribeProblem({ noteId: encounterNoteId, consentId, draftKind: "note", section: r.section, category: r.category, comment: r.comment || undefined })).ok}
           onUse={(draft, patientSummary, editTelemetry) => {
             onUseDraft({

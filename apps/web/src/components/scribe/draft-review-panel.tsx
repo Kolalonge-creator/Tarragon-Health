@@ -10,6 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { editTelemetryFromPairs, type EditTelemetry } from "@/lib/ai-text/ai-spans";
 import { splitEntities } from "@/lib/scribe/entity-highlight";
 import { matchSentences, sentenceKey, visitLines, type SentenceSupport } from "@/lib/scribe/support-match";
+import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import type { ScribeFact } from "@/lib/scribe/facts";
+import { blocksUse, defaultSectionFor, findOmissions, unresolvedOmissions, type NoteSection } from "@/lib/scribe/omissions";
 import { ProblemReportForm, type ProblemReportInput } from "./problem-report-form";
 import { afterEdit, canUseDraft, isEmptySection, setConfirmed, unconfirmed, type Confirmations, type DraftSectionKey } from "@/lib/scribe/draft-review";
 
@@ -40,6 +44,8 @@ interface DraftReviewPanelProps {
   warnings?: readonly { section: string; kind: string; detail?: string }[];
   /** What the clinician typed about the visit. When given, the screen is split: the visit text on the left, the draft on the right, and any draft sentence with no support in the visit text is marked. */
   sourceText?: string;
+  /** The facts the clinician confirmed. When given, any confirmed fact the draft does not say is listed, and a missing safety item (negation, allergy, red flag) blocks "Use in note" until it is added or left out on purpose. */
+  confirmedFacts?: readonly ScribeFact[];
   /** Records a "report a problem" submission; returns true when it was recorded. */
   onReport?: (report: ProblemReportInput) => Promise<boolean>;
   /** The third argument is the browser-side edit-rate figure for this review (S89): computed from what the clinician changed, never sent by this panel. */
@@ -58,8 +64,16 @@ function removeSentence(text: string, sentence: string): string {
  * The AI draft, held in the browser only. "Use in note" hands it to the note form, which is where the clinician edits,
  * saves and signs it. Nothing is written to the patient record from here (INV-11).
  */
-export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceText, onReport, onUse, onDiscard, requireAttestation = true }: DraftReviewPanelProps) {
+export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceText, confirmedFacts, onReport, onUse, onDiscard, requireAttestation = true }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
+  // Confirmed facts the draft text does not say. Recomputed from the live text, so typing the fact in by hand resolves it too.
+  const [leftOut, setLeftOut] = useState<Record<string, true>>({});
+  const [addTo, setAddTo] = useState<Record<string, NoteSection>>({});
+  const noteText = [fields.history, fields.examination, fields.assessment, fields.plan, fields.followUp].join("\n");
+  const omissions = useMemo(() => findOmissions(confirmedFacts ?? [], noteText), [confirmedFacts, noteText]);
+  const openOmissions = unresolvedOmissions(omissions, leftOut);
+  const omissionBlocksUse = blocksUse(omissions, leftOut);
+  const openSafetyOmissions = openOmissions.filter((o) => o.safety).length;
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
   const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
   const [attested, setAttested] = useState(false);
@@ -132,6 +146,59 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
         )}
         <div className="space-y-4">
         <p className="inline-block rounded border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800" data-testid="watermark">{t("scribeui.watermark", "en")}</p>
+        {omissions.length > 0 && (
+          <section aria-label={t("scribeui.omission.heading", "en")} className="space-y-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-charcoal-ink" data-testid="omissions">
+            <p className="text-sm font-medium">{t("scribeui.omission.heading", "en")}</p>
+            <p>{t("scribeui.omission.intro", "en")}</p>
+            <ul className="space-y-2">
+              {omissions.map((o) => {
+                const isLeftOut = Boolean(leftOut[o.fact.id]);
+                const section = addTo[o.fact.id] ?? defaultSectionFor(o.fact.type);
+                return (
+                  <li key={o.fact.id} className="space-y-1 rounded border border-red-200 bg-white p-2" data-testid="omission">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {o.safety && <Badge variant="red">{t("scribeui.omission.safety_badge", "en")}</Badge>}
+                      <Badge variant="blue">{t(`scribe.fact_type.${o.fact.type}`, "en")}</Badge>
+                      <span className="text-sm">{o.fact.text}</span>
+                    </div>
+                    {isLeftOut ? (
+                      <p className="font-medium">{t("scribeui.omission.left_out", "en")}</p>
+                    ) : (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div>
+                          <Label htmlFor={`omission-section-${o.fact.id}`}>{t("scribeui.omission.section_label", "en")}</Label>
+                          <Select
+                            id={`omission-section-${o.fact.id}`}
+                            value={section}
+                            onChange={(e) => setAddTo((prev) => ({ ...prev, [o.fact.id]: e.target.value as NoteSection }))}
+                          >
+                            {(["history", "examination", "assessment", "plan", "followUp"] as const).map((s) => (
+                              <option key={s} value={s}>{t(`scribe.draft.${s === "followUp" ? "follow_up" : s}`, "en")}</option>
+                            ))}
+                          </Select>
+                        </div>
+                        <Button
+                          size="sm"
+                          type="button"
+                          onClick={() => {
+                            setFields((prev) => ({ ...prev, [section]: prev[section].trim() === "" ? o.fact.text : `${prev[section].trimEnd()}\n${o.fact.text}` }));
+                            setConfirmedState((prev) => afterEdit(prev, section));
+                            setAttested(false);
+                          }}
+                        >
+                          {t("scribeui.omission.add", "en")}
+                        </Button>
+                        <Button size="sm" type="button" variant="outline" onClick={() => setLeftOut((prev) => ({ ...prev, [o.fact.id]: true }))}>
+                          {t("scribeui.omission.leave_out", "en")}
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
         {sections.map(({ key, label }) => (
           <div key={key}>
             <div className="flex flex-wrap items-center gap-2">
@@ -238,6 +305,11 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
             {t("scribeui.support.unresolved", "en", { count: unresolvedTotal })}
           </p>
         )}
+        {openSafetyOmissions > 0 && (
+          <p role="status" className="text-xs font-medium text-red-700">
+            {t("scribeui.omission.unresolved", "en", { count: openSafetyOmissions })}
+          </p>
+        )}
         {requireAttestation && (
           <label className="flex items-center gap-2 text-xs text-charcoal-ink">
             <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
@@ -247,7 +319,7 @@ export function DraftReviewPanel({ draft, patientSummary, warnings = [], sourceT
         <div className="flex gap-3">
           <Button
             size="sm"
-            disabled={!canUseDraft(confirmed) || unresolvedTotal > 0 || (requireAttestation && !attested)}
+            disabled={!canUseDraft(confirmed) || unresolvedTotal > 0 || omissionBlocksUse || (requireAttestation && !attested)}
             onClick={() =>
               onUse(
                 {

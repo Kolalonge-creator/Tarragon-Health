@@ -20,13 +20,15 @@ From `S35.md` second pass and the global review. Each is tagged with whether it 
 | Fixed priority labels with a countdown, from versioned config | Manchester triage | Already built |
 | Summary order: safety first, then triage events, readings, medicines, plan, notes | Glooko, Omada | Applied in S35 |
 | Lead list ranked by what needs a doctor soonest | Glooko | Applied in S35 |
-| Scribe review that surfaces omissions (facts to confirm, per-section tick) | Abridge, Nabla study | **Open, highest value** |
+| Scribe review that surfaces omissions (facts to confirm, per-section tick) | Abridge, Nabla study | Mostly built in S35c/S89 (facts stage, per-section ticks, unsupported-sentence flags). The remaining gap, a confirmed fact the draft drops or reverses, is closed by `lib/scribe/omissions.ts` (2026-10-30) |
 | Consent as a hard three-state gate with a live indicator | Nabla, Doctolib | Open (overlaps OQ-211) |
 | Offline-tolerant console (cache held task, queue actions, "pending upload") | Clafiya lesson | Open |
 | Paging ladder with duplicate-suppression count | Rootly, Mitel | Open; voice rung needs a decision (D-12) |
 | Printable clinician-ready report | mySugr, Hello Heart | Open |
 
 Not doing (recorded decisions): AI-staged orders or titration (INV-02); a scribe that learns from edits on its own.
+
+**Scribe omission check (2026-10-30).** The scribe already checked draft against facts (`groundingWarnings`: uncited text, unknown fact ids, invented numbers) but nothing checked facts against draft, so a confirmed negation, allergy or red flag that the draft dropped or reversed produced a clean-looking note. `apps/web/src/lib/scribe/omissions.ts` now compares each confirmed fact with the live draft text, deterministically (no model call, so no new AI call site and no registry change). A safety omission (negated symptom, allergy, red flag) blocks "Use in note" until it is added or marked "left out on purpose"; other omissions are listed but never block. A negated symptom must be kept as a negation in the same sentence, so "No chest pain" reversed to "Reports chest pain" is flagged. Medication facts are skipped by design: the draft is forbidden to name a medicine (INV-02). It is a lexical check, so a paraphrase can be flagged (one click clears it); it is built to over-flag rather than pass a dropped fact. `facts.ts` (byte-mirrored into the edge function) and the edge function are untouched, so nothing needs deploying.
 
 ## 3. Proposed clinician home (one spec, built in slices)
 
