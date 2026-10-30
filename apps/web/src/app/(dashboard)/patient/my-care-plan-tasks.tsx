@@ -44,9 +44,9 @@ function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
       // 2026-07-30 correction), and on the free tier no doctor time is
       // included at all, so it promised a review that may never come.
       <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-        No care plan yet. A plan is written when your care team is actively managing a condition
-        with you. Keep logging your readings and adding results, and anything set up for you shows
-        up here.
+        You do not have a care plan yet. A plan is written when your care team is actively managing a condition
+        with you. Keep recording your readings and adding results, and anything set up for you will
+        appear here.
       </p>
     );
   }

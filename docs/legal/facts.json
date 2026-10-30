@@ -1,0 +1,17 @@
+{
+  "_about": "Facts the counsel-facing legal drafts must agree with. Compared by apps/web/src/lib/marketing/legal-docs-facts.test.ts. Update this file when a fact changes, then fix the docs. Dates are deliberately not stored here.",
+  "ndpc_registration": "approved",
+  "dpo_appointment": "accepted_by_ndpc",
+  "refund_window_days": 21,
+  "currency": "naira",
+  "payment_provider": "Paystack",
+  "plan_names": ["Free", "Membership", "Membership Plus"],
+  "renews_automatically": false,
+  "removed": {
+    "channels": ["WhatsApp"],
+    "money": ["Health Wallet", "Platform Credit"],
+    "providers": ["Stripe"],
+    "stale_phrases_in_cover_memo_and_runbook": ["WhatsApp is notification-only", "Patients pay by subscription", "Paystack's/Stripe's"]
+  },
+  "founder_inputs_outstanding": ["DPO name", "DPO email", "NDPC registration reference"]
+}

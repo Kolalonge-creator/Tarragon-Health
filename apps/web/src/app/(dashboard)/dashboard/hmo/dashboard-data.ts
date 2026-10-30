@@ -7,6 +7,7 @@ import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
 import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
+import { failed, loadedValue, settleLoad } from "@/lib/institutions/settle-load";
 
 /** Same shape/reasoning as dashboard/corporate/dashboard-data.ts — see its
  * comment. HMO's waterfall additionally loads care gaps and always attempts
@@ -35,31 +36,50 @@ async function loadHmoDashboardDataUncached() {
     return { state: "suppressed" as const, greeting, organisationId, access };
   }
 
+  // Each read settles on its own: a failed one costs its own card, not the page,
+  // and is carried as `unavailable` so it is never mistaken for "nothing to show".
   const [
-    analytics,
-    contractPerformance,
-    careGaps,
-    medicationOutcomes,
-    engagementOutcomes,
-    vaccinationCoverage,
+    analyticsRead,
+    contractRead,
+    careGapsRead,
+    medicationRead,
+    engagementRead,
+    vaccinationRead,
   ] = await Promise.all([
-    loadCohortAnalytics(access.client, access.organisationId, access.minCohortSize),
-    getContractPerformance(access.client, access.organisationId),
-    loadCareGaps(access.client, access.organisationId, access.minCohortSize),
-    loadMedicationOutcomes(access.client, access.organisationId),
-    loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
-    loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
+    settleLoad("hmo.cohort_analytics", () =>
+      loadCohortAnalytics(access.client, access.organisationId, access.minCohortSize),
+    ),
+    settleLoad("hmo.contract_performance", () => getContractPerformance(access.client, access.organisationId)),
+    settleLoad("hmo.care_gaps", () => loadCareGaps(access.client, access.organisationId, access.minCohortSize)),
+    settleLoad("hmo.medication_outcomes", () => loadMedicationOutcomes(access.client, access.organisationId)),
+    settleLoad("hmo.engagement_outcomes", () =>
+      loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
+    ),
+    settleLoad("hmo.vaccination_coverage", () =>
+      loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
+    ),
   ]);
+  const analytics = loadedValue(analyticsRead);
+  const unavailable = {
+    contract: failed(contractRead),
+    careGaps: failed(careGapsRead),
+    medicationOutcomes: failed(medicationRead),
+    engagementOutcomes: failed(engagementRead),
+    vaccinationCoverage: failed(vaccinationRead),
+  };
 
+  // A failed analytics read lands here too: the copy there already says the
+  // figures are unavailable rather than showing any.
   if (!analytics) {
     return {
       state: "no-analytics" as const,
       greeting,
       organisationId,
       access,
-      contractPerformance,
-      careGaps,
-      vaccinationCoverage,
+      contractPerformance: loadedValue(contractRead),
+      careGaps: loadedValue(careGapsRead),
+      vaccinationCoverage: loadedValue(vaccinationRead),
+      unavailable,
     };
   }
 
@@ -69,11 +89,12 @@ async function loadHmoDashboardDataUncached() {
     organisationId,
     access,
     analytics,
-    contractPerformance,
-    careGaps,
-    medicationOutcomes,
-    engagementOutcomes,
-    vaccinationCoverage,
+    contractPerformance: loadedValue(contractRead),
+    careGaps: loadedValue(careGapsRead),
+    medicationOutcomes: loadedValue(medicationRead),
+    engagementOutcomes: loadedValue(engagementRead),
+    vaccinationCoverage: loadedValue(vaccinationRead),
+    unavailable,
   };
 }
 

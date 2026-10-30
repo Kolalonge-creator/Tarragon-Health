@@ -30,6 +30,8 @@ export interface OrderRow {
   /** S72: only the buyer can ask for a refund; refundState is the state of any refund already asked for. */
   isBuyer: boolean;
   refundState: string | null;
+  /** The catalogue code, so a receipt can quote the refund window for the right kind of item (A3). null when the database did not send one. */
+  code: string | null;
 }
 export interface MembershipState {
   isMember: boolean;
@@ -90,6 +92,7 @@ export function parseOrders(data: unknown): OrderRow[] {
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,
       sponsorShareKobo: sponsorShare, sponsorName: str(r["sponsor_name"]) ? r["sponsor_name"] : null,
       isBuyer: r["is_buyer"] !== false, refundState: str(r["refund_state"]) ? r["refund_state"] : null,
+      code: str(r["code"]) ? r["code"] : null,
     });
   }
   return out;
@@ -100,6 +103,32 @@ export function parseMembership(data: unknown): MembershipState {
   if (data["in_grace"] === true) return { isMember: false, endsAt: null, ...(str(data["grace_ends_at"]) ? { graceEndsAt: data["grace_ends_at"] } : {}) };
   const tier = data["tier"] === "evergreen" || data["tier"] === "plus" ? data["tier"] : undefined;
   return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null, ...(tier ? { tier } : {}), ...(str(data["next_starts_at"]) ? { nextStartsAt: data["next_starts_at"] } : {}), ...(str(data["collection_state"]) ? { collectionState: data["collection_state"] } : {}) };
+}
+
+/**
+ * The person's automatic-renewal status (public.my_membership_renewal): on or off, the date, the amount, and only the card's last four
+ * digits. A reply that does not parse is "no information", which shows nothing rather than a wrong promise.
+ */
+export interface RenewalState {
+  enabled: boolean;
+  hasMembership: boolean;
+  autoRenew: boolean;
+  endsAt: string | null;
+  amountKobo: number | null;
+  cardLast4: string | null;
+}
+export function parseRenewal(data: unknown): RenewalState | null {
+  if (!isObj(data) || typeof data["enabled"] !== "boolean" || typeof data["has_membership"] !== "boolean") return null;
+  const card = isObj(data["card"]) ? data["card"] : null;
+  const amount = data["amount_kobo"];
+  return {
+    enabled: data["enabled"],
+    hasMembership: data["has_membership"],
+    autoRenew: data["auto_renew"] === true,
+    endsAt: str(data["ends_at"]) ? data["ends_at"] : null,
+    amountKobo: typeof amount === "number" && Number.isSafeInteger(amount) && amount > 0 ? amount : null,
+    cardLast4: card && str(card["last4"]) ? card["last4"] : null,
+  };
 }
 
 /** S71: a sponsor pays the whole order, so there is no checkout link and nothing to open. */
@@ -130,6 +159,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   plus_state_required: "shop.error.plus_state_required", plus_state_not_available: "shop.error.plus_state_not_available",
   plus_state_changed: "shop.error.plus_state_changed", plus_needs_direct_checkout: "shop.error.plus_needs_direct_checkout", checkout_updating: "shop.error.checkout_updating", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered", discount_code_invalid: "shop.error.discount_code_invalid", discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  rate_limited: "shop.error.rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted", sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
   // S72: paying from a supporter's link
   request_not_found: "request.error.unknown", request_expired: "request.error.expired", request_cancelled: "request.error.cancelled", request_used: "request.error.used",

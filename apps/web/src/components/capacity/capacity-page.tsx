@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
-import { decidePause, endIntakeOverride, endOpsMode, overrideRestRule, requestPause, setIntakeOverride, startOpsMode } from "@/lib/capacity/actions";
-import { getCoverOverview, getIntakeOverview } from "@/lib/capacity/queries";
+import { decidePause, endIntakeOverride, endOpsMode, overrideRestRule, requestPause, setIntakeOverride, setPagingTestPageDays, startOpsMode } from "@/lib/capacity/actions";
+import { getCoverOverview, getIntakeOverview, getPagingTestPageDays } from "@/lib/capacity/queries";
 import { GATE_REASON_LABEL, type OpsModeRow } from "@/lib/capacity/schemas";
 import { formatLagos } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
@@ -22,7 +23,7 @@ const STATE_LABEL: Record<OpsModeRow["state"], string> = {
  */
 export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath: "/clinician/capacity" | "/admin/capacity"; isCmo: boolean; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [o, cover] = await Promise.all([getIntakeOverview(), getCoverOverview()]);
+  const [o, cover, testPageDays] = await Promise.all([getIntakeOverview(), getCoverOverview(), getPagingTestPageDays()]);
   const g = o.gate;
   const pending = o.modes.filter((m) => m.state === "requested");
   const active = o.modes.filter((m) => m.state === "active");
@@ -46,6 +47,15 @@ export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath
           {o.surge_active ? <Badge variant="amber">Surge mode on</Badge> : null}
           {o.pause_active ? <Badge variant="red">Pause on</Badge> : null}
         </div>
+        {isCmo && basePath === "/clinician/capacity" ? (
+          <p className="text-sm text-muted-foreground">
+            You switch the on-call cover guard on or off on the{" "}
+            <Link href="/clinician/go-live" className="font-medium text-brand-green underline underline-offset-2">
+              Go-live guards page
+            </Link>
+            . Switching it on needs a note and a rota with a primary and an eligible backup for the next 7 days. Switching it off is always allowed and takes effect at once: new care pack sales are then refused while the intake gate is on.
+          </p>
+        ) : null}
         <ul className="list-disc space-y-1 pl-5 text-sm">
           <li>
             Places with lead clinicians: {g.lead_free} free of {g.lead_capacity} ({g.lead_in_use} in use). Sales stop below {g.min_lead_headroom} free.
@@ -89,6 +99,30 @@ export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath
           </form>
         ) : null}
         <Muted>An override reopens sales when the limits above are crossed. It never reopens a pause or a surge. It ends by itself at the time you set.</Muted>
+      </Section>
+
+      <Section
+        title="On-call test pages"
+        hint="How long a test page that a clinician acknowledged keeps them ready to be put on the on-call rota. When it runs out they send themselves a new one from the On call screen."
+      >
+        <p className="text-sm">
+          {testPageDays === null ? "The current window could not be read." : `An acknowledged test page keeps a clinician ready for ${testPageDays} days.`}
+        </p>
+        {isCmo && basePath === "/clinician/capacity" ? (
+          <form action={setPagingTestPageDays} className="flex flex-wrap items-end gap-2">
+            <Hidden name="returnTo" value={basePath} />
+            <Field label="New number of days (1 to 365)">
+              <input name="days" type="number" min={1} max={365} defaultValue={testPageDays ?? 90} required className={fieldClass} />
+            </Field>
+            <Field label="Reason (at least 10 characters)">
+              <input name="reason" required minLength={10} maxLength={500} className={fieldClass} />
+            </Field>
+            <SubmitButton tone="outline">Change and sign</SubmitButton>
+          </form>
+        ) : null}
+        <Muted>
+          Pressing the button makes a new version of the paging delivery rules with only this number changed, signs it in your name and makes it the version in force. The old version stays on record. It is refused if the new number would leave a clinician on call without a push subscription, a verified email or a test page inside it.
+        </Muted>
       </Section>
 
       <Section title="Surge mode and pause" hint="Both switch themselves off at the end time. Both are recorded with who, why and for how long.">

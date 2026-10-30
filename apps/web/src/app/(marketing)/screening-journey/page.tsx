@@ -17,20 +17,20 @@ export const metadata: Metadata = pageMetadata({
 
 const GENERAL_STEPS = [
   {
-    title: "Know what's recommended",
-    body: "Pick your age and sex below, or sign up and let your real profile (age, sex, family history) build your personal screening calendar automatically.",
+    title: "Find out what is recommended",
+    body: "Choose your age group and sex below, or sign up and let your own profile (age, sex and family history) create your personal screening calendar automatically.",
   },
   {
-    title: "Request it, take it anywhere",
-    body: "We tell you what to get and why, and write you a real request you can take to any laboratory or clinic. You pay them directly; we take nothing on it.",
+    title: "Take your request to any provider",
+    body: "We tell you which screening to have and why, and we write a request that you can take to any laboratory or clinic. You pay the provider directly, and we take no commission.",
   },
   {
-    title: "One visit, most of the time",
-    body: "Most checks are a single visit: a blood sample, a measurement, or a short procedure. The app tells you exactly how to prepare beforehand.",
+    title: "Usually a single visit",
+    body: "Most checks need only one visit: a blood sample, a measurement or a short procedure. The app explains how to prepare beforehand.",
   },
   {
     title: "A doctor reads every result",
-    body: "A doctor reviews every result against your history, rather than reading a printout on its own. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical.",
+    body: "A doctor reviews every result against your history instead of reading a printout on its own. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it is critical.",
   },
 ];
 
@@ -40,15 +40,15 @@ export default function ScreeningJourneyPage() {
       <Section className="pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Know what to check, and when
+            Know what to check and when
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
             Your Screening Journey
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Screening needs change with age and sex, and it&apos;s easy to lose track. Tell us
-            your age group and sex, and we&apos;ll walk you through what&apos;s recommended: why
-            it matters, how to book it, and how your results come back.
+            Screening needs change with age and sex, and it is easy to lose track. Tell us
+            your age group and sex, and we will explain which screenings are recommended: why
+            each one matters, how to arrange it, and how your results are returned to you.
           </p>
         </div>
       </Section>
@@ -64,8 +64,8 @@ export default function ScreeningJourneyPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="The pattern behind every screening"
-          title="Four steps, every time"
-          description="Whichever screening you're looking at above, the mechanics behind it are the same."
+          title="The same four steps every time"
+          description="Whichever screening you are looking at above, the process behind it is the same."
         />
         <ol className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {GENERAL_STEPS.map((step, index) => (
@@ -83,19 +83,19 @@ export default function ScreeningJourneyPage() {
       <Section>
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            Want this built around you automatically?
+            Would you like this built around you automatically?
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            This page shows a general journey by age and sex. Sign up and your{" "}
+            This page shows a general journey by age and sex. If you sign up, your{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               real screening calendar
             </Link>{" "}
-            is built from your actual age, sex, and family history, with reminders when something
-            comes due, bundled into the one-day{" "}
+            is built from your actual age, sex and family history, with reminders when a screening
+            is due. You can also combine them in the one-day{" "}
             <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Annual Health Check
             </Link>{" "}
-            if you&apos;d rather do it all at once.
+            if you would rather do everything at once.
           </p>
         </div>
       </Section>
@@ -107,8 +107,8 @@ export default function ScreeningJourneyPage() {
       <Section className="pb-24">
         <CtaBand
           variant="gradient"
-          title="See your screening calendar."
-          description="Two minutes to set up, and you'll know exactly what's due and when."
+          title="See your screening calendar"
+          description="Setting up takes two minutes, and then you will know which screenings are due and when."
           primaryHref="/signup"
           primaryLabel="Build my calendar"
           secondaryHref={MARKETING_ROUTES.annualHealthCheck}

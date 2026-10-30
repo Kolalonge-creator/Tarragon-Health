@@ -8,13 +8,14 @@ import {
   type OutreachTaskWithPatient,
   type OutreachTriggerType,
 } from "@/lib/queries/care-outreach";
-import { useStartThread } from "@/lib/queries/care-messages";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { useRaiseEscalation } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { lagosShortDate } from "@/lib/care-gaps/gap-model";
 
 export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   high_risk_score: "High risk score",
@@ -34,6 +35,11 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   medication_engagement_barrier: "Struggling to take medication as prescribed",
   engagement_decline: "Newly at risk of disengaging",
   disengagement_risk: "Falling behind on engagement",
+  // S90: the call step of the care gap engine (the gap itself, with its "why", is in the Care gaps section above the worklist)
+  gap_missed_reading: "Missed reading (care gap)",
+  gap_lab_overdue: "Yearly lab overdue (care gap)",
+  gap_refill_lapse: "Refill overdue (care gap)",
+  gap_adherence_lapse: "Adherence below the line (care gap)",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -70,6 +76,17 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
         .join(" · ") || null
     );
   }
+  if (
+    task.trigger_type === "gap_missed_reading" ||
+    task.trigger_type === "gap_lab_overdue" ||
+    task.trigger_type === "gap_refill_lapse" ||
+    task.trigger_type === "gap_adherence_lapse"
+  ) {
+    const due = typeof detail.due_date === "string" ? lagosShortDate(detail.due_date) : null;
+    return due
+      ? `Care gap engine, due ${due}. Open the care gap above to see why it is open.`
+      : "Care gap engine. Open the care gap above to see why it is open.";
+  }
   const condition =
     typeof detail.condition_or_type === "string" ? detail.condition_or_type : null;
   return condition;
@@ -91,83 +108,6 @@ const DEFAULT_COPY: TaskRowCopy = {
   resolveLabel: "Resolve",
   notePlaceholder: "Outcome note (e.g. booked review, no answer ×2)",
 };
-
-/** Inline "message the patient" composer — an in-app care_messages thread.
- * Any org staff account, including a Care Coordinator, may open
- * one via start_care_thread; nothing here needs clinical authority. */
-function MessagePatientPanel({
-  patientId,
-  patientName,
-  defaultSubject,
-  onClose,
-}: {
-  patientId: string;
-  patientName: string;
-  defaultSubject: string;
-  onClose: () => void;
-}) {
-  const start = useStartThread();
-  const [subject, setSubject] = useState(defaultSubject);
-  const [body, setBody] = useState("");
-  const [sent, setSent] = useState(false);
-
-  if (sent) {
-    return (
-      <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
-        <p className="text-xs text-charcoal-ink/80">
-          Message sent to {patientName}. They&apos;ll see it in the app, and any reply shows up in
-          Patient messages.
-        </p>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Close
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
-      <p className="text-xs font-medium text-charcoal-ink/70">
-        New in-app message to {patientName}
-      </p>
-      <Input
-        value={subject}
-        onChange={(event) => setSubject(event.target.value)}
-        placeholder="Subject"
-        className="h-8 text-xs"
-      />
-      <Textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        placeholder="Message"
-        rows={3}
-        className="text-xs"
-      />
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={start.isPending || subject.trim().length < 3 || body.trim().length === 0}
-          onClick={() =>
-            start.mutate(
-              { patientId, subject: subject.trim(), body: body.trim() },
-              { onSuccess: () => setSent(true) }
-            )
-          }
-        >
-          {start.isPending ? "Sending…" : "Send"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        {start.isError && (
-          <span className="text-xs text-red-600">
-            {(start.error as Error).message || "Could not send."}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /** Inline "hand this to a doctor" composer. Raises an escalation with no
  * pre-existing clinician_alert (useRaiseEscalation) — the manual path for a
@@ -342,12 +282,7 @@ function TaskRow({ task, copy }: { task: OutreachTaskWithPatient; copy: TaskRowC
         </Button>
       </div>
       {messaging && (
-        <MessagePatientPanel
-          patientId={task.patient_id}
-          patientName={patientName}
-          defaultSubject={triggerLabel}
-          onClose={() => setMessaging(false)}
-        />
+        <StaffPatientChat patientId={task.patient_id} patientName={patientName} defaultSubject={triggerLabel} />
       )}
       {escalating && (
         <EscalateToDoctorPanel

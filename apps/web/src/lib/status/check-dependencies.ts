@@ -19,6 +19,12 @@ export interface TimedCheck {
   latency_ms: number;
 }
 
+/** The ML service is optional (never load-bearing), so "not deployed" is a normal state, not an outage: nothing to reach is not the same as something that stopped answering. */
+export interface MlCheck {
+  status: "up" | "down" | "not_deployed";
+  latency_ms: number;
+}
+
 export interface ConfiguredCheck {
   status: "configured" | "unconfigured";
 }
@@ -26,7 +32,7 @@ export interface ConfiguredCheck {
 export interface DependencyReport {
   checked_at: string;
   supabase: TimedCheck;
-  ml_service: TimedCheck;
+  ml_service: MlCheck;
   termii: ConfiguredCheck;
   paystack: ConfiguredCheck;
   resend: ConfiguredCheck;
@@ -68,9 +74,11 @@ export async function checkSupabase(): Promise<TimedCheck> {
 }
 
 /** Thin wrapper around the existing never-throw ML client — zero new fallback logic. */
-export async function checkMlService(): Promise<TimedCheck> {
+export async function checkMlService(): Promise<MlCheck> {
   const client = createMlClientFromEnv();
-  if (!client) return { status: "down", latency_ms: 0 };
+  // No URL/key means no ML host exists (docs/ARCHITECTURE.md: not provisioned). That is "not deployed", not "down":
+  // "down" is reserved for a service that IS configured but stopped answering, which is the signal worth acting on.
+  if (!client) return { status: "not_deployed", latency_ms: 0 };
 
   const start = Date.now();
   const result = await client.health();

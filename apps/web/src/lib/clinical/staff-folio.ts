@@ -65,6 +65,24 @@ export async function fetchStaffFolios(
   return out;
 }
 
+/**
+ * Ids of clinicians whose folio contains the term, for the admin / Chief Medical Officer search box only. The database returns
+ * nothing to anyone else and nothing for a term under two characters. A failure (including the function not being deployed yet)
+ * returns null, which the caller must report as "a source was unavailable" rather than show a shorter list as complete;
+ * it never reads the column.
+ */
+export async function searchStaffIdsByFolio(supabase: Pick<SupabaseClient, "rpc">, term: string): Promise<string[] | null> {
+  const client = supabase as unknown as {
+    rpc: (fn: "search_clinical_staff_by_folio", args: { p_term: string }) => PromiseLike<{ data: { clinical_staff_id: string }[] | null; error: Err }>;
+  };
+  const res = await client.rpc("search_clinical_staff_by_folio", { p_term: term });
+  if (res.error) {
+    console.error("search_clinical_staff_by_folio failed", res.error.code);
+    return null;
+  }
+  return (res.data ?? []).map((r) => r.clinical_staff_id);
+}
+
 /** Fills `credential_number` on rows that no longer carry it (selected without the folio), for screens entitled to show it. */
 export async function withStaffFolios<T extends { id: string }>(
   supabase: Pick<SupabaseClient, "rpc" | "from">,

@@ -30,11 +30,13 @@ export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "a
         <Card>
           <CardHeader><CardTitle>{t("circle.view.bp.title", locale)}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {view.bp_trend.weeks.length === 0 ? <p className={MUTED}>{t("circle.view.bp.none", locale)}</p> : null}
+            {view.bp_trend.weeks.every((w) => w.readings === 0) ? <p className={MUTED}>{t("circle.view.bp.none", locale)}</p> : null}
             <ul className="space-y-1">
-              {view.bp_trend.weeks.map((w) => (
+              {view.bp_trend.weeks.filter((w) => w.readings > 0).map((w) => (
                 <li key={w.week_start}>
-                  {t("circle.view.bp.row", locale, { date: formatPatientDate(w.week_start), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })}
+                  {w.systolic !== null && w.diastolic !== null
+                    ? t("circle.view.bp.row", locale, { date: formatPatientDate(w.week_start), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })
+                    : t("supporterview.bp.row_few", locale, { date: formatPatientDate(w.week_start) })}
                 </li>
               ))}
             </ul>

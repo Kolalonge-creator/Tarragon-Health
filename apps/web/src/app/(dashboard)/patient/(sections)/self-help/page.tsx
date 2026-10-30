@@ -5,6 +5,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { SharedPhoneGate } from "@/components/mental-health/shared-phone-gate";
 import { SharedPhoneSettings } from "@/components/mental-health/shared-phone-settings";
 import { TherapyProgrammeList } from "@/components/therapy/programme-list";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
@@ -18,7 +19,6 @@ export default async function PatientProgrammesPage() {
 
   return (
     <DashboardSection id="programmes" title={t("therapy.title")} description={t("therapy.intro")} icon={SEMANTIC_ICON.mood}>
-      <SharedPhoneSettings />
       <SharedPhoneGate>
         {actingForSomeoneElse ? (
           <Card><CardContent className="py-4 text-sm">{t("therapy.guidance.not_available")}</CardContent></Card>
@@ -27,6 +27,9 @@ export default async function PatientProgrammesPage() {
         )}
         <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("therapy.shared_phone.note")}</p>
       </SharedPhoneGate>
+      <Disclosure title="Using a shared phone?" hint="Hide these programmes from other people who use this phone.">
+        <SharedPhoneSettings />
+      </Disclosure>
     </DashboardSection>
   );
 }

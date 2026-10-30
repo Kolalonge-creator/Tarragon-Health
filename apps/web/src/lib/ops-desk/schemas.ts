@@ -168,3 +168,11 @@ export function parseWindowLines(text: string): WindowInput[] {
   }
   return out;
 }
+
+/** A number as typed: +country code and digits, or a Nigerian 0 number. Anything else is refused here before the database sees it. */
+export function toE164ForTestCall(raw: string): string | null {
+  const compact = raw.replace(/[\s()-]/g, "");
+  if (/^\+[1-9]\d{7,14}$/.test(compact)) return compact;
+  if (/^0\d{10}$/.test(compact)) return `+234${compact.slice(1)}`;
+  return null;
+}

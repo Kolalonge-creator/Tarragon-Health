@@ -23,6 +23,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "bad_request" }, { status: 400 });
   const { data, error } = await loose(await createClient()).rpc("run_research_export", { p_protocol_id: id });
   if (error) {
+    if (/second person must authorise/i.test(error.message)) return NextResponse.json({ error: "needs_authorisation" }, { status: 409 });
+    if (/held back/i.test(error.message)) return NextResponse.json({ error: "held_back" }, { status: 409 });
     const denied = error.code === "42501" || /not authorised|switched off/i.test(error.message);
     return NextResponse.json({ error: denied ? "not_allowed" : "not_released" }, { status: denied ? 403 : 409 });
   }

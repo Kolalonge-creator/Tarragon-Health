@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Share, Text, TextInput, View } from "react-native";
+import { Share, TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { explainerFactText, MAX_DESCRIBE_CHARS, safetyNetLines, type Explanation, type SafetyNet } from "@tarragon/symptom-triage-engine";
 import { MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { useLegacyColors } from "@/ui/design";
 import { radius } from "@/ui/theme";
 import { describeOnDevice, tr, type MobileUx } from "@/lib/symptom-ux-model";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S59c on the phone: the pieces a symptom result and the entry step are made of. English only, plain text, no images, and nothing here is
@@ -48,7 +49,7 @@ export function DescribeBox({
 
   return (
     <View style={{ gap: 8, marginTop: 12 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{t("symptom.describe.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.describe.title")}</AppText>
       <MutedText>{t("symptom.describe.intro")}</MutedText>
       <TextInput
         accessibilityLabel={t("symptom.describe.label")}
@@ -70,14 +71,14 @@ export function DescribeBox({
       <PrimaryButton title={t("symptom.describe.button")} disabled={text.trim().length === 0} onPress={find} />
       {outcome.kind === "match" && (
         <View accessibilityRole="alert" style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, color: colors.ink }}>{t("symptom.describe.match", "en", { name: labelOf(outcome.key) })}</Text>
+          <AppText variant="body">{t("symptom.describe.match", "en", { name: labelOf(outcome.key) })}</AppText>
           <PrimaryButton title={t("symptom.describe.match_yes")} onPress={() => onChoose(outcome.key)} />
           <SecondaryButton title={t("symptom.describe.match_no")} onPress={() => setOutcome({ kind: "none" })} />
         </View>
       )}
       {outcome.kind === "ambiguous" && (
         <View accessibilityRole="alert" style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, color: colors.ink }}>{t("symptom.describe.ambiguous")}</Text>
+          <AppText variant="body">{t("symptom.describe.ambiguous")}</AppText>
           {outcome.keys.map((k) => (
             <SecondaryButton key={k} title={labelOf(k)} onPress={() => onChoose(k)} />
           ))}
@@ -96,11 +97,11 @@ export function WhyBlock({ explanation }: { explanation: Explanation }) {
   const colors = useLegacyColors();
   return (
     <View testID="why-this-result" style={{ gap: 6, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.why.title")}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.why.title")}</AppText>
       <MutedText>{t("symptom.why.intro")}</MutedText>
       {explanation.items.map((item) => (
         <View key={item.id} style={{ gap: 2 }}>
-          <Text style={{ fontSize: 14, color: colors.ink }}>{item.reason}</Text>
+          <AppText variant="body">{item.reason}</AppText>
           {item.youTold.length > 0 && <MutedText>{`${t("symptom.why.you_told")}:`}</MutedText>}
           {item.youTold.map((f, i) => (
             <MutedText key={i}>{`- ${explainerFactText(f, tr, label)}`}</MutedText>
@@ -120,9 +121,9 @@ export function SafetyBlock({ net }: { net: SafetyNet }) {
   const { lines, closing } = safetyNetLines(net, tr);
   return (
     <View testID="safety-net" style={{ gap: 4, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.net.title")}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.net.title")}</AppText>
       {lines.map((l) => (
-        <Text key={l} style={{ fontSize: 14, color: colors.ink }}>{`- ${l}`}</Text>
+        <AppText variant="body" key={l}>{`- ${l}`}</AppText>
       ))}
       {closing.map((c) => (
         <MutedText key={c}>{c}</MutedText>
@@ -144,7 +145,7 @@ export function SaveCard({ text, onClear }: { text: string; onClear: () => void 
       {open && (
         <View testID="save-card" style={{ gap: 6, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, padding: 10 }}>
           <MutedText>{t("symptom.card.hint")}</MutedText>
-          <Text selectable style={{ fontSize: 14, color: colors.ink }}>{text}</Text>
+          <AppText variant="body" selectable>{text}</AppText>
           <SecondaryButton title={t("symptom.card.share")} onPress={() => void Share.share({ message: text }).catch(() => undefined)} />
           <MutedText>{t("symptom.card.shared_phone")}</MutedText>
         </View>

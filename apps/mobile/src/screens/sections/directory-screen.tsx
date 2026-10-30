@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { JoinWaitlist } from "./join-waitlist";
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { asLocale, t, type Locale } from "@tarragon/i18n";
 import { directionsHref, telHref } from "@tarragon/shared";
@@ -9,8 +10,9 @@ import {
   type DirectoryRow, type ReportField, type SearchFilters,
 } from "@/lib/directory/model";
 import { spacing } from "@/ui/theme";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -32,7 +34,7 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
   if (state === "sent") return <MutedText>{t("directory.report.thanks", locale)}</MutedText>;
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("directory.report.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("directory.report.title", locale)}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {REPORT_FIELDS.map((f) => {
           const selected = f === field;
@@ -44,7 +46,7 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
               onPress={() => setField(f)}
               style={{ borderRadius: 999, paddingVertical: 8, paddingHorizontal: 12, minHeight: 44, justifyContent: "center", backgroundColor: selected ? colors.brand : colors.groupBg }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
+              <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>{t(`directory.report.field.${f}` as const, locale)}</Text>
             </Pressable>
           );
         })}
@@ -72,7 +74,6 @@ function ReportBox({ row, locale }: { row: DirectoryRow; locale: Locale }) {
 }
 
 function Listing({ row, hmo, locale }: { row: DirectoryRow; hmo: string; locale: Locale }) {
-  const colors = useLegacyColors();
   const [reporting, setReporting] = useState(false);
   const tel = telHref(row.phone);
   const maps = directionsHref(
@@ -84,15 +85,15 @@ function Listing({ row, hmo, locale }: { row: DirectoryRow; hmo: string; locale:
   const nhiaLine = nhiaKey(row.nhia_status);
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{row.name}</Text>
+      <AppText variant="bodyLargeStrong">{row.name}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         <Badge tone={row.tier === "seed_only" ? "neutral" : "brand"}>{t(tierKey(row.tier), locale)}</Badge>
         <MutedText>{row.last_verified_at ? t("directory.last_verified", locale, { date: lagosDate(row.last_verified_at) }) : t("directory.never_verified", locale)}</MutedText>
       </View>
       <MutedText>{[row.address, row.city, row.state].filter(Boolean).join(", ")}</MutedText>
-      {row.open_now !== null ? <Text style={{ color: colors.ink }}>{row.open_now ? t("directory.open_now", locale) : t("directory.closed_now", locale)}</Text> : null}
+      {row.open_now !== null ? <AppText variant="body">{row.open_now ? t("directory.open_now", locale) : t("directory.closed_now", locale)}</AppText> : null}
       {row.hours_text ? <MutedText>{row.hours_text}</MutedText> : null}
-      <Text style={{ color: colors.ink }}>{price ? t("directory.price.per_item", locale, { amount: price }) : t("directory.price.unknown", locale)}</Text>
+      <AppText variant="body">{price ? t("directory.price.per_item", locale, { amount: price }) : t("directory.price.unknown", locale)}</AppText>
       {hmoLine ? <MutedText>{t(hmoLine, locale, { hmo })}</MutedText> : null}
       {nhiaLine ? <MutedText>{t(nhiaLine, locale)}</MutedText> : null}
       {row.rating_count > 0 ? (
@@ -164,18 +165,23 @@ export function DirectoryScreen() {
           />
         ))}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
-          <Text style={{ color: colors.ink }}>{t("directory.filter.nhia", locale)}</Text>
+          <AppText variant="body">{t("directory.filter.nhia", locale)}</AppText>
           <Switch accessibilityLabel={t("directory.filter.nhia", locale)} value={filters.nhia} onValueChange={(v) => set("nhia", v)} />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
-          <Text style={{ color: colors.ink }}>{t("directory.filter.open_now", locale)}</Text>
+          <AppText variant="body">{t("directory.filter.open_now", locale)}</AppText>
           <Switch accessibilityLabel={t("directory.filter.open_now", locale)} value={filters.openNow} onValueChange={(v) => set("openNow", v)} />
         </View>
         <PrimaryButton title={t("directory.search", locale)} onPress={() => void search()} loading={loading} />
       </Card>
 
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
-      {status === "not_open" ? <MutedText>{t("directory.not_open", locale)}</MutedText> : null}
+      {status === "not_open" ? (
+        <View style={{ gap: 12 }}>
+          <MutedText>{t("directory.not_open", locale)}</MutedText>
+          <JoinWaitlist feature="directory" />
+        </View>
+      ) : null}
       {status === "error" ? <ErrorText>{t("directory.error", locale)}</ErrorText> : null}
       {rows !== null && rows.length === 0 ? <MutedText>{t("directory.none", locale)}</MutedText> : null}
       {(rows ?? []).map((row) => (

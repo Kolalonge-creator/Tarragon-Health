@@ -16,6 +16,7 @@ import {
   ScreenTitle,
   SecondaryButton,
 } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type PatientDevice = Tables<"patient_devices">;
 type GlucoseContext = "fasting" | "random" | "post_meal";
@@ -90,7 +91,7 @@ function ReadingValue({ reading }: { reading: ParsedReading }) {
     case "glucometer":
       return (
         <Text style={valueStyle}>
-          {reading.glucoseMmolL ?? "—"} <Text style={unitStyle}>mmol/L</Text>
+          {reading.glucoseMmolL ?? "-"} <Text style={unitStyle}>mmol/L</Text>
         </Text>
       );
     case "scale":
@@ -285,12 +286,12 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
             {item.status === "saved" && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                <Text style={{ color: colors.success, fontWeight: "600" }}>Saved</Text>
+                <AppText variant="bodyStrong" tone="brandText">Saved</AppText>
               </View>
             )}
             {item.status === "held" && (
               <View style={{ gap: 6 }}>
-                <Text style={{ color: colors.ink, fontWeight: "700" }}>Please check this reading</Text>
+                <AppText variant="bodyStrong">Please check this reading</AppText>
                 <MutedText>
                   This number does not look possible, so we have not added it to your record. Check your device and take the reading again. If you feel unwell, do not wait. Get care now.
                 </MutedText>

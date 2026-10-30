@@ -30,8 +30,8 @@ export default async function DiabetesPage() {
       riskNote={
         <ConditionRiskNote
           eyebrow="Why this matters"
-          statement="Diabetes complications rarely start with a bad number. They start with a normal one nobody checked again for months."
-          support="HbA1c can drift for weeks before it ever becomes a symptom. Tarragon keeps glucose, HbA1c, and lab follow-up on one record, so a quiet drift gets reviewed, not missed."
+          statement="Complications of diabetes rarely begin with a very high reading. They begin with a normal reading that nobody checked again for months."
+          support="HbA1c (your average blood sugar over three months) can rise for weeks before it causes any symptom. Tarragon keeps glucose, HbA1c and laboratory follow-up on one record, so a gradual rise is reviewed instead of being missed."
         />
       }
     >
@@ -39,7 +39,7 @@ export default async function DiabetesPage() {
         <SectionHeading
           eyebrow="What we monitor"
           title="Every check, and how often"
-          description="Once your doctor puts you on a diabetes care plan, here's exactly what gets tracked, and on what schedule."
+          description="Once a doctor places you on a diabetes care plan, this is what is tracked and how often."
         />
         <ConditionMonitoringGrid categories={DIABETES_MONITORING} />
       </Section>
@@ -55,7 +55,7 @@ export default async function DiabetesPage() {
       {diabetesArticles.length > 0 ? (
         <Section variant="sage">
           <ResourceCarousel
-            title="Explore more Diabetes Management resources"
+            title="More resources on managing diabetes"
             articles={diabetesArticles}
           />
         </Section>

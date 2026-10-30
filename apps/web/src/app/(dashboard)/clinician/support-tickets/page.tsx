@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SupportTicketWorklist } from "./support-ticket-worklist";
 import { PhoneCallForm } from "./phone-call-form";
+import { EmailForm } from "./email-form";
 
 /**
  * Patient Support & Service Centre — the staff-facing technical-support
@@ -12,8 +13,8 @@ import { PhoneCallForm } from "./phone-call-form";
  * private.can_handle_support_escalation, the same way the escalations page
  * mirrors canHandleEmergencyEscalation) — the queue itself needs no gate.
  */
-export default async function ClinicianSupportTicketsPage({ searchParams }: { searchParams: Promise<{ pn?: string }> }) {
-  const { pn } = await searchParams;
+export default async function ClinicianSupportTicketsPage({ searchParams }: { searchParams: Promise<{ pn?: string; en?: string }> }) {
+  const { pn, en } = await searchParams;
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -32,6 +33,7 @@ export default async function ClinicianSupportTicketsPage({ searchParams }: { se
         </Link>
       </div>
       <PhoneCallForm notice={pn} />
+      <EmailForm notice={en} />
       <SupportTicketWorklist />
     </div>
   );

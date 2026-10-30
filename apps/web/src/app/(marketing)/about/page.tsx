@@ -9,6 +9,7 @@ import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { paidProductName } from "@/lib/marketing/membership";
 import { pageMetadata } from "@/lib/marketing/site";
 
 /**
@@ -30,28 +31,28 @@ import { pageMetadata } from "@/lib/marketing/site";
 const ABOUT_COMMITMENTS = [
   {
     value: "12 hrs",
-    label: "contact SLA on critical results",
+    label: "to contact you about a critical result",
     detail:
-      "A critical result starts a twelve-hour clock to contact you; any other abnormal result is followed up within a day. The clock starts the moment the result comes back, rather than on a schedule.",
+      "For a critical result, we have twelve hours to contact you. Any other abnormal result is followed up within a day. The time limit starts when the result comes back, not at the next scheduled review.",
   },
   {
     value: "Free",
     label: "the app itself is free",
     detail:
-      "Everything you can do yourself costs nothing, with no time limit. Membership adds a yearly blood test and a video call with your care team every month, for one price you see before you pay.",
+      `Everything you do yourself in the app is free, with no time limit. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month, for one price you see before you pay.`,
   },
   {
     value: "Built to scale",
     label: "where a doctor's time goes",
     detail:
-      "We invest in protocols, automation, and triage so a doctor's time goes to the cases that actually need judgement, without cutting corners on review.",
+      "We invest in protocols, automation and triage so that a doctor's time goes to the cases that need clinical judgement, without reducing the quality of review.",
   },
 ] as const;
 
 export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
-    "Why TarragonHealth exists: continuity of care between doctor visits, for Nigerians and the people who love them.",
+    "Why TarragonHealth exists: continuity of care between doctor visits, for people in Nigeria and the family members who care about them.",
   path: MARKETING_ROUTES.about,
 });
 
@@ -62,8 +63,8 @@ export default function AboutPage() {
           viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
       <PhotoBannerHero
         eyebrow="About TarragonHealth"
-        title="Built on one conviction: care shouldn't stop when the appointment ends."
-        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that fails to come. TarragonHealth exists to close that gap."
+        title="Built on one conviction: care should not stop when the appointment ends."
+        description="Chronic disease cannot be managed in a fifteen-minute consultation. It is managed in the weeks afterwards, through the dose that is missed, the reading that nobody sees and the follow-up call that never comes. TarragonHealth exists to close that gap."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref="#team"
@@ -77,8 +78,8 @@ export default function AboutPage() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-lg leading-relaxed text-charcoal-ink/75">
             We started in the emergency department, watching preventable crises arrive days too
-            late. We built TarragonHealth to close that gap, for families in Nigeria and the
-            people keeping watch on them from abroad.
+            late. We built TarragonHealth to close that gap, for families in Nigeria and for the
+            relatives who look out for them from abroad.
           </p>
           <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
             Care that stays with you.
@@ -115,7 +116,7 @@ export default function AboutPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Prevention and chronic disease management share the same patient record at
               TarragonHealth: the same family, phone, and care team follow you from a routine
-              screening through an ongoing condition, so the story carries on rather than resetting.
+              screening through an ongoing condition, so your history continues and does not start again.
             </p>
           </div>
           <MarketingMediaFrame
@@ -133,11 +134,11 @@ export default function AboutPage() {
             },
             {
               title: "Protocol-driven",
-              body: "Escalation follows a defined four-level pathway, every time, for every patient.",
+              body: "Referral to a doctor follows a defined four-level pathway, every time, for every patient.",
             },
             {
               title: "Family included, if you choose",
-              body: "Someone looking after a parent can be named as next of kin, so they stay informed rather than left guessing. It's the parent's choice, not a default, and it can be withdrawn.",
+              body: "Someone looking after a parent can be named as next of kin, so that they stay informed rather than being left to guess. This is the parent's choice, not a default, and it can be withdrawn.",
             },
           ].map((item) => (
             <div
@@ -157,8 +158,8 @@ export default function AboutPage() {
         <SectionHeading
           invert
           eyebrow="What we stand for"
-          title="How we work, and what we won't do"
-          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent."
+          title="How we work, and what we will not do"
+          description="Tarragon is built for the care between doctor visits. It follows protocols, relies on evidence and is consistent."
         />
         <TrustPillars />
       </Section>
@@ -167,11 +168,11 @@ export default function AboutPage() {
         <SectionHeading
           eyebrow="Team"
           title="The people building TarragonHealth"
-          description="Meet the clinical leadership. Click a card for the full story."
+          description="Meet the clinical leadership. Select a card to read more."
         />
         <LeadershipGrid />
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We&rsquo;re also hiring as TarragonHealth grows past one founder.{" "}
+          We are also hiring as TarragonHealth grows beyond one founder.{" "}
           <Link
             href={MARKETING_ROUTES.careers}
             className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
@@ -187,18 +188,18 @@ export default function AboutPage() {
 
       <Section>
         <p className="mx-auto mb-8 max-w-xl text-center font-heading text-xl font-semibold text-charcoal-ink sm:text-2xl">
-          Continuity of care isn&apos;t a feature we bolted on. It&apos;s the whole product.
+          Continuity of care is not an added feature. It is the whole product.
         </p>
         <CtaBand
           variant="gradient"
           title="Come build continuity of care with us"
-          description="Whether you're a patient, a family member, an employer, or an HMO, we'd like to hear from you."
+          description="Whether you are a patient, a family member, an employer or an HMO, we would like to hear from you."
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.contact + "?source=about"}
           secondaryLabel="Get in touch"
         />
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
-          Read more about what we do on the{" "}
+          You can read more about what we offer on the{" "}
           <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Pricing
           </Link>{" "}

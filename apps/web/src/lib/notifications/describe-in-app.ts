@@ -11,8 +11,28 @@ export interface InAppNotificationInput {
  * anything unmapped still shows (generic text, dashboard link) rather than
  * silently disappearing from the bell. Exported so the communication-history
  * card (17.8) can reuse the same copy instead of a second, drifting mapping. */
+/**
+ * How many screenings one grouped reminder stands for, or null for an ordinary single reminder. The nightly job sends one reminder
+ * carrying a count instead of one per screening when a patient has more than 2 in the same stage (migration 20261030110000), so a new
+ * patient is not met with a reminder for every check at once. It names no test (INV-07).
+ */
+function groupedCount(payload: Record<string, unknown>): number | null {
+  return typeof payload.count === "number" && Number.isInteger(payload.count) && payload.count > 1 ? payload.count : null;
+}
+
+/** "Mon 3 Nov, 10:00" in Africa/Lagos for an appointment notice's scheduled_for, or null when it is missing or not a date. */
+function appointmentWhen(payload: Record<string, unknown>): string | null {
+  if (typeof payload.scheduled_for !== "string") return null;
+  const at = new Date(payload.scheduled_for);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 export function describe(n: InAppNotificationInput): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
+  if (n.template === "ai_restriction_notice") {
+    return { text: String(payload.message ?? "The AI Health Coach restriction needs your attention"), href: "/clinician/ai-risk-acceptance" };
+  }
   if (n.template === "health_education_unlock") {
     const title = String(payload.lesson_title ?? "a new lesson");
     const count = Number(payload.lesson_count ?? 1);
@@ -42,6 +62,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       text: `New message from ${from}`,
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
+  }
+  if (n.template === "care_message_reminder") {
+    return { text: "You have an unread message from your care team", href: "/patient/messages" };
   }
   if (n.template === "clinician_new_care_message") {
     // Provider-facing counterpart to new_care_message — a patient or their
@@ -155,6 +178,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "consult_checkin_nudge") {
     return { text: "Your quick check-in is still waiting whenever you are ready", href: `/patient/consult-checkin/${String(payload.checkin_id ?? "")}` };
   }
+  // S90: neutral previews for the care gap engine (INV-07). Nothing names a condition, a reading, a result, a medicine or a number.
+  if (n.template === "care_gap_checkin") {
+    return {
+      text: payload.copy_variant === "b" ? "A short step from your care team is waiting in the app. It takes a minute or two" : "Something small is waiting for you in the app. Open it when you have a minute",
+      href: "/patient",
+    };
+  }
+  if (n.template === "care_gap_checkin_followup") {
+    return { text: "A short step from your care team is waiting in the app. It takes a minute or two", href: "/patient" };
+  }
   // S59c: neutral previews for the follow-up after a symptom check (INV-07). Nothing names a symptom, a result or a person.
   if (n.template === "symptom_checkback_due") {
     return { text: "Your care team would like to know how you are getting on. Open the app to answer", href: `/patient/symptom-checkback/${String(payload.checkback_id ?? "")}` };
@@ -170,7 +203,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "video_visit_alternate_proposed") {
     return {
-      text: "Your doctor offered a different time for your video visit: pick one",
+      text: "A doctor offered a different time for your video visit: pick one",
       href: "/patient/care",
     };
   }
@@ -192,6 +225,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : "Your appointment is booked",
       href: "/patient/labs",
     };
+  }
+  // Booking engine notices (E6 of the events harness). They reached the bell as "You have an update" linking to the dashboard.
+  if (n.template === "appointment_booking_confirmation") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Your appointment is booked for ${when}` : "Your appointment is booked", href: "/patient/appointments" };
+  }
+  if (n.template === "appointment_cancelled") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Your appointment on ${when} was cancelled` : "Your appointment was cancelled", href: "/patient/appointments" };
+  }
+  if (n.template === "appointment_reminder") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Reminder: you have an appointment on ${when}` : "Reminder: you have an appointment coming up", href: "/patient/appointments" };
   }
   if (n.template === "lab_result_consult_needs_rescheduling") {
     return {
@@ -272,6 +318,23 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/care",
     };
   }
+  if (n.template === "sponsor_bereavement") {
+    // From private.on_patient_deceased() (W-21). Exactly one per sponsor. No name, no amount, no health data, no link.
+    return {
+      text: "We are very sorry. We have stopped all messages and renewals. Our team will be in touch about the unused months.",
+      href: "/patient/supporting",
+    };
+  }
+  if (n.template === "sponsor_bereavement_correction") {
+    // From public.approve_death_record_reversal() (W-21). One per sponsor who had already been sent the earlier note. The first name arrives
+    // only when the sponsor already had the person in an active link; otherwise "someone you support". WORDING PENDING CMO SIGN-OFF.
+    const first = typeof payload.first_name === "string" ? payload.first_name.trim() : "";
+    const who = first.length > 0 ? first : "someone you support";
+    return {
+      text: `A note we sent earlier about ${who} was sent in error. They are well. We are sorry.`,
+      href: "/patient/supporting",
+    };
+  }
   if (n.template === "sponsor_monthly_report") {
     // From private.queue_sponsor_monthly_reports(). The standing monthly
     // summary to whoever is paying for someone else's care: what they have
@@ -319,6 +382,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : `${String(payload.sponsor_name ?? "Someone")} is now paying for your ${planName}`,
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
     };
+  }
+  if (n.template === "sponsored_reservation_ready") {
+    // From the Paystack webhook (OQ-727, no SMS): the person the sponsor paid for is not texted, so the sponsor is told the
+    // claim link is ready to share. Fixed neutral line: no name, service or price (INV-07).
+    return { text: "The care you paid for is ready to share. Copy the link and give it to them yourself", href: "/patient/supporting" };
   }
   if (n.template === "care_message_safety_flag") {
     // From private.after_care_message_insert_safety_screen() (17.12) — a
@@ -511,9 +579,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // flag_escalation_to_paid_plans.sql). Deterministic self-care copy, not a
     // doctor's assessment — the full text lives in payload.self_care_note so
     // it can be specific to what was actually flagged.
-    // INV-07: the preview never carries the reading or the note (OQ-94). The full self-care text is shown in the app.
+    // INV-07: the preview never carries the reading or the note (OQ-94), so it cannot say how serious the reading was: level_label is a
+    // forbidden payload key and is not read here. Rows of this template are written on the branch where no clinician alert was raised
+    // because the plan has no doctor review, so one line fits them all: it says plainly that no doctor has been alerted (the Terms of
+    // Service and the telehealth consent promise that statement) and what to do, worded to suit both a serious and a milder row. It
+    // deliberately does not say "because you are on the Free plan", so it stays true for the wearable-estimate row below.
+    // Note: the wearable-estimate branch added to the blood pressure trigger by 20261016200822_bp_cuffless_estimates_never_diagnostic.sql
+    // (module device_cuffless_bp_informational, born OFF) writes this same template for a Member on purpose, which is why the line
+    // does not name the plan.
     return {
-      text: "Something needs your attention. Open the app to see what to do next",
+      text: t("freered.notice.self_care", "en"),
       href: "/patient/subscription",
     };
   }
@@ -533,6 +608,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_order_patient_confirmation") {
     const lab = String(payload.lab_name ?? "the partner");
     return { text: `Your order at ${lab} is confirmed`, href: "/patient/labs" };
+  }
+  // E8: a rejected lab sample. The patient copy comes from the specimen path (recollection needed) or the older order-status path; the
+  // staff copy goes to the Chief Medical Officer. Fixed wording, nothing from the payload (reason, specimen number) is shown.
+  if (n.template === "lab_specimen_rejected_recollection_needed" || n.template === "lab_sample_rejected") {
+    return { text: "Your sample could not be used and a new one is needed. Open the app to see what to do next", href: "/patient/labs" };
+  }
+  if (n.template === "lab_specimen_rejected_recollection_needed_staff") {
+    return { text: "A sample was rejected and a new one has been requested. Open your dashboard to see it", href: "/clinician" };
   }
   if (n.template === "lab_order_requested_patient") {
     const selfBooked = payload.self_booked === true;
@@ -632,6 +715,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your preventive review is due", href: "/patient/prevention" };
   }
   if (n.template === "screening_due") {
+    const grouped = groupedCount(payload);
+    if (grouped !== null) return { text: `You have ${grouped} checks due`, href: "/patient/prevention" };
+    // S98: when the preventive engine has already issued the test request, say so (generic text, INV-07: no test name).
+    if (typeof payload.lab_order_id === "string" && payload.lab_order_id !== "") {
+      return { text: "Your test request is ready to download", href: "/patient/prevention" };
+    }
     return { text: "A reminder is due", href: "/patient/prevention" };
   }
   if (n.template === "vaccination_due") {
@@ -706,6 +795,21 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "community_update") {
     // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
     return { text: "Your group has an update", href: "/patient/cohorts" };
+  }
+  if (n.template === "circle_digest") {
+    // S69b: the weekly note for a supporter. The content is built when they open it, from the permissions the patient gave (INV-07).
+    return { text: "Your Care Circle weekly update is ready", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_gentle_nudge") {
+    // S69b: the gentle nudge. Says nothing about doses, medicines or readings; the screen shows only a first name.
+    return { text: "Someone in your Care Circle may like a friendly call", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_task_update") {
+    // S69b: a shared job changed. No name, no kind of job, nothing medical. A notice to a helper carries only whose circle it is (a uuid,
+    // never echoed in the text) so it opens that person's page; the patient's own notice opens their Care Circle.
+    const pid = typeof payload["patient_id"] === "string" ? payload["patient_id"] : null;
+    const isUuid = pid !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid);
+    return { text: "Your circle has an update", href: isUuid ? `/patient/supporting/circle/${pid}` : "/patient/care-circle" };
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
@@ -826,6 +930,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "on_call_ops_desk_roster") {
     return { text: "Nobody reachable may be on call right now. Open the ops desk and phone the people on the call sheet", href: "/admin/ops/desk" };
+  }
+  if (n.template === "on_call_ops_desk_dead_letter") {
+    // From private.ops_desk_assign (W-03): fixed neutral wording, nothing from the payload (INV-07). A person makes the calls.
+    return { text: "A priority case step failed. You are the ops contact: phone the clinician on call now", href: "/admin/ops/desk" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
@@ -949,9 +1057,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated
     // siblings of screening_due above, same payload shape.
+    const grouped = groupedCount(payload);
+    if (grouped !== null) {
+      const text =
+        n.template === "screening_upcoming" ? `${grouped} checks are coming up soon`
+        : n.template === "screening_overdue" ? `${grouped} checks are still waiting`
+        : `${grouped} checks are still waiting: your care team may follow up`;
+      return { text, href: "/patient/prevention" };
+    }
+    const hasRequest = typeof payload.lab_order_id === "string" && payload.lab_order_id !== "";
     const label =
       n.template === "screening_upcoming" ? "A reminder is coming up soon"
-      : n.template === "screening_overdue" ? "A reminder is still waiting"
+      : n.template === "screening_overdue" ? (hasRequest ? "Your test request is waiting for you" : "A reminder is still waiting")
+      : hasRequest ? "Your test request is waiting: your care team may follow up"
       : "A reminder is still waiting: your care team may follow up";
     return { text: label, href: "/patient/prevention" };
   }

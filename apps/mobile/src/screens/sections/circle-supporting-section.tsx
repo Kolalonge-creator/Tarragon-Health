@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Alert, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadSupported, loadUnanswered, loadSupporterView, requestCheckIn, revokeMember, setAlertMode } from "@/lib/care-circle/api";
 import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView, type UnansweredCheckIn } from "@/lib/care-circle/parse";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { CallInvitesSection } from "./call-invites-section";
 import { MembershipSection } from "./membership-section";
 import { SupporterBlocks } from "./supporter-blocks";
+import { DigestCard, NudgesCard, TasksCard, useToolsStatus } from "./circle-tools";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -16,11 +17,11 @@ function lagosDate(iso: string): string {
 
 /** One read about one person: only the blocks the database sent. Read only: no export, no copy, no raw readings. */
 function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBack: () => void; onLeft: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [view, setView] = useState<SupporterView | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
   const [failed, setFailed] = useState(false);
+  const tools = useToolsStatus();
 
   useEffect(() => {
     void loadSupporterView(person.patientId).then((r) => {
@@ -51,11 +52,13 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
   return (
     <View style={{ gap: 12 }}>
       <SecondaryButton title={t("circle.supporting.title", locale)} onPress={onBack} />
-      <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>{view.name}</Text>
+      <AppText variant="title">{view.name}</AppText>
       <MutedText>{t("circle.view.privacy", locale, { name: view.name })}</MutedText>
       <MutedText>{t("circle.view.shared_until", locale, { date: lagosDate(view.sharedUntil) })}</MutedText>
 
       <SupporterBlocks view={view} />
+      <DigestCard patientId={person.patientId} tools={tools} />
+      <TasksCard patientId={person.patientId} tools={tools} />
 
       {view.canPay ? <PrimaryButton title={t("circle.view.pay", locale)} onPress={() => setPaying(true)} /> : null}
       <SecondaryButton
@@ -75,14 +78,13 @@ const MODE_KEYS = { push_and_app: "circle.supporting.alert_mode.push_and_app", a
 
 /** A check-in request: a name and a request to call. "I called them" is one status, no text, private to this supporter. */
 function AlertCard({ alert, onChanged }: { alert: OpenAlert; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
     <Card style={{ gap: 6 }}>
-      <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("circle.alert.title", locale, { name: alert.name })}</Text>
-      <Text style={{ color: colors.ink }}>{t("circle.alert.body", locale, { name: alert.name })}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="alert">{t("circle.alert.title", locale, { name: alert.name })}</AppText>
+      <AppText variant="body">{t("circle.alert.body", locale, { name: alert.name })}</AppText>
       {alert.called ? (
         <MutedText>{t("circle.alert.called_done", locale)}</MutedText>
       ) : (
@@ -107,12 +109,11 @@ function AlertCard({ alert, onChanged }: { alert: OpenAlert; onChanged: () => vo
 
 /** Only for someone who can receive check-in requests: drop the push, never the request in the app, and no quiet hours. */
 function AlertModePicker({ person, onChanged }: { person: SupportedPerson; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [busy, setBusy] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.supporting.alert_mode", locale, { name: person.name })}</Text>
+      <AppText variant="bodyStrong">{t("circle.supporting.alert_mode", locale, { name: person.name })}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {ALERT_MODES.map((m: AlertMode) => (
           <SecondaryButton
@@ -170,13 +171,13 @@ function CheckInAsk({ person, open }: { person: SupportedPerson; open: boolean }
 
 /** The Care Circle half of the supporter's home (S29): an open check-in request first, then the people who have shared something. */
 export function CircleSupportingSection() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [people, setPeople] = useState<SupportedPerson[] | null>(null);
   const [alerts, setAlerts] = useState<OpenAlert[]>([]);
   const [missed, setMissed] = useState<UnansweredCheckIn[]>([]);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [open, setOpen] = useState<SupportedPerson | null>(null);
+  const tools = useToolsStatus();
 
   const refresh = useCallback(async () => {
     const [p, a, u] = await Promise.all([loadSupported(), loadOpenAlerts(), loadUnanswered()]);
@@ -205,18 +206,19 @@ export function CircleSupportingSection() {
   return (
     <View style={{ gap: 12 }}>
       <CallInvitesSection />
+      <NudgesCard tools={tools} onOpen={(id) => { const p = people.find((x) => x.patientId === id); if (p) setOpen(p); }} />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
       {missed.map((m) => (
         <Card key={m.patientId} style={{ gap: 6 }}>
-          <Text accessibilityRole="alert" style={{ fontWeight: "700", color: colors.ink }}>{t("checkin.unanswered_title", locale, { name: m.name })}</Text>
-          <Text style={{ color: colors.ink }}>{t("checkin.unanswered_body", locale, { name: m.name })}</Text>
+          <AppText variant="bodyStrong" accessibilityRole="alert">{t("checkin.unanswered_title", locale, { name: m.name })}</AppText>
+          <AppText variant="body">{t("checkin.unanswered_body", locale, { name: m.name })}</AppText>
           <PrimaryButton title={t("circle.alert.called", locale)} onPress={() => { void ackUnanswered(m.patientId).then((ok) => { if (ok) void refresh(); }); }} />
         </Card>
       ))}
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.supporting.title", locale)}</Text>
+      <AppText variant="title">{t("circle.supporting.title", locale)}</AppText>
       {people.map((p) => (
         <Card key={p.memberId} style={{ gap: 6 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{alerts.some((a) => a.patientId === p.patientId && !a.called) ? `${p.name} · ${t("circle.supporting.needs_attention", locale)}` : p.name}</Text>
+          <AppText variant="bodyStrong">{alerts.some((a) => a.patientId === p.patientId && !a.called) ? `${p.name} · ${t("circle.supporting.needs_attention", locale)}` : p.name}</AppText>
           <MutedText>{`${t("circle.supporting.relationship", locale, { relationship: p.relationship })} · ${t("circle.view.shared_until", locale, { date: lagosDate(p.expiresAt) })}`}</MutedText>
           <PrimaryButton title={t("circle.supporting.open", locale)} onPress={() => setOpen(p)} />
           {p.permissions.includes("red_alerts") ? <AlertModePicker person={p} onChanged={() => void refresh()} /> : null}

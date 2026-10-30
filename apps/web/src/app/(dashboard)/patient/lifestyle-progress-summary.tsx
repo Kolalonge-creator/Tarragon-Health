@@ -20,7 +20,7 @@ export function LifestyleProgressSummary({ patientId }: { patientId: string }) {
   const { data: todaySteps } = useTodaySteps(patientId);
 
   const headline = (() => {
-    if (!latestWeight?.weight_kg) return "Track your weight & activity";
+    if (!latestWeight?.weight_kg) return "Track your weight and activity";
     if (!weightGoal?.goal_weight_kg) return `${latestWeight.weight_kg} kg logged`;
     const remaining = latestWeight.weight_kg - weightGoal.goal_weight_kg;
     if (Math.abs(remaining) < 0.1) return `${latestWeight.weight_kg} kg, at your goal`;

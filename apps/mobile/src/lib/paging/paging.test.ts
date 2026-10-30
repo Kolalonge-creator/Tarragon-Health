@@ -349,13 +349,13 @@ describe("guard rails", () => {
   it("the Android permission that lets the app appear in Do Not Disturb access is declared, and the runtime version moved", () => {
     const app = JSON.parse(readFileSync("app.json", "utf8")) as { expo: { runtimeVersion: string; android: { permissions: string[] } } };
     expect(app.expo.android.permissions).toContain("android.permission.ACCESS_NOTIFICATION_POLICY");
-    expect(app.expo.runtimeVersion).toBe("0.1.0-native8");
+    expect(app.expo.runtimeVersion).toBe("0.1.0-native9");
   });
   it("registration reports the alarm channel only for a clinician, and the critical-alert permission only behind the flag", () => {
     const src = readFileSync("src/lib/push-registration.ts", "utf8");
     expect(src).toContain("options.clinician === true ? await ensurePageChannel() : false");
     expect(src).toContain("criticalAlertsRequested()");
-    expect(src).toContain("page_channel_ready: pageChannelReady");
+    expect(src).toContain("p_page_channel_ready: options.clinician === true ? pageChannelReady : null");
   });
   it("the page push is never sent as an SMS or voice route by this app and no WhatsApp appears in the paging code", () => {
     const all = ["page-api", "page-native", "page-surface", "on-call-model"].map((f) => readFileSync(`src/lib/paging/${f}.ts`, "utf8")).join("\n");

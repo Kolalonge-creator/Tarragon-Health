@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 export interface LiaisonPatient {
   id: string;
@@ -261,7 +262,7 @@ function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
   );
 }
 
-function RecentUploads({ recent }: { recent: RecentUpload[] }) {
+export function RecentUploads({ recent, failed }: { recent: RecentUpload[]; failed: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -269,7 +270,12 @@ function RecentUploads({ recent }: { recent: RecentUpload[] }) {
         <CardDescription>The latest results uploaded across your organisation.</CardDescription>
       </CardHeader>
       <CardContent>
-        {recent.length === 0 ? (
+        {failed ? (
+          <LoadFailure>
+            Recent uploads could not be loaded. This does not mean nothing has been uploaded. Reload
+            the page to try again.
+          </LoadFailure>
+        ) : recent.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No results uploaded yet.</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10">
@@ -303,14 +309,16 @@ function RecentUploads({ recent }: { recent: RecentUpload[] }) {
 export function LabLiaisonWorklist({
   patients,
   recent,
+  recentFailed = false,
 }: {
   patients: LiaisonPatient[];
   recent: RecentUpload[];
+  recentFailed?: boolean;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
       <UploadPanel patients={patients} />
-      <RecentUploads recent={recent} />
+      <RecentUploads recent={recent} failed={recentFailed} />
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
 import { isAppHost } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
+import { rateLimit } from "@/lib/rate-limit";
+import { isMobileApiPath, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -28,6 +30,13 @@ export async function proxy(request: NextRequest) {
   );
   if (consoleTarget) {
     return NextResponse.redirect(consoleTarget, 307);
+  }
+
+  // OQ-267: one request-rate limit for every /api/mobile/* route, before any session work. Generous and fail-open; see
+  // lib/mobile-api-rate-limit.ts for why it is keyed on the session, not the IP.
+  if (isMobileApiPath(request.nextUrl.pathname)) {
+    const limited = await mobileApiRateLimitResponse(request.headers, rateLimit, request.nextUrl.pathname);
+    if (limited) return limited;
   }
 
   const { response, supabase, user } = await updateSession(request, { verify: "claims" });
@@ -61,6 +70,14 @@ export async function proxy(request: NextRequest) {
   // The function behind the page discloses no figure from the report, whoever
   // calls it.
   if (pathname === "/verify-report") {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
+  // Where Paystack returns whoever paid a Care Coordinator's phone-booking pay link. That person may be a relative with no account,
+  // or a patient who is not signed in on this device, and a signed-in one must not be bounced to a dashboard. The page shows no
+  // patient data at all: it only says the payment went through.
+  if (pathname === "/payment-received") {
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }

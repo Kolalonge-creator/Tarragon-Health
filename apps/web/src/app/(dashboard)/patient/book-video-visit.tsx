@@ -61,23 +61,23 @@ const REQUEST_STATUS: Record<
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "amber",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and is only taken once a time is confirmed. A doctor will accept your requested time, or offer a different one, within 48 hours. If no doctor can, you will be refunded in full.",
   },
   alternate_proposed: {
-    label: "Your doctor offered different times",
+    label: "A doctor offered different times",
     tone: "amber",
-    note: "Your original time didn't work, so your doctor offered these instead. Pick one below within 24 hours or you're refunded in full.",
+    note: "Your original time was not available, so a doctor has offered these instead. Please choose one below within 24 hours, or you will be refunded in full.",
   },
   accepted: { label: "Booked", tone: "green" },
   declined: {
     label: "Not available",
     tone: "red",
-    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically. You don't need to do anything or contact support.",
+    note: "A doctor was unable to take this visit. Your payment is being refunded in full automatically. You do not need to do anything or contact support.",
   },
   expired: {
     label: "Not accepted in time",
     tone: "red",
-    note: "Nobody confirmed a time in time. Your payment will be refunded in full.",
+    note: "No doctor confirmed a time within the allowed period. Your payment will be refunded in full.",
   },
   cancelled: { label: "Cancelled", tone: "grey" },
   refunded: { label: "Refunded", tone: "grey" },
@@ -249,7 +249,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
           A paid, self-serve 15-minute online consultation with a Tarragon doctor, over
           video. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through once a
-          time is confirmed: either your doctor accepts the time you picked, or offers a
+          time is confirmed: either a doctor accepts the time you picked, or offers a
           different time that works better for them, within 48 hours. If nobody can take it,
           you get a full refund.
         </p>
@@ -291,7 +291,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
             {acceptanceStats && (
               <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {acceptanceStats.suppressed
-                  ? "Not enough recent requests here yet to show a reliable acceptance estimate."
+                  ? "There are not yet enough recent requests to show a reliable estimate of how often they are accepted."
                   : `In the last 30 days, ${acceptanceStats.acceptance_rate_pct}% of requests like this were accepted, usually within about ${formatMinutes(acceptanceStats.median_minutes_to_accept)}.`}
               </p>
             )}

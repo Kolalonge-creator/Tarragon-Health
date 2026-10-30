@@ -21,12 +21,12 @@ function fakeClient(tables: Record<string, { data: Row[] | null; error: unknown 
 }
 
 describe("loadEngagementOutcomeCorrelation", () => {
-  it("returns null if either query errors", async () => {
+  it("throws if either query errors, never an empty result", async () => {
     const client = fakeClient({
       patient_engagement_scores: { data: null, error: new Error("boom") },
       patient_risk_scores: { data: [], error: null },
     });
-    expect(await loadEngagementOutcomeCorrelation(client, "org1", 5)).toBeNull();
+    await expect(loadEngagementOutcomeCorrelation(client, "org1", 5)).rejects.toThrow("boom");
   });
 
   it("buckets by tier, taking the latest tier and latest bp_control level per patient", async () => {

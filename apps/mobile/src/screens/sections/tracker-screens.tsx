@@ -24,7 +24,9 @@ import { ACTIVITY_KIND_CHOICES, parseActivityEntry } from "@/lib/activity-moveme
 import { queueActivity } from "@/lib/activity-movement";
 import { MovementGate, ReadinessCard, RouteRecorderCard, WeeklyGoalEditor } from "@/screens/sections/movement-extras";
 import { BarcodeBlock, FoodPickerBlock, RepeatAndFavouritesCard, TargetsCard } from "@/screens/sections/meal-diary-extras";
+import { EatingPlansCard } from "@/screens/sections/eating-plans-card";
 import { loadGuidance, queueMeal } from "@/lib/food-diary";
+import { GlucoseResponseCard } from "@/screens/sections/glucose-response-card";
 import { appendPhrase, type Guidance } from "@/lib/food-diary-model";
 import {
   Badge,
@@ -41,6 +43,8 @@ import {
 import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
+import { AppText } from "@/ui/kit/AppText";
+import { defaultMealType } from "@tarragon/shared";
 
 /**
  * The five daily lifestyle trackers as native screens, each a thin
@@ -279,7 +283,7 @@ function estimateSummary(estimate: MealPhotoEstimate): string {
  * comment in lib/lifestyle-trackers.ts for why it's a governed server call
  * rather than a client-side AI call.
  */
-export function MealsScreen({ patientId }: { patientId: string }) {
+export function MealsScreen({ patientId, acting = false }: { patientId: string; acting?: boolean }) {
   const colors = useLegacyColors();
   const { scheme } = useTheme();
   const t = useT();
@@ -288,7 +292,9 @@ export function MealsScreen({ patientId }: { patientId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [mealType, setMealType] = useState<MealType | undefined>(undefined);
+  const [mealType, setMealType] = useState<MealType | undefined>(() => defaultMealType());
+  // Photo-first: the camera is the main way in; typing, food search and barcode sit behind one tap.
+  const [showDetails, setShowDetails] = useState(false);
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState<CapturedMealPhoto | null>(null);
   const [saving, setSaving] = useState(false);
@@ -375,7 +381,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       }
       setPhoto(null);
       setDescription("");
-      setMealType(undefined);
+      setMealType(defaultMealType());
       setSavedMessage(t("Saved."));
       if (result.aiStatus === "estimated" && result.aiEstimate) {
         setLastEstimate(result.aiEstimate);
@@ -387,7 +393,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
     const trimmedDescription = description.trim();
     if (!trimmedDescription) {
       setSaving(false);
-      setSaveError("Write what you ate.");
+      setSaveError("Take a photo of your meal, or write what you ate.");
       return;
     }
     // S49a: a meal in words goes through the offline outbox, so it is saved on the phone first and sent when there is signal.
@@ -400,7 +406,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
     }
     setSaving(false);
     setDescription("");
-    setMealType(undefined);
+    setMealType(defaultMealType());
     setSavedMessage(t("Saved."));
     await load();
   }
@@ -435,27 +441,18 @@ export function MealsScreen({ patientId }: { patientId: string }) {
       {loadError ? <ErrorText>{loadError}</ErrorText> : null}
 
       <TargetsCard guidance={guidance} />
+      <EatingPlansCard patientId={patientId} />
+      {/* The insight reads the signed-in person's own readings, so it is never shown on someone else's screen. */}
+      {acting ? null : <GlucoseResponseCard />}
 
       <Card style={{ gap: 12 }}>
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
-            {t("Which meal?")}
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {MEAL_TYPE_CHOICES.map((choice) => {
-              const selected = mealType === choice.value;
-              return (
-                <PrimaryButtonChip
-                  key={choice.value}
-                  label={choice.label}
-                  selected={selected}
-                  onPress={() => setMealType(choice.value)}
-                />
-              );
-            })}
+        {photo ? null : (
+          <View style={{ gap: 8 }}>
+            <PrimaryButton title="Snap your meal" onPress={() => void takePhoto()} disabled={saving} />
+            <SecondaryButton title="Choose from library" onPress={() => void chooseFromLibrary()} disabled={saving} />
+            <MutedText>We estimate the portions and carbs from the photo. It is a coaching guide, not a medical measurement.</MutedText>
           </View>
-        </View>
-
+        )}
         {photo ? (
           <View style={{ gap: 8 }}>
             <Image
@@ -471,9 +468,35 @@ export function MealsScreen({ patientId }: { patientId: string }) {
         ) : null}
 
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
-            {t("What did you eat?")}
+          <AppText variant="bodyStrong">
+            {t("Which meal?")}
+          </AppText>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {MEAL_TYPE_CHOICES.map((choice) => {
+              const selected = mealType === choice.value;
+              return (
+                <PrimaryButtonChip
+                  key={choice.value}
+                  label={choice.label}
+                  selected={selected}
+                  onPress={() => setMealType(choice.value)}
+                />
+              );
+            })}
+          </View>
+        </View>
+
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showDetails }} onPress={() => setShowDetails((v) => !v)}>
+          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.brandPressed }}>
+            {showDetails ? "Hide details" : photo ? "Add details (optional)" : "Or describe it, search foods or scan a barcode"}
           </Text>
+        </Pressable>
+        {showDetails ? (
+          <View style={{ gap: 12 }}>
+        <View style={{ gap: 6 }}>
+          <AppText variant="bodyStrong">
+            {t("What did you eat?")}
+          </AppText>
           <TextInput keyboardAppearance={scheme}
             accessibilityLabel={t("What did you eat?")}
             value={description}
@@ -496,14 +519,6 @@ export function MealsScreen({ patientId }: { patientId: string }) {
         <FoodPickerBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
         <BarcodeBlock onAdd={(phrase) => setDescription((d) => appendPhrase(d, phrase))} />
 
-        {!photo ? (
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <SecondaryButton title="Take a photo" onPress={() => void takePhoto()} disabled={saving} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <SecondaryButton title="Choose from library" onPress={() => void chooseFromLibrary()} disabled={saving} />
-            </View>
           </View>
         ) : null}
 
@@ -517,16 +532,16 @@ export function MealsScreen({ patientId }: { patientId: string }) {
           // scoped to existing wayfinding chrome, not every new feature.
           <Card style={{ gap: 4, backgroundColor: colors.groupBg }}>
             <Badge tone="brand">AI estimate</Badge>
-            <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {estimateSummary(lastEstimate)}
-            </Text>
+            </AppText>
             {lastEstimate.items.length > 0 ? (
               <MutedText>
                 {lastEstimate.items.map((item) => `${item.name} (${item.portion})`).join(", ")}
               </MutedText>
             ) : null}
             {lastEstimate.confidence === "low" ? (
-              <MutedText>Low confidence — check this against what you actually ate.</MutedText>
+              <MutedText>Low confidence. Check this against what you actually ate.</MutedText>
             ) : null}
           </Card>
         ) : null}
@@ -590,7 +605,7 @@ function PrimaryButtonChip({
         style={{
           fontSize: typeScale.body,
           fontWeight: "600",
-          color: selected ? "#FFFFFF" : colors.ink,
+          color: selected ? colors.onBrand : colors.ink,
         }}
       >
         {label}

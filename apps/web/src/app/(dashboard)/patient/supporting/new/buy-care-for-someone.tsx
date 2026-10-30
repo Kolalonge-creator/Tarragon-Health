@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useSupportedPeople } from "@/lib/queries/sponsorship";
-import { useActiveServiceProducts } from "@/lib/queries/service-products";
+import { useSponsorableServiceProducts } from "@/lib/queries/service-products";
 import { addElderProxyDependentAction } from "../../family/add-elder-actions";
 import { addElderProxyDependentSchema } from "@/lib/validation/elder-proxy-dependent";
 import { paySomeonesPlan, reserveServiceForSomeone, type SponsorActionState } from "../actions";
@@ -27,7 +27,7 @@ function naira(kobo: number): string {
  * enforced the two stayed identical.
  */
 function usePayableServiceProducts() {
-  const { data: plans, isLoading } = useActiveServiceProducts();
+  const { data: plans, isLoading } = useSponsorableServiceProducts();
   const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
   return { payable, isLoading };
 }
@@ -194,7 +194,7 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
           )}
           {!isLoading && manageable.length === 0 && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              Nobody yet. If they already have a Tarragon account, ask them to name you as an
+              No one is listed yet. If they already have a Tarragon account, ask them to name you as an
               eldercare grantee from{" "}
               <Link href="/patient/family" className="text-brand-green underline">
                 their own Your people page
@@ -343,7 +343,8 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
  * Step 2 of 2: pick what to buy and pay.
  *
  * Reads the same generic active-products list every other purchase surface
- * reads (useActiveServiceProducts), so it needs no update when a product is
+ * reads (useSponsorableServiceProducts, which also includes the Members-only
+ * products a non-Member sponsor cannot otherwise see), so it needs no update when a product is
  * added or retired — Continuous Monitoring shows up here exactly because it
  * is an ordinary active, NGN-priced service_products row, same as every
  * product that came before it.

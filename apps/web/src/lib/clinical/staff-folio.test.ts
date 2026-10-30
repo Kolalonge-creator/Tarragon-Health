@@ -1,5 +1,5 @@
 const noop = () => undefined;
-import { fetchStaffFolios, isMissingFunctionError, withStaffFolios } from "./staff-folio";
+import { fetchStaffFolios, isMissingFunctionError, searchStaffIdsByFolio, withStaffFolios } from "./staff-folio";
 
 type Err = { code?: string; message?: string } | null;
 
@@ -88,5 +88,31 @@ describe("fetchStaffFolios (OQ-358: the folio comes from the folio function)", (
       { id: "s1", full_name: "A", credential_number: "MDCN/1" },
       { id: "s2", full_name: "B", credential_number: null },
     ]);
+  });
+});
+
+describe("searchStaffIdsByFolio (OQ-666: the admin / CMO search matches a folio through the staff-only function)", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("calls the function with the term and returns the ids", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: [{ clinical_staff_id: "s1" }, { clinical_staff_id: "s2" }], error: null });
+    expect(await searchStaffIdsByFolio({ rpc } as never, "MDCN/12")).toEqual(["s1", "s2"]);
+    expect(rpc).toHaveBeenCalledWith("search_clinical_staff_by_folio", { p_term: "MDCN/12" });
+  });
+
+  it("returns null (and logs) when the call fails or the function is not deployed yet, and never reads the table", async () => {
+    const errSpy = jest.spyOn(console, "error").mockImplementation(noop);
+    for (const error of [{ code: "PGRST202" }, { code: "42501" }]) {
+      const rpc = jest.fn().mockResolvedValue({ data: null, error });
+      const from = jest.fn();
+      expect(await searchStaffIdsByFolio({ rpc, from } as never, "MDCN/12")).toBeNull();
+      expect(from).not.toHaveBeenCalled();
+    }
+    expect(errSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a null result as no match", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    expect(await searchStaffIdsByFolio({ rpc } as never, "x1")).toEqual([]);
   });
 });

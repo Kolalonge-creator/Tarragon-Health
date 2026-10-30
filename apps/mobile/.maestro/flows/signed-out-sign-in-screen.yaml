@@ -9,6 +9,8 @@ tags:
   - smoke
   - signed-out
 ---
+# The session is kept in the iOS Keychain, which clearState does not touch; clear it so the flow always starts signed out.
+- clearKeychain
 - launchApp:
     clearState: true
 # The launch splash can take up to two stacked 8 second gates (see login-to-overview.yaml), so wait generously.

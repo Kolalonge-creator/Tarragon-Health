@@ -1,12 +1,13 @@
 import { CircleSupportingSection } from "./circle-supporting-section";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/legacy-kit";
 import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
 import { SponsorSharingControl } from "@/screens/sections/sponsor-sharing-control";
+import { AppText } from "@/ui/kit/AppText";
 
 interface SupportingScreenProps {
   userId: string;
@@ -67,7 +68,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>People you support</Text>
+        <AppText variant="title">People you support</AppText>
         <MutedText>Open someone&apos;s account to log a reading or run an errand for them.</MutedText>
       </View>
 
@@ -89,17 +90,17 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
           }}
         >
           <Card style={{ gap: 6 }}>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               We couldn&apos;t load this right now
-            </Text>
+            </AppText>
             <MutedText>Check your connection and tap to try again.</MutedText>
           </Card>
         </Pressable>
       ) : people.length === 0 ? (
         <Card style={{ gap: 6 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             You are not supporting anyone yet
-          </Text>
+          </AppText>
           <MutedText>
             Once someone accepts a request to let you help manage their care, they appear here.
           </MutedText>
@@ -111,7 +112,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
           return (
             <Card key={person.profileId} style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, flexShrink: 1 }}>{name}</Text>
+                <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>{name}</AppText>
                 <Badge tone={person.permissionLevel === "manage" ? "brand" : "neutral"}>
                   {person.permissionLevel === "manage" ? "You can act for them" : "You can follow"}
                 </Badge>
@@ -119,9 +120,9 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
               </View>
               {person.permissionLevel === "manage" ? (
                 isOpen ? (
-                  <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed }}>
+                  <AppText variant="label" tone="brandText">
                     Currently open. See the banner above to switch back.
-                  </Text>
+                  </AppText>
                 ) : (
                   <SecondaryButton
                     title={`Open ${name}'s account`}
@@ -143,7 +144,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
       {error ? <ErrorText>{error}</ErrorText> : null}
 
       {/* The other half of the same relationship, on the same screen on
-          purpose — mirrors web's /patient/supporting page, which renders
+          purpose; mirrors web's /patient/supporting page, which renders
           SupportedPeople and SponsorSharingControl together. Someone who
           both supports a person and is supported by one should be able to
           see and change what they share without hunting through settings.

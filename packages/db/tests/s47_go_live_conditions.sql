@@ -120,7 +120,10 @@ begin
     perform pg_temp.rec(k || ': asks for the clinical safety case', 'attestation', (select c ->> 'source' from jsonb_array_elements(pg_temp.conds(k)) c where c ->> 'code' = 'clinical_safety_case_current'));
     perform pg_temp.rec(k || ': starts off', 'false', (select is_on::text from public.go_live_guards where key = k));
     perform pg_temp.rec(k || ': nothing is met on a fresh database', '0', (select count(*)::text from jsonb_array_elements(pg_temp.conds(k)) c where (c ->> 'met')::boolean));
-    perform pg_temp.rec(k || ': cannot be switched on while unmet (by the role the guard names)', '22023', case when pg_temp.switch_as(v_cmo, k, true) = '22023' or pg_temp.switch_as(v_admin, k, true) = '22023' then '22023' else pg_temp.switch_as(v_cmo, k, true) end);
+    -- G-01: these are features. The conditions are still listed and reported, but they no longer block the switch.
+    perform pg_temp.rec(k || ': a feature opens with no condition met (G-01), the conditions only report', 'ok', pg_temp.switch_as(v_cmo, k, true));
+    perform pg_temp.rec(k || ': ...and the conditions still read unmet while it is open', '0', (select count(*)::text from jsonb_array_elements(pg_temp.conds(k)) c where (c ->> 'met')::boolean));
+    perform pg_temp.switch_as(v_cmo, k, false);
   end loop;
   perform pg_temp.rec('the codes asked for (risk instrument)', 'clinical_safety_case_current,coefficient_licence_checked,nigeria_region_confirmed,risk_instrument_signed_verified', pg_temp.codes('risk_instrument_who2019_enabled'));
   perform pg_temp.rec('the codes asked for (document capture)', 'ai_provider_data_agreement_recorded,ai018_evaluation_recorded,clinical_safety_case_current,original_photo_retention_approved', pg_temp.codes('document_capture_enabled'));
@@ -169,7 +172,7 @@ begin
   perform pg_temp.rec('report: statement approved', 'true', pg_temp.cond_met('health_report_generation_enabled', 'report_statement_approved'));
 
   -- with every condition met the CMO switches a guard on (report guard)
-  perform pg_temp.rec('report guard: still blocked until the safety case is recorded', '22023', pg_temp.switch_as(v_cmo, 'health_report_generation_enabled', true));
+  perform pg_temp.rec('report guard: the safety case is reported unmet until it is recorded', 'false', pg_temp.cond_met('health_report_generation_enabled', 'clinical_safety_case_current'));
   perform pg_temp.rec('the CMO records the safety case', 'ok', pg_temp.attest(v_cmo, 'health_report_generation_enabled', 'clinical_safety_case_current'));
   perform pg_temp.rec('report guard: all conditions met, the CMO switches it on', 'ok', pg_temp.switch_as(v_cmo, 'health_report_generation_enabled', true));
   perform pg_temp.rec('...and off again', 'ok', pg_temp.switch_as(v_cmo, 'health_report_generation_enabled', false));
@@ -232,7 +235,7 @@ begin
   $f$ select jsonb_build_array(private.go_live_cond('x', 'x', true, 'data', null)) $f$;
   insert into results values ('sabotaged', 'hpv_dna_enabled: asks for the clinical safety case', 'attestation',
     coalesce((select c ->> 'source' from jsonb_array_elements(private.go_live_conditions('hpv_dna_enabled', null)) c where c ->> 'code' = 'clinical_safety_case_current'), 'missing'));
-  insert into results values ('sabotaged', 'report guard: still blocked until the safety case is recorded', '22023', pg_temp.switch_as(pg_temp.f2('cmo'), 'health_report_generation_enabled', true));
+  insert into results values ('sabotaged', 'report guard: the safety case is reported unmet until it is recorded', 'false', pg_temp.cond_met('health_report_generation_enabled', 'clinical_safety_case_current'));
   insert into results values ('sabotaged', 'an unknown key still fails closed', 'unknown_guard,false', pg_temp.codes('no_such_guard') || ',' || pg_temp.cond_met('no_such_guard', 'unknown_guard'));
 end $$;
 

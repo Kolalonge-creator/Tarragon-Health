@@ -27,9 +27,9 @@ type MissedReason = (typeof MISSED_REASONS)[number];
 const MISSED_REASON_LABEL: Record<MissedReason, string> = {
   forgot: "I forgot",
   device_unavailable: "Don't have it with me",
-  doesnt_understand: "Not sure how/why to take it",
+  doesnt_understand: "I am not sure how or why to take it",
   doesnt_want_to: "Chose not to take it",
-  feels_well: "Feeling fine, didn't think I needed it",
+  feels_well: "I felt well and did not think I needed it",
   technical_problem: "Something else went wrong",
 };
 
@@ -64,6 +64,8 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
   const [reasonPromptFor, setReasonPromptFor] = useState<string | null>(null);
   // Item 5: the medicine the person just said they ran out of; shows a gentle offer, never an alert.
   const [ranOutFor, setRanOutFor] = useState<string | null>(null);
+  // Key of the row whose less common answers (Skipped, Delayed, ...) are open; "Taken" is always one tap.
+  const [moreFor, setMoreFor] = useState<string | null>(null);
 
   const isLoading = medsLoading || logsLoading;
   // A dose tied to the patient's day is shown only once their own times have been read: at the proposed starting times it could show a
@@ -96,6 +98,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     );
     setReasonPromptFor(null);
     setRanOutFor(null);
+    setMoreFor(null);
   }
 
   return (
@@ -133,7 +136,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
               const askingReason = reasonPromptFor === rowKey;
               return (
                 <li key={rowKey} className="py-3">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
@@ -146,26 +149,55 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                         {item.anchored ? ` · ${anchorPhrase(item.anchored.anchor, item.anchored.offsetMinutes)}` : ""}
                       </p>
                     </div>
-                    {medication && (
-                      <div className="flex flex-wrap gap-2">
-                        {LOG_ACTIONS.map((action) => (
-                          <Button
-                            key={action.label}
-                            size="sm"
-                            variant="outline"
-                            disabled={logDose.isPending}
-                            onClick={() =>
-                              action.status === "missed"
-                                ? setReasonPromptFor(askingReason ? null : rowKey)
-                                : log(item.medicationId, item.time, medication.organisation_id, action.status, undefined, action.reason)
-                            }
-                          >
-                            {action.label}
-                          </Button>
-                        ))}
+                    {medication && item.status === "pending" && (
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          disabled={logDose.isPending}
+                          onClick={() => log(item.medicationId, item.time, medication.organisation_id, "taken")}
+                        >
+                          Taken
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          aria-expanded={moreFor === rowKey}
+                          onClick={() => setMoreFor(moreFor === rowKey ? null : rowKey)}
+                        >
+                          More
+                        </Button>
                       </div>
                     )}
+                    {medication && item.status !== "pending" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-expanded={moreFor === rowKey}
+                        onClick={() => setMoreFor(moreFor === rowKey ? null : rowKey)}
+                      >
+                        Change
+                      </Button>
+                    )}
                   </div>
+                  {moreFor === rowKey && medication && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {LOG_ACTIONS.filter((a) => a.status !== "taken" || item.status !== "pending").map((action) => (
+                        <Button
+                          key={action.label}
+                          size="sm"
+                          variant="outline"
+                          disabled={logDose.isPending}
+                          onClick={() =>
+                            action.status === "missed"
+                              ? setReasonPromptFor(askingReason ? null : rowKey)
+                              : log(item.medicationId, item.time, medication.organisation_id, action.status, undefined, action.reason)
+                          }
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                   {ranOutFor === item.medicationId && medication && (
                     <div className="mt-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                       <p>{t("meds.ran_out.prompt", EN)}</p>
@@ -185,7 +217,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                   {askingReason && medication && (
                     <div className="mt-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
                       <p className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-                        What happened? (helps us support you better)
+                        What happened? This helps us support you.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {MISSED_REASONS.map((reason) => (

@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { requestNutritionReferralAction } from "./nutrition-actions";
 import { useNutritionEntries, useNutritionReferral } from "@/lib/queries/nutrition";
+import { useMyBookingTerms } from "@/lib/queries/appointments";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
 import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import type { CarePlanCondition } from "@/lib/nutrition/condition-guidance";
@@ -20,10 +22,10 @@ import { Badge } from "@/components/ui/badge";
  */
 
 const STATUS_COPY: Record<string, string> = {
-  requested: "You've asked for nutrition support. Your care team will follow up to arrange a consultation.",
+  requested: "You have asked for nutrition support. Your care team will contact you to arrange a consultation.",
   scheduled: "Your dietitian consultation is scheduled.",
-  consultation_complete: "Your consultation is complete. A personalised plan is being prepared.",
-  plan_issued: "Your personalised nutrition plan is ready. Ask your care team to walk you through it.",
+  consultation_complete: "Your consultation is complete. Your personalised nutrition plan is now being prepared.",
+  plan_issued: "Your personalised nutrition plan is ready. Your care team can go through it with you.",
   declined: "This request wasn't taken forward right now.",
   not_applicable: "Nutrition support wasn't needed for this request.",
 };
@@ -48,6 +50,11 @@ export function NutritionSupportCard({
   const { data: entries } = useNutritionEntries(patientId);
   const { data: referral } = useNutritionReferral(patientId);
   const [state, formAction, isPending] = useActionState(requestNutritionReferralAction, undefined);
+  // S50a (6.14): a dietitian visit is booked like any other per-item visit (S64). The link shows only while the visit can be booked and
+  // paid for (the price is set); until then the card says the care team will arrange it, and nothing here can fail a patient into a dead end.
+  const dietitianTerms = useMyBookingTerms("dietitian");
+  const canBookDietitian = dietitianTerms.data?.bookable === true;
+  const openReferral = referral && (referral.status === "requested" || referral.status === "scheduled");
 
   useEffect(() => {
     if (state?.success) {
@@ -78,6 +85,13 @@ export function NutritionSupportCard({
         )}
       </CardHeader>
       <CardContent className="space-y-3">
+        {openReferral && canBookDietitian ? (
+          <p className="text-sm">
+            <Link className="font-medium underline" href="/patient/appointments?type=dietitian">
+              Book your dietitian visit
+            </Link>
+          </p>
+        ) : null}
         {referral ? (
           <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             {STATUS_COPY[referral.status] ?? "Your care team is coordinating this."}
@@ -87,8 +101,15 @@ export function NutritionSupportCard({
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {risk.atRisk
                 ? risk.reasons.map((r) => RISK_REASON_LABELS[r]).join(" ")
-                : "Want extra support with your nutrition? Your care team can connect you with a dietitian for a plan built around you."}
+                : "If you would like extra support with your nutrition, your care team can arrange for you to see a dietitian, who will prepare a plan based on your needs."}
             </p>
+            {canBookDietitian ? (
+              <p className="text-sm">
+                <Link className="font-medium underline" href="/patient/appointments?type=dietitian">
+                  Or book a dietitian visit now
+                </Link>
+              </p>
+            ) : null}
             <form action={formAction}>
               <Button type="submit" variant="outline" disabled={isPending}>
                 {isPending ? "Requesting…" : "Request nutrition support"}

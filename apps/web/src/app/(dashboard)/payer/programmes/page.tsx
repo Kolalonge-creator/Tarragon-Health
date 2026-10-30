@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedInsurer } from "@/lib/payer/scope";
 import { InsurerPicker } from "../insurer-picker";
 import { ProgrammesManager } from "./programmes-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function PayerProgrammesPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function PayerProgrammesPage({
   }
 
   const supabase = await createClient();
-  const [{ data: directives }, { data: programmes }] = await Promise.all([
+  const [{ data: directives, error: directivesError }, { data: programmes, error: programmesError }] = await Promise.all([
     supabase
       .from("payer_programme_directives")
       .select("id, programme_id, is_active, chronic_condition_programmes(name, condition)")
@@ -44,6 +45,9 @@ export default async function PayerProgrammesPage({
         </div>
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
+      {directivesError || programmesError ? (
+        <ListUnavailable title="Care programmes" />
+      ) : (
       <ProgrammesManager
         insurerId={selected.id}
         directives={
@@ -57,6 +61,7 @@ export default async function PayerProgrammesPage({
         }
         programmes={programmes ?? []}
       />
+      )}
     </div>
   );
 }

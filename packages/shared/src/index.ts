@@ -26,6 +26,8 @@ export * from "./therapy-programmes";
 export * from "./home-pins";
 export * from "./measurement-units";
 export * from "./rewards-pending";
+export * from "./clinician-home";
+export * from "./admin-home";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -279,11 +281,16 @@ export * from "./proposed-config/biomarker-grade-bands";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
+export * from "./messages/reply-time";
 
 // S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
 export * from "./private-section";
 export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
+export { assessDeviceSync, loadDeviceSyncConfig, SYNC_CLOCK_SKEW_TOLERANCE_MS } from "./device-sync-freshness";
+export { loadVisitFollowUpConfig, visitFollowUpOpen } from "./visit-follow-up";
+export type { VisitFollowUpConfig } from "./visit-follow-up";
+export type { DeviceSyncConfig, DeviceSyncFreshness, DeviceSyncLevel, DeviceSyncMessageKey } from "./device-sync-freshness";
 
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
 export * from "./device-plausibility";
@@ -293,8 +300,13 @@ export * from "./photo-reading";
 export * from "./cgm-events";
 export * from "./device-source";
 export * from "./causal-wording";
+export * from "./reliable-change";
 export * from "./lock-screen-pass";
+export * from "./my-phones";
 export * from "./therapy-content/wave-a-drafts";
+export * from "./therapy-content/msk-drafts";
+export * from "./therapy-content/msk-illustrations";
+export * from "./msk-programmes";
 export * from "./therapy-queue";
 export * from "./therapy-results";
 export * from "./device-guides";
@@ -309,6 +321,7 @@ export * from "./health-history";
 
 // S43m: multi-year biomarker trend parsing and chart geometry, shared by the web page and the phone screen.
 export * from "./biomarker-trend";
+export * from "./care-circle-presets";
 
 // S69c: cooperative framing of cohort challenges (shared goal path, weeks active, daily cap, shame-copy lint), shared by web and phone.
 export * from "./community-cooperative";
@@ -316,3 +329,9 @@ export * from "./community-cooperative";
 // S43m: the emergency card field choices and the pure half of photo capture, shared by web and phone.
 export * from "./emergency-card-fields";
 export * from "./document-suggestions";
+
+// S71 A3: the refund and cancellation rule numbers and lines, shared by web and phone.
+export * from "./refund-rule";
+export * from "./default-meal-type";
+export * from "./consultations/next-available";
+export * from "./group-ledger";

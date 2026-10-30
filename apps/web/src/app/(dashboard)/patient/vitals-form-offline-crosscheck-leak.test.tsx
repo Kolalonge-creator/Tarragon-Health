@@ -62,6 +62,8 @@ describe("VitalsForm — offline guard does not leak the crosscheck one-shot byp
 
     expect(mockLogVital).not.toHaveBeenCalled();
     expect(screen.getByText(/you're offline/i)).toBeTruthy();
+    // 195/120 also asks for emergency guidance offline (S85b). That dialog is modal, so it has to be read and closed before the form can be used.
+    fireEvent.click(screen.getByRole("button", { name: "I have read this" }));
     // The crosscheck dialog is gone (confirmAndSave cleared it) — the plain
     // "Save reading" button is back, not the confirm dialog's buttons.
     expect(screen.getByRole("button", { name: "Save reading" })).toBeTruthy();

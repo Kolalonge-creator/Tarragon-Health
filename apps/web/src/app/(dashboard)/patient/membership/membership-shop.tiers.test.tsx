@@ -28,6 +28,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
     useQuote: () => ({ data: null }),
     useSetMyPlusState: () => ({ mutate: setStateMutate, ...setStateResult }),
+    useAutoRenewEnabled: () => ({ data: false }),
   };
 });
 let plusStates: { state: string; display_name: string }[] = [{ state: "Lagos", display_name: "Lagos" }, { state: "Oyo", display_name: "Oyo" }];
@@ -115,10 +116,10 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(screen.queryByRole("button", { name: "Pay with Paystack" })).toBeNull();
   });
 
-  it("before the ladder is on, only the single Membership shows, with the old name", () => {
+  it("before the ladder is on, only the single Membership shows, named Membership Plus, the product it actually is", () => {
     catalogue = { data: [PLUS, UP], isSuccess: true };
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("Tarragon Membership")).toBeTruthy();
+    expect(screen.getByText("Membership Plus")).toBeTruthy();
     expect(screen.queryByText("Annual blood panel: no")).toBeNull();
     expect(screen.queryByText("Move up to Membership Plus")).toBeNull();
   });
@@ -160,6 +161,18 @@ describe("MembershipShop with the Membership ladder", () => {
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
     expect(arg.code).toBe("membership_annual");
     expect(arg.collectionState).toBe("Lagos");
+  });
+
+  it("Plus says why its Pay button is greyed out, and the hint goes once a state is chosen; Membership never shows it", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const [membershipPay, plusPay] = screen.getAllByRole("button", { name: "Pay with Paystack" }) as HTMLButtonElement[];
+    const hint = screen.getByText(/Choose the state where your blood tests will be collected, above, to continue/);
+    expect(screen.getAllByText(/to continue\./).length).toBe(1);
+    expect(plusPay!.getAttribute("aria-describedby")).toBe(hint.id);
+    expect(membershipPay!.getAttribute("aria-describedby")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Lagos" } });
+    expect(screen.queryByText(/Choose the state where your blood tests will be collected, above, to continue/)).toBeNull();
+    expect(plusPay!.getAttribute("aria-describedby")).toBeNull();
   });
 
   it("Membership (no Plus) is not limited by state: no picker on its card and no state sent", async () => {

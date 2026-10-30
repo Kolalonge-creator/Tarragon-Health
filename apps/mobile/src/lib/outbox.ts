@@ -102,11 +102,44 @@ export interface ActivityPayload {
   logged_on: string;
 }
 
+/**
+ * P4: an exercise session saved on the phone first. Idempotent by the outbox client id (exercise_session_logs.client_id), so a resend after a lost
+ * reply is a duplicate, not a second session. The database triggers still decide the date window and raise the Member symptom alert when it lands.
+ */
+export interface ExerciseSessionPayload {
+  /** The Lagos calendar day it happened. */
+  performed_on: string;
+  duration_minutes: number;
+  kind: "walking" | "mobility" | "strength" | "cardio" | "other";
+  effort: "easy" | "moderate" | "hard" | null;
+  symptom_during: boolean;
+  enrollment_id: string | null;
+  note: string | null;
+}
+
+/**
+ * D.1: a wellbeing check-in saved on the phone first. The table has no client id column, so the check-in time (the outbox row's recorded
+ * time) is the idempotency key: a retry after a lost reply finds the row it already wrote and sends nothing. Scores are the same 1 to 5
+ * the database CHECKs; tags are the fixed list. This is the check-in only. The mental health screening questionnaires stay online, because
+ * they trigger follow-up and a crisis route that must not wait in a queue unseen.
+ */
+export interface WellbeingCheckinPayload {
+  organisation_id: string;
+  mood_score: number;
+  stress_score: number;
+  sleep_quality: number;
+  activity_level: number;
+  note: string | null;
+  tags: string[];
+}
+
 export type OutboxPayload =
+  | WellbeingCheckinPayload
   | AnchorTimesPayload
   | DayShiftPayload
   | DayShiftEndPayload
   | ActivityPayload
+  | ExerciseSessionPayload
   | VitalReadingPayload
   | MealPayload
   | SymptomPayload
@@ -635,6 +668,55 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         distance_m: p.distance_m,
         logged_on: p.logged_on,
         client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "exercise_session") {
+      const p = item.payload as ExerciseSessionPayload;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", item.subjectId)
+        .single();
+      if (profileError) return asFailure(profileError);
+      if (!profile?.organisation_id) return { ok: false, status: 400, message: "No organisation on file" };
+      const { error } = await supabase.from("exercise_session_logs").insert({
+        organisation_id: profile.organisation_id,
+        patient_id: item.subjectId,
+        enrollment_id: p.enrollment_id,
+        performed_on: p.performed_on,
+        duration_minutes: p.duration_minutes,
+        kind: p.kind,
+        effort: p.effort,
+        symptom_during: p.symptom_during,
+        note: p.note,
+        client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "wellbeing_checkin") {
+      const p = item.payload as WellbeingCheckinPayload;
+      // Already sent (a lost reply last time)? Then this is a duplicate, not a second check-in.
+      const existing = await supabase
+        .from("wellbeing_checkins")
+        .select("id")
+        .eq("patient_id", item.subjectId)
+        .eq("checked_in_at", item.clientRecordedAt)
+        .limit(1);
+      if (existing.error) return asFailure(existing.error);
+      if (existing.data && existing.data.length > 0) return { ok: true };
+      const { error } = await supabase.from("wellbeing_checkins").insert({
+        organisation_id: p.organisation_id,
+        patient_id: item.subjectId,
+        mood_score: p.mood_score,
+        stress_score: p.stress_score,
+        sleep_quality: p.sleep_quality,
+        activity_level: p.activity_level,
+        note: p.note,
+        tags: p.tags,
+        checked_in_at: item.clientRecordedAt,
       });
       return error ? asFailure(error) : { ok: true };
     }

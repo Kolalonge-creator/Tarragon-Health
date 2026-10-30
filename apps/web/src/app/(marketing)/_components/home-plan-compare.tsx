@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { FREE_FEATURES } from "../_content/pricing";
-import { renewalCopy } from "@/lib/marketing/membership";
+import { paidProductName, renewalCopy } from "@/lib/marketing/membership";
 
 /**
  * Free vs Membership, side by side, for the homepage.
@@ -38,7 +38,7 @@ export function HomePlanCompare({
         <CardContent className="flex h-full flex-col p-7">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">The app</p>
           <p className="mt-2 font-heading text-3xl font-bold text-charcoal-ink">Free</p>
-          <p className="mt-1 text-sm text-charcoal-ink/65">No time limit. No card needed.</p>
+          <p className="mt-1 text-sm text-charcoal-ink/65">There is no time limit, and no card is needed.</p>
           {/* Derived from the same FREE_FEATURES /pricing renders, so the homepage
               can never promise a free feature the pricing page does not. */}
           <ul className="mt-5 space-y-2 text-sm leading-relaxed text-charcoal-ink/80">
@@ -56,7 +56,7 @@ export function HomePlanCompare({
 
       <Card className="rounded-2xl border-brand-green/40 shadow-md">
         <CardContent className="flex h-full flex-col p-7">
-          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Membership</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">{paidProductName()}</p>
           <p className="mt-2 font-heading text-3xl font-bold text-charcoal-ink">
             ₦{price}
             <span className="text-base font-medium text-charcoal-ink/65"> a year</span>
@@ -79,7 +79,7 @@ export function HomePlanCompare({
       <p className="text-center text-sm text-charcoal-ink/70 md:col-span-2">
         Buying for a parent or relative?{" "}
         <Link href={MARKETING_ROUTES.gift} className="font-medium text-brand-green underline-offset-2 hover:underline">
-          Give them a year of Membership
+          Give them a year of {paidProductName()}
         </Link>
         .
       </p>

@@ -36,7 +36,7 @@ import {
   splitBillWithThem,
   type SponsorActionState,
 } from "./actions";
-import { useActiveServiceProducts } from "@/lib/queries/service-products";
+import { useSponsorableServiceProducts } from "@/lib/queries/service-products";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -177,13 +177,10 @@ export function SupportedPeople() {
           <CardDescription>
             Once someone names you as next of kin, or accepts a request to let you help manage
             their care, they appear here and you can fund their care directly. If they are not on
-            Tarragon yet, you do not need to wait for them: you can set up their record yourself.
+            Tarragon yet, use Buy care for someone at the top to set up their record yourself.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button asChild>
-            <Link href="/patient/supporting/new">Buy care for someone</Link>
-          </Button>
           <Button asChild variant="outline">
             <Link href="/patient/family">Manage next of kin and family</Link>
           </Button>
@@ -531,7 +528,7 @@ function SplitBillWithThem({
  * not a diaspora premium for the same thing.
  */
 function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActiveServiceProducts();
+  const { data: plans } = useSponsorableServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,
@@ -612,7 +609,7 @@ function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstN
           {data.reviewOverdue
             ? "A doctor was due to review this by " +
               shortDate(data.nextReviewDue) +
-              ". We are chasing it."
+              ". We are following this up."
             : `A doctor reviews it by ${shortDate(data.nextReviewDue)}.`}
         </p>
       )}

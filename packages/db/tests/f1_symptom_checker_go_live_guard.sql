@@ -98,13 +98,18 @@ begin
   insert into public.symptom_accuracy_reports (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells)
   values (v_org, date '2020-01-01', date '2020-02-01', (select version from public.symptom_accuracy_config where is_active), true, true, 12, '[]');
 
-  -- 3. cannot switch on while conditions are unmet
+  -- 3. G-01: the checker is a FEATURE under the clinical-operations master. Switching it on needs no condition any more, but while the
+  --    master is off it still reads closed and a real patient is still refused; it is held again so the rest of the proof keeps its meaning.
   perform pg_temp.act(v_cmo);
-  begin
-    perform public.set_go_live_guard('symptom_checker_enabled', true, 'trying with nothing met');
-    raise exception 'FAIL 3a: switched on with no condition met';
-  exception when sqlstate '22023' then null;
-  end;
+  perform public.set_go_live_guard('symptom_checker_enabled', true, 'G-01 proof: a feature opens without its conditions');
+  perform pg_temp.back();
+  if private.go_live_open('symptom_checker_enabled') then raise exception 'FAIL 3a: a feature under a closed master reads open'; end if;
+  perform pg_temp.act_service();
+  v_r := pg_temp.assess(v_org, v_real);
+  perform pg_temp.back();
+  if v_r <> '42501' then raise exception 'FAIL 3a2: real patient refused while the master is off, got %', v_r; end if;
+  perform pg_temp.act(v_cmo);
+  perform public.set_go_live_guard('symptom_checker_enabled', false, 'G-01 proof: held again for the rest of the proof');
   begin
     perform public.attest_go_live_condition('symptom_checker_enabled', 'symptom_triage_sla_signed', true, 'a data condition cannot be attested');
     raise exception 'FAIL 3b: a data condition was attested';
@@ -121,13 +126,8 @@ begin
               where c ->> 'code' = 'symptom_triage_sla_signed' and (c ->> 'met')::boolean) then
     raise exception 'FAIL 3c: the SLA condition reads met while the active SLA lacks symptom_triage';
   end if;
-  perform pg_temp.act(v_cmo);
-  begin
-    perform public.set_go_live_guard('symptom_checker_enabled', true, 'attested but SLA missing');
-    raise exception 'FAIL 3d: switched on while the active SLA lacks symptom_triage';
-  exception when sqlstate '22023' then null;
-  end;
-  perform pg_temp.back();
+  -- (3d, pre-G-01, asserted the switch was refused while the SLA was missing; a feature's conditions are advisory now, so the
+  --  condition list is checked above and the switch itself is exercised in step 5)
 
   -- 4. why: with no symptom_triage SLA an urgent assessment cannot be recorded; and the draft exists, unsigned
   begin
@@ -155,6 +155,11 @@ begin
   update public.escalation_slas s set config = d.config
     from (select config from public.escalation_slas where version = v_ver) d
    where s.is_active;
+  -- G-01: the clinical-operations master is switched on the way its own trigger allows (a log row in this transaction, then the row)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+  values ('clinical_operations_enabled', 'switched_on', v_admin, 'admin', 'F1 proof: the master, rolled back', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'F1 proof: the master, rolled back'
+   where key = 'clinical_operations_enabled';
   perform pg_temp.act(v_cmo);
   perform public.set_go_live_guard('symptom_checker_enabled', true, 'proof: every condition met');
   perform pg_temp.back();
@@ -163,7 +168,7 @@ begin
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'FAIL 5a: with the guard on a real patient should be recorded, got %', v_r; end if;
   perform pg_temp.act(v_cmo);
-  perform public.set_go_live_guard('symptom_checker_enabled', false, 'proof: stop');
+  perform public.set_go_live_guard('symptom_checker_enabled', false, 'proof: stop, held again by the proof');
   perform pg_temp.back();
   perform pg_temp.act_service();
   v_r := pg_temp.assess(v_org, v_real);

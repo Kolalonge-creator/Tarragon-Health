@@ -23,8 +23,8 @@ describe("the two-tier Membership prices mirror the migrations", () => {
   };
   const sql = migration("_two_tier_membership_pricing.sql");
 
-  it("states the founder's numbers in integer kobo: 129,000 naira individual (live since 2026-10-21, confirmed 2026-10-26), 100,000 naira per organisation member", () => {
-    expect(prices).toEqual({ individual_kobo: 12_900_000, organisation_member_kobo: 10_000_000 });
+  it("states the founder's numbers in integer kobo: 129,000 naira individual (live since 2026-10-21, confirmed 2026-10-26) and 129,000 naira per organisation member (live since 2026-10-29)", () => {
+    expect(prices).toEqual({ individual_kobo: 12_900_000, organisation_member_kobo: 12_900_000 });
   });
 
   it("the organisation price limits seed is identical to the registry", () => {
@@ -40,11 +40,12 @@ describe("the two-tier Membership prices mirror the migrations", () => {
     expect(prices.individual_kobo).toBeGreaterThan(Number(m[1]));
   });
 
-  it("the default organisation price row is the registry's organisation price", () => {
+  it("the LAUNCH default organisation price row was 100,000 naira and the limits seed default is that launch figure; the registry is the later, live 129,000 (set through the admin function on 2026-10-29)", () => {
     const m = /select i\.organisation_id, null, i\.id, (\d+), now\(\)/.exec(sql);
     if (!m?.[1]) throw new Error("default organisation price insert not found");
-    expect(Number(m[1])).toBe(prices.organisation_member_kobo);
-    expect(limits.default_kobo).toBe(prices.organisation_member_kobo);
+    expect(Number(m[1])).toBe(10_000_000);
+    expect(limits.default_kobo).toBe(Number(m[1]));
+    expect(prices.organisation_member_kobo).toBeGreaterThan(Number(m[1]));
   });
 
   it("both prices sit inside the floor and ceiling, and the floor stops a one naira typo", () => {

@@ -816,15 +816,56 @@ do $$
 declare
   v_org uuid := pg_temp.f('org'); v_adm uuid := pg_temp.f('admin'); v_cmo uuid := pg_temp.f('cmo'); v_cmo2 uuid := pg_temp.f('cmo2'); v_c1 uuid := pg_temp.f('c1'); v_c2 uuid := pg_temp.f('c2');
   v_rdr uuid := pg_temp.f('rdr'); v_oth uuid := pg_temp.f('other'); v_fin uuid := pg_temp.f('fin'); r record; v_n integer; v_s1 uuid; v_s2 uuid; v_rota uuid; v_rota2 uuid; v_sw jsonb;
-  v_today date := (now() at time zone 'Africa/Lagos')::date; v_dead date; v_end date; v_res text; v_blk integer;
+  v_today date := (now() at time zone 'Africa/Lagos')::date; v_dead date; v_end date; v_res text; v_blk integer; v_real_sid uuid; v_probe text;
 begin
   -- 11a. the guard: version 3 turns "a missing date is ineligible" on; it cannot be activated while an active clinician has no date
   perform pg_temp.ck('credentialing_config v4 exists inactive', 'false', (select is_active::text from public.credentialing_config where version = 4));
   perform pg_temp.ck('...v4 carries the 90/30/7/0 notices and the 15 December proof deadline', '[90, 30, 7, 0]/12-15',
     (select (rules -> 'notice_windows_days')::text || '/' || (rules -> 'renewal_cycle' ->> 'proof_deadline_month') || '-' || (rules -> 'renewal_cycle' ->> 'proof_deadline_day') from public.credentialing_config where version = 4));
+  -- Test clinicians are exempt from the guard (the chain canary's synthetic clinician has no licence to record), so the blocking cases below use one
+  -- REAL clinician with no date: the first fixture clinician is made non-test here and put back after the two refusals.
+  select id into v_real_sid from public.clinical_staff where is_test and active and license_expires_at is null order by id limit 1;
+  if v_real_sid is null then raise exception 'proof fixture: no active test clinician without a licence date to use as the real blocker'; end if;
+  -- private.guard_is_test_flag lets only an admin or a service context change is_test: clear any session identity left by an earlier step.
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
+  update public.clinical_staff set is_test = false where id = v_real_sid;
   perform pg_temp.ck('the legacy no-date rows block the switch (nobody is stranded)', '23514',
-    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 4$q$));
+    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true, approved_at = now() where version = 4$q$));
   perform pg_temp.ck('signing is refused while an active clinician has no licence date', 'true', (pg_temp.q_as(v_cmo, 'select public.sign_credentialing_config(4)') like 'ERR:record the licence expiry date%')::text);
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
+  update public.clinical_staff set is_test = true where id = v_real_sid;
+  -- Only test clinicians lack a date now: activation must NOT be refused (rolled back in a sub-block, so the proof's own flow is untouched).
+  begin
+    update public.credentialing_config set is_active = false where is_active;
+    update public.credentialing_config set is_active = true, approved_at = now() where version = 4;
+    v_probe := 'activated';
+    raise exception 'probe_rollback';
+  exception when others then
+    if sqlerrm <> 'probe_rollback' then v_probe := sqlstate; end if;
+  end;
+  perform pg_temp.ck('a test clinician with no licence date does not block activation', 'activated', v_probe);
+  -- SABOTAGE: the guard without the is_test filter (the old definition) must refuse again, so the check above can fail.
+  execute $sab$create or replace function private.guard_credentialing_activation() returns trigger language plpgsql security definer set search_path = '' as $b$
+    declare v_n integer; begin
+      if coalesce((new.rules ->> 'missing_licence_date_ineligible')::boolean, false) then
+        select count(*) into v_n from public.clinical_staff where active and status = 'active' and profile_id is not null and license_expires_at is null;
+        if v_n > 0 then raise exception 'record the licence expiry date of % active clinician(s)', v_n using errcode = '23514'; end if;
+      end if; return new; end; $b$ $sab$;
+  begin
+    update public.credentialing_config set is_active = false where is_active;
+    update public.credentialing_config set is_active = true, approved_at = now() where version = 4;
+    v_probe := 'activated';
+    raise exception 'probe_rollback';
+  exception when others then
+    if sqlerrm <> 'probe_rollback' then v_probe := sqlstate; end if;
+  end;
+  perform pg_temp.ck('SABOTAGE: with the old guard a test clinician blocks activation again', '23514', v_probe);
+  execute $fix$create or replace function private.guard_credentialing_activation() returns trigger language plpgsql security definer set search_path = '' as $b$
+    declare v_n integer; begin
+      if coalesce((new.rules ->> 'missing_licence_date_ineligible')::boolean, false) then
+        select count(*) into v_n from public.clinical_staff where active and status = 'active' and profile_id is not null and license_expires_at is null and not coalesce(is_test, false);
+        if v_n > 0 then raise exception 'record the licence expiry date of % active clinician(s) before a missing date counts as ineligible', v_n using errcode = '23514'; end if;
+      end if; return new; end; $b$ $fix$;
   update public.clinical_staff set license_expires_at = now() + interval '400 days' where is_test and license_expires_at is null;
   perform pg_temp.ck('only the chief medical officer can sign a credentialing version', 'ERR:only the chief medical officer can sign the credentialing rules', pg_temp.q_as(v_oth, 'select public.sign_credentialing_config(4)'));
   perform pg_temp.ck('...and anon cannot', 'false', has_function_privilege('anon', 'public.sign_credentialing_config(integer)', 'EXECUTE')::text);

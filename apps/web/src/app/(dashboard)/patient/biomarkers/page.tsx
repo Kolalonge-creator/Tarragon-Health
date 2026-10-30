@@ -10,8 +10,10 @@ import { BiomarkerResultCard } from "@/components/biomarker/biomarker-result-car
 import { LifestyleGuide, type LifestyleItem } from "@/components/biomarker/lifestyle-guide";
 import { ResultExplainer } from "@/components/result-explainer";
 import { activeBiomarkerBands, gradeResult, latestConfirmedConfig } from "@/lib/biomarkers/grade";
+import { filterTrendPoints, parseTrendRange, sourcesIn, TREND_RANGES } from "@/lib/biomarkers/filter";
 import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel, type TrendPoint } from "@/lib/biomarkers/trend";
 import { TrendChart } from "./trend-chart";
+import { ReportedValuesConfirm, type ReportDraft } from "./reported-values-confirm";
 
 interface ListItem {
   code: string;
@@ -24,6 +26,8 @@ interface ListItem {
   latest_ref_low: number | null;
   latest_ref_high: number | null;
   latest_ref_text: string | null;
+  /** Where the latest value came from (lab_result, legacy_report, patient_reported). */
+  latest_source?: string | null;
 }
 
 function fmt(value: string): string {
@@ -37,10 +41,17 @@ function fmt(value: string): string {
  * a sensitive positive) with the laboratory's own range on each. Nothing here
  * invents a range or says what a result means.
  */
-export default async function BiomarkersPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
-  const { subjectId, uiLanguage } = await getPatientDashboardContext();
-  const { code } = await searchParams;
+export default async function BiomarkersPage({ searchParams }: { searchParams: Promise<{ code?: string; range?: string; source?: string }> }) {
+  const { subjectId, profile, uiLanguage } = await getPatientDashboardContext();
+  const { code, range: rangeParam, source: sourceParam } = await searchParams;
+  const range = parseTrendRange(rangeParam);
   const supabase = await createClient();
+
+  // Numbers read from a report the person uploaded themselves, waiting for them to check and confirm. Their own record only: a
+  // caregiver or a dependant's view never offers to confirm numbers on someone else's behalf.
+  const isOwn = subjectId === profile.id;
+  const { data: draftsRaw } = isOwn ? await supabase.rpc("my_lab_report_drafts") : { data: [] };
+  const drafts = (Array.isArray(draftsRaw) ? draftsRaw : []) as unknown as ReportDraft[];
 
   const { data: listRaw } = await supabase.rpc("patient_biomarker_list", { p_patient: subjectId });
   const list = (Array.isArray(listRaw) ? listRaw : []) as unknown as ListItem[];
@@ -51,7 +62,24 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
     const { data } = await supabase.rpc("patient_biomarker_trend", { p_code: selected, p_patient: subjectId });
     series = parseTrend(data);
   }
-  const groups = series ? groupByUnit(series.points) : [];
+  const allSources = series ? sourcesIn(series.points) : [];
+  const source = sourceParam && allSources.includes(sourceParam) ? sourceParam : undefined;
+  const filtered = series ? filterTrendPoints(series.points, range, source) : [];
+  const groups = series ? groupByUnit(filtered) : [];
+  const filterHref = (next: { range?: string; source?: string }) => {
+    const q = new URLSearchParams();
+    if (selected) q.set("code", selected);
+    const r = next.range ?? range;
+    if (r !== "all") q.set("range", r);
+    const s = "source" in next ? next.source : source;
+    if (s) q.set("source", s);
+    return `/patient/biomarkers?${q.toString()}`;
+  };
+  // Switching test keeps the chosen period; the source is dropped because another test may not have it.
+  const codeHref = (c: string) => `/patient/biomarkers?code=${encodeURIComponent(c)}${range === "all" ? "" : `&range=${range}`}`;
+  const KNOWN_SOURCES = ["lab_result", "legacy_report", "patient_reported"];
+  const sourceLabel = (s: string) => (KNOWN_SOURCES.includes(s) ? t(`biomarkers.source.${s}` as MessageKey, uiLanguage) : s);
+  const chip = (on: boolean) => `rounded-full border px-3 py-1 text-sm ${on ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"}`;
 
   // One latest-result card per test. The Tarragon grade and range bar appear only once the CMO has confirmed the bands.
   const bands = activeBiomarkerBands();
@@ -68,7 +96,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
             refHigh: item.latest_ref_high === null ? null : Number(item.latest_ref_high),
             refText: item.latest_ref_text,
             flag: item.latest_flag,
-            source: "lab_result",
+            source: item.latest_source ?? "lab_result",
             laboratory: null,
           } satisfies TrendPoint,
         }],
@@ -85,13 +113,17 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
         description={t("biomarkers.description", uiLanguage)}
       />
 
+      <ReportedValuesConfirm drafts={drafts} uiLanguage={uiLanguage} />
+
       {list.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("biomarkers.none", uiLanguage)}</p>
+        drafts.length === 0 && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("biomarkers.none", uiLanguage)}</p>
       ) : (
         <>
           <section aria-label={t("biomarkers.pick", uiLanguage)} className="grid gap-3 sm:grid-cols-2">
             {cards.map(({ code: c, latest }) => {
-              const grade = gradeResult(c, latest, bands);
+              // A number the person reported themselves has not been checked by anyone, so it is never graded and has no range bar.
+              const reported = latest.source === "patient_reported";
+              const grade = reported ? null : gradeResult(c, latest, bands);
               const band: BiomarkerBand | null = grade ? (bands?.analytes[c] ?? null) : null;
               return (
                 <BiomarkerResultCard
@@ -101,7 +133,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                   grade={grade}
                   band={band}
                   selected={c === selected}
-                  href={`/patient/biomarkers?code=${encodeURIComponent(c)}`}
+                  href={codeHref(c)}
                   uiLanguage={uiLanguage}
                 >
                   <ResultExplainer kind="lab_analyte" subjectKey={c} label={displayCode(c)} />
@@ -116,7 +148,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                 .map((item) => (
                   <Link
                     key={item.code}
-                    href={`/patient/biomarkers?code=${encodeURIComponent(item.code)}`}
+                    href={codeHref(item.code)}
                     aria-current={item.code === selected ? "page" : undefined}
                     className={`rounded-full border px-3 py-1 text-sm ${
                       item.code === selected ? "border-brand-green bg-soft-sage font-medium text-deep-forest" : "border-charcoal-ink/15 hover:bg-charcoal-ink/5"
@@ -131,12 +163,38 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
 
           {series && (
             <>
-              {series.unitMixed && (
+              <div className="space-y-3">
+                <nav aria-label={t("biomarkers.filter.range", uiLanguage)} className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.range", uiLanguage)}</span>
+                  {TREND_RANGES.map((r) => (
+                    <Link key={r} href={filterHref({ range: r })} aria-current={r === range ? "true" : undefined} className={chip(r === range)}>
+                      {t(`biomarkers.filter.range.${r}` as MessageKey, uiLanguage)}
+                    </Link>
+                  ))}
+                </nav>
+                {allSources.length > 1 && (
+                  <nav aria-label={t("biomarkers.filter.source", uiLanguage)} className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.source", uiLanguage)}</span>
+                    <Link href={filterHref({ source: undefined })} aria-current={!source ? "true" : undefined} className={chip(!source)}>
+                      {t("biomarkers.filter.source.all", uiLanguage)}
+                    </Link>
+                    {allSources.map((s) => (
+                      <Link key={s} href={filterHref({ source: s })} aria-current={s === source ? "true" : undefined} className={chip(s === source)}>
+                        {sourceLabel(s)}
+                      </Link>
+                    ))}
+                  </nav>
+                )}
+              </div>
+              {groups.length === 0 && (
+                <p role="status" className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.empty", uiLanguage)}</p>
+              )}
+              {groups.length > 1 && (
                 <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   {t("biomarkers.unit_mixed", uiLanguage)}
                 </p>
               )}
-              {series.disputed && (
+              {filtered.some((p) => p.disagrees) && (
                 <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   {t("biomarkers.disputed", uiLanguage)}
                 </p>
@@ -184,6 +242,9 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                                   <span className="block text-xs text-charcoal-ink/60">
                                     {t("biomarkers.also_from", uiLanguage, { source: t(`biomarkers.source.${p.alsoFrom}` as MessageKey, uiLanguage) })}
                                   </span>
+                                )}
+                                {p.source === "patient_reported" && (
+                                  <span className="block text-xs text-charcoal-ink/60">{t("biomarkers.reported.row_note", uiLanguage)}</span>
                                 )}
                                 {p.disagrees && <span className="block text-xs text-amber-900">{t("biomarkers.disagrees", uiLanguage)}</span>}
                               </td>

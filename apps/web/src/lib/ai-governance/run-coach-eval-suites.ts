@@ -291,6 +291,8 @@ export interface EvalSuiteResult {
   failed_cases: number;
   outcome: "pass" | "fail";
   cases: EvalCaseOutcome[];
+  /** Set by a suite that runs a governed prompt, so the recorded run is tied to the exact prompt version it tested. */
+  prompt_version_id?: string | null;
 }
 
 async function runCriterionSuite(suite: EvalSuite, judge: ReturnType<typeof buildJudge<typeof criterionJudgeSchema>>): Promise<EvalSuiteResult> {

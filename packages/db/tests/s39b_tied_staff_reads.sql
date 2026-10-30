@@ -64,10 +64,10 @@ begin
   end loop;
   return out_;
 end $f$;
-create function pg_temp.own_gap(p_uid uuid, p_subject uuid, p_skip_repro boolean) returns text language plpgsql as
+create function pg_temp.own_gap(p_uid uuid, p_subject uuid, p_skip_repro boolean, p_exclude text[] default '{}') returns text language plpgsql as
 $f$ declare s record; out_ text := ''; a text; b text;
 begin
-  for s in select table_name, patient_expr from public.staff_read_scope where mode = 'tied' and (not p_skip_repro or category <> 'reproductive_health') order by table_name loop
+  for s in select table_name, patient_expr from public.staff_read_scope where mode = 'tied' and (not p_skip_repro or category <> 'reproductive_health') and table_name <> all (p_exclude) order by table_name loop
     a := pg_temp.count_as(null, s.table_name, s.patient_expr, '=', p_subject, 0);
     b := pg_temp.count_as(p_uid, s.table_name, s.patient_expr, '=', p_subject, 0);
     if a <> b then out_ := out_ || s.table_name || '(owner ' || a || ' saw ' || b || '); '; end if;
@@ -107,6 +107,10 @@ begin
   select organisation_id into v_org from public.profiles where id = v_pat;
   v_c1 := pg_temp.mkuser(v_org, 'untied clinician', 'clinician');
   v_c2 := pg_temp.mkuser(v_org, 'tied clinician', 'clinician');
+  -- OQ-555: four reproductive tables (patient_pregnancy, antenatal_visits, postnatal_profiles, fertility_assessment_requests) are now read through
+  -- private.reproductive_staff_tied, which needs an ACTIVE credentialed clinician (a clinical_staff row), so the tied clinician gets one.
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+    values (v_org, v_c2, 'S39b tied clinician', true, now(), 'senior_medical_officer') on conflict do nothing;
   v_co := pg_temp.mkuser(v_org, 'coordinator', 'care_coordinator');
   v_ad := pg_temp.mkuser(v_org, 'admin', 'admin');
   -- one care-team row per patient (unique): point it at the tied clinician and the tied coordinator
@@ -132,7 +136,12 @@ select set_config('request.jwt.claim.sub', pg_temp.f('ad')::text, true), set_con
 insert into public.support_view_sessions (viewer_id, subject_id, subject_role, organisation_id, reason, expires_at)
   values (pg_temp.f('ad'), pg_temp.f('pat'), 'patient', pg_temp.f('org'), 'S39b proof', now() + interval '1 hour');
 select set_config('request.jwt.claim.sub', '', true), set_config('request.jwt.claims', '', true);
-select pg_temp.ck('real', 'D2 an admin with the subject''s support view reads exactly the subject''s rows', '', pg_temp.own_gap(pg_temp.f('ad'), pg_temp.f('pat'), false));
+-- S88 and OQ-555: the nine pregnancy and maternal tables, and four more reproductive tables, refuse a support view-as session on purpose (private.maternal_staff_may_read has no view-as arm;
+-- proof s88_tied_staff_reads_maternal_tables.sql, V1/V2), so they are excluded here; every other tied table still admits it.
+select pg_temp.ck('real', 'D2 an admin with the subject''s support view reads exactly the subject''s rows (S88 maternal tables excluded: they refuse view-as)', '',
+  pg_temp.own_gap(pg_temp.f('ad'), pg_temp.f('pat'), false, array['pregnancies', 'kick_counts', 'contractions', 'birth_plans', 'postnatal_baby_checks', 'breastfeeding_feed_log', 'lifecycle_states', 'lifecycle_events', 'pregnancy_loss_records',
+    -- OQ-555: these four are tied through private.reproductive_staff_tied, which has no view-as arm either
+    'patient_pregnancy', 'antenatal_visits', 'postnatal_profiles', 'fertility_assessment_requests']));
 delete from public.support_view_sessions where reason = 'S39b proof';
 insert into public.emergency_record_access_grants (requester_id, requester_org_id, patient_id, patient_org_id, reason, expires_at)
   values (pg_temp.f('c1'), pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('org'), 'S39b proof', now() + interval '8 hours');

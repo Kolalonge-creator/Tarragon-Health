@@ -29,6 +29,7 @@ import { checkMedicationSafetyAfterAdd } from "./actions";
 import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { useControlledMedicineList } from "@/lib/queries/controlled-medicine-list";
 import { isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
 import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 import { Button } from "@/components/ui/button";
@@ -419,8 +420,9 @@ export function AddMedicationForm({
   // — the platform never blocks a prescription; the doctor decides. Shown for
   // recognised glucose-lowering drugs; patient self-add keeps a calm UI.
   const safetyNotes = source === "clinician" ? diabetesDrugSafety(drugName, { pregnant }) : [];
+  const controlledList = useControlledMedicineList();
   const controlledInfo =
-    step === "review" && pendingData ? controlledSubstanceInfo(pendingData.drug_name) : null;
+    step === "review" && pendingData ? controlledSubstanceInfo(pendingData.drug_name, controlledList) : null;
 
   if (step === "review" && pendingData) {
     return (

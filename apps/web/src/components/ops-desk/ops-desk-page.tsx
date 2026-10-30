@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 import { formatLagos } from "@/lib/rota/time";
-import { acknowledgeIncident, attestItem, logCall, saveContact, setContactActive, setWindows } from "@/lib/ops-desk/actions";
+import { acknowledgeIncident, attestItem, logCall, recordTestCall, saveContact, setContactActive, setWindows } from "@/lib/ops-desk/actions";
 import { getOpenPageIncidents, getOpsDeskCallSheet, getOpsDeskCalls, getOpsDeskOverview, getOpsDeskRoster, type PageIncident } from "@/lib/ops-desk/queries";
 import { CALL_OUTCOMES, CALL_OUTCOME_LABEL, CALLEE_KIND_LABEL, WEEKDAY_LABEL, type CallSheet, type ChecklistItem, type RosterContact } from "@/lib/ops-desk/schemas";
 
@@ -190,7 +190,7 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
         </Section>
       ) : null}
 
-      <Section title="Named ops contacts" hint="Hours are in Lagos time. A contact becomes active only when their own phone number is confirmed on their account and at least one window of hours is set. Numbers are read from the person's account, never typed here.">
+      <Section title="Named ops contacts" hint="Hours are in Lagos time. A contact becomes active only when their phone number is confirmed and at least one window of hours is set. A number is confirmed either by a code on their own account or by a test call you record below: phone the number, and when the person answers, write down who and when.">
         {roster.length === 0 ? <Muted>Nobody is named yet. Until someone is, a page that expires goes to every administrator and the clinical lead with no one assigned to phone.</Muted> : null}
         <div className="space-y-3">
           {roster.map((c) => (
@@ -206,6 +206,17 @@ export async function OpsDeskPage({ mode, searchParams }: { mode: Mode; searchPa
               </div>
               <p>{windowsText(c)}</p>
               {c.is_active && c.activated_by_name ? <Muted>Activated by {c.activated_by_name}{c.activated_at ? ` on ${formatLagos(c.activated_at)}` : ""}.</Muted> : null}
+              <form action={recordTestCall} className="grid gap-2 sm:grid-cols-3">
+                <Hidden name="returnTo" value={path} />
+                <Hidden name="profile" value={c.profile_id} />
+                <Field label="Number you phoned" hint="With country code, like +2348012345678, or a Nigerian number starting with 0.">
+                  <input name="phone" required inputMode="tel" autoComplete="off" className={fieldClass} />
+                </Field>
+                <Field label="Who answered, and when" hint="For example: they answered at 10:15 on 30 Oct and gave their name.">
+                  <input name="note" required minLength={10} maxLength={300} className={fieldClass} />
+                </Field>
+                <div className="flex items-end"><SubmitButton tone="outline">Record a test call</SubmitButton></div>
+              </form>
               {mode === "admin" ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <form action={setWindows} className="space-y-2">

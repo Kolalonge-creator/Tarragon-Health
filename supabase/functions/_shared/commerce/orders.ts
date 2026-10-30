@@ -1,4 +1,4 @@
-import { paymentMatchesOrder, type PaymentProvider } from "../integrations/payment.ts";
+import { paymentMatchesOrder, type PaymentProvider, type SavedAuthorization, type VerifiedTransaction } from "../integrations/payment.ts";
 import { fail, ok, type ProviderResult } from "../integrations/result.ts";
 
 /**
@@ -45,7 +45,17 @@ export interface OpenOrder {
 }
 
 /** What the flows need from the database. The Supabase implementation is in supabase-store.ts. */
+/** A card Paystack reported for a payment, offered to the store after the order is paid. The database keeps it only if the buyer consented. */
+export interface SaveCardInput {
+  readonly reference: string;
+  readonly authorization: SavedAuthorization;
+  readonly customerCode: string | null;
+  readonly email: string | null;
+}
+
 export interface OrderStore {
+  /** Offers the card that paid to the renewal logic. Best effort: a failure here never undoes or delays a payment. */
+  saveCard(input: SaveCardInput): Promise<ProviderResult<string>>;
   record(input: RecordPaymentInput): Promise<ProviderResult<RecordOutcome>>;
   flagMismatch(input: MismatchInput): Promise<ProviderResult<RecordOutcome>>;
   close(reference: string, reason: "abandoned" | "failed" | "expired"): Promise<ProviderResult<boolean>>;
@@ -70,6 +80,20 @@ export type ConfirmOutcome =
   /** A call to Paystack or the database failed. Safe to repeat; the caller should ask for a retry (a 5xx to a webhook). */
   | { readonly outcome: "retry"; readonly where: "provider" | "store" };
 
+/**
+ * A renewal charge (charge_authorization) may come back with the processing fee added and no separate `requested_amount`, so the price we
+ * asked for looks like the whole amount and would fail the exact-price match AFTER the card was charged. Our own charge request carries the
+ * price it asked for in `metadata.renewal_expected_kobo` (set only by the server, never by the customer), so a larger amount with nothing
+ * separate reported is read as price plus fee. Everything after this is unchanged and strict: the database still demands the exact order
+ * price, and `paymentMatchesOrder` still refuses a fee larger than the processor reports taking.
+ */
+function withRenewalExpectedPrice(v: VerifiedTransaction): VerifiedTransaction {
+  const expected = v.metadata["renewal_expected_kobo"];
+  if (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected <= 0) return v;
+  if (v.requestedAmountKobo !== v.amountKobo || v.amountKobo <= expected) return v;
+  return { ...v, requestedAmountKobo: expected };
+}
+
 export async function confirmPayment(
   deps: CommerceDeps,
   args: { readonly reference: string; readonly source: PaymentSource; readonly eventKey?: string | null },
@@ -79,7 +103,7 @@ export async function confirmPayment(
   if (!verified.ok) {
     return verified.error.code === "not_found" ? { outcome: "not_found" } : { outcome: "retry", where: "provider" };
   }
-  const v = verified.data;
+  const v = withRenewalExpectedPrice(verified.data);
   if (v.status === "pending") return { outcome: "pending" };
   if (v.status !== "success") return { outcome: "unpaid", status: v.status };
 
@@ -108,6 +132,11 @@ export async function confirmPayment(
   switch (r.result) {
     case "paid":
     case "replay":
+      // Offer the card to the renewal logic. It saves one only when this order carries the buyer's consent and Paystack says the card is
+      // reusable; for every other order it is a no-op. Never allowed to change the outcome of the payment itself.
+      if (v.authorization) {
+        await deps.store.saveCard({ reference: args.reference, authorization: v.authorization, customerCode: v.customerCode ?? null, email: v.customerEmail }).catch(() => undefined);
+      }
       return { outcome: r.result, orderId: r.orderId };
     case "mismatch":
       return { outcome: "mismatch", reason: r.reason, orderId: r.orderId };

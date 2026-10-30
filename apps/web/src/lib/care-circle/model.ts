@@ -33,6 +33,8 @@ export const memberSchema = z.object({
   since: z.string(),
   /** S75 A5: the patient chose to share the monthly report with this supporter. Absent means off. */
   monthly_report_shared: z.boolean().optional().default(false),
+  /** S69b: the patient chose to let this supporter be nudged. Absent means off. */
+  missed_dose_alert: z.boolean().optional().default(false),
 });
 export type CircleMember = z.infer<typeof memberSchema>;
 
@@ -43,6 +45,8 @@ export const pendingInviteSchema = z.object({
   relationship: z.string(),
   permissions: z.array(permissionSchema),
   expires_at: z.string(),
+  /** S69b: always "waiting" for the sender, whether the other person has not answered or quietly said not now. */
+  state: z.string().optional(),
 });
 export type PendingInvite = z.infer<typeof pendingInviteSchema>;
 
@@ -91,7 +95,7 @@ export const supporterViewSchema = z.object({
   adherence: z.object({ days: z.number(), taken: z.number(), due: z.number(), percent: z.number().nullable() }).optional(),
   bp_trend: z
     .object({
-      weeks: z.array(z.object({ week_start: z.string(), systolic: z.number(), diastolic: z.number(), readings: z.number() })),
+      weeks: z.array(z.object({ week_start: z.string(), systolic: z.number().nullable(), diastolic: z.number().nullable(), readings: z.number() })),
       direction: z.enum(["higher", "lower", "steady"]).nullable(),
     })
     .optional(),
@@ -249,4 +253,77 @@ export function attentionCount(alerts: readonly { patient_id: string; called: bo
  */
 export function isMissingFunction(error: { code?: string; message?: string } | null | undefined): boolean {
   return !!error && (error.code === "PGRST202" || /could not find the function/i.test(error.message ?? ""));
+}
+
+
+/** S69b: which supporter tools are switched on, and the wait before a nudge (from configuration, never typed into a screen). */
+export const toolsStatusSchema = z.object({ digest: z.boolean(), tasks: z.boolean(), missed_dose: z.boolean(), grace_minutes: z.number().nullable().optional() });
+export type ToolsStatus = z.infer<typeof toolsStatusSchema>;
+export const TOOLS_OFF: ToolsStatus = { digest: false, tasks: false, missed_dose: false, grace_minutes: null };
+export function parseToolsStatus(data: unknown): ToolsStatus {
+  const r = toolsStatusSchema.safeParse(data);
+  return r.success ? r.data : TOOLS_OFF;
+}
+
+/** The silent answer to "not now": the same shape as accept's failure on purpose. */
+export function parseDeclined(data: unknown): boolean {
+  return z.object({ ok: z.literal(true) }).safeParse(data).success;
+}
+
+export const taskSchema = z.object({
+  task_id: z.string(),
+  kind: z.string(),
+  needed_by: z.string().nullable(),
+  state: z.enum(["open", "claimed", "done"]),
+  claimed_by_name: z.string().nullable().optional(),
+  mine: z.boolean().catch(false),
+  posted_by_me: z.boolean().catch(false),
+  can_claim: z.boolean().catch(false),
+  can_release: z.boolean().catch(false),
+  can_complete: z.boolean().catch(false),
+  can_cancel: z.boolean().catch(false),
+});
+export type CircleTask = z.infer<typeof taskSchema>;
+export const taskListSchema = z.object({ role: z.enum(["patient", "helper", "viewer"]), tasks: z.array(z.unknown()) });
+export function parseTasks(data: unknown): { role: "patient" | "helper" | "viewer"; tasks: CircleTask[] } | null {
+  const r = taskListSchema.safeParse(data);
+  if (!r.success) return null;
+  return {
+    role: r.data.role,
+    tasks: r.data.tasks.flatMap((row) => {
+      const t = taskSchema.safeParse(row);
+      return t.success ? [t.data] : [];
+    }),
+  };
+}
+
+export const digestSchema = z.object({
+  patient_id: z.string(),
+  name: z.string(),
+  from: z.string(),
+  to: z.string(),
+  days: z.number(),
+  doses: z.object({ days_all_taken: z.number(), days_with_doses: z.number() }).optional(),
+  readings: z.object({ days_logged: z.number() }).optional(),
+  appointments: z.object({ next_at: z.string().nullable() }).optional(),
+  tasks: z.object({ open: z.number(), claimed: z.number(), done: z.number() }).optional(),
+});
+export type CircleDigest = z.infer<typeof digestSchema>;
+export function parseDigest(data: unknown): CircleDigest | null {
+  const r = digestSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+
+const nudgeSchema = z.object({ patient_id: z.string(), name: z.string(), since: z.string() });
+export type CircleNudge = z.infer<typeof nudgeSchema>;
+export function parseNudges(data: unknown): CircleNudge[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = nudgeSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+
+export function taskErrorIsLimit(message: unknown): boolean {
+  return typeof message === "string" && message.includes("task_limit");
 }

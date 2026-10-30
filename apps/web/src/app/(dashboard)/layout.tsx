@@ -15,6 +15,7 @@ import { getCommunityStaffContext } from "@/components/community/staff-rpc";
 import { withCommunityNav } from "@/components/community/community-nav";
 import { groupListSchema } from "@/lib/community/model";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
+import { buildPatientSearchIndex } from "@/lib/patient-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
@@ -153,7 +154,9 @@ export default async function DashboardLayout({
         )
       : profile?.role === "clinician" && isChiefMedicalOfficer
         ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
-        : undefined;
+        : isPatient
+          ? buildPatientSearchIndex(getNavSections(profile?.role, profile?.receives_care))
+          : undefined;
 
   // "Community" appears in a staff menu only when the database says this person has community duties (cached per request).
   const communityStaff =
@@ -198,6 +201,7 @@ export default async function DashboardLayout({
         )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
+        searchKind={isPatient ? "patient" : "admin"}
         // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.
         hrefBadges={{
           ...(signingHub

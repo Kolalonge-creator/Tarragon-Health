@@ -67,7 +67,7 @@ export function CreateTicketForm({ patientId, prefill }: { patientId: string; pr
 
       {state && "error" in state && state.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state && "success" in state && state.success && (
-        <p className="text-sm text-brand-green">Sent — our support team will get back to you soon.</p>
+        <p className="text-sm text-brand-green">Your message has been sent. Our support team will reply soon.</p>
       )}
 
       <Button type="submit" disabled={pending}>

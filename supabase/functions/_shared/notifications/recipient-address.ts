@@ -19,8 +19,16 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "on_call_ops_desk",
   "on_call_ops_desk_uncovered",
   "on_call_ops_desk_roster",
+  "on_call_ops_desk_dead_letter",
   "credential_notice",
   "care_team_notice",
+  // The unacknowledged-alert ladder (backup, senior, admin). Queued by private.escalate_unacknowledged_clinician_alerts()
+  // with only the recipient's profile id, so without this the email rung resolved to "recipient has no email address".
+  "clinician_alert_ack_timeout_backup",
+  "clinician_alert_ack_timeout_senior",
+  "clinician_alert_ack_timeout_admin",
+  // The push and email copies of an emergency-keyword care message, queued with only the clinician's profile id.
+  "care_message_safety_flag",
 ]);
 
 /**

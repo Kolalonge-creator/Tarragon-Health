@@ -5,6 +5,7 @@ import { getSignedReport, listSignedReports } from "@/lib/health-report/queries"
 import { buildRenderModel } from "@/lib/health-report/render-model";
 import { HealthReportView } from "@/components/health-report-view";
 import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
+import { PageHeader } from "@/components/ui/page-header";
 import { PrintButton } from "./print-button";
 
 /**
@@ -22,7 +23,7 @@ export default async function PatientHealthReportPage({ searchParams }: { search
   if (!report) {
     return (
       <div className="space-y-4">
-        <h1 className="font-heading text-2xl font-semibold">{t("report.title", "en")}</h1>
+        <PageHeader title={t("report.title", "en")} backTo={{ href: "/patient", label: "Overview" }} />
         <p className="text-sm">{all.length === 0 ? t("report.none", "en") : t("report.not_ready", "en")}</p>
         <ScreeningDisclaimer />
       </div>

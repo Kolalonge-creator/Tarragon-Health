@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import type { ContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -8,8 +9,16 @@ const CONTRACT_TYPE_LABEL: Record<ContractPerformance["contractType"], string> =
   flat: "Flat fee",
 };
 
-/** Shared between /dashboard/hmo and /dashboard/corporate — renders nothing if the org has no contract on file. */
-export function ContractStatusCard({ performance }: { performance: ContractPerformance | null }) {
+/** Shared between /dashboard/hmo and /dashboard/corporate — renders nothing if the org has no contract on file, and says so when the read failed. */
+export function ContractStatusCard({
+  performance,
+  failed = false,
+}: {
+  performance: ContractPerformance | null;
+  /** The contract read failed: say so, rather than render nothing as if there were no contract. */
+  failed?: boolean;
+}) {
+  if (failed) return <SectionUnavailable title="Contract status" />;
   if (!performance) return null;
 
   return (

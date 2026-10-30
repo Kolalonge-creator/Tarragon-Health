@@ -4,9 +4,9 @@
 
 ---
 
-**Your employer has offered you a Tarragon Membership.**
+**Your employer has offered you a Membership Plus year.**
 
-**What you get.** A Membership for twelve months, paid for by your employer. You can use it the same way as anyone who bought their own.
+**What you get.** Membership Plus for twelve months, which includes the yearly blood panel collected for you in an approved state [verify against the live seat product with counsel], paid for by your employer. You can use it the same way as anyone who bought their own.
 
 **What your employer knows.** Your employer gave us your work email (or phone number) so we can match you to the offer. Your employer knows you were offered a seat and, on its roster, whether you have joined. That is all it learns about you personally.
 

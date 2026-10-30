@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { DARK_MODE_ENABLED, useTheme, type SchemePreference } from "@/ui/design";
+import { DARK_MODE_ENABLED, useTheme, type SchemePreference, textStyles } from "@/ui/design";
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { MutedText, SectionLabel } from "@/ui/legacy-kit";
@@ -53,7 +53,7 @@ export function AppearanceSetting() {
                 backgroundColor: active ? colors.brand : colors.card,
               }}
             >
-              <Text style={{ fontSize: 15, fontWeight: "600", color: active ? "#FFFFFF" : colors.ink }}>
+              <Text style={{ ...textStyles.bodyLargeStrong, color: active ? colors.onBrand : colors.ink }}>
                 {t(choice.label, locale)}
               </Text>
             </Pressable>

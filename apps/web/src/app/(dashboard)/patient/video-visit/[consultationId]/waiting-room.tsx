@@ -180,7 +180,7 @@ function ReportProblemButton({ consultationId, patientId }: { consultationId: st
   const [description, setDescription] = useState("");
 
   if (sent) {
-    return <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Reported. Your care team will follow up in Messages.</p>;
+    return <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Your report has been sent. Your care team will reply in Messages.</p>;
   }
 
   if (!open) {
@@ -270,7 +270,7 @@ export function VideoVisitWaitingRoom({
           </div>
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Join a few minutes early so there&apos;s time to sort out any camera or microphone issues
-            before your doctor arrives.
+            before a doctor arrives.
           </p>
           {!isPast && consult.join_url && (
             <Button asChild>
@@ -316,7 +316,7 @@ export function VideoVisitWaitingRoom({
                   name="notes"
                   value={notesValue ?? consult.patient_prep_notes ?? ""}
                   onChange={(event) => setNotesValue(event.target.value)}
-                  placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
+                  placeholder="Reason for the visit, symptoms, anything you want a doctor to know beforehand…"
                 />
                 <Button size="sm" variant="outline" type="submit" disabled={prepPending}>
                   {prepPending ? "Saving…" : "Save"}

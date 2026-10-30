@@ -14,7 +14,7 @@ import {
 import { formatPrice } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import {
   Badge,
   Card,
@@ -26,6 +26,7 @@ import {
   SectionLabel,
 } from "@/ui/legacy-kit";
 import type { Currency } from "@tarragon/shared";
+import { AppText } from "@/ui/kit/AppText";
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -44,18 +45,18 @@ const REQUEST_STATUS: Record<string, { label: string; tone: "brand" | "neutral";
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "brand",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you are refunded in full.",
   },
   alternate_proposed: {
-    label: "Your doctor offered different times",
+    label: "A doctor offered different times",
     tone: "brand",
-    note: "Your original time didn't work, so your doctor offered these instead. Pick one below within 24 hours or you're refunded in full.",
+    note: "Your original time did not work, so a doctor offered these instead. Pick one below within 24 hours or you are refunded in full.",
   },
   accepted: { label: "Booked", tone: "brand" },
   declined: {
     label: "Not available",
     tone: "neutral",
-    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically.",
+    note: "A doctor could not take this visit. Your payment is being refunded in full automatically.",
   },
   expired: {
     label: "Not accepted in time",
@@ -158,7 +159,7 @@ export function VideoVisitBookingSection({
   if (loading) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Book a video visit</Text>
+        <AppText variant="bodyLargeStrong">Book a video visit</AppText>
         <ActivityIndicator color={colors.brand} />
       </View>
     );
@@ -170,14 +171,14 @@ export function VideoVisitBookingSection({
       <MutedText>A paid, self-serve 15-minute online consultation with a Tarragon doctor, over video.</MutedText>
 
       <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
-        <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
+        <AppText variant="bodyStrong" tone="dangerText">
           Not for emergencies. If this is an emergency, go to the nearest emergency department now.
-        </Text>
+        </AppText>
       </View>
 
       {message && (
         <Card style={{ backgroundColor: message.tone === "error" ? colors.status.warnBg : colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: message.tone === "error" ? colors.status.warn : colors.brandPressed }}>
+          <Text style={{ ...textStyles.body, color: message.tone === "error" ? colors.status.warn : colors.brandPressed }}>
             {message.text}
           </Text>
         </Card>
@@ -192,9 +193,9 @@ export function VideoVisitBookingSection({
             return (
               <Card key={req.id} style={{ gap: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                  <AppText variant="bodyStrong">
                     {req.slot?.slot_start ? formatSlot(req.slot.slot_start) : "Requested visit"}
-                  </Text>
+                  </AppText>
                   <Badge tone={status.tone}>{status.label}</Badge>
                 </View>
                 {status.note && <MutedText>{status.note}</MutedText>}
@@ -224,9 +225,9 @@ export function VideoVisitBookingSection({
                 )}
                 {canCancel && (
                   <Pressable accessibilityRole="button" onPress={() => void cancelRequest(req.id)} style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.danger }}>
+                    <AppText variant="label" tone="dangerText">
                       {cancellingId === req.id ? "Cancelling…" : "Cancel request"}
-                    </Text>
+                    </AppText>
                   </Pressable>
                 )}
               </Card>
@@ -237,9 +238,9 @@ export function VideoVisitBookingSection({
 
       {hasSlots && (
         <View style={{ gap: 10 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             Pick a time: {formatPrice(price!.amount_minor, price!.currency as Currency)} per visit
-          </Text>
+          </AppText>
           <GroupedList>
             {(slots ?? []).slice(0, 12).map((slot) => {
               const selected = selectedSlotId === slot.id;
@@ -276,9 +277,9 @@ export function VideoVisitBookingSection({
       )}
 
       <Pressable accessibilityRole="link" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`)}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, textAlign: "center" }}>
+        <AppText variant="label" tone="brandText" style={{ textAlign: "center" }}>
           Open the full booking page in your browser
-        </Text>
+        </AppText>
       </Pressable>
     </View>
   );

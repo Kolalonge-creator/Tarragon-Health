@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./nutrition-actions";
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
+import { EatingPlansCard, signedSwapMessage, useEatingGuidance } from "./eating-plans-card";
+import { defaultMealType, swapsForFood } from "@tarragon/shared";
 import {
   BarcodeEntry,
   DailyTargetsCard,
@@ -16,6 +18,7 @@ import {
   useNutritionGuidance,
 } from "./nutrition-foundation";
 import { MealPlanSection } from "./meal-plan-section";
+import { mealPhotoProblem } from "@/lib/nutrition/photo-first";
 import { useNutritionEntries, type NutritionEntry } from "@/lib/queries/nutrition";
 import { useFoodCatalogue } from "@/lib/queries/food-catalogue";
 import { MEAL_TYPES, MEAL_TYPE_LABELS } from "@/lib/validation/nutrition";
@@ -33,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
+import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/components/ui-language-provider";
 
@@ -73,6 +77,7 @@ export function NutritionFlow({
     <div className="space-y-6">
       <LogMealSection patientId={patientId} visionConfigured={visionConfigured} />
       <DailyTargetsCard />
+      <EatingPlansCard />
       <RepeatSection patientId={patientId} />
       <MealHistorySection patientId={patientId} activeConditions={activeConditions} />
       <NutritionSupportCard patientId={patientId} activeConditions={activeConditions} />
@@ -104,7 +109,35 @@ function LogMealSection({
   const formRef = useRef<HTMLFormElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number]>("lunch");
+  // The meal type starts as a guess from the Lagos time of day; one tap changes it.
+  const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number]>(() => defaultMealType());
+  // Photo-first: with estimates on, the photo is the main way in and the typed details sit behind a toggle. With estimates off a photo would
+  // only be stored, so the typed route stays open.
+  const [showDetails, setShowDetails] = useState(!visionConfigured);
+  // The blob URL is made in the event handler (not during render) and released when replaced, removed or on unmount.
+  const [preview, setPreview] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    },
+    [],
+  );
+  function setPhoto(f: File | null) {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = f ? URL.createObjectURL(f) : null;
+    setPreview(previewRef.current);
+    setFile(f);
+  }
+  function choosePhoto(f: File | null) {
+    const problem = f ? mealPhotoProblem(f) : null;
+    if (problem) {
+      setMessage(problem);
+      return setPhoto(null);
+    }
+    setMessage(null);
+    setPhoto(f);
+  }
   const [description, setDescription] = useState("");
   const addPhrase = (phrase: string) => setDescription((d) => (d.trim() ? `${d.trim()}, ${phrase}` : phrase).slice(0, 500));
 
@@ -135,8 +168,8 @@ function LogMealSection({
       queryClient.invalidateQueries({ queryKey: ["nutrition-guidance"] });
       formRef.current?.reset();
       setDescription("");
-      setFile(null);
-      setMealType("lunch");
+      setPhoto(null);
+      setMealType(defaultMealType());
       if (res?.aiStatus === "estimated") {
         setMessage(t("Logged. We've added an estimate below. Check and confirm it."));
       } else if (res?.aiStatus === "unavailable") {
@@ -162,9 +195,55 @@ function LogMealSection({
           onSubmit={(e) => {
             e.preventDefault();
             setMessage(null);
-            mutation.mutate(new FormData(e.currentTarget));
+            const fd = new FormData(e.currentTarget);
+            // The description textarea is unmounted while the details are collapsed; send what was typed from state so it is never dropped.
+            if (description.trim()) fd.set("description", description);
+            mutation.mutate(fd);
           }}
         >
+          <div className="grid gap-2">
+            {preview ? (
+              <div className="relative overflow-hidden rounded-xl border border-charcoal-ink/10 dark:border-night-ink/15">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview, nothing to optimise */}
+                <img src={preview} alt="Your meal" className="max-h-72 w-full object-cover" />
+                <div className="flex gap-2 p-2">
+                  <label
+                    htmlFor="photo"
+                    className="inline-flex h-9 cursor-pointer items-center rounded-md border border-charcoal-ink/20 px-3 text-sm font-medium text-charcoal-ink hover:bg-charcoal-ink/5 dark:border-night-ink/25 dark:text-night-ink"
+                  >
+                    {t("Retake")}
+                  </label>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setPhoto(null)}>
+                    {t("Remove photo")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <label
+                htmlFor="photo"
+                className="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand-green/40 bg-soft-sage/50 p-6 text-center focus-within:ring-2 focus-within:ring-brand-green dark:border-brand-green-bright/40 dark:bg-brand-green/10"
+              >
+                <Camera className="h-8 w-8 text-brand-green dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+                <span className="text-base font-semibold text-deep-forest dark:text-night-ink">{t("Snap your meal")}</span>
+                <span className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                  {visionConfigured
+                    ? t("Take a photo or choose one and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement.")
+                    : t("Photo estimates aren't switched on yet; your meal still logs with the details you add.")}
+                </span>
+              </label>
+            )}
+            <input
+              id="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              className="sr-only"
+              onChange={(e) => {
+                choosePhoto(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
           <div className="grid gap-2">
             <Label>{t("Meal")}</Label>
             <input type="hidden" name="meal_type" value={mealType} />
@@ -198,46 +277,43 @@ function LogMealSection({
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="description">{t("What did you eat? (optional)")}</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. 2 spoons of jollof rice, a piece of chicken and a bit of dodo"
-              maxLength={500}
-            />
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              {t(
-                "We'll match this against our Nigerian food list to estimate calories, carbs, protein, fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup, spoon, handful, piece, serving, wrap, ladle or bowl."
-              )}
-            </p>
-          </div>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDetails((v) => !v)}
+              aria-expanded={showDetails}
+              className="text-left text-sm font-medium text-brand-green underline-offset-2 hover:underline dark:text-brand-green-bright"
+            >
+              {showDetails ? t("Hide details") : file ? t("Add details (optional)") : t("Or describe it, search foods or scan a barcode")}
+            </button>
+            {showDetails && (
+              <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="description">{t("What did you eat? (optional)")}</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g. 2 spoons of jollof rice, a piece of chicken and a bit of dodo"
+                  maxLength={500}
+                />
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  {t(
+                    "We'll match this against our Nigerian food list to estimate calories, carbs, protein, fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup, spoon, handful, piece, serving, wrap, ladle or bowl."
+                  )}
+                </p>
+              </div>
 
-          <FoodPicker onAdd={addPhrase} />
-          <BarcodeEntry onAdd={addPhrase} />
-
-          <div className="grid gap-2">
-            <Label htmlFor="photo">{t("Photo (optional)")}</Label>
-            <Input
-              id="photo"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              {visionConfigured
-                ? t(
-                    "Add a photo and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement."
-                  )
-                : t("Photo estimates aren't switched on yet; your meal still logs with the details you add.")}
-            </p>
+              <FoodPicker onAdd={addPhrase} />
+              <BarcodeEntry onAdd={addPhrase} />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? t("Logging…") : t("Log meal")}
+              {mutation.isPending ? t("Logging…") : file ? t("Log this photo") : t("Log meal")}
             </Button>
             {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
           </div>
@@ -318,6 +394,7 @@ function GuidanceBlock({
     () => getConditionNutritionGuidance(activeConditions, analysis),
     [activeConditions, analysis],
   );
+  const { data: eating } = useEatingGuidance();
 
   const watchOnSodium = messages.some((m) => m.condition === "hypertension" && m.tone === "watch");
   const watchOnCarbs = messages.some((m) => m.condition === "diabetes" && m.tone === "watch");
@@ -325,10 +402,16 @@ function GuidanceBlock({
   const substitution = useMemo(() => {
     if (!items || catalogue.length === 0 || (!watchOnSodium && !watchOnCarbs)) return null;
     const metric = watchOnSodium ? "sodium" : "carbs";
+    // S50a: until a clinician-signed swap table exists the older built-in hint is the fallback. Once one is signed it is the only source, and a
+    // person the signed table withholds gets no swap (never the old hint): `eating` says which of the three it is.
+    if (!eating) return null;
     const foodCode = pickDominantContributor(items, catalogue, metric);
     if (!foodCode) return null;
-    return suggestSubstitution({ foodCode, concern: metric, catalogue });
-  }, [items, catalogue, watchOnSodium, watchOnCarbs]);
+    if (!eating.signed) return suggestSubstitution({ foodCode, concern: metric, catalogue });
+    if (eating.guidance.state !== "ok") return null;
+    const signedSwap = swapsForFood(eating.guidance.swaps, foodCode, [metric === "sodium" ? "hypertension" : "diabetes"])[0];
+    return signedSwap ? { message: signedSwapMessage(signedSwap, catalogue), alternativeFoodCodes: signedSwap.toFoodCodes } : null;
+  }, [items, catalogue, watchOnSodium, watchOnCarbs, eating]);
 
   if (messages.length === 0) return null;
 

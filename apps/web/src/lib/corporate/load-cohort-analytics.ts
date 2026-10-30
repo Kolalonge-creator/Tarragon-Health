@@ -15,7 +15,8 @@ const COHORT_CHRONIC_CONDITIONS: readonly CohortChronicCondition[] = ["hypertens
  * Extracted from the corporate dashboard page so it can be reused by the
  * outcome-report snapshot generator (apps/web/src/app/(dashboard)/dashboard/corporate/actions.ts)
  * without duplicating the anonymised-cohort-assembly logic. Returns null if
- * the org has no enrolled patients (or the ML service is unavailable).
+ * the org has no enrolled patients (or the ML service is unavailable). Throws when
+ * a database read fails, so a failure is never reported as an empty cohort.
  *
  * I9 small-cell suppression (2026-07-29): `minCohortSize` is the org's
  * organisations.min_cohort_size. Below it this returns null and the caller
@@ -31,11 +32,12 @@ export async function loadCohortAnalytics(
   organisationId: string,
   minCohortSize: number
 ): Promise<CohortAnalyticsResponse | null> {
-  const { data: patients } = await supabase
+  const { data: patients, error: patientsError } = await supabase
     .from("profiles")
     .select("id, sex, date_of_birth")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
+  if (patientsError) throw patientsError;
   if (!patients || patients.length === 0) return null;
   // Suppress before any per-patient row is read, not after aggregating them.
   if (isCohortSuppressed(patients.length, minCohortSize)) return null;
@@ -43,7 +45,7 @@ export async function loadCohortAnalytics(
   const patientIds = patients.map((p) => p.id);
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: riskScores }, { data: carePlans }, { data: schedules }, { data: screeningResults }] =
+  const [riskRes, carePlansRes, schedulesRes, screeningRes] =
     await Promise.all([
       supabase
         .from("patient_risk_scores")
@@ -66,6 +68,16 @@ export async function loadCohortAnalytics(
         .in("patient_id", patientIds)
         .in("result_status", ["abnormal", "critical"]),
     ]);
+
+  // A failed read must not become a zero: an overdue rate over a missing
+  // schedules read would say 0% and look like good news to the employer.
+  for (const res of [riskRes, carePlansRes, schedulesRes, screeningRes]) {
+    if (res.error) throw res.error;
+  }
+  const riskScores = riskRes.data;
+  const carePlans = carePlansRes.data;
+  const schedules = schedulesRes.data;
+  const screeningResults = screeningRes.data;
 
   const latestCvdByPatient = new Map<string, { score: number; risk_level: string }>();
   const latestBpControlByPatient = new Map<string, number>();

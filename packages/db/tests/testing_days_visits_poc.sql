@@ -443,7 +443,7 @@ end $$;
 -- 8. Annual screening analytes are required -------------------------------------------------------------------------------------
 do $$
 begin
-  perform pg_temp.ck('the active annual panel is version 3 (v2 plus the anti-HBs add-on, S46d)', '3', (select version::text from public.lab_panel_versions where panel_code = 'membership_annual' and is_active));
+  perform pg_temp.ck('the active annual panel is version 4 (v3 minus TSH, founder decision 2026-10-30)', '4', (select version::text from public.lab_panel_versions where panel_code = 'membership_annual' and is_active));
   perform pg_temp.ck('HIV, HBsAg and anti-HCV are all in the panel and none is optional', '3|0',
     (select count(*)::text from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and a ->> 'code' in ('hiv_screen', 'hbsag', 'hcv_ab'))
     || '|' || (select count(*)::text from public.lab_panel_versions p, jsonb_array_elements(p.analytes) a where p.is_active and a ->> 'code' in ('hiv_screen', 'hbsag', 'hcv_ab') and coalesce((a ->> 'optional')::boolean, false)));

@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   useThreadMessages,
+  useThreadStatus,
+  useMessageActions,
+  useAddMessageActions,
   usePostMessage,
   useMarkThreadRead,
   useCareMessageTemplates,
@@ -10,6 +14,7 @@ import {
   type CareMessage,
   type CareMessageAttachment,
 } from "@/lib/queries/care-messages";
+import { CARE_MESSAGE_ACTIONS, CARE_MESSAGE_ACTION_KINDS, isCareMessageActionKind } from "@/lib/care-messages/action-kinds";
 import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +24,16 @@ import { DoctorNameLink } from "@/components/doctor-name-link";
 import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
+import { cn } from "@/lib/utils";
+
+/** "Seen" only when the other side opened the thread after this message was sent. */
+export function receiptText(sentAt: string, otherSideReadAt: string | null | undefined, isStaff: boolean): string {
+  const who = isStaff ? "the patient" : "your care team";
+  if (otherSideReadAt && new Date(otherSideReadAt) >= new Date(sentAt)) {
+    return `Seen by ${who} · ${when(otherSideReadAt)}`;
+  }
+  return "Sent, not seen yet";
+}
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -70,6 +85,28 @@ function roleLabel(message: CareMessage): string | null {
   if (message.author_role === "patient") return "Patient";
   return null;
 }
+
+/** Plain-text author for the avatar initials. Mirrors AuthorLabel's null-gating exactly: only a real clinical-tier actor is named. */
+function authorName(message: CareMessage): string {
+  if (message.author_role === "care_team") {
+    return message.actor?.full_name && isClinicalTier(message.actor) ? message.actor.full_name : "Care team";
+  }
+  if (message.author_role === "sponsor") return message.author_display ?? "Someone who supports them";
+  return message.author_display ?? "Patient";
+}
+
+function initials(name: string): string {
+  const parts = name.replace(/^dr\.?\s+/i, "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR: Record<string, string> = {
+  patient: "bg-soft-sage text-deep-forest dark:bg-brand-green/20 dark:text-brand-green-bright",
+  care_team: "bg-brand-green text-white",
+  sponsor: "bg-clinical-navy text-white dark:bg-blue-500/40",
+};
 
 const BUBBLE: Record<string, string> = {
   patient: "rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-3",
@@ -140,9 +177,8 @@ export function CareMessageThread({
    * unreadable to a patient session via RLS) -- the patient-facing call
    * sites (messages-flow.tsx, supported-people.tsx) leave this unset. */
   showDraftAssist?: boolean;
-  /** Renders the 77.7 template picker and skips the 77.10 attach control —
-   * only a patient's own session can upload into their own storage folder
-   * (see care-message-attachments.sql's storage policies). */
+  /** Renders the 77.7 template picker and the action-button choices. Staff can attach files too
+   * (storage policy added with the staff chat). */
   isStaff?: boolean;
   /** Messaging boundaries (17.11): this channel is read by the care team
    * during normal hours, not watched continuously — a patient composing
@@ -154,6 +190,12 @@ export function CareMessageThread({
   const { data: messages, isLoading } = useThreadMessages(threadId);
   const post = usePostMessage();
   const markRead = useMarkThreadRead();
+  const { data: status } = useThreadStatus(threadId);
+  const addActions = useAddMessageActions();
+  const { data: actionRows } = useMessageActions((messages ?? []).map((m) => m.id));
+  const [pickedActions, setPickedActions] = useState<string[]>([]);
+  const actionsByMessage = new Map<string, string[]>();
+  for (const a of actionRows ?? []) actionsByMessage.set(a.message_id, [...(actionsByMessage.get(a.message_id) ?? []), a.kind]);
   const upload = useUploadCareMessageAttachment();
   const [body, setBody] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -165,10 +207,12 @@ export function CareMessageThread({
   // 77.13 — stamp this side's read clock whenever the thread is open, so an
   // unread clinical message doesn't stay "unread" once someone has actually
   // looked at it.
+  // Re-stamped when a newer message arrives while the thread stays open, so someone looking at it is not "unread".
+  const lastMessageAt = status?.last_message_at ?? null;
   useEffect(() => {
     markRead.mutate(threadId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId]);
+  }, [threadId, lastMessageAt]);
 
   const send = () => {
     setError(null);
@@ -177,6 +221,13 @@ export function CareMessageThread({
       {
         onSuccess: (messageId) => {
           setBody("");
+          if (isStaff && pickedActions.length > 0 && status?.organisation_id) {
+            addActions.mutate(
+              { messageId, patientId, organisationId: status.organisation_id, kinds: pickedActions },
+              { onError: () => setError("Your message was sent, but the buttons could not be added.") },
+            );
+            setPickedActions([]);
+          }
           if (pendingFile) {
             upload.mutate(
               { messageId, threadId, patientId, file: pendingFile },
@@ -207,6 +258,9 @@ export function CareMessageThread({
     setPendingFile(file);
   };
 
+  const ownRole = isStaff ? "care_team" : "patient";
+  const lastOwnMessageId = [...(messages ?? [])].reverse().find((m) => m.author_role === ownRole)?.id;
+
   return (
     <div className="space-y-3">
       {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
@@ -214,8 +268,16 @@ export function CareMessageThread({
         {(messages ?? []).map((message) => (
           <li
             key={message.id}
-            className={BUBBLE[message.author_role] ?? BUBBLE.patient}
+            // Your own messages sit on the right, everyone else's on the left, like a chat. The staff view reads the other way round.
+            className={cn("flex items-end gap-2", message.author_role === (isStaff ? "care_team" : "patient") && "flex-row-reverse")}
           >
+            <span
+              aria-hidden
+              className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", AVATAR[message.author_role] ?? AVATAR.patient)}
+            >
+              {message.author_role === "care_team" && authorName(message) === "Care team" ? "CT" : initials(authorName(message))}
+            </span>
+            <div className={cn("min-w-0 max-w-[85%] flex-1 sm:max-w-[75%] sm:flex-none", BUBBLE[message.author_role] ?? BUBBLE.patient)}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
                 <AuthorLabel message={message} />
@@ -228,6 +290,30 @@ export function CareMessageThread({
               <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{when(message.created_at)}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">{message.body}</p>
+            {(actionsByMessage.get(message.id) ?? []).filter(isCareMessageActionKind).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(actionsByMessage.get(message.id) ?? []).filter(isCareMessageActionKind).map((kind) =>
+                  isStaff ? (
+                    <span key={kind} className="rounded-full bg-charcoal-ink/5 px-2.5 py-1 text-xs text-charcoal-ink/70">
+                      Button: {CARE_MESSAGE_ACTIONS[kind].label}
+                    </span>
+                  ) : (
+                    <Link
+                      key={kind}
+                      href={CARE_MESSAGE_ACTIONS[kind].href}
+                      className="rounded-full bg-brand-green px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                      {CARE_MESSAGE_ACTIONS[kind].label}
+                    </Link>
+                  ),
+                )}
+              </div>
+            )}
+            {message.id === lastOwnMessageId && (
+              <p className="mt-1 text-right text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                {receiptText(message.created_at, isStaff ? status?.patient_last_read_at : status?.care_team_last_read_at, isStaff)}
+              </p>
+            )}
             {message.attachments.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {message.attachments.map((a) => (
@@ -235,6 +321,7 @@ export function CareMessageThread({
                 ))}
               </div>
             )}
+            </div>
           </li>
         ))}
       </ul>
@@ -246,6 +333,24 @@ export function CareMessageThread({
           {showDraftAssist && <DraftReplyCard threadId={threadId} />}
           {isStaff && (
             <TemplatePicker onPick={(templateBody) => setBody(templateBody)} />
+          )}
+          {isStaff && (
+            <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <legend className="sr-only">Add buttons to this message</legend>
+              <span className="text-xs text-charcoal-ink/60">Add a button:</span>
+              {CARE_MESSAGE_ACTION_KINDS.map((kind) => (
+                <label key={kind} className="flex items-center gap-1.5 text-xs text-charcoal-ink/80">
+                  <input
+                    type="checkbox"
+                    checked={pickedActions.includes(kind)}
+                    onChange={(e) =>
+                      setPickedActions((cur) => (e.target.checked ? [...cur, kind] : cur.filter((k) => k !== kind)))
+                    }
+                  />
+                  {CARE_MESSAGE_ACTIONS[kind].label}
+                </label>
+              ))}
+            </fieldset>
           )}
           {showEmergencyNotice && (
             <p className="rounded-lg bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-xs text-amber-900">
@@ -291,8 +396,7 @@ export function CareMessageThread({
             >
               {post.isPending || upload.isPending ? "Sending…" : "Send"}
             </Button>
-            {!isStaff && (
-              <>
+            <>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -309,8 +413,7 @@ export function CareMessageThread({
                   <NAV_ICON.attachment className="h-4 w-4" strokeWidth={2} aria-hidden />
                   Attach a file
                 </button>
-              </>
-            )}
+            </>
             <FormError id={replyErrorId} message={error} />
           </div>
         </div>

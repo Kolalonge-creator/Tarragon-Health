@@ -14,7 +14,7 @@ import type { PartnerLocation } from "@/lib/marketing/partner-locations-data";
 const PARTNER_TYPE_DESCRIPTION: Record<PartnerLocation["type"], string> = {
   home_visit: "home visit collection",
   delivery: "delivery",
-  lab: "contracted lab",
+  lab: "contracted laboratory",
 };
 
 export const metadata: Metadata = pageMetadata({
@@ -58,20 +58,20 @@ export default async function CoveragePage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             TarragonHealth works anywhere in Nigeria. We tell you which tests
-            are worth doing and when, write you a request to take to any lab
-            you like, read the result with you, and follow up. None of that
-            waits on us signing a partner in your state, so it stays
-            switched on wherever you live.
+            are worth doing and when, write you a request to take to any laboratory
+            you choose, read the result with you, and follow up. None of that
+            depends on our having a partner in your state, so it is
+            available wherever you live.
           </p>
           <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-            You pay the lab or the pharmacy directly, at their price. We take
-            nothing on top.
+            You pay the laboratory or the pharmacy directly, at their price. We add
+            nothing to it.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
             We do not deliver medication. When a doctor prescribes you medicine
             you can download the prescription and collect it from a pharmacy you
             choose. Collecting a sample from your home still needs a contracted
-            partner in your state, and we&apos;d rather say so than imply
+            partner in your state, and we state this plainly rather than imply
             otherwise.
           </p>
           {liveStates.length > 0 && (
@@ -90,7 +90,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Coverage"
           title="Check a state"
-          description="Screening guidance, test requests, uploading a result and doctor review work in every state. This checker shows the extra, partner-fulfilled services on top, and reads the same live list the app uses, so it never promises what the product can't deliver."
+          description="Screening guidance, test requests, uploading a result and doctor review work in every state. This checker shows the extra, partner-fulfilled services on top, and reads the same live list the app uses, so it never promises what the product cannot deliver."
         />
         <CoverageChecker coverage={coverage} />
       </Section>
@@ -99,7 +99,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Partner locations"
           title="Where our contracted partners are"
-          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab or home visit partner is the exception: a real relationship we hold, not just a listing. This map shows where those partners are, once we have one."
+          description="Most services on this page are arranged by you, so they need no partner at all. A contracted laboratory or home visit partner is the exception: a real relationship that we hold, not just a listing. This map shows where those partners are, once we have one."
         />
         {mapsApiKey && partnerLocations.length > 0 && (
           <PartnerMap locations={partnerLocations} apiKey={mapsApiKey} />
@@ -129,12 +129,12 @@ export default async function CoveragePage() {
               </>
             ) : partnersKnown ? (
               <p className="text-sm text-charcoal-ink/70">
-                We haven&apos;t activated a contracted lab or home visit
-                partner yet. Check back, or{" "}
+                We have not activated a contracted laboratory or home visit
+                partner yet. Please check again later, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}
-                and we&apos;ll tell you what is live where you need it.
+                and we will tell you what is available where you need it.
               </p>
             ) : (
               // The read failed, so we do not know the answer. Saying "none
@@ -142,12 +142,12 @@ export default async function CoveragePage() {
               // network blip, and would contradict the partner-laboratory
               // wording on the pricing page.
               <p className="text-sm text-charcoal-ink/70">
-                We couldn&apos;t load our partner list just now. Please refresh
-                in a moment, or{" "}
+                We could not load our partner list just now. Please refresh
+                the page in a moment, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}
-                and we&apos;ll tell you what is live where you need it.
+                and we will tell you what is available where you need it.
               </p>
             )}
           </div>
@@ -156,9 +156,9 @@ export default async function CoveragePage() {
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="The honest split"
-          title="What needs someone to be in Nigeria"
-          description="If you are buying from abroad for yourself rather than for a relative at home, this is the half that will sit unused until you visit."
+          eyebrow="Services that need a visit"
+          title="What requires someone to be in Nigeria"
+          description="If you are paying from abroad for yourself rather than for a relative at home, these services cannot be used until you visit Nigeria."
         />
         <div className="mx-auto max-w-3xl space-y-3">
           {inNigeria.map((item) => (

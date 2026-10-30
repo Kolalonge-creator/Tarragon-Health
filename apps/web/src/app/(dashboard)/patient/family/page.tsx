@@ -25,6 +25,7 @@ import { EmergencyAccessBanner } from "./emergency-access-banner";
 import { CareAccessLog, type CareAccessLogRow } from "./care-access-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 
 /**
  * The people around one person's care.
@@ -197,13 +198,17 @@ export default async function CareCirclePage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <DependantsList />
-          <AddChildForm />
+          <Disclosure title="Add a child" hint="Keep a child's records in your account.">
+            <AddChildForm />
+          </Disclosure>
         </div>
         <div className="space-y-4">
           <AdultsYouManageList />
-          <AddElderProxyForm />
-          <ProxySetupForm locale={locale} />
           <ProxySetupList rows={(proxyRows ?? []) as ProxySetupRow[]} locale={locale} />
+          <Disclosure title="Add an adult you look after" hint="A parent or relative who needs help with their care.">
+            <AddElderProxyForm />
+            <ProxySetupForm locale={locale} />
+          </Disclosure>
         </div>
       </div>
 
@@ -211,11 +216,11 @@ export default async function CareCirclePage() {
 
       <CareVisibilityList />
 
-      <ProxyReviewCard />
-
-      <ProxyControlsCard />
-
-      <CareAccessLog events={accessEvents} />
+      <Disclosure title="Review access and see who looked" hint="Check who can see your record and the log of what they opened.">
+        <ProxyReviewCard />
+        <ProxyControlsCard />
+        <CareAccessLog events={accessEvents} />
+      </Disclosure>
 
       <Card>
         <CardHeader>

@@ -5,6 +5,8 @@ import { useMyPointsStatus, useRewardRules, useWellnessPointsLedger } from "@/li
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { PendingCredit } from "./pending-credit";
+import { groupLedger } from "@tarragon/shared";
+import { ChevronDown } from "lucide-react";
 
 /**
  * Health Points (S58, spec 11.1 to 11.3). Balance, how to earn, this year's level and a "coming soon" note for checkout
@@ -62,8 +64,11 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         )}
 
         {rules && rules.length > 0 && (
-          <section aria-labelledby="points-how">
-            <h3 id="points-how" className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{t("points.how.title")}</h3>
+          <details className="group" aria-labelledby="points-how">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <h3 id="points-how" className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{t("points.how.title")}</h3>
+              <ChevronDown className="h-4 w-4 shrink-0 text-charcoal-ink/60 transition-transform group-open:rotate-180 dark:text-night-ink/60" aria-hidden />
+            </summary>
             <p className="mb-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("points.how.intro")}</p>
             <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 text-sm">
               {rules.map((r) => (
@@ -83,7 +88,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
               ))}
             </ul>
             <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/55">{t("points.how.daily_note")}</p>
-          </section>
+          </details>
         )}
 
         <section aria-labelledby="points-redeem" className="rounded-md bg-charcoal-ink/5 p-3 dark:bg-night-ink/10">
@@ -96,9 +101,12 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           <h3 id="points-activity" className="mb-1 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{t("points.activity.title")}</h3>
           {ledger && ledger.length > 0 ? (
             <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 text-sm">
-              {ledger.map((entry) => (
-                <li key={entry.id} className="flex items-center justify-between py-1.5">
-                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">{pointsRuleLabel(entry.reason)}</span>
+              {groupLedger(ledger).map((entry) => (
+                <li key={`${entry.reason}-${entry.points > 0}`} className="flex items-center justify-between py-1.5">
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">
+                    {pointsRuleLabel(entry.reason)}
+                    {entry.count > 1 ? ` (${entry.count} times)` : ""}
+                  </span>
                   <span className={entry.points > 0 ? "font-medium text-brand-green dark:text-brand-green-bright" : "font-medium text-charcoal-ink/60 dark:text-night-ink/60"}>
                     {entry.points > 0 ? "+" : ""}
                     {entry.points}

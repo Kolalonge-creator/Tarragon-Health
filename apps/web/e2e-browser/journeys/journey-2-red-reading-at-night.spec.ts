@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { J2, startJourney } from "../../../../packages/shared/src/journeys/journeys";
+import { activeWording } from "../../../../packages/i18n/src/clinical-wording";
 import { grade } from "../../../../supabase/functions/_shared/clinical/engine";
 import type { RuleSet, TriageInput } from "../../../../supabase/functions/_shared/clinical/types";
 import { BP_CARE_V1 } from "../../../../packages/clinical/src/rules/bp-care-v1";
@@ -167,20 +168,59 @@ test.describe("Journey 2: a red reading at night", () => {
     });
 
     // ------------------------------------------------------------------ the network goes off
+    // What the page showed with the network off, captured here and judged against the server's grade after the bus is drained.
+    // Three separate paths, so none can hide behind another: a symptom ticked with NO reading typed, a reading typed with NO symptom
+    // ticked, and the two together (the server's stored grade was made with the symptom, so only the last is compared with it).
+    const offlineWeb = { symptomOnly: false, readingOnly: false, combined: false, readingOnlyText: "", combinedText: "", notSavedText: "" };
     await run.step("offline-web-refuses-to-claim-saved", async () => {
       const ack = page.getByRole("button", { name: /i'm getting help/i });
       if (await ack.isVisible().catch(() => false)) await ack.click();
       await page.goto("/patient/vitals", { waitUntil: "domcontentloaded" });
       const before = Number(sqlValue<string>(`select count(*)::text from public.vitals_readings where patient_id = ${lit(patient.id)}`));
+      await page.waitForLoadState("networkidle");
       await context.setOffline(true);
       try {
+        const dialog = page.getByRole("alertdialog");
+        const tick = page.locator("#offline_symptom_severe_headache");
+        const readIt = page.getByRole("button", { name: "I have read this" });
+        const save = async () => {
+          await page.getByRole("button", { name: "Save reading" }).click();
+          const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
+          if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
+        };
+
+        // 1. symptom only: ticking it is enough, the guidance shows at once with no reading typed and nothing submitted (S85b, INV-06).
+        await tick.check({ timeout: 10_000 });
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        offlineWeb.symptomOnly = true;
+        await readIt.click();
+        await expect(dialog).toHaveCount(0);
+
+        // 2. reading only: the tick is CLEARED first, so this path stands on the reading alone.
+        await tick.uncheck();
+        await expect(tick).not.toBeChecked();
         await page.locator("#systolic").fill(String(SYSTOLIC));
         await page.locator("#diastolic").fill(String(DIASTOLIC));
-        await page.getByRole("button", { name: "Save reading" }).click();
-        const confirm = page.getByRole("button", { name: /yes, this reading is correct/i });
-        if (await confirm.isVisible({ timeout: 2000 }).catch(() => false)) await confirm.click();
-        await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
+        await save();
+        offlineWeb.readingOnly = await dialog.waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+        if (offlineWeb.readingOnly) {
+          offlineWeb.readingOnlyText = (await dialog.textContent()) ?? "";
+          await readIt.click();
+          await expect(dialog).toHaveCount(0);
+        }
+
+        // 3. both: the symptom ticked again, then the same reading submitted.
+        await tick.check();
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        await readIt.click();
+        await save();
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        offlineWeb.combined = true;
+        offlineWeb.combinedText = (await dialog.textContent()) ?? "";
+        offlineWeb.notSavedText = (await page.getByTestId("offline-not-saved").textContent()) ?? "";
         await expect(page.getByText("Received by TarragonHealth.")).toHaveCount(0);
+        await readIt.click();
+        await expect(page.locator("#vitals-form-error")).toContainText(/you're offline/i, { timeout: 10_000 });
       } finally {
         await context.setOffline(false);
       }
@@ -219,6 +259,44 @@ test.describe("Journey 2: a red reading at night", () => {
       // shadow is a consequence of the rule set's status, never of anything this test sets
       expect(graded!.shadow).toBe(graded!.rule_set_status !== "approved");
       console.log(`[J2] stored grade ${graded!.grade} (rule ${graded!.rule_id}, shadow ${graded!.shadow}) equals the engine on the same facts`);
+    });
+
+    await run.step("guidance-with-network-off-web", async () => {
+      // S85b: the web shows the emergency guidance from bundled code with the network off (INV-06). Every expectation below comes from the
+      // rule set row the database holds and the grade it stored, never from a number or a symptom list written in this file.
+      expect(graded, "no stored server grade to compare with").toBeDefined();
+      const svc = serviceClient();
+      const { data } = await svc.rpc("triage_rule_set_for_grading", { p_code: "bp_care_triage" });
+      const rules = (data as { rules: RuleSet }).rules;
+
+      // symptom only: the symptom the page offers is in the rule set's own red-flag group, so ticking it alone must show the guidance.
+      expect(rules.params.symptomGroups.redFlag, "the ticked symptom is not a red-flag symptom in this rule set").toContain("severe_headache");
+      expect(offlineWeb.symptomOnly, "ticking an emergency symptom with no reading showed no guidance").toBe(true);
+
+      // reading only (no symptom): judged against the engine on the same facts WITHOUT the symptom, with the symptom question asked and unasked.
+      const readingFacts = (answered: boolean): TriageInput => ({
+        ...input!,
+        trigger: { ...(input!.trigger as Extract<TriageInput["trigger"], { type: "observation" }>), symptoms: [], symptomsAnswered: answered },
+      });
+      const answeredNone = grade(readingFacts(true), rules);
+      const unanswered = grade(readingFacts(false), rules);
+      const readingNeedsGuidance =
+        unanswered.status === "symptom_check_required" ||
+        (answeredNone.status === "graded" && answeredNone.grade === "red") ||
+        answeredNone.actions.some((a) => a.kind === "show_emergency_guidance");
+      if (readingNeedsGuidance) expect(offlineWeb.readingOnly, "a reading at or above the question line, or graded red, showed no guidance with no symptom ticked").toBe(true);
+      console.log(`[J2] reading-only path: engine needs guidance ${readingNeedsGuidance}, web showed it ${offlineWeb.readingOnly}`);
+
+      // both together, compared with the stored server grade (which the symptom informed).
+      expect(offlineWeb.combined, "a very high reading with a ticked symptom showed no guidance").toBe(true);
+      const wording = activeWording("EMG-001");
+      for (const text of [offlineWeb.combinedText, ...(offlineWeb.readingOnly ? [offlineWeb.readingOnlyText] : [])]) {
+        expect(text).toContain(wording.title);
+        expect(text).toContain(wording.body);
+      }
+      expect(offlineWeb.notSavedText).toMatch(/has not been saved/i);
+      // Never weaker than the server: a red grade stored by the database must have produced the guidance on the web.
+      if (graded!.grade === "red") expect(offlineWeb.combined, "the server graded red and the web showed nothing").toBe(true);
     });
 
     await run.step("guidance-with-network-off-device", async () => {
@@ -366,8 +444,28 @@ test.describe("Journey 2: a red reading at night", () => {
       run.pending("followup-task-created", "CMO approves bp_care_triage", "tasks are created only from an approved rule set");
     }
 
+    // The outcomes engine reads red events from the append-only triage log (the one copy of the event, founder decision 2026-10-28), but only those graded by an approved rule set.
+    if (approved && graded && graded.grade === "red") {
+      await run.step("outcomes-engine-logs-event", async () => {
+        const inputs = sqlValue<string>(
+          `select (inputs ->> 'red_events_30d') from private.risk_compute(${lit(patient.id)}, (now() at time zone 'Africa/Lagos')::date)`,
+        );
+        expect(Number(inputs), "the outcomes risk computation did not count the red event").toBeGreaterThanOrEqual(1);
+        const reasons = sqlValue<string>(
+          `select reasons::text from private.risk_compute(${lit(patient.id)}, (now() at time zone 'Africa/Lagos')::date)`,
+        );
+        expect(reasons).toContain("recent_red_event");
+        // control: a patient with no graded events is not counted (the count is this patient's, not everyone's)
+        const other = await createUser(runId, "no-events", { role: "patient", organisationId: org, fullName: "[s85] No events" });
+        const none = sqlValue<string>(`select coalesce(inputs ->> 'red_events_30d', '0') from private.risk_compute(${lit(other.id)}, (now() at time zone 'Africa/Lagos')::date)`);
+        expect(Number(none)).toBe(0);
+      });
+    } else {
+      run.pending("outcomes-engine-logs-event", "CMO approves bp_care_triage", "the outcomes engine counts only red events graded by an approved rule set; this grade was made by a draft (shadow, OQ-88)");
+    }
+
     await finishJourney(run, testInfo);
-    // The verdict can never be "passing" here: D1, the web offline guidance, follow-up booking and outcomes are pending.
+    // The verdict can never be "passing" here: D1, follow-up booking and outcomes are pending.
     expect(run.report().verdict).not.toBe("passing");
   });
 });

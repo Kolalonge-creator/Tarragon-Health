@@ -49,42 +49,42 @@ export const metadata: Metadata = pageMetadata({
 const BOOKING_ASSURANCES = [
   {
     title: "A verified doctor reads it",
-    body: "No one can review results here until another clinician has verified their licence, and nobody can verify their own. The database enforces it.",
+    body: "A clinician cannot review results here until another clinician has verified their licence, and nobody can verify their own. The database enforces this rule.",
   },
   {
     title: "You confirm the price first",
-    body: "You pick the lab, see its exact price, and confirm before anything is charged. You can walk away at any time before that.",
+    body: "You choose the laboratory, see its exact price, and confirm before anything is charged. You can stop at any time before then.",
   },
   {
-    title: "Your card stays with Paystack",
-    body: "Payment is handled by Paystack on their own checkout. Your card number stays with them and does not reach Tarragon, so it is not ours to lose.",
+    title: "Your card details stay with Paystack",
+    body: "Payment is handled by Paystack on its own checkout page. Your card number stays with Paystack and never reaches Tarragon, so we cannot lose it.",
   },
 ];
 
 const WHATS_INCLUDED = [
   {
     title: "Blood sugar (HbA1c)",
-    body: "Your three-month blood sugar average: the earliest reliable warning sign for diabetes, years before symptoms.",
+    body: "This test shows your average blood sugar over the last three months. It is the earliest reliable warning sign of diabetes, often appearing years before symptoms.",
   },
   {
     title: "Cholesterol (lipid panel)",
-    body: "Total, LDL, HDL, and triglycerides: the numbers behind heart-attack and stroke risk.",
+    body: "This measures total cholesterol, LDL cholesterol, HDL cholesterol and triglycerides, which together indicate your risk of heart attack and stroke.",
   },
   {
     title: "Your cancer screening",
-    body: "The one that fits you: cervical screening for women, prostate (PSA) for men 45+, chosen by age and sex, not one-size-fits-all. Included from Advanced Screen up.",
+    body: "The screening that fits you: cervical screening for women, or prostate-specific antigen (PSA) testing for men aged 45 and over. It is chosen by your age and sex. Included from Advanced Screen up.",
   },
   {
-    title: "Blood pressure & BMI",
-    body: "Measured properly and recorded to your Tarragon record, so next year has something real to compare against.",
+    title: "Blood pressure and BMI",
+    body: "Both are measured carefully and saved to your Tarragon record, so that next year's check has something reliable to compare against.",
   },
   {
     title: "A doctor walks you through it",
-    body: "A 15-minute video consult with a doctor, checked against your history and explained plainly: what's fine, what to watch, and what, if anything, to do next. Included on every tier.",
+    body: "A 15-minute video consultation with a doctor, who checks your results against your history and explains them plainly: what is normal, what to watch, and what, if anything, to do next. Included on every tier.",
   },
   {
     title: "One record, year after year",
-    body: "Results live in your Health Passport, not a drawer. Trends across years are where early warnings actually show up.",
+    body: "Your results are kept in your Health Passport instead of in a drawer. Changes across several years are often where early warnings first appear.",
   },
 ];
 
@@ -96,18 +96,18 @@ const HOW_IT_WORKS = [
   },
   {
     step: 2,
-    title: "One lab visit",
-    body: "Samples and measurements in a single visit. We don't yet offer home sample collection, and we'd rather say so than imply otherwise.",
+    title: "One laboratory visit",
+    body: "Your samples and measurements are taken in a single visit. We do not yet offer home sample collection.",
   },
   {
     step: 3,
-    title: "A video consult with your doctor",
-    body: "Every result is read by a doctor, then you get a 15-minute video call to walk through it together. Most people get the best news there is: all clear, see you next year.",
+    title: "A video consult with a doctor",
+    body: "A doctor reads every result, then you have a 15-minute video call to go through it together. For most people the outcome is that everything is normal and the next check is due in a year.",
   },
   {
     step: 4,
     title: "A plan, if you need one",
-    body: "If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical, then helps you decide what's next, on the same record, with no starting over.",
+    body: "If something needs attention, a doctor follows up within a day, and within 12 hours if it is critical. The doctor then helps you decide what to do next, using the same record, so you do not start again.",
   },
 ];
 
@@ -123,13 +123,13 @@ export default function AnnualHealthCheckPage() {
             The Annual Health Check
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            You service your car every year. Your health deserves the same discipline: one lab
-            visit for blood sugar, cholesterol, blood pressure, BMI, and the cancer screening
-            that fits your age and sex, all reviewed by a doctor and kept on one record.
+            A car is serviced every year, and your health deserves the same regular attention. One
+            laboratory visit covers blood sugar, cholesterol, blood pressure, BMI and the cancer
+            screening that fits your age and sex. A doctor reviews all of it and it is kept on one record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            We take nothing on your tests
-            <span className="text-base font-normal text-charcoal-ink/60"> · you pay the lab directly · once a year</span>
+            We take no commission on your tests
+            <span className="text-base font-normal text-charcoal-ink/60"> · you pay the laboratory directly · once a year</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -143,7 +143,7 @@ export default function AnnualHealthCheckPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Book directly from your dashboard&apos;s Prevention section.
+            If you are already a member, book from the Prevention section of your dashboard.
           </p>
         </div>
       </Section>
@@ -152,16 +152,16 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              What&apos;s included
+              What is included
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Six things, one visit
+              Six checks in one visit
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Chosen because they catch what quietly causes most avoidable illness in Nigeria:
-              diabetes, heart disease, and late-found cancers. Blood sugar, cholesterol, BP &amp;
-              BMI, and the doctor consult are on every tier from Core Screen; cancer screening
-              starts at Advanced Screen.
+              These checks were chosen because they detect the conditions that quietly cause most
+              avoidable illness in Nigeria: diabetes, heart disease and cancers found late. Blood
+              sugar, cholesterol, blood pressure, BMI and the doctor consultation are included in
+              every tier from Core Screen; cancer screening starts at Advanced Screen.
             </p>
           </div>
           <MarketingMediaFrame
@@ -187,8 +187,8 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="What we measure"
-          title="Every test, laid out plainly"
-          description="Exactly what's checked, organised by what it tells you about your body, which tier includes it, and how often it's actually re-checked."
+          title="Every test, explained"
+          description="Each test is listed by what it tells you about your body, with the tier that includes it and how often it is repeated."
         />
         <WhatWeMeasure />
       </Section>
@@ -200,15 +200,15 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="Pick your level"
-          title="Three tiers, one discipline"
-          description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results."
+          title="Three levels of check"
+          description="Each level includes everything in the one before it, and every level ends with a doctor going through your results with you."
         />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
           {[
             {
               name: "Core Screen",
               price: "You pay the lab, once",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
+              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver, kidney and thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
               highlight: true,
             },
             {
@@ -237,10 +237,11 @@ export default function AnnualHealthCheckPage() {
           ))}
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
-          Hepatitis B, and Hepatitis C) can each be requested on their own and confidentially, as
-          can a blood group and genotype check. Either way, take the request to any laboratory
-          you like and pay them directly, at their price; we don&apos;t set or quote one.
+          If you need only one test, the screenings recommended by the World Health Organization
+          (cervical screening, HIV, hepatitis B and hepatitis C) can each be requested on their
+          own and in confidence, as can a blood group and genotype check. Either way, take the
+          request to any laboratory you like and pay them directly at their price. We do not set
+          or quote a price.
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
@@ -248,45 +249,44 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
           <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
-            Full Panel: more biomarkers, on top of any tier
+            Full Panel: additional tests on top of any tier
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-            Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
-            age/sex-appropriate tumour marker screen, added to your next check as a one-time
-            upgrade. We&apos;re holding it back until a Clinical Director signs off the exact
-            panel.
+            Vitamin D, vitamin B12 and folate, iron studies, hs-CRP (a marker of inflammation), a
+            coagulation profile (how well your blood clots) and a tumour marker screen suited to
+            your age and sex, added to your next check as a one-time upgrade. We are holding it
+            back until a Clinical Director approves the exact panel.
           </p>
           <p className="mt-3 text-sm text-charcoal-ink/60">
-            Want to look further still?{" "}
+            If you want to look further, see{" "}
             <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Advanced diagnostic imaging
             </Link>{" "}
-            is on the same waitlist.
+            which is on the same waiting list.
           </p>
         </div>
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="Booked in minutes, done in a morning" />
+        <SectionHeading eyebrow="How it works" title="Booked in minutes, completed in a morning" />
         <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
       </Section>
 
       <Section>
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            Honest expectations
+            What to expect
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Most years, your check will simply confirm you&apos;re well; that&apos;s the point,
-            and it&apos;s worth paying for. If something does show up, catching it early usually
-            means simpler, cheaper treatment, and your doctor will say plainly if it needs deeper
-            investigation.
+            In most years your check will simply confirm that you are well, and that is its purpose.
+            If something does show up, finding it early usually means simpler and cheaper
+            treatment, and a doctor will tell you clearly if it needs further investigation.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Looking for the year-round version? <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps
+            If you want year-round support, <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps
             your full screening and vaccination schedule running all year. Comprehensive Screen
-            already includes the doctor video consult reviewing your whole result set, so
-            there&apos;s no separate review to buy.
+            already includes the doctor video consultation that reviews all your results, so
+            there is no separate review to buy.
           </p>
         </div>
       </Section>
@@ -294,7 +294,7 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="Before you book"
-          title="What we can actually promise you"
+          title="What we promise"
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {BOOKING_ASSURANCES.map((item) => (
@@ -314,8 +314,8 @@ export default function AnnualHealthCheckPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Book this year's check."
-          description="One morning, once a year, and a doctor who tells you where you stand. No subscription, nothing renews: you pay once, and the app itself stays free."
+          title="Book this year's check"
+          description="One morning, once a year, and a doctor who explains where your health stands. There is no subscription and nothing renews: you pay once, and the app itself stays free."
           primaryHref="/signup?intent=health_check"
           primaryLabel="Book your check"
         />

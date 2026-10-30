@@ -148,7 +148,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             <p className="mt-1 text-sm text-charcoal-ink/70">
               {liveCount > 0
                 ? "Everything else on this page works there today regardless, because it does not depend on a local partner."
-                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What's still waiting, below: home sample collection. We do not deliver medication; you collect it from a pharmacy you choose."}
+                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What is still waiting, below: home sample collection. We do not deliver medication; you collect it from a pharmacy you choose."}
             </p>
 
             <ul className="mt-4 space-y-2">

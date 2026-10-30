@@ -19,7 +19,7 @@ export default async function SmokingPage() {
         title="Smoking"
         icon={SEMANTIC_ICON.smoking}
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
-        description="Whether you're thinking about quitting, mid-quit, or just want to keep track: this is yours to log, and your care team can support you along the way."
+        description="Record your smoking here, whether you are thinking about quitting, are already trying to quit, or simply want to keep track. Your care team can support you along the way."
       />
       <SmokingClient patientId={profile.id} />
     </div>

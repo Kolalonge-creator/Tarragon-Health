@@ -40,11 +40,12 @@ export async function loadActivationFunnel(
 ): Promise<ActivationFunnel | null> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: roster } = await supabase
+  const { data: roster, error: rosterError } = await supabase
     .from("employer_roster_members")
     .select("id, status, claimed_profile_id, eligible_from, eligible_until")
     .eq("organisation_id", organisationId)
     .neq("status", "removed");
+  if (rosterError) throw rosterError;
   if (!roster || roster.length === 0) return null;
 
   const eligibleRows = roster.filter(
@@ -62,7 +63,7 @@ export async function loadActivationFunnel(
 
   const since = new Date(Date.now() - ENGAGEMENT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: recentVitals }, { data: recentScreenings }, { data: riskScores }, { data: completions }] =
+  const [vitalsRes, screeningsRes, riskRes, completionsRes] =
     await Promise.all([
       supabase.from("vitals_readings").select("patient_id").in("patient_id", activatedIds).is("correction_status", null).gte("created_at", since),
       supabase
@@ -73,6 +74,15 @@ export async function loadActivationFunnel(
       supabase.from("prevention_risk_scores").select("profile_id").in("profile_id", activatedIds),
       supabase.from("screening_completions").select("patient_id").in("patient_id", activatedIds),
     ]);
+
+  // A failed read must not become a smaller engaged count or a 0% assessment rate.
+  for (const res of [vitalsRes, screeningsRes, riskRes, completionsRes]) {
+    if (res.error) throw res.error;
+  }
+  const recentVitals = vitalsRes.data;
+  const recentScreenings = screeningsRes.data;
+  const riskScores = riskRes.data;
+  const completions = completionsRes.data;
 
   const engagedIds = new Set<string>();
   for (const row of recentVitals ?? []) engagedIds.add(row.patient_id);
@@ -105,7 +115,7 @@ export async function loadDepartmentBreakdown(
 ): Promise<DepartmentBreakdownRow[]> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: roster }, { data: departments }] = await Promise.all([
+  const [rosterRes, departmentsRes] = await Promise.all([
     supabase
       .from("employer_roster_members")
       .select("status, department_id, eligible_from, eligible_until")
@@ -113,7 +123,11 @@ export async function loadDepartmentBreakdown(
       .neq("status", "removed"),
     supabase.from("employer_departments").select("id, name").eq("organisation_id", organisationId).eq("is_active", true),
   ]);
-  if (!roster) return [];
+  if (rosterRes.error) throw rosterRes.error;
+  // A departments read that fails would label every row "Unknown department".
+  if (departmentsRes.error) throw departmentsRes.error;
+  const roster = rosterRes.data ?? [];
+  const departments = departmentsRes.data;
 
   const nameById = new Map((departments ?? []).map((d) => [d.id, d.name]));
   const byDept = new Map<string | null, { eligible: number; activated: number }>();

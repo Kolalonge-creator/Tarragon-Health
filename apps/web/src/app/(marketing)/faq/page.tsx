@@ -14,14 +14,14 @@ const FAQ_GROUPS = [
   },
   {
     category: "clinical" as const,
-    description: "Doctor involvement, escalation, and what a “review” actually means.",
+    description: "Doctor involvement, referral to a doctor, and what a “review” means.",
   },
 ];
 
 export const metadata: Metadata = pageMetadata({
   title: "FAQ",
   description:
-    "Clear answers about how TarragonHealth works, what's included, and how care and escalation happen, before you sign up.",
+    "Clear answers about how TarragonHealth works, what is included, and how care and referral to a doctor work, before you sign up.",
   path: MARKETING_ROUTES.faq,
 });
 
@@ -47,7 +47,7 @@ export default function FaqPage() {
         <SectionHeading
           as="h1"
           eyebrow="Questions"
-          title="What families usually ask first"
+          title="The questions people ask most often"
           description="Clear answers before anyone signs up, because trust starts with knowing what is included."
         />
         <div className="mx-auto max-w-4xl space-y-12">
@@ -82,8 +82,8 @@ export default function FaqPage() {
 
       <Section variant="sage" className="pb-24">
         <CtaBand
-          title="Ready when you are"
-          description="Get started today, for yourself or someone you love."
+          title="Ready to begin?"
+          description="Get started today, for yourself or for a family member."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

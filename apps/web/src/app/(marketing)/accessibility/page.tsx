@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Accessibility Statement",
   description:
-    "TarragonHealth's commitment to an accessible website and platform, what we've done, known limitations, and how to report a problem.",
+    "TarragonHealth's commitment to an accessible website and platform, what we have done, known limitations, and how to report a problem.",
   path: MARKETING_ROUTES.accessibility,
 });
 
@@ -66,7 +66,7 @@ export default function AccessibilityPage() {
               TarragonHealth is under active development and new features ship frequently. Some
               generated documents (for example PDF health records or vaccination certificates)
               and some partner-provided content (lab and pharmacy partner materials) may not yet
-              fully meet these standards. If you find a page or feature that doesn&apos;t work with
+              fully meet these standards. If you find a page or feature that does not work with
               your assistive technology, please tell us; we treat these as real bugs, not
               nice-to-haves.
             </p>
@@ -83,7 +83,7 @@ export default function AccessibilityPage() {
                 support@tarragonhealth.ng
               </a>{" "}
               and describe the page, what you were trying to do, and the assistive technology you
-              were using. We&apos;ll work with you to get the information or service you need in an
+              were using. We will work with you to get the information or service you need in an
               alternate way while we fix the underlying issue, and we aim to acknowledge reports
               within two business days.
             </p>

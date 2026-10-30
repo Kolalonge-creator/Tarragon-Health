@@ -70,8 +70,8 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
               {tir.abovePct > 0 && <div className="bg-amber-400" style={{ width: `${tir.abovePct}%` }} />}
             </div>
             <p className="text-charcoal-ink/60 dark:text-night-ink/60">
-              {tir.inRangePct}% in range · {tir.belowPct}% low · {tir.abovePct}% high. Your doctor
-              reviews the pattern; a single reading isn&apos;t the whole picture.
+              {tir.inRangePct}% in range · {tir.belowPct}% low · {tir.abovePct}% high. A doctor
+              reviews the pattern; a single reading is not the whole picture.
             </p>
           </div>
         ) : showLogPrompt ? (

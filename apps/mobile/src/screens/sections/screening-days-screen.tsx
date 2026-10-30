@@ -14,8 +14,9 @@ import {
 } from "@/lib/screening-days";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STATUS_LABEL: Record<ScreeningDay["status"], string> = {
   requested: "Awaiting confirmation",
@@ -73,7 +74,7 @@ export function ScreeningDaysScreen() {
       <View>
         <ScreenTitle>Group screening days</ScreenTitle>
         <MutedText>
-          Bring a group — a church, a market association, a cooperative, an office — and get a discounted rate on
+          Bring a group, such as a church, a market association, a cooperative or an office, and get a discounted rate on
           a health check for everyone. One payer covers the whole group upfront; we&apos;ll confirm the price and
           headcount with you first.
         </MutedText>
@@ -135,13 +136,13 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a screening day</Text>
+      <AppText variant="bodyStrong">Request a screening day</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
 
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Which check?</Text>
+      <AppText variant="label">Which check?</AppText>
       <View style={{ gap: 6 }}>
         {bundles.map((b) => {
           const selected = b.id === panelBundleId;
@@ -150,13 +151,13 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
               key={b.id}
               onPress={() => setPanelBundleId(b.id)}
               style={{
-                fontSize: 13,
-                fontWeight: "600",
+                ...textStyles.label,
+                
                 paddingVertical: 8,
                 paddingHorizontal: 10,
                 borderRadius: radius.control,
                 backgroundColor: selected ? colors.brand : colors.groupBg,
-                color: selected ? "#FFFFFF" : colors.ink,
+                color: selected ? colors.onBrand : colors.ink,
               }}
             >
               {b.name} ({b.price_kobo ? naira(b.price_kobo) : "price on request"})
@@ -193,14 +194,13 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
 }
 
 function ScreeningDayCard({ day, onChanged }: { day: ScreeningDay; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const outstanding = (day.total_kobo ?? 0) - day.amount_paid_kobo;
   const fullyPaid = (day.total_kobo ?? 0) > 0 && day.amount_paid_kobo >= (day.total_kobo ?? 0);
 
   return (
     <Card style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink, flex: 1 }}>{day.host_name}</Text>
+        <AppText variant="bodyStrong" style={{ flex: 1 }}>{day.host_name}</AppText>
         <Badge tone={STATUS_TONE[day.status]}>{STATUS_LABEL[day.status]}</Badge>
       </View>
       <MutedText>
@@ -275,7 +275,7 @@ function AddSlotSection({ day, onChanged }: { day: ScreeningDay; onChanged: () =
       </MutedText>
       {slots.map((s) => (
         <View key={s.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>{s.full_name ?? "Unnamed"}</Text>
+          <AppText variant="body">{s.full_name ?? "Unnamed"}</AppText>
           <Badge tone={s.status === "issued" ? "brand" : "neutral"}>
             {s.status === "issued" ? "Voucher issued" : "Registered"}
           </Badge>

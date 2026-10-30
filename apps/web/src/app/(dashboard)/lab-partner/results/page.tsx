@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PANEL_CODES, panelDefinitionSchema, type PanelDefinition } from "@/lib/lab-results/structured";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { OrderResultCard, type PortalOrder } from "./result-entry";
 
 export default async function LabPartnerResultsPage() {
@@ -17,7 +18,7 @@ export default async function LabPartnerResultsPage() {
   }
 
   const supabase = await createClient();
-  const [{ data: orderRows }, ...panelResults] = await Promise.all([
+  const [{ data: orderRows, error: ordersError }, ...panelResults] = await Promise.all([
     supabase.rpc("lab_partner_portal_orders"),
     ...PANEL_CODES.map((p) => supabase.rpc("lab_panel_definition", { p_panel: p })),
   ]);
@@ -27,6 +28,8 @@ export default async function LabPartnerResultsPage() {
     const parsed = panelDefinitionSchema.safeParse(r.data);
     if (parsed.success) panels[parsed.data.panel_code] = parsed.data;
   }
+
+  const ordersFailed = Boolean(ordersError) || (orderRows !== null && !Array.isArray(orderRows));
 
   const open = orders.filter((o) => !o.result_received);
   const done = orders.filter((o) => o.result_received);
@@ -43,8 +46,15 @@ export default async function LabPartnerResultsPage() {
       </div>
 
       <section aria-labelledby="open-heading" className="space-y-3">
-        <h2 id="open-heading" className="font-heading text-lg font-semibold">Waiting for a result ({open.length})</h2>
-        {open.length === 0 ? <p className="text-sm text-charcoal-ink/60">Nothing is waiting for you.</p> : null}
+        <h2 id="open-heading" className="font-heading text-lg font-semibold">Waiting for a result{ordersFailed ? "" : ` (${open.length})`}</h2>
+        {ordersFailed ? (
+          <LoadFailure>
+            Your orders could not be loaded just now. Nothing has been removed, and this is not the same as nothing
+            waiting for you. Refresh the page to try again.
+          </LoadFailure>
+        ) : open.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">Nothing is waiting for you.</p>
+        ) : null}
         {open.map((o) => (
           <OrderResultCard key={o.order_id} order={o} panels={panels} />
         ))}

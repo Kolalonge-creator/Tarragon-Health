@@ -37,6 +37,8 @@ export interface TherapyStop {
   readonly unverified: boolean;
   /** true when the stop is because the item was not answered properly, not because it was answered "yes". */
   readonly unanswered: boolean;
+  /** S96: a crisis item that stops the programme with hospital-now guidance but does not page the on-call clinician. */
+  readonly nonPaging: boolean;
 }
 
 export interface TherapyScreenResult {
@@ -76,9 +78,17 @@ export function evaluateEntryScreen(rules: readonly TherapyExclusionRule[], answ
   const stops: TherapyStop[] = [];
   for (const rule of rules) {
     const { positive, unanswered } = ruleIsPositive(rule, given);
-    if (positive) stops.push({ code: rule.code, route: rule.route, unverified: rule.unverified === true, unanswered });
+    if (positive) stops.push({ code: rule.code, route: rule.route, unverified: rule.unverified === true, unanswered, nonPaging: rule.nonPaging === true });
   }
   return { passed: stops.length === 0, route: mostUrgentRoute(stops.map((s) => s.route)), stops, noRules: false };
+}
+
+/**
+ * Whether a stop result pages the on-call clinician: only when at least one crisis stop is not marked non-paging. A crisis with only non-paging
+ * stops (the MSK warning signs) still stops the programme and shows the hospital-now guidance, and raises a normal same-day clinician task.
+ */
+export function stopPagesOnCall(result: TherapyScreenResult): boolean {
+  return result.route === "crisis" && result.stops.some((s) => s.route === "crisis" && !s.nonPaging);
 }
 
 /** The i18n message key for the card a route shows. Every card says what to do next and carries no phone number. */

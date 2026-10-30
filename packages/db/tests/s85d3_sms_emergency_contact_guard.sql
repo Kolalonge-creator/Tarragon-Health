@@ -3,7 +3,7 @@
 -- Proves in one rolled-back transaction:
 --   1. The guard exists, is born off, and the reader the sender relies on says closed. The sender's service role can still read
 --      the row (the edge function reads go_live_guards.is_on directly, fail closed on any error).
---   2. It has exactly two conditions, both attestations, both unmet at birth, so it cannot be switched on yet (22023).
+--   2. It has exactly two conditions, both attestations, both unmet at birth (reported, not enforced: G-01 made this a feature).
 --   3. A patient cannot attest; an admin cannot attest a code that does not exist for this guard; an admin records both
 --      conditions, the guard switches on with a note, the reader opens, and switching off closes it again.
 --   4. The existing guards still evaluate (the replaced functions repeat their live bodies).
@@ -82,9 +82,9 @@ begin
   perform pg_temp.rec('two conditions', '2', jsonb_array_length(v_conds)::text);
   perform pg_temp.rec('...both unmet at birth', '2', v_unmet::text);
   perform pg_temp.rec('...and both are attestations', '2', (select count(*)::text from jsonb_array_elements(v_conds) c where c ->> 'source' = 'attestation'));
-  perform pg_temp.act(v_admin);
-  perform pg_temp.rec('switching on is refused while they are unmet', '22023', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, ''go'')'));
-  perform pg_temp.back();
+  -- G-01: this is a feature, held at birth with a reason. The two attestations are still reported, but they no longer block the switch.
+  perform pg_temp.rec('...and it is held at birth, with a reason of at least 20 characters', 'true',
+    (select (held_reason is not null and length(held_reason) >= 20)::text from public.go_live_guards where key = 'sms_emergency_contact_enabled'));
 
   -- 3. who can attest and switch
   perform pg_temp.act(v_pat);
@@ -94,14 +94,15 @@ begin
   perform pg_temp.rec('an admin cannot attest a code the guard does not have', '22023', pg_temp.try('select public.attest_go_live_condition(''sms_emergency_contact_enabled'', ''made_up'', true, ''checked on a real handset by the founder'')'));
   perform pg_temp.rec('...nor one belonging to another guard', '22023', pg_temp.try('select public.attest_go_live_condition(''sms_emergency_contact_enabled'', ''fee_schedule_approved'', true, ''checked on a real handset by the founder'')'));
   perform pg_temp.rec('an admin records live delivery proven', 'ok', pg_temp.try('select public.attest_go_live_condition(''sms_emergency_contact_enabled'', ''live_sms_delivery_proven'', true, ''Real handset received the test SMS, sender ID approved'')'));
-  perform pg_temp.rec('...one condition alone is not enough', '22023', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, ''go'')'));
   perform pg_temp.rec('an admin records the founder approval', 'ok', pg_temp.try('select public.attest_go_live_condition(''sms_emergency_contact_enabled'', ''founder_approval_d3_recorded'', true, ''Founder approved D3 in chat on the date of this test'')'));
   perform pg_temp.rec('switching on needs a note', '22023', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, null)'));
-  perform pg_temp.rec('with both met and a note the admin switches it on', 'ok', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, ''Both conditions recorded'')'));
+  perform pg_temp.rec('with a note the admin switches it on (the hold is cleared)', 'ok', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, ''Both conditions recorded'')'));
+  perform pg_temp.rec('...and it is no longer held', 'true', (select (held_reason is null)::text from public.go_live_guards where key = 'sms_emergency_contact_enabled'));
   perform pg_temp.back();
   perform pg_temp.rec('...and the reader now says open', 'true', private.go_live_guard_on('sms_emergency_contact_enabled')::text);
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('switching off always works', 'ok', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', false, null)'));
+  perform pg_temp.rec('holding it needs a reason of at least 20 characters', '22023', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', false, ''too short'')'));
+  perform pg_temp.rec('holding it with a reason works', 'ok', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', false, ''Held again after the proof run, SMS stays unused'')'));
   perform pg_temp.back();
   perform pg_temp.rec('...and closes the reader again', 'false', private.go_live_guard_on('sms_emergency_contact_enabled')::text);
 

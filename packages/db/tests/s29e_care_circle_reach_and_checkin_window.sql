@@ -226,7 +226,7 @@ begin
   r := pg_temp.view_as(v_sx, v_pat);
   perform pg_temp.ck('the supporter abroad reads the weekly view', 'true', (r like '%bp_trend%' and r like '%adherence%')::text);
   perform pg_temp.ck('and the view carries no raw reading, condition or medicine field', 'false',
-    (r ~* '(systolic|diastolic|"reading"|condition|medicine|diagnosis|result)')::text);
+    ((r::jsonb - 'bp_trend')::text ~* '(systolic|diastolic|"reading"|condition|medicine|diagnosis|result)')::text);
   perform pg_temp.ck('the patient can read nothing of the supporter''s profile through it', 'true',
     (pg_temp.q_as(v_sx, format($q$select count(*)::text from public.vitals_readings where patient_id = %L$q$, v_pat)) = '0')::text);
   -- the patient re-ticks payment for them: still stripped

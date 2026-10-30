@@ -1,6 +1,5 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { controlledSubstanceInfo } from "./controlled-substances";
+import type { ControlledMedicineList } from "./controlled-medicine-list";
 
 describe("controlledSubstanceInfo", () => {
   it("flags a narcotic-class opioid", () => {
@@ -73,39 +72,46 @@ describe("brand names and combinations (OQ-276, CMO 2026-10-12)", () => {
   });
 });
 
-/**
- * The database list (private.is_controlled_medicine, the newest migration that defines it) and this file are two copies of ONE list. They cannot be
- * generated from each other, so this test fails the moment they drift: every word the database controls must be flagged here, and every word flagged
- * here must be controlled in the database.
- */
-describe("the TypeScript list matches the database list", () => {
-  const migrations = path.resolve(__dirname, "../../../../../supabase/migrations");
-  const files = fs.readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort();
-  const defining = files.filter((f) => /create or replace function private\.is_controlled_medicine/.test(fs.readFileSync(path.join(migrations, f), "utf8")));
-  const latest = fs.readFileSync(path.join(migrations, defining[defining.length - 1]), "utf8");
-  const sqlAlternatives = (/~\* '\\m\(([^)]*)\)\\M'/.exec(latest.slice(latest.indexOf("create or replace function private.is_controlled_medicine")))?.[1] ?? "").split("|");
+describe("the list is data (OQ-484)", () => {
+  const baseList: ControlledMedicineList = { version: 7, source: "database", terms: [{ term: "proofium", tier: "restricted", label: "Proof class" }] };
 
-  const source = fs.readFileSync(path.resolve(__dirname, "controlled-substances.ts"), "utf8");
-  const tsWords = [...source.matchAll(/pattern: \/\\b\(([^)]*(?:\([^)]*\))?[^)]*)\)\\b\/i|pattern: \/\\b([a-z]+)\\b\/i/g)].flatMap((m) =>
-    (m[1] ?? m[2]).split("|").map((w) => w.replace("co-?", "co")),
-  );
-
-  it("found both lists, including words from every pattern (a pattern shape the parser cannot read would drop its words)", () => {
-    expect(sqlAlternatives.length).toBeGreaterThan(40);
-    expect(tsWords.length).toBeGreaterThan(40);
-    // one sentinel from each of the six patterns, so a pattern that stops being read fails here instead of silently shrinking the comparison
-    for (const w of ["morphine", "tramal", "valium", "ritalin", "luminal", "ketalar", "phenobarbitone", "cocodamol"]) expect(tsWords).toContain(w);
+  it("a name on the list the caller passes is flagged, with that term's tier and label, and no code change", () => {
+    expect(controlledSubstanceInfo("Proofium 5mg", baseList)).toMatchObject({ tier: "restricted", label: "Proof class" });
   });
 
-  it("every word the database controls is flagged here", () => {
-    for (const alt of sqlAlternatives) {
-      const samples = alt.includes("-?") ? [alt.replace("-?", "-"), alt.replace("-?", "")] : [alt];
-      for (const s of samples) expect({ word: s, flagged: controlledSubstanceInfo(s) !== null }).toEqual({ word: s, flagged: true });
-    }
+  it("the same name is not flagged by the generated fallback, and a fallback name is not flagged by a list that does not carry it", () => {
+    expect(controlledSubstanceInfo("Proofium 5mg")).toBeNull();
+    expect(controlledSubstanceInfo("Morphine", baseList)).toBeNull();
   });
 
-  it("every word flagged here is controlled in the database", () => {
-    const sql = new Set(sqlAlternatives.map((a) => a.replace("-?", "")));
-    for (const w of tsWords) expect({ word: w, inDatabase: sql.has(w) || sql.has(w.replace("co", "co-?")) }).toEqual({ word: w, inDatabase: true });
+  it("an empty list flags nothing (the CMO retired every term): the database decides, not a hidden default", () => {
+    expect(controlledSubstanceInfo("Morphine", { version: 9, source: "database", terms: [] })).toBeNull();
+  });
+
+  it("a name that matches both tiers gets the stricter advice", () => {
+    const list: ControlledMedicineList = {
+      version: 1,
+      source: "database",
+      terms: [
+        { term: "alpha", tier: "restricted", label: "Lower" },
+        { term: "beta", tier: "narcotic", label: "Higher" },
+      ],
+    };
+    expect(controlledSubstanceInfo("alpha beta", list)?.tier).toBe("narcotic");
+  });
+
+  it("a multi-word term matches as a phrase, and a term can never act as a pattern", () => {
+    const list: ControlledMedicineList = {
+      version: 1,
+      source: "database",
+      terms: [
+        { term: "proof phrase", tier: "restricted", label: "Phrase" },
+        { term: "a.c", tier: "restricted", label: "Dot" },
+      ],
+    };
+    expect(controlledSubstanceInfo("Proof Phrase 5mg", list)).not.toBeNull();
+    expect(controlledSubstanceInfo("proofphrase", list)).toBeNull();
+    expect(controlledSubstanceInfo("abc", list)).toBeNull();
+    expect(controlledSubstanceInfo("a.c", list)).not.toBeNull();
   });
 });

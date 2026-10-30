@@ -20,11 +20,12 @@ import {
 } from "@/lib/symptoms";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { radius, spacing } from "@/ui/theme";
-import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
+import { lightPalette, useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { SymptomCheckerCard } from "@/screens/sections/symptom-checker-card";
 import { SymptomCheckbackCard } from "@/screens/sections/symptom-checkback-card";
+import { AppText } from "@/ui/kit/AppText";
 
 interface SymptomScreenProps {
   patientId: string;
@@ -185,7 +186,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Symptoms</Text>
+        <AppText variant="title">Symptoms</AppText>
         <MutedText>Log a symptom and see your recent history.</MutedText>
       </View>
 
@@ -207,9 +208,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 }}>
             <Ionicons name="warning" size={18} color={colors.danger} />
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.danger, flexShrink: 1 }}>
+            <AppText variant="bodyStrong" tone="dangerText" style={{ flexShrink: 1 }}>
               Feeling something serious right now?
-            </Text>
+            </AppText>
           </View>
           <Ionicons name={dangerExpanded ? "chevron-up" : "chevron-down"} size={18} color={colors.danger} />
         </Pressable>
@@ -239,7 +240,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                       backgroundColor: isOn ? colors.status.emergency : colors.card,
                     }}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: isOn ? "#FFFFFF" : colors.ink }}>
+                    <Text style={{ ...textStyles.label, color: isOn ? colors.onBrand : colors.ink }}>
                       {DANGER_SIGN_LABEL[sign]}
                     </Text>
                   </Pressable>
@@ -261,9 +262,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
               })}
             >
               {dangerSaving ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.onBrand} />
               ) : (
-                <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>Get emergency guidance</Text>
+                <AppText variant="bodyLargeStrong" tone="textOnBrand">Get emergency guidance</AppText>
               )}
             </Pressable>
           </View>
@@ -271,7 +272,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a symptom</Text>
+        <AppText variant="bodyStrong">Log a symptom</AppText>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           {SYMPTOM_TYPES.map((t) => (
@@ -289,7 +290,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 backgroundColor: symptomType === t ? colors.brand : colors.pressed,
               }}
             >
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: symptomType === t ? "#FFFFFF" : colors.muted }}>
+              <Text style={{ ...textStyles.label, color: symptomType === t ? colors.onBrand : colors.muted }}>
                 {SYMPTOM_LABEL[t]}
               </Text>
             </Pressable>
@@ -298,8 +299,8 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
 
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Severity</Text>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{severity}/10</Text>
+            <AppText variant="label">Severity</AppText>
+            <AppText variant="label">{severity}/10</AppText>
           </View>
           {/* A row of tappable numbers rather than a slider — React Native has
               no built-in range control and this app has no slider dependency
@@ -330,7 +331,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                     backgroundColor: isOn ? severityChipColor(n) : colors.pressed,
                   }}
                 >
-                  <Text style={{ fontSize: 12.5, fontWeight: "700", color: isOn ? "#FFFFFF" : colors.muted }}>{n}</Text>
+                  <Text style={{ ...textStyles.label, color: isOn ? colors.onBrand : colors.muted }}>{n}</Text>
                 </Pressable>
               );
             })}
@@ -339,7 +340,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         </View>
 
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Note (optional)</Text>
+          <AppText variant="label">Note (optional)</AppText>
           <TextInput
             keyboardAppearance={scheme}
             placeholder="Anything else worth telling your care team"
@@ -355,7 +356,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
               borderRadius: radius.control,
               paddingHorizontal: 10,
               paddingVertical: 8,
-              fontSize: 14,
+              ...textStyles.body,
               color: colors.ink,
               textAlignVertical: "top",
             }}
@@ -384,7 +385,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
             {history.map((symptom) => (
               <GroupedListRow
                 key={symptom.id}
-                title={`${symptomLabel(symptom.symptom_type)}: severity ${symptom.severity ?? "—"}/10`}
+                title={`${symptomLabel(symptom.symptom_type)}: severity ${symptom.severity ?? "-"}/10`}
                 subtitle={
                   symptom.description
                     ? `${symptom.description} · ${new Date(symptom.reported_at).toLocaleString()}`
@@ -393,9 +394,9 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
                 trailing={
                   symptom.is_red_flag ? (
                     <View style={{ backgroundColor: "#FEE2E2", borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.status.critical }}>
+                      <AppText variant="label" tone="dangerText">
                         Flagged for review
-                      </Text>
+                      </AppText>
                     </View>
                   ) : (
                     "none"

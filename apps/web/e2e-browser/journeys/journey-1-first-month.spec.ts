@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
+import { guidanceForItem } from "../../src/lib/lab-results/guidance";
 import { J1, startJourney } from "../../../../packages/shared/src/journeys/journeys";
 import { drainBus, serviceClient } from "./harness/drain";
 import { journeyEnv, newRunId } from "./harness/env";
@@ -13,8 +14,8 @@ import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
  *
  * Runs the steps that exist today with real sessions and the real database functions, and declares the rest pending with the
  * owner session. Nothing is simulated that the platform does not do: Health Points, the risk questionnaire, the screening
- * calendar, the silence nudge and the care pack offer are PENDING, not faked. Checkout through Paystack is SKIPPED with its
- * reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
+ * calendar, the silence nudge and the care pack offer are PENDING, not faked (the goal, Health Points and result explanation steps were reworded by founder decision 2026-10-28 and now run).
+ * The paid order step stays pending with its own reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
  *
  * The phone number below is a Supabase test OTP number (supabase/config.toml [auth.sms.test_otp], fixed code 123456), so the
  * real GoTrue phone sign-up runs and no SMS is sent. Nothing about the phone number or the code is a secret.
@@ -96,6 +97,28 @@ test.describe("Journey 1: a new user's first month", () => {
       refresh_token: (patient as { session: { access_token: string; refresh_token: string } }).session.refresh_token,
     });
 
+    // ------------------------------------------------------------------ 3: onboarding goal and condition (S41), through her own session
+    // Founder decision 2026-10-28: a condition answer counts as the goal, so the step is her goal 'manage a condition' with the condition hypertension,
+    // saved and read back through her own session.
+    await run.step("goal-blood-pressure", async () => {
+      const saved = await me.rpc("save_onboarding_answers", { p_goals: ["manage_condition"], p_conditions: ["hypertension"] });
+      expect(saved.error, JSON.stringify(saved.error)).toBeNull();
+      expect((saved.data as { ok: boolean }).ok).toBe(true);
+      // her own session reads her answers back
+      const mine = await me.from("onboarding_answers").select("question_code, answer");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      const byCode = Object.fromEntries((mine.data ?? []).map((r: { question_code: string; answer: unknown }) => [r.question_code, r.answer]));
+      expect(byCode.goals).toEqual(["manage_condition"]);
+      expect(byCode.conditions).toEqual(["hypertension"]);
+      // control: it is her row and a test row, and a signed-out client reads none of it (the table has no anon grant)
+      expect(Number(sqlValue<string>(`select count(*)::text from public.onboarding_answers where patient_id = ${lit(patientId!)} and is_test`))).toBe(2);
+      const signedOut = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).from("onboarding_answers").select("id");
+      expect(signedOut.error !== null || (signedOut.data ?? []).length === 0, "a signed-out client could read onboarding answers").toBe(true);
+      // an invalid choice is refused, not stored
+      const bad = await me.rpc("save_onboarding_answers", { p_goals: ["not_a_goal"], p_conditions: ["hypertension"] });
+      expect(bad.error, "an unknown goal was accepted").not.toBeNull();
+    });
+
     // ------------------------------------------------------------------ 6 and 7: an order for a screen (real RPC), then checkout
     const item = sqlRows<{ code: string }>(
       `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
@@ -172,6 +195,25 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(audited).toBeGreaterThan(0);
     });
 
+    // Founder decision 2026-10-28: "explained in plain language" means the deterministic English guidance (no audio, no AI), gated by the database's own explain_allowed.
+    await run.step("result-plain-language-explanation", async () => {
+      expect(resultId).not.toBeNull();
+      const mine = await me.rpc("my_lab_results");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      type Item = { analyte_code: string; flag: "normal" | "low" | "high" | "critical" | "positive" | "negative"; sensitive_positive?: boolean };
+      const entry = (mine.data as Array<{ lab_result_id: string; explain_allowed: boolean; items: Item[] }>).find((r) => r.lab_result_id === resultId);
+      expect(entry, "the released result is not visible to the patient").toBeDefined();
+      expect(entry!.explain_allowed, "a released, non-sensitive result must be explainable").toBe(true);
+      // the patient's own released items (creatinine and potassium were submitted), each through the same function the page uses
+      expect(entry!.items.length, "a released result carried no items").toBeGreaterThanOrEqual(2);
+      for (const item of entry!.items) {
+        expect(guidanceForItem(item, entry!.explain_allowed).explanationKey, `no plain-language explanation for ${item.analyte_code}`).not.toBeNull();
+      }
+      // controls: a sensitive result is never explained, and neither is a result the database says is not explainable
+      expect(guidanceForItem({ analyte_code: "hiv", flag: "positive" }, true).explanationKey).toBeNull();
+      expect(guidanceForItem(entry!.items[0], false).explanationKey).toBeNull();
+    });
+
     // ------------------------------------------------------------------ 11: daily readings graded through the bus
     await run.step("daily-readings-graded", async () => {
       for (let d = 1; d <= 5; d++) {
@@ -189,6 +231,45 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
       const graded = Number(sqlValue<string>(`select count(*)::text from public.triage_events where patient_id = ${lit(patientId!)}`));
       expect(graded, "each logged reading should have been graded through the bus").toBeGreaterThanOrEqual(1);
+    });
+
+    // ------------------------------------------------------------------ 13: Health Points for logging (S58), through the bus the readings above already went into
+    // Founder decision 2026-10-28: the per-log award (capped per day, never for what a reading says) is the consistency reward; a streak is a badge only.
+    await run.step("health-points-awarded", async () => {
+      const drain = await drainBus();
+      expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
+      const rule = sqlRows<{ points: number }>(`select points::int as points from public.reward_rules where code = 'vitals_logged' and is_active order by version desc limit 1`)[0];
+      expect(rule, "the vitals_logged reward rule does not exist").toBeDefined();
+      const decisions = sqlRows<{ outcome: string; detail: string | null; points: number }>(
+        `select outcome, detail, points::int as points from public.points_award_decisions where patient_id = ${lit(patientId!)} and rule_code = 'vitals_logged'`,
+      );
+      const awarded = decisions.filter((d) => d.outcome === "awarded");
+      // Five readings were logged today and the rule is capped per day: the points reward the act of logging (one award a day), never the
+      // number, so the rest are capped (two awards only if the run crossed midnight in Lagos).
+      expect(awarded.length, "no Health Points were awarded for logging readings: " + JSON.stringify(decisions)).toBeGreaterThanOrEqual(1);
+      expect(awarded.length).toBeLessThanOrEqual(2);
+      for (const a of awarded) expect(a.points, "the award is the rule's points whatever the reading said").toBe(rule!.points);
+      expect(decisions.filter((d) => d.outcome === "capped" && d.detail === "day_cap").length, "the per day cap did not apply").toBeGreaterThanOrEqual(1);
+      const ledger = sqlRows<{ points: number }>(`select points::int as points from public.wellness_points_ledger where patient_id = ${lit(patientId!)} and reason = 'vitals_logged' and kind = 'earn'`);
+      expect(ledger.length, "every award has a ledger row").toBeGreaterThanOrEqual(awarded.length);
+    });
+
+    // Owner decision 2026-10-28: an above-target 7-day average gets a Free patient the Membership offer (my_membership_offer; test accounts pass the checkout guard).
+    await run.step("care-pack-offer-above-target", async () => {
+      // control: the readings logged above average about 141/88, which is inside the risk engine's above-target margin, so there is no offer yet
+      const before = await me.rpc("my_membership_offer");
+      expect(before.error, JSON.stringify(before.error)).toBeNull();
+      expect(before.data).toMatchObject({ status: "not_eligible", reason: "within_target" });
+      for (let i = 1; i <= 4; i++) {
+        sql(`insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
+             values (${lit(org)}, ${lit(patientId!)}, 'blood_pressure', 170, 108, now() - interval '${i * 20} minutes', 'device', 'seated', 'left');`);
+      }
+      const after = await me.rpc("my_membership_offer");
+      expect(after.error, JSON.stringify(after.error)).toBeNull();
+      expect(after.data).toMatchObject({ status: "offer", catalog_item: "membership_annual" });
+      // a signed-out client cannot ask
+      const signedOut = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).rpc("my_membership_offer");
+      expect(signedOut.error, "a signed-out client reached the offer").not.toBeNull();
     });
 
     // ------------------------------------------------------------------ 15: her son joins her Care Circle (real sessions both sides)

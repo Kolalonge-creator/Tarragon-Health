@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Our partners",
     subtitle:
-      "The real, current partnerships behind TarragonHealth, why we won't take capitation, and how we price.",
+      "The real, current partnerships behind TarragonHealth, why we will not take capitation, and how we price.",
   });
 }

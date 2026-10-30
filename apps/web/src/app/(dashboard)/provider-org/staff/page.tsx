@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { StaffManager } from "./staff-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function ProviderOrgStaffPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function ProviderOrgStaffPage({
   }
 
   const supabase = await createClient();
-  const { data: seats } = await supabase
+  const { data: seats, error } = await supabase
     .from("provider_org_members")
     .select("id, org_role, job_title, is_active, profiles!provider_org_members_profile_id_fkey(full_name)")
     .eq("organisation_id", selected.id)
@@ -33,6 +34,9 @@ export default async function ProviderOrgStaffPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Staff</h1>
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
+      {error ? (
+        <ListUnavailable title="Staff" />
+      ) : (
       <StaffManager
         organisationId={selected.id}
         seats={(seats ?? []).map((s) => ({
@@ -43,6 +47,7 @@ export default async function ProviderOrgStaffPage({
           full_name: s.profiles?.full_name ?? "—",
         }))}
       />
+      )}
     </div>
   );
 }

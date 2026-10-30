@@ -5,6 +5,7 @@ import { InsurerPicker } from "../insurer-picker";
 import { GenerateReportForm } from "./generate-report-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -45,7 +46,7 @@ export default async function BoardReportIndexPage({
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("payer_board_reports")
     .select(
       "id, report_number, period_start, period_end, status, content_hash, generated_at, attested_at, attestation_statement, attester_role_title, withdrawal_reason, snapshot"
@@ -92,7 +93,11 @@ export default async function BoardReportIndexPage({
           <CardDescription>Newest period first.</CardDescription>
         </CardHeader>
         <CardContent>
-          {reports.length === 0 ? (
+          {error ? (
+            <LoadFailure>
+              The issued reports could not be loaded just now. None have been removed. Refresh the page to try again.
+            </LoadFailure>
+          ) : reports.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
               No report has been generated for this insurer yet.
             </p>

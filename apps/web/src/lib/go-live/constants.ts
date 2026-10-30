@@ -2,6 +2,10 @@
  * Plain constants for the go-live guards, with no imports at all: client components (the booking card) read them, and they must not
  * drag a server-only module (model.ts uses node:crypto) into the browser bundle.
  */
+/**
+ * A partial, hand-kept list of guard keys (about 25 of the guards in public.go_live_guards). It is NOT an allow-list: the go-live server actions no longer
+ * check against it (the database refuses an unknown guard). Do not add a check against it back; it has fallen behind every time a guard was added.
+ */
 export const GUARD_KEYS = [
   "clinical_operations_enabled",
   "on_call_cover_ok",
@@ -28,6 +32,11 @@ export const GUARD_KEYS = [
   "shift_start_test",
   // S48a: private GPS route recording (5.7). Born off; no UI records a route yet, so this only gates the database insert policy.
   "private_route_recording",
+  // S50b: the supervised low-carbohydrate programme for type 2 diabetes. Born off; never marketed (S50-2).
+  "low_carb_t2d_programme",
+  // S50b: the religious-fasting safety answer and the personal glucose-response insight. Both born off.
+  "fasting_safety",
+  "glucose_response_insights",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Text } from "react-native";
 import { loadMonitoringCover } from "@/lib/monitoring-cover";
 import { loadMembership } from "@/lib/commerce/api";
 import type { ServicePurchaseWithProduct } from "@/lib/services";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const ENDING_SOON_DAYS = 21;
 
@@ -53,9 +53,9 @@ export function MonitoringCoverCard() {
   if (isMember) {
     return (
       <Card style={{ gap: 6, borderColor: colors.brand }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyStrong">
           A doctor is watching your readings
-        </Text>
+        </AppText>
         <MutedText>
           As a Member, a doctor on your care team is told when one of your readings is dangerous and follows up with you.
         </MutedText>
@@ -66,12 +66,12 @@ export function MonitoringCoverCard() {
   if (!cover) {
     return (
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyStrong">
           On the free plan a doctor is not told when a reading is dangerous
-        </Text>
+        </AppText>
         <MutedText>
           Every reading you log is still checked against care protocols, and you still get the full
-          emergency safety net — immediate guidance, your emergency contact notified, and a check-in
+          emergency safety net: immediate guidance, your emergency contact notified, and a check-in
           afterwards. Membership adds a doctor on your care team being told as well, and following
           up with you. You can join from the Membership page.
         </MutedText>
@@ -85,14 +85,14 @@ export function MonitoringCoverCard() {
 
   return (
     <Card style={{ gap: 6, borderColor: endingSoon ? colors.status.warn : colors.brand }}>
-      <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyStrong">
         A doctor is watching your readings
-      </Text>
+      </AppText>
       <MutedText>
         {endsAt ? (
           <>
             Your {cover.service_product?.name ?? "cover"} runs until {shortDate(endsAt)}
-            {endingSoon ? ` — that is ${remaining} day${remaining === 1 ? "" : "s"} away.` : "."} It
+            {endingSoon ? `, which is ${remaining} day${remaining === 1 ? "" : "s"} away.` : "."} It
             will simply stop then; nothing renews on its own.
           </>
         ) : (

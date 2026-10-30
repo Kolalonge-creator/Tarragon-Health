@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { todayIsoDate } from "@/lib/medications";
 import { computeGestationalEstimate } from "@/lib/gestational-age";
@@ -59,8 +59,10 @@ import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { PregnancyDangerGuideCard, PregnancyTools } from "@/screens/sections/pregnancy-tools";
 import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { Button, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
 function when(iso: string): string {
@@ -79,13 +81,13 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
         backgroundColor: active ? colors.brand : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}
@@ -97,8 +99,8 @@ function CautionNote({ text }: { text: string }) {
   const colors = useLegacyColors();
   return (
     <View style={{ backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 10, gap: 2 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.status.warn }}>Worth discussing with your care team</Text>
-      <Text style={{ fontSize: 13, color: colors.ink }}>{text}</Text>
+      <AppText variant="label" tone="warnText">Worth discussing with your care team</AppText>
+      <AppText variant="body">{text}</AppText>
     </View>
   );
 }
@@ -209,8 +211,14 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   if (sex === null && loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Women's Health">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="60%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -218,16 +226,16 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
   if (sex !== "female") {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-        <ScreenTitle>Women&apos;s Health</ScreenTitle>
+        <AppText variant="headline" heading>
+          Women&apos;s Health
+        </AppText>
         <Card style={{ gap: 10 }}>
-          <MutedText>
+          <AppText variant="body" tone="textMuted">
             {sex === null
-              ? "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause for female patients. We don't have a sex recorded on your health profile yet, so we can't tell whether it applies to you. Add it on your profile and this section will open up if it's relevant."
-              : "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause, so it doesn't apply to your health profile. Everything here is built around care that's specific to female patients."}
-          </MutedText>
-          <Text onPress={() => onNavigate("prevention")} style={{ fontSize: 13, fontWeight: "700", color: colors.brandPressed }}>
-            The screenings and checks relevant to you live in Prevention →
-          </Text>
+              ? "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause for female patients. We do not have a sex recorded on your health profile yet, so we cannot tell whether it applies to you. Add it on your profile and this section will open up if it is relevant."
+              : "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause, so it does not apply to your health profile. Everything here is built around care that is specific to female patients."}
+          </AppText>
+          <Button variant="ghost" title="Screenings and checks relevant to you: Prevention" onPress={() => onNavigate("prevention")} />
         </Card>
       </ScrollView>
     );
@@ -235,8 +243,14 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Women's Health">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="60%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -258,9 +272,13 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-      <View>
-        <ScreenTitle>Women&apos;s Health</ScreenTitle>
-        <MutedText>Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Women&apos;s Health
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place.
+        </AppText>
       </View>
 
       {/* S66: sits behind the same section PIN as the cycle tracker. Only emergency content stays outside it: the danger signs and the
@@ -282,22 +300,22 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
       <Card style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
         <View style={{ flexBasis: "30%", flexGrow: 1 }}>
           <MutedText>Cycle</MutedText>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyLargeStrong">
             {reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"}
-          </Text>
+          </AppText>
         </View>
         {gestationalEstimate && (
           <View style={{ flexBasis: "30%", flexGrow: 1 }}>
             <MutedText>Antenatal</MutedText>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Week {gestationalEstimate.weeks}</Text>
+            <AppText variant="bodyLargeStrong">Week {gestationalEstimate.weeks}</AppText>
           </View>
         )}
         <Pressable accessibilityRole="button" style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("prevention")}>
           <MutedText>Next screening</MutedText>
           <Text
             style={{
-              fontSize: 15,
-              fontWeight: "700",
+              ...textStyles.bodyLargeStrong,
+              
               color: nextScreening?.isOverdue ? colors.danger : colors.brandPressed,
             }}
           >
@@ -326,9 +344,9 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
       {reproUnknown && (
         <Card style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             We couldn&apos;t load your reproductive health profile just now
-          </Text>
+          </AppText>
           <MutedText>
             Your cycle, contraception and life stage are stored, we simply couldn&apos;t read them on this
             screen. Anything below that depends on them is hidden rather than guessed at. Please refresh and
@@ -339,9 +357,9 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
 
       {pregnancyUnknown && (
         <Card style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             We couldn&apos;t load your pregnancy record just now
-          </Text>
+          </AppText>
           <MutedText>
             That is not the same as there being nothing there, so nothing below assumes either way. Please
             refresh and try again. If you are pregnant and something doesn&apos;t feel right, message your
@@ -451,7 +469,7 @@ function ReproductiveHealthCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your cycle & life stage</Text>
+      <AppText variant="bodyStrong">Your cycle & life stage</AppText>
       <MutedText>
         Tell us where you are so we can give a useful nudge, not a diagnosis, and you can change this at any
         time.
@@ -461,24 +479,24 @@ function ReproductiveHealthCard({
         onPress={onOpenCycleTracker}
         style={{ borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12 }}
       >
-        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>Open your cycle tracker</Text>
+        <AppText variant="bodyStrong">Open your cycle tracker</AppText>
         {"\n"}
-        <Text style={{ fontSize: 12, color: colors.muted }}>
+        <AppText variant="caption" tone="textMuted">
           Log your period, see what to expect next, and track how you feel.
-        </Text>
+        </AppText>
       </Text>
 
       {nudges.length > 0 && (
         <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 4 }}>
           {nudges.map((n) => (
-            <Text key={n.id} style={{ fontSize: 12, color: colors.ink }}>
+            <AppText variant="caption" key={n.id}>
               {n.label}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
 
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Life stage</Text>
+      <AppText variant="label">Life stage</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {(Object.keys(LIFE_STAGE_LABEL) as ReproductiveLifeStage[]).map((stage) => (
           <Chip key={stage} label={LIFE_STAGE_LABEL[stage]} active={lifeStage === stage} onPress={() => setLifeStage(stage)} />
@@ -488,11 +506,11 @@ function ReproductiveHealthCard({
       {lifeStage === "menstruating" && (
         <View style={{ flexDirection: "row", gap: 10 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Last period start date</Text>
+            <AppText variant="label">Last period start date</AppText>
             <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={lastPeriodDate} onChangeText={setLastPeriodDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
           </View>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Avg. cycle length (days)</Text>
+            <AppText variant="label">Avg. cycle length (days)</AppText>
             <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={cycleLength} onChangeText={setCycleLength} placeholder="28" keyboardType="numeric" style={textInputStyle} />
           </View>
         </View>
@@ -540,7 +558,7 @@ function ContraceptionCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Contraception</Text>
+      <AppText variant="bodyStrong">Contraception</AppText>
       <MutedText>
         Learn about your options, and let us know what you&apos;re currently using so your care team has the
         full picture.
@@ -552,12 +570,12 @@ function ContraceptionCard({
       {saved && <MutedText>Saved.</MutedText>}
       <SecondaryButton title="Save" onPress={submit} loading={submitting} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-        <Text onPress={() => onNavigate("learn")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("learn")}>
           Read about contraception options
-        </Text>
-        <Text onPress={() => onNavigate("appointments")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+        </AppText>
+        <AppText variant="label" tone="brandText" onPress={() => onNavigate("appointments")}>
           Book a contraception consultation
-        </Text>
+        </AppText>
       </View>
     </Card>
   );
@@ -607,7 +625,7 @@ function AntenatalCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Antenatal care</Text>
+      <AppText variant="bodyStrong">Antenatal care</AppText>
       <MutedText>Track your appointments, investigations, scans and vaccinations through pregnancy.</MutedText>
 
       {pregnancy.high_risk && (
@@ -615,17 +633,17 @@ function AntenatalCard({
       )}
 
       {estimate ? (
-        <Text style={{ fontSize: 13, color: colors.ink }}>
+        <AppText variant="body">
           Estimated {estimate.weeks} weeks pregnant. This is an estimate, not a confirmed clinical dating.
           Estimated due date: {when(estimate.estimatedDueDate)}.
-        </Text>
+        </AppText>
       ) : (
         <MutedText>Add your last menstrual period date for a gestational-age estimate.</MutedText>
       )}
 
       <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Last menstrual period date</Text>
+          <AppText variant="label">Last menstrual period date</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={lmp} onChangeText={setLmp} placeholder="YYYY-MM-DD" style={textInputStyle} />
         </View>
         <SecondaryButton title="Save" onPress={submit} loading={submitting} />
@@ -634,26 +652,26 @@ function AntenatalCard({
 
       {visits.length > 0 && (
         <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
+          <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
             Antenatal visits
-          </Text>
+          </AppText>
           {visits.map((visit) => (
             <View key={visit.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+                <AppText variant="label">
                   {visit.gestational_week_at_visit != null ? `Week ${visit.gestational_week_at_visit}` : `Visit ${visit.visit_number ?? ""}`}
-                </Text>
+                </AppText>
                 <MutedText>{visit.status}</MutedText>
               </View>
-              {visit.findings && <Text style={{ fontSize: 12.5, color: colors.muted }}>{visit.findings}</Text>}
+              {visit.findings && <AppText variant="body" tone="textMuted">{visit.findings}</AppText>}
             </View>
           ))}
         </View>
       )}
 
-      <Text onPress={() => onNavigate("appointments")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+      <AppText variant="label" tone="brandText" onPress={() => onNavigate("appointments")}>
         Book your next antenatal visit
-      </Text>
+      </AppText>
     </Card>
   );
 }
@@ -697,9 +715,9 @@ function PregnancyRedFlagCheck({ patientId, organisationId }: { patientId: strin
 
   return (
     <Card style={{ borderColor: colors.danger, gap: 10 }}>
-      <Text onPress={() => setExpanded((v) => !v)} style={{ fontSize: 14, fontWeight: "700", color: colors.danger }}>
+      <AppText variant="bodyStrong" tone="dangerText" onPress={() => setExpanded((v) => !v)}>
         ⚠ Any pregnancy warning signs? {expanded ? "(Hide)" : "(Check now)"}
-      </Text>
+      </AppText>
 
       {expanded && (
         <View style={{ gap: 10 }}>
@@ -784,12 +802,12 @@ function PostnatalCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Postnatal care</Text>
+      <AppText variant="bodyStrong">Postnatal care</AppText>
       <MutedText>Maternal recovery, breastfeeding support and follow-up after delivery.</MutedText>
 
       {latest ? (
         <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Delivered {when(latest.delivery_date)}</Text>
+          <AppText variant="label">Delivered {when(latest.delivery_date)}</AppText>
           <MutedText>{latest.delivery_mode.replace("_", " ")}</MutedText>
         </View>
       ) : (
@@ -803,17 +821,17 @@ function PostnatalCard({
           <MutedText>This also updates your pregnancy status to &quot;not pregnant&quot;.</MutedText>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Delivery date</Text>
+              <AppText variant="label">Delivery date</AppText>
               <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={deliveryDate} onChangeText={setDeliveryDate} placeholder="YYYY-MM-DD" style={textInputStyle} />
             </View>
           </View>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Delivery mode</Text>
+          <AppText variant="label">Delivery mode</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {(["unknown", "vaginal", "assisted", "caesarean"] as const).map((m) => (
               <Chip key={m} label={m === "unknown" ? "Prefer not to say" : m} active={deliveryMode === m} onPress={() => setDeliveryMode(m)} />
             ))}
           </View>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Complications (optional)</Text>
+          <AppText variant="label">Complications (optional)</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={complications} onChangeText={setComplications} style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <PrimaryButton title="Save" onPress={submit} loading={submitting} />
@@ -822,9 +840,9 @@ function PostnatalCard({
 
       {latest && <PostnatalCheckinSection patientId={patientId} organisationId={organisationId} postnatalProfileId={latest.id} />}
 
-      <Text onPress={() => onNavigate("wellbeing")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+      <AppText variant="label" tone="brandText" onPress={() => onNavigate("wellbeing")}>
         Mental wellbeing check-in (already in Wellbeing) →
-      </Text>
+      </AppText>
     </Card>
   );
 }
@@ -878,37 +896,34 @@ function PostnatalCheckinSection({
 
   return (
     <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>Check-ins</Text>
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>Check-ins</AppText>
       {checkins.map((c) => (
-        <Text key={c.id} style={{ fontSize: 13, color: colors.ink }}>
+        <AppText variant="body" key={c.id}>
           {CHECKIN_LABEL[c.checkin_window as CheckinWindow]}
           {c.breastfeeding_status ? ` · ${BREASTFEEDING_LABEL[c.breastfeeding_status as BreastfeedingStatus]}` : ""}
           {c.contraception_discussed ? " · Contraception discussed" : ""}
-        </Text>
+        </AppText>
       ))}
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Check-in</Text>
+      <AppText variant="label">Check-in</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {CHECKIN_WINDOWS.map((w) => (
           <Chip key={w} label={CHECKIN_LABEL[w]} active={window === w} onPress={() => setWindowValue(w)} />
         ))}
       </View>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Breastfeeding</Text>
+      <AppText variant="label">Breastfeeding</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Chip label="Not recorded" active={breastfeeding === ""} onPress={() => setBreastfeeding("")} />
         {BREASTFEEDING_STATUSES.map((s) => (
           <Chip key={s} label={BREASTFEEDING_LABEL[s]} active={breastfeeding === s} onPress={() => setBreastfeeding(s)} />
         ))}
       </View>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How are you recovering?</Text>
+      <AppText variant="label">How are you recovering?</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={notes} onChangeText={setNotes} style={textInputStyle} />
-      <Text
-        onPress={() => setDiscussed((v) => !v)}
-        style={{ fontSize: 13, color: colors.ink }}
-      >
+      <AppText variant="body" onPress={() => setDiscussed((v) => !v)}>
         <Text style={{ fontWeight: "700", color: discussed ? colors.brandPressed : colors.faint }}>{discussed ? "☑ " : "☐ "}</Text>
         We discussed contraception at this check-in
-      </Text>
+      </AppText>
       {error && <ErrorText>{error}</ErrorText>}
       <SecondaryButton title="Log check-in" onPress={submit} loading={submitting} />
     </View>
@@ -969,13 +984,13 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Breast health: report a symptom</Text>
+      <AppText variant="bodyStrong">Breast health: report a symptom</AppText>
       <MutedText>
         Noticed something new? Report it here for clinical assessment, separate from your routine breast
         screening.
       </MutedText>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>What have you noticed?</Text>
+      <AppText variant="label">What have you noticed?</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {BREAST_SYMPTOM_TYPES.map((t) => (
           <Chip key={t} label={BREAST_SYMPTOM_LABEL[t]} active={types.has(t)} onPress={() => toggle(t)} />
@@ -984,7 +999,7 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
 
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Side</Text>
+          <AppText variant="label">Side</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {(["", "left", "right", "both"] as const).map((s) => (
               <Chip key={s} label={s === "" ? "Not sure" : s} active={laterality === s} onPress={() => setLaterality(s)} />
@@ -992,9 +1007,9 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
           </View>
         </View>
       </View>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How long?</Text>
+      <AppText variant="label">How long?</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={duration} onChangeText={setDuration} placeholder="e.g. about a week" style={textInputStyle} />
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else?</Text>
+      <AppText variant="label">Anything else?</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={notes} onChangeText={setNotes} style={textInputStyle} />
 
       {error && <ErrorText>{error}</ErrorText>}
@@ -1003,13 +1018,13 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
 
       {reports.length > 0 && (
         <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
+          <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
             Past reports
-          </Text>
+          </AppText>
           {reports.slice(0, 5).map((r) => (
-            <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={r.id}>
               {when(r.created_at)}: {(r.symptom_types as BreastSymptomType[]).map((t) => BREAST_SYMPTOM_LABEL[t]).join(", ")}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -1072,33 +1087,30 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Menopause</Text>
+      <AppText variant="bodyStrong">Menopause</AppText>
       <MutedText>Track symptoms so you and your care team can see patterns over time.</MutedText>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Symptoms today</Text>
+      <AppText variant="label">Symptoms today</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {MENOPAUSE_SYMPTOM_TYPES.map((t) => (
           <Chip key={t} label={MENOPAUSE_SYMPTOM_LABEL[t]} active={types.has(t)} onPress={() => toggle(t)} />
         ))}
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Overall severity (0–10)</Text>
+      <AppText variant="label">Overall severity (0 to 10)</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={severity} onChangeText={setSeverity} keyboardType="numeric" style={[textInputStyle, { maxWidth: 90 }]} />
 
-      <Text
-        onPress={() => setBleeding((v) => !v)}
-        style={{ fontSize: 13, color: colors.ink }}
-      >
+      <AppText variant="body" onPress={() => setBleeding((v) => !v)}>
         <Text style={{ fontWeight: "700", color: bleeding ? colors.brandPressed : colors.faint }}>{bleeding ? "☑ " : "☐ "}</Text>
         I&apos;ve had bleeding since menopause
-      </Text>
+      </AppText>
       {bleeding && (
-        <Text accessibilityRole="alert" style={{ fontSize: 13, fontWeight: "700", color: colors.status.warn }}>
+        <AppText variant="label" tone="warnText" accessibilityRole="alert">
           {t("menopause.bleeding_urgent")}
-        </Text>
+        </AppText>
       )}
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Notes (optional)</Text>
+      <AppText variant="label">Notes (optional)</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={notes} onChangeText={setNotes} style={textInputStyle} />
 
       {error && <ErrorText>{error}</ErrorText>}
@@ -1107,12 +1119,12 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
 
       {logs.length > 0 && (
         <View style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>Recent</Text>
+          <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>Recent</AppText>
           {logs.slice(0, 5).map((log) => (
-            <Text key={log.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={log.id}>
               {when(log.logged_at)}: {(log.symptom_types as MenopauseSymptomType[]).map((t) => MENOPAUSE_SYMPTOM_LABEL[t]).join(", ") || "no symptoms"}
               {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
@@ -1167,34 +1179,34 @@ function FertilityRequestCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Fertility</Text>
+      <AppText variant="bodyStrong">Fertility</AppText>
       <MutedText>
         Fertility assessment involves your history, some tests and, where appropriate, a specialist review,
         rather than a guaranteed outcome or a fixed timeline.
       </MutedText>
-      <Text onPress={() => onNavigate("learn")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+      <AppText variant="label" tone="brandText" onPress={() => onNavigate("learn")}>
         Read fertility basics and preconception health
-      </Text>
+      </AppText>
 
       {requests.length > 0 && (
         <View style={{ gap: 4 }}>
           {requests.map((r) => (
-            <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>
+            <AppText variant="body" key={r.id}>
               {when(r.created_at)}: {fertilityStatusLabel(r.status)}
-            </Text>
+            </AppText>
           ))}
         </View>
       )}
 
       {!hasOpenRequest && (
         <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="label">
             How many months have you been trying to conceive? (optional)
-          </Text>
+          </AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={months} onChangeText={setMonths} keyboardType="numeric" style={[textInputStyle, { maxWidth: 110 }]} />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="label">
             What would you like your care team to know? (optional)
-          </Text>
+          </AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={notes} onChangeText={setNotes} style={textInputStyle} />
           {error && <ErrorText>{error}</ErrorText>}
           <PrimaryButton title="Request a fertility assessment" onPress={submit} loading={submitting} />

@@ -67,9 +67,10 @@ describe("app wiring", () => {
     const src = readFileSync("App.tsx", "utf8");
     expect(src).toContain("[session?.user.id, identity?.role, identity?.organisationId]");
   });
-  it("registration retries without the new column only when the column is missing", () => {
+  it("registration is one call to register_native_push_token that carries the page channel, so no missing-column retry is needed", () => {
     const src = readFileSync("src/lib/push-registration.ts", "utf8");
-    expect(src).toContain('first.error.code === "42703"');
+    expect(src).toContain('"register_native_push_token"');
+    expect(src).not.toContain("42703");
   });
   it("the alarm channel is reported ready only when the phone actually created it", () => {
     expect(readFileSync("src/lib/paging/page-channel.ts", "utf8")).toContain("return created != null;");

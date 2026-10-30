@@ -188,7 +188,7 @@ export async function signClinicalRuleWithGovernanceAction(
     if (retireError) {
       PATHS.forEach((p) => revalidatePath(p));
       return {
-        success: `${source.name} is signed and live. One tidy-up step did not complete: the old shadow copy (v${source.version}) could not be retired (${retireError.message}) — it does not affect patients, but retire it on the clinical rules page when convenient.`,
+        success: `${source.name} is signed and live. One clean-up step did not complete: the old shadow copy (v${source.version}) could not be retired (${retireError.message}). It does not affect patients, but retire it on the clinical rules page when convenient.`,
       };
     }
   }

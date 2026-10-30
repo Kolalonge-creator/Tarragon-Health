@@ -14,7 +14,7 @@ import { NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 export const metadata: Metadata = pageMetadata({
   title: "Our partners",
   description:
-    "The real, current partnerships behind TarragonHealth, why we won't take capitation, how we price, and how escalation actually works.",
+    "The real, current partnerships behind TarragonHealth, why we do not take capitation, how we price, and how referral to a doctor works.",
   path: MARKETING_ROUTES.partners,
 });
 
@@ -27,16 +27,16 @@ export const metadata: Metadata = pageMetadata({
  */
 const CAPITATION_REASONS = [
   {
-    title: "We're paid for what we actually do",
+    title: "We are paid for the work we do",
     body: "A doctor's time, priced per piece of work you can see and confirm before it happens. If nothing was done, nothing was charged.",
   },
   {
     title: "Nothing to gain by doing less",
-    body: "A fixed fee per member, paid whether or not anyone is actually seen, quietly rewards doing less. We'd rather be paid for the review that happened than for a name on a list.",
+    body: "A fixed fee per member, paid whether or not anyone is seen, rewards doing less. We prefer to be paid for a review that took place rather than for a name on a list.",
   },
   {
-    title: "It's simpler to explain, and to trust",
-    body: "You can look at any bill and see exactly what it paid for. That's harder to promise under an arrangement where payment and care are no longer connected.",
+    title: "It is simpler to explain, and easier to trust",
+    body: "You can look at any bill and see exactly what it paid for. That is harder to promise when payment and care are no longer connected.",
   },
 ];
 
@@ -54,11 +54,11 @@ const ESCALATION_TIER_ORDER = ["emergency", "urgent_escalation", "clinician_revi
 
 const ESCALATION_POINT_BODIES: Record<(typeof ESCALATION_TIER_ORDER)[number], string> = {
   emergency:
-    "Gets the fastest, written ceiling we hold ourselves to, and the full emergency safety net regardless of what you've paid.",
+    "Receives the shortest written response time we hold ourselves to, and the full emergency safety net regardless of what you have paid.",
   urgent_escalation:
-    "An abnormal result or a concerning home reading gets its own shorter ceiling. It doesn't wait behind routine cases.",
+    "An abnormal result or a concerning home reading has its own shorter response time. It does not wait behind routine cases.",
   clinician_review:
-    "Still has a maximum, signed response time. Nothing sits in an unbounded queue, and silence is never assumed to be safe.",
+    "Still has a maximum, signed response time. Nothing waits in a queue without a limit, and silence is never assumed to be safe.",
 };
 
 const ESCALATION_POINTS = ESCALATION_TIER_ORDER.map((tier) => ({
@@ -74,7 +74,7 @@ export default function PartnersPage() {
           as="h1"
           eyebrow="Trust & partners"
           title="Who we actually work with"
-          description="A short, honest account of our real partnerships, why we won't take capitation, how we price, and what happens when something in your record needs a doctor's attention."
+          description="An account of our real partnerships, why we do not take capitation, how we price, and what happens when something in your record needs a doctor's attention."
         />
       </Section>
 
@@ -84,7 +84,7 @@ export default function PartnersPage() {
           title="Who we work with"
           description={
             PARTNER_LOGOS.length > 0
-              ? "Every name below is a real, current, signed relationship, not a logo placed for effect."
+              ? "Every name below is a real, current and signed relationship, not a logo placed for effect."
               : PARTNER_VERIFICATION_PRINCIPLE
           }
         />
@@ -92,13 +92,13 @@ export default function PartnersPage() {
             PARTNER_LOGOS is ever empty (a partner roster has changed more
             than once in this project's history — see CLAUDE.md's laboratory
             fulfilment section), this page says so honestly instead of
-            rendering a "here's who we work with" heading over nothing. */}
+            rendering a "here is who we work with" heading over nothing. */}
         {PARTNER_LOGOS.length > 0 ? (
           <>
             {/* flex-wrap, not a fixed-column grid: a lone confirmed partner
                 (the current, real count) should sit centered, not stranded
                 in the first cell of a two-column grid built for a count this
-                page doesn't have yet. */}
+                page does not have yet. */}
             <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-6">
               {PARTNER_LOGOS.map((partner) => (
                 <Card key={partner.name} className="w-full max-w-sm">
@@ -123,15 +123,15 @@ export default function PartnersPage() {
           </>
         ) : (
           <p className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/15 bg-white p-6 text-center text-sm text-charcoal-ink/70">
-            We don&apos;t have a signed, permitted-to-name partner to show right now. Check back, or{" "}
+            We do not have a signed partner that has agreed to be named at the moment. Please check again later, or{" "}
             <Link href={MARKETING_ROUTES.contact} className="underline">
               ask us
             </Link>{" "}
-            and we&apos;ll tell you what&apos;s real today.
+            and we will tell you what is in place today.
           </p>
         )}
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Most of what Tarragon does needs no partner at all: you can take a test request to any
+          Most of what Tarragon does needs no partner at all. You can take a test request to any
           laboratory you choose, anywhere in Nigeria. See{" "}
           <Link
             href={MARKETING_ROUTES.coverage}
@@ -145,9 +145,9 @@ export default function PartnersPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="How we're paid"
-          title="Why we don't take capitation"
-          description="Some healthcare businesses are paid a fixed fee per member, whether that member is seen or not. We've chosen not to."
+          eyebrow="How we are paid"
+          title="Why we do not take capitation"
+          description="Some healthcare businesses are paid a fixed fee per member, whether or not that member is seen. We have chosen not to work this way."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {CAPITATION_REASONS.map((reason) => (
@@ -174,9 +174,9 @@ export default function PartnersPage() {
       <Section variant="navy">
         <SectionHeading
           invert
-          eyebrow="What happens if something's wrong"
-          title="How escalation actually works"
-          description="Every case that reaches a doctor's queue carries a maximum response time we've written down and signed, tiered by how urgent it looks, not one number for every case."
+          eyebrow="What happens if something is wrong"
+          title="How referral to a doctor works"
+          description="Every case that reaches a doctor's queue has a maximum response time that we have written down and signed. The time depends on how urgent the case appears, so there is not one figure for every case."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {ESCALATION_POINTS.map((point) => (
@@ -201,7 +201,7 @@ export default function PartnersPage() {
         <CtaBand
           variant="gradient"
           title="Questions about how we work?"
-          description="We'd rather answer a hard question before you sign up than after."
+          description="We would rather answer a difficult question before you sign up than after."
           secondaryHref={`${MARKETING_ROUTES.contact}?source=partners`}
           secondaryLabel="Ask us directly"
         />

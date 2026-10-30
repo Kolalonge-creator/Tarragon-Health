@@ -13,12 +13,14 @@
     "test:e2e": "jest --config jest.e2e.config.mjs",
     "e2e": "playwright test --config=playwright.smoke.config.ts",
     "test:e2e-browser": "playwright test",
+    "controlled-medicine-fallback": "tsx --tsconfig tsconfig.scripts.json scripts/generate-controlled-medicine-fallback.ts",
     "scribe-wer": "tsx --tsconfig tsconfig.scripts.json scripts/scribe-wer.ts",
     "audio-fallback-table": "tsx --tsconfig tsconfig.scripts.json scripts/audio-fallback-table.ts",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
     "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts",
-    "ai016-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai016-imaging-report.ts"
+    "ai016-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai016-imaging-report.ts",
+    "ai018-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai018-document-capture.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^0.3.14",
@@ -46,6 +48,7 @@
     "@vis.gl/react-google-maps": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fflate": "0.8.3",
     "heic-convert": "^2.1.0",
     "lucide-react": "^1.23.0",
     "next": "16.3.3",

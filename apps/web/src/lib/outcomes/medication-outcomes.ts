@@ -29,7 +29,7 @@ const WINDOW_DAYS = 180;
 export async function loadMedicationOutcomes(
   supabase: SupabaseClient<Database>,
   organisationId: string
-): Promise<MedicationOutcomesSummary | null> {
+): Promise<MedicationOutcomesSummary> {
   const since = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();
 
   const [stops, bpScores] = await Promise.all([
@@ -49,7 +49,8 @@ export async function loadMedicationOutcomes(
       .order("computed_at", { ascending: false }),
   ]);
 
-  if (stops.error || bpScores.error) return null;
+  if (stops.error) throw stops.error;
+  if (bpScores.error) throw bpScores.error;
 
   const stopRows = stops.data ?? [];
   const latestBpByPatient = new Map<string, string | null>();

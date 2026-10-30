@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CONDITION_KEYS, type MeasurementInput, type PatientContext } from "@tarragon/lifestyle-engine";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { ingestMeasurement } from "@/lib/lifestyle/ingest";
+import { flaggedReadingMessage, patientHasDoctorReview } from "@/lib/clinical/doctor-review-claim";
 
 /**
  * Mobile equivalent of apps/web/.../patient/lifestyle/actions.ts's
@@ -105,10 +106,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (result.evaluation?.hasFlag) {
-    return NextResponse.json({
-      success: true,
-      message: "Thanks for logging this. Your care team has been notified and a doctor will be in touch.",
-    });
+    // W-53: only a Member (doctor review is true) is told the care team has been notified.
+    return NextResponse.json({ success: true, message: flaggedReadingMessage(await patientHasDoctorReview(supabase, user.id)) });
   }
   return NextResponse.json({ success: true, message: "Logged. Nice work keeping it up." });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { emergencyHospitalGuidance, freeRedNoDoctorSentence } from "./emergency-guidance";
+import { emergencyHospitalGuidance, redNoAlertDisclosure } from "./emergency-guidance";
 
 /**
  * The emergency dialog asserted, on every plan, that "your care team has also
@@ -40,20 +40,20 @@ describe("emergencyHospitalGuidance", () => {
   });
 });
 
-describe("freeRedNoDoctorSentence (two-tier Free red path, CMO 2026-10-08)", () => {
-  it("says in plain words that no doctor was alerted because the patient is on the Free plan", () => {
-    expect(freeRedNoDoctorSentence(null)).toBe(
-      "A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership."
+describe("redNoAlertDisclosure (two-tier Free red path, CMO 2026-10-08)", () => {
+  it("gives the same red guidance on every plan, with no plan framing (W-53, D-03)", () => {
+    expect(redNoAlertDisclosure(null)).toBe(
+      "No doctor has been alerted about this reading. Please get care now."
     );
-    expect(freeRedNoDoctorSentence(undefined)).toContain("Free plan");
+    expect(redNoAlertDisclosure(undefined)).not.toMatch(/Free plan|Membership/);
   });
 
   it("is absent when a clinician alert was raised, so the dialog never says both", () => {
-    expect(freeRedNoDoctorSentence("2e3a6b7c-0000-4000-8000-000000000000")).toBeNull();
+    expect(redNoAlertDisclosure("2e3a6b7c-0000-4000-8000-000000000000")).toBeNull();
   });
 
   it("has no fear wording and no em dash", () => {
-    const line = freeRedNoDoctorSentence(null) ?? "";
+    const line = redNoAlertDisclosure(null) ?? "";
     expect(line).not.toMatch(/warning|danger|die/i);
     expect(line).not.toContain("—");
   });

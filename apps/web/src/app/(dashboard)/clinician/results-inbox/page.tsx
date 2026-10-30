@@ -51,6 +51,7 @@ type InboxRow = {
   patient_interpretation: string | null;
   supersedes_document_id: string | null;
   superseded_by_document_id: string | null;
+  source: Database["public"]["Enums"]["lab_result_document_source"];
   patient: { full_name: string | null } | null;
   clinician_alert: { level: EscalationLevel } | null;
 };
@@ -124,7 +125,7 @@ export default async function ResultsInboxPage({
     supabase
       .from("lab_result_documents")
       .select(
-        "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
+        "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
       )
       .neq("acknowledgement_status", "action_completed")
       .order("created_at", { ascending: true })
@@ -396,7 +397,7 @@ export default async function ResultsInboxPage({
                 : searchQuery
                   ? `Nothing matches “${q?.trim()}” among the ${rows.length} unactioned items currently loaded here.${
                       inboxWindowTruncated
-                        ? " This inbox is showing only the oldest 200 unactioned items — a matching result could still exist further back; this is not a confirmation the document doesn't exist."
+                        ? " This inbox shows only the oldest 200 unactioned items. A matching result could still exist further back, so this does not confirm that the document does not exist."
                         : " Try clearing the search."
                     }`
                   : "Nothing in this view. Choose All to see the rest of the inbox."}
@@ -437,6 +438,12 @@ export default async function ResultsInboxPage({
                           {row.original_filename ?? row.note ?? "Result document"}
                           {/* Module 57.14: the original stays traceable, never hidden — just
                               labelled once it has been corrected or is itself a correction. */}
+                          {/* S98: a document the patient uploaded themselves is not a lab-verified value. */}
+                          {row.source === "patient" && (
+                            <Badge variant="grey" className="ml-1.5">
+                              Patient-uploaded, not lab-verified
+                            </Badge>
+                          )}
                           {row.superseded_by_document_id && (
                             <Badge variant="amber" className="ml-1.5">
                               Amended

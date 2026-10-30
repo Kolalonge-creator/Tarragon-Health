@@ -21,9 +21,10 @@ import {
 import { followUpIsEmergencyOnDevice, followUpResultView, keepEmergency } from "@/lib/symptom-checkback-model";
 import { uxFromState } from "@/lib/symptom-ux-model";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { NotADiagnosis } from "@/ui/not-a-diagnosis";
 import { SafetyBlock } from "@/screens/sections/symptom-assessment-extras";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S59c: the follow-up after a symptom check ("How are you getting on?") on the phone. A quiet banner appears only when one is waiting and the
@@ -39,7 +40,6 @@ const symptomLabel = (key: string): string => {
 };
 
 export function SymptomCheckbackCard({ actingForSomeoneElse }: { actingForSomeoneElse: boolean }) {
-  const colors = useLegacyColors();
   const [ids, setIds] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -57,7 +57,7 @@ export function SymptomCheckbackCard({ actingForSomeoneElse }: { actingForSomeon
     return (
       <Card>
         <View accessibilityRole="alert" style={{ gap: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.banner")}</Text>
+          <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.checkback.banner")}</AppText>
           <PrimaryButton title={t("symptom.checkback.banner_cta")} onPress={() => setOpenId(ids[0] ?? null)} />
         </View>
       </Card>
@@ -123,7 +123,7 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
     return (
       <Card>
         <View accessibilityRole="alert" style={{ gap: 10 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: done.action === "emergency" ? colors.danger : colors.ink }}>{t(result.messageKey as MessageKey)}</Text>
+          <Text style={{ ...textStyles.bodyLargeStrong, color: done.action === "emergency" ? colors.danger : colors.ink }}>{t(result.messageKey as MessageKey)}</Text>
           {result.told && <MutedText>{t("symptom.checkback.result.told")}</MutedText>}
           {!done.recorded && <MutedText>{t("symptom.checkback.error")}</MutedText>}
           <NotADiagnosis />
@@ -137,26 +137,26 @@ function CheckbackFlow({ id, onClose, onAnswered }: { id: string; onClose: () =>
   const toggle = (k: string) => setSigns((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "700", color: colors.ink }}>{t("symptom.checkback.title")}</Text>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 4 }}>{v.complaint_label}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{t("symptom.checkback.title")}</AppText>
+      <AppText variant="bodyStrong" style={{ marginTop: 4 }}>{v.complaint_label}</AppText>
       <MutedText>{t("symptom.checkback.intro")}</MutedText>
       <View style={{ gap: 6, marginTop: 8 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_progress")}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_progress")}</AppText>
         {PROGRESS_OPTIONS.map((p) => (
-          <ChoiceChip key={p} title={`${progress === p ? "(o) " : "( ) "}${t(`symptom.checkback.progress.${p}` as MessageKey)}`} onPress={() => setProgress(p)} />
+          <ChoiceChip key={p} selected={progress === p} title={`${progress === p ? "(o) " : "( ) "}${t(`symptom.checkback.progress.${p}` as MessageKey)}`} onPress={() => setProgress(p)} />
         ))}
       </View>
       <View style={{ gap: 6, marginTop: 8 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_care")}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_care")}</AppText>
         {CARE_OPTIONS.map((c) => (
-          <ChoiceChip key={c} title={`${care === c ? "(o) " : "( ) "}${t(`symptom.checkback.care.${c}` as MessageKey)}`} onPress={() => setCare(c)} />
+          <ChoiceChip key={c} selected={care === c} title={`${care === c ? "(o) " : "( ) "}${t(`symptom.checkback.care.${c}` as MessageKey)}`} onPress={() => setCare(c)} />
         ))}
       </View>
       {v.sign_vocabulary.length > 0 && (
         <View style={{ gap: 6, marginTop: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t("symptom.checkback.q_signs")}</Text>
+          <AppText variant="bodyStrong" accessibilityRole="header">{t("symptom.checkback.q_signs")}</AppText>
           {v.sign_vocabulary.map((k) => (
-            <ChoiceChip key={k} title={`${signs.includes(k) ? "[x] " : "[ ] "}${symptomLabel(k)}`} onPress={() => toggle(k)} />
+            <ChoiceChip key={k} selected={signs.includes(k)} title={`${signs.includes(k) ? "[x] " : "[ ] "}${symptomLabel(k)}`} onPress={() => toggle(k)} />
           ))}
         </View>
       )}

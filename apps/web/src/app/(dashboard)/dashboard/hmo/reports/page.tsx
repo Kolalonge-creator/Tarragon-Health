@@ -15,8 +15,16 @@ export default async function HmoReportsPage() {
 
   return (
     <div className="space-y-6">
-      <MedicationOutcomesCard outcomes={data.medicationOutcomes} entityLabel="member" />
-      <EngagementOutcomesCard buckets={data.engagementOutcomes} entityLabel="member" />
+      <MedicationOutcomesCard
+        outcomes={data.medicationOutcomes}
+        entityLabel="member"
+        failed={data.unavailable.medicationOutcomes}
+      />
+      <EngagementOutcomesCard
+        buckets={data.engagementOutcomes}
+        entityLabel="member"
+        failed={data.unavailable.engagementOutcomes}
+      />
       <LifestyleOutcomesCard
         supabase={data.access.client}
         organisationId={data.access.organisationId}

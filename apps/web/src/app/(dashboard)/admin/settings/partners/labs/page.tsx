@@ -49,7 +49,7 @@ export default async function LabsPartnersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Labs"
-        description="Add and manage the lab providers patients can book with, keep contact details current, link a partner login, track turnaround performance, and record where each provider's prices came from."
+        description="Add and manage the laboratory providers patients can book with, keep contact details current, link a partner login, track turnaround performance, and record where each provider's prices came from."
       />
       {/* The partner-login list feeding this Manager is what an admin checks
           before provisioning a new one. Read as empty on failure, it invites a

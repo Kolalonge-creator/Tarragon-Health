@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
 /**
@@ -41,6 +41,7 @@ const FILES = [
   "screens/sections/health-check-screen.tsx",
   "screens/sections/ai-coach-screen.tsx",
   "screens/sections/exercise-screen.tsx",
+  "screens/sections/fasting-screen.tsx",
   "screens/sections/tracker-screens.tsx",
   "screens/sections/care-support-screen.tsx",
   "screens/sections/womens-health-screen.tsx",
@@ -109,6 +110,36 @@ describe("light-on-purpose screens stay light", () => {
     const source = readFileSync(join(__dirname, "..", file), "utf8");
     expect(source).not.toMatch(/useLegacyColors|useTheme/);
     expect(source).not.toMatch(/from\s*"@\/ui\/legacy-kit"/);
+  });
+});
+
+/**
+ * Code review of the P6 text change found this: AppText reads the scheme, so a screen that draws on the static light
+ * theme must not use it, or in Dark its text turns near-white on a white card (the emergency guidance, the sign-in
+ * screens and the other static-light files below). They keep raw Text until they move onto the full kit.
+ */
+function screenFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return screenFiles(full);
+    return full.endsWith(".tsx") ? [full] : [];
+  });
+}
+
+describe("no screen mixes the static light theme with the scheme-aware text", () => {
+  // Found by scanning every screen, so a new static-light screen is covered without anyone adding it to a list.
+  const files = screenFiles(join(__dirname, "..", "screens")).filter((f) => {
+    const source = readFileSync(f, "utf8");
+    const staticLight =
+      /import\s*\{[^}]*\bcolors\b[^}]*\}\s*from\s*"@\/ui\/theme"/.test(source) || /from\s*"@\/ui\/components"/.test(source);
+    return staticLight && !/useLegacyColors/.test(source);
+  });
+  it("finds the known static-light screens (the scan is not vacuous)", () => {
+    expect(files.some((f) => f.endsWith("emergency-guidance-modal.tsx"))).toBe(true);
+    expect(files.some((f) => f.endsWith("login-screen.tsx"))).toBe(true);
+  });
+  it.each(files.map((f) => [f.slice(f.indexOf("screens")), f]))("%s", (_name, f) => {
+    expect(readFileSync(f, "utf8")).not.toMatch(/<AppText\b/);
   });
 });
 

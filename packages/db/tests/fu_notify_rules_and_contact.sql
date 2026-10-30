@@ -221,6 +221,12 @@ begin
   insert into results values ('sabotaged', 'normalize drops sms and voice', '{push,email}', v_out);
 end $$;
 
+-- "No clinical content" is judged on the payload with the three identifying values taken out. Those values are random
+-- uuids and an email built from one, and a uuid contains "182" about 1.4% of the time (275 of 20000 generated payloads),
+-- so scanning the whole payload made this proof fail at random on a run that had nothing wrong with it.
+create function pg_temp.carries_clinical_content(p_payload jsonb) returns boolean language sql immutable as
+$$ select (p_payload - 'patient_id' - 'source_notification_id' - 'to_email')::text ~* 'hypertension|reading|182' $$;
+
 do $$
 declare
   v_org uuid := pg_temp.f('org');
@@ -240,7 +246,15 @@ begin
     (select string_agg(channel::text, ',' order by channel::text) from public.notifications where recipient_id = contact and template = 'emergency_contact_alert') || '|' ||
     (select count(*)::text from public.notifications where template = 'emergency_contact_alert' and channel in ('sms', 'voice')));
   perform pg_temp.rec('E2 the copies carry the patient id (for the consent re-check) and no clinical content', 'true,false',
-    (select bool_and(payload ->> 'patient_id' = pat::text)::text || ',' || bool_or(payload::text ~* 'hypertension|reading|(^|[^0-9a-f])182([^0-9a-f]|$)')::text from public.notifications where recipient_id = contact and template = 'emergency_contact_alert'));
+    (select bool_and(payload ->> 'patient_id' = pat::text)::text || ',' || bool_or(pg_temp.carries_clinical_content(payload))::text from public.notifications where recipient_id = contact and template = 'emergency_contact_alert'));
+  -- E2 must not depend on the ids it happens to be given, and must still see content that is not an id.
+  perform pg_temp.rec('E2b ids that contain 182 are not clinical content', 'false',
+    pg_temp.carries_clinical_content(jsonb_build_object('patient_name', 'EC Patient', 'patient_id', '18218218-2182-4182-8182-182182182182',
+      'source_notification_id', '182182182-1821-4182-8182-182182182182', 'to_email', 'r4-182@example.invalid'))::text);
+  perform pg_temp.rec('E2c a clinical word in another field is caught', 'true',
+    pg_temp.carries_clinical_content(jsonb_build_object('patient_name', 'EC Patient', 'patient_id', gen_random_uuid(), 'trigger_detail', 'BP reading 182/110'))::text);
+  perform pg_temp.rec('E2d a clinical word hidden in the name is caught', 'true',
+    pg_temp.carries_clinical_content(jsonb_build_object('patient_name', 'hypertension patient', 'patient_id', gen_random_uuid()))::text);
   perform pg_temp.rec('E3 the event is stamped notified', 'true', (select (contact_notified_at is not null)::text from public.emergency_events where id = ev));
   perform private.notify_unacknowledged_emergencies();
   perform pg_temp.rec('E4 a repeat run queues nothing more', '3', (select count(*)::text from public.notifications where recipient_id = contact and template = 'emergency_contact_alert'));

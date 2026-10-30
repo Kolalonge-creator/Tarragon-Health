@@ -107,7 +107,10 @@ begin
   select rules into v_base from public.capacity_cover_config where version = 1;
   update public.capacity_cover_config set is_active = false where is_active;
   select max(version) + 1 into v_next from public.capacity_cover_config;
+  -- the governed-config guard refuses an unsigned active version; this fixture deliberately writes one, and signing it would make the older-version guard count it
+  alter table public.capacity_cover_config disable trigger zz_refuse_unsigned_activation_ins;
   insert into public.capacity_cover_config (version, is_active, effective_from, rules) values (v_next, true, current_date, v_base || p);
+  alter table public.capacity_cover_config enable trigger zz_refuse_unsigned_activation_ins;
 end $f$;
 create function pg_temp.guard_on(p_key text, p_on boolean) returns void language plpgsql as
 $f$ begin
