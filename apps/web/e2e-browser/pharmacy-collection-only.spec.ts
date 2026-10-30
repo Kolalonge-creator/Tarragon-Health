@@ -169,7 +169,7 @@ test.describe("collection-only pharmacy screens", () => {
     await page.locator("#dateOfBirth").fill("1990-01-01");
     await page.locator("#sex").selectOption("female");
     await page.getByRole("button", { name: /save.*continue/i }).click();
-    await page.getByRole("button", { name: /continue to the last step/i }).click();
+    await page.getByRole("button", { name: /go to the last step/i }).click();
     await page.getByRole("button", { name: /take me to my dashboard/i }).click();
     await page.waitForURL(/\/patient(?!\/onboarding)/, { timeout: 60_000 });
 
