@@ -21,7 +21,7 @@ export default async function WeightPage() {
         title="Weight"
         icon={SEMANTIC_ICON.weight}
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
-        description="Track your weight against a goal you set. Log weight from your vitals or your lifestyle check-in; either way, it shows up here."
+        description="Follow your weight against a goal you set. You can record your weight with your vitals or in your lifestyle check-in, and either way it appears here."
       />
       <WeightClient patientId={profile.id} />
     </div>

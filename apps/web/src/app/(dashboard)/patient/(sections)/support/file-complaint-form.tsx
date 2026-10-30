@@ -70,7 +70,7 @@ export function FileComplaintForm({ patientId }: { patientId: string }) {
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && (
         <p className="text-sm text-brand-green">
-          Received — we&apos;ll acknowledge this and follow up. You can track it below.
+          Your complaint has been received. We will acknowledge it and follow up. You can track its progress below.
         </p>
       )}
 

@@ -72,13 +72,13 @@ export default async function PatientProfilePage() {
         />
       </SettingsGroup>
 
-      <SettingsGroup id="how-things-show" title="How things are shown" description="Units and wording, so what you read matches what you know.">
+      <SettingsGroup id="how-things-show" title="How things are shown" description="Units and wording, so that what you read matches what you are used to.">
         <GlucoseUnitForm initial={profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"} />
         <MeasurementUnitsForm initial={measurementUnits} />
         <ConditionLanguageForm initial={{ condition_language_preference: profile.condition_language_preference }} />
       </SettingsGroup>
 
-      <SettingsGroup id="notifications" title="Notifications" description="How and when we get in touch.">
+      <SettingsGroup id="notifications" title="Notifications" description="How and when we contact you.">
         <CommunicationPreferencesForm
           initial={{
             notification_channel_preference: profile.notification_channel_preference,

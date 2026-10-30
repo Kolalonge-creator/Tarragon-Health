@@ -25,10 +25,10 @@ export function generateMetadata() {
  */
 const SCREENING_GROUPS = [
   {
-    title: "Heart & metabolic checks",
-    intro: "The numbers behind hypertension, diabetes, and heart disease: the conditions that cause most preventable emergencies.",
+    title: "Heart and metabolic checks",
+    intro: "These checks measure the factors behind hypertension, diabetes and heart disease, the conditions that cause most preventable emergencies.",
     tests: [
-      "Blood pressure, weight, and BMI",
+      "Blood pressure, weight and body mass index (BMI)",
       "Fasting blood sugar and HbA1c (3-month sugar average)",
       "Lipid panel (cholesterol)",
       "Kidney function (U&E + eGFR) and urinalysis",
@@ -36,7 +36,7 @@ const SCREENING_GROUPS = [
   },
   {
     title: "Cancer screening",
-    intro: "Matched to your age and sex, because catching cancer early changes everything about how treatable it is.",
+    intro: "These are matched to your age and sex, because cancer found early is much more treatable.",
     tests: [
       "Cervical smear for women (from age 25)",
       "Breast screening for women (from age 40)",
@@ -46,7 +46,7 @@ const SCREENING_GROUPS = [
   },
   {
     title: "Infectious disease checks",
-    intro: "Quiet infections that do the most damage when nobody is looking for them.",
+    intro: "Some infections cause no symptoms for years and do the most damage when nobody is looking for them.",
     tests: [
       "HIV screening",
       "Hepatitis B screening",
@@ -55,17 +55,17 @@ const SCREENING_GROUPS = [
   },
   {
     title: "Vaccinations & reproductive health",
-    intro: "Tarragon tracks what's due, reminds you, and points you to what's already free before you pay anyone. Add your children too, even before they're old enough to have their own login.",
+    intro: "Tarragon tracks which vaccinations are due, reminds you, and points you to those that are already free before you pay anyone. You can add your children too, even before they are old enough to have their own login.",
     tests: [
-      "A full childhood immunisation record for each of your children, on the same recognised schedule as their paper card, but one you can't lose",
+      "A full childhood immunisation record for each of your children, following the same recognised schedule as their paper card, but one that cannot be lost",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
-      "Optional cycle tracking for women, with gentle nudges: an estimated next period (an estimate, not a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
+      "Optional cycle tracking for women, with gentle reminders: an estimated date for your next period (an estimate, not a prediction), a reminder to book antenatal care once you are pregnant, or a prompt to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {
-    title: "Know your basics",
-    intro: "Don't know your blood group and genotype yet? Book it directly: useful for marriage counselling, pregnancy planning, and emergencies.",
+    title: "Know your blood group and genotype",
+    intro: "If you do not yet know your blood group and genotype, you can arrange the test directly. The results are useful for marriage counselling, pregnancy planning and emergencies.",
     tests: ["Blood group & rhesus factor", "Sickle cell genotype (AA/AS/SS)"],
   },
 ];
@@ -73,15 +73,15 @@ const SCREENING_GROUPS = [
 const ABNORMAL_STEPS = [
   {
     title: "A doctor is alerted immediately",
-    body: "An abnormal result does not sit in a queue: it triggers an immediate alert to a doctor, who reviews it against your history as a priority, not in next month's batch.",
+    body: "An abnormal result does not wait in a queue. It triggers an immediate alert to a doctor, who reviews it against your history as a priority rather than in a later batch.",
   },
   {
     title: "You hear from your care team fast",
-    body: "Your care team contacts you within hours, not weeks, and explains what the result means in plain language, calmly, without fear tactics.",
+    body: "Your care team contacts you within hours rather than weeks, and explains what the result means in plain language.",
   },
   {
-    title: "Follow-up until the loop is closed",
-    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over, and no extra charge for the follow-up.",
+    title: "Follow-up until the matter is resolved",
+    body: "If the result needs ongoing attention, your record moves into long-term care monitoring on the same platform, with the same record and the same care team, so you do not start again, and there is no extra charge for the follow-up.",
   },
 ];
 
@@ -99,8 +99,8 @@ export default async function PreventionPage() {
       <Section>
         <SectionHeading
           eyebrow="Try it yourself"
-          title="What could your plan look like?"
-          description="Your real calendar is built from a real health profile after you sign up. This is a quick, illustrative preview of the same idea."
+          title="What could your screening plan look like?"
+          description="Your actual calendar is built from your health profile after you sign up. This is a short, illustrative preview of the same idea."
         />
         <PlanPreviewSample />
       </Section>
@@ -109,7 +109,7 @@ export default async function PreventionPage() {
         <SectionHeading
           eyebrow="What we screen for"
           title="The checks your calendar is built from"
-          description="Your personal screening calendar is built from your age, sex, family history, and risk profile, so you see only what's relevant to you: tracked, reminded, and flagged when a result needs attention."
+          description="Your personal screening calendar is built from your age, sex, family history and risk profile, so you see only what is relevant to you. Each check is tracked, you are reminded when it is due, and a result that needs attention is flagged."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
           {SCREENING_GROUPS.map((group, index) => (
@@ -138,35 +138,35 @@ export default async function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
-          price on any test and take no cut. The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder:
-          pick how deep you want to go, with every tier doctor-reviewed.
+          price on any test and take no commission. The one-day{" "}
+          <span className="font-medium text-charcoal-ink">Annual Health Check</span> has several levels.
+          You choose how thorough you want it to be, and a doctor reviews every level.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Not sure what applies to you specifically? Walk through the{" "}
+          If you are not sure which screenings apply to you, follow the{" "}
           <Link href={MARKETING_ROUTES.screeningJourney} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Screening Journey
           </Link>
-          : pick your age and sex and see each recommended screening, step by step, from booking
+          . Enter your age and sex and see each recommended screening, step by step, from booking
           to results.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Looking after your children&apos;s vaccinations too? See how the{" "}
+          If you also look after your children&apos;s vaccinations, see how the{" "}
           <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             schedule, reminders, and doctor-verified certificates
           </Link>{" "}
           work for you and your children.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Curious where you stand before booking anything? Try the free{" "}
+          If you would like to know where you stand before booking anything, try the free{" "}
           <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-            BMI & calorie calculator
+            BMI and calorie calculator
           </Link>{" "}
           or the{" "}
           <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             activity intensity calculator
           </Link>
-          , no sign-up required.
+          . No sign-up is required.
         </p>
       </Section>
 
@@ -193,7 +193,7 @@ export default async function PreventionPage() {
         <SectionHeading
           eyebrow="When something is flagged"
           title="What happens if a result comes back abnormal"
-          description="This is the moment prevention exists for, and the moment most health systems drop. At Tarragon it is the highest-priority event on the platform."
+          description="This is the moment that prevention exists for, and the one that many health systems miss. At Tarragon it is the highest-priority event on the platform."
         />
         <div className="mx-auto max-w-4xl">
           <StepsExplorer steps={ABNORMAL_STEPS} tone="navy" />
@@ -203,7 +203,7 @@ export default async function PreventionPage() {
       {preventionArticles.length > 0 ? (
         <Section>
           <ResourceCarousel
-            title="Explore more Prevention & Nutrition resources"
+            title="More resources on prevention and nutrition"
             articles={preventionArticles}
           />
         </Section>

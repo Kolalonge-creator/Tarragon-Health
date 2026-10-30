@@ -15,233 +15,233 @@ export type ProductPageContent = {
 export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
   hypertension: {
     slug: "hypertension",
-    headline: "Stay ahead of high blood pressure before it causes complications.",
-    campaignLine: "High blood pressure needs follow-up, not guesswork.",
+    headline: "Keep high blood pressure under control and lower your risk of stroke and heart disease.",
+    campaignLine: "Hypertension is managed by regular measurement and review, not by guesswork.",
     intro:
-      "Log blood pressure, catch drifting numbers early, and get doctor review, with reminders keeping follow-up consistent between visits.",
+      "Record your blood pressure at home, watch how it changes over weeks, and have a doctor review any readings that begin to rise. Reminders keep follow-up regular between clinic visits.",
     included: [
-      "BP logging via app or web",
-      "Trend view for you and your care team",
-      "Medication and follow-up reminders",
-      "Doctor review when readings drift",
-      "Doctor escalation when closer care is needed",
+      "Home blood pressure recording through the app or website",
+      "A trend chart that you and your care team can both read",
+      "Reminders for medication and follow-up appointments",
+      "Doctor review when your readings begin to rise",
+      "Referral to a doctor for closer care when it is needed",
     ],
     howItWorks: [
       {
-        title: "Log readings easily",
-        body: "Record blood pressure via app or web; readings stay in one secure record.",
+        title: "Record your readings",
+        body: "Enter each blood pressure reading in the app or on the website. Every reading is stored in one secure record.",
       },
       {
-        title: "See your trend",
-        body: "Track how your numbers change over weeks, not just single visits.",
+        title: "Follow the trend",
+        body: "One clinic reading says little. A run of readings over several weeks shows how well your blood pressure is controlled.",
       },
       {
-        title: "Escalated when it matters",
-        body: "When readings need attention, your care team follows up and escalates to a doctor if needed.",
+        title: "A doctor steps in when needed",
+        body: "If your readings stay high, your care team contacts you and refers you to a doctor.",
       },
     ],
     metadata: {
       title: "Hypertension Monitoring",
       description:
-        "Blood pressure monitoring with reminders, trend tracking, and escalation when closer care is needed.",
+        "Home blood pressure monitoring with reminders, trend charts, and doctor review when readings stay high.",
     },
   },
   diabetes: {
     slug: "diabetes",
-    headline: "Track glucose, HbA1c, medication, labs, and complications in one place.",
-    campaignLine: "Diabetes care is more than sugar checks.",
+    headline: "Keep your blood glucose, HbA1c, medication and test results in one record.",
+    campaignLine: "Good diabetes care involves more than checking blood sugar.",
     intro:
-      "Glucose, HbA1c, medication adherence, and lab coordination, all in one platform, with doctor review when your numbers need a closer look.",
+      "Diabetes affects the eyes, kidneys, nerves and heart over many years, so it needs steady attention. Tarragon keeps your glucose readings, HbA1c, medication and laboratory tests together, and a doctor reviews your results when they need a closer look.",
     included: [
       "Glucose and HbA1c tracking",
-      "Medication reminders and adherence support",
-      "Lab result follow-up in the same record",
-      "Complication screening prompts",
-      "Doctor review when trends need attention",
+      "Medication reminders and support to take doses regularly",
+      "Laboratory results followed up in the same record",
+      "Prompts for the screening tests that detect complications early",
+      "Doctor review when a trend needs attention",
     ],
     howItWorks: [
       {
-        title: "Monitor what matters",
-        body: "Log glucose, track HbA1c results, and keep medication on schedule.",
+        title: "Measure what matters",
+        body: "Record your glucose readings, add each HbA1c result, and keep your medication on schedule.",
       },
       {
-        title: "Coordinate labs",
-        body: "Know when tests are due and follow up on results without losing track.",
+        title: "Stay on top of tests",
+        body: "See which tests are due, and have each result followed up so none is overlooked.",
       },
       {
-        title: "Escalate when needed",
-        body: "Persistent highs or missed follow-ups trigger doctor review, calm, not alarming.",
+        title: "Get a doctor's review when needed",
+        body: "Persistently high readings or missed follow-up prompt a doctor to review your record and contact you.",
       },
     ],
     metadata: {
       title: "Diabetes Monitoring",
       description:
-        "Track glucose, HbA1c, medication, and labs in one platform, with escalation when closer care is needed.",
+        "Keep glucose readings, HbA1c, medication and laboratory results in one record, with doctor review when closer care is needed.",
     },
   },
   obesity: {
     slug: "obesity",
-    headline: "Weight tracked, reviewed, and followed up, not left to willpower alone.",
-    campaignLine: "Weight is a health condition, managed with real support.",
+    headline: "Weight management with clinical support, not willpower alone.",
+    campaignLine: "Excess weight is a health condition, and it responds to structured support.",
     intro:
-      "Weight tracking, a lifestyle plan, related-condition monitoring, and doctor review, all on one record. It's a structured programme, not a diet, built around your routine rather than an ideal you're supposed to live up to.",
+      "A structured programme that combines weight tracking, a lifestyle plan, monitoring of related conditions and doctor review on one record. It is not a diet. It is built around your actual routine.",
     included: [
-      "Weight and waist tracking on one record",
-      "A personalised lifestyle and activity plan",
-      "Monitoring for related conditions like blood pressure and blood sugar",
+      "Weight and waist measurements on one record",
+      "A personal plan for eating and physical activity",
+      "Monitoring of related conditions, such as high blood pressure and raised blood sugar",
       "Regular check-ins and progress reviews",
-      "Doctor review, with escalation when closer care is needed",
+      "Doctor review, with referral for closer care when it is needed",
     ],
     howItWorks: [
       {
-        title: "Set a plan together",
-        body: "Your care team reviews your history and helps set realistic goals.",
+        title: "Agree a plan",
+        body: "Your care team reviews your history and helps you set goals you can realistically meet.",
       },
       {
-        title: "Track and stay supported",
-        body: "Log weight and habits, get check-ins, and keep related conditions monitored on the same record.",
+        title: "Track progress with support",
+        body: "Record your weight and daily habits, receive regular check-ins, and have related conditions monitored on the same record.",
       },
       {
-        title: "Review and escalate",
-        body: "Progress is reviewed against care protocols, and closer care is arranged when it's needed.",
+        title: "Review and adjust",
+        body: "Your progress is reviewed against clinical protocols, and closer care is arranged when it is needed.",
       },
     ],
     metadata: {
       title: "Weight Health",
       description:
-        "Weight tracked, reviewed, and followed up: weight tracking, a lifestyle plan, related-condition monitoring, and escalation when closer care is needed.",
+        "Weight management with clinical support: tracking, a lifestyle plan, monitoring of related conditions, and doctor review.",
     },
   },
   parentcare: {
     slug: "parentcare",
-    headline: "Know how your parent is doing, even when you are not there every day.",
-    campaignLine: "Your parents looked after you. Now help look after them.",
+    headline: "Follow your parent's health, even when you cannot be with them every day.",
+    campaignLine: "Your parents cared for you. Help them stay well in return.",
     intro:
-      "Your parent keeps their own free Tarragon account. Named as their next of kin, you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their health checks and their doctor's time, in naira, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
+      "Your parent keeps their own free Tarragon account. If they name you as next of kin, you can follow their readings, appointments and results, and we contact you first if something urgent happens. You can pay for their health checks and their doctor's time in naira, from Lagos or from abroad. Laboratory tests are still paid directly to the laboratory when they attend.",
     included: [
       "Their own free account and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
-      "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
-      "We contact you first if something urgent comes up",
-      "Pay for their checks and doctor's time, in naira, from anywhere",
-      "Doctor follow-up when readings or care gaps need attention",
+      "Next of kin access: you can see their care but not change it, and they can withdraw your access at any time",
+      "We contact you first if something urgent happens",
+      "Pay for their checks and their doctor's time in naira, from anywhere",
+      "Doctor follow-up when readings or missed care need attention",
     ],
     howItWorks: [
       {
-        title: "They sign up, on their own account",
-        body: "One person, one free account. Their record is theirs: what lets a doctor treat them, and what keeps their consent meaningful.",
+        title: "They create their own account",
+        body: "Each person has one free account, and the record belongs to them. This lets a doctor treat them properly and keeps their consent meaningful.",
       },
       {
         title: "They name you as next of kin",
-        body: "A single setting on their account. From then on you can follow their readings, appointments and results, and we know who to call first.",
+        body: "This is a single setting on their account. You can then follow their readings, appointments and results, and we know whom to call first.",
       },
       {
-        title: "You cover the cost, if you want to",
-        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It is for their account alone, and it cannot be exchanged for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
+        title: "You can pay for their care, if you wish",
+        body: "Buy a named health check or a doctor's time whenever suits you, in one go or in instalments. It can be used only for their care and cannot be exchanged for cash. Laboratory tests are paid directly to the laboratory at its own price, so send them the cost of a test if you would like to help with that as well.",
       },
     ],
     metadata: {
       title: "Caring for a parent",
       description:
-        "Follow a parent's care without taking it over: their own account, you as next of kin, and checks you can buy for them from anywhere.",
+        "Follow a parent's care without taking it over: they keep their own account, you are named as next of kin, and you can pay for their checks from anywhere.",
     },
   },
   prevention: {
     slug: "prevention",
-    headline: "Healthy today? Let's keep it that way.",
-    campaignLine: "The best emergency is the one you prevent.",
+    headline: "Find health problems early, while they are easiest to treat.",
+    campaignLine: "The best way to handle an emergency is to prevent it.",
     intro:
-      "You don't need a diagnosis to use Tarragon: prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up within a day, and within 12 hours if it's critical, years earlier than it would otherwise have been caught.",
+      "You do not need a diagnosis to use Tarragon. Prevention is one of our four priority programmes, designed for people who feel well and want to stay that way. It gives you a screening and vaccination calendar matched to your age, sex and medical history, a yearly Health Check, and clear explanations of your results. In most years the outcome is simple reassurance. If a check does find something, a doctor follows up within a day, or within 12 hours if the result is critical, which is often years earlier than the problem would otherwise have been found.",
     included: [
-      "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
-      "Vaccination schedule, booking, and doctor-verified certificates",
-      "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, you use any lab, a doctor reads it",
-      "Personalised health education with short knowledge checks",
+      "A personal screening calendar covering cancer, metabolic, infectious and reproductive health checks matched to you",
+      "A vaccination schedule, booking, and doctor-verified certificates",
+      "The Annual Health Check, up to a full Comprehensive Screen: we tell you which tests you need, you use any laboratory, and a doctor reads the results",
+      "Health education matched to you, with short quizzes to check understanding",
       "Doctor follow-up within a day on any result that needs attention",
-      "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
+      "A direct path into chronic care monitoring if a condition is found, on the same record, with no need to start again",
     ],
     howItWorks: [
       {
-        title: "Know what's due",
-        body: "Two minutes on your health profile builds your personal calendar: which checks and vaccines matter for you, and when.",
+        title: "See what is due",
+        body: "Complete your health profile, which takes about two minutes, and Tarragon builds your personal calendar of the checks and vaccines you need, and when you need them.",
       },
       {
-        title: "Complete and track",
-        body: "Take your screening requests to any laboratory near you, and keep every result in one record; no more lost reports.",
+        title: "Complete the checks",
+        body: "Take your screening requests to any laboratory near you, and keep every result in one record so that no report is lost.",
       },
       {
-        title: "Stay confidently well",
-        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately, catching it early while your options are still better and cheaper.",
+        title: "Act early if something is found",
+        body: "Most results confirm that you are well. When one does not, your care team follows up straight away. Problems found early usually have more treatment options and cost less to manage.",
       },
     ],
     metadata: {
       title: "Preventive Health",
       description:
-        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and doctor follow-up if a result needs attention.",
+        "Preventive care for people who feel well: a screening and vaccination calendar, yearly health checks and doctor follow-up when a result needs attention.",
     },
   },
   medication: {
     slug: "medication",
-    headline: "Reduce missed doses and avoid running out of medication.",
+    headline: "Take your medication on time and never run out.",
     intro:
-      "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders in the app, refill alerts before you run out, and a care team that follows up when doses are missed.",
+      "Medicines work only when they are taken as prescribed. Tarragon keeps your medication schedule in the same record as your readings and test results, sends reminders in the app and refill alerts before your supply ends, and has your care team follow up when doses are missed.",
     included: [
-      "Medication schedule built into your health record",
-      "In-app reminders for your doses",
-      "Refill alerts before you run out",
-      "Buy from any pharmacy you like, log the collection in seconds",
-      "Doctor follow-up when doses are missed",
+      "A medication schedule within your health record",
+      "In-app reminders for each dose",
+      "Refill alerts before your supply runs out",
+      "Buy from any pharmacy you choose, and record the collection in seconds",
+      "Doctor follow-up when doses are missed repeatedly",
     ],
     howItWorks: [
       {
-        title: "Set up your medication list",
-        body: "Add what you take and when, as part of onboarding or any time your prescription changes.",
+        title: "Add your medication",
+        body: "List what you take and when, during sign-up or whenever your prescription changes.",
       },
       {
-        title: "Get reminded, log it in the app",
-        body: "An in-app reminder lands at the right time; logging your dose in the app takes seconds and keeps your record accurate.",
+        title: "Receive reminders and record each dose",
+        body: "A reminder arrives at the right time. Recording the dose takes a few seconds and keeps your record accurate.",
       },
       {
-        title: "Keep your supply going, and stay in touch",
-        body: "Refill alerts arrive before you're out, and a doctor checks in if doses are consistently missed.",
+        title: "Keep your supply uninterrupted",
+        body: "Refill alerts arrive before you run out, and a doctor contacts you if doses are regularly missed.",
       },
     ],
     metadata: {
       title: "Medication Support",
       description:
-        "Medication reminders, refill alerts, and adherence follow-up, in the app, in the same record as the rest of your care.",
+        "Medication reminders, refill alerts and follow-up when doses are missed, all in the same record as the rest of your care.",
     },
   },
   labs: {
     slug: "labs",
-    headline: "Know what tests are due, take the request anywhere, and track follow-up.",
+    headline: "Know which tests are due, use any laboratory, and have every result followed up.",
     intro:
-      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, gives you a request for any laboratory you like, and makes sure every result gets reviewed, not filed away. You pay the lab directly; we take nothing on it.",
+      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a written request you can take to any laboratory, and makes sure a doctor reviews every result. You pay the laboratory directly, and we take no commission.",
     included: [
-      "Lab calendar synced to your chronic and preventive record",
-      "A written request you take to any laboratory near you",
-      "Results explained in plain language, not jargon",
+      "A test calendar linked to your chronic care and screening record",
+      "A written request you can take to any laboratory near you",
+      "Results explained in plain language",
       "Immediate doctor alert for abnormal results",
-      "Follow-up tracked until the loop is closed",
+      "Follow-up tracked until it is complete",
     ],
     howItWorks: [
       {
-        title: "Know what's due",
-        body: "Your lab calendar reflects your conditions and screening timeline; no guessing what's overdue.",
+        title: "See what is due",
+        body: "Your calendar reflects your conditions and screening schedule, so you do not have to guess what is overdue.",
       },
       {
-        title: "Take the request to any lab",
-        body: "Pick whichever laboratory suits you, pay them directly, and upload the result, keeping every result in one record instead of scattered reports.",
+        title: "Take the request to a laboratory",
+        body: "Choose the laboratory that suits you, pay it directly, and upload the result. Every result then sits in one record instead of in scattered reports.",
       },
       {
-        title: "Every result accounted for",
-        body: "A doctor reviews every result. Abnormal findings trigger immediate follow-up, so no report is left forgotten.",
+        title: "Every result reviewed",
+        body: "A doctor reviews every result. An abnormal finding prompts immediate follow-up, so no report goes unread.",
       },
     ],
     metadata: {
       title: "Lab Coordination",
       description:
-        "Know what lab tests are due, take the request to any laboratory you like, and get doctor follow-up on every result.",
+        "Know which laboratory tests are due, take the request to any laboratory you choose, and receive doctor follow-up on every result.",
     },
   },
 };

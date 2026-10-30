@@ -34,7 +34,7 @@ export default async function PatientSupportPage({ searchParams }: { searchParam
     <DashboardSection
       id="support"
       title="Help & support"
-      description="App or technical issue? Send it here. Appointment, pharmacy, lab, insurance, referral, or payment help lives on your Care page under 'Need help'."
+      description="Use this page to report a problem with the app. For help with appointments, pharmacy, laboratory, insurance, referrals or payments, use the 'Need help' card on your Care page."
       icon={SEMANTIC_ICON.clinicianFollowUp}
     >
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.1fr_1fr]">

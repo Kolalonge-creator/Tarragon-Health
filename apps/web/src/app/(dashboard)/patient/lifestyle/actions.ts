@@ -328,6 +328,6 @@ export async function resolveGoalAction(
   return {
     success: true,
     message:
-      parsed.data.status === "achieved" ? "Nice work, marked as achieved." : "Goal removed.",
+      parsed.data.status === "achieved" ? "Goal marked as achieved." : "Goal removed.",
   };
 }

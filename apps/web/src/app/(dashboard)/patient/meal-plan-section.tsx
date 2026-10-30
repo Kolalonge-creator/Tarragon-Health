@@ -79,8 +79,8 @@ export function MealPlanSection({
               <AiLabel variant="plan" />
             </div>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-              Generated from our Nigerian food list and tailored to your active conditions. Swap
-              anything that doesn&apos;t suit you. It&apos;s a coaching starting point, not a rule.
+              Generated from our Nigerian food list and tailored to your current conditions. Swap
+              anything that does not suit you. It is a starting point for guidance, not a fixed rule.
             </p>
 
             <form action={formAction} className="space-y-3">

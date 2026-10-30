@@ -47,7 +47,7 @@ const WHAT_WE_CHECK = [
   },
   {
     title: "That they actually offer what they are listed for",
-    body: "Whether they see people online, in person, or both, and in which languages. If someone only sees people in person, you will not be able to book a video session with them by mistake.",
+    body: "Whether they see people online, in person, or both, and in which languages. If someone only sees people in person, you cannot book a video session with them by mistake.",
   },
   {
     title: "What they charge, before you commit",
@@ -103,13 +103,13 @@ export default function TherapyPage() {
 
         <div className="mx-auto mt-10 max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            Finding a therapist in Nigeria mostly means asking around and hoping. There is no easy
-            way to check that someone is registered, no fee until you have already made contact, and
-            nothing connecting the session to the rest of your health.
+            Finding a therapist in Nigeria often means asking around and hoping for the best. There is no easy
+            way to check that someone is registered, no fee is shown until you have already made contact, and
+            nothing connects the session to the rest of your health.
           </p>
           <p>
-            We screen for depression, anxiety and hazardous drinking already. It was a poor state of
-            affairs to find something and then have nothing to offer.
+            We already screen for depression, anxiety and hazardous drinking. It was unsatisfactory to
+            identify a problem and then have nothing to offer.
           </p>
         </div>
       </Section>
@@ -141,12 +141,12 @@ export default function TherapyPage() {
           <FaqAccordion items={FAQ} />
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Not sure where you are?{" "}
+          If you are unsure how you are feeling,{" "}
           <Link
             href={MARKETING_ROUTES.mentalWellbeingCheck}
             className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-4 hover:decoration-brand-green"
           >
-            The wellbeing check is free and takes a few minutes
+            the wellbeing check is free and takes a few minutes
           </Link>
           .
         </p>

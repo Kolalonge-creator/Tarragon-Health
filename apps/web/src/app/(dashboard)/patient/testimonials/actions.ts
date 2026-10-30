@@ -11,7 +11,7 @@ const CONDITION_VALUES = TESTIMONIAL_CONDITIONS.map((c) => c.value) as [string, 
 
 const schema = z.object({
   display_name: z.string().trim().min(1, "Enter a display name").max(80),
-  quote: z.string().trim().min(20, "A few more words help: at least 20 characters").max(500),
+  quote: z.string().trim().min(20, "Please write at least 20 characters").max(500),
   // .nullable() because FormData.get() returns null (not undefined) for a
   // key that's missing entirely — .optional() alone doesn't accept that.
   condition: z
@@ -57,5 +57,5 @@ export async function submitTestimonial(
   });
   if (error) return { error: error.message };
 
-  return { message: "Thank you. Our team will review it before it's shared." };
+  return { message: "Thank you. Our team will review it before it is shared." };
 }

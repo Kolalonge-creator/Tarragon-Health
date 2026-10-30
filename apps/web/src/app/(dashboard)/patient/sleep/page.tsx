@@ -19,7 +19,7 @@ export default async function SleepPage() {
         title="Sleep"
         icon={SEMANTIC_ICON.sleep}
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
-        description="Log how you're sleeping: duration, quality, and how alert you feel during the day."
+        description="Record how long and how well you sleep, and how alert you feel during the day."
       />
       <SleepClient patientId={profile.id} />
     </div>

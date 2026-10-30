@@ -20,8 +20,7 @@ export function CareCircleCard({ showCommunity = false }: { showCommunity?: bool
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Name a next of kin we can reach if something urgent comes up, and keep your children&apos;s
-          vaccination cards alongside your own.
+          Name a next of kin we can contact in an urgent situation, and keep your children&apos;s vaccination cards alongside your own.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline">

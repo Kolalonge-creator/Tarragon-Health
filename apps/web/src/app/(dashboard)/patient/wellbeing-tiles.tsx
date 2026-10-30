@@ -101,7 +101,7 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
         </div>
         {!latest && (
           <p className="mt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Log your first check-in below to see your mood, stress and sleep at a glance.
+            Complete your first check-in below to see a summary of your mood, stress and sleep here.
           </p>
         )}
       </CardContent>

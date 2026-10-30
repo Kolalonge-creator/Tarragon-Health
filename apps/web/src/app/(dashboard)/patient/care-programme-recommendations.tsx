@@ -41,8 +41,7 @@ export function CareProgrammeRecommendations({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-          Based on your answers, these programmes may help. Your care team will review and
-          confirm what&apos;s right for you.
+          These programmes may suit you, based on your answers. Your care team will review them and confirm which are right for you.
         </p>
         <ul className="space-y-2">
           {recommendations.map((rec) => (

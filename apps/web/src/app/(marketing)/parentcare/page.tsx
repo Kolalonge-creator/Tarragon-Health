@@ -17,13 +17,13 @@ export default function ParentCarePage() {
     <ProductPageTemplate content={content}>
       <Section>
         <p className="mx-auto max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Funding a parent&apos;s care from abroad and want to make it a gift, or introduce a
-          sibling to how it works?{" "}
+          If you fund a parent&apos;s care from abroad and want to give it as a gift, or introduce a
+          sibling to how it works,{" "}
           <Link
             href={MARKETING_ROUTES.gift}
             className="font-semibold text-brand-green underline underline-offset-2"
           >
-            See how gifting Tarragon works
+            see how gifting Tarragon works
           </Link>
           .
         </p>

@@ -30,10 +30,10 @@ const GOAL_TYPE_LABEL: Record<(typeof PATIENT_GOAL_TYPES)[number], string> = {
 
 const MILESTONE_COPY: Record<string, string> = {
   monitoring_streak_30d: "30 days of monitoring completed",
-  medication_adherence_90pct_month: "90%+ medication adherence this month",
+  medication_adherence_90pct_month: "Took 90% or more of your medication as prescribed this month",
   preventive_assessment_completed: "Preventive assessment completed",
   patient_goal_achieved: "Goal achieved",
-  engagement_recovery: "Back on track. Great to have you back",
+  engagement_recovery: "You are back on track. Welcome back",
 };
 
 function todayLagosDateString(): string {
@@ -128,8 +128,8 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
         )}
         {!goals.isLoading && !goals.isError && (goals.data?.length ?? 0) === 0 && !addingGoal && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            No active goals yet. Small, specific goals (like a daily step count) tend to stick
-            best.
+            You have no active goals yet. Small, specific goals, such as a daily step count, are
+            easier to keep.
           </p>
         )}
         {goals.data?.map((goal) => <GoalRow key={goal.id} goal={goal} patientId={patientId} />)}
