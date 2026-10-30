@@ -85,11 +85,15 @@ for (const f of added) {
     process.exit(1);
   }
   console.log(`applying ${version} ${name} ...`);
-  const wrapped = `begin;\n${body}\n;\ninsert into supabase_migrations.schema_migrations (version, name) values ('${version}', '${name}') on conflict (version) do nothing;\ncommit;\n`;
+  // lock_timeout: a migration queued behind another session's open transaction used to wait until the CLI's gateway gave up
+  // (about 170 s, no SQL error, 2026-10-30). Failing in seconds with a real lock error is rerunnable; a silent hang is not.
+  const wrapped = `begin;\nset local lock_timeout = '20s';\n${body}\n;\ninsert into supabase_migrations.schema_migrations (version, name) values ('${version}', '${name}') on conflict (version) do nothing;\ncommit;\n`;
   try {
     query(wrapped);
   } catch (err) {
-    console.error(`FAILED ${f}: ${err instanceof Error ? err.message.split("\n").slice(0, 6).join("\n") : err}`);
+    // The CLI writes its JSON error to stdout, which err.message does not include.
+    const detail = [err?.message, err?.stdout, err?.stderr].filter(Boolean).join("\n").split("\n").slice(0, 12).join("\n");
+    console.error(`FAILED ${f}: ${detail}`);
     console.error("later migrations in this push were NOT applied. Fix forward or apply by hand, then re-run the workflow.");
     process.exit(1);
   }
