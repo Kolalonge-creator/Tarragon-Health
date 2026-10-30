@@ -5,9 +5,10 @@ import { recordRefundLedgerEntry } from "@/lib/billing/refund-posting";
 
 /**
  * Sweep for the video-visit held-payment model (Vercel Cron, see
- * vercel.json — runs every 4 hours so each SLA below is actually close to
- * true, not "N to N+4h depending on time of day" the way a once-daily sweep
- * against a fixed cutoff would silently allow). Three passes:
+ * vercel.json — runs once a day, at 05:30 UTC, so each cutoff below is acted
+ * on up to about a day late, depending on when in the day a request crossed
+ * it: a 48h window can in practice close nearer 72h; the refund then follows
+ * in the same run, pass 3 below). Three passes:
  *   1. Doctor-engagement expiry — paid requests no doctor accepted OR
  *      proposed alternate times for within 48h flip to 'expired' with
  *      refund_status='due' (founder ask 2026-08-05, widened back from the

@@ -2217,6 +2217,7 @@ export const en = {
   "refund.request.submit": "Submit refund request",
   "refund.request.submitting": "Submitting…",
   "refund.request.button": "Request refund",
+  "refund.request.window_passed": "The {days}-day refund window has passed.",
   "refund.request.success": "Your refund request has been submitted. We will review it shortly.",
   "refund.request.already_requested": "A refund has already been requested for this order.",
   "refund.request.not_eligible": "This order is not eligible for a refund.",
@@ -5188,6 +5189,7 @@ export const en = {
   "quote.code.remove": "Remove code",
   "quote.points.use": "Use my points to lower the Tarragon fee",
   "shop.see_included": "See what is included",
+  "shop.panel_tests.summary": "See the tests in the yearly blood panel",
   "shop.error.membership_not_open": "Membership is not open yet. We will tell you in the app when it is.",
   "shop.error.quote_changed": "The price changed while you were looking. Please check the new price and try again.",
   "shop.error.sponsor_billing_not_open": "This is covered by your programme, which is not switched on yet. Please ask your care team.",
@@ -5543,6 +5545,7 @@ export const en = {
   "freered.notice.guidance": "A safety message is waiting for you in the app",
   "freered.notice.recheck": "It is time to check again. Open the app when you can",
   "freered.notice.checkin": "We are checking in. Open the app to tell us how you are",
+  "freered.notice.self_care": "No doctor has been alerted about this. Open the app to see what to do next. If you feel very unwell, go to the nearest hospital.",
   // Two-tier model, items 3 and 4: the doctor offers several times, the Member picks one; the pre-call summary.
   "followups.title": "Monthly check-ins",
   "followups.subtitle": "Offer each Member several times for their monthly check-in. They pick the one that suits them.",

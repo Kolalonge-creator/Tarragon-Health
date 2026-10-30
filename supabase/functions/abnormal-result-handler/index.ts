@@ -49,6 +49,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { withSentry } from "../_shared/observability/sentry.ts";
 import { type AlertLevel, pageClinicians } from "./clinician-page.ts";
+import { checkJobsSecret } from "./auth.ts";
 
 type UpgradeCondition = "hypertension" | "diabetes" | "cancer_referral" | "other";
 
@@ -84,6 +85,13 @@ function inferSpecialistType(flags: string[]): string {
 }
 
 Deno.serve(withSentry("abnormal-result-handler", async (req) => {
+  // Only the database trigger may call this: it pages clinicians and writes patient notices with the service role, and the
+  // function is deployed with verify_jwt off. The trigger sends the shared jobs secret (see auth.ts). A refusal is a 401, never a
+  // 200, so it shows in net._http_response; the clinician_alerts row the trigger already wrote is unaffected either way.
+  const auth = checkJobsSecret(req.headers.get("x-notification-jobs-secret"), Deno.env.get("NOTIFICATION_JOBS_SECRET"));
+  if (auth === "not_configured") return Response.json({ ok: false, error: "not configured" }, { status: 503 });
+  if (auth !== "ok") return Response.json({ ok: false, error: "unauthorised" }, { status: 401 });
+
   let body: RequestBody;
   try {
     body = await req.json();

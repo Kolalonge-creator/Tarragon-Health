@@ -10,6 +10,7 @@
  */
 import { t } from "@tarragon/i18n";
 import { renewalCopy } from "@/lib/marketing/membership";
+import { YEARLY_PANEL_TESTS, type PanelTestGroup } from "@/lib/commerce/yearly-panel-tests";
 
 export interface LadderCard {
   id: "free" | "evergreen" | "evergreen_plus";
@@ -23,25 +24,11 @@ export interface LadderCard {
   panelTests?: readonly PanelTestGroup[];
 }
 
-export interface PanelTestGroup {
-  heading: string;
-  tests: readonly string[];
-}
-
-/**
- * The tests in the yearly blood panel (lab panel membership_annual, active version 4). Mirrors the analyte labels in
- * lab_panel_versions; a test in pricing-ladder.test.ts fails if a label drifts from the registry. anti-HBs is left out on purpose: a clinician
- * adds it for some people, a patient never chooses it. TSH is not on the panel (founder decision 2026-10-30): a doctor orders it only when a
- * patient needs it, on a request the patient takes to any lab or partner lab.
- */
-export const YEARLY_PANEL_TESTS: readonly PanelTestGroup[] = [
-  { heading: "Blood sugar", tests: ["Fasting glucose", "HbA1c"] },
-  { heading: "Cholesterol and fats", tests: ["Total cholesterol", "LDL cholesterol", "HDL cholesterol", "Triglycerides"] },
-  { heading: "Kidneys and salts", tests: ["Creatinine", "Potassium", "Sodium"] },
-  { heading: "Liver", tests: ["ALT", "AST"] },
-  { heading: "Blood count", tests: ["Haemoglobin", "White cell count", "Platelets"] },
-  { heading: "Infection screening", tests: ["HIV screen", "Hepatitis B surface antigen", "Hepatitis C antibody"] },
-];
+// The list of tests itself lives in @/lib/commerce/yearly-panel-tests, so the signed-in Membership screen reads the very same data without
+// pulling this marketing module (and its anonymous database client) into a patient page. It is re-exported here so every import of it
+// from the pricing content still works, and the registry check in pricing-ladder.test.ts still covers the one list.
+export { YEARLY_PANEL_TESTS };
+export type { PanelTestGroup };
 
 export interface LadderPriceLabels {
   evergreen: string;
