@@ -6094,6 +6094,7 @@ Found in review: `useCreateLabOrder` links the schedule, and the live trigger re
 
 ### OQ-S98-7 A caregiver with view_results can still read the order row (raised 2026-10-27)
 The request status function and the PDF routes now hide sensitive requests from non-owners, but `lab_orders_select` still admits a caregiver with `view_results` (bundle id, order number). Narrowing it for sensitive bundles is a wider RLS change. Recommendation: do it with the next lab-orders RLS pass, proved with a simulated caregiver.
+- Decision (founder, 2026-10-30): hide the order of a sensitive bundle from caregivers and guardians entirely; they keep the ordinary orders they were granted. Built in `20261030122751_hide_sensitive_bundle_orders_from_caregivers.sql` (lab_orders, lab_specimens, patient_timeline, care_vouchers) and proved in `packages/db/tests/sensitive_bundle_orders_hidden_from_caregivers.sql`. "Sensitive" is the S98b predicate: a bundle holding any test on a `screen_types` row flagged sensitive. Result rows (`screening_results`, `lab_analyte_readings`) follow the separate sensitive-result rules and were not changed.
 
 ### OQ-S98-5 Edge Function wording (raised 2026-10-27)
 `send-pending-notifications` templates for `screening_due` do not yet mention the request (not redeployed here). The in-app line does. Update and redeploy the template if wanted.
