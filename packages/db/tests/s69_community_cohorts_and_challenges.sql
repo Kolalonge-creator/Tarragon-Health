@@ -808,7 +808,10 @@ begin
   v_co := (pg_temp.j(v_mod, $q$select public.cohort_create('Closing Sabotage Group', 'estate', true)::text$q$) ->> 'cohort_id')::uuid;
   v_ch := (pg_temp.j(v_mod, format('select public.cohort_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_co, 'move_together', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
   v_u := pg_temp.enrol(v_org, v_co, v_mod, 'closeMember2');
-  perform pg_temp.q_as(v_u, format('select public.skip_challenge_week(%L::uuid)::text', v_ch));
+  -- insert the skip row directly: an earlier sabotage (S8) has replaced skip_challenge_week with a stub that writes none
+  insert into public.challenge_skips (organisation_id, challenge_id, patient_id, week_start)
+    values (v_org, v_ch, v_u, (now() at time zone 'Africa/Lagos')::date);
+  if (select count(*) from public.challenge_skips where challenge_id = v_ch) <> 1 then raise exception 'S10 setup: the skip row was not created'; end if;
   create or replace function public.cohort_close(p_cohort uuid) returns jsonb language plpgsql security definer set search_path = '' as $f$
   begin
     update public.cohorts set state = 'closed', closed_at = now() where id = p_cohort;
