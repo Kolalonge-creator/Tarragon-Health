@@ -1,3 +1,8 @@
+-- SUPERSEDED 2026-10-30. Do not use this file. It publishes the two-plan
+-- 120,000-naira Terms only. The current script is
+-- consent_membership_ladder_v2_DRAFT.sql, which covers the Free / Membership /
+-- Membership Plus ladder and the Telehealth Consent. Kept for the record only.
+--
 -- DRAFT. NOT APPLIED. DO NOT APPLY until the owner (CEO and CMO) has signed the
 -- terms as the responsible officer, counsel has reviewed them, and every
 -- square-bracketed placeholder in the body below is resolved (the guard below
