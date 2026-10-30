@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,9 @@ import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import { CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, circleErrorKey, endsSoon, inviteLinkPath, permissionKey, type CircleMember, type CirclePermission, type PreviewView } from "@/lib/care-circle/model";
 import { SupporterBlocks } from "../supporting/circle/[patientId]/supporter-blocks";
+import { PermissionSummary } from "@/components/care-circle/permission-summary";
+import { PresetPicker } from "@/components/care-circle/preset-picker";
+import { CircleTasksPanel } from "@/components/care-circle/circle-tasks-panel";
 import { PendingGifts } from "./pending-gifts";
 import {
   CircleError,
@@ -23,7 +27,9 @@ import {
   useRenewMember,
   useResumeCircle,
   useRevokeMember,
+  useSetMissedDoseAlert,
   useSetMonthlyShare,
+  useToolsStatus,
   useUpdateMember,
 } from "@/lib/queries/care-circle";
 
@@ -85,6 +91,9 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
   const renewMember = useRenewMember();
   const revoke = useRevokeMember();
   const setShare = useSetMonthlyShare();
+  const setNudge = useSetMissedDoseAlert();
+  const tools = useToolsStatus();
+  const [nudgeError, setNudgeError] = useState(false);
   const [draft, setDraft] = useState<CirclePermission[]>(member.permissions);
   const [saved, setSaved] = useState(false);
   // the moment the screen opened: "ends soon" needs a clock, and reading it once keeps the render pure
@@ -121,6 +130,7 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
         <p className={`text-sm ${MUTED}`}>{t("circle.member.until", locale, { date: formatPatientDate(member.expires_at) })}</p>
       </div>
       {endsSoon(member.expires_at, openedAt) ? <p role="status" className="text-sm font-medium">{t("circle.member.ends_soon", locale)}</p> : null}
+      <PresetPicker id={`m-${member.member_id}`} value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} locale={locale} />
       <PermissionBoxes id={`m-${member.member_id}`} value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} locale={locale} />
       <div className={`flex items-start gap-3 ${TOUCH}`}>
         <input
@@ -137,6 +147,35 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
           <p id={`monthly-help-${member.member_id}`} className={`text-sm ${MUTED}`}>{t("circle.monthly.help", locale)}</p>
         </div>
       </div>
+      {tools.data?.missed_dose === true ? (
+        <div className={`flex items-start gap-3 ${TOUCH}`}>
+          <input
+            id={`nudge-${member.member_id}`}
+            type="checkbox"
+            className="mt-1 h-5 w-5"
+            checked={member.missed_dose_alert}
+            disabled={setNudge.isPending || !member.permissions.includes("adherence_summary")}
+            aria-describedby={`nudge-help-${member.member_id}`}
+            onChange={async () => {
+              setNudgeError(false);
+              try {
+                await setNudge.mutateAsync({ memberId: member.member_id, on: !member.missed_dose_alert });
+              } catch {
+                setNudgeError(true);
+              }
+            }}
+          />
+          <div>
+            <Label htmlFor={`nudge-${member.member_id}`} className="font-normal leading-snug">{t("cctools.nudge.label", locale, { name: member.name })}</Label>
+            <p id={`nudge-help-${member.member_id}`} className={`text-sm ${MUTED}`}>
+              {member.permissions.includes("adherence_summary")
+                ? t("cctools.nudge.help", locale, { name: member.name, minutes: tools.data.grace_minutes ?? "" })
+                : t("cctools.nudge.needs_adherence", locale, { name: member.name })}
+            </p>
+            {nudgeError ? <p role="alert" className="text-sm">{t("cctools.nudge.error", locale)}</p> : null}
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-3">
         <Button type="button" className={TOUCH} onClick={save} disabled={!changed || draft.length === 0 || update.isPending}>
           {t("circle.member.save", locale)}
@@ -317,7 +356,9 @@ function InviteForm({ locale, origin }: { locale: Locale; origin: string }) {
         <Label htmlFor="invite-relationship">{t("circle.invite.relationship", locale)}</Label>
         <Input id="invite-relationship" maxLength={40} value={relationship} onChange={(e) => setRelationship(e.target.value)} className={TOUCH} />
       </div>
+      <PresetPicker id="invite" value={perms} onChange={setPerms} locale={locale} />
       <PermissionBoxes id="invite" value={perms} onChange={setPerms} locale={locale} />
+      <PermissionSummary permissions={perms} audience="sender" />
       <div className="space-y-3">
         <Button type="button" variant="outline" className={TOUCH} aria-expanded={showPreview} onClick={() => setShowPreview((o) => !o)}>
           {showPreview ? t("circle.preview.hide", locale) : t("circle.preview.invite_button", locale)}
@@ -344,7 +385,7 @@ function InviteForm({ locale, origin }: { locale: Locale; origin: string }) {
 }
 
 /** `origin` is passed by a test; the app uses the browser's own. */
-export function CareCircleManager({ locale, origin }: { locale: Locale; origin?: string }) {
+export function CareCircleManager({ locale, origin, patientId }: { locale: Locale; origin?: string; patientId?: string }) {
   const circle = useMyCircle();
   const log = useCircleViewLog();
   const cancel = useCancelInvite();
@@ -358,8 +399,6 @@ export function CareCircleManager({ locale, origin }: { locale: Locale; origin?:
       <p className={MUTED}>{t("circle.intro", locale)}</p>
       <p className={MUTED}>{t("circle.monthly.notice", locale)}</p>
       <p className={`text-sm font-medium`}>{t("circle.stop.reminder", locale)}</p>
-      <PausePanel pause={circle.data?.pause} pauseDays={circle.data?.pause_days ?? 7} locale={locale} />
-
       <Card>
         <CardHeader><CardTitle>{t("circle.members.title", locale)}</CardTitle></CardHeader>
         <CardContent>
@@ -377,7 +416,8 @@ export function CareCircleManager({ locale, origin }: { locale: Locale; origin?:
               <li key={i.invite_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <p className="font-medium">{i.hint} <span className={`text-sm font-normal ${MUTED}`}>({i.relationship})</span></p>
-                  <p className={`text-sm ${MUTED}`}>{t("circle.invite.expires", locale, { date: formatPatientDateTime(i.expires_at) })}</p>
+                  <p className="text-sm font-medium">{t("cctools.invite.waiting", locale)}</p>
+                  <p className={`text-sm ${MUTED}`}>{t("cctools.invite.waiting_help", locale, { date: formatPatientDateTime(i.expires_at) })}</p>
                 </div>
                 <Button type="button" variant="outline" className={TOUCH} disabled={cancel.isPending} onClick={() => cancel.mutate(i.invite_id)}>
                   {t("circle.invite.cancel", locale)}
@@ -388,22 +428,28 @@ export function CareCircleManager({ locale, origin }: { locale: Locale; origin?:
         </CardContent>
       </Card>
 
+      {patientId ? <CircleTasksPanel patientId={patientId} locale={locale} /> : null}
+
       <Card>
         <CardHeader><CardTitle>{t("circle.invite.new", locale)}</CardTitle></CardHeader>
         <CardContent><InviteForm locale={locale} origin={base} /></CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>{t("circle.log.title", locale)}</CardTitle></CardHeader>
-        <CardContent>
+      {/* Folded (design audit P3): pausing and the who-looked log are occasional. The notices above stay visible. */}
+      <Disclosure title={t("circle.pause.title", locale)} hint="Stop alerts for a while">
+        <PausePanel pause={circle.data?.pause} pauseDays={circle.data?.pause_days ?? 7} locale={locale} />
+      </Disclosure>
+
+      <Disclosure title={t("circle.log.title", locale)}>
+        <div>
           {log.isSuccess && (log.data?.length ?? 0) === 0 ? <p className={MUTED}>{t("circle.log.empty", locale)}</p> : null}
           <ul className="space-y-1">
             {(log.data ?? []).map((row) => (
               <li key={`${row.viewer}-${row.at}`}>{t("circle.log.line", locale, { name: row.viewer, date: formatPatientDateTime(row.at) })}</li>
             ))}
           </ul>
-        </CardContent>
-      </Card>
+        </div>
+      </Disclosure>
     </div>
   );
 }

@@ -17,6 +17,8 @@ function deps(over: Partial<CheckoutDeps> & { rpc?: (fn: string, args: Record<st
     returnUrl: "https://app.example/patient/membership/paid",
     whoami: () => Promise.resolve({ id: "u1", email: "a@example.com" }),
     rpcAsUser: (_a, fn, args) => {
+      // the rate-limit check (OQ-267) is not an order call: answer it here so call lists and seen.args stay about the order
+      if (fn === "edge_rate_limit_hit") return Promise.resolve({ data: { allowed: true }, error: null });
       seen.args = args;
       return Promise.resolve(over.rpc ? over.rpc(fn, args) : { data: { order_id: "o1", reference: REF, amount_kobo: 12_000_000, state: "created", checkout_url: null }, error: null });
     },
@@ -227,6 +229,62 @@ Deno.test("the request refusals map to stable codes and statuses", async () => {
   }
 });
 
+// ---- Membership auto-renewal: the buyer's tick is recorded on the order before they reach the payment page ----
+function consentDeps(consent: (args: Record<string, unknown>) => { data: unknown; error: { message: string } | null } | "throw" = () => ({ data: true, error: null })) {
+  const calls: { fn: string; args: Record<string, unknown> }[] = [];
+  const out = deps({
+    rpc: (fn, args) => {
+      calls.push({ fn, args });
+      if (fn === "set_order_renewal_consent") {
+        const r = consent(args);
+        if (r === "throw") throw new Error("db down");
+        return r;
+      }
+      return { data: { order_id: "o1", reference: REF, amount_kobo: 12_900_000, state: "created", checkout_url: null }, error: null };
+    },
+  });
+  return { ...out, calls };
+}
+
+Deno.test("auto_renew true records consent on the order, as the patient, after the order exists", async () => {
+  const { d, calls } = consentDeps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: true }), d);
+  assertEquals(res.status, 200);
+  assertEquals(calls.map((c) => c.fn), ["create_order", "set_order_renewal_consent"]);
+  assertEquals(calls[1]!.args, { p_order: "o1", p_consent: true });
+});
+
+Deno.test("no tick (absent, false or null) means no consent call at all", async () => {
+  for (const body of [{}, { auto_renew: false }, { auto_renew: null }]) {
+    const { d, calls } = consentDeps();
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, ...body }), d);
+    assertEquals(res.status, 200);
+    assertEquals(calls.map((c) => c.fn), ["create_order"]);
+  }
+});
+
+Deno.test("a failed or throwing consent call never fails the checkout (the order just carries no consent)", async () => {
+  for (const consent of [() => ({ data: null, error: { message: "boom" } }), () => "throw" as const]) {
+    const { d } = consentDeps(consent);
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: true }), d);
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).order_id, "o1");
+  }
+});
+
+Deno.test("a non-boolean auto_renew is refused before anything is created", async () => {
+  const { d, calls } = consentDeps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, auto_renew: "yes" }), d);
+  assertEquals(res.status, 400);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("a supporter paying from a payment request can never set a renewal", async () => {
+  const { d, calls } = consentDeps();
+  await handleCheckout(req({ payment_request: "pr_" + "a".repeat(24), client_key: KEY, auto_renew: true }), d);
+  assertEquals(calls.some((c) => c.fn === "set_order_renewal_consent"), false);
+});
+
 // Membership Plus: the state the buyer chose for blood collection is passed on as a parameter; the database decides if it is approved.
 Deno.test("Plus: the chosen collection state goes to create_order as p_collection_state, trimmed", async () => {
   const { d, seen } = deps();
@@ -264,4 +322,28 @@ Deno.test("Plus: a database that does not have the new argument yet is a plain 5
   const { d } = deps({ rpc: () => ({ data: null, error: { message: "Could not find the function public.create_order(p_code, p_client_key, p_collection_state) in the schema cache" } }) });
   const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: "Lagos" }), d);
   assertEquals([res.status, (await res.json()).error], [503, "checkout_updating"]);
+});
+
+Deno.test("OQ-267: a caller over the limit gets 429 with Retry-After and nothing is created", async () => {
+  const { d, payments, seen } = deps();
+  const limited: CheckoutDeps = {
+    ...d,
+    rpcAsUser: (_a, fn, args) => fn === "edge_rate_limit_hit"
+      ? Promise.resolve({ data: { allowed: false, limit: 20, retry_after_seconds: 12 }, error: null })
+      : d.rpcAsUser(_a, fn, args),
+  };
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), limited);
+  assertEquals(res.status, 429);
+  assertEquals(res.headers.get("Retry-After"), "12");
+  assertEquals(seen.args, undefined);
+  void payments;
+});
+
+Deno.test("OQ-267: a limiter error fails open and the order is created", async () => {
+  const { d } = deps();
+  const open: CheckoutDeps = {
+    ...d,
+    rpcAsUser: (_a, fn, args) => fn === "edge_rate_limit_hit" ? Promise.resolve({ data: null, error: { message: "down" } }) : d.rpcAsUser(_a, fn, args),
+  };
+  assertEquals((await handleCheckout(req({ code: "membership_annual", client_key: KEY }), open)).status, 200);
 });

@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { acceptInvite, previewInvite } from "@/lib/care-circle/api";
+import { withoutCrossOrganisation } from "@tarragon/shared";
+import { acceptInvite, declineInvite, previewInvite } from "@/lib/care-circle/api";
+import { PermissionSummary } from "./circle-tools";
 import { clearPendingJoinToken, usePendingJoinToken } from "@/lib/care-circle/join-link";
 import { permissionKey, type InvitePreview } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S29e: a Care Circle invite opened from a link (the app scheme or the shared web link). It asks the database whether THIS signed-in
@@ -22,12 +25,14 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
   const [failed, setFailed] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
   const [tries, setTries] = useState(0);
+  const [notNow, setNotNow] = useState<"done" | "error" | null>(null);
 
   useEffect(() => {
     setPreview(undefined);
     setJoined(false);
     setFailed(false);
     setUnreachable(false);
+    setNotNow(null);
     if (!token) return;
     let alive = true;
     void previewInvite(token).then((p) => {
@@ -46,18 +51,24 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
   return (
     <Modal visible animationType="slide" onRequestClose={close}>
       <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 20, paddingTop: 60, gap: 14 }}>
-        <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>{t("circle.join.title", locale)}</Text>
+        <AppText variant="title" accessibilityRole="header">{t("circle.join.title", locale)}</AppText>
         {unreachable ? (
           <View style={{ gap: 12 }}>
             <ErrorText>{t("joinlink.network", locale)}</ErrorText>
             <PrimaryButton title={t("joinlink.retry", locale)} onPress={() => setTries((n) => n + 1)} />
             <SecondaryButton title={t("circle.join.decline", locale)} onPress={close} />
           </View>
+        ) : notNow === "done" ? (
+          <View style={{ gap: 12 }}>
+            {/* silent for the person who asked: this says only that nothing was shared */}
+            <AppText variant="body" accessibilityRole="alert">{t("cctools.join.not_now_done", locale)}</AppText>
+            <SecondaryButton title={t("circle.invite.done", locale)} onPress={close} />
+          </View>
         ) : preview === undefined ? (
           <ActivityIndicator />
         ) : joined ? (
           <View style={{ gap: 12 }}>
-            <Text accessibilityRole="alert" style={{ color: colors.ink }}>{t("circle.join.done", locale)}</Text>
+            <AppText variant="body" accessibilityRole="alert">{t("circle.join.done", locale)}</AppText>
             <PrimaryButton title={t("circle.join.open", locale)} onPress={() => { close(); onJoined?.(); }} />
           </View>
         ) : !preview.ok || failed ? (
@@ -68,9 +79,11 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
           </View>
         ) : (
           <View style={{ gap: 12 }}>
-            <Text style={{ color: colors.ink }}>{t("circle.join.body", locale, { name: preview.inviterFirstName, relationship: preview.relationship })}</Text>
-            <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.join.sees", locale)}</Text>
-            {preview.permissions.map((perm) => <Text key={perm} style={{ color: colors.ink }}>{`\u2022 ${t(permissionKey(perm), locale)}`}</Text>)}
+            <AppText variant="body">{t("circle.join.body", locale, { name: preview.inviterFirstName, relationship: preview.relationship })}</AppText>
+            <PermissionSummary permissions={preview.crossOrganisation ? withoutCrossOrganisation(preview.permissions) : preview.permissions} audience="invitee" name={preview.inviterFirstName} />
+            {preview.crossOrganisation ? <MutedText>{t("cctools.preview.cross_org", locale)}</MutedText> : null}
+            <AppText variant="bodyStrong">{t("circle.join.sees", locale)}</AppText>
+            {preview.permissions.map((perm) => <AppText variant="body" key={perm}>{`\u2022 ${t(permissionKey(perm), locale)}`}</AppText>)}
             <PrimaryButton
               title={t("circle.join.accept", locale)}
               disabled={busy}
@@ -84,7 +97,18 @@ export function JoinInviteModal({ onJoined }: { onJoined?: () => void }) {
                 });
               }}
             />
-            <SecondaryButton title={t("circle.join.decline", locale)} onPress={close} />
+            <SecondaryButton
+              title={t("cctools.join.not_now", locale)}
+              disabled={busy}
+              onPress={() => {
+                setBusy(true);
+                void declineInvite(token).then((ok) => {
+                  setBusy(false);
+                  setNotNow(ok ? "done" : "error");
+                });
+              }}
+            />
+            {notNow === "error" ? <ErrorText>{t("cctools.join.not_now_error", locale)}</ErrorText> : null}
           </View>
         )}
       </ScrollView>

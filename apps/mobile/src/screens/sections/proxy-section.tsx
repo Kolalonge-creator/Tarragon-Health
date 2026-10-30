@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { t } from "@tarragon/i18n";
 import { endProxyAccess, loadProxyArrangements, startProxySetup, type ProxyArrangement } from "@/lib/proxy";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }) : "");
 
@@ -13,7 +14,6 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en
  * see nothing of them until they do (safety case 23). The number is entered as a Nigerian number by default.
  */
 export function ProxySetupCard() {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [name, setName] = useState("");
@@ -44,7 +44,7 @@ export function ProxySetupCard() {
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("proxy.setup.title")}</Text>
+      <AppText variant="bodyStrong">{t("proxy.setup.title")}</AppText>
       <MutedText>{t("proxy.setup.intro")}</MutedText>
       <TextInput
         keyboardAppearance={scheme}
@@ -74,7 +74,6 @@ export function ProxySetupCard() {
 
 /** Who set up access to this account, always visible, with an instant way to end it (OQ-48). Nothing when there is none. */
 export function ProxyArrangementsCard() {
-  const colors = useLegacyColors();
   const [items, setItems] = useState<ProxyArrangement[]>([]);
   const [armed, setArmed] = useState<string | null>(null);
   const [ended, setEnded] = useState<string[]>([]);
@@ -89,13 +88,13 @@ export function ProxyArrangementsCard() {
   if (items.length === 0 && ended.length === 0) return null;
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("proxy.arrangement.title")}</Text>
+      <AppText variant="bodyStrong">{t("proxy.arrangement.title")}</AppText>
       <MutedText>{t("proxy.arrangement.note")}</MutedText>
       {items.map((a) => (
         <View key={a.grantId} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>
+          <AppText variant="body">
             {ended.includes(a.grantId) ? t("proxy.arrangement.ended") : t("proxy.arrangement.line", "en", { name: a.setUpBy, date: when(a.since) })}
-          </Text>
+          </AppText>
           {!ended.includes(a.grantId) &&
             (armed === a.grantId ? (
               <SecondaryButton

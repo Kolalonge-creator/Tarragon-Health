@@ -79,6 +79,9 @@ begin
 
   -- S21: a video visit is adults only and fails closed with no date of birth, so give the fixture patient one (rolled back).
   update public.profiles set date_of_birth = (current_date - interval '40 years')::date where id = v_pt and date_of_birth is null;
+  -- an extra online meeting is for paid Members by every route, including this older video-visit request path (decision 2026-10-29)
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
+  values (v_org, v_pt, 'granted', 'active', now() - interval '1 day', v_pt2, 'fixture membership for the video visit route', true);
 
   v_claims := json_build_object('sub', v_pt, 'role', 'authenticated')::text;
   perform set_config('request.jwt.claims', v_claims, true);

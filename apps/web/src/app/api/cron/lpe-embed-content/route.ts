@@ -1,5 +1,7 @@
 import { populateContentEmbeddings } from "@/lib/lifestyle/embed-content";
 import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
+import { embeddingCronSkip } from "@/lib/lifestyle/embedding-cron-gate";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
  * Daily content-embedding run (Vercel Cron, see apps/web/vercel.json).
@@ -13,6 +15,10 @@ export async function GET(request: Request): Promise<Response> {
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response("Not authorised", { status: 401 });
   }
+
+  // AI-009 kill switch (audit G-08): switched off in the registry means no provider call from this cron either.
+  const skip = await embeddingCronSkip(createServiceRoleClient());
+  if (skip) return Response.json(skip);
 
   const embedder = createVoyageEmbedderFromEnv() ?? undefined;
   const result = await populateContentEmbeddings(embedder);

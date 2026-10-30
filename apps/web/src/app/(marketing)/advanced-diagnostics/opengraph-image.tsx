@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Advanced Diagnostics",
     subtitle:
-      "Whole-body and targeted imaging referrals, coordinated by Tarragon and read by your doctor. Coming soon.",
+      "Whole-body and targeted imaging referrals, coordinated by Tarragon and read by a doctor. Coming soon.",
   });
 }

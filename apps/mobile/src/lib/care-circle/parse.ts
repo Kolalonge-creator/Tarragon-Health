@@ -19,7 +19,7 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
-export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string; monthlyReportShared: boolean }
+export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string; monthlyReportShared: boolean; missedDoseAlert: boolean }
 export interface PendingInvite { inviteId: string; hint: string; relationship: string; expiresAt: string }
 export interface CirclePause { pausedUntil: string; pauseAlerts: boolean }
 export interface MyCircle { members: CircleMember[]; invites: PendingInvite[]; pause?: CirclePause; pauseDays?: number }
@@ -34,7 +34,7 @@ export interface SupporterView {
   name: string;
   sharedUntil: string;
   adherence?: { taken: number; due: number; percent: number | null };
-  bpTrend?: { weeks: { weekStart: string; systolic: number; diastolic: number; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
+  bpTrend?: { weeks: { weekStart: string; systolic: number | null; diastolic: number | null; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
   appointments?: { nextAt: string | null; missed30d: number };
   /** S38d: month by month, each part only with the matching tick. */
   monthly?: CircleMonthlyRow[];
@@ -60,7 +60,7 @@ export function parseMyCircle(data: unknown): MyCircle {
       if (!isObj(m)) continue;
       const perms = permissions(m["permissions"]);
       if (str(m["member_id"]) && str(m["name"]) && str(m["relationship"]) && perms && str(m["expires_at"])) {
-        out.members.push({ memberId: m["member_id"], name: m["name"], relationship: m["relationship"], permissions: perms, expiresAt: m["expires_at"], monthlyReportShared: m["monthly_report_shared"] === true });
+        out.members.push({ memberId: m["member_id"], name: m["name"], relationship: m["relationship"], permissions: perms, expiresAt: m["expires_at"], monthlyReportShared: m["monthly_report_shared"] === true, missedDoseAlert: m["missed_dose_alert"] === true });
       }
     }
   }
@@ -109,8 +109,8 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   const b = data["bp_trend"];
   if (isObj(b) && Array.isArray(b["weeks"])) {
     const weeks = b["weeks"].flatMap((w) =>
-      isObj(w) && str(w["week_start"]) && num(w["systolic"]) && num(w["diastolic"]) && num(w["readings"])
-        ? [{ weekStart: w["week_start"], systolic: w["systolic"], diastolic: w["diastolic"], readings: w["readings"] }]
+      isObj(w) && str(w["week_start"]) && num(w["readings"])
+        ? [{ weekStart: w["week_start"], systolic: num(w["systolic"]) ? w["systolic"] : null, diastolic: num(w["diastolic"]) ? w["diastolic"] : null, readings: w["readings"] }]
         : [],
     );
     const d = b["direction"];
@@ -204,6 +204,67 @@ export function minutesLeft(windowEndsAt: string, nowMs: number): number | null 
 /** People who did not answer a check-in in time: name and time only, like a red alert. A malformed row is dropped. */
 export interface UnansweredCheckIn { patientId: string; name: string; since: string }
 export function parseUnanswered(data: unknown): UnansweredCheckIn[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"] }] : []));
+}
+
+// ---------------------------------------------------------------------------
+// S69b: tools status, "not now", shared jobs, the weekly digest, nudges
+// ---------------------------------------------------------------------------
+export interface ToolsStatus { digest: boolean; tasks: boolean; missedDose: boolean; graceMinutes: number | null }
+export const TOOLS_OFF: ToolsStatus = { digest: false, tasks: false, missedDose: false, graceMinutes: null };
+/** A reply that is not understood means every tool is off: a control is never shown by accident. */
+export function parseToolsStatus(data: unknown): ToolsStatus {
+  if (!isObj(data)) return TOOLS_OFF;
+  return { digest: data["digest"] === true, tasks: data["tasks"] === true, missedDose: data["missed_dose"] === true, graceMinutes: num(data["grace_minutes"]) ? data["grace_minutes"] : null };
+}
+export const parseDeclined = (data: unknown): boolean => isObj(data) && data["ok"] === true;
+
+export interface CircleTask {
+  taskId: string; kind: string; neededBy: string | null; state: "open" | "claimed" | "done"; claimedByName: string | null; mine: boolean;
+  canClaim: boolean; canRelease: boolean; canComplete: boolean; canCancel: boolean;
+}
+export interface CircleTaskList { role: "patient" | "helper" | "viewer"; tasks: CircleTask[] }
+export function parseTasks(data: unknown): CircleTaskList | null {
+  if (!isObj(data) || !Array.isArray(data["tasks"])) return null;
+  const role = data["role"];
+  if (role !== "patient" && role !== "helper" && role !== "viewer") return null;
+  const tasks = data["tasks"].flatMap((r): CircleTask[] => {
+    if (!isObj(r) || !str(r["task_id"]) || !str(r["kind"])) return [];
+    const state = r["state"];
+    if (state !== "open" && state !== "claimed" && state !== "done") return [];
+    return [{
+      taskId: r["task_id"], kind: r["kind"], neededBy: str(r["needed_by"]) ? r["needed_by"] : null, state, claimedByName: str(r["claimed_by_name"]) ? r["claimed_by_name"] : null,
+      mine: r["mine"] === true, canClaim: r["can_claim"] === true, canRelease: r["can_release"] === true, canComplete: r["can_complete"] === true, canCancel: r["can_cancel"] === true,
+    }];
+  });
+  return { role, tasks };
+}
+
+export interface CircleDigest {
+  name: string; days: number;
+  doses?: { daysAllTaken: number; daysWithDoses: number };
+  readings?: { daysLogged: number };
+  nextAppointmentAt?: string | null;
+  tasks?: { open: number; claimed: number; done: number };
+}
+/** Field by field, so a stray field can never reach the screen; a block that is absent stays absent. */
+export function parseDigest(data: unknown): CircleDigest | null {
+  if (!isObj(data) || !str(data["name"]) || !num(data["days"])) return null;
+  const d: CircleDigest = { name: data["name"], days: data["days"] };
+  const doses = data["doses"];
+  if (isObj(doses) && num(doses["days_all_taken"]) && num(doses["days_with_doses"])) d.doses = { daysAllTaken: doses["days_all_taken"], daysWithDoses: doses["days_with_doses"] };
+  const readings = data["readings"];
+  if (isObj(readings) && num(readings["days_logged"])) d.readings = { daysLogged: readings["days_logged"] };
+  const appts = data["appointments"];
+  if (isObj(appts)) d.nextAppointmentAt = str(appts["next_at"]) ? appts["next_at"] : null;
+  const tasks = data["tasks"];
+  if (isObj(tasks) && num(tasks["open"]) && num(tasks["claimed"]) && num(tasks["done"])) d.tasks = { open: tasks["open"], claimed: tasks["claimed"], done: tasks["done"] };
+  return d;
+}
+
+export interface CircleNudge { patientId: string; name: string; since: string }
+export function parseNudges(data: unknown): CircleNudge[] {
   if (!Array.isArray(data)) return [];
   return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"] }] : []));
 }

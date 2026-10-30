@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
-import { parseAssistedAttribution, trendBandsEligible, type AssistedAttribution, type Tables } from "@tarragon/shared";
+import { parseAssistedAttribution, type AssistedAttribution, type Tables } from "@tarragon/shared";
 import { readModuleEnabled } from "@/lib/vitals/extended-observations";
+import { readTrendBandsEligible } from "./trend-bands-eligibility";
 
 export function useVitalsReadings(patientId: string) {
   return useQuery({
@@ -124,21 +125,13 @@ export function useTrendBandsEligible(patientId: string) {
     queryKey: ["trend-bands-eligible", patientId],
     queryFn: async (): Promise<boolean> => {
       const supabase = createClient();
-      // Pregnancy is recorded in patient_pregnancy (the profile flag is not kept in step with it) and a recent delivery in postnatal_profiles; either one,
-      // or any read that fails, means no standard band.
-      const [moduleEnabled, prof, preg, post] = await Promise.all([
+      // OQ-555 follow-up: pregnancy and a recent delivery come from the database's three-state answer (see readTrendBandsEligible). An unknown status or any
+      // failed read means no standard band, never a guessed one.
+      const [moduleEnabled, prof] = await Promise.all([
         readModuleEnabled(supabase, "trend_target_bands"),
         supabase.from("profiles").select("date_of_birth, is_pregnant").eq("id", patientId).maybeSingle(),
-        supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
-        supabase.from("postnatal_profiles").select("delivery_date").eq("patient_id", patientId).order("delivery_date", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (prof.error || preg.error || post.error || !prof.data) return false;
-      return trendBandsEligible({
-        moduleEnabled,
-        dateOfBirth: prof.data.date_of_birth,
-        isPregnant: prof.data.is_pregnant === true || preg.data?.is_pregnant === true,
-        lastDeliveryDate: post.data?.delivery_date ?? null,
-      });
+      return readTrendBandsEligible(supabase, patientId, moduleEnabled, prof);
     },
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,

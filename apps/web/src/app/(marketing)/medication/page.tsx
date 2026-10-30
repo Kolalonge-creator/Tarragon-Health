@@ -47,11 +47,11 @@ export default async function MedicationPage() {
               Your medicines cabinet
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Every medication, one place to check it
+              Every medication, checked in one place
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Today&apos;s doses, active prescriptions, and refill status, all in one screen. Log what
-              you took and your care team follows up directly if doses start slipping.
+              Today&apos;s doses, active prescriptions and refill status are shown on one screen. Record
+              what you have taken, and your care team follows up with you directly if you begin to miss doses.
             </p>
           </div>
         </div>
@@ -60,7 +60,7 @@ export default async function MedicationPage() {
       {medicationArticles.length > 0 ? (
         <Section variant="sage">
           <ResourceCarousel
-            title="Explore more Medication resources"
+            title="More resources on medication"
             articles={medicationArticles}
           />
         </Section>

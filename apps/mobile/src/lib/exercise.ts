@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { enqueue, flushOutbox, listOutbox, type ExerciseSessionPayload } from "./outbox";
+import { recordSyncError } from "./sync-diagnostics";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
 import { parseActivityGate, unavailableActivityGate, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
@@ -130,4 +132,96 @@ export async function loadWorkoutPlans(): Promise<WorkoutPlan[]> {
   const { data, error } = await supabase.rpc("my_workout_plans");
   if (error || !Array.isArray(data)) return [];
   return data as unknown as WorkoutPlan[];
+}
+
+// ── Session log (P4) ─────────────────────────────────────────────────────────
+
+export type ExerciseSessionLog = Tables<"exercise_session_logs">;
+
+export const EXERCISE_KINDS: { value: "walking" | "mobility" | "strength" | "cardio" | "other"; label: string }[] = [
+  { value: "walking", label: "Walking" },
+  { value: "mobility", label: "Stretching" },
+  { value: "strength", label: "Strength" },
+  { value: "cardio", label: "Cardio" },
+  { value: "other", label: "Other" },
+];
+export const EXERCISE_EFFORTS: { value: "easy" | "moderate" | "hard"; label: string }[] = [
+  { value: "easy", label: "Easy" },
+  { value: "moderate", label: "Steady" },
+  { value: "hard", label: "Hard" },
+];
+
+const SESSION_PAGE = 1000;
+const SESSION_MAX_PAGES = 20;
+
+/** Every session the person logged, newest first, read page by page so progress is never counted from a truncated list. */
+export async function loadExerciseSessions(patientId: string): Promise<QueryResult<ExerciseSessionLog[]>> {
+  const rows: ExerciseSessionLog[] = [];
+  for (let page = 0; page < SESSION_MAX_PAGES; page++) {
+    const { data, error } = await supabase
+      .from("exercise_session_logs")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("performed_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(page * SESSION_PAGE, (page + 1) * SESSION_PAGE - 1);
+    if (error) return { ok: false, error: error.message };
+    rows.push(...data);
+    if (data.length < SESSION_PAGE) break;
+  }
+  return { ok: true, data: rows };
+}
+
+export interface LogSessionInput {
+  performedOn: string;
+  minutes: number;
+  kind: (typeof EXERCISE_KINDS)[number]["value"];
+  effort: (typeof EXERCISE_EFFORTS)[number]["value"] | null;
+  symptomDuring: boolean;
+  enrollmentId: string | null;
+  note: string;
+}
+
+/**
+ * Saved on the phone first (the offline outbox), sent when there is signal. The outbox client id is the idempotency key
+ * (exercise_session_logs.client_id), so a resend after a lost reply is a duplicate, not a second session. The date window, "that programme is
+ * yours" and the clinician alert for a Member who reports a symptom are database triggers (20261029204012, 20261029211315) that run when the row
+ * lands; a refusal is held for the person by the outbox, never dropped. A session that reports a symptom is marked danger, so if it has not
+ * reached the server within the hour the person is told, because the care team only hears about it once it is sent.
+ */
+export async function logExerciseSession(patientId: string, input: LogSessionInput): Promise<{ error?: string; stillOnPhone?: boolean }> {
+  if (!Number.isInteger(input.minutes) || input.minutes < 1 || input.minutes > 600) {
+    return { error: "Enter between 1 and 600 minutes." };
+  }
+  const payload: ExerciseSessionPayload = {
+    performed_on: input.performedOn,
+    duration_minutes: input.minutes,
+    kind: input.kind,
+    effort: input.effort,
+    symptom_during: input.symptomDuring,
+    enrollment_id: input.enrollmentId,
+    note: input.note.trim() ? input.note.trim().slice(0, 300) : null,
+  };
+  let clientId: string;
+  try {
+    clientId = (await enqueue({ kind: "exercise_session", subjectId: patientId, payload, danger: input.symptomDuring })).clientId;
+  } catch {
+    return { error: "We could not save that on your phone. Please try again." };
+  }
+  // Give the send a short chance to land so the list is fresh when the screen reloads; a slow or missing signal never holds the person up.
+  const flush = flushOutbox().catch((error) => recordSyncError("offline_outbox", "flushAfterExerciseSession", error));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([flush, new Promise<void>((resolve) => { timer = setTimeout(resolve, 3000); })]);
+  clearTimeout(timer);
+  // Still waiting in the outbox (no signal yet)? Say so, rather than telling the person it is logged.
+  const stillOnPhone = (await listOutbox().catch(() => [])).some((item) => item.clientId === clientId);
+  return { stillOnPhone };
+}
+
+export async function deleteExerciseSession(patientId: string, id: string): Promise<{ error?: string }> {
+  const { data, error } = await supabase.from("exercise_session_logs").delete().eq("id", id).eq("patient_id", patientId).select("id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "That session was already removed." };
+  return {};
 }

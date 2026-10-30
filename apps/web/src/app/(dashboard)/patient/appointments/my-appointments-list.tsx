@@ -114,7 +114,7 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
       const result = await ensureVideo.mutateAsync(appointmentId);
       router.push(`/patient/video-visit/${result.videoConsultationId}`);
     } catch (e) {
-      setError((e as Error).message || "Could not open the video visit. Try again in a moment.");
+      setError((e as Error).message || "Could not open the video visit. Please try again in a moment.");
     }
   }
 
@@ -150,6 +150,9 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                       {appt.clinician?.full_name ?? "Care team"} ·{" "}
                       {appt.consultation_method === "telemedicine" ? "Telemedicine" : appt.location || "In person"}
                     </p>
+                    {appt.booked_via === "coordinator_phone" && (
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Booked for you by the care team, over the phone.</p>
+                    )}
                   </div>
                   <Badge variant={status.tone}>{status.label}</Badge>
                   <div className="ml-auto flex gap-2">
@@ -213,8 +216,8 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                     </p>
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {entry.status === "offered"
-                        ? "A slot just opened up. Accept it before the offer expires."
-                        : "Waiting for a slot to open."}
+                        ? "A time has become available. Please accept it before the offer expires."
+                        : "Waiting for a time to become available."}
                     </p>
                   </div>
                   <div className="ml-auto flex gap-2">

@@ -10,6 +10,25 @@ import { usePatientCareGaps } from "@/lib/queries/patient-care-gaps";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { getProposedConfig } from "@tarragon/shared";
+import { usePreVisitVitals } from "@/lib/queries/previsit-vitals";
+import { useCareTasks } from "@/lib/queries/care-tasks";
+import { usePreVisitConsultations } from "@/lib/queries/previsit-consultations";
+import { buildPreVisitBrief, NO_SENSITIVE_ACCESS, ok, unavailable, type Available, type BriefRules } from "@/lib/previsit/brief";
+import { PreVisitBriefView } from "@/components/previsit/previsit-brief";
+
+/**
+ * True when the source-linked brief is switched on. OFF (the default) until the CMO signs `copilot.previsit_brief_rules`: the card then
+ * shows only the existing deterministic sections and makes none of the extra audited reads (vitals by type, tasks, consultations).
+ */
+export function previsitBriefEnabled(): boolean {
+  return getProposedConfig("copilot.previsit_brief_enabled").value === true;
+}
+
+/** A query result as the brief wants it: rows when the read worked, "unavailable" when it was refused or failed (never "none"). */
+function availableFrom<T>(q: { data: readonly T[] | undefined; isError: boolean; isLoading: boolean }): Available<T> {
+  return q.isError || q.data === undefined ? unavailable<T>() : ok(q.data);
+}
 
 const RISK_BADGE: Record<string, BadgeProps["variant"]> = {
   low: "green",
@@ -95,13 +114,22 @@ export function PreVisitSummary({
   const carePlans = useCarePlans(patientId);
   const medications = useMedications(patientId);
   const careGaps = usePatientCareGaps(patientId);
+  // The brief's extra reads are audited chart reads: none is made while the brief is off.
+  const briefOn = previsitBriefEnabled();
+  const briefRules = getProposedConfig("copilot.previsit_brief_rules").value as unknown as BriefRules;
+  const vitals = usePreVisitVitals(briefOn ? patientId : "", briefRules.windowDays, briefRules.maxReadingsRead);
+  const tasks = useCareTasks(briefOn ? patientId : null);
+  const consultations = usePreVisitConsultations(briefOn ? patientId : "");
 
   const isLoading =
     riskScores.isLoading ||
     mentalHealth.isLoading ||
     carePlans.isLoading ||
     medications.isLoading ||
-    careGaps.isLoading;
+    careGaps.isLoading ||
+    vitals.isLoading ||
+    tasks.isLoading ||
+    consultations.isLoading;
   const hasNothing =
     !isLoading &&
     !mentalHealth.isError &&
@@ -116,6 +144,37 @@ export function PreVisitSummary({
 
   const activeMedCount = (medications.data ?? []).length;
   const nextAction = deriveNextAction(mentalHealth.data, riskScores.data, medications.data);
+
+  const briefLines =
+    !briefOn || isLoading
+      ? []
+      : buildPreVisitBrief(
+          {
+            now: new Date(),
+            bloodPressure: availableFrom({ data: vitals.data?.bloodPressure, isError: vitals.isError, isLoading: vitals.isLoading }),
+            glucose: availableFrom({ data: vitals.data?.glucose, isError: vitals.isError, isLoading: vitals.isLoading }),
+            medications: availableFrom({
+              ...medications,
+              data: medications.data?.map((m) => ({
+                id: m.id,
+                drug_name: m.drug_name,
+                refill_date: m.refill_date,
+                updated_at: m.updated_at,
+                indication: m.indication,
+                care_plan_condition: m.care_plan?.condition ?? null,
+              })),
+            }),
+            tasks: availableFrom(tasks),
+            careGaps: availableFrom(careGaps),
+            carePlans: availableFrom(carePlans),
+            consultations: availableFrom(consultations),
+            // Fail closed. A read that comes back without error is NOT a sign the viewer may see a category: row-level security answers a
+            // refused read with empty rows, and some reads (the mental-health screens) report the refusal as an error while the chart
+            // reads here do not. There is no client-side category access check yet, so every sensitive category stays denied (OQ-S89-02).
+            access: NO_SENSITIVE_ACCESS,
+          },
+          briefRules,
+        );
 
   return (
     <Card className="border-brand-green/30">
@@ -154,6 +213,8 @@ export function PreVisitSummary({
             </span>
           </div>
         )}
+
+        {briefLines.length > 0 && <PreVisitBriefView lines={briefLines} />}
 
         {(careGaps.data ?? []).length > 0 && (
           <div>

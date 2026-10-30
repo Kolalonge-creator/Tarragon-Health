@@ -10,8 +10,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
 import { MaskedCallButton } from "@/components/masked-call-button";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { pregnancyForPrescribing, readPregnancySafety } from "@/lib/clinical/pregnancy-status";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { AgpCard } from "@/components/agp-card";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
@@ -22,6 +24,7 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { PatientReportedValuesSection } from "./patient-reported-values-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
 import { ImagingOrdersSection } from "./imaging-orders-section";
@@ -36,6 +39,7 @@ import { MedicationEffectivenessCard } from "@/components/medication-effectivene
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
 import { CarePlanChangesPanel } from "./care-plan-changes/care-plan-changes-panel";
+import { LowCarbProgrammePanel } from "./lowcarb-programme/lowcarb-programme-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -50,6 +54,7 @@ import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
 import { ClinicBpForm } from "./clinic-bp-form";
+import { BpControlRatePanel } from "./bp-control-rate-panel";
 import { ThresholdOverrideCard } from "./threshold-override-card";
 import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
 import { CuffCheckPanel } from "./cuff-check-panel";
@@ -73,14 +78,21 @@ import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 import { WomensHealthPanel } from "./womens-health-panel";
+import { PregnancyUnknownNotice } from "./pregnancy-unknown-notice";
+import { WomensHealthOpenPrompt, WOMENS_HEALTH_TAB } from "./womens-health-open-prompt";
 import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ patientId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { patientId } = await params;
+  // OQ-555: the audited Women's Health record is read only when the clinician opens it (?tab=womens-health), not on every chart load.
+  const { tab: requestedTab } = await searchParams;
+  const openWomensHealth = requestedTab === WOMENS_HEALTH_TAB;
   const supabase = await createClient();
 
   // RLS (private.is_org_staff) is the real gate here: a patient outside the
@@ -162,13 +174,10 @@ export default async function ClinicianPatientPage({
   const canPrescribe = hasPrescribingAuthority(callerStaff);
   const thresholdOverrides = canPrescribe ? await readPatientOverrides(supabase, patient.id) : { rows: [], failed: false };
   const currentUser = await getCurrentUser();
-  // Pregnancy context for the drug-safety advisory (§20.2).
-  const { data: pregnancy } = await supabase
-    .from("patient_pregnancy")
-    .select("is_pregnant")
-    .eq("patient_id", patientId)
-    .maybeSingle();
-  const isPregnant = pregnancy?.is_pregnant ?? false;
+  // Pregnancy context for the drug-safety advisory (§20.2). Three states from the database (pregnant, not_pregnant, unknown): a status that could not be
+  // read is NEVER taken for "not pregnant". Unknown takes the cautious branch (possibly pregnant) and is shown to the prescriber below.
+  const pregnancySafety = await readPregnancySafety(supabase, patientId);
+  const { pregnant: isPregnant, unknown: pregnancyUnknown } = pregnancyForPrescribing(pregnancySafety.status);
 
   // Diabetes type: patient's own self-report, shown to the confirming
   // clinician as context (never trusted as the authoritative record — see
@@ -310,6 +319,8 @@ export default async function ClinicianPatientPage({
                 {/* S24: signed care plan changes. Hidden for a Care Coordinator (logistics only);
                     proposing and signing need prescribing authority, enforced in the DB. */}
                 {isClinicalTier(callerStaff) && <CarePlanChangesPanel patientId={patient.id} canAct={canPrescribe} />}
+                {/* S50b: dormant low-carbohydrate programme; renders nothing until its go-live guard is on. */}
+                {isClinicalTier(callerStaff) && <LowCarbProgrammePanel patientId={patient.id} />}
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
@@ -328,7 +339,10 @@ export default async function ClinicianPatientPage({
                     (private.has_prescribing_authority), this just explains it
                     instead of surfacing a raw RLS error. */}
                 {canPrescribe ? (
-                  <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
+                  <div className="space-y-3">
+                    {pregnancyUnknown && <PregnancyUnknownNotice />}
+                    <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
+                  </div>
                 ) : (
                   <Card>
                     <CardHeader>
@@ -385,6 +399,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <BpControlRatePanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
                 {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
@@ -408,6 +423,7 @@ export default async function ClinicianPatientPage({
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
+                <PatientReportedValuesSection patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <ReleasedLabResultsWithdraw patientId={patient.id} />}
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
@@ -475,7 +491,7 @@ export default async function ClinicianPatientPage({
                 {
                   id: "womens-health",
                   label: "Women's Health",
-                  content: <WomensHealthPanel patientId={patient.id} />,
+                  content: openWomensHealth ? <WomensHealthPanel patientId={patient.id} /> : <WomensHealthOpenPrompt patientId={patient.id} />,
                 },
               ]
             : []),
@@ -538,6 +554,14 @@ export default async function ClinicianPatientPage({
           </div>
         )}
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Message in the app</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StaffPatientChat patientId={patient.id} patientName={patient.full_name ?? "this patient"} startClosed />
+        </CardContent>
+      </Card>
       <PatientRecordTabs tabs={tabs} />
     </div>
   );

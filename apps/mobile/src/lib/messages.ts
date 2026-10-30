@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { Tables } from "@tarragon/shared";
+import { parseReplyTime, replyTimeSentence, type Tables } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
 export type CareMessage = Tables<"care_messages"> & {
@@ -87,4 +87,12 @@ export async function postMessage(threadId: string, body: string): Promise<strin
   });
   if (error) throw error;
   return data as string;
+}
+
+/** The care team's recent reply time as one plain sentence, or null: a failed read, a thin sample and "not available" all show nothing (never a guess). */
+export async function loadReplyTimeSentence(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("care_team_reply_time" as never);
+  if (error) return null;
+  const rt = parseReplyTime(data);
+  return rt ? replyTimeSentence(rt) : null;
 }

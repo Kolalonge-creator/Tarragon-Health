@@ -24,14 +24,16 @@ import {
   type CycleConfidence,
   type ReproductiveLifeStage,
 } from "@/lib/cycle-prediction";
+import { cycleHero, showCycleHero } from "@tarragon/shared";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { PrivateSection } from "@/ui/private-section";
 import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The cycle tracker's native screen (spec §44's large sub-feature —
@@ -98,13 +100,13 @@ function Chip({ label, active, onPress, tone = "neutral" }: { label: string; act
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
         backgroundColor: active ? (tone === "period" ? colors.danger : colors.brand) : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}
@@ -219,6 +221,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     await refresh(next);
   }
 
+  const [lifeStage, setLifeStage] = useState<ReproductiveLifeStage>("menstruating");
   const refresh = useCallback(async (modeOverride?: boolean) => {
     setActionError(null);
     // Same query shape as web's CyclePage: read the patient's self-reported
@@ -242,6 +245,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     setError(null);
     // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
     setPlanningMode(mode);
+    setLifeStage(stage);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
   }, [patientId]);
@@ -302,11 +306,14 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
 
       <FlagsCard flags={prediction.flags} onNavigate={onNavigate} />
 
+      {/* The countdown, from the same prediction as everything below, only while periods are expected and nothing is urgent. */}
+      {showCycleHero(lifeStage, prediction) ? <CycleHeroCard prediction={prediction} /> : null}
+
       {/* ---------- Where you are now ---------- */}
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Where you are now</Text>
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: confidenceColor(colors)[prediction.confidence] }}>
+          <AppText variant="bodyStrong">Where you are now</AppText>
+          <Text style={{ ...textStyles.label, color: confidenceColor(colors)[prediction.confidence] }}>
             {CONFIDENCE_LABEL[prediction.confidence]}
           </Text>
         </View>
@@ -314,11 +321,11 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
 
         {prediction.currentPhase !== "unknown" && (
           <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 2 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {phaseLabel(prediction.currentPhase, planningMode)}
               {prediction.currentCycleDay ? ` · Day ${prediction.currentCycleDay}` : ""}
-            </Text>
-            <Text style={{ fontSize: 12.5, color: colors.muted }}>{phaseDescription(prediction.currentPhase, planningMode)}</Text>
+            </AppText>
+            <AppText variant="body" tone="textMuted">{phaseDescription(prediction.currentPhase, planningMode)}</AppText>
           </View>
         )}
 
@@ -346,7 +353,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       {/* ---------- What to expect ---------- */}
       {hasHistory && (
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What to expect</Text>
+          <AppText variant="bodyStrong">What to expect</AppText>
           <MutedText>
             Estimates from your own logged cycles. They are not a promise, and they get sharper
             each time you log a period.
@@ -354,9 +361,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
             <View style={{ flexBasis: "45%", flexGrow: 1 }}>
               <MutedText>{prediction.isOverdue ? "Was expected" : "Next period"}</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {longDate(prediction.predictedNextPeriodDate)}
-              </Text>
+              </AppText>
               {prediction.predictedNextPeriodEarliest && (
                 <MutedText>
                   Most likely {shortDate(prediction.predictedNextPeriodEarliest)} to{" "}
@@ -368,9 +375,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
             {planningMode && (
               <View style={{ flexBasis: "45%", flexGrow: 1 }}>
                 <MutedText>Estimated ovulation</MutedText>
-                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyLargeStrong">
                   {longDate(prediction.predictedOvulationDate)}
-                </Text>
+                </AppText>
                 {prediction.fertileWindowStart && (
                   <MutedText>
                     Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
@@ -381,7 +388,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
           </View>
           {planningMode && (
             <>
-              <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+              <AppText variant="caption" tone="textSubtle">{FERTILE_WINDOW_DISCLAIMER}</AppText>
               <FertileWindowNotice onNavigate={onNavigate} />
             </>
           )}
@@ -390,12 +397,12 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
 
       {/* ---------- Day log ---------- */}
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Log a day</Text>
+        <AppText variant="bodyStrong">Log a day</AppText>
         <MutedText>Tap anything that applies. Nothing here is required.</MutedText>
 
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Date</Text>
+            <AppText variant="label">Date</AppText>
             <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" style={textInputStyle} />
           </View>
           <SecondaryButton
@@ -408,12 +415,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
         </View>
 
         {canLogSelectedAsStart && (
-          <Text
-            onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: selectedDate }))}
-            style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}
-          >
+          <AppText variant="label" tone="brandText" onPress={() => withAction(() => logPeriod({ patientId, organisationId, periodStartDate: selectedDate }))}>
             It started on {shortDate(selectedDate)} →
-          </Text>
+          </AppText>
         )}
 
         <DayLogForm
@@ -432,7 +436,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       {/* ---------- Patterns ---------- */}
       {prediction.stats.usedCycles > 0 && (
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your patterns</Text>
+          <AppText variant="bodyStrong">Your patterns</AppText>
           <MutedText>
             Measured from the {prediction.stats.usedCycles} most recent cycle
             {prediction.stats.usedCycles === 1 ? "" : "s"} you logged.
@@ -440,9 +444,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Average cycle</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.averageCycleLengthDays} days
-              </Text>
+              </AppText>
               {prediction.stats.shortestCycleDays !== null && (
                 <MutedText>
                   {prediction.stats.shortestCycleDays}–{prediction.stats.longestCycleDays} days
@@ -451,21 +455,21 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Period length</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.averagePeriodDurationDays !== null
                   ? `${prediction.stats.averagePeriodDurationDays} days`
                   : "Not logged"}
-              </Text>
+              </AppText>
             </View>
             <View style={{ flexBasis: "28%", flexGrow: 1 }}>
               <MutedText>Regularity</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 {prediction.stats.regularity === "regular"
                   ? "Regular"
                   : prediction.stats.regularity === "irregular"
                     ? "Variable"
                     : "Not enough data"}
-              </Text>
+              </AppText>
             </View>
           </View>
         </Card>
@@ -474,7 +478,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       {/* ---------- History ---------- */}
       {hasHistory && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Periods you have logged</Text>
+          <AppText variant="bodyStrong">Periods you have logged</AppText>
           <MutedText>
             Remove any that were logged by mistake. A wrong start date changes every estimate
             that comes after it.
@@ -491,25 +495,22 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
                 paddingTop: 8,
               }}
             >
-              <Text style={{ fontSize: 13, color: colors.ink }}>
+              <AppText variant="body">
                 {longDate(cycle.period_start_date)}
                 {cycle.period_end_date ? ` to ${shortDate(cycle.period_end_date)}` : " (open)"}
-              </Text>
-              <Text
-                onPress={() => withAction(() => deletePeriod(cycle.id))}
-                style={{ fontSize: 12.5, fontWeight: "700", color: colors.danger }}
-              >
+              </AppText>
+              <AppText variant="label" tone="dangerText" onPress={() => withAction(() => deletePeriod(cycle.id))}>
                 Remove
-              </Text>
+              </AppText>
             </View>
           ))}
         </Card>
       )}
 
-      <Text style={{ fontSize: 11.5, color: colors.subtle }}>
+      <AppText variant="caption" tone="textSubtle">
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It plays no part in scoring your health risk.
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -526,10 +527,10 @@ function FertileWindowNotice({ onNavigate }: { onNavigate: (section: SectionId) 
       testID="fertile-window-notice"
       style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 4 }}
     >
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{FERTILE_WINDOW_LABEL}</Text>
-      <Text onPress={() => onNavigate("womensHealth")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+      <AppText variant="label">{FERTILE_WINDOW_LABEL}</AppText>
+      <AppText variant="label" tone="brandText" onPress={() => onNavigate("womensHealth")}>
         {FERTILE_WINDOW_LINK_TEXT}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -545,12 +546,11 @@ function PlanningModeSwitch({
   error: boolean;
   onChange: (next: boolean) => void;
 }) {
-  const colors = useLegacyColors();
   return (
     <View style={{ gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{en["cycle.planning_mode.title"]}</Text>
+          <AppText variant="bodyStrong">{en["cycle.planning_mode.title"]}</AppText>
           <MutedText>{en["cycle.planning_mode.description"]}</MutedText>
           {enabled && <MutedText>{en["cycle.planning_mode.on_note"]}</MutedText>}
         </View>
@@ -576,26 +576,26 @@ function FlagsCard({ flags, onNavigate }: { flags: CycleClinicalFlag[]; onNaviga
     <View style={{ gap: 10 }}>
       {urgent.map((flag) => (
         <View key={flag.id} style={{ borderLeftWidth: 4, borderLeftColor: colors.danger, backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 12, gap: 4 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.danger }}>{flag.label}</Text>
-          <Text style={{ fontSize: 12.5, color: colors.ink }}>{flag.detail}</Text>
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.danger }}>
+          <AppText variant="bodyStrong" tone="dangerText">{flag.label}</AppText>
+          <AppText variant="body">{flag.detail}</AppText>
+          <AppText variant="label" tone="dangerText" onPress={() => onNavigate("messages")}>
             Message your care team →
-          </Text>
+          </AppText>
         </View>
       ))}
       {rest.length > 0 && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>Worth mentioning to your care team</Text>
+          <AppText variant="bodyStrong">Worth mentioning to your care team</AppText>
           <MutedText>These are patterns we noticed in what you logged. None of them is an emergency.</MutedText>
           {rest.map((flag) => (
             <View key={flag.id}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{flag.label}</Text>
+              <AppText variant="label">{flag.label}</AppText>
               <MutedText>{flag.detail}</MutedText>
             </View>
           ))}
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+          <AppText variant="label" tone="brandText" onPress={() => onNavigate("messages")}>
             Message your care team →
-          </Text>
+          </AppText>
         </Card>
       )}
     </View>
@@ -664,9 +664,9 @@ function DayLogForm({
 
   return (
     <View style={{ gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.ink }}>{dateLabel}</Text>
+      <AppText variant="label">{dateLabel}</AppText>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Flow</Text>
+      <AppText variant="label">Flow</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {FLOW_OPTIONS.map((option) => (
           <Chip
@@ -679,7 +679,7 @@ function DayLogForm({
         ))}
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How you felt physically</Text>
+      <AppText variant="label">How you felt physically</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {SYMPTOM_OPTIONS.map((option) => (
           <Chip
@@ -691,7 +691,7 @@ function DayLogForm({
         ))}
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Mood</Text>
+      <AppText variant="label">Mood</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {MOOD_OPTIONS.map((option) => (
           <Chip
@@ -707,7 +707,7 @@ function DayLogForm({
           pregnancy" is on. Values already saved for the day are kept (the state above is seeded from them). */}
       {planningMode && (
         <>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
+          <AppText variant="label">Tracking ovulation? (optional)</AppText>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1, gap: 4 }}>
               <MutedText>Waking temperature (°C)</MutedText>
@@ -729,7 +729,7 @@ function DayLogForm({
         </>
       )}
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
+      <AppText variant="label">Anything else (optional)</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
@@ -748,6 +748,25 @@ function DayLogForm({
 }
 
 /** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+function CycleHeroCard({ prediction }: { prediction: Parameters<typeof cycleHero>[0] }) {
+  const hero = cycleHero(prediction);
+  return (
+    <Card style={{ gap: 4 }}>
+      <AppText variant="caption" tone="textMuted">Period countdown</AppText>
+      {hero.value === null ? (
+        <MutedText>{hero.caption}</MutedText>
+      ) : (
+        <>
+          <AppText variant="stat" accessibilityRole="header">
+            {hero.unit ? `${hero.value} ${hero.unit}` : String(hero.value)}
+          </AppText>
+          <MutedText>{hero.caption}</MutedText>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export function CycleScreen(props: CycleScreenProps) {
   return (
     <FeatureConsentGate dataType="reproductive" title="Your cycle">

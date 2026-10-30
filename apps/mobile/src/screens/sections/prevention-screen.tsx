@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Modal, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { koboToNaira } from "@tarragon/shared";
 import {
   CONDITION_LABEL,
@@ -13,7 +13,10 @@ import {
   getPreventiveEnrolments,
   getPreventiveProgrammes,
   getRiskScores,
+  getScreeningRequests,
   getScreeningSchedules,
+  screeningRequestPhase,
+  type ScreeningRequestItem,
   getVaccinationRecords,
   getVaccinationSchedules,
   withdrawPreventiveProgramme,
@@ -28,10 +31,14 @@ import {
   type VaccinationRecordItem,
 } from "@/lib/prevention";
 import { todayIsoDate } from "@/lib/medications";
+import { getLabRequestPrintUrl } from "@/lib/lab-orders";
+import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
-import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
+import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel, StatusChip, type StatusTone } from "@/ui/legacy-kit";
 
 interface PreventionScreenProps {
   /** The subject whose prevention record this is — the acting-for subject's
@@ -42,19 +49,8 @@ interface PreventionScreenProps {
   organisationId?: string;
 }
 
-/** Clinical-status tones (green/amber/red/grey — a separate system from
- * brand colour, per CLAUDE.md), literal hexes mirroring the web badge
- * palette rather than ui/theme.ts's brand tokens — same convention as
- * bp-classification.ts's BP_LEVEL_COLORS. */
-const TONE = {
-  green: { bg: "#DCFCE7", text: "#15803D" },
-  amber: { bg: "#FEF3C7", text: "#B45309" },
-  red: { bg: "#FEE2E2", text: "#B91C1C" },
-  blue: { bg: "#DBEAFE", text: "#1D4ED8" },
-  grey: { bg: "#EEEEEC", text: "#57534E" },
-} as const;
 
-const TIER_TONE: Record<RiskTierValue, keyof typeof TONE> = {
+const TIER_TONE: Record<RiskTierValue, StatusTone> = {
   low: "green",
   moderate: "amber",
   high: "red",
@@ -72,7 +68,7 @@ const TIER_LABEL: Record<RiskTierValue, string> = {
 
 type ScheduleStatus = ScreeningItem["status"] | VaccinationDueItem["status"];
 
-const STATUS_TONE: Record<ScheduleStatus, keyof typeof TONE> = {
+const STATUS_TONE: Record<ScheduleStatus, StatusTone> = {
   pending: "amber",
   booked: "blue",
   completed: "green",
@@ -94,12 +90,7 @@ const STATUS_LABEL: Record<ScheduleStatus, string> = {
 
 function StatusBadge({ status, overdue }: { status: ScheduleStatus; overdue?: boolean }) {
   const effective = overdue ? "overdue" : status;
-  const tone = TONE[STATUS_TONE[effective]];
-  return (
-    <View style={{ backgroundColor: tone.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: tone.text }}>{STATUS_LABEL[effective]}</Text>
-    </View>
-  );
+  return <StatusChip tone={STATUS_TONE[effective]} label={STATUS_LABEL[effective]} />;
 }
 
 function humanizeFactor(factor: string): string {
@@ -133,6 +124,8 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
 
   const [risk, setRisk] = useState<SectionState<RiskScoreItem[]>>(EMPTY_SECTION);
   const [screenings, setScreenings] = useState<SectionState<ScreeningItem[]>>(EMPTY_SECTION);
+  const [requests, setRequests] = useState<ScreeningRequestItem[]>([]);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [cancerScreening, setCancerScreening] = useState<SectionState<CancerScreeningGuidance>>(EMPTY_SECTION);
   const [vaccDue, setVaccDue] = useState<SectionState<VaccinationDueItem[]>>(EMPTY_SECTION);
   const [vaccHistory, setVaccHistory] = useState<SectionState<VaccinationRecordItem[]>>(EMPTY_SECTION);
@@ -178,6 +171,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
     setScreenings(
       screeningsRes.ok ? { data: screeningsRes.data, error: null } : { data: null, error: screeningsRes.error }
     );
+    // S98: the request is an addition; a failure here never hides the calendar itself
+    const requestsRes = await getScreeningRequests(patientId);
+    setRequests(requestsRes.ok ? requestsRes.data : []);
     setCancerScreening(
       cancerScreeningRes.ok
         ? { data: cancerScreeningRes.data, error: null }
@@ -279,15 +275,21 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         setActionError(result.error);
         return;
       }
-      setActionDoneLabel("Noted — we won't keep asking about this one.");
+      setActionDoneLabel("Noted. We will not keep asking about this one.");
     }
     await load();
   }
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading Prevention">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="55%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -300,11 +302,13 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
       contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
     >
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Prevention</Text>
-        <MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Prevention
+        </AppText>
+        <AppText variant="body" tone="textMuted">
           Screenings, vaccinations, and the risk tiers that keep a healthy person healthy.
-        </MutedText>
+        </AppText>
       </View>
 
       {/* Preventive programmes */}
@@ -337,9 +341,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   return (
                     <Card key={programme.id} style={{ gap: 6 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text style={{ flex: 1, fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+                        <AppText variant="bodyStrong" style={{ flex: 1 }}>
                           {programme.name}
-                        </Text>
+                        </AppText>
                         {enrolment ? <Badge tone="brand">Enrolled</Badge> : null}
                       </View>
                       {programme.description ? <MutedText>{programme.description}</MutedText> : null}
@@ -383,14 +387,14 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         ) : !risk.data || risk.data.length === 0 ? (
           <Card>
             <MutedText>
-              Complete the risk assessment on the full app to see your personal risk tiers — a
+              Complete the risk assessment on the full app to see your personal risk tiers. It is a
               starting point for your care, not a diagnosis.
             </MutedText>
           </Card>
         ) : (
           <GroupedList>
             {risk.data.map((score) => {
-              const tone = TONE[TIER_TONE[score.tier]];
+              const tone = TIER_TONE[score.tier];
               const isUnknown = score.tier === "unknown";
               const detail = isUnknown
                 ? "Not enough information yet to assess this. It isn't the same as being low risk."
@@ -405,11 +409,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   title={CONDITION_LABEL[score.condition]}
                   subtitle={detail}
                   trailing={
-                    <View style={{ backgroundColor: tone.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: tone.text }}>
-                        {isUnknown ? "Unknown" : TIER_LABEL[score.tier]}
-                      </Text>
-                    </View>
+                    <StatusChip tone={tone} label={isUnknown ? "Unknown" : TIER_LABEL[score.tier]} />
                   }
                 />
               );
@@ -439,9 +439,9 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               return (
                 <Card key={item.id} style={{ gap: 6 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ flex: 1, fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+                    <AppText variant="bodyStrong" style={{ flex: 1 }}>
                       {item.screenTypeName}
-                    </Text>
+                    </AppText>
                     <StatusBadge status={item.status} overdue={item.isOverdue} />
                   </View>
                   <MutedText>Due {item.dueDate}</MutedText>
@@ -451,6 +451,38 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   {item.status === "declined" && item.declinedReason ? (
                     <MutedText>You declined this: {item.declinedReason}</MutedText>
                   ) : null}
+                  {(() => {
+                    const req = requests.find((r) => r.scheduleId === item.id);
+                    const phase = screeningRequestPhase(req);
+                    if (!req || phase === "none") return null;
+                    if (phase === "awaiting_result") {
+                      return (
+                        <View style={{ gap: 6 }}>
+                          <MutedText>Your test request is ready. Take it to any lab, then upload your result under Labs.</MutedText>
+                          <SecondaryButton
+                            title="Open your test request"
+                            onPress={async () => {
+                              setRequestError(null);
+                              const res = await getLabRequestPrintUrl(req.labOrderId);
+                              if (!res.ok) {
+                                setRequestError(res.error);
+                                return;
+                              }
+                              await WebBrowser.openBrowserAsync(res.data);
+                            }}
+                          />
+                          {requestError ? <ErrorText>{requestError}</ErrorText> : null}
+                        </View>
+                      );
+                    }
+                    return (
+                      <MutedText>
+                        {phase === "reviewed"
+                          ? "Your care team has reviewed your result."
+                          : "Result received. Your care team will review it. It is your own upload, not yet checked by a doctor."}
+                      </MutedText>
+                    );
+                  })()}
                   {canDecline ? (
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <View style={{ flex: 1 }}>
@@ -490,7 +522,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               The screening worth doing at your age, what to ask a laboratory for, and roughly what
               it costs. Working out which tests you need and writing the request is free, and always
               will be. You take that request to whichever laboratory you choose and pay them
-              directly, at their price — we add nothing and take no cut. Upload the result when it
+              directly, at their price. We add nothing and take no cut. Upload the result when it
               comes back and a doctor can read it with you.
             </MutedText>
 
@@ -502,22 +534,22 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             ) : (
               cancerScreening.data.bundles.map((bundle) => (
                 <View key={bundle.id} style={{ gap: 6, paddingVertical: 6 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+                  <AppText variant="bodyStrong">{bundle.name}</AppText>
                   {bundle.description ? <MutedText>{bundle.description}</MutedText> : null}
                   <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
                     {bundle.indicative_price_kobo ? (
-                      <Text style={{ fontSize: 12.5, lineHeight: 18, color: colors.ink }}>
+                      <AppText variant="body">
                         About ₦{koboToNaira(bundle.indicative_price_kobo).toLocaleString("en-NG")} at a
                         major private laboratory. Smaller laboratories are often cheaper for the same
                         test, so it is worth asking two. You pay the laboratory directly, at their
                         price. Tarragon adds nothing and takes no cut.
-                      </Text>
+                      </AppText>
                     ) : (
-                      <Text style={{ fontSize: 12.5, lineHeight: 18, color: colors.ink }}>
+                      <AppText variant="body">
                         Ask the laboratory for their current price. We do not have a reliable figure
                         for this one, so we would rather say so than guess. You pay them directly;
                         Tarragon adds nothing.
-                      </Text>
+                      </AppText>
                     )}
                     {bundle.where_to_get ? <MutedText>{bundle.where_to_get}</MutedText> : null}
                   </View>
@@ -554,8 +586,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
       </View>
 
       {/* Vaccination history */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Vaccination history</SectionLabel>
+      <Disclosure title="Vaccination history" hint="Doses you have had, with dates">
         {vaccHistory.error ? (
           <Card>
             <ErrorText>Could not load your vaccination history.</ErrorText>
@@ -576,11 +607,10 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             ))}
           </GroupedList>
         )}
-      </View>
+      </Disclosure>
 
       {/* Results over time */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Your results over time</SectionLabel>
+      <Disclosure title="Your results over time" hint="Each result against your previous one">
         {trends.error ? (
           <Card>
             <ErrorText>Could not load your lab results.</ErrorText>
@@ -611,11 +641,11 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                   })}
                   trailing={
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                      <AppText variant="bodyStrong">
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
-                      </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
+                      </AppText>
+                      {deltaLabel ? <AppText variant="caption" tone="textSubtle">{deltaLabel}</AppText> : null}
                     </View>
                   }
                 />
@@ -623,8 +653,8 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             })}
           </GroupedList>
         )}
-        <MutedText>Each result, compared with your previous one — for tracking, not diagnosis.</MutedText>
-      </View>
+        <MutedText>Each result, compared with your previous one. This is for tracking, not diagnosis.</MutedText>
+      </Disclosure>
 
       <Modal visible={actionTarget !== null} animationType="slide" transparent onRequestClose={closeAction}>
         <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}>
@@ -637,12 +667,12 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               gap: 12,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="bodyLargeStrong">
               {actionTarget?.item.screenTypeName ?? "Screening"}
-            </Text>
+            </AppText>
             {actionDoneLabel ? (
               <>
-                <Text style={{ fontSize: 13.5, color: colors.brandPressed, lineHeight: 19 }}>{actionDoneLabel}</Text>
+                <AppText variant="body" tone="brandText">{actionDoneLabel}</AppText>
                 <SecondaryButton title="Close" onPress={closeAction} />
               </>
             ) : actionTarget?.mode === "confirm" ? (
@@ -660,7 +690,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderColor: colors.border,
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                   }}
                 />
@@ -676,7 +706,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderColor: colors.border,
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                   }}
                 />
@@ -708,7 +738,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                     borderRadius: radius.control,
                     paddingHorizontal: 12,
                     paddingVertical: 10,
-                    fontSize: 14,
+                    ...textStyles.body,
                     color: colors.ink,
                     textAlignVertical: "top",
                   }}

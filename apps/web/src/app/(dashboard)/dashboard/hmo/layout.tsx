@@ -66,9 +66,9 @@ export default async function HmoLayout({ children }: { children: React.ReactNod
       >
         <div className="space-y-6">
           <InstitutionPrivacyNotice entityLabel="member" />
-          <ContractStatusCard performance={data.contractPerformance} />
+          <ContractStatusCard performance={data.contractPerformance} failed={data.unavailable.contract} />
           <RosterManager organisationId={data.organisationId} entityLabel="member" />
-          <CareGapPanel summary={data.careGaps} />
+          <CareGapPanel summary={data.careGaps} failed={data.unavailable.careGaps} />
           <OutcomeReportsPanel organisationId={data.organisationId} />
         </div>
       </DashboardPlaceholder>

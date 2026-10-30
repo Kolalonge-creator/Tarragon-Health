@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 
@@ -25,7 +26,14 @@ export async function requestCampaignFromTemplateAction(
   const profile = await getCurrentProfile();
   if (!profile?.organisation_id) return { error: "Not authorised" };
 
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "corporate_programmes");
+  let access: Awaited<ReturnType<typeof requireInstitutionAggregateAccess>>;
+  try {
+    access = await requireInstitutionAggregateAccess(profile.organisation_id, "corporate_programmes");
+  } catch (err) {
+    // The access check could not complete: that is not the same as being refused.
+    Sentry.captureException(err, { extra: { institutionLoad: "programmes.access" } });
+    return { error: "We could not check your access just now. Please try again in a few minutes." };
+  }
   if (!access) return { error: "Not authorised" };
 
   const { data: template, error: templateError } = await access.client

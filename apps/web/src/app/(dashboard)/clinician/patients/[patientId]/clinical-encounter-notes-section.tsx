@@ -21,7 +21,9 @@ import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 import { VisitSummaryPanel } from "./visit-summary-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
-import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview } from "@/lib/scribe/actions";
+import { OmissionPanel } from "@/components/copilot/omission-panel";
+import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview, recordScribeSignedDiff } from "@/lib/scribe/actions";
+import { buildSignedDiff } from "@/lib/scribe/draft-diff";
 import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
 import { extractSafetyLines } from "@/lib/scribe/safety-lines";
 import { draftHash, sectionOutcomes } from "@/lib/scribe/review-record";
@@ -155,7 +157,7 @@ function NoteFields({
           onChange={(e) => onChange("plan", e.target.value)}
         />
         <p className="mt-1 text-xs text-charcoal-ink/50">
-          A narrative account only: actual medication/lab/referral orders belong on their own
+          A narrative account only: actual medication, laboratory and referral orders belong on their own
           tabs, not here.
         </p>
       </div>
@@ -529,6 +531,14 @@ function DraftNoteCard({
    */
   async function recordReviewBeforeSign(): Promise<boolean> {
     if (!scribe) return true;
+    const signedFields = {
+      history: fields.history,
+      examination: fields.examinationFindings,
+      assessment: fields.assessment,
+      plan: fields.plan,
+      followUp: fields.followUpInstructions,
+      patientSummary: scribe.patientSummary,
+    };
     try {
       await recordScribeReview({
         noteId: note.id,
@@ -537,14 +547,19 @@ function DraftNoteCard({
         promptVersion: scribe.promptVersion,
         draftHash: await draftHash(scribe.original),
         source: scribe.source,
-        sections: sectionOutcomes(scribe.original, {
-          history: fields.history,
-          examination: fields.examinationFindings,
-          assessment: fields.assessment,
-          plan: fields.plan,
-          followUp: fields.followUpInstructions,
-          patientSummary: scribe.patientSummary,
-        }),
+        sections: sectionOutcomes(scribe.original, signedFields),
+      });
+      // The stored edit diff: the AI draft against the text about to be signed (the database reads the signed text from the note itself).
+      await recordScribeSignedDiff({
+        noteId: note.id,
+        consentId: scribe.consentId,
+        transcriptHash: scribe.transcriptHash,
+        model: scribe.modelId,
+        promptVersion: scribe.promptVersion,
+        draftHash: await draftHash(scribe.original),
+        source: scribe.source,
+        aiDraft: scribe.original,
+        diff: buildSignedDiff(scribe.original, signedFields),
       });
       return true;
     } catch (err) {
@@ -607,6 +622,8 @@ function DraftNoteCard({
           diagnosisCode={{ value: diagnosisCode, onChange: (value) => { setDiagnosisCode(value); setCodeError(null); }, problem: !codeCheck.ok, amends: Boolean(note.amends_note_id) }}
         />
         {codeError && <p className="text-sm text-red-600">{codeError}</p>}
+        {/* S89: flags only, never blocks signing; renders nothing while copilot.omission_panel_enabled is off (the default). */}
+        <OmissionPanel patientId={patientId} draftText={[fields.history, fields.examinationFindings, fields.assessment, fields.plan, fields.followUpInstructions].join("\n")} />
         {scribeAvailable && (
           <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
             <ScribePanel
@@ -615,7 +632,7 @@ function DraftNoteCard({
               patientContext={ageYears !== undefined && ageYears >= 0 && ageYears <= 130 ? { age: ageYears } : undefined}
               onUseDraft={applyScribeDraft}
             />
-            {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
+            {scribe && <p className="text-xs text-charcoal-ink/50">The AI wrote the text in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
           </div>
         )}
         {aiDrafted && (

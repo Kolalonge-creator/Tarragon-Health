@@ -222,7 +222,7 @@ function ClusterSuggestion({
           </Button>
         ) : (
           <Button asChild>
-            <Link href="/patient/messages">Ask your doctor about this test</Link>
+            <Link href="/patient/messages">Ask your care team about this test</Link>
           </Button>
         )}
         <Button asChild variant="outline">

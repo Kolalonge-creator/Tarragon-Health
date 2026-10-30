@@ -49,7 +49,7 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
     deviceName: "Xiaomi Mi Body Composition Scale 2",
     vendorName: "Xiaomi",
     whyWeRecommend:
-      "Bluetooth Low Energy, affordable and widely available in Nigeria. Its companion app shares readings with your phone's health platform.",
+      "A Bluetooth Low Energy scale that is affordable and widely available in Nigeria. Its companion app shares readings with your phone's health platform.",
   },
   {
     category: "blood_glucose",
@@ -57,7 +57,7 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
     deviceName: "Accu-Chek Guide (or Guide Me)",
     vendorName: "Roche",
     whyWeRecommend:
-      "A globally trusted meter, already stocked locally so there's no import wait, and one that uses the standard Bluetooth glucose profile Tarragon's pairing is built against.",
+      "A widely trusted meter that is already stocked locally, so there is no wait for import. It uses the standard Bluetooth glucose profile that Tarragon's pairing is built against.",
   },
 ] as const;
 
@@ -65,16 +65,16 @@ export const DEVICES_FAQ: readonly FaqItem[] = [
   {
     question: "Do I have to buy one of these?",
     answer:
-      "No. Typing a reading in takes seconds and keeps your record just as current. Any device that syncs through Apple Health or Health Connect can flow in too, as those connections roll out; these are simply well-regarded models people ask about.",
+      "No. Typing in a reading takes seconds and keeps your record just as current. Any device that syncs through Apple Health or Health Connect can also send readings to your record as those connections become available. These models are well regarded and are the ones people most often ask about.",
   },
   {
     question: "Does Tarragon sell these or make money if I buy one?",
     answer:
-      "No. Tarragon doesn't sell, ship, or earn a commission on any device. Buy any brand from whichever retailer you trust; Bluetooth or not, its readings can live on your Tarragon record.",
+      "No. Tarragon does not sell or ship any device, and earns no commission on any device. You can buy any brand from a retailer you trust. Whether or not it has Bluetooth, its readings can be kept on your Tarragon record.",
   },
   {
-    question: "My device isn't syncing automatically. Is something wrong?",
+    question: "My device is not syncing automatically. Is something wrong?",
     answer:
-      "Automatic sync is rolling out connection by connection, so a given device may not flow in automatically yet. Nothing is lost in the meantime: log the reading in the app in seconds and it lands on the same record, with the same doctor review, as a synced one.",
+      "Automatic sync is being introduced one connection at a time, so a given device may not send readings automatically yet. Nothing is lost in the meantime. You can enter the reading in the app in seconds, and it is added to the same record and receives the same doctor review as a synced reading.",
   },
 ] as const;

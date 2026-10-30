@@ -1,0 +1,13 @@
+[
+ {"name": "seated, rested 5, repeat", "position": "seated", "restedMinutes": 5, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "A"},
+ {"name": "seated, rested 4, repeat", "position": "seated", "restedMinutes": 4, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "B"},
+ {"name": "seated, rested 5, no repeat", "position": "seated", "restedMinutes": 5, "repeatCount": 0, "systolic": 120, "diastolic": 80, "expected": "B"},
+ {"name": "seated, rest not recorded", "position": "seated", "restedMinutes": null, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "rest_not_recorded"},
+ {"name": "position not recorded", "position": null, "restedMinutes": 5, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "unknown"},
+ {"name": "standing", "position": "standing", "restedMinutes": 5, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "C"},
+ {"name": "lying", "position": "lying", "restedMinutes": 5, "repeatCount": 1, "systolic": 120, "diastolic": 80, "expected": "C"},
+ {"name": "systolic below the plausible floor", "position": "seated", "restedMinutes": 5, "repeatCount": 1, "systolic": 59, "diastolic": 40, "expected": "C"},
+ {"name": "systolic not above diastolic", "position": "seated", "restedMinutes": 5, "repeatCount": 1, "systolic": 80, "diastolic": 120, "expected": "C"},
+ {"name": "diastolic above the plausible ceiling", "position": "seated", "restedMinutes": 5, "repeatCount": 1, "systolic": 200, "diastolic": 161, "expected": "C"},
+ {"name": "implausible and position not recorded", "position": null, "restedMinutes": 5, "repeatCount": 1, "systolic": 300, "diastolic": 80, "expected": "C"}
+]

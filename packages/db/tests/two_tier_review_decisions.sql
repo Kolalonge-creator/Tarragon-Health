@@ -356,7 +356,7 @@ begin
     (pg_temp.owner_try(format($q$insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency)
         values (%L, %L, %L, %L, 'pending_payment', 500000, 'NGN')$q$, v_org, fr, fr, v_sp)) like 'P0001:%Membership%')::text);
   perform pg_temp.ck('S7 every other doctor-time product stays closed', 'true',
-    (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'video_visit_credit'$q$) like '23514:%')::text);
+    (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'async_consult_credit'$q$) like '23514:%')::text);
   perform pg_temp.ck('S8 and so does the old renewal credit', 'true',
     (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'prescription_renewal_credit'$q$) like '23514:%')::text);
 end $$;
@@ -439,7 +439,7 @@ end $$;
 do $$
 declare d text; n integer;
 begin
-  d := replace(pg_get_functiondef('public.public_price_list()'::regprocedure), $s$ and p.code <> 'second_opinion_credit'$s$, '');
+  d := replace(pg_get_functiondef('public.public_price_list()'::regprocedure), $s$ and p.code not in ('second_opinion_credit', 'video_visit_credit')$s$, '');
   if d = pg_get_functiondef('public.public_price_list()'::regprocedure) then raise exception 'VACUOUS TEST: price list text not found'; end if;
   execute d;
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);

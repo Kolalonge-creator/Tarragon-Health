@@ -10,7 +10,7 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { membershipPriceLabel } from "@/lib/marketing/membership";
+import { membershipPriceLabel, paidProductName } from "@/lib/marketing/membership";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -29,7 +29,7 @@ function ladderIsPublic(): boolean {
 
 /** What is being given, in words. With the ladder public there are two yearly gifts, each priced from versioned config. */
 function givingSummary(price: string): string {
-  if (!ladderIsPublic()) return `A year of Membership, \u20A6${price}`;
+  if (!ladderIsPublic()) return `A year of ${paidProductName()}, \u20A6${price}`;
   const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
   return `A year of Membership (\u20A6${formatNaira(v.evergreen_kobo)}) or Membership Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
 }
@@ -41,11 +41,11 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "They choose to accept it",
-    body: "The gift waits for them to accept it. If they decline, or do not answer in time, you are refunded. Nothing about a gift ever bills them, then or later.",
+    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, we will refund you. A gift never results in a charge to them, now or later.",
   },
   {
-    title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they become a Member, you both get a reward voucher, a discount, not cash.",
+    title: "Invite them to join Tarragon",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. If they become a Member, we will say thank you.",
   },
 ];
 
@@ -55,21 +55,21 @@ function giftFaq(price: string): FaqItem[] {
       question: "What exactly am I giving?",
       answer: ladderIsPublic()
         ? `${givingSummary(price)}. Both are the same care: a video call with their care team every month, written questions between calls and prescriptions their care team signs. The only difference is the yearly blood panel. Medicines are not included.`
-        : `A year of Membership, ₦${price}. It is the same Membership anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
+        : `A year of ${paidProductName()}, ₦${price}. It is the same product anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
     },
     {
       question: "Who can I give it to?",
       answer:
-        "A parent, spouse, sibling or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they have not used Tarragon before, you can set up a record for them yourself with their name, phone number and your relationship to them. They do not need a smartphone or an account of their own for this to work.",
+        "A parent, spouse, sibling or child. After you pay, a member of our team phones them to say hello and help them start. They say yes in their own words; nothing begins before that.",
     },
     {
       question: "Will I see their results?",
       answer:
-        "No. Results go to them and their care team, and to nobody else. You are only told when the gift has been accepted.",
+        "No. You see only where the gift stands: waiting, accepted, declined, or not answered. Nothing about their health. Results go to them and their care team, and to nobody else.",
     },
     {
       question: "What if they say no, or do not answer?",
-      answer: "You are refunded. The gift is theirs to accept, and it waits for their answer.",
+      answer: "We will refund you. The gift is theirs to accept, and it waits 14 days for their answer. If they say no you see \"declined\", and if they have not answered you see \"not answered\". You do not see why.",
     },
     {
       question: "What if I am buying from outside Nigeria?",
@@ -85,8 +85,8 @@ function giftFaq(price: string): FaqItem[] {
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Tell us who it's for",
-    body: "If they already use Tarragon, link them as family or next of kin first. If they don't, set up their record yourself: they don't sign up or do anything before you can pay.",
+    title: "Tell us who the gift is for",
+    body: "Their name, their phone number and how you know them. They do not need to sign up or do anything before you pay.",
   },
   {
     step: 2,
@@ -96,12 +96,12 @@ const HOW_IT_WORKS = [
   {
     step: 3,
     title: "Pay once",
-    body: "Pay by card, bank transfer or USSD. There is nothing to cancel and it does not renew by itself.",
+    body: "Pay by card or bank transfer, through Paystack. There is nothing to cancel and it does not renew by itself.",
   },
   {
     step: 4,
-    title: "They accept it",
-    body: "The gift waits on their account for their answer. When they accept, their Membership starts.",
+    title: "They say yes",
+    body: "They say yes on a short call with us, or in the app. If there is no answer in 14 days, we will refund you.",
   },
 ];
 
@@ -116,8 +116,8 @@ export default function GiftPage() {
         eyebrow="Care that stays with them"
         title="Give the Gift of Health"
         description={ladderIsPublic()
-          ? `${givingSummary(price)}. A video call with their care team every month. Theirs to accept, nothing to renew.`
-          : `Give someone a year of Membership, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
+          ? `${givingSummary(price)}. A video call with their care team every month. They choose whether to accept it, and it does not renew.`
+          : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. They choose whether to accept it, and it does not renew.`}
         primaryHref="/signup?intent=support"
         primaryLabel="Give a year of Membership"
         secondaryHref="/login"
@@ -143,7 +143,7 @@ export default function GiftPage() {
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Ways to give</p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">A year of care, not a balance</h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You are giving a Membership, not topping up an account, and that difference is what makes the gift worth something.
+              You are giving a Membership, not adding money to an account. The gift is a year of care, and it cannot be exchanged for cash.
             </p>
           </div>
           <MarketingMediaFrame
@@ -164,7 +164,7 @@ export default function GiftPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="No gift cards, no codes to lose" />
+        <SectionHeading eyebrow="How it works" title="There are no gift cards or codes to lose" />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {HOW_IT_WORKS.map((item) => (
             <div key={item.step} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
@@ -177,10 +177,10 @@ export default function GiftPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="Before you give" title="Honest expectations" />
+        <SectionHeading eyebrow="Before you give" title="What to expect" />
         <FaqAccordion items={faq} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Looking after a parent day to day?{" "}
+          Do you help look after a parent day to day?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
@@ -191,8 +191,8 @@ export default function GiftPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Give someone the gift of being looked after."
-          description="Give a year of Membership, or send them your referral link. Either way it is care, not a card that expires."
+          title="Give someone a year of care."
+          description="Give a year of Membership, or send them your referral link. Either way, the gift is care and not a gift card that expires."
           primaryHref="/signup?intent=support"
           primaryLabel="Give a year of Membership"
           secondaryHref="/login"

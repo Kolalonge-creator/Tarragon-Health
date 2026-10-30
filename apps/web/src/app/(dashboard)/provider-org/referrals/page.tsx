@@ -3,6 +3,7 @@ import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 type ReferralRow = {
   referral_id: string;
@@ -44,7 +45,7 @@ export default async function ProviderOrgReferralsPage({
   }
 
   const supabase = await createClient();
-  const [{ data: rows }, { data: summary }] = await Promise.all([
+  const [{ data: rows, error: queueError }, { data: summary, error: summaryError }] = await Promise.all([
     supabase.rpc("provider_org_referral_queue", { p_organisation_id: selected.id }),
     supabase.rpc("provider_org_referral_queue_summary", { p_organisation_id: selected.id }),
   ]);
@@ -58,6 +59,12 @@ export default async function ProviderOrgReferralsPage({
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
 
+      {summaryError && (
+        <LoadFailure>
+          The status counts could not be loaded just now, so none are shown. They are not zero. Refresh the page to try
+          again.
+        </LoadFailure>
+      )}
       <div className="flex flex-wrap gap-3">
         {Object.entries(byStatus).map(([status, n]) => (
           <Badge key={status} variant={STATUS_BADGE[status] ?? "grey"}>
@@ -71,7 +78,11 @@ export default async function ProviderOrgReferralsPage({
           <CardTitle>Referrals routed here</CardTitle>
         </CardHeader>
         <CardContent>
-          {referrals.length === 0 ? (
+          {queueError ? (
+            <LoadFailure>
+              The referral queue could not be loaded just now. Nothing has been removed. Refresh the page to try again.
+            </LoadFailure>
+          ) : referrals.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No referrals routed to this organisation yet.</p>
           ) : (
             <div className="overflow-x-auto">

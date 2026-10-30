@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { formatGlucose } from "@tarragon/shared";
 import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 
@@ -46,7 +47,7 @@ export async function DiabetesGuidance({ diabetesType }: { diabetesType?: string
           <ol className="list-decimal space-y-0.5 pl-5">
             <li>Take about 15g of fast sugar now: 3–4 teaspoons of sugar in water, half a glass of a regular (not diet) soft drink, or glucose tablets.</li>
             <li>Wait 15 minutes and check again.</li>
-            <li>Still low? Repeat. Once recovered, eat your next meal or a snack.</li>
+            <li>If your sugar is still low, repeat the step above. Once it has recovered, eat your next meal or a snack.</li>
           </ol>
           <p className="text-charcoal-ink/60 dark:text-night-ink/60">
             Don&apos;t use chocolate or fatty foods; they work too slowly. If someone is confused or
@@ -58,8 +59,8 @@ export async function DiabetesGuidance({ diabetesType }: { diabetesType?: string
           <h3 className="font-medium text-deep-forest dark:text-brand-green-bright">When you&apos;re unwell (sick-day rules)</h3>
           <ul className="list-disc space-y-0.5 pl-5">
             <li><strong>Do not stop your insulin</strong>, even if you&apos;re not eating. You often need it more when ill.</li>
-            <li>Check your sugar more often than usual.</li>
-            <li>Keep sipping fluids so you don&apos;t get dehydrated.</li>
+            <li>Check your blood sugar more often than usual.</li>
+            <li>Keep drinking fluids regularly so that you do not become dehydrated.</li>
             <li>If you can&apos;t eat, take sugary drinks to avoid a low.</li>
             <li>Vomiting, very high sugars that won&apos;t come down, or feeling drowsy? Log it and get help early.</li>
           </ul>
@@ -68,11 +69,15 @@ export async function DiabetesGuidance({ diabetesType }: { diabetesType?: string
         <section className="space-y-1.5">
           <h3 className="font-medium text-deep-forest dark:text-brand-green-bright">Fasting (for example, Ramadan)</h3>
           <p>
-            Fasting with diabetes can be done more safely with a little planning, but it isn&apos;t
-            right for everyone. Talk to your care team <strong>before</strong> you fast so they can
-            check your risk and adjust your medicines and timings. Test your sugar more often while
-            fasting, and <strong>break the fast</strong> if you have a low, a very high reading, or
-            feel unwell.
+            Fasting with diabetes isn&apos;t right for everyone. Please talk to your care team{" "}
+            <strong>before</strong> you decide to fast, so they can check what is safe for you. If
+            your sugar is low or you feel unwell at any time, follow the low-sugar steps above and
+            get help.
+          </p>
+          <p>
+            <Link href="/patient/fasting" className="text-brand-green underline hover:no-underline dark:text-brand-green-bright">
+              Fasting and your health
+            </Link>
           </p>
         </section>
 

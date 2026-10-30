@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   loadMyNavigationRequests,
@@ -57,7 +57,9 @@ import {
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import {
   Badge,
   CalloutCard,
@@ -66,7 +68,6 @@ import {
   MutedText,
   PrimaryButton,
   SecondaryButton,
-  SectionLabel,
 } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
@@ -76,6 +77,8 @@ function when(iso: string): string {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface CareSupportScreenProps {
+  /** Opens the Messages section (the after-visit summary offers it for the few days after a visit). */
+  onOpenMessages?: () => void;
   patientId: string;
   organisationId: string;
   /** Pushes the native "manage this visit" screen once a video-visit
@@ -121,16 +124,32 @@ interface CareSupportScreenProps {
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation }: CareSupportScreenProps) {
+/** A quiet placeholder while a section loads, in place of a bare spinner. */
+function LoadingRows() {
+  return (
+    <SkeletonGroup label="Loading">
+      <View style={{ gap: 8 }}>
+        <Skeleton height={64} radius={16} />
+        <Skeleton height={64} radius={16} />
+      </View>
+    </SkeletonGroup>
+  );
+}
+
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation, onOpenMessages }: CareSupportScreenProps) {
   const colors = useLegacyColors();
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing.screen, gap: 22 }}
     >
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Care & support</Text>
-        <MutedText>Your care plan, reviews, and referrals.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Care & support
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Your care plan, reviews, and referrals.
+        </AppText>
       </View>
 
       <MonthlyCheckinSection />
@@ -146,7 +165,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
       />
       <MembershipSection />
       <WrittenQuestionsSection />
-      <VisitSummarySection />
+      <VisitSummarySection onOpenMessages={onOpenMessages} />
       <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} />
@@ -164,7 +183,6 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
 // ---------------------------------------------------------------------------
 
 function CarePlanSection({ patientId }: { patientId: string }) {
-  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [plans, setPlans] = useState<CarePlanSummaryItem[]>([]);
@@ -196,8 +214,8 @@ function CarePlanSection({ patientId }: { patientId: string }) {
   if (loading) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
-        <ActivityIndicator color={colors.brand} />
+        <AppText variant="bodyLargeStrong">Your care plan</AppText>
+        <LoadingRows />
       </View>
     );
   }
@@ -205,11 +223,11 @@ function CarePlanSection({ patientId }: { patientId: string }) {
   if (!hasAccess) {
     return (
       <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
+        <AppText variant="bodyLargeStrong">Your care plan</AppText>
         <Card style={{ gap: 8, borderStyle: "dashed" }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             A doctor-set care plan is a paid service
-          </Text>
+          </AppText>
           <MutedText>
             Your readings are checked against care protocols whatever you pay, and a dangerous one gets
             you clear guidance and a specific next step right away. What a doctor adds is a care plan set
@@ -230,7 +248,7 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Your care plan</Text>
+      <AppText variant="bodyLargeStrong">Your care plan</AppText>
       <Card style={{ gap: 12 }}>
         {plans.length === 0 ? (
           <MutedText>
@@ -248,18 +266,18 @@ function CarePlanSection({ patientId }: { patientId: string }) {
             {plans.map((plan) => (
               <View key={plan.id} style={{ gap: 2 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.condition}</Text>
+                  <AppText variant="bodyStrong">{plan.condition}</AppText>
                   <Badge tone="brand">Active</Badge>
                 </View>
                 <MutedText>
                   {plan.clinicianName ? `Managed by ${plan.clinicianName}` : "Not yet assigned to a doctor"}
                 </MutedText>
                 {plan.targetRanges.length > 0 ? (
-                  <Text style={{ fontSize: 12, color: colors.muted }}>
+                  <AppText variant="caption" tone="textMuted">
                     {plan.targetRanges.map(([k, v]) => `${k}: ${v}`).join("; ")}
-                  </Text>
+                  </AppText>
                 ) : null}
-                {plan.notes ? <Text style={{ fontSize: 12, color: colors.muted }}>{plan.notes}</Text> : null}
+                {plan.notes ? <AppText variant="caption" tone="textMuted">{plan.notes}</AppText> : null}
               </View>
             ))}
           </View>
@@ -278,23 +296,15 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 
         {goals.length > 0 ? (
           <View style={{ gap: 6 }}>
-            <Text
-              style={{
-                fontSize: 11.5,
-                fontWeight: "700",
-                color: colors.muted,
-                textTransform: "uppercase",
-                letterSpacing: 0.4,
-              }}
-            >
+            <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
               Your goals
-            </Text>
+            </AppText>
             {goals.map((goal) => (
               <View key={goal.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Badge tone={goal.status === "proposed" ? "neutral" : "brand"}>
                   {goal.status === "proposed" ? "Pending review" : "Active"}
                 </Badge>
-                <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{goal.description}</Text>
+                <AppText variant="body" style={{ flex: 1 }}>{goal.description}</AppText>
               </View>
             ))}
           </View>
@@ -305,15 +315,12 @@ function CarePlanSection({ patientId }: { patientId: string }) {
 }
 
 function TaskGroup({ title, tasks, onChanged }: { title: string; tasks: CareTask[]; onChanged: () => void }) {
-  const colors = useLegacyColors();
   if (tasks.length === 0) return null;
   return (
     <View style={{ gap: 8 }}>
-      <Text
-        style={{ fontSize: 11.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4 }}
-      >
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
         {title}
-      </Text>
+      </AppText>
       {tasks.map((task) => (
         <TaskRow key={task.id} task={task} onChanged={onChanged} />
       ))}
@@ -346,9 +353,9 @@ function TaskRow({ task, onChanged }: { task: CareTask; onChanged: () => void })
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink }}>{task.title}</Text>
+        <AppText variant="body" style={{ flex: 1 }}>{task.title}</AppText>
         {task.status === "missed" ? <Badge tone="neutral">Overdue</Badge> : null}
-        {due ? <Text style={{ fontSize: 11, color: colors.subtle }}>Due {due}</Text> : null}
+        {due ? <AppText variant="caption" tone="textSubtle">Due {due}</AppText> : null}
       </View>
       {task.description ? <MutedText>{task.description}</MutedText> : null}
       {!showUnable ? (
@@ -398,7 +405,7 @@ function EscalationsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Care follow-ups</Text>
+      <AppText variant="bodyLargeStrong">Care follow-ups</AppText>
       <Card style={{ gap: 0 }}>
         {escalations.map((escalation, i) => (
           <View
@@ -406,13 +413,13 @@ function EscalationsSection({ patientId }: { patientId: string }) {
             style={{ paddingVertical: 10, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border, gap: 3 }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>{escalation.reason}</Text>
-              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(escalation.createdAt)}</Text>
+              <AppText variant="body" style={{ flex: 1 }}>{escalation.reason}</AppText>
+              <AppText variant="caption" tone="textSubtle">{formatCareDate(escalation.createdAt)}</AppText>
             </View>
             <MutedText>{ESCALATION_STATUS_COPY[escalation.status]}</MutedText>
             {(() => {
               const next = whatHappensNext(escalation.status, escalation.slaDueAt);
-              return next ? <Text style={{ fontSize: 12, color: colors.subtle }}>{next}</Text> : null;
+              return next ? <AppText variant="caption" tone="textSubtle">{next}</AppText> : null;
             })()}
           </View>
         ))}
@@ -443,7 +450,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Specialist referrals</Text>
+      <AppText variant="bodyLargeStrong">Specialist referrals</AppText>
       <Card style={{ gap: 0 }}>
         {referrals.map((referral, i) => (
           <View
@@ -451,24 +458,24 @@ function ReferralsSection({ patientId }: { patientId: string }) {
             style={{ paddingVertical: 10, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border, gap: 3 }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {humanizeCareLabel(referral.specialistType)}
-              </Text>
-              <Text style={{ fontSize: 11, color: colors.subtle }}>{formatCareDate(referral.createdAt)}</Text>
+              </AppText>
+              <AppText variant="caption" tone="textSubtle">{formatCareDate(referral.createdAt)}</AppText>
             </View>
             <MutedText>{REFERRAL_STATUS_COPY[referral.status]}</MutedText>
             {referral.appointmentDate ? (
-              <Text style={{ fontSize: 12, color: colors.muted }}>
+              <AppText variant="caption" tone="textMuted">
                 Appointment: {formatCareDate(referral.appointmentDate)}
-              </Text>
+              </AppText>
             ) : null}
             {referral.status === "closed" && referral.carePlanUpdateNote ? (
-              <Text style={{ fontSize: 12, color: colors.ink }}>What changed: {referral.carePlanUpdateNote}</Text>
+              <AppText variant="caption">What changed: {referral.carePlanUpdateNote}</AppText>
             ) : (
-              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>
-                Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
+              <AppText variant="caption" tone="textSubtle">
+                Take this to any {referral.specialistType.replace(/_/g, " ")} you like. You pay that clinic
                 directly. Download your referral letter and upload what they give you back on web.
-              </Text>
+              </AppText>
             )}
           </View>
         ))}
@@ -482,7 +489,6 @@ function ReferralsSection({ patientId }: { patientId: string }) {
 // ---------------------------------------------------------------------------
 
 function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [admissions, setAdmissions] = useState<HospitalAdmission[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -499,7 +505,7 @@ function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: s
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Hospital admissions</Text>
+        <AppText variant="bodyLargeStrong">Hospital admissions</AppText>
         {!formOpen && <SecondaryButton title="Log admission" onPress={() => setFormOpen(true)} />}
       </View>
       <MutedText>
@@ -519,7 +525,7 @@ function HospitalAdmissionsSection({ patientId, organisationId }: { patientId: s
         />
       ) : null}
 
-      {loading && <ActivityIndicator color={colors.brand} />}
+      {loading && <LoadingRows />}
       {!loading && admissions.length === 0 && !formOpen && <MutedText>No admissions recorded.</MutedText>}
       {admissions.length > 0 ? (
         <Card style={{ gap: 0 }}>
@@ -596,7 +602,7 @@ function HospitalAdmissionForm({
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Admission date (YYYY-MM-DD)</Text>
+        <AppText variant="label" tone="textMuted">Admission date (YYYY-MM-DD)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder={todayDateInput()}
@@ -608,7 +614,7 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Discharge date (optional)</Text>
+        <AppText variant="label" tone="textMuted">Discharge date (optional)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={dateInputStyle}
           placeholder="Leave blank if still admitted"
@@ -620,7 +626,7 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>Hospital (optional)</Text>
+        <AppText variant="label" tone="textMuted">Hospital (optional)</AppText>
         <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
@@ -630,9 +636,9 @@ function HospitalAdmissionForm({
         />
       </View>
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>
+        <AppText variant="label" tone="textMuted">
           What were you admitted for? (optional)
-        </Text>
+        </AppText>
         <TextInput keyboardAppearance={scheme}
           style={textInputStyle}
           placeholderTextColor={colors.subtle}
@@ -694,26 +700,26 @@ function AdmissionRow({
     <View style={{ paddingVertical: 10, borderTopWidth: first ? 0 : 1, borderTopColor: colors.border, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             {admission.facility_name ?? "Hospital admission"}
-          </Text>
+          </AppText>
           <Badge tone={admission.is_current ? "brand" : "neutral"}>
             {admission.is_current ? "Currently admitted" : "Discharged"}
           </Badge>
         </View>
-        <Text style={{ fontSize: 11, color: colors.subtle }}>{admissionDurationLabel(admission)}</Text>
+        <AppText variant="caption" tone="textSubtle">{admissionDurationLabel(admission)}</AppText>
       </View>
       <MutedText>
         Admitted {formatCareDate(admission.admitted_on)}
         {admission.discharged_on ? ` · discharged ${formatCareDate(admission.discharged_on)}` : ""}
       </MutedText>
       {admission.self_reported_diagnosis ? (
-        <Text style={{ fontSize: 12, color: colors.muted }}>
+        <AppText variant="caption" tone="textMuted">
           Reason (self-reported): {admission.self_reported_diagnosis}
-        </Text>
+        </AppText>
       ) : null}
       {admission.discharge_summary ? (
-        <Text style={{ fontSize: 12, color: colors.muted }}>Discharge notes: {admission.discharge_summary}</Text>
+        <AppText variant="caption" tone="textMuted">Discharge notes: {admission.discharge_summary}</AppText>
       ) : null}
       {admission.source === "staff_recorded" ? <MutedText>Recorded by your care team.</MutedText> : null}
 
@@ -793,11 +799,11 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Need help with something?</Text>
+        <AppText variant="bodyLargeStrong">Need help with something?</AppText>
         {!open && <SecondaryButton title="I need help" onPress={() => setOpen(true)} />}
       </View>
       <MutedText>
-        Appointments, pharmacy, labs, insurance, referrals, or payments — a navigator helps sort it
+        Appointments, pharmacy, labs, insurance, referrals, or payments: a navigator helps sort it
         out.
       </MutedText>
 
@@ -817,7 +823,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                     backgroundColor: selected ? colors.brand : colors.groupBg,
                   }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
+                  <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>
                     {NAVIGATION_REQUEST_CATEGORY_LABEL[c]}
                   </Text>
                 </Pressable>
@@ -840,26 +846,26 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
         </Card>
       )}
 
-      {loading && <ActivityIndicator color={colors.brand} />}
+      {loading && <LoadingRows />}
       {!loading && requests.length === 0 && !open && (
-        <MutedText>No requests yet — if something's getting in the way, let us know above.</MutedText>
+        <MutedText>No requests yet. If something is getting in the way, let us know above.</MutedText>
       )}
       {requests.length > 0 && (
         <View style={{ gap: 10 }}>
           {requests.map((r) => (
             <Card key={r.id} style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyStrong">
                   {NAVIGATION_REQUEST_CATEGORY_LABEL[r.category]}
-                </Text>
+                </AppText>
                 <Badge tone={r.status === "resolved" ? "brand" : "neutral"}>
                   {NAVIGATION_REQUEST_STATUS_LABEL[r.status]}
                 </Badge>
               </View>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.description}</Text>
+              <AppText variant="body">{r.description}</AppText>
               <MutedText>Sent {when(r.created_at)}</MutedText>
               {r.status === "resolved" && r.resolution_note && (
-                <Text style={{ fontSize: 13, color: colors.ink, backgroundColor: colors.groupBg, padding: 8, borderRadius: radius.control }}>
+                <Text style={{ ...textStyles.body, color: colors.ink, backgroundColor: colors.groupBg, padding: 8, borderRadius: radius.control }}>
                   {r.resolution_note}
                 </Text>
               )}
@@ -880,7 +886,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                         justifyContent: "center",
                       }}
                     >
-                      <Text style={{ fontSize: 12, color: colors.ink }}>{n}</Text>
+                      <AppText variant="caption">{n}</AppText>
                     </Pressable>
                   ))}
                 </View>
@@ -944,8 +950,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionLabel>Your care vouchers</SectionLabel>
+    <Disclosure title="Your care vouchers" hint="Vouchers you hold, and referral codes">
       <MutedText>
         A voucher is for the service named on it and for you alone. It is not an account balance and it is never
         exchangeable for cash.
@@ -956,7 +961,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
       ) : (
         live.map((v) => (
           <View key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>{v.sku_name ?? "Care voucher"}</Text>
+            <AppText variant="body">{v.sku_name ?? "Care voucher"}</AppText>
             <Badge tone={v.status === "active" ? "brand" : "neutral"}>{STATUS_LABEL[v.status] ?? v.status}</Badge>
           </View>
         ))
@@ -965,13 +970,13 @@ function VouchersSection({ patientId }: { patientId: string }) {
       <CalloutCard
         icon="pricetag-outline"
         title="Buy or pay toward a voucher"
-        subtitle="Gift a service, buy a health check, or pay an instalment — opened in your browser."
+        subtitle="Gift a service, buy a health check, or pay an instalment. It opens in your browser."
         ctaLabel="Open"
         onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
       />
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Invite someone</Text>
+        <AppText variant="bodyStrong">Invite someone</AppText>
         <MutedText>
           When someone you invite completes their first paid order, you both get a reward voucher towards your
           care.
@@ -989,7 +994,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
         </View>
         {codeResult && (codeResult.ok ? <MutedText>Code applied.</MutedText> : <ErrorText>{codeResult.error}</ErrorText>)}
       </View>
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -1019,8 +1024,7 @@ function TestimonialSection() {
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionLabel>Share your experience</SectionLabel>
+    <Disclosure title="Share your experience" hint="A short quote about your care, with your permission">
       {result?.message ? (
         <MutedText>{result.message}</MutedText>
       ) : (
@@ -1030,7 +1034,7 @@ function TestimonialSection() {
             (never your medical details, just your words).
           </MutedText>
           <View>
-            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>How should we credit you?</Text>
+            <AppText variant="body" style={{ marginBottom: 4 }}>How should we credit you?</AppText>
             <TextInput keyboardAppearance={scheme}
               value={displayName}
               onChangeText={setDisplayName}
@@ -1041,7 +1045,7 @@ function TestimonialSection() {
             />
           </View>
           <View>
-            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>Your words</Text>
+            <AppText variant="body" style={{ marginBottom: 4 }}>Your words</AppText>
             <TextInput keyboardAppearance={scheme}
               value={quote}
               onChangeText={setQuote}
@@ -1062,6 +1066,6 @@ function TestimonialSection() {
           {result?.error ? <ErrorText>{result.error}</ErrorText> : null}
         </>
       )}
-    </Card>
+    </Disclosure>
   );
 }

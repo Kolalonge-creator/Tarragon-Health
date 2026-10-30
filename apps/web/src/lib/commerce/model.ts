@@ -41,6 +41,9 @@ export const orderRowSchema = z.object({
   // S72: whether the signed-in person is the buyer (only the buyer can ask for a refund), and the state of any refund asked for
   is_buyer: z.boolean().optional().default(true),
   refund_state: z.string().nullable().optional().default(null),
+  // W-19 (D-14): only the payer of a gift sees this; the person who received it, and every other order, gets null. An unknown word parses to
+  // null so one unexpected value can never remove an order from the list.
+  gift_state: z.enum(["waiting", "accepted", "declined", "not_answered", "not_accepted"]).nullable().catch(null),
 });
 export type OrderRow = z.infer<typeof orderRowSchema>;
 
@@ -104,6 +107,25 @@ export function parseMembership(data: unknown): MembershipState {
   return r.success ? r.data : { is_member: false, ends_at: null, source: null };
 }
 
+/**
+ * The patient's automatic-renewal status (public.my_membership_renewal). Never carries the card's authorization code: only brand, last 4 and
+ * expiry. A reply that does not parse is treated as "no renewal information", which shows nothing rather than a wrong promise.
+ */
+const renewalSchema = z.object({
+  enabled: z.boolean(),
+  has_membership: z.boolean(),
+  auto_renew: z.boolean().default(false),
+  ends_at: z.string().nullable().optional(),
+  cancelled_at: z.string().nullable().optional(),
+  amount_kobo: kobo.nullable().optional(),
+  card: z.object({ brand: z.string().nullable(), last4: z.string().nullable(), exp_month: z.string().nullable(), exp_year: z.string().nullable() }).nullable().optional(),
+});
+export type RenewalState = z.infer<typeof renewalSchema>;
+export function parseRenewal(data: unknown): RenewalState | null {
+  const r = renewalSchema.safeParse(data);
+  return r.success ? r.data : null;
+}
+
 /** Catalogue copy keys come from the database; an unknown key falls back to showing nothing rather than a raw key. */
 export function isMessageKey(key: string, known: Readonly<Record<string, string>>): key is MessageKey {
   return Object.hasOwn(known, key);
@@ -137,6 +159,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_fully_covered: "shop.error.order_fully_covered",
   discount_code_invalid: "shop.error.discount_code_invalid",
   discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  rate_limited: "shop.error.rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted",
   sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
   // S72: paying from a supporter's link

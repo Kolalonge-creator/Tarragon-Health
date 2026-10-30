@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "k6 load scripts. Not part of the pnpm workspace; k6 does not read this file, node --test does."
+}

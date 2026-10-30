@@ -228,11 +228,13 @@ begin
   end if;
   perform pg_temp.back();
 
-  -- 6. the guard is still off and still cannot be switched on (the engine and the SLA are not done)
+  -- 6. the guard is still off. G-01: it is a feature, so the CMO may switch it on without a condition, but it stays closed to a real
+  --    patient while its parent master (clinical_operations_enabled) is off. The dashboard still reports the conditions.
   if private.go_live_open('symptom_checker_enabled') then raise exception 'FAIL 6a: the guard reads open'; end if;
   perform pg_temp.act(v_cmo);
-  if pg_temp.try(format('select public.set_go_live_guard(%L, true, %L)', 'symptom_checker_enabled', 'trying (proof)')) <> '22023' then raise exception 'FAIL 6b: the guard switched on with conditions unmet'; end if;
+  if pg_temp.try(format('select public.set_go_live_guard(%L, true, %L)', 'symptom_checker_enabled', 'trying (proof)')) <> 'ok' then raise exception 'FAIL 6b: a feature could not be switched on without its conditions (G-01)'; end if;
   perform pg_temp.back();
+  if private.go_live_guard_on('symptom_checker_enabled') then raise exception 'FAIL 6c: the feature reads open while its master is off'; end if;
 
   raise notice 'PASS: regulatory position recorded by admin or CMO only, append-only, attestations refused without a record and allowed with one, dashboard shows the record';
 end $$;

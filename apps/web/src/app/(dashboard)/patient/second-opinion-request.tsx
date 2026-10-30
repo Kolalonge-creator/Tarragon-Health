@@ -43,7 +43,7 @@ function RecommendedReferral({ request, patientId }: { request: SecondOpinionReq
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 p-3">
       <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-        Your doctor suggests seeing a specialist: {specialty}
+        A doctor suggests seeing a specialist: {specialty}
       </p>
       {referral.referral_reason && (
         <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{referral.referral_reason}</p>
@@ -339,7 +339,7 @@ export function SecondOpinionRequestCard({
         )}
         {submit.isSuccess && (
           <p className="text-sm text-brand-green dark:text-brand-green-bright">
-            Sent. A doctor will answer here within 72 hours.
+            Your request has been sent. A doctor will reply here within 72 hours.
             {submit.data?.resultsAttached === false &&
               " We could not attach the results you chose, so the doctor will review your description only."}
             {(submit.data?.filesFailed ?? 0) > 0 &&

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type PreventionTab = {
@@ -29,6 +29,13 @@ export type PreventionTab = {
  */
 export function PreventionTabs({ tabs }: { tabs: PreventionTab[] }) {
   const [activeId, setActiveId] = useState(tabs[0]?.id);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
+  // The row scrolls sideways at phone width. Keep the chosen tab fully in view so it never sits clipped at the edge. Only the row
+  // scrolls: block "nearest" leaves the page where it is.
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView?.({ inline: "center", block: "nearest" });
+  }, [activeId]);
 
   useEffect(() => {
     function resolveHash() {
@@ -54,19 +61,20 @@ export function PreventionTabs({ tabs }: { tabs: PreventionTab[] }) {
       <div
         role="tablist"
         aria-label="Prevention sections"
-        className="flex gap-1 overflow-x-auto border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-px"
+        className="flex gap-1 overflow-x-auto border-b border-charcoal-ink/10 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] dark:border-night-ink/15 sm:[mask-image:none]"
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId;
           return (
             <button
               key={tab.id}
+              ref={isActive ? activeTabRef : undefined}
               type="button"
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveId(tab.id)}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors",
+                "shrink-0 whitespace-nowrap rounded-t-lg border-b-2 min-h-11 px-3.5 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "border-brand-green dark:border-brand-green-bright text-deep-forest dark:text-brand-green-bright"
                   : "border-transparent text-charcoal-ink/55 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"

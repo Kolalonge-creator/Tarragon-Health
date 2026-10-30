@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Database } from "@tarragon/shared";
+import { OutputKindLabel } from "@/components/output-kind-label";
 
 type AiSummaryStatus = Database["public"]["Enums"]["ai_document_summary_status"];
 
@@ -46,9 +47,8 @@ export function AiSummaryCard({
           : "border-slate-200 dark:border-night-ink/15 bg-slate-50 dark:bg-night-ink/10"
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
-        {label}
-      </p>
+      <OutputKindLabel kind="automated_information" note={label} />
+
       {children(isFlagged)}
     </div>
   );

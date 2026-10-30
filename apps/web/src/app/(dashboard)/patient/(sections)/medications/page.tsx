@@ -8,9 +8,10 @@ import { MedicationReconciliationConfirm } from "@/app/(dashboard)/patient/medic
 import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
-import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { AddMedicationSheet } from "@/app/(dashboard)/patient/add-medication-sheet";
 import { MyDayCard } from "@/app/(dashboard)/patient/my-day-card";
 import { CareChangeCard } from "@/app/(dashboard)/patient/care-change-card";
+import { LowCarbLink } from "@/app/(dashboard)/patient/lowcarb/lowcarb-link";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { loadMyCareChanges } from "@/lib/care-changes/load";
 import { t } from "@tarragon/i18n";
@@ -29,18 +30,20 @@ export default async function PatientMedicationsPage() {
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         <div className="space-y-4">
+          {!acting && <LowCarbLink />}
           {careChanges?.ok === true && <CareChangeCard changes={careChanges.changes} locale={uiLanguage} />}
           {careChanges?.ok === false && <LoadErrorCard title={t("careChange.title", uiLanguage)} what="your care team's changes" />}
+          {/* Today's doses first: it is what this page is for, and on a phone the single column follows this order. */}
+          <TodaysDoses patientId={subjectId} />
           <MedicationsList
             patientId={subjectId}
             refillCoordinationEnabled
             canStop
           />
-          <AddMedicationForm patientId={subjectId} source="patient" />
+          <AddMedicationSheet patientId={subjectId} />
         </div>
 
         <div className="space-y-4">
-          <TodaysDoses patientId={subjectId} />
           <MyDayCard patientId={subjectId} />
           <MedicationReconciliationConfirm patientId={subjectId} />
           <AdherenceCheckins patientId={subjectId} />

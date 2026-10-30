@@ -21,6 +21,7 @@ let orders: { data: unknown[] };
 let quote: { data: unknown };
 const useQuoteSpy = jest.fn();
 const mutateAsync = jest.fn();
+jest.mock("@/components/join-waitlist", () => ({ JoinWaitlist: () => null }));
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
   return {
@@ -29,6 +30,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyMembership: () => membership,
     useMyOrders: () => orders,
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
+    useAutoRenewEnabled: () => ({ data: false }),
     useQuote: (input: unknown) => { useQuoteSpy(input); return quote; },
   };
 });
@@ -52,7 +54,7 @@ beforeEach(() => {
 describe("MembershipShop", () => {
   it("shows the item, what is included, the price and an estimated fee labelled as an estimate", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("Tarragon Membership")).toBeTruthy();
+    expect(screen.getByText("Membership Plus")).toBeTruthy();
     expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
     expect(screen.getByText("₦120,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);

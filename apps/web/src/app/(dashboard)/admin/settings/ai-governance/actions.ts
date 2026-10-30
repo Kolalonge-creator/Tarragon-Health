@@ -7,6 +7,7 @@ import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-p
 import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites, type EvalSuiteResult } from "@/lib/ai-governance/run-coach-eval-suites";
+import { runAiDocumentCaptureEvalSuites } from "@/lib/ai-governance/run-document-capture-eval-suites";
 import { runAiImagingReportEvalSuites } from "@/lib/ai-governance/run-imaging-eval-suites";
 import { runAiScribeEvalSuites } from "@/lib/ai-governance/run-scribe-eval-suites";
 
@@ -321,7 +322,7 @@ export type RunEvalSuitesState =
  * action able to drive either without duplicating the ~100 lines of
  * permission-check / version-lookup / incremental-recording logic below.
  */
-const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017"] as const;
+const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017", "AI-018"] as const;
 type SupportedEvalSystemCode = (typeof SUPPORTED_EVAL_SYSTEM_CODES)[number];
 
 async function runSuitesForSystem(
@@ -330,6 +331,7 @@ async function runSuitesForSystem(
 ): Promise<{ aiSystemId: string; suites: EvalSuiteResult[] }> {
   if (systemCode === "AI-001") return runAiCoachGovernanceSuites(options);
   if (systemCode === "AI-017") return runAiScribeEvalSuites(options);
+  if (systemCode === "AI-018") return runAiDocumentCaptureEvalSuites(options);
   return runAiImagingReportEvalSuites(options);
 }
 
@@ -340,7 +342,7 @@ const runEvalSuitesSchema = z.object({
 /**
  * Runs a registered AI system's governance evaluation suite(s) for real
  * (real model calls against the actual production code path -- the coach
- * graph for AI-001, extractImagingReport() for AI-016 -- never against
+ * graph for AI-001, extractImagingReport() for AI-016, extractDocumentSuggestions() for AI-018 -- never against
  * patient data, see run-coach-eval-suites.ts / run-imaging-eval-suites.ts)
  * and records one ai_evaluation_runs + its ai_evaluation_case_results rows
  * per suite as each suite completes, not batched at the end. That ordering
@@ -400,7 +402,8 @@ export async function runAiEvalSuitesAction(
     .maybeSingle();
   if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
-  const totalSuiteCount = systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 2 : 1;
+  const totalSuiteCount =
+    systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 4 : systemCode === "AI-018" ? 2 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 
@@ -421,6 +424,7 @@ export async function runAiEvalSuitesAction(
             ai_system_id: aiSystemId,
             ai_system_version_id: latestVersion?.id ?? null,
             suite_id: suite.suite_id,
+            prompt_version_id: suite.prompt_version_id ?? null,
             environment: "evaluation",
             model_identifier: latestVersion?.model_identifier ?? null,
             completed_at: new Date().toISOString(),
@@ -473,4 +477,119 @@ export async function runAiEvalSuitesAction(
 
   revalidatePath(PATH);
   return { results, recordError };
+}
+
+const guardrailApprovalSchema = z.object({
+  systemCode: z.string().trim().min(1),
+  expectedCount: z.coerce.number().int().min(1),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve every active, still-unapproved guardrail of one AI system
+ * (40.5). `public.approve_ai_guardrails` is the real gate: only an active
+ * Chief Medical Officer, and the count the person read must equal what is
+ * unapproved right now, so a rule added after the review is never signed
+ * unseen. This action forwards the system code and the count shown on the
+ * page; it never works the count out itself.
+ */
+export async function approveAiGuardrailsAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = guardrailApprovalSchema.safeParse({
+    systemCode: formData.get("systemCode"),
+    expectedCount: formData.get("expectedCount"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("approve_ai_guardrails", {
+    p_system_code: parsed.data.systemCode,
+    p_expected_count: parsed.data.expectedCount,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  return { success: `Approved ${data ?? parsed.data.expectedCount}. It is on the record under your name.` };
+}
+
+const sourceApprovalSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Tick at least one to approve.").max(200, "Approve at most 200 at a time."),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve the AI knowledge sources the person ticked (40.7). The database
+ * function is the real gate (active Chief Medical Officer only, audited);
+ * this forwards exactly the ids ticked and never selects any itself.
+ */
+export async function approveAiKnowledgeSourcesAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = sourceApprovalSchema.safeParse({
+    ids: formData.getAll("ids").map(String),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("approve_ai_knowledge_sources", {
+    p_ids: parsed.data.ids,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  const n = data ?? 0;
+  return { success: n === 0 ? "Nothing new to approve; those were already approved." : `Approved ${n}. It is on the record under your name.` };
+}
+
+const runReviewSchema = z.object({
+  runId: z.string().uuid(),
+  expectedOutcome: z.enum(["pass", "fail", "needs_review"]),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Record that the Chief Medical Officer read the result of a finished evaluation run. The database function is the real gate (active CMO
+ * only, finished runs only, once, audited, never changes the outcome). This forwards the run and the outcome the person saw on the
+ * page; it never works the outcome out itself, so the database refuses if the run was rescored after the page loaded.
+ */
+export async function reviewAiEvaluationRunAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = runReviewSchema.safeParse({
+    runId: formData.get("runId"),
+    expectedOutcome: formData.get("expectedOutcome"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("review_ai_evaluation_run", {
+    p_run_id: parsed.data.runId,
+    p_expected_outcome: parsed.data.expectedOutcome,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  return { success: "Recorded that you read this result. It is on the record under your name." };
+}
+
+function revalidateApprovalPaths() {
+  revalidatePath(PATH);
+  revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
 }

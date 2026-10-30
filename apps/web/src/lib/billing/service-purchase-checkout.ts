@@ -60,7 +60,7 @@ export async function initiateServicePurchaseCheckout(args: {
 
   const { error } = await serviceRole
     .from("service_purchases")
-    .update({ pending_payment_provider_ref: result.data.reference })
+    .update({ pending_payment_provider_ref: result.data.reference, pending_payment_checkout_url: result.data.authorizationUrl })
     .eq("id", args.servicePurchaseId);
   if (error) return { ok: false, error: error.message };
 

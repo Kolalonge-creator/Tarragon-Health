@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { VaccinationCoverageSummary } from "@/lib/vaccination/load-coverage-analytics";
 
@@ -17,11 +18,15 @@ import type { VaccinationCoverageSummary } from "@/lib/vaccination/load-coverage
 export function VaccinationCoveragePanel({
   coverage,
   entityLabel = "staff",
+  failed = false,
 }: {
   coverage: VaccinationCoverageSummary | null;
+  /** The read failed: say so, rather than render nothing. */
+  failed?: boolean;
   /** "staff" (default, corporate) or "member" (HMO) — copy only, same data. */
   entityLabel?: "staff" | "member";
 }) {
+  if (failed) return <SectionUnavailable title="Vaccination coverage" />;
   if (!coverage) return null;
   const plural = entityLabel === "member" ? "members" : "staff";
 

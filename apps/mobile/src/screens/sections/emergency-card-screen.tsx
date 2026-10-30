@@ -14,13 +14,14 @@ import {
   type ShareLink,
 } from "@/lib/emergency";
 import { spacing } from "@/ui/theme";
-import { lightPalette, useLegacyColors } from "@/ui/design";
+import { lightPalette, useLegacyColors, textStyles } from "@/ui/design";
 import { EmergencyPackView } from "@/screens/emergency-pack-view";
 import { EmergencyCardFieldsCard } from "@/screens/sections/emergency-card-fields-card";
 import { COVERAGE_SCHEME_LABEL } from "@tarragon/shared";
 import { EmergencyCoverageCard } from "./emergency-coverage-card";
 import { FreshnessNote } from "@/ui/freshness-note";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 interface EmergencyCardScreenProps {
   patientId: string;
@@ -144,7 +145,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
-      <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
+      <AppText variant="title">Emergency card</AppText>
       {offline ? <MutedText>You&apos;re offline, so this is your last saved copy.</MutedText> : null}
       {/* The card keeps its own saved copy (not the read mirror), stamped when it was last fetched. */}
       {offline ? <FreshnessNote lastUpdatedAt={facts.cachedAt} /> : null}
@@ -152,7 +153,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       {/* Fixed red with white text in both schemes: a first responder must recognise this card at a glance. */}
       <View style={{ backgroundColor: lightPalette.dangerText, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
-          {facts.fullName ?? "—"}
+          {facts.fullName ?? "Name not recorded"}
         </Text>
         {/* A detail the person chose not to share says so. It never reads "None on file": a stranger would take that as "has none". */}
         <FactRow label="Blood group" value={notShared("blood") ?? facts.bloodGroup ?? "Not on file"} />
@@ -218,10 +219,10 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
           <ActivityIndicator color={colors.brand} />
         ) : shareLink ? (
           <>
-            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Your live link</Text>
-            <Text selectable style={{ fontSize: 12, color: colors.brandPressed, textAlign: "center" }}>
+            <AppText variant="label">Your live link</AppText>
+            <AppText variant="caption" tone="brandText" selectable style={{ textAlign: "center" }}>
               {shareLink.url}
-            </Text>
+            </AppText>
             <MutedText>
               Anyone with this link can view this card with no login, so share it only with people you trust to
               have it. Expires {new Date(shareLink.expiresAt).toLocaleDateString()}.
@@ -249,20 +250,20 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
 
       {lockOptIn ? (
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{t("lsi.title", locale)}</Text>
+          <AppText variant="bodyLargeStrong">{t("lsi.title", locale)}</AppText>
           <MutedText>{t("lsi.intro", locale)}</MutedText>
           <ErrorText>{t("lsi.warning", locale)}</ErrorText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Switch value={lockConfirmed} onValueChange={setLockConfirmed} accessibilityLabel={t("lsi.confirm", locale)} />
-            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.confirm", locale)}</Text>
+            <AppText variant="body" style={{ flex: 1 }}>{t("lsi.confirm", locale)}</AppText>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Switch value={lockMinimum} onValueChange={setLockMinimum} accessibilityLabel={t("lsi.minimum", locale)} />
-            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.minimum", locale)}</Text>
+            <AppText variant="body" style={{ flex: 1 }}>{t("lsi.minimum", locale)}</AppText>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Switch value={lockQr} onValueChange={setLockQr} accessibilityLabel={t("lsi.qr", locale)} />
-            <Text style={{ flex: 1, fontSize: 13, color: colors.ink }}>{t("lsi.qr", locale)}</Text>
+            <AppText variant="body" style={{ flex: 1 }}>{t("lsi.qr", locale)}</AppText>
           </View>
           {lockConfirmed ? <PrimaryButton title={t("lsi.download", locale)} onPress={() => void openLockScreenPicture()} /> : <MutedText>{t("lsi.needs_confirm", locale)}</MutedText>}
           {lockError ? <ErrorText>{t("lsi.error", locale)}</ErrorText> : null}
@@ -279,8 +280,8 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
-      <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>{label}</Text>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff", flexShrink: 1, textAlign: "right" }}>{value}</Text>
+      <Text style={{ ...textStyles.body, color: "rgba(255,255,255,0.85)" }}>{label}</Text>
+      <Text style={{ ...textStyles.label, color: "#fff", flexShrink: 1, textAlign: "right" }}>{value}</Text>
     </View>
   );
 }

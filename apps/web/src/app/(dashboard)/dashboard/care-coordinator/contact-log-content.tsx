@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 
 const CHANNEL_LABEL: Record<OutreachContactChannel, string> = { call: "Call" };
 
@@ -29,11 +30,9 @@ interface PatientRef {
 }
 
 /**
- * The reframed "Messages" tab: a per-patient outreach CONTACT LOG, not a live
- * chat. CLAUDE.md is explicit that two-way patient<->care-team conversation
- * stays in-app only, so there is no send box here. Instead
- * of one, this is a history feed (what a coordinator did and what
- * happened) with a form that appends one more entry.
+ * The "Messages" tab: per patient, an in-app chat (the care_messages thread,
+ * the only two-way channel) and the outreach CONTACT LOG of calls. The chat
+ * is for when an email or call has gone unanswered.
  */
 export function CareCoordinatorContactLog() {
   const { data: tasks } = useOutreachTasks();
@@ -126,6 +125,7 @@ function ContactThread({ patient }: { patient: PatientRef }) {
   const logContact = useLogOutreachContact();
   const [channel, setChannel] = useState<OutreachContactChannel>("call");
   const [note, setNote] = useState("");
+  const [mode, setMode] = useState<"chat" | "calls">("calls");
 
   const submit = () => {
     const trimmed = note.trim();
@@ -152,9 +152,32 @@ function ContactThread({ patient }: { patient: PatientRef }) {
           </Link>
         </div>
         <p className="text-xs text-charcoal-ink/50">
-          {patient.phone ? `Phone: ${patient.phone} · ` : ""}Outreach contact log, not a live chat
+          {patient.phone ? `Phone: ${patient.phone} · ` : ""}In-app chat and call log
         </p>
       </div>
+      <div className="flex shrink-0 gap-1 border-b border-charcoal-ink/8 px-5 pt-2" role="tablist">
+        {(["chat", "calls"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => setMode(m)}
+            className={cn(
+              "rounded-t-md border-b-2 px-3 py-1.5 text-sm font-medium",
+              mode === m ? "border-brand-green text-brand-green" : "border-transparent text-charcoal-ink/60"
+            )}
+          >
+            {m === "chat" ? "In-app chat" : "Call log"}
+          </button>
+        ))}
+      </div>
+      {mode === "chat" ? (
+        <div className="flex-1 overflow-y-auto p-5">
+          <StaffPatientChat patientId={patient.id} patientName={patient.fullName ?? "this patient"} />
+        </div>
+      ) : (
+      <>
       <div className="flex-1 space-y-3 overflow-y-auto p-5">
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {contacts && contacts.length === 0 && (
@@ -198,6 +221,8 @@ function ContactThread({ patient }: { patient: PatientRef }) {
           </p>
         )}
       </div>
+      </>
+      )}
     </>
   );
 }

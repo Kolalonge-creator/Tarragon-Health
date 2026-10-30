@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { requestEmergencyContraception } from "./emergency-contraception-actions";
+import { useDoctorReview } from "@/lib/queries/doctor-review";
+import { t } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +26,8 @@ import { NAV_ICON } from "@/lib/icons";
  * up fast in case they have questions or need the IUD route — never a
  * promise that Tarragon is sourcing or handing over the product.
  */
-export function EmergencyContraceptionCard() {
+export function EmergencyContraceptionCard({ patientId }: { patientId: string }) {
+  const doctorReview = useDoctorReview(patientId); // W-53: only a Member is told the care team was notified
   const [state, formAction, pending] = useActionState(requestEmergencyContraception, undefined);
   const [notSure, setNotSure] = useState(false);
 
@@ -40,8 +43,9 @@ export function EmergencyContraceptionCard() {
         <CardContent className="space-y-3 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           <p>{state.guidance}</p>
           <p className="rounded-md bg-white dark:bg-night-card p-3 font-medium text-deep-forest dark:text-brand-green-bright">
-            Your care team has been notified and will follow up quickly if you have questions or
-            want help arranging the copper IUD.
+            {doctorReview
+              ? "Your care team has been notified and will follow up quickly if you have questions or want help arranging the copper IUD."
+              : t("freered.notified.free.ec", "en")}
           </p>
         </CardContent>
       </Card>

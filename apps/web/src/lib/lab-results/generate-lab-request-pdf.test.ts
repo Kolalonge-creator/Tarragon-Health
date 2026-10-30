@@ -57,6 +57,25 @@ describe("generateLabRequestPdf for the annual bundle", () => {
     expect(r).toEqual({ ok: false, error: "panel_unavailable" });
   });
 
+  describe("S98: a sensitive self-service request is not served to a non-owner", () => {
+    const sensitiveOrder = { ...order, panel_code: null, origin: "patient_initiated", panel_bundle: { name: "x", description: null, test_codes: ["hiv"] } };
+    const tests = { data: [{ code: "hiv", name: "HIV" }] as unknown as Row };
+    it("refuses a caregiver as not found", async () => {
+      const r = await generateLabRequestPdf(client({ lab_orders: { data: sensitiveOrder }, profiles: { data: patient }, screen_types: { data: [{ code: "hiv" }] as unknown as Row }, lab_tests: tests }), "o1", "caregiver-1");
+      expect(r).toEqual({ ok: false, error: "not_found" });
+      expect(renderToBuffer).not.toHaveBeenCalled();
+    });
+    it("serves the owner", async () => {
+      const r = await generateLabRequestPdf(client({ lab_orders: { data: sensitiveOrder }, profiles: { data: patient }, screen_types: { data: [{ code: "hiv" }] as unknown as Row }, lab_tests: tests }), "o1", "p1");
+      expect(r.ok).toBe(true);
+    });
+    it("serves a caregiver for a non-sensitive request", async () => {
+      const plain = { ...sensitiveOrder, panel_bundle: { name: "x", description: null, test_codes: ["hba1c"] } };
+      const r = await generateLabRequestPdf(client({ lab_orders: { data: plain }, profiles: { data: patient }, screen_types: { data: [] as unknown as Row }, lab_tests: tests }), "o1", "caregiver-1");
+      expect(r.ok).toBe(true);
+    });
+  });
+
   it("a missing order is still simply not found", async () => {
     const r = await generateLabRequestPdf(client({ lab_orders: { data: null } }), "nope");
     expect(r).toEqual({ ok: false, error: "not_found" });

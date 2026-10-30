@@ -4,6 +4,8 @@ import { t, type MessageKey } from "@tarragon/i18n";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { listLibrary, MEDIA_KINDS, type MediaItem } from "@/lib/wellbeing-library/queries";
 import { WellbeingShell } from "@/components/wellbeing/wellbeing-shell";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +42,16 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       {all === null ? (
         <LoadFailure>{t("library.error")}</LoadFailure>
       ) : items.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("library.empty")}</p>
+        <EmptyState
+          icon={SEMANTIC_ICON.mood}
+          title={t("library.empty_title")}
+          body={t("library.empty")}
+          action={
+            <Link href="/patient/wellbeing" className="text-sm font-medium text-brand-green underline">
+              {t("library.empty_back")}
+            </Link>
+          }
+        />
       ) : (
         SERIES_ORDER.map((series) => {
           const inSeries = items.filter((i) => i.series === series);

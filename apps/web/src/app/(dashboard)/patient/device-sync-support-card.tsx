@@ -67,8 +67,8 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
           My device isn&apos;t syncing
         </CardTitle>
         <CardDescription>
-          Check every device and wearable connected to your account: status, last successful
-          sync, and any error, all in one place.
+          This checks every device and wearable connected to your account and shows the status, the
+          last successful sync and any error in one place.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -79,15 +79,15 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
         )}
         {checked && diagnosis.isError && (
           <p className="text-sm text-red-600 dark:text-red-300">
-            Couldn&apos;t run the check just now. Try again in a moment.
+            The check could not be run just now. Please try again in a moment.
           </p>
         )}
 
         {checked && result && !hasAnyDevice && (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            You don&apos;t have any wearables or Bluetooth devices connected to your account yet.
-            That&apos;s likely why nothing is syncing. Connect a wearable above, or pair a device
-            from the Tarragon mobile app.
+            You do not have any wearables or Bluetooth devices connected to your account yet, which
+            is the most likely reason nothing is syncing. You can connect a wearable above, or pair
+            a device from the Tarragon mobile app.
           </p>
         )}
 

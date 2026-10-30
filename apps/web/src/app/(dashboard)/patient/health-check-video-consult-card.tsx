@@ -74,7 +74,7 @@ export function HealthCheckVideoConsultCard({ consult }: { consult: VideoConsult
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <p className="text-charcoal-ink/70 dark:text-night-ink/70">
-          Your doctor is ready to walk you through your results. Pick whichever works for you.
+          A doctor is ready to walk you through your results. Pick whichever works for you.
         </p>
         <div className="flex flex-wrap gap-2">
           {consult.proposed_slots.map((slot) => (

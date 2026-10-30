@@ -37,10 +37,12 @@ export default async function ProviderOrgLayout({ children }: { children: React.
   }
 
   const supabase = await createClient();
-  const { data: seats } = await supabase
+  const { data: seats, error: seatsError } = await supabase
     .from("provider_org_members")
     .select("organisation_id")
     .eq("is_active", true);
+  // A failed read is not "your login isn't linked to an organisation".
+  if (seatsError) throw seatsError;
 
   if (!seats || seats.length === 0) {
     return (

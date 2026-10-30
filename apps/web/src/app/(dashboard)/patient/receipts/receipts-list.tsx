@@ -146,7 +146,7 @@ export function ReceiptsList() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
-          Nothing here yet. Payments you make will show up as receipts.
+          You have no receipts yet. Receipts for your payments will appear here.
         </CardContent>
       </Card>
     );

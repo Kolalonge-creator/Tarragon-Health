@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FertilityRequestStatusForm } from "./fertility-request-status-form";
 import { CyclePatternReportPanel } from "./cycle-pattern-report";
+import { loadWomensHealthRecord, womensHealthRecordIsEmpty } from "@/lib/womens-health/staff-record-read";
 
 /**
  * Clinician-facing read model for the Women's Health platform (§44) — the
@@ -20,51 +21,39 @@ import { CyclePatternReportPanel } from "./cycle-pattern-report";
 export async function WomensHealthPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
 
-  const [
-    { data: pregnancy },
-    { data: antenatalVisits },
-    { data: postnatalProfiles },
-    { data: breastReports },
-    { data: fertilityRequests },
-  ] = await Promise.all([
-    supabase
-      .from("patient_pregnancy")
-      .select("is_pregnant, estimated_due_date, last_menstrual_period_date, high_risk, high_risk_notes")
-      .eq("patient_id", patientId)
-      .maybeSingle(),
-    supabase
-      .from("antenatal_visits")
-      .select("id, visit_number, gestational_week_at_visit, status, findings")
-      .eq("patient_id", patientId)
-      .order("gestational_week_at_visit", { ascending: true }),
-    supabase
-      .from("postnatal_profiles")
-      .select("id, delivery_date, delivery_mode, complications")
-      .eq("patient_id", patientId)
-      .order("delivery_date", { ascending: false }),
-    supabase
-      .from("breast_symptom_reports")
-      .select("id, created_at, symptom_types, laterality")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("fertility_assessment_requests")
-      .select("id, created_at, trying_duration_months, concern_notes, status")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false }),
-  ]);
+  // OQ-555 (INV-10, INV-12): all five record kinds come from ONE audited, tied function. The clinician types no reason (OQ-558). A refusal and a failed
+  // read are shown as what they are, never as an empty record: "nothing recorded" for a pregnancy that was not shown is a wrong decision.
+  const outcome = await loadWomensHealthRecord(supabase, patientId);
 
-  const hasAnyData =
-    pregnancy?.is_pregnant ||
-    (antenatalVisits?.length ?? 0) > 0 ||
-    (postnatalProfiles?.length ?? 0) > 0 ||
-    (breastReports?.length ?? 0) > 0 ||
-    (fertilityRequests?.length ?? 0) > 0;
+  if (outcome.kind === "denied") {
+    return (
+      <Card variant="soft">
+        <CardContent className="py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+          You cannot open this patient&apos;s Women&apos;s Health record. It is available to the clinician looking after the patient, and the attempt has been recorded.
+        </CardContent>
+      </Card>
+    );
+  }
+  if (outcome.kind === "error") {
+    return (
+      <div className="space-y-4">
+        <Card variant="soft">
+          <CardContent role="alert" className="py-4 text-sm text-red-700 dark:text-red-300">
+            The Women&apos;s Health record could not be loaded just now. This is not the same as there being nothing recorded. Please refresh and try again.
+          </CardContent>
+        </Card>
+        {/* The cycle and menopause report is its own audited read with its own states, so a failure of the record read does not hide it. */}
+        <CyclePatternReportPanel patientId={patientId} />
+      </div>
+    );
+  }
+
+  const { pregnancy, antenatal_visits: antenatalVisits, postnatal_profiles: postnatalProfiles, breast_reports: breastReports, fertility_requests: fertilityRequests } =
+    outcome.record;
 
   // S66: the cycle and menopause report is always rendered (it says for itself when it is closed, refused, failed or empty), so the
   // "nothing recorded" shortcut only applies to the other sections.
-  const otherSections = hasAnyData;
+  const otherSections = !womensHealthRecordIsEmpty(outcome.record);
   return (
     <div className="space-y-4">
       {pregnancy?.is_pregnant && (

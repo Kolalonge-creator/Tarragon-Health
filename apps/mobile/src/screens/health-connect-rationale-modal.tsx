@@ -1,8 +1,9 @@
-import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const PRIVACY_POLICY_URL = "https://tarragonhealth.ng/privacy";
 
@@ -54,14 +55,14 @@ export function HealthConnectRationaleModal({
           <Ionicons name="fitness-outline" size={24} color={colors.brand} />
         </View>
 
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="title">
           Share Health Connect data with TarragonHealth?
-        </Text>
+        </AppText>
 
-        <Text style={{ fontSize: 14.5, lineHeight: 21, color: colors.ink }}>
+        <AppText variant="body">
           Before Android asks you to choose which permissions to grant, here is exactly what that
           will let us read and why:
-        </Text>
+        </AppText>
 
         <View style={{ gap: 10 }}>
           <RationaleRow
@@ -71,18 +72,18 @@ export function HealthConnectRationaleModal({
           <RationaleRow icon="walk-outline" text="Daily step count." />
           <RationaleRow
             icon="time-outline"
-            text="Past readings going back further than the usual 30 days (so your first sync isn't missing recent history), and readings that arrive while TarragonHealth isn't open, so nothing is missed between visits."
+            text="Past readings going back further than the usual 30 days (so your first sync is not missing recent history), and readings that arrive while TarragonHealth is not open, so nothing is missed between visits."
           />
         </View>
 
         <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 12, gap: 6 }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink, lineHeight: 20 }}>
-            We only read this data — TarragonHealth never writes anything back to Health Connect.
+          <AppText variant="body">
+            We only read this data. TarragonHealth never writes anything back to Health Connect.
             Your care team sees it alongside the rest of your record, the same as a reading you
             type in yourself. You choose exactly which of these Android lets you grant on the next
             screen, and you can change or revoke any of them later in Health Connect's own app
             settings.
-          </Text>
+          </AppText>
         </View>
 
         <Pressable
@@ -90,9 +91,9 @@ export function HealthConnectRationaleModal({
           onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
           hitSlop={8}
         >
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.brandPressed }}>
+          <AppText variant="bodyStrong" tone="brandText">
             Read our privacy policy
-          </Text>
+          </AppText>
         </Pressable>
 
         <View style={{ gap: 10, marginTop: 8 }}>
@@ -109,7 +110,7 @@ function RationaleRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; te
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
       <Ionicons name={icon} size={18} color={colors.brand} style={{ marginTop: 2 }} />
-      <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: colors.ink }}>{text}</Text>
+      <AppText variant="body" style={{ flex: 1 }}>{text}</AppText>
     </View>
   );
 }

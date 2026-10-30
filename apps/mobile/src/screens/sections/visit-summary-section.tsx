@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { asLocale, AVS_URGENT_KEY, avsItemLabel, t, type MessageKey } from "@tarragon/i18n";
+import { visitFollowUpOpen } from "@tarragon/shared";
 import { addVisitItemToTasks, loadVisitSummaries, recordVisitSummaryOpened, setVisitItemDone } from "@/lib/visit-summary";
 import type { VisitSummary, VisitSummaryItem } from "@/lib/visit-summary/parse";
 import { useUiLanguage } from "@/lib/ui-language";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
@@ -19,7 +21,7 @@ function lagosDate(iso: string): string {
  * signal for a moment and no notification at all: the list is the interface. The urgent-care block is the app's existing
  * emergency wording, shown on every summary. Not run on a real device.
  */
-export function VisitSummarySection() {
+export function VisitSummarySection({ onOpenMessages }: { onOpenMessages?: () => void } = {}) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr: Translate = useCallback((key, params) => t(key, locale, params), [locale]);
@@ -56,19 +58,31 @@ export function VisitSummarySection() {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">
         {tr("avs.title")}
-      </Text>
+      </AppText>
       <MutedText>{tr("avs.intro")}</MutedText>
       {failed ? <ErrorText>{tr("avs.error.generic")}</ErrorText> : null}
       {summaries.map((s) => (
-        <SummaryCard key={s.id} summary={s} tr={tr} locale={locale} onChanged={refresh} />
+        <SummaryCard key={s.id} summary={s} tr={tr} locale={locale} onChanged={refresh} onOpenMessages={onOpenMessages} />
       ))}
     </View>
   );
 }
 
-function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary; tr: Translate; locale: ReturnType<typeof asLocale>; onChanged: () => Promise<void> }) {
+function SummaryCard({
+  summary,
+  tr,
+  locale,
+  onChanged,
+  onOpenMessages,
+}: {
+  summary: VisitSummary;
+  tr: Translate;
+  locale: ReturnType<typeof asLocale>;
+  onChanged: () => Promise<void>;
+  onOpenMessages?: () => void;
+}) {
   const colors = useLegacyColors();
   const [error, setError] = useState(false);
 
@@ -95,17 +109,17 @@ function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary
   return (
     <Card style={{ gap: 10 }}>
       {summary.approvedAt ? (
-        <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
+        <AppText variant="label">
           {summary.approvedByName
             ? tr("avs.checked_by", { name: summary.approvedByName, date: lagosDate(summary.approvedAt) })
             : tr("avs.checked_on", { date: lagosDate(summary.approvedAt) })}
-        </Text>
+        </AppText>
       ) : null}
-      <Text style={{ fontSize: 14, lineHeight: 21, color: colors.ink }}>{summary.summaryText}</Text>
+      <AppText variant="body">{summary.summaryText}</AppText>
 
-      <Text accessibilityRole="header" style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
+      <AppText variant="bodyStrong" accessibilityRole="header">
         {tr("avs.what_next")}
-      </Text>
+      </AppText>
       {summary.items.length === 0 ? <MutedText>{tr("avs.what_next.empty")}</MutedText> : null}
       {summary.items.map((item) => {
         const done = item.doneAt !== null;
@@ -133,9 +147,9 @@ function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary
                 {done ? <Text style={{ color: "#fff", fontWeight: "700" }}>{"✓"}</Text> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink, textDecorationLine: done ? "line-through" : "none" }}>
+                <AppText variant="body" style={{ textDecorationLine: done ? "line-through" : "none" }}>
                   {avsItemLabel({ kind: item.kind, params: item.params, customText: item.customText }, locale)}
-                </Text>
+                </AppText>
                 {item.dueOn ? <MutedText>{tr("avs.item.due", { date: lagosDate(item.dueOn) })}</MutedText> : null}
               </View>
             </Pressable>
@@ -149,9 +163,20 @@ function SummaryCard({ summary, tr, locale, onChanged }: { summary: VisitSummary
       })}
       {error ? <ErrorText>{tr("avs.error.generic")}</ErrorText> : null}
 
+      {/* A prompt only (visit.follow_up_prompt): it makes the existing conversation easy to find; it adds no entitlement and promises no reply time. */}
+      {onOpenMessages && summary.approvedAt && visitFollowUpOpen(summary.approvedAt, Date.now()) ? (
+        <View style={{ gap: 6 }}>
+          <AppText variant="bodyStrong" accessibilityRole="header">
+            {tr("avs.followup.title")}
+          </AppText>
+          <MutedText>{tr("avs.followup.body", { date: lagosDate(summary.approvedAt) })}</MutedText>
+          <SecondaryButton title={tr("avs.followup.cta")} onPress={onOpenMessages} />
+        </View>
+      ) : null}
+
       <View accessibilityRole="summary" style={{ gap: 4, padding: 12, borderRadius: 10, backgroundColor: colors.border }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{tr("avs.urgent.title")}</Text>
-        <Text style={{ fontSize: 14, lineHeight: 20, color: colors.ink }}>{tr(AVS_URGENT_KEY)}</Text>
+        <AppText variant="bodyStrong">{tr("avs.urgent.title")}</AppText>
+        <AppText variant="body">{tr(AVS_URGENT_KEY)}</AppText>
       </View>
     </Card>
   );

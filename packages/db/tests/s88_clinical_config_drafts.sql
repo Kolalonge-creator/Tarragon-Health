@@ -178,7 +178,7 @@ begin
     (v_txt not like '%ancestry%' and v_txt not like '%who_2019%')::text);
   -- a TEST-ONLY v2 with the rule supplied (never real clinical text), reviewed and confirmed, signs
   insert into public.clinical_config_versions (config_kind, version, content, sources)
-    select config_kind, 2, jsonb_set(content, '{monitoring,stop_and_review_rule}', '"TEST ONLY placeholder"'), sources
+    select config_kind, 90, jsonb_set(content, '{monitoring,stop_and_review_rule}', '"TEST ONLY placeholder"'), sources
       from public.clinical_config_versions where id = v_glp returning id into v_glp2;
   perform pg_temp.act(v_admin);
   perform public.record_independent_clinical_review(v_glp2, 'Dr Reviewer', 'MDCN/2', now(), 'approved', 'ok');

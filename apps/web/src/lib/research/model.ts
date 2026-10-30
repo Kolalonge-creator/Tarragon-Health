@@ -25,7 +25,70 @@ export const protocolRowSchema = z.object({
 export type ProtocolRow = z.infer<typeof protocolRowSchema>;
 export const protocolRowsSchema = z.array(protocolRowSchema);
 
-export const NOTICES = ["created", "approved", "failed", "denied"] as const;
+/** An open export request: the Chief Medical Officer asks, a different person (the data protection officer's admin route) authorises. */
+export const requestRowSchema = z.object({
+  id: z.string().uuid(),
+  protocol_id: z.string().uuid(),
+  protocol_title: z.string(),
+  requested_at: z.string(),
+  note: z.string(),
+  authorised: z.boolean(),
+  expired: z.boolean(),
+  is_mine: z.boolean(),
+  can_authorise: z.boolean(),
+});
+export type RequestRow = z.infer<typeof requestRowSchema>;
+export const requestRowsSchema = z.array(requestRowSchema);
+
+/** The public list of research uses. Reference numbers, agreement ids and participant counts are never in it. */
+export const ledgerRowSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  question: z.string(),
+  recipient_name: z.string(),
+  recipient_type: z.enum(RECIPIENT_TYPES),
+  ethics_body: z.string().nullable(),
+  ethics_approved_on: z.string().nullable(),
+  status: z.enum(["draft", "approved", "closed"]),
+  listed_on: z.string().nullable(),
+  release_count: z.coerce.number(),
+  last_release_on: z.string().nullable(),
+});
+export type LedgerRow = z.infer<typeof ledgerRowSchema>;
+export const ledgerRowsSchema = z.array(ledgerRowSchema);
+
+export const myChallengeSchema = z.object({
+  id: z.string().uuid(),
+  protocol_id: z.string().uuid().nullable(),
+  message: z.string(),
+  status: z.enum(["open", "answered"]),
+  answer: z.string().nullable(),
+  created_at: z.string(),
+  answered_at: z.string().nullable(),
+});
+export type MyChallenge = z.infer<typeof myChallengeSchema>;
+export const myChallengesSchema = z.array(myChallengeSchema);
+
+/** What the data protection officer sees: the question and the research use it is about, never who asked. */
+export const adminChallengeSchema = z.object({
+  id: z.string().uuid(),
+  protocol_id: z.string().uuid().nullable(),
+  protocol_title: z.string().nullable(),
+  message: z.string(),
+  status: z.enum(["open", "answered"]),
+  created_at: z.string(),
+});
+export type AdminChallenge = z.infer<typeof adminChallengeSchema>;
+export const adminChallengesSchema = z.array(adminChallengeSchema);
+
+export const requestFormSchema = z.object({ protocol_id: z.string().uuid(), note: z.string().trim().min(10).max(1000) });
+export const challengeFormSchema = z.object({
+  protocol_id: z.string().uuid().or(z.literal("")),
+  message: z.string().trim().min(10).max(2000),
+});
+export const answerFormSchema = z.object({ id: z.string().uuid(), answer: z.string().trim().min(10).max(4000) });
+
+export const NOTICES = ["created", "approved", "failed", "denied", "requested", "authorised", "raised", "answered", "needs_authorisation", "held_back"] as const;
 export type Notice = (typeof NOTICES)[number];
 export const asNotice = (v: string | undefined): Notice | null => (NOTICES as readonly string[]).includes(v ?? "") ? (v as Notice) : null;
 

@@ -132,6 +132,24 @@ export async function getNutritionGuidance(): Promise<unknown | null> {
   return result.ok ? result.data : null;
 }
 
+/** S50a: swaps and eating plans, or `{ state: "unavailable" }` (show nothing at all). Null when the request failed (offline, auth, server error). */
+export async function getEatingPlans(): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/nutrition/eating-plans", "GET");
+  return result.ok ? result.data : null;
+}
+
+/** S47b: the weekly summary cards, or `{ state: "hidden" }` (show nothing at all). Null when the request failed. */
+export async function getWeeklyCards(): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/weekly-cards", "GET");
+  return result.ok ? result.data : null;
+}
+
+/** S47b: the server fallback for today-build. Facts in (counts and yes or no, never a reading), the plan out. Null when the request failed. */
+export async function postTodayBuild(facts: unknown): Promise<unknown | null> {
+  const result = await request<unknown>("/api/mobile/today-build", "POST", facts);
+  return result.ok ? result.data : null;
+}
+
 export interface MobileThresholds {
   version: string;
   glucose: Record<string, number>;
@@ -679,6 +697,20 @@ export async function fetchWithTimeoutAndRetry(url: string, init: RequestInit): 
   }
 }
 
+// Many requests can hit a 401 at once (a screen fires several calls). Each one
+// refreshing separately emits a TOKEN_REFRESHED storm and can invalidate the
+// token another request just obtained, so they share one refresh in flight.
+let refreshInFlight: ReturnType<typeof supabase.auth.refreshSession> | null = null;
+
+function refreshSessionOnce(): ReturnType<typeof supabase.auth.refreshSession> {
+  if (!refreshInFlight) {
+    refreshInFlight = supabase.auth.refreshSession().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function request<T>(
   path: string,
   method: "GET" | "POST",
@@ -717,12 +749,12 @@ async function request<T>(
   // otherwise a stale-but-not-yet-refreshed token surfaces as a confusing
   // "Request failed (401)" instead of either succeeding or signing out.
   if (response.status === 401 && !isRetry) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    const { data: refreshed, error: refreshError } = await refreshSessionOnce();
     if (!refreshError && refreshed.session) {
       return request<T>(path, method, body, true, noRetry, timeoutMs);
     }
     await supabase.auth.signOut();
-    return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
+    return { ok: false, error: "Your session expired. Please sign in again.", status: 401 };
   }
 
   try {

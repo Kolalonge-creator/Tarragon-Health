@@ -39,7 +39,7 @@ const ACTIONS: readonly QuickAction[] = [
   {
     icon: "bp",
     label: "Log a reading",
-    hint: "BP, sugar, weight",
+    hint: "Blood pressure, blood sugar, weight",
     href: "/patient/vitals",
     emphasis: true,
   },

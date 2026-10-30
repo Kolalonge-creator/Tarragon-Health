@@ -16,16 +16,16 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 const ENTRIES = [
   { label: "High blood pressure", href: MARKETING_ROUTES.hypertension },
   { label: "Diabetes", href: MARKETING_ROUTES.diabetes },
-  { label: "My weight", href: MARKETING_ROUTES.obesity },
-  { label: "A symptom I'm noticing", href: MARKETING_ROUTES.symptomChecker },
-  { label: "I'm healthy and want to stay that way", href: MARKETING_ROUTES.prevention },
+  { label: "Managing my weight", href: MARKETING_ROUTES.obesity },
+  { label: "I have a symptom", href: MARKETING_ROUTES.symptomChecker },
+  { label: "I am well and want to stay healthy", href: MARKETING_ROUTES.prevention },
 ] as const;
 
 export function HomeEntryChips() {
   return (
     <Section className="py-8 sm:py-10">
       <p id="home-entry-heading" className="text-center font-heading text-lg font-semibold text-charcoal-ink">
-        What brings you here?
+        What would you like help with?
       </p>
       <ul aria-labelledby="home-entry-heading" className="mt-4 flex flex-wrap justify-center gap-3">
         {ENTRIES.map((entry) => (

@@ -34,6 +34,8 @@ Tarragon Health is not selling healthcare — it's selling **continuity**: "the 
 
 Personality pillars: **Trustworthy** (we earn trust, don't claim it) · **Warm** (a clinician who knows your name, not a hospital PA system) · **Intelligent** (explain HbA1c in one clear sentence, never patronise) · **Calm** (notice things early and calmly, never alarmist) · **Premium but accessible** · **Nigerian-relevant** (local examples — jollof, garri, market BP cuffs — always).
 
+**Written English: plain but educated (founder decision 2026-10-30).** "Warm" never means chatty or childlike. Write in complete, precise sentences with everyday words, the correct medical term explained once, and the reason behind each claim, as the NHS and Ada Health do. No fragments used as sentences, slogans as body copy, slang ("Mum", "BP" in prose), or internal jargon (escalate, care gap) in patient text. Full rules and before/after examples: `docs/design/COPY-VOICE.md`. Apply to every user-facing string, marketing and app, before it ships.
+
 ## 4. Logo — "Guard Leaf"
 Shield silhouette (protection, continuous monitoring) + sprout crown (two leaflets at the apex — prevention and growth) + checkmark vein (the leaf's midrib drawn as a checkmark — a completed reading, a closed care gap). Assets: `Tarragon_Health_Logo_Mark.png` (mark alone), `Tarragon_Health_Logo_Lockup.png` (mark + wordmark + tagline).
 

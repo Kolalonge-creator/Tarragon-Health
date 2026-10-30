@@ -32,7 +32,7 @@ export default function CookiesPage() {
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               We use one required cookie to keep you securely signed in, plus an anonymous,
               first-party analytics beacon so our team can see which pages help people find care.
-              We don&apos;t run advertising cookies, third-party trackers, ad pixels, or session
+              We do not run advertising cookies, third-party trackers, ad pixels, or session
               recording of any kind, anywhere on TarragonHealth. The banner you see on your first
               visit to our public site is how you tell us to turn the analytics part off, and you
               can change your answer at any time below.
@@ -46,15 +46,15 @@ export default function CookiesPage() {
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               When you sign in, our authentication provider (Supabase) sets a small number of
               first-party, strictly necessary cookies to keep your session active and secure,
-              for example so you don&apos;t have to log in again on every page. These cookies:
+              for example so you do not have to log in again on every page. These cookies:
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-charcoal-ink/80">
-              <li>are set only once you sign in (or start signing up), not while you&apos;re
+              <li>are set only once you sign in (or start signing up), not while you are
                 browsing the public marketing site anonymously;</li>
               <li>are used only to identify your logged-in session, and not for advertising or
                 tracking you across other websites;</li>
               <li>expire automatically, or when you sign out; and</li>
-              <li>are required for the app to work, so if you block them, you won&apos;t be able
+              <li>are required for the app to work, so if you block them, you will not be able
                 to stay signed in. They sit outside the cookie banner below.</li>
             </ul>
           </section>
@@ -68,17 +68,17 @@ export default function CookiesPage() {
               browser local storage) and sends us, on each page you visit: the page path, which
               site referred you, any campaign tags in the link you followed, your approximate
               country/region/city (derived from network routing, rather than your exact location or IP
-              address), and your device type (mobile, tablet, desktop). If you&apos;re signed in,
-              it&apos;s linked to your account so our team can see overall engagement, like how
+              address), and your device type (mobile, tablet, desktop). If you are signed in,
+              it is linked to your account so our team can see overall engagement, like how
               many people are actively using TarragonHealth week to week, and not to build an
               advertising profile of you. Because this is ordinary first-party product analytics
-              and not third-party tracking, it also runs while you&apos;re signed in to the app
+              and not third-party tracking, it also runs while you are signed in to the app
               itself, without repeating the banner on every page.
             </p>
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               This data stays inside TarragonHealth, for our own product and clinical-operations
               team. We do not sell it, share it with advertisers, or hand it to a third-party
-              analytics or ad network, because there isn&apos;t one plugged in. If your browser
+              analytics or ad network, because there is not one plugged in. If your browser
               sends a &quot;Do Not Track&quot; signal, we record nothing at all, immediately,
               regardless of anything else. Choosing &quot;Reject Non-Essential&quot; on the banner
               (or the button below) turns it off just as immediately: no identifier is created
@@ -108,7 +108,7 @@ export default function CookiesPage() {
               Most browsers let you view, block, or delete cookies in their settings. Because the
               cookie we use is strictly necessary for signing in, blocking or deleting it will
               sign you out and may prevent you from using the patient, clinician, or partner
-              areas of TarragonHealth. Browsing the public marketing pages doesn&apos;t require
+              areas of TarragonHealth. Browsing the public marketing pages does not require
               any cookie at all. You can change your analytics choice at any time here:
             </p>
             <div className="mt-4">
@@ -122,8 +122,8 @@ export default function CookiesPage() {
             </h2>
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               If we ever introduce a third-party analytics tool, advertising, or anything beyond
-              what&apos;s described above, we&apos;ll update this page and the banner first, and
-              for anything non-essential we&apos;ll ask for your permission rather than assume it.
+              what is described above, we will update this page and the banner first, and
+              for anything non-essential we will ask for your permission rather than assume it.
               Questions:{" "}
               <a href="mailto:legal@tarragonhealth.ng" className="underline">
                 legal@tarragonhealth.ng

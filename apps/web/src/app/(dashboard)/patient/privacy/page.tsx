@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/ui/disclosure";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,6 +15,7 @@ import { parseConsentMatrix, CONSENT_DATA_TYPES, CONSENT_PURPOSES } from "@tarra
 import { t } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { ConsentMatrixPanel, type ConsentHistoryItem } from "./consent-matrix-panel";
+import { SensitiveRequestOptinCard } from "./sensitive-request-optin-card";
 import { ProxyArrangementsCard, type ProxyArrangement } from "../family/proxy-arrangements-card";
 
 /**
@@ -72,14 +74,22 @@ export default async function PrivacyCentrePage() {
 
       <ProxyArrangementsCard arrangements={arrangements} />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <ConsentStatusPanel patientId={profile.id} />
-        <ConnectedDevicesSummary patientId={profile.id} />
-      </div>
+      <SensitiveRequestOptinCard />
 
-      <ConsentReceiptsPanel patientId={profile.id} />
+      <p className="text-sm">
+        <a href="/patient/research" className="font-semibold text-brand-green underline">{t("res.ledger.link")}</a>
+      </p>
 
-      <CareVisibilityList />
+      <Disclosure title="Consents, connected devices and who can see your care" hint="The details behind the choices above.">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <ConsentStatusPanel patientId={profile.id} />
+          <ConnectedDevicesSummary patientId={profile.id} />
+        </div>
+
+        <ConsentReceiptsPanel patientId={profile.id} />
+
+        <CareVisibilityList />
+      </Disclosure>
 
       <div>
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Your data rights</h2>

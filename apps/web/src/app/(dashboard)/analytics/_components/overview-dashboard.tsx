@@ -12,9 +12,17 @@ import {
   useGovernanceSummary,
   useInvestorSummary,
 } from "@/lib/analytics/queries";
-import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
+import { buildOverviewSummary } from "@/lib/analytics/overview-summary";
+import { standoutView } from "@/lib/analytics/standout";
+import { StandoutHero } from "./standout-hero";
 import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
 
+/**
+ * Render layer only. What each tile and the banner say, including what they
+ * say while a figure is loading, failed or was refused, is decided in
+ * lib/analytics/overview-summary.ts, where it is tested. Do not default a
+ * missing figure to zero in here: an unknown figure must never read as zero.
+ */
 export function OverviewDashboard({ firstName }: { firstName: string | null }) {
   const business = useBusinessSummary();
   const financial = useFinancialSummary();
@@ -23,100 +31,34 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
   const facilities = useFacilityEngagement();
   const outcomes = useClinicalOutcomes();
 
-  const ngnRevenue =
-    financial.data?.revenue_by_currency.find((r) => r.currency === "NGN")?.total_minor ??
-    financial.data?.revenue_by_currency[0]?.total_minor ??
-    0;
-  const momGrowth = investor.data?.mom_growth_pct;
-  const verificationPct = governance.data?.clinical?.verification_pct ?? 0;
-  const openRisk = governance.data?.risk?.open ?? 0;
-  const totalFacilities = facilities.data?.total_facilities ?? 0;
-  const facilitiesWithUsage = facilities.data?.facilities_with_usage ?? 0;
-  const utilizationPct = totalFacilities > 0 ? (facilitiesWithUsage / totalFacilities) * 100 : 0;
-  const bpControlled = outcomes.data?.bp_control.controlled ?? 0;
-  const bpTotal = outcomes.data?.bp_control.total ?? 0;
-  const bpPct = outcomes.data?.bp_control.pct ?? 0;
-
-  const bannerParts: string[] = [];
-  if (momGrowth !== undefined && momGrowth !== 0) {
-    bannerParts.push(
-      `MRR is ${momGrowth >= 0 ? "up" : "down"} ${formatPercent(Math.abs(momGrowth))} month over month`
-    );
-  }
-  bannerParts.push(`${formatNumber(business.data?.total_patients ?? 0)} patients on the platform`);
-  if (governance.data) {
-    bannerParts.push(`staff verification is holding at ${formatPercent(verificationPct)}`);
-  }
-  const bannerCopy =
-    bannerParts.join(", ") +
-    (openRisk > 0
-      ? `. ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
-      : ".");
+  const { banner, tiles } = buildOverviewSummary({
+    business,
+    financial,
+    investor,
+    governance,
+    facilities,
+    outcomes,
+  });
+  const standout = standoutView({ governance, investor, facilities });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div>
-          <h2 className="font-heading text-2xl font-semibold sm:text-3xl">
-            Welcome back{firstName ? `, ${firstName}` : ""}
-          </h2>
-          <p className="mt-1 max-w-xl text-sm text-white/80">{bannerCopy}</p>
-        </div>
-        <Link
-          href="/analytics/governance"
-          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-clinical-navy transition-colors hover:bg-white/90"
-        >
-          View governance
-        </Link>
+      <div>
+        <h2 className="font-heading text-2xl font-semibold text-charcoal-ink">
+          Welcome back{firstName ? `, ${firstName}` : ""}
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/70">{banner}</p>
       </div>
 
+      <StandoutHero view={standout} />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatTile
-          icon={CreditCard}
-          label="Total revenue"
-          value={formatMinor(ngnRevenue, "NGN")}
-          delta={{
-            text: `${formatMinor(financial.data?.receivables_kobo ?? 0, "NGN")} receivable`,
-            direction: "flat",
-          }}
-        />
-        <StatTile
-          icon={Users}
-          label="Total patients"
-          value={formatNumber(business.data?.total_patients ?? 0)}
-          delta={{ text: `${formatNumber(business.data?.active_patients ?? 0)} active`, direction: "flat" }}
-        />
-        <StatTile
-          icon={TrendingUp}
-          label="Revenue (12 months)"
-          value={formatMinor(investor.data?.revenue_12m_minor ?? 0, "NGN")}
-          delta={
-            momGrowth !== undefined
-              ? { text: `${formatPercent(Math.abs(momGrowth))} MoM`, direction: momGrowth >= 0 ? "up" : "down" }
-              : undefined
-          }
-        />
-        <StatTile
-          icon={ShieldCheck}
-          label="Compliance score"
-          value={formatPercent(verificationPct)}
-          delta={{
-            text: openRisk > 0 ? `${formatNumber(openRisk)} open risk items` : "No open risk items",
-            direction: openRisk > 0 ? "down" : "up",
-          }}
-        />
-        <StatTile
-          icon={Building2}
-          label="Avg facility utilisation"
-          value={formatPercent(utilizationPct)}
-          delta={{ text: `${formatNumber(facilitiesWithUsage)} of ${formatNumber(totalFacilities)} active`, direction: "flat" }}
-        />
-        <StatTile
-          icon={HeartPulse}
-          label="BP control rate"
-          value={formatPercent(bpPct)}
-          delta={bpTotal > 0 ? { text: `${formatNumber(bpControlled)} of ${formatNumber(bpTotal)} controlled`, direction: "flat" } : undefined}
-        />
+        <StatTile icon={CreditCard} label="Total revenue" {...tiles.revenue} />
+        <StatTile icon={Users} label="Total patients" {...tiles.patients} />
+        <StatTile icon={TrendingUp} label="Revenue (12 months)" {...tiles.revenue12m} />
+        <StatTile icon={ShieldCheck} label="Clinician licences verified" {...tiles.verification} />
+        <StatTile icon={Building2} label="Facilities with activity" {...tiles.facilities} />
+        <StatTile icon={HeartPulse} label="BP control rate" {...tiles.bpControl} />
       </div>
 
       {ANALYTICS_GROUP_ORDER.map((group) => (

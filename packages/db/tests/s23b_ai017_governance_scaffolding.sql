@@ -13,7 +13,7 @@ begin
   if v_id is null then raise exception 'FAIL 1: AI-017 not registered'; end if;
 
   if (select is_enabled from public.ai_systems where id = v_id) then raise exception 'FAIL 2: AI-017 is enabled'; end if;
-  if (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-017 is runtime_governed'; end if;
+  if not (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-017 is not runtime_governed (its call site consults ai_runtime_config; see ai017_runtime_governed)'; end if;
 
   -- Structural criteria are met; exactly the two human judgements remain.
   v_out := private.ai_acceptance_criteria(v_id)->'outstanding';
@@ -28,8 +28,9 @@ begin
   end if;
 
   select count(*) into v_n from public.ai_evaluation_cases c join public.ai_evaluation_suites e on e.id = c.suite_id where e.ai_system_id = v_id and e.is_required_for_release;
-  -- 6 after the Pidgin case was removed (D-14), plus 6 from S35c (the facts-to-confirm suite, which is also required for release).
-  if v_n <> 12 then raise exception 'FAIL 7: % dedicated cases, expected 12 (6 from S23b and S23d, 6 from S35c)', v_n; end if;
+  -- 6 after the Pidgin case was removed (D-14), plus 6 from S35c (the facts-to-confirm suite, which is also required for release),
+  -- plus 7 from the document drafts suite (letter, prescription proposal, follow-up tasks; also required for release).
+  if v_n <> 19 then raise exception 'FAIL 7: % dedicated cases, expected 19 (6 from S23b and S23d, 6 from S35c, 7 from the document drafts suite)', v_n; end if;
   select count(*) into v_n from public.ai_evaluation_cases where case_code like 'ai017\_%';
   if v_n <> 2 then raise exception 'FAIL 8: % baseline cases, expected 2', v_n; end if;
 

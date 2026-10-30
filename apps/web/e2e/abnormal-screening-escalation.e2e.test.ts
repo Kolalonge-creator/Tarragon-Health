@@ -179,25 +179,25 @@ maybeDescribe("abnormal screening result -> Category 1 escalation", () => {
       const { data } = await supabase
         .from("audit_log")
         .select("event")
-        .eq("action", "abnormal_result.clinician_alerts_sent")
+        .eq("action", "abnormal_result.clinician_alerts_queued")
         .eq("entity_id", screeningResultId)
         .maybeSingle();
       return data;
     });
-    // The TERMII_API_KEY secret isn't set on this project yet, so sends fail closed — the pipeline's job
-    // is to record that failure, not to have actually delivered a message.
+    // The page is queued on the tracked ladder (push, then email); nothing is sent by SMS or voice (OQ-727). Whether the
+    // push or email actually lands depends on the recipient's subscriptions, so the proof is that the page was queued.
     expect(clinicianAlertEvent.event.recipients).toBe(1);
-    expect(clinicianAlertEvent.event.sent + clinicianAlertEvent.event.failed).toBe(1);
+    expect(clinicianAlertEvent.event.queued + clinicianAlertEvent.event.failed).toBe(1);
 
     const patientNotifiedEvent = await pollUntil(async () => {
       const { data } = await supabase
         .from("audit_log")
         .select("event")
-        .eq("action", "abnormal_result.patient_notified")
+        .eq("action", "abnormal_result.patient_followup_in_app")
         .eq("entity_id", patientUserId)
         .maybeSingle();
       return data;
     });
-    expect(patientNotifiedEvent.event).toHaveProperty("sent");
+    expect(patientNotifiedEvent.event).toHaveProperty("in_app_queued");
   });
 });

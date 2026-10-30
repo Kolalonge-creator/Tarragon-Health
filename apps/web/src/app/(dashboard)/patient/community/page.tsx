@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -24,7 +25,14 @@ export default async function CommunityPage() {
 
   // Closed (the go-live guard is off), unreadable, or not an adult: say one calm thing and nothing else.
   let body: React.ReactNode;
-  if (!list || !list.open) body = <p className={MUTED}>{t("community.not_open", uiLanguage)}</p>;
+  // Only a known-closed answer offers the waitlist; an unreadable one (list is null) does not claim anything about the feature.
+  if (!list || !list.open)
+    body = (
+      <div className="space-y-3">
+        <p className={MUTED}>{t("community.not_open", uiLanguage)}</p>
+        {list && !list.open ? <JoinWaitlist feature="community" /> : null}
+      </div>
+    );
   else if (!list.adult) body = <p className={MUTED}>{t("community.adults_only", uiLanguage)}</p>;
   else
     body = (

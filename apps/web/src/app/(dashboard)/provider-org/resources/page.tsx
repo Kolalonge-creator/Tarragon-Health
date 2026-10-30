@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { ResourcesManager } from "./resources-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function ProviderOrgResourcesPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function ProviderOrgResourcesPage({
   }
 
   const supabase = await createClient();
-  const { data: resources } = await supabase
+  const { data: resources, error } = await supabase
     .from("provider_org_resources")
     .select("id, resource_type, name, description")
     .eq("organisation_id", selected.id)
@@ -40,7 +41,7 @@ export default async function ProviderOrgResourcesPage({
         </div>
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
-      <ResourcesManager organisationId={selected.id} resources={resources ?? []} />
+      {error ? <ListUnavailable title="Resources" /> : <ResourcesManager organisationId={selected.id} resources={resources ?? []} />}
     </div>
   );
 }

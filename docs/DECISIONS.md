@@ -512,6 +512,14 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Monthly-equivalent line on the Membership price.** | Stays OFF. The Membership is one yearly payment and no monthly figure is shown. |
 
 
+## Founder decision, 2026-10-26 (Membership auto-renewal reverses the 2026-10-21 "no auto-renew"; the price is 129,000)
+
+| Decision | Chosen |
+|---|---|
+| **Membership renews automatically, by consent, on a card.** | Reverses "no auto-renew, no auto-debit" in the 2026-10-21 three-tier decision above. The founder asked in chat for auto-renewal "if Nigerian banks and cards allow it", easy to cancel, and on cancelling the person keeps the year already paid for but is not renewed the next year. Built as: an explicit, UNTICKED consent box at card checkout; Paystack keeps a reusable card authorization (bank transfer and USSD cannot renew); one-tap cancel keeps the paid year and deletes the card; charge up to 3 days before the year ends, at most 3 tries a day apart; notices before every charge. Gifts, sponsor-paid orders, employer seats and vouchers never renew on a card. Shipped DARK behind `platform_modules.membership_auto_renew` (OFF), because Nigerian card eligibility and the fee behaviour on `charge_authorization` are unconfirmed with Paystack and the first real charge must be watched. The public copy follows the switch. Design and go-live checklist: `docs/design/MEMBERSHIP_AUTO_RENEW.md`. INV-09 (no stored balance) is not touched: a kept card is a payment token, not a balance. |
+| **The consent box starts unticked.** | Chosen as the conservative reading pending counsel. One constant (`RENEW_TICKED_BY_DEFAULT`) flips it after advice. |
+| **The individual Membership price is 129,000 naira.** | "Go with 129,000" (founder, chat). It matches the live `prices` row in force since 2026-10-21; the config and website said 120,000. `commerce.membership_prices` is now version 2. |
+
 ## Founder decision, 2026-10-26 (annual test bundle open to everyone; Membership Plus gated by state)
 
 | Decision | Chosen |
@@ -522,4 +530,166 @@ Build plan: `docs/plans/three-tier-membership-build-brief.md`, 11 steps and six 
 | **Supersedes in part** | The 2026-10-21 entry's statement that the annual panel is a Plus-only entitlement: the bundle flow is open to all; what is Plus-only is the Tarragon-arranged collection (and the price step now buys collection). Prices (84,000 / 129,000 / 45,000 upgrade), annual-only, no instalments and the flag `membership_two_member_tiers` (off until its blockers are met) are unchanged. |
 | **Clarified by the founder, same day.** | (1) The 45,000 naira step covers BOTH the panel and the collection, and it is Plus-only. (2) A Plus holder's collection state is the state they chose when they registered for Plus. If they later move to a state that is not approved, they travel to a state that runs the test with the panel; they are not switched to self-arranged and not refunded. Registration must say this plainly before payment. (3) Free and Membership signup is never blocked by state: anyone can join either online from anywhere, including states where Plus is not offered. |
 | **CMO** | The founder states that they are the CMO. Recording that as the founder's statement only; whether it satisfies the 2026-10-21 condition for an independent, non-founder CMO is for the founder to decide and record. An agent never signs a clinical rule: the baseline-labs proposal is drafted at `docs/design/baseline-labs-rule-proposal.md` for signing through the CMO sign-off hub. |
+| **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle stays a plain document, and AI in the background reads it into platform values (OQ-BUNDLE-1): decided, build pending behind AI governance and a clinician release step. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
+
+## Founder decision, 2026-10-27 (OQ-727: no SMS or voice paging of clinicians; delete the Termii senders)
+
+| Decision | Chosen |
+|---|---|
+| **Delete the Termii SMS and voice paging of clinicians.** | The founder, 2026-10-27, option (a) of OQ-727. Confirms D3 (S87-1) and the CMO decision of 2026-10-07 (S16-S20 decision 10): a red-event or abnormal-result page to a clinician uses in-app, push and email only. |
+| **SMS scope** | Verification codes only, sent by Supabase phone auth through `supabase/functions/auth-send-sms-hook` (unchanged). No other Termii send exists in code. |
+| **Final fallback** | The in-console alarm and a phone call by a named ops person (an `ops_incidents` row whose reference starts `page_nobody_reachable:` assigns the ops desk primary, then the deputy). The abnormal-result handler now opens that incident when no page can be queued, instead of writing an audit row only. |
+| **Order of work** | Code first (this change); schema second (OQ-732: enum values, preferences, INV-08 trigger) and a new signed `escalation_slas` version without `sms` literals (OQ-730) later. Wiring the exhausted-ladder alarm to the ops desk is OQ-731. |
+| **Pre-existing fault fixed in the same change** | `send-pending-notifications` called `platformDisabledChannel(row)`, a helper deleted in S85-D3 (#1031), so every batch with a pending row would have thrown a ReferenceError. The call is removed; the file is now type-checked in CI. Check the deployed version against source before relying on any past claim that it was redeployed. |
+
+
 | **Follow-up decisions, 2026-10-26 (same day, in chat).** | (1) A result uploaded for the bundle is read into platform values by AI in the background (OQ-BUNDLE-1): already provided by the existing governed reader AI-005, which drafts values for a doctor to file, so nothing new was built. (2) Membership Plus given without a checkout (admin grant, employer seat, older row) needs a collection state (OQ-PLUS-1): an admin grant asks for it, and a member with none chooses once. (3) A queued year's revenue schedule is not re-based when the year starts early (OQ-QUEUED-1 option (b), the founder said do what is best). |
+
+
+## Founder decisions, 2026-10-27 (S40 gate: D1, D2, D3 and the clinician SMS rule)
+
+Recorded in chat by the founder, who stated they are acting as CMO. These are founder-in-chat records, not a separate CMO signature; the CMO of record may re-sign.
+
+| Item | Decision |
+|---|---|
+| **D1 (180/120 symptom question).** | Superseded, no signature. `bp_care_triage` v7 was approved on 2026-10-27 at 00:09 UTC and is the rule in force (severe reading with a red-flag symptom is RED with guidance and an on-call page; a red-flag symptom below the severe line is AMBER urgent review within 240 minutes; recheck rules). The older D1 draft text and the draft versions v4 to v6 are retired from the gate and should be retired in the database. |
+| **D2 (fertile window).** | Exact wording approved: label "Not contraception. This cannot prevent pregnancy."; link "Learn about contraception and talk to your care team."; mode "Planning a pregnancy", off by default; banned phrases "safe days", "avoid pregnancy", "natural contraception". Recorded in `packages/i18n/src/clinical-wording.json` as `fertileWindow.signed` (by "Kola Longe, founder (acting as CMO)", on 2026-10-27, version 1). |
+| **D3 (SMS).** | Recorded as: SMS is for phone verification codes only (sent by Supabase phone auth). The emergency-contact exception was removed on 2026-10-16 and the clinician Termii SMS and voice paging code is deleted (OQ-727, branch `s87/scan-rules-sms-allowlist`). Clinician pages use in-app, push and email, then the in-console alarm and a named ops person phoning. Spec D-12 and OQ-05 are read to match. |
+| **S40 gate scope.** | Full: every open item closed, or deferred in writing with an owner and date. Not the narrow "BP journey carries one real patient" gate. |
+| **PITR.** | The founder will upgrade Supabase to Pro and enable point-in-time recovery, then a restore test is run and recorded. |
+
+
+## Founder decision, 2026-10-27 (no independent CMO; Membership and Membership Plus switched on)
+
+| Decision | Chosen |
+|---|---|
+| **No independent CMO.** | The founder, 2026-10-27, in chat: there is no independent, non-founder CMO. The founder is the CMO and signs the CMO items. This closes the question left open on 2026-10-26 about whether the founder's own statement satisfies the 2026-10-21 condition for an independent CMO: it is not required. An agent still never signs a clinical protocol or rule. |
+| **Membership and Membership Plus switched on.** | The founder, 2026-10-27, in chat. `membership_two_member_tiers` was switched on in the live database by the admin account, with the reason recorded in the audit log. Plus now needs an admin-approved collection state at checkout (Lagos, Oyo, Osun and Ogun approved); Membership and Free are never limited by state. |
+| **Launch conditions knowingly open at switch-on.** | (1) The baseline-labs prescribing rule is drafted (`docs/design/baseline-labs-rule-proposal.md`) but unsigned and its check is not built; it waits for the CMO's answers to its four questions, then a build, then the CMO signs on the sign-off hub. (2) No live Paystack payment and refund has been run for the new tiers yet. The founder chose to proceed without either. |
+
+## Founder decisions, 2026-10-29 (Care Coordinator phone booking; extra online meeting)
+
+| Decision | Ruling | Why | Where built |
+|---|---|---|---|
+| **A Care Coordinator may book for a patient who phones in** | A coordinator finds the patient by name or phone and books on their behalf. They see name, state, phone and tier only; every lookup is audited and refused if its audit line cannot be written. The booking is a normal appointment stamped `booked_via = coordinator_phone` and attributed to the coordinator. The coordinator never takes card details or cash. | Elderly or low-literacy patients cannot use the app. It is logistics, not clinical judgement, and does not put a coordinator between a patient and a doctor by default. | PR #1409, #1410 |
+| **Membership includes one online meeting a month** | The monthly meeting is booked from times the patient's doctor has offered. A coordinator may pick one of those times for the patient. It costs nothing. | The monthly meeting already exists as an entitlement; the coordinator is only given the patient's own way of choosing. | this change |
+| **An extra online meeting costs 5,000 naira and is for paid Members only** | A Member can request an extra meeting at any time and pays 5,000 naira (500,000 kobo) for it. A patient who is not a paid Member cannot book or buy one, in the app or through a coordinator. A patient who already holds an unspent credit for it is let through. | Partly reverses the 2026-10-12 two-tier rule that no doctor-time product is for sale: `video_visit_credit` is switched back on at 500,000 kobo (it was 1,000,000, off), Members-only like the second opinion, and kept off the public price list. Every other doctor-time product stays closed. | this change |
+| **Free patient, extra meeting** | Refused with "needs to join Membership first", in the patient's app, on the coordinator screen, and for staff booking on a patient's behalf (an unpayable hold would never be released). The older video-visit request route and sponsor reservations are closed to it too: the older route refuses a non-Member, and a sponsor may buy it only for someone who is already a paid Member (the account holding the phone number they give must exist and be a Member now, and is checked again when the recipient claims it). The second opinion follows the same rule. A sponsor can still sponsor a Membership or Membership Plus for anyone. Neither product is shown in a patient's own product lists unless they are a Member (or already hold a purchase of it); the sponsor screens read them through a separate list because a sponsor often is not a Member. | Matches "the patient must be a paid member". | this change |
+
+## CMO decisions, 2026-10-28 (baseline labs rule, version 2)
+
+| Decision | Chosen |
+|---|---|
+| **The four questions in `docs/design/baseline-labs-rule-proposal.md`.** | The CMO (the founder), 2026-10-27, in chat: (1) thresholds as drafted (eGFR 30 and 45, repeat at 1 to 2 weeks, 12-month freshness, 7 days to complete tests after starting without results); (2) the prescribing doctor may start before results are back and records why; (3) fasting glucose replaces HbA1c when the doctor marks the patient's HbA1c as unreliable; (4) a calcium channel blocker alone needs no baseline blood test. |
+| **How they were applied.** | Another session had already merged a baseline labs rule (PR #1334, v1) that asks kidney function, potassium and glucose for every blood pressure medicine within 90 days. The founder chose, 2026-10-28, to add VERSION 2 to that merged rule rather than run a second system. v2 is unsigned and inactive; v1 stays unsigned. A duplicate build (PR #1379) was closed unmerged. |
+| **Not enforced / not built.** | The repeat creatinine and potassium 1 to 2 weeks after an ACE inhibitor or ARB; "review the dose" for eGFR 30 to 44; a screen to mark HbA1c unreliable; a screen to record the documented override (the database functions exist). |
+
+## Founder decision, 2026-10-26 (three-tier launch conditions: independent CMO condition removed)
+
+| Decision | Ruling |
+|---|---|
+| **Launch condition (3) of the 2026-10-21 three-tier entry: "an independent, non-founder CMO engaged".** | Removed by the founder. The Chief Medical Officer of record signs the baseline-labs prescribing rule and the home blood pressure target; no separate independent CMO is required before the lower tier can be switched on. The other conditions stand: (2) the baseline-labs rule signed by the CMO on the sign-off hub and never by an agent; (4) one live Paystack payment and refund proven end to end and posted to the GL, together with the live guards `checkout_enabled` and `membership_billing_enabled` and the `membership_two_member_tiers` module. The ladder switch (`marketing.membership_ladder_public`) merges only after all of these. |
+
+## Founder decisions, 2026-10-27 (innovation build-gap answers D-01 to D-14; recorded by W-61)
+
+Source: `INNOVATION-BUILD-GAP.md` section 5 (founder answers, in chat, 2026-10-27). Owner of every row: the founder. No code, flag, price or migration changed by this entry. The Membership ladder stays NOT public (`marketing.membership_ladder_public` stays OFF) and the gift auto-renewal work (#1330) stays dark.
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **D-01** | Membership Plus includes the yearly blood panel, collected for you. Anyone on any plan may still request the annual bundle and pay the lab. The first line of the price card becomes "Yearly blood panel included and collected for you: no / no / yes", with the sentence that anyone can still request it. One order path for the panel: the bundle flow (Plus does not auto-order a second time). | Matches the 2026-10-26 bundle decision (bundle open nationwide, Plus buys Tarragon-arranged collection in approved states) and removes the old "panel for Plus only" wording. | W-45, C-06 to C-09 |
+| **D-02** | AI-022 (cloud cuff-photo vision) is KEPT, with explicit consent, a named processor, and the photo dropped after the read. It stays OFF until counsel clears the cross-border transfer. The claim "photos stay on device" must not ship while AI-022 exists. | Supersedes the audit's on-device-only recommendation. Keeping the cloud reader gives the CMO a fallback if on-device OCR cannot meet the accuracy bar; the transfer risk is held by the OFF switch and counsel gate. | W-29, W-30, C-32 |
+| **D-03** | Remove the "Join as a Member" button from Free red screens. Membership appears on the next calm screen, with price and refund beside it. | Charter rules 3 and 11 and "same guidance on every plan": a red screen is for safety, not selling. | W-53 |
+| **D-05** | The gift acceptance window is 14 days. The stale 30-day line in `docs/design/S29.md` is corrected in this change. | Code, S29d and the plan already use 14. | none (doc fix) |
+| **D-08** | AI-001 stays live but restricted to advisory display, with a CMO risk-acceptance hook and a dated re-evaluation (2026-11-26). If the risk acceptance is unsigned within 30 days, AI-001 is switched off. | Two required suites fail (clinical accuracy 6/8, fairness 2/4), both in the over-triage direction. A failing required suite on a live system needs a named owner. | W-10 |
+| **D-09** | A new `bp_target_config` holds the home target 135/85 and the clinic target 140/90. The merged S75-1 and the cascade stay frozen, and the outcome and sponsor surfaces stay OFF, until the founder (as CMO) re-signs. | Calling a home average "controlled" against a clinic threshold is a refused claim. | W-11, W-25, W-18, W-39 |
+| **D-14** | When a gift is not accepted, the payer sees "declined". | Reverses S29's deliberate silence toward the payer on decline. Risk noted: this can create friction at home between the payer and the person who declined; the wording must be gentle and must not say why. | W-14, W-19 |
+| **Auto-renewal (#1330)** | Stays dark with its guards: it never applies to gifts or sponsored years, and the public wording stays honest that there is no subscription. | Keeps "no subscription" true everywhere until the founder switches it on. | none |
+| **No independent CMO (D-16)** | Recorded as in the entry above (PR #1344): there is no independent, non-founder CMO; the founder is the CMO and signs the CMO items. The build brief's and the plan's "independent CMO" condition is superseded. An agent still never signs a clinical protocol or rule. | Founder statement, 2026-10-27. | W-03, W-04, W-09, W-25, W-51 (the CMO signs, as the founder) |
+
+### Supersession notes (2026-10-27)
+
+- **TT-11 one-price premise.** The marketing scan test and the 2026-10-13 "the public site quotes ONE price" premise are superseded by the 2026-10-21 three-tier decision. The rule is now: exactly two member prices (Membership and Membership Plus) plus the upgrade difference, read from versioned config, no volume words, no other naira figure. Implemented by W-47 (`apps/web/src/lib/marketing/no-public-prices.test.ts`).
+- **The NGN 100,000 flat organisation seat (2026-10-08 and 2026-10-12 answers C3/C10).** Superseded as the only seat price by the ladder, then changed to match Membership Plus: on 2026-10-29 the founder gave the go-ahead and the default seat price became 12,900,000 kobo (129,000 naira) through `public.set_default_organisation_member_price` (the 10,000,000 row was closed, not edited; no seats had been billed). The floor of 5,000,000 kobo and ceiling of 20,000,000 kobo are unchanged and there is a single active row; per-tier seat pricing is OPEN (D-04, see OPEN-QUESTIONS). The plan's NGN 100,000 floor for the panel-inclusive seat is not enforced in code yet.
+- **The 2026-10-08 two-tier decision (Free and one Member plan, 120,000 naira).** Superseded by the 2026-10-21 decision (Free, Membership 84,000, Membership Plus 129,000, annual only). Its "Member" wording survives only as the safety term for both paid tiers.
+- **Display names.** `membership_annual` is shown as "Membership Plus" and `membership_annual_no_panel` as "Membership" (W-46). Codes and prices are unchanged. While the ladder is OFF, the single-product `/pricing` page, the homepage FAQ and the receipts name the 129,000-naira product "Membership Plus", never "Membership". Whether to show the Plus name publicly before the ladder is switched on is a founder question (see OPEN-QUESTIONS).
+- **The plan's and the build brief's statements** listed in section 6 of the build-gap document (25 rows) are superseded by the corrected statements there, in particular: Plus kept the code `membership_annual` (no `membership_plus` code); the cumulative-payment panel-release rule is already gone with instalments; seat floors per code are not built; the weekly BP block and sponsor "controlled" labels on a 140/90 default are defects until D-09 lands; the "declined" label is now chosen (D-14); "photos stay on device" is false while AI-022 exists (D-02); "audit tamper-evident" and "Encrypted" are not claimed until W-38 and W-43 land.
+- **OQ-171 and OQ-488 ("Paying for someone else is not open yet").** Superseded by the shipped S29 pay-for-a-loved-one flow (`create_order` accepts a beneficiary from an unexpired `pay_for_care` Circle member; a gift that grants a lead waits for the patient's yes). The two questions are closed as stale; see OPEN-QUESTIONS.
+- **The 2026-10-26 bundle decision, in the founder's wording as recorded.** The annual test bundle is open nationwide to Free, Membership and Membership Plus, and to people abroad. The patient picks the bundle (never single tests), chooses a partner lab or their own, and pays the lab directly. Membership Plus adds Tarragon-arranged blood collection in states an admin has approved; the Plus checkout asks for an approved state before payment. The 45,000-naira step covers both the panel and the collection and is Plus-only. Free and Membership signup is never blocked by state. This refines, and does not repeal, the 2026-10-21 prices (84,000 / 129,000 / 45,000 upgrade).
+
+
+## Founder decisions, 2026-10-27, later the same day (clarifications and further rulings; recorded by W-61)
+
+Append-only: this section adds to, and does not reword, the 2026-10-27 build-gap entry above. IDs written GAP-Dxx are the build-gap document's decision numbers, so they are not confused with the older D-08 (speech to text) and D-14 (English only) in this file. Owner of every row: the founder. No code, flag or price changed by this entry.
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **GAP-D08 (clarified)** | AI-001 "restricted" means: clinician alerts keep opening exactly as before, and the ANSWERS the assistant gives are restricted. The assistant gives a note instead of specific advice and routes specific questions to the care-team message flow. The CMO or an admin may lift or re-apply the restricted mode; every change is logged, counted, and notified to the CMO. The 30-day auto-off stands: if the CMO risk acceptance is unsigned by 2026-11-26 AI-001 is switched off. | Over-triage is the safe direction. The founder wants alerts to continue (nothing is silenced) while the unsafe surface, free-text specific advice, is narrowed until the two failing required suites are re-run. | W-10 |
+| **GAP-D14 (refined, pending founder confirmation)** | An explicit decline reads "declined" to the payer. A gift that is never answered reads "not answered", not "declined". The founder is asked to confirm this slight deviation from the single "declined" wording. | Honest to the payer in both cases; an unanswered gift is not a refusal and calling it one would add family friction. | W-14, W-19 |
+| **GAP-NAME1** | Decided, option (a): merge the rename now. While the ladder is OFF the single-product pages show "Membership Plus". | See OPEN-QUESTIONS (OQ-GAP-NAME1). | W-46 |
+| **Pharmacy BP readings** | A blood pressure reading taken at a pharmacy is judged on the CLINIC line (140/90), not the home line (135/85). | A pharmacy reading is a measured-by-someone-else reading in a clinic-like setting. | W-11, W-25 |
+| **Membership offer after red guidance** | The Membership offer appears on the next calm screen after red guidance, with the price and the 21-day refund beside it. Never inside a red state and never straight after one. | Same guidance on every plan; a red screen is for safety, not selling (GAP-D03). | W-53 |
+| **"Care team has been notified" line for Free** | The line is gated for Free users in the breast-symptom, emergency-contraception and hospital-admission flows: it is shown only when a doctor has actually been alerted. | Free red events do not page a doctor; the line must never claim otherwise. | W-53 |
+| **Death-record reversal** | Reversing a recorded death needs two approvals: an admin plus a different admin or the CMO. Without both, the record is final. | A death record stops care, billing and messages; reversal is rare and must not be one person's call. | bereavement work |
+| **Red-page canary cadence** | The canary runs every 3 minutes. The honest worst-case paging time is stated as 540 seconds. | An honest number beats an optimistic one on a safety path. | W-03 |
+| **Dead-letter route** | A dead-lettered notification stays an ops-desk incident (a human sees it); it is not auto-retried forever. | Keeps a human on every failed delivery. | W-03 |
+| **Sole-CMO exception end date** | 2027-01-31, PROPOSED (not yet confirmed): the period during which the founder acts as sole CMO ends then and the exception is reviewed. | Gives the no-independent-CMO exception an end date instead of leaving it open. | W-03, W-04, W-25 |
+| **Under-18 Care Circle refusal** | A Care Circle membership is refused by date of birth for any account under 18, whatever the account type. | Date of birth is the one fact that cannot be set wrong by choosing an account type. | W-11 |
+| **Bereavement sponsor message** | In-app only, held for 48 hours before the sponsor sees it, and a correction is sent if the record is reversed. | A message about a death must not go out on a mistake. | bereavement work |
+
+### Sources and as-of for the figures in the supersession notes above
+
+All figures are as of 2026-10-27 at main-dev commit `06f55f162`. A figure here is read from the file named; if the file changes, this table is the part to re-check.
+
+| Figure | Where it comes from |
+|---|---|
+| 84,000 / 129,000 naira and the 45,000 naira upgrade (8,400,000 / 12,900,000 / 4,500,000 kobo) | `packages/shared/src/proposed-config/registry.ts`, key `commerce.membership_ladder`, version 1, effective 2026-10-21; migration `20261021110528_membership_evergreen_ladder_foundation.sql` |
+| 129,000 naira shown by the single-product pages (`individual_kobo` 12,900,000) | same file, key `commerce.membership_prices`, version 2, effective 2026-10-21 (version 1 was 12,000,000, 120,000 naira, effective 2026-10-12) |
+| NGN 100,000 flat organisation seat (`organisation_member_kobo` 10,000,000), launch figure; 12,900,000 from 2026-10-29 | same file, key `commerce.membership_prices`, versions 1 and 2 (100,000) and version 3 (129,000); migration `20261013003317_two_tier_membership_pricing.sql` |
+| Seat limits: default 10,000,000 kobo, floor 5,000,000, ceiling 20,000,000, one active row | `supabase/migrations/20261013003317_two_tier_membership_pricing.sql` (the `membership_annual` limits row) |
+| 21-day refund | registry key `membership.refund` (`window_days` 21), status PROPOSED |
+| 14-day gift acceptance window | migration `supabase/migrations/20261007101733_s29d_gift_window_14_days.sql` (the earlier `20261006204511_s29b_gifted_care_pack_acceptance.sql` set 30 as PROPOSED); corrected in `docs/design/S29.md` by this change |
+| 6/8 clinical accuracy and 2/4 fairness for AI-001 | `INNOVATION-BUILD-GAP.md` section 5, row D-08, from the AI governance evaluation records; re-check before relying on them |
+
+## Founder decision, 2026-10-29 (G-01: one gate model)
+
+Asked because the platform carried seven overlapping gate systems (92 go-live guards with 86 off, 29 platform modules, 13 feature
+flags, 44 signed configuration tables behind 90 signing functions and 62 hub panels, 338 registry values still "proposed", 834 open
+questions) and every new feature produced four or five artefacts that each needed a round trip with the founder, who is also the CMO.
+Design note: `docs/design/GATE-MODEL.md`. Migration `20261029223751_gate_model_masters_and_features.sql`.
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **G-01** | One gate model. Nine **master** switches are the only on/off decisions (`public_signup_enabled`, `checkout_enabled`, `clinical_operations_enabled`, `prescribing_enabled`, `payouts_enabled`, `lab_booking_enabled`, `research_export_enabled`, `assistant_enabled`, `on_call_cover_ok`). Everything else is a **feature**: open when on, not held, and its master is on; an admin or the CMO switches it; no condition is evaluated; holding it needs a reason of at least 20 characters. | Almost every dark guard protected something no real patient could reach while the masters were off; 27 could never be switched on at all. The per-feature gates added decisions without adding safety. | Every v5 session from here; the go-live page |
+| **G-02** | The CMO signs the **patient-harm list** only: triage rules, glucose, vitals and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed. Every other governed table is an **operational setting**: versioned, audited, a change note, no signature, never counted in the banner. | A signature should mean a clinician accepted a clinical risk, not that a setting exists. | The CMO hub (`items` versus `operational`) |
+| **G-03** | A `proposed` registry value that sits under a signed protocol is in force by that signature. No per-value confirmation, no open question. | 338 of 388 values were waiting on a confirmation nobody needed. | Registry hygiene (deferred pass) |
+| **G-04** | An open question that blocks no master closes as "default taken: X". Only questions that block a master stay open. | 834 ids, most answered by the build that followed. | `docs/OPEN-QUESTIONS.md` (deferred pass) |
+| **G-05** | No new go-live guard, platform module, feature flag, signed table, hub panel or open question for a new feature unless rule 1 to 3 in `docs/design/GATE-MODEL.md` section 6 says so. One gate per feature, never two. | This is how the count got to seven systems. | Every PR |
+
+The migration switches nothing on. Opening the standalone features live is the founder's act from the go-live page (one click each,
+attributed and logged), chosen over a migration flip so the audit trail names a person and the CI replay keeps its meaning.
+
+## Founder decision, 2026-10-30 (TSH is not part of the yearly blood panel)
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **P-01** | TSH is removed from the Membership Plus yearly blood panel. A doctor orders it only when a patient needs it, using the existing clinician "Order a lab test" flow ("Thyroid Function (TSH, Free T4)"), and the patient takes the request to any laboratory or a partner laboratory. | A thyroid test is not needed for every patient every year; ordering it on clinical need keeps the panel to tests that apply to everyone. | `lab_panel_versions` membership_annual version 4 (18 analytes, applied live 2026-10-30, migration `20261030001645_lab_panel_membership_annual_v4_without_tsh.sql`); registry `lab.panels` version 5; marketing list `YEARLY_PANEL_TESTS`. The draft lab sign-off (version 5) is unsigned and waits for the CMO on the sign-off hub. |
+
+Related wording decision, same day: the Membership Plus, upgrade, standard laboratory panel and home sample kit lines now say results are
+uploaded to the account and that results outside the normal range are checked by a clinician first. This matches the release rules
+(normal results release automatically, abnormal, critical and sensitive results are held for review) and the in-app help text HLP-012.
+
+## Founder decisions, 2026-10-30 (master-switch blockers)
+
+Chosen from selectable prompts in one sitting; each was then built and merged (PR numbers in the last column). Where the live check found the
+premise already out of date, the decision stands and the build did the smaller thing that was still true (noted in the PR).
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **B-01** | OQ-82/83/629: a trouble-breathing tick on the blood pressure form pages the care team; add the missing server symptom types for the glucose signs and for weakness, numbness and trouble speaking. | A tick that shows "go to hospital" on the device but pages nobody leaves the care team blind. | Live check: breathlessness already pages (line 6), the neuro types and glucose signs already exist and are in the signed rule set. Mobile now logs the two neuro ticks; a standing proof pins the paging. #1509 |
+| **B-02** | OQ-666: the MDCN folio is hidden from patients and any non-staff reader, and stays on documents through a staff-only function. | Registration numbers belong on a referral letter, not in a directory every patient can read. | Already closed by 20261015004428 and 20261022114116; one regression fixed (admin search by folio). Lab result and verified-document PDFs keep printing no folio, by the earlier CMO decision OQ-358b. #1507 |
+| **B-03** | OQ-S04b2-2: build the close-account executor; an admin runs it from an approved request past the waiting period. | The privacy page promised removals the system did not perform. | `public.close_patient_account`, admin button on `/admin/data-rights`; also restores the S04b-2 consent trigger that production had lost to an out-of-order apply. #1513 |
+| **B-04** | OQ-483: accept `confirm_care_plan_change` acting as the signer for the length of the apply; add proofs; the founder's acceptance is the security review. | Rebuilding eight triggers to avoid it would spread the exception. | 51-check proof, no function change needed (claims are restored on every path). #1514 |
+| **B-05** | OQ-484: the CMO owns the controlled-medicine list; one list, in the database. | Two hand-typed copies drift. | `controlled_medicine_terms` (60 terms, versioned, CMO-only write, never emptied); the web guard reads it. An operational list, not a signature item. #1515 |
+| **B-06** | OQ-S98-7: hide sensitive-bundle orders from caregivers and guardians entirely. | A caregiver could read the bundle id and order number of a sensitive screening request. | `lab_orders_select` and six other doors closed. The sensitive flag covers 14 of 32 active bundles, so caregivers also lose routine ones; narrowing is a change to the S98b flag. #1512 |
+| **B-07** | OQ-555/558: staff reads of the five reproductive tables are audited and tied, with no reason typed. | INV-10. | `read_womens_health_record_audited`, tied staff policies, and a three-state `pregnancy_safety_status` so an unreadable status is "unknown", never "not pregnant". #1516 |
+

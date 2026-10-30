@@ -38,8 +38,9 @@ export function emergencyHospitalGuidance(clinicianAlertId: string | null | unde
 
 /**
  * The plain sentence shown when no doctor was alerted (the event carries no clinician alert). Null when a doctor was
- * alerted, so the dialog never says both.
+ * alerted, so the dialog never says both. W-53 / D-03 (2026-10-27): the red guidance is the same on every plan, so this is a plain, true disclosure
+ * with no plan framing (the old freered.no_doctor line) and no Membership prompt beside it. Wording pending CMO sign-off.
  */
-export function freeRedNoDoctorSentence(clinicianAlertId: string | null | undefined): string | null {
-  return clinicianAlertId ? null : t("freered.no_doctor", "en");
+export function redNoAlertDisclosure(clinicianAlertId: string | null | undefined): string | null {
+  return clinicianAlertId ? null : t("freered.red.no_alert", "en");
 }

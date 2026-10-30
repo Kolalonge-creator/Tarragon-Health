@@ -254,7 +254,7 @@ export function EscalationSlasManager({
             <p className="text-sm text-charcoal-ink/70">
               {activeVersion.approved_at
                 ? `In force since ${new Date(activeVersion.approved_at).toLocaleString("en-GB")}.`
-                : "This version is live and driving every clinician_alert's sla_due_at today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
+                : "This version is live and driving every clinician_alert's sla_due_at today. That is not gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
             {/* v1 went live unsigned by design, and the version history below only offers Sign on

@@ -140,7 +140,6 @@ appointment_engine_core.sql
 appointment_grantee_access_and_reminders.sql
 authenticated_table_grants.sql
 blood_profile_provenance.sql
-breast_and_menopause_symptom_alerts.sql
 broadcast_content_class_enforcement.sql
 care_engagement_scores_rls.sql
 care_message_communication_gaps.sql
@@ -305,8 +304,6 @@ symptoms_medication_link.sql
 telemedicine_consultation_screen.sql
 vaccination_card_extraction_rls.sql
 vaccination_cardiovascular_quarterly_reports_clinical_access_rls.sql
-vaccination_declined_contraindicated_and_adverse_events.sql
-vaccination_schedule_signoff.sql
 verify_prescription_pharmacist_gate.sql
 vitals_symptoms_timestamp_hardening.sql
 voucher_refund_queue_beneficiary_select.sql

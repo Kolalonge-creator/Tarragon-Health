@@ -1,7 +1,9 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import { parseCreatedPaymentRequest, parseEntitlements, parseNotIncluded, parsePaymentRequests, parsePriceChangeNotices, parseQuote, type CreatedPaymentRequest, type EntitlementView, type NotIncludedEntry, type PaymentRequestRow, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
-import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parsePlusStates, parseVerify, type CatalogueItem, type MembershipState, type OrderRow, type PlusState } from "./parse";
+import { fallbackRefundPolicy, parseRefundPolicy, type RefundPolicy } from "@tarragon/shared";
+import { parseMyRefunds, type MyRefund } from "./refund-view";
+import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parsePlusStates, parseRenewal, parseVerify, type CatalogueItem, type MembershipState, type OrderRow, type PlusState, type RenewalState } from "./parse";
 
 /** The patient side of S25 checkout. Only the item code and a retry key are ever sent; the price comes from the database. */
 export type CheckoutResult =
@@ -59,12 +61,14 @@ export async function errorCodeOf(error: unknown): Promise<string> {
 }
 
 /** `beneficiary` is set only when paying for someone in the caller's Care Circle (S29); the database decides whether that is allowed. */
-export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; collectionState?: string }): Promise<CheckoutResult> {
+export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; autoRenew?: boolean; collectionState?: string }): Promise<CheckoutResult> {
   // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment, and only when the person chose. The total they were shown is sent so the
   // database refuses the order if it now works out a different one.
   const body = {
     code, client_key: clientKey, ...(beneficiary ? { beneficiary } : {}),
     ...(extras?.usePoints ? { use_points: true } : {}), ...(extras?.expectedAmountKobo !== undefined ? { expected_amount_kobo: extras.expectedAmountKobo } : {}),
+    // the person's own tick, sent only when given; the database ignores it for anything but their own Membership
+    ...(extras?.autoRenew === true ? { auto_renew: true } : {}),
     // Membership Plus only: the approved state chosen for blood collection
     ...(extras?.collectionState ? { collection_state: extras.collectionState } : {}),
   };
@@ -102,6 +106,21 @@ export async function requestRefund(orderId: string, reason: string): Promise<{ 
   return typeof r === "string" ? { result: r } : null;
 }
 
+/** The refund numbers (answer time, bank days, windows) from the same database answer the website reads. If it cannot be reached the shared registry values are used, never a typed number. */
+export async function loadRefundPolicy(): Promise<RefundPolicy> {
+  const { data, error } = await supabase.rpc("entitlement_policy_public");
+  return error ? fallbackRefundPolicy() : parseRefundPolicy(data);
+}
+
+/** Every refund the signed-in person asked for, with its steps (RLS limits this to their own). */
+export async function loadMyRefunds(): Promise<QueryResult<MyRefund[]>> {
+  const { data, error } = await supabase
+    .from("refunds")
+    .select("id, order_id, amount_kobo, state, decision_note, created_at, order:orders!refunds_order_id_fkey(catalog_item:catalog_items(code, name_key)), steps:refund_status_events(step, created_at)")
+    .order("created_at", { ascending: false });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseMyRefunds(data) };
+}
+
 /** Payment requests (S72, 19.13). The link's code is returned once, when it is made, and never listed again. */
 export async function loadPaymentRequests(): Promise<QueryResult<PaymentRequestRow[]>> {
   const { data, error } = await supabase.rpc("my_payment_requests");
@@ -116,4 +135,23 @@ export async function createPaymentRequest(itemCode: string): Promise<{ ok: true
 export async function cancelPaymentRequest(id: string): Promise<string> {
   const { data, error } = await supabase.rpc("cancel_payment_request", { p_id: id });
   return error ? "unknown" : ((data as { result?: string } | null)?.result ?? "unknown");
+}
+
+/**
+ * Is automatic renewal switched on at all? While it is off nothing about renewal is offered and the old "does not renew by itself" wording
+ * stays. A failed read counts as OFF: never promise a renewal that may not be running.
+ */
+export async function loadAutoRenewEnabled(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("membership_auto_renew_enabled");
+  return !error && data === true;
+}
+/** The signed-in Member's renewal status. */
+export async function loadMyRenewal(): Promise<QueryResult<RenewalState | null>> {
+  const { data, error } = await supabase.rpc("my_membership_renewal");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseRenewal(data) };
+}
+/** One tap: stop the next charge, delete the saved card, keep the year already paid for. */
+export async function cancelRenewal(): Promise<boolean> {
+  const { error } = await supabase.rpc("cancel_membership_renewal");
+  return !error;
 }

@@ -34,7 +34,7 @@ export default async function VideoVisitWaitingRoomPage({
         title="Video visit"
         icon={SEMANTIC_ICON.clinicianFollowUp}
         backTo={{ href: "/patient", label: "Dashboard" }}
-        description="Join from here when it is time. Your care team will let you in."
+        description="Join from this page when it is time for your visit. Your care team will admit you to the call."
       />
       <VideoVisitWaitingRoom consultationId={consultationId} patientId={profile.id} />
     </div>

@@ -42,6 +42,7 @@ export function PendingGifts({ locale }: { locale: Locale }) {
           <CardHeader><CardTitle>{t("circle.gift.title", locale)}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <p>{t("circle.gift.body", locale, { item: isMessageKey(g.name_key, en) ? t(g.name_key, locale) : "" })}</p>
+            <p className={`text-sm ${MUTED}`}>{t("gift.payer_sees", locale)}</p>
             <p className={`text-sm ${MUTED}`}>{t("circle.gift.decide_by", locale, { date: formatPatientDate(g.decide_by) })}</p>
             <div className="flex flex-wrap gap-3">
               <Button type="button" className={TOUCH} disabled={respond.isPending} onClick={() => void answer(g.entitlement_id, true)}>

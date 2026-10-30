@@ -146,6 +146,9 @@ begin
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient', (current_date - interval '45 years')::date);
   v_pat2 := pg_temp.mkuser(v_org, 'patient-2', 'patient', (current_date - interval '30 years')::date);
   v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient', (current_date - interval '33 years')::date);
+  -- a paid consultation is for paid Members (decision 2026-10-29), so the patients who book one here are Members
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
+  select v_org, p, 'granted', 'active', now() - interval '1 day', v_admin, 'S64 fixture membership', true from unnest(array[v_pat, v_pat2, v_stranger]) p;
 
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
@@ -188,7 +191,7 @@ begin
   perform pg_temp.rec('priced dietitian visit: bookable at 500000 kobo, refund basis credit', 'true/500000/credit',
     (v_json ->> 'bookable') || '/' || (v_json ->> 'price_kobo') || '/' || (v_json ->> 'refund_basis'));
   select public.my_booking_terms('telemedicine') into v_json;
-  perform pg_temp.rec('doctor visit terms: no per-item price (the visit is part of Membership), 2 hour window, credit basis', 'none/2/credit',
+  perform pg_temp.rec('extra online meeting terms: 500000 kobo (Members only, decision 2026-10-29), 2 hour window, credit basis', '500000/2/credit',
     coalesce(v_json ->> 'price_kobo', 'none') || '/' || (v_json ->> 'cancel_window_hours') || '/' || (v_json ->> 'refund_basis'));
   perform pg_temp.rec('an unknown type answers null', 'null', coalesce((select public.my_booking_terms('bogus'))::text, 'null'));
   perform pg_temp.back();

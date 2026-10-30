@@ -1,6 +1,33 @@
 # Membership terms: Nigerian law review (research draft)
 
-Prepared 2026-10-13 for the owner (CEO and CMO), who signs the terms personally as the responsible officer. This is research by an AI assistant. It is not legal advice, it is not a legal certification, and no lawyer has reviewed it. Its job is to show what rule each clause is meant to meet, where the rule was actually read, and what a Nigerian lawyer must settle before publication. Draft text under review: `schedule-c-terms-of-service.md` (version 2026-10-13-v1-draft) and the Free plan wording added to `schedule-b-telehealth-consent.md`.
+Prepared 2026-10-13 for the owner (CEO and CMO), who signs the terms personally as the responsible officer. This is research by an AI assistant. It is not legal advice, it is not a legal certification, and no lawyer has reviewed it. Its job is to show what rule each clause is meant to meet, where the rule was actually read, and what a Nigerian lawyer must settle before publication. Draft text under review: `schedule-c-terms-of-service.md` and `schedule-b-telehealth-consent.md`, now at merged v2 (label 2026-10-30-v2-draft). Sections 1 to 5 below were written for the 2026-10-13 two-plan draft; where they say "the draft" they mean that draft, and section 0 says what v2 changes.
+
+## 0. v2 addendum (2026-10-30)
+
+The 13 October draft described one 120,000-naira Membership. The product is now Free, Membership (84,000 naira) and Membership Plus (129,000 naira), annual only, and the Telehealth Consent is part of the same change. No law was re-read for v2: the sources in section 1 are the same, nothing below is newly verified, and the verification labels in section 2 still stand as written.
+
+**What v2 changes against the rows and items below**
+
+| Rows / items | Change in v2 |
+|---|---|
+| 1, 3, 5 and item A (s.120, s.127, s.129) | Unchanged in structure: full refund within 21 days, nothing for a change of mind after. Moving up from Membership to Plus is its own payment, and its own 21 days start on the day that payment is made. |
+| 2, 7 and item C (s.130, s.143) | The valuation question item C raised now has a stated method: the yearly blood test is worth the price gap between Plus and Membership (45,000), and each of the 12 monthly calls is worth one twelfth of the Membership price (7,000). The earlier 40/50/10 proposal is dropped. Whether this is a fair, non-arbitrary reading of "a reasonable portion of the price" is still counsel's question. |
+| 11 to 14 and item F (NDPA ss.26, 30, 35) | Schedule B no longer says the telehealth consent can be withdrawn at any time. A required consent cannot be withdrawn while the account stays open (OQ-53); the person closes the account instead. See new item L. |
+| 17 and item G (telemedicine, Free plan) | The Free plan statement is repeated in Schedule B. Schedule B now says that abnormal screening results and critical laboratory results reach a doctor on every plan, and that readings on the Free plan are not reviewed by a doctor. The response guide for non-urgent findings is now "within 3 days" and must be confirmed against the signed escalation SLA. The masked-number claim is removed. |
+| 21 (Paystack) | Unchanged. The extra online meeting adds a held payment (new item N). |
+| I and K | K now covers both Members-only extras (second opinion, extra online meeting), 5,000 naira each. I is unchanged: the organisation-paid rule from 2026-10-13 stands. |
+
+**New items for counsel, if you use counsel**
+
+**L. Withdrawal of a required consent by closing the account.** NDPA s.35 and s.26(4) to (5) say withdrawal must be possible at any time and as easy as giving consent. The platform treats the Terms, the Data Processing Consent and the Telehealth Consent as required, because the care cannot work without them, and offers account closure as the way out. Counsel to confirm that this is lawful for consents the service genuinely depends on. Schedules A, B and C now say the same thing about it: Schedule A was rebuilt from its live text for v2 to match.
+
+**M. The valuation method for non-delivery.** Under the method above, the whole Membership price is attributed to the 12 calls, with no platform share kept back. A Member who had no call all year, for a reason on our side, could claim the full 84,000. Counsel to say whether that is the fair reading of s.130(2)(b), or whether a platform share may be kept (the owner can choose either; see sign-off decision 2).
+
+**N. A held payment for the extra online meeting.** The text says payment is held until a doctor accepts, and refunded if no doctor accepts or a doctor declines. Counsel to confirm that this is acceptable consumer practice, and engineering to confirm how the payment is held (an authorisation hold, or a charge followed by a refund). Paystack does not return its own transaction charge on a refund (row 21), so a full refund of a 5,000-naira payment costs Tarragon the fee.
+
+**O. Membership Plus collection is limited to approved states and fixed at purchase.** The text tells a Member who later moves to a state we do not collect in to come back to the chosen state for the yearly tests, or to use the open request route and pay a laboratory directly. Counsel to say whether that leaves a paid-for benefit undelivered through no fault of the Member (s.127, s.130), and whether a make-good or partial refund should apply in that case.
+
+**P. Care Vouchers.** Single-purpose, non-transferable, never redeemable for cash, valid 24 months. This text is carried over from the earlier terms and was not part of items A to K. Counsel to confirm that expiry of prepaid value is acceptable under s.120 and s.127.
 
 How to read the "Verified" column. **Read** means the page was opened in this session and the wording or point was in the text I saw. **Read (secondary)** means a law-firm or law-site reproduction was read, not the gazetted Act; the official FCCPA PDF (https://fccpc.gov.ng/wp-content/uploads/2022/07/FCCPA-2018.pdf) was reached but is a scanned image with no text layer and could not be read here, so every FCCPA section below should be checked against it. **Unverified** means not read in this session; it comes from memory or from a search summary and must not be relied on.
 

@@ -46,7 +46,7 @@ function computeEcGuidance(hoursSinceIntercourse: number | null): string {
     return "No exact time needed. A clinician will review with you directly and help you find the right option quickly.";
   }
   if (hoursSinceIntercourse < 72) {
-    return "Good news: you're still in the window. The emergency pill is available over the counter at any pharmacy, no prescription needed — the sooner you take it, the more effective it is. A copper IUD is also an option if you'd rather have a clinician fit one; your care team can help arrange that.";
+    return "Good news: you are still within the window. The emergency pill is available over the counter at any pharmacy, with no prescription needed. The sooner you take it, the more effective it is. A copper IUD is also an option if you would rather have a clinician fit one. Your care team can help arrange that.";
   }
   if (hoursSinceIntercourse <= 120) {
     return "The copper IUD is still effective, and some emergency pills (available over the counter at any pharmacy) may still work too. A clinician will confirm the best option with you quickly.";

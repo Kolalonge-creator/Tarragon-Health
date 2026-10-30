@@ -3,7 +3,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { supabaseInboxStore } from "../_shared/integrations/webhook-inbox.ts";
 import { handleResendWebhook } from "./handler.ts";
 
-Deno.serve((req) => {
+import { withSentry } from "../_shared/observability/sentry.ts";
+Deno.serve(withSentry("resend-webhook", (req) => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
@@ -13,4 +14,4 @@ Deno.serve((req) => {
     store: supabaseInboxStore(supabase),
     nowMs: () => Date.now(),
   });
-});
+}));

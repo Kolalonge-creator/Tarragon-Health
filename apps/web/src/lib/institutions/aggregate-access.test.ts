@@ -11,11 +11,14 @@ jest.mock("@sentry/nextjs", () => ({ captureException: (...a: unknown[]) => capt
 
 let profileRow: { role: string; organisation_id: string } | null = { role: "hmo_admin", organisation_id: "org-1" };
 let user: { id: string } | null = { id: "u-1" };
+let profileError: { code?: string; message: string } | null = null;
+let countReply: { count: number | null; error: { message: string } | null } = { count: 25, error: null };
+let orgReply: { data: { min_cohort_size: number } | null } = { data: { min_cohort_size: 10 } };
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockImplementation(async () => ({
     auth: { getUser: async () => ({ data: { user } }) },
-    from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: profileRow }) }) }) }),
+    from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: profileRow, error: profileError }) }) }) }),
     rpc: (...a: unknown[]) => rpc(...a),
   })),
 }));
@@ -24,9 +27,9 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     from: (table: string) => {
       if (table === "organisations") {
-        return { select: () => ({ eq: () => ({ single: async () => ({ data: { min_cohort_size: 10 } }) }) }) };
+        return { select: () => ({ eq: () => ({ single: async () => orgReply }) }) };
       }
-      return { select: () => ({ eq: () => ({ eq: async () => ({ count: 25 }) }) }) };
+      return { select: () => ({ eq: () => ({ eq: async () => countReply }) }) };
     },
   }),
 }));
@@ -39,6 +42,9 @@ beforeEach(() => {
   rpc.mockResolvedValue({ data: true, error: null });
   profileRow = { role: "hmo_admin", organisation_id: "org-1" };
   user = { id: "u-1" };
+  profileError = null;
+  countReply = { count: 25, error: null };
+  orgReply = { data: { min_cohort_size: 10 } };
 });
 
 describe("requireInstitutionAggregateAccess audit", () => {
@@ -74,5 +80,40 @@ describe("requireInstitutionAggregateAccess audit", () => {
     const access = await requireInstitutionAggregateAccess("org-1", "hmo_dashboard");
     expect(access?.organisationId).toBe("org-1");
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("requireInstitutionAggregateAccess failed reads", () => {
+  it("reports the real cohort size and suppression when every read succeeds", async () => {
+    const access = await requireInstitutionAggregateAccess("org-1", "hmo_dashboard");
+    expect(access).toMatchObject({ cohortSize: 25, minCohortSize: 10, suppressed: false });
+  });
+
+  it("throws when the cohort size cannot be read, rather than reporting 0 people", async () => {
+    countReply = { count: null, error: { message: "boom" } };
+    await expect(requireInstitutionAggregateAccess("org-1", "hmo_dashboard")).rejects.toThrow(/cohort size/);
+  });
+
+  it("throws when no count comes back at all", async () => {
+    countReply = { count: null, error: null };
+    await expect(requireInstitutionAggregateAccess("org-1", "hmo_dashboard")).rejects.toThrow(/cohort size/);
+  });
+
+  it("throws when the caller's own profile read fails, rather than refusing an entitled admin", async () => {
+    profileRow = null;
+    profileError = { code: "08006", message: "connection lost" };
+    await expect(requireInstitutionAggregateAccess("org-1", "hmo_dashboard")).rejects.toBeDefined();
+  });
+
+  it("still refuses (null) when there is simply no profile row", async () => {
+    profileRow = null;
+    profileError = { code: "PGRST116", message: "no rows" };
+    expect(await requireInstitutionAggregateAccess("org-1", "hmo_dashboard")).toBeNull();
+  });
+
+  it("falls back to the cautious default floor when the threshold cannot be read", async () => {
+    orgReply = { data: null };
+    const access = await requireInstitutionAggregateAccess("org-1", "hmo_dashboard");
+    expect(access?.minCohortSize).toBe(10);
   });
 });

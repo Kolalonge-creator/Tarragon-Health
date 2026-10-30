@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Text, TextInput, View } from "react-native";
+import { AppState, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { HMO_RESULT_KEYS, hmoErrorKey, isPlausibleMemberNumber, loadHmoPlans, loadMyHmoChecks, requestHmoCheck, type HmoCheckRow, type HmoPlan } from "@/lib/commerce/hmo";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function lagos(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -75,15 +76,15 @@ export function HmoEligibilitySection({ onChecked }: { onChecked?: () => void })
 
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{tr("hmo.title")}</Text>
+      <AppText variant="bodyLargeStrong" accessibilityRole="header">{tr("hmo.title")}</AppText>
       <MutedText>{tr("hmo.intro")}</MutedText>
-      <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("hmo.field.plan")}</Text>
+      <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.field.plan")}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {plans.map((p) => (
-          <ChoiceChip key={p.hmoId} title={p.hmoId === selected ? `✓ ${p.name}` : p.name} onPress={() => setHmoId(p.hmoId)} />
+          <ChoiceChip key={p.hmoId} selected={p.hmoId === selected} title={p.hmoId === selected ? `✓ ${p.name}` : p.name} onPress={() => setHmoId(p.hmoId)} />
         ))}
       </View>
-      <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("hmo.field.number")}</Text>
+      <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.field.number")}</AppText>
       <TextInput
         value={number}
         onChangeText={setNumber}
@@ -101,13 +102,13 @@ export function HmoEligibilitySection({ onChecked }: { onChecked?: () => void })
       />
       <MutedText>{tr("hmo.hint.number")}</MutedText>
       <PrimaryButton title={busy ? tr("hmo.submitting") : tr("hmo.submit")} onPress={() => void submit()} disabled={!canSend} />
-      {resultKey ? <Text accessibilityLiveRegion="polite" style={{ color: colors.ink }}>{tr(resultKey)}</Text> : null}
+      {resultKey ? <AppText variant="body" accessibilityLiveRegion="polite">{tr(resultKey)}</AppText> : null}
       {errorKey ? <ErrorText>{tr(errorKey)}</ErrorText> : null}
-      <Text style={{ fontWeight: "600", color: colors.ink, marginTop: 8 }}>{tr("hmo.history.title")}</Text>
+      <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("hmo.history.title")}</AppText>
       {checks.length === 0 ? <MutedText>{tr("hmo.history.empty")}</MutedText> : null}
       {checks.map((c) => (
         <View key={c.checkId} style={{ paddingVertical: 4 }}>
-          <Text style={{ color: colors.ink }}>{c.hmoName}</Text>
+          <AppText variant="body">{c.hmoName}</AppText>
           <MutedText>{`${tr(HMO_RESULT_KEYS[c.result])} ${lagos(c.decidedAt ?? c.checkedAt)}`}</MutedText>
         </View>
       ))}

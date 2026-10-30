@@ -57,18 +57,18 @@ const TRACKED_STYLES: Record<Tracked, string> = {
 export const HYPERTENSION_MONITORING: MonitoringCategory[] = [
   {
     title: "Blood Pressure Monitoring",
-    description: "The reading itself, tracked often enough to actually see a trend.",
+    description: "The reading itself, recorded often enough to show a trend.",
     items: [
       {
         name: "Home blood pressure readings",
-        explanation: "Logged via app or web; you're reminded if none comes in.",
+        explanation: "Recorded in the app or on the website. You receive a reminder if no reading arrives.",
         cadence: "Every 3 days by default (your care team can adjust this)",
         tracked: "reminder",
       },
       {
-        name: "Structured 7-day check (HBPM)",
+        name: "Structured 7-day check (home blood pressure monitoring)",
         explanation:
-          "Two readings each morning and evening for a week, the most reliable way to confirm what's really going on.",
+          "Two readings each morning and evening for a week. This is the most reliable way to confirm your usual blood pressure.",
         cadence: "When your diagnosis or control needs confirming",
         tracked: "protocol",
       },
@@ -76,44 +76,44 @@ export const HYPERTENSION_MONITORING: MonitoringCategory[] = [
   },
   {
     title: "Doctor Review",
-    description: "How often your care team actually looks at how you're doing.",
+    description: "How often your care team reviews your progress.",
     items: [
       {
         name: "Medication review",
-        explanation: "Your care team checks how your treatment is working and adjusts if needed.",
-        cadence: "Every 6 months once you're at target; every 2–4 weeks until you get there",
+        explanation: "Your care team checks how well your treatment is working and changes it if necessary.",
+        cadence: "Every 6 months once you reach your target; every 2–4 weeks until then",
         tracked: "reminder",
       },
     ],
   },
   {
-    title: "Kidney & Metabolic Bloods",
-    description: "The wider picture beyond the reading itself.",
+    title: "Kidney and Metabolic Blood Tests",
+    description: "Tests that show your wider health beyond the blood pressure reading.",
     items: [
       {
         name: "Kidney function & electrolytes",
         explanation:
-          "Checks how your kidneys and salt balance are coping. Also automatically re-checked whenever certain blood-pressure medicines are started or changed, see below.",
+          "Checks how well your kidneys are working and whether the salts in your blood are balanced. These tests are also repeated automatically whenever certain blood pressure medicines are started or changed (see below).",
         cadence: "Annually",
         tracked: "protocol",
       },
       {
         name: "Lipid panel",
-        explanation: "Cholesterol numbers, part of your overall cardiovascular risk picture.",
+        explanation: "Cholesterol levels, which are part of your overall risk of heart and blood vessel disease.",
         cadence: "Annually",
         tracked: "protocol",
       },
       {
         name: "HbA1c",
-        explanation: "A blood sugar check, since high blood pressure and diabetes often travel together.",
+        explanation: "A blood sugar test, because high blood pressure and diabetes often occur together.",
         cadence: "Annually",
         tracked: "protocol",
       },
     ],
   },
   {
-    title: "If You're Prescribed These, We Track Them Automatically",
-    description: "Certain blood-pressure medicines carry their own lab checks, scheduled the moment they're prescribed.",
+    title: "If You Are Prescribed These, We Schedule the Tests Automatically",
+    description: "Certain blood pressure medicines need their own laboratory tests, which are scheduled as soon as the medicine is prescribed.",
     items: [
       {
         name: "ACE inhibitors (e.g. ramipril, lisinopril)",
@@ -135,7 +135,7 @@ export const HYPERTENSION_MONITORING: MonitoringCategory[] = [
       },
       {
         name: "Potassium-sparing diuretics (e.g. spironolactone)",
-        explanation: "Potassium and kidney function, watched closely at first.",
+        explanation: "Potassium and kidney function, monitored closely at first.",
         cadence: "Before starting, 1–2 weeks after, then every 6 months",
         tracked: "reminder",
       },
@@ -152,19 +152,19 @@ export const HYPERTENSION_MONITORING: MonitoringCategory[] = [
 export const DIABETES_MONITORING: MonitoringCategory[] = [
   {
     title: "Blood Sugar Monitoring",
-    description: "The day-to-day number, and the number that shows the trend.",
+    description: "Your day-to-day glucose reading, and the longer-term measure that shows the trend.",
     items: [
       {
         name: "Glucose self-logging",
         explanation:
-          "Logged via app or web, so you and your care team see the pattern, not just one number.",
+          "Recorded in the app or on the website, so that you and your care team can see the pattern and not only a single reading.",
         cadence: "Every 3 days by default; flagged if none in 7 days",
         tracked: "reminder",
       },
       {
         name: "HbA1c",
         explanation:
-          "Your three-month blood sugar average, the main marker your care team uses to judge control. Different from the once-a-year HbA1c in the general Annual Health Check: once you're on a diabetes care plan, it's checked more often.",
+          "Your average blood sugar over the past three months, which is the main measure your care team uses to judge control. This differs from the yearly HbA1c in the general Annual Health Check, because once you are on a diabetes care plan it is checked more often.",
         cadence: "Every 3 months until stable, then every 6 months",
         tracked: "protocol",
       },
@@ -172,11 +172,11 @@ export const DIABETES_MONITORING: MonitoringCategory[] = [
   },
   {
     title: "Doctor Review",
-    description: "How often your care team actually looks at how you're doing.",
+    description: "How often your care team reviews your progress.",
     items: [
       {
         name: "Medication review",
-        explanation: "Your care team checks how your treatment is working and adjusts if needed.",
+        explanation: "Your care team checks how well your treatment is working and changes it if necessary.",
         cadence: "Every 3 months",
         tracked: "reminder",
       },
@@ -184,36 +184,36 @@ export const DIABETES_MONITORING: MonitoringCategory[] = [
   },
   {
     title: "Complication Screening",
-    description: "Catching the complications diabetes causes quietly, before you'd feel them.",
+    description: "Finding the complications that diabetes can cause without symptoms, before you would notice them.",
     items: [
       {
         name: "Foot assessment",
         explanation: "Checks circulation and nerve sensation in your feet.",
-        cadence: "Annually if your risk is low or increased; sooner if it's high",
+        cadence: "Annually if your risk is low or increased; sooner if it is high",
         tracked: "reminder",
       },
       {
         name: "Retinal (eye) screening",
-        explanation: "A dilated eye exam that catches diabetes-related changes in the retina early.",
+        explanation: "An eye examination with dilated pupils that detects diabetes-related changes in the retina early.",
         cadence: "At diagnosis, then at least annually",
         tracked: "reminder",
       },
       {
-        name: "Kidney screening (eGFR + urine ACR)",
+        name: "Kidney screening (eGFR and urine albumin-to-creatinine ratio)",
         explanation:
-          "Catches kidney damage from diabetes long before you'd feel anything; a concerning result triggers immediate review.",
+          "Detects kidney damage from diabetes long before it causes symptoms. A concerning result is reviewed immediately.",
         cadence: "At diagnosis, then at least annually",
         tracked: "reminder",
       },
     ],
   },
   {
-    title: "If You're Prescribed These, We Track Them Automatically",
-    description: "Certain diabetes medicines carry their own lab checks, scheduled the moment they're prescribed.",
+    title: "If You Are Prescribed These, We Schedule the Tests Automatically",
+    description: "Certain diabetes medicines need their own laboratory tests, which are scheduled as soon as the medicine is prescribed.",
     items: [
       {
         name: "Metformin → kidney function",
-        explanation: "Kidney function, checked periodically for as long as you're on it.",
+        explanation: "Kidney function, checked periodically for as long as you are on it.",
         cadence: "Every 12 months",
         tracked: "reminder",
       },
@@ -288,9 +288,9 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
       </div>
       <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/60">
         <strong className="text-charcoal-ink/75">Reminded automatically</strong> means the app itself
-        schedules and nudges you. <strong className="text-charcoal-ink/75">Followed by your care team</strong>{" "}
-        means it&apos;s a real part of your protocol that your doctor tracks, even where the app doesn&apos;t yet
-        send its own separate reminder.
+        schedules the check and sends you reminders. <strong className="text-charcoal-ink/75">Followed by your care team</strong>{" "}
+        means the check is part of your care protocol and your care team keeps track of it, even where the app does not yet
+        send a separate reminder.
       </p>
     </div>
   );

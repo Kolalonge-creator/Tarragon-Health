@@ -9,8 +9,9 @@ import {
   type SpecialistType,
 } from "@/lib/find-a-specialist";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, MutedText, ScreenTitle } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function specialtyLabel(t: SpecialistType): string {
   return t.replace(/_/g, " ");
@@ -90,7 +91,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
                   backgroundColor: selected ? colors.brand : colors.groupBg,
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
+                <Text style={{ ...textStyles.label, color: selected ? colors.onBrand : colors.ink }}>
                   {specialtyLabel(t)}
                 </Text>
               </Pressable>
@@ -128,7 +129,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           />
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>Telemedicine only</Text>
+          <AppText variant="body">Telemedicine only</AppText>
           <Switch value={requireTelemedicine} onValueChange={setRequireTelemedicine} />
         </View>
       </Card>
@@ -143,7 +144,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
       {providers.map((p) => (
         <Card key={p.id} style={{ gap: 4 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{p.name}</Text>
+            <AppText variant="bodyStrong">{p.name}</AppText>
             <Badge>{p.specialist_type ? specialtyLabel(p.specialist_type) : "Specialist"}</Badge>
             {p.subspecialty && <Badge tone="brand">{p.subspecialty}</Badge>}
             {p.supports_telemedicine && <Badge tone="brand">Telemedicine</Badge>}
@@ -160,7 +161,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           {!!p.languages?.length && <MutedText>Languages: {p.languages.join(", ")}</MutedText>}
         </Card>
       ))}
-      <MutedText>Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the referral.</MutedText>
+      <MutedText>Interested in seeing one of these specialists? Message your care team and they will arrange the referral.</MutedText>
     </ScrollView>
   );
 }

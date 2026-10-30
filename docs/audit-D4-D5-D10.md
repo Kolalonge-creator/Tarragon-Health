@@ -133,3 +133,30 @@ Severity: Critical (patient harm or breach of an invariant now), High (breach of
 6. G-05b and G-14: accountability switch and remaining go-live guards, both blocked on founder or legal decisions; log in OQ file.
 
 Nothing here was changed in code or data. No evaluation, prompt approval or knowledge-source approval was created, signed or seeded.
+
+## Status update, 2026-10-27 (re-checked against `origin/main-dev`; read this before the gap list above)
+
+The gap list above was written on 2026-10-07. Re-checking each item against current code shows several were closed by later work and one fix landed here. Nothing below was changed in data; nothing was signed, approved or seeded.
+
+| ID | Status now | Evidence |
+|---|---|---|
+| G-01 call sites not tied to the registry | **Closed here** | `apps/web/src/lib/ai-governance/ai-call-sites.test.ts` walks the repo; an unlisted file that names a model provider fails, every site names a registered code, and a cross-check catches a wrong code (it found service navigation listed as AI-012 instead of AI-015 while being written) |
+| G-02 lab explainer might read unreleased or sensitive values | **Already closed (S51, INV-04)** | The explainer reads `ai_readable_lab_readings`, which excludes sensitive results; `ai-path-sensitive-results.test.ts` scans for a return to the base tables |
+| G-02b three-kind label | **Closed here** | `packages/i18n/src/output-kind.ts`, web and mobile `OutputKindLabel`, ten screens moved onto it, `output-kind-scan.test.ts` blocks new hand-typed badges. One follow-up: the clinician health-report draft panel is not covered by the wording scan |
+| G-03 213 education items never reviewed | Open, a decision | Unpublish, or label as automated information until the CMO reviews |
+| G-04 knowledge sources not read | **Mostly closed (S51)** | The assistant only retrieves items with an owner, version and review date (`assistant_knowledge_sources`) and cites them. The separate `ai_knowledge_sources` registry (0 approved) is still not consulted, which is two sources of truth: decide which one stays |
+| G-04b accuracy audit | **Already closed (S60, S59d)** | `s60_symptom_accuracy_audit`, and the encounter-outcome feed |
+| G-05 two AI features write to the record unsigned | Open, founder decision | Label as patient-reported and pending review, or add a signature |
+| G-05b accountability-model switch | Open, needs counsel | |
+| G-06 named clinical lead | Open, a human step | `ai_systems.owner_profile_id` exists and is null for all systems: the CMO names owners |
+| G-07 coach handoff leaves no log row | **Closed here** | `handoff-summary.ts` now records a completed or fallback interaction (category only, no patient words); three tests |
+| G-08 embedding crons ignore the AI-009 switch | **Closed here** | `embedding-cron-gate.ts` in both crons; tests include the switch-on control |
+| G-09 coach keyword floor negation / phrasing | Not re-checked | |
+| G-10 AI-017 `runtime_governed` flag | Proposed 2026-10-30 in the `ai017_runtime_governed` migration (edge function checked against the deployed v22; the flag flips on merge, a CMO decision). AI-017 stays off | |
+| G-11 who may switch a system on | Open, a decision | An admin can switch one on only after the signed acceptance criteria (40.20) are satisfied; whether high-risk systems should need the CMO personally is the founder's call |
+| G-12 incident to change record | **Closed here (migration NOT applied)** | `20261027095217_clinical_change_requests.sql`: CMO-only decisions, never on their own proposal, forward-only states, audited. Logic proved on a scratch Postgres (27 checks incl. sabotage); structural proof registered in `ci.manifest`. No screen yet |
+| G-13 cost and cache capture | Mostly closed (S80c cost in kobo) | Cache-token capture and model routing not checked |
+| G-14 go-live guards | Mostly closed (S37, OQ-539) | `on_call_cover_ok` (care packs not built) and `public_signup_enabled` (needs an invite list decision) remain |
+| G-15 bias and drift tables empty | Open, CMO-run evaluation | Never seed an evaluation |
+| G-16 two sources for the triage rule set | Not re-checked | |
+

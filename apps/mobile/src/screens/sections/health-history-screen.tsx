@@ -16,7 +16,7 @@ import {
   type WriteResult,
 } from "@/lib/health-history";
 import { space, useTheme } from "@/ui/design";
-import { AppText, Button, Card, Chip, Field, InlineAlert, Screen } from "@/ui/kit";
+import { AppText, Button, Card, Chip, Disclosure, Field, InlineAlert, Screen } from "@/ui/kit";
 import { LoadFailed, PassportHeader, StaleNotice } from "@/screens/sections/passport-parts";
 
 interface Props {
@@ -154,8 +154,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
             ))
           )}
           {canEdit ? (
-            <Card style={{ gap: space.md }}>
-              <AppText variant="bodyStrong">{t("mpass.history.add_procedure")}</AppText>
+            <Disclosure title={t("mpass.history.add_procedure")} defaultOpen={state.data.procedures.length === 0}>
               <Field label={t("healthhistory.name_label")} value={pName} onChangeText={setPName} maxLength={200} />
               <Field label={t("healthhistory.year_label")} value={pYear} onChangeText={(v) => setPYear(v.replace(/\D/g, ""))} maxLength={4} keyboardType="number-pad" />
               <Field label={t("healthhistory.facility_label")} value={pWhere} onChangeText={setPWhere} maxLength={200} />
@@ -175,7 +174,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                   )
                 }
               />
-            </Card>
+            </Disclosure>
           ) : null}
 
           {canEdit ? (
@@ -197,8 +196,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                   />
                 ))
               )}
-              <Card style={{ gap: space.md }}>
-                <AppText variant="bodyStrong">{t("mpass.history.add_family")}</AppText>
+              <Disclosure title={t("mpass.history.add_family")} defaultOpen={state.data.family.length === 0}>
                 <Field label={t("healthhistory.condition_label")} value={fCondition} onChangeText={setFCondition} maxLength={120} />
                 <AppText variant="label" tone="textMuted">
                   {t("healthhistory.relationship_label")}
@@ -224,7 +222,7 @@ export function HealthHistoryScreen({ subjectId, userId, organisationId }: Props
                     )
                   }
                 />
-              </Card>
+              </Disclosure>
             </>
           ) : (
             <>

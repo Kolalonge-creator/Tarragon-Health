@@ -42,8 +42,9 @@ import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryI
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   const colors = useLegacyColors();
@@ -51,13 +52,13 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12.5,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 7,
         paddingHorizontal: 11,
         borderRadius: 999,
         backgroundColor: active ? colors.brand : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}
@@ -171,7 +172,7 @@ function PrivacyGate({
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: spacing.screen, gap: 14 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>Enter your privacy PIN</Text>
+      <AppText variant="bodyLargeStrong">Enter your privacy PIN</AppText>
       <MutedText>You set this up so this section stays private on shared devices.</MutedText>
 
       {isLocked ? (
@@ -192,9 +193,9 @@ function PrivacyGate({
         </View>
       )}
 
-      <Text onPress={reset} style={{ fontSize: 12.5, fontWeight: "600", color: colors.muted, textDecorationLine: "underline" }}>
+      <AppText variant="label" tone="textMuted" onPress={reset} style={{ textDecorationLine: "underline" }}>
         {clearing ? "Resetting…" : "Forgot your PIN? Reset it"}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -221,7 +222,7 @@ function SexualHealthHub({
         <ScreenTitle>Sexual & reproductive health</ScreenTitle>
         <MutedText>Testing, contraception, fertility, and wellness: private, and reviewed by your care team.</MutedText>
         <View style={{ borderWidth: 1, borderColor: colors.navy, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
-          <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.navy }}>
+          <Text style={{ ...textStyles.label, color: colors.navy }}>
             Your answers here stay between you and your care team, and are not shown to a family member, an
             employer, or an HMO, even one that pays for your plan.
           </Text>
@@ -255,7 +256,6 @@ function SexualHealthHub({
 }
 
 function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacyStatus; onChanged: (s: SexualHealthPrivacyStatus) => void }) {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [editing, setEditing] = useState(false);
@@ -297,9 +297,9 @@ function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacy
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Privacy PIN</Text>
+      <AppText variant="label">Privacy PIN</AppText>
       <MutedText>
-        {status.hasPin ? "This section asks for a PIN before it opens, useful on a shared phone." : "Add a PIN so this section doesn't open right away on a shared phone. Completely optional."}
+        {status.hasPin ? "This section asks for a PIN before it opens, useful on a shared phone." : "Add a PIN so this section does not open right away on a shared phone. Completely optional."}
       </MutedText>
       {!editing ? (
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -355,21 +355,21 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
   if (guidance) {
     return (
       <Card style={{ borderColor: colors.brand, backgroundColor: colors.brandTint, gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Here&apos;s your guidance</Text>
-        <Text style={{ fontSize: 13, color: colors.ink }}>{guidance}</Text>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>Your care team has been notified and will follow up quickly if you have questions or want help arranging the copper IUD.</Text>
+        <AppText variant="bodyStrong">Here&apos;s your guidance</AppText>
+        <AppText variant="body">{guidance}</AppText>
+        <AppText variant="label" tone="brandText">Your care team has been notified and will follow up quickly if you have questions or want help arranging the copper IUD.</AppText>
       </Card>
     );
   }
 
   return (
     <Card style={{ borderColor: colors.brand, backgroundColor: colors.brandTint, gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Need emergency contraception?</Text>
+      <AppText variant="bodyStrong">Need emergency contraception?</AppText>
       <MutedText>
         Timing matters here, but there is almost always still something that can help. Tell us roughly
-        when, and we&apos;ll tell you what to get and where — plus your care team will follow up fast.
+        when, and we&apos;ll tell you what to get and where. Your care team will also follow up quickly.
       </MutedText>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Hours since intercourse</Text>
+      <AppText variant="label">Hours since intercourse</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={hours}
         onChangeText={setHours}
@@ -378,10 +378,10 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         editable={!notSure}
         style={[textInputStyle, notSure ? { opacity: 0.5 } : null]}
       />
-      <Text onPress={() => setNotSure((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+      <AppText variant="body" onPress={() => setNotSure((v) => !v)}>
         <Text style={{ fontWeight: "700", color: notSure ? colors.brandPressed : colors.faint }}>{notSure ? "☑ " : "☐ "}</Text>
         I&apos;m not sure
-      </Text>
+      </AppText>
       {error && <ErrorText>{error}</ErrorText>}
       <PrimaryButton title="Get emergency contraception guidance" onPress={submit} loading={submitting} />
     </Card>
@@ -426,7 +426,7 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
   return (
     <>
       <Card style={{ gap: 12 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Contraception methods</Text>
+        <AppText variant="bodyStrong">Contraception methods</AppText>
         <MutedText>
           Compare methods in plain language, then request the one that fits you. Your care team will
           follow up before anything is prescribed.
@@ -434,15 +434,15 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
         {error && <ErrorText>{error}</ErrorText>}
         {[...grouped.entries()].map(([category, categoryMethods]) => (
           <View key={category} style={{ gap: 8 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.3, color: colors.brandPressed }}>
+            <AppText variant="label" tone="brandText" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
               {CONTRACEPTION_CATEGORY_LABEL[category]}
-            </Text>
+            </AppText>
             {categoryMethods.map((method) => (
               <View key={method.code} style={{ borderWidth: 1, borderColor: colors.brandTint, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 6 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, flex: 1 }}>{method.name}</Text>
+                  <AppText variant="label" style={{ flex: 1 }}>{method.name}</AppText>
                   {method.requires_prescription && (
-                    <Text style={{ fontSize: 10.5, fontWeight: "700", color: colors.navy }}>Needs a clinician</Text>
+                    <Text style={{ ...textStyles.label, color: colors.navy }}>Needs a clinician</Text>
                   )}
                 </View>
                 <MutedText>{method.description}</MutedText>
@@ -455,15 +455,15 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
       </Card>
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>Your contraception plans</Text>
-        {plans.length === 0 && <MutedText>You haven&apos;t requested a method yet. Browse above whenever you&apos;re ready.</MutedText>}
+        <AppText variant="bodyStrong">Your contraception plans</AppText>
+        {plans.length === 0 && <MutedText>You have not requested a method yet. Browse above whenever you are ready.</MutedText>}
         {plans.map((plan) => (
           <View key={plan.id} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
             <View>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{methodNameByCode.get(plan.method_code) ?? plan.method_code.replace(/_/g, " ")}</Text>
+              <AppText variant="label">{methodNameByCode.get(plan.method_code) ?? plan.method_code.replace(/_/g, " ")}</AppText>
               <MutedText>Requested {when(plan.requested_at)}</MutedText>
             </View>
-            <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted }}>{CONTRACEPTION_STATUS_LABEL[plan.status]}</Text>
+            <AppText variant="label" tone="textMuted">{CONTRACEPTION_STATUS_LABEL[plan.status]}</AppText>
           </View>
         ))}
       </Card>
@@ -476,7 +476,6 @@ function when(iso: string): string {
 }
 
 function FertilityCard() {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [months, setMonths] = useState("");
@@ -519,7 +518,7 @@ function FertilityCard() {
     const copy = FERTILITY_RESULT_COPY[result];
     return (
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{copy.title}</Text>
+        <AppText variant="bodyStrong">{copy.title}</AppText>
         <MutedText>{copy.description}</MutedText>
       </Card>
     );
@@ -527,21 +526,21 @@ function FertilityCard() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Fertility check-in</Text>
+      <AppText variant="bodyStrong">Fertility check-in</AppText>
       <MutedText>
         A few quick questions to point you towards the right next step: education, advice, baseline
         tests, or a specialist. Not a diagnosis.
       </MutedText>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How many months have you been trying to conceive?</Text>
+      <AppText variant="label">How many months have you been trying to conceive?</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Is your menstrual cycle regular? (Skip if this doesn&apos;t apply)</Text>
+      <AppText variant="label">Is your menstrual cycle regular? (Skip if this doesn&apos;t apply)</AppText>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Chip label="Yes, regular" active={cycleRegular === true} onPress={() => setCycleRegular(true)} />
         <Chip label="No, irregular" active={cycleRegular === false} onPress={() => setCycleRegular(false)} />
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Do any of these apply to you or your partner?</Text>
+      <AppText variant="label">Do any of these apply to you or your partner?</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {KNOWN_RISK_FACTORS.map((f) => (
           <Chip key={f} label={KNOWN_RISK_FACTOR_LABEL[f]} active={riskFactors.includes(f)} onPress={() => toggle(f)} />
@@ -596,7 +595,7 @@ function SexualWellnessCard() {
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Sexual wellness</Text>
+      <AppText variant="bodyStrong">Sexual wellness</AppText>
       <MutedText>A short, private check-in: not a diagnosis, and only your care team can see it.</MutedText>
 
       {view === "picker" && (
@@ -605,7 +604,7 @@ function SexualWellnessCard() {
             <Text
               key={option}
               onPress={() => pick(option)}
-              style={{ borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12, fontSize: 13.5, fontWeight: "600", color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12, ...textStyles.bodyStrong, color: colors.ink }}
             >
               {SEXUAL_HEALTH_INSTRUMENT_LABEL[option]}
             </Text>
@@ -618,7 +617,7 @@ function SexualWellnessCard() {
           <MutedText>{SEXUAL_HEALTH_INSTRUMENT_LABEL[instrument]}, over the last few weeks:</MutedText>
           {INSTRUMENT_CONFIG[instrument].questions.map((prompt, i) => (
             <View key={i} style={{ gap: 6 }}>
-              <Text style={{ fontSize: 13, color: colors.ink }}>{prompt}</Text>
+              <AppText variant="body">{prompt}</AppText>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {INSTRUMENT_CONFIG[instrument].options.map((opt) => (
                   <Chip key={opt.value} label={opt.label} active={answers[i] === opt.value} onPress={() => setAnswers((prev) => ({ ...prev, [i]: opt.value }))} />
@@ -637,17 +636,17 @@ function SexualWellnessCard() {
       {view === "result" && result && instrument && (
         <View style={{ gap: 10 }}>
           <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 12, gap: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", textTransform: "uppercase", color: colors.brandPressed }}>
+            <AppText variant="label" tone="brandText" style={{ textTransform: "uppercase" }}>
               {SEXUAL_HEALTH_INSTRUMENT_LABEL[instrument]}: {SEXUAL_HEALTH_SEVERITY_BAND_LABEL[result.severityBand]}
-            </Text>
-            <Text style={{ fontSize: 13, color: colors.ink }}>{SEXUAL_HEALTH_SEVERITY_COPY[result.severityBand]}</Text>
+            </AppText>
+            <AppText variant="body">{SEXUAL_HEALTH_SEVERITY_COPY[result.severityBand]}</AppText>
           </View>
           {result.cardiometabolicFlag && (
             <View style={{ borderWidth: 1, borderColor: colors.status.warn, backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 12, gap: 6 }}>
-              <Text style={{ fontSize: 13, color: colors.ink }}>
+              <AppText variant="body">
                 Sexual health is often connected to heart and metabolic health. It&apos;s worth checking your
                 cardiovascular risk too.
-              </Text>
+              </AppText>
             </View>
           )}
           <SecondaryButton title="Check a different concern" onPress={checkAnother} />
@@ -667,7 +666,6 @@ function SexualWellnessCard() {
  * hookup rather than reimplementing that reading UI a second time.
  */
 function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
-  const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HealthEducationLibraryItem[]>([]);
 
@@ -683,16 +681,16 @@ function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Learn</Text>
+      <AppText variant="bodyStrong">Learn</AppText>
       <MutedText>Plain-language reading on fertility, contraception, and related health topics.</MutedText>
 
       {loading && <MutedText>Loading…</MutedText>}
       {!loading && items.length === 0 && <MutedText>Nothing here yet.</MutedText>}
       {items.map((item) => (
         <View key={item.content_id} style={{ paddingVertical: 4, gap: 2 }}>
-          <Text onPress={onOpenLearn} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="label" onPress={onOpenLearn}>
             {item.title}
-          </Text>
+          </AppText>
           {item.summary && <MutedText>{item.summary}</MutedText>}
         </View>
       ))}
@@ -703,7 +701,6 @@ function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
 }
 
 function ConfidentialMessageCard() {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -732,7 +729,7 @@ function ConfidentialMessageCard() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Message your care team confidentially</Text>
+      <AppText variant="bodyStrong">Message your care team confidentially</AppText>
       <MutedText>
         For anything here you&apos;d rather write than say out loud. This thread is hidden from anyone else
         who supports your care, even someone with their usual access to your record. A doctor reads and
@@ -747,9 +744,9 @@ function ConfidentialMessageCard() {
 
       {open && (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Subject</Text>
+          <AppText variant="label">Subject</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={subject} onChangeText={setSubject} placeholder="e.g. Question about my result" maxLength={150} style={textInputStyle} />
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Message</Text>
+          <AppText variant="label">Message</AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={body} onChangeText={setBody} multiline numberOfLines={4} maxLength={4000} style={[textInputStyle, { minHeight: 90, textAlignVertical: "top" }]} />
           {error && <ErrorText>{error}</ErrorText>}
 

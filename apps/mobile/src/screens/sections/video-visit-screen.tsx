@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, TextInput, View } from "react-native";
 import {
   loadVideoConsultation,
   loadConsultationSummary,
@@ -9,8 +9,9 @@ import {
 } from "@/lib/video-visit";
 import { startThread } from "@/lib/messages";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -133,9 +134,9 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         <MutedText>{consult.scheduled_at ? formatSlot(consult.scheduled_at) : "Time to be confirmed"}</MutedText>
 
         <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 12 }}>
-          <Text style={{ color: colors.danger, fontSize: 13.5, fontWeight: "600" }}>
+          <AppText variant="bodyStrong" tone="dangerText">
             Not for emergencies. If this is an emergency, go to the nearest emergency department now.
-          </Text>
+          </AppText>
         </View>
         <MutedText>
           Join a few minutes early so there&apos;s time to sort out any camera or microphone issues before your
@@ -152,31 +153,31 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
         <Card style={{ gap: 8 }}>
           <SectionLabel>Your visit summary</SectionLabel>
           <View>
-            <Text style={{ fontSize: 12, color: colors.subtle }}>What we discussed</Text>
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_we_discussed}</Text>
+            <AppText variant="caption" tone="textSubtle">What we discussed</AppText>
+            <AppText variant="body">{summary.what_we_discussed}</AppText>
           </View>
           {summary.what_you_need_to_do && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.subtle }}>What you need to do</Text>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.what_you_need_to_do}</Text>
+              <AppText variant="caption" tone="textSubtle">What you need to do</AppText>
+              <AppText variant="body">{summary.what_you_need_to_do}</AppText>
             </View>
           )}
           {summary.medicines_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.subtle }}>Medicines</Text>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.medicines_note}</Text>
+              <AppText variant="caption" tone="textSubtle">Medicines</AppText>
+              <AppText variant="body">{summary.medicines_note}</AppText>
             </View>
           )}
           {summary.tests_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.subtle }}>Tests</Text>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.tests_note}</Text>
+              <AppText variant="caption" tone="textSubtle">Tests</AppText>
+              <AppText variant="body">{summary.tests_note}</AppText>
             </View>
           )}
           {summary.next_appointment_note && (
             <View>
-              <Text style={{ fontSize: 12, color: colors.subtle }}>Next appointment</Text>
-              <Text style={{ fontSize: 13.5, color: colors.ink }}>{summary.next_appointment_note}</Text>
+              <AppText variant="caption" tone="textSubtle">Next appointment</AppText>
+              <AppText variant="body">{summary.next_appointment_note}</AppText>
             </View>
           )}
         </Card>
@@ -187,17 +188,17 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
           <SectionLabel>Before you join</SectionLabel>
 
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               What would you like to talk about? (optional)
-            </Text>
+            </AppText>
             <TextInput keyboardAppearance={scheme}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
+              placeholder="Reason for the visit, symptoms, anything you want the doctor to know beforehand…"
               placeholderTextColor={colors.subtle}
               multiline
               numberOfLines={3}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
             />
             <SecondaryButton title="Save" loading={savingNotes} onPress={() => void handleSaveNotes()} />
             {notesMessage ? <MutedText>{notesMessage}</MutedText> : null}
@@ -205,7 +206,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
           </View>
 
           <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Having connection trouble?</Text>
+            <AppText variant="bodyStrong">Having connection trouble?</AppText>
             <MutedText>
               If your video keeps freezing, try turning your camera off and continuing on audio only. The call
               itself doesn&apos;t need video to work. If sound is unreliable too, end the call and your care team
@@ -222,7 +223,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
                   placeholderTextColor={colors.subtle}
                   multiline
                   numberOfLines={2}
-                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
                 />
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <SecondaryButton

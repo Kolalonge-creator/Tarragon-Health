@@ -8,6 +8,7 @@ import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-pe
 import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
+import * as Sentry from "@sentry/nextjs";
 import type { Json } from "@tarragon/shared";
 
 export type GenerateOutcomeReportState = { error?: string; message?: string } | undefined;
@@ -50,7 +51,13 @@ export async function generateOutcomeReport(
   // their own session. Either way the suppression threshold is the same — the
   // report is an institution-facing artifact regardless of who pressed the
   // button, so it must not contain a figure the dashboard would withhold.
-  const access = await requireInstitutionAggregateAccess(organisationId, "outcome_report_generate");
+  let access: Awaited<ReturnType<typeof requireInstitutionAggregateAccess>>;
+  try {
+    access = await requireInstitutionAggregateAccess(organisationId, "outcome_report_generate");
+  } catch (err) {
+    Sentry.captureException(err, { extra: { institutionLoad: "outcome_report.access" } });
+    return { error: "We could not check your access just now, so nothing was saved. Please try again in a few minutes." };
+  }
   const reader = access?.client ?? supabase;
 
   let minCohortSize = access?.minCohortSize;
@@ -63,10 +70,23 @@ export async function generateOutcomeReport(
     minCohortSize = org?.min_cohort_size ?? 10;
   }
 
-  const [analytics, contractPerformance] = await Promise.all([
-    loadCohortAnalytics(reader, organisationId, minCohortSize),
-    getContractPerformance(reader, organisationId),
-  ]);
+  // A saved report is frozen and quoted outside the platform, so a read that
+  // failed must stop it being written. Snapshotting a zero here would put
+  // "0 medicines stopped" or "no contract" into a document nobody can correct.
+  const READ_FAILED = {
+    error: "We could not read all of the figures for this report just now, so nothing was saved. Please try again in a few minutes.",
+  };
+  let analytics: Awaited<ReturnType<typeof loadCohortAnalytics>>;
+  let contractPerformance: Awaited<ReturnType<typeof getContractPerformance>>;
+  try {
+    [analytics, contractPerformance] = await Promise.all([
+      loadCohortAnalytics(reader, organisationId, minCohortSize),
+      getContractPerformance(reader, organisationId),
+    ]);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { institutionLoad: "outcome_report.cohort_and_contract" } });
+    return READ_FAILED;
+  }
 
   if (!analytics) {
     return {
@@ -74,13 +94,20 @@ export async function generateOutcomeReport(
     };
   }
 
-  const [careGaps, medicationOutcomes] = await Promise.all([
-    loadCareGaps(reader, organisationId, minCohortSize),
-    // INV-10: medications are closed to direct staff reads, so a care-team session would silently count zero stops and the saved report
-    // would record "no de-prescribing". The caller is already authorised for this organisation above (admin, or a non-patient of this
-    // organisation); the loader returns counts only, filtered by that organisation, the same aggregate the institution dashboards use.
-    loadMedicationOutcomes(access?.client ?? createServiceRoleClient(), organisationId),
-  ]);
+  let careGaps: Awaited<ReturnType<typeof loadCareGaps>>;
+  let medicationOutcomes: Awaited<ReturnType<typeof loadMedicationOutcomes>>;
+  try {
+    [careGaps, medicationOutcomes] = await Promise.all([
+      loadCareGaps(reader, organisationId, minCohortSize),
+      // INV-10: medications are closed to direct staff reads, so a care-team session would silently count zero stops and the saved report
+      // would record "no de-prescribing". The caller is already authorised for this organisation above (admin, or a non-patient of this
+      // organisation); the loader returns counts only, filtered by that organisation, the same aggregate the institution dashboards use.
+      loadMedicationOutcomes(access?.client ?? createServiceRoleClient(), organisationId),
+    ]);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { institutionLoad: "outcome_report.care_gaps_and_medication" } });
+    return READ_FAILED;
+  }
 
   const { error } = await supabase.from("outcome_reports").insert({
     organisation_id: organisationId,
@@ -90,7 +117,7 @@ export async function generateOutcomeReport(
       analytics,
       contractPerformance,
       careGaps: careGaps
-        ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, closedLast90Days: careGaps.closedLast90Days }
+        ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, ledger: careGaps.ledger }
         : null,
       medicationOutcomes,
     } as unknown as Json,

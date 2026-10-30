@@ -23,9 +23,18 @@ import { readLegacyNoticeRetirementState } from "@/lib/queries/pending-legacy-no
 import { readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { readPendingBpDeviceReview } from "@/lib/queries/pending-bp-device-review";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
+import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
+import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
+import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
+import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
+import { OWED_ITEM_PREFIX, readPendingOwedSignoffs } from "@/lib/queries/pending-owed-signoffs";
+import { SCREENING_RULE_SET_ITEM_KEY, readPendingScreeningRuleSet } from "@/lib/queries/pending-screening-rule-set-signoff";
+import { TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -43,7 +52,19 @@ export type CmoSigningHub = {
    * on record). Kept apart from `items` on purpose: the banner counts `items` as "areas that need your signature".
    */
   attention: SignoffQueueItem[];
+  /**
+   * Lines that are already signed and running (a switch that is ON). They carry a panel to switch off but nothing to sign, so they are kept
+   * out of `items` and the "areas that need your signature" count, and shown in a collapsed list instead.
+   */
+  live: SignoffQueueItem[];
+  /**
+   * G-01 (founder decision 2026-10-29): operational settings. Versioned and audited, but not clinical protocols, so no signature is owed
+   * on them and they never count in the banner. Capacity, quality, the ops desk, paging delivery, task-layer rules, cascade and care-gap
+   * definitions, wording and UX attestations, the registry values, device lists and the like. Same panels, a separate, collapsed list.
+   */
+  operational: SignoffQueueItem[];
 };
+
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
 export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
@@ -83,7 +104,42 @@ export const BP_DEVICE_REVIEW_ITEM_KEY = "bp_device_review";
 export const SYMPTOM_UX_ITEM_KEY = "symptom_assessment_ux";
 /** WP3: the cascade-of-care definitions (stages, the 140/90 and 7.0 percent control lines, the selection panel note). Nothing is counted anywhere until signed. */
 export const CASCADE_CONFIG_ITEM_KEY = "cascade_config";
+/** S90: the care gap rule configuration (the lines each rule uses, the outreach ladder, the weekly cap, the quiet hours). Unsigned means shadow mode at most: nobody is contacted. */
+export const CARE_GAP_CONFIG_ITEM_KEY = "care_gap_config";
+/** D4: reliable change in points for the PHQ-9 and GAD-7. Nothing is counted anywhere until signed. */
+export const RELIABLE_CHANGE_ITEM_KEY = "reliable_change_config";
+/** D3: what counts as a doctor adjusting a hypertension medicine, and over how many days. Nothing is counted anywhere until signed. */
+export const ADJUSTMENT_CONFIG_ITEM_KEY = "adjustment_config";
+export { MSK_PROGRAMMES_ITEM_KEY };
+/** The baseline-labs prescribing rule (kidney function, potassium, glucose, HbA1c if diabetic before a BP or glucose-lowering start or dose increase). The check does nothing until signed. */
+export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
+/** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
+export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
+
+/**
+ * G-01: the clinical protocols the Chief Medical Officer signs (the "patient-harm list", DECISIONS G-01): triage rules, glucose, vitals
+ * and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health
+ * follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed.
+ * Everything else the hub reads is an operational setting (see `CmoSigningHub.operational`). A new hub line must be placed in one of
+ * the two lists on purpose: cmo-signing-hub.test.ts checks the known keys land where they should.
+ */
+const CLINICAL_TABLES = new Set([
+  "alert_rules", "escalation_slas", "triage_protocols", "mental_health_screening_cadences", "cv_risk_config", "risk_questionnaire_configs",
+  "vaccination_schedule_signoffs", "lab_panel_signoffs", "prn_limit_rules", "medicine_interaction_rule_sets", "home_bp_programme_signoffs",
+  "cuff_check_rules", "lowcarb_protocol_config", "activity_safety_config", "fasting_safety_config", "serology_rule_versions", "result_release_policies",
+]);
+const CLINICAL_ITEM_KEYS = new Set<string>([
+  PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
+  GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
+  RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies", SCREENING_RULE_SET_ITEM_KEY,
+]);
+export function isClinicalSignoff(key: string): boolean {
+  if (key.startsWith(OWED_ITEM_PREFIX)) return true;
+  const table = key.startsWith("versioned:") ? key.slice("versioned:".length) : key.startsWith("versioned_draft:") ? key.slice("versioned_draft:".length) : null;
+  if (table !== null) return CLINICAL_TABLES.has(table);
+  return CLINICAL_ITEM_KEYS.has(key);
+}
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -105,7 +161,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, M
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -133,9 +189,18 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingMentalWellbeingSignoff(supabase),
     readPendingSymptomUxSignoff(supabase),
     readPendingCascadeConfigSignoff(supabase),
+    readPendingCareGapConfigSignoff(supabase),
+    readPendingOutcomeDefinitionsSignoff(supabase),
+    readPendingBaselineLabsRuleSignoff(supabase),
+    readBaselineLabsOverrideAttention(supabase),
+    readPendingAiMonitoringSignoff(supabase),
+    readPendingMskProgrammesSignoff(supabase),
+    readPendingOwedSignoffs(supabase),
+    readPendingScreeningRuleSet(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
+  const live: SignoffQueueItem[] = [];
   let ruleCount = 0;
   const protocolDrafts: SignoffQueueItem[] = [];
   for (const item of queue.items) {
@@ -179,11 +244,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
         `${ai.pendingVersionApprovalCount} AI system version${ai.pendingVersionApprovalCount === 1 ? "" : "s"} to approve`,
       ai.pendingClinicalAccuracyLabelCount > 0 &&
         `${ai.pendingClinicalAccuracyLabelCount} clinical-accuracy scenario${ai.pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} for your tier judgement`,
+      ai.pendingGuardrailApprovalCount > 0 &&
+        `${ai.pendingGuardrailApprovalCount} guardrail${ai.pendingGuardrailApprovalCount === 1 ? "" : "s"} to approve`,
+      ai.pendingKnowledgeSourceApprovalCount > 0 &&
+        `${ai.pendingKnowledgeSourceApprovalCount} knowledge source${ai.pendingKnowledgeSourceApprovalCount === 1 ? "" : "s"} to approve`,
+      ai.pendingEvaluationRunReviewCount > 0 &&
+        `${ai.pendingEvaluationRunReviewCount} test result${ai.pendingEvaluationRunReviewCount === 1 ? "" : "s"} to read`,
     ].filter(Boolean);
     items.push({
       key: "ai_governance",
       title: "AI governance",
-      detail: `${parts.join(" and ")}.`,
+      detail: `${parts.join(", ")}.`,
       href: "/clinician/ai-governance",
       severity: "draft_pending",
       count: ai.attentionCount,
@@ -208,6 +279,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  const overrideItem = baselineLabsOverrideItem(baselineOverrides);
+  if (overrideItem) attention.push(overrideItem);
   if (thresholds.reviewsOverdue > 0) {
     // Not a signature: the monthly review of a personal threshold is overdue. Kept out of `items` so the banner still counts only signatures.
     attention.push({
@@ -321,19 +394,21 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
       qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
     ].filter(Boolean);
+    // A waiting draft exists AND the version now in force carries no signature: it is already driving behaviour unsigned.
+    const qualityRunning = (qualityConfigs.qualityVersion !== null && qualityConfigs.qualityRunningUnsigned === true) || (qualityConfigs.credentialingVersion !== null && qualityConfigs.credentialingRunningUnsigned === true);
     items.push({
       key: QUALITY_CONFIG_ITEM_KEY,
       title: "Quality and licence rules",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${qualityRunning ? " The version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: qualityRunning ? "live_unsigned" : "draft_pending",
       count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
     });
   }
 
   if (unifiedRed.liveVersion !== null || unifiedRed.waitingVersion !== null) {
     const on = unifiedRed.liveVersion !== null;
-    items.push({
+    (on && unifiedRed.waitingVersion === null ? live : items).push({
       key: UNIFIED_RED_PAGING_ITEM_KEY,
       title: on ? "Unified red-event paging is ON (switch off here)" : "Unified red-event paging (off)",
       detail: on
@@ -347,7 +422,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   if (legacyRetire.liveVersion !== null || legacyRetire.waiting.length > 0) {
     const on = legacyRetire.liveVersion !== null;
-    items.push({
+    (on && legacyRetire.waiting.length === 0 ? live : items).push({
       key: LEGACY_NOTICE_RETIREMENT_ITEM_KEY,
       title: on ? "Older clinician-message retirement is ON (switch off here)" : "Older clinician-message retirement (off)",
       detail: on
@@ -364,12 +439,13 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
       capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (patient cap per lead)`,
     ].filter(Boolean);
+    const capacityRunning = capacityConfigs.capacityVersion !== null && capacityConfigs.capacityRunningUnsigned === true;
     items.push({
       key: CAPACITY_CONFIG_ITEM_KEY,
       title: "Capacity, rest and fire drills",
-      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.${capacityRunning ? " The capacity version in force now is already running without a signature." : ""}`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      severity: capacityRunning ? "live_unsigned" : "draft_pending",
       count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
     });
   }
@@ -378,7 +454,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: OPS_DESK_CONFIG_ITEM_KEY,
       title: "Ops desk checklist gate",
-      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary and deputy ops contact are active.`,
+      detail: `ops desk configuration version ${capacityConfigs.opsDeskVersion} waiting for your signature. It stays off until you sign: signing it stops the on-call cover guard being switched on until the resilience checklist is attested and a primary ops contact is active (a deputy is optional).`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,
@@ -395,7 +471,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
           ? `Task layer configuration version ${ask.version} is a draft waiting for your signature. Signing it makes it the version in force; the old one stays on record.`
           : `Task layer configuration version ${ask.version} is already running (offer windows, who can take an escalated task, hand-back rules, completion codes, watchdog limits) but has never been signed. Signing records that you accept it and changes nothing else.`,
       href: "/clinician/clinical-signoff",
-      severity: "draft_pending",
+      // Accepting the version in force is already running with no signature, which is the most urgent kind.
+      severity: ask.kind === "sign_new" ? "draft_pending" : "live_unsigned",
       count: 1,
     });
   }
@@ -404,7 +481,34 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     items.push({
       key: PAGING_DELIVERY_CONFIG_ITEM_KEY,
       title: "Pager readiness gate: activate version " + queuePaging.pagingVersion,
-      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.`,
+      detail: `Paging delivery configuration version ${queuePaging.pagingVersion} turns on the objective on-call readiness check. It cannot be activated until every on-call clinician has a working push subscription, a verified email and an acknowledged test page.${queuePaging.pagingRunningUnsigned === true ? " The version in force now is already running without a signature." : ""}`,
+      href: "/clinician/clinical-signoff",
+      severity: queuePaging.pagingRunningUnsigned === true ? "live_unsigned" : "draft_pending",
+      count: 1,
+    });
+  }
+
+  // Things already running (or drafted) that the CMO has not signed in person and that are not a governed configuration row: a safety case
+  // document, switches pressed from a chat session, an unverified licence. One line each, from public.owed_signoffs, until the CMO signs it.
+  for (const o of owed.rows) {
+    items.push({
+      key: `${OWED_ITEM_PREFIX}${o.subjectKey}`,
+      title: o.title,
+      detail: `${o.detail}${o.running ? " It is already running without your signature." : ""}`,
+      href: "/clinician/clinical-signoff",
+      severity: o.running ? "live_unsigned" : "draft_pending",
+      count: 1,
+    });
+  }
+
+  // A drafted screening rule set (version newer than the signed one in force). Until the CMO signs it, the signed version applies unchanged.
+  if (screeningRules.draftId !== null) {
+    items.push({
+      key: SCREENING_RULE_SET_ITEM_KEY,
+      title: `Screening rules version ${screeningRules.version}: pace new patients`,
+      detail: screeningRules.signable
+        ? `Version ${screeningRules.version} is the signed version ${screeningRules.liveVersion} with one addition: a weekly limit on new printed test requests and the order they go in, so a new patient is not given every request on the first night. The rules themselves are unchanged. Until you sign, there is no limit.`
+        : `Version ${screeningRules.version} is a draft that cannot be signed from here: it changes the rules themselves or has no readable pacing block. Version ${screeningRules.liveVersion} stays in force.`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,
@@ -456,11 +560,78 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  // S96: the back, neck, knee and hip pain programmes. Draft content and entry lists to read and sign; signing switches nothing on.
+  if (mskProgrammes.waitingCount > 0) {
+    items.push({
+      key: MSK_PROGRAMMES_ITEM_KEY,
+      title: "Back, neck, knee and hip pain programmes",
+      detail: `${mskProgrammes.waitingCount} of 4 programmes have draft content or a draft entry list waiting for you (eight weekly sessions each, the red-flag questions, the exercises with their doses). Nothing is shown to a patient until you approve them, confirm the lists, attest clinician cover and the outcome thresholds, and switch the pain guard on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: mskProgrammes.waitingCount,
+    });
+  }
+
   if (cascadeConfig.version !== null) {
     items.push({
       key: CASCADE_CONFIG_ITEM_KEY,
       title: "Cascade of care definitions",
       detail: `Cascade definitions version ${cascadeConfig.version} (the five stages, the 140/90 and 7.0 percent control lines, what is shown as not available, and the selection panel note) are waiting for your signature. Nothing is counted on screen, in a file or in a sponsor pack until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (outcomeDefinitions.reliableChange.version !== null) {
+    items.push({
+      key: RELIABLE_CHANGE_ITEM_KEY,
+      title: "Reliable change for the PHQ-9 and GAD-7",
+      detail: `Reliable change definition version ${outcomeDefinitions.reliableChange.version} (how many points on each score count as a real change, and where the figures come from) is waiting for your signature. Nothing is counted on screen or in a file until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (outcomeDefinitions.adjustment.version !== null) {
+    items.push({
+      key: ADJUSTMENT_CONFIG_ITEM_KEY,
+      title: "What counts as a doctor adjusting a blood pressure medicine",
+      detail: `Adjustment definition version ${outcomeDefinitions.adjustment.version} (the window in days and which records count) is waiting for your signature. Nothing is counted on screen or in a file until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (careGapConfig.version !== null) {
+    items.push({
+      key: CARE_GAP_CONFIG_ITEM_KEY,
+      title: "Care gap rules",
+      detail: `Care gap rules version ${careGapConfig.version} (the six gap rules and their lines, the outreach ladder, the weekly cap, the quiet hours and the experiment scaffolding) are waiting for your signature. Two numbers are left for you to supply and those rules stay inert until you do. Until you sign, nobody is contacted about a care gap; signing does not switch the engine on.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (baselineLabs.version !== null) {
+    items.push({
+      key: BASELINE_LABS_ITEM_KEY,
+      title: "Baseline labs before a start or a dose increase",
+      detail: `The baseline-labs prescribing rule, version ${baselineLabs.version} (kidney function, potassium and glucose, plus HbA1c for people with diabetes, within a recent window, before a doctor starts or raises the dose of a blood-pressure-lowering or glucose-lowering medicine) is waiting for your signature. It is one of the conditions for switching on the lower Membership tier. Nothing is checked for anyone until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (aiMonitoring.version !== null) {
+    items.push({
+      key: AI_MONITORING_ITEM_KEY,
+      title: "AI monitoring rules",
+      detail: `AI monitoring rules version ${aiMonitoring.version} (the monthly review sample: what is always drawn, and the random share) are waiting for your signature. No monthly sample is drawn until you sign.`,
       href: "/clinician/clinical-signoff",
       severity: "draft_pending",
       count: 1,
@@ -489,13 +660,25 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(bpDevices.failed ? ["the recommended blood pressure monitors"] : []),
     ...(postCheckin.failed ? ["the check-in configuration"] : []),
     ...(cascadeConfig.failed ? ["the cascade of care definitions"] : []),
+    ...(careGapConfig.failed ? ["the care gap rules"] : []),
+    ...(outcomeDefinitions.failed ? ["the reliable change and adjustment definitions"] : []),
+    ...(baselineLabs.failed ? ["the baseline labs prescribing rule"] : []),
+    ...(baselineOverrides.failed ? ["the baseline labs overrides"] : []),
+    ...(aiMonitoring.failed ? ["the AI monitoring rules"] : []),
     ...(symptomUx.failed ? ["the symptom checker assessment wording and timing"] : []),
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
+    ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
+    ...(owed.failed ? ["the signatures you owe for things already running"] : []),
+    ...(screeningRules.failed ? ["the screening rule set drafts"] : []),
   ];
+  live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  // G-01: only clinical protocols are owed a signature. The rest are operational settings: same panels, a separate list, never counted.
+  const clinical = items.filter((i) => isClinicalSignoff(i.key));
+  const operational = items.filter((i) => !isClinicalSignoff(i.key));
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
-  const lineKeys = new Set(items.map((i) => i.key));
+  const lineKeys = new Set([...items, ...live].map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention };
+  return { items: clinical, operational, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live };
 }

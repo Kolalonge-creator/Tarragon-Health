@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import {
   createSupportTicket,
   loadMySupportTickets,
@@ -13,6 +13,11 @@ import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
+import { Card as KitCard } from "@/ui/kit/Card";
+import { Disclosure } from "@/ui/kit/Disclosure";
+import { ListItem } from "@/ui/kit/ListItem";
+import type { SectionId } from "@/lib/sections";
 
 const STATUS_TONE: Record<SupportTicketStatus, "brand" | "neutral"> = {
   new: "neutral",
@@ -30,6 +35,8 @@ function when(iso: string): string {
 interface TechnicalSupportScreenProps {
   patientId: string;
   organisationId: string;
+  /** Opens another section; used for the "Message your care team" row. Without it the row is left out. */
+  onNavigate?: (id: SectionId) => void;
 }
 
 /**
@@ -43,7 +50,7 @@ interface TechnicalSupportScreenProps {
  * surfaced here with the same EmergencyGuidanceModal a red-flag vitals
  * reading shows, not a form error.
  */
-export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalSupportScreenProps) {
+export function TechnicalSupportScreen({ patientId, organisationId, onNavigate }: TechnicalSupportScreenProps) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
@@ -99,12 +106,24 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
       contentContainerStyle={{ padding: spacing.screen, gap: 16 }}
     >
       <View>
-        <ScreenTitle>Technical support</ScreenTitle>
-        <MutedText>Tell us about an app or technical issue and we&apos;ll get back to you.</MutedText>
+        <ScreenTitle>Help &amp; support</ScreenTitle>
+        <MutedText>Message your care team about your health, or report a problem with the app.</MutedText>
       </View>
 
-      <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Subject</Text>
+      {onNavigate ? (
+        <KitCard padded={false}>
+          <ListItem
+            title="Message your care team"
+            subtitle="For anything about your health, appointments, medicines or results."
+            icon="messages"
+            onPress={() => onNavigate("messages")}
+          />
+        </KitCard>
+      ) : null}
+
+      <Disclosure title="Report a problem with the app" hint="Something is broken or not working as it should." defaultOpen={Boolean(prefill)}>
+      <View style={{ gap: 10 }}>
+        <AppText variant="label">Subject</AppText>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={subject}
           onChangeText={setSubject}
@@ -112,7 +131,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
           maxLength={200}
           style={textInputStyle}
         />
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Tell us what&apos;s happening</Text>
+        <AppText variant="label">Tell us what&apos;s happening</AppText>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={description}
           onChangeText={setDescription}
@@ -124,28 +143,29 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
         />
         {error && <ErrorText>{error}</ErrorText>}
         {sent && (
-          <MutedText>Sent — our support team will get back to you soon.</MutedText>
+          <MutedText>Sent. Our support team will get back to you soon.</MutedText>
         )}
         <PrimaryButton title="Send" onPress={submit} loading={submitting} />
-      </Card>
+      </View>
 
       <View>
         <SectionDivider />
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>
+        <AppText variant="label" style={{ marginBottom: 8 }}>
           Your tickets
-        </Text>
+        </AppText>
         {loading && <ActivityIndicator color={colors.brand} />}
         {!loading && tickets.length === 0 && <MutedText>No support tickets yet.</MutedText>}
         {tickets.map((t) => (
           <Card key={t.id} style={{ gap: 4, marginBottom: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>{t.subject}</Text>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>{t.subject}</AppText>
               <Badge tone={STATUS_TONE[t.status]}>{TICKET_STATUS_LABEL[t.status]}</Badge>
             </View>
             <MutedText>{when(t.created_at)}</MutedText>
           </Card>
         ))}
       </View>
+      </Disclosure>
 
       <EmergencyGuidanceModal
         visible={emergencyVisible}

@@ -1,10 +1,12 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useState } from "react";
 import { t, type Locale } from "@tarragon/i18n";
 import { directionsHref, telHref } from "@tarragon/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
@@ -125,11 +127,18 @@ function Listing({ row, locale, platform, hmoQuery }: { row: DirectoryRow; local
 export function DirectorySearch({ locale }: { locale: Locale }) {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
   // The filters and the moment they were submitted travel together: "open now" must not re-key the query on every render.
-  const [submitted, setSubmitted] = useState<{ filters: SearchFilters; nowIso: string } | null>(null);
+  // A first search with no filters runs on load, so the page opens on results instead of five blank boxes (design audit P3).
+  // The place is never part of that first search (near stays null), and "open now" is off, so the time is only a key.
+  const [submitted, setSubmitted] = useState<{ filters: SearchFilters; nowIso: string } | null>(() => ({
+    filters: EMPTY_FILTERS,
+    nowIso: new Date().toISOString(),
+  }));
   const [locError, setLocError] = useState(false);
   // The place is held in memory for this search only. It is sent as an argument and never written anywhere.
   const args = searchArgs(submitted?.filters ?? EMPTY_FILTERS, submitted?.nowIso ?? "");
   const result = useDirectorySearch(args, submitted !== null);
+  // How many filters beyond the State box are narrowing the next search.
+  const activeFilters = [filters.service, filters.language, filters.hmo].filter((v) => v.trim() !== "").length + (filters.nhia ? 1 : 0) + (filters.openNow ? 1 : 0) + (filters.near !== null ? 1 : 0);
   const set = <K extends keyof SearchFilters>(k: K, v: SearchFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
 
   function toggleNearMe(on: boolean) {
@@ -145,38 +154,56 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-4">
       <form
-        className="grid gap-3 sm:grid-cols-2"
+        className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitted({ filters, nowIso: new Date().toISOString() });
         }}
       >
-        {(["state", "service", "language", "hmo"] as const).map((k) => (
-          <div key={k} className="space-y-1">
-            <Label htmlFor={`f-${k}`}>{t(`directory.filter.${k}` as const, locale)}</Label>
-            <Input id={`f-${k}`} value={filters[k]} onChange={(e) => set(k, e.target.value)} />
+        <div className="flex items-end gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <Label htmlFor="f-state">{t("directory.filter.state", locale)}</Label>
+            <Input id="f-state" value={filters.state} onChange={(e) => set("state", e.target.value)} />
           </div>
-        ))}
-        <label className={`flex items-center gap-2 ${TOUCH}`}>
-          <input type="checkbox" checked={filters.nhia} onChange={(e) => set("nhia", e.target.checked)} />
-          {t("directory.filter.nhia", locale)}
-        </label>
-        <label className={`flex items-center gap-2 ${TOUCH}`}>
-          <input type="checkbox" checked={filters.openNow} onChange={(e) => set("openNow", e.target.checked)} />
-          {t("directory.filter.open_now", locale)}
-        </label>
-        <label className={`flex items-center gap-2 ${TOUCH}`}>
-          <input type="checkbox" checked={filters.near !== null} onChange={(e) => toggleNearMe(e.target.checked)} />
-          {t("directory.filter.use_location", locale)}
-        </label>
-        <p className={`text-sm ${MUTED}`}>{t("directory.filter.location_note", locale)}</p>
-        {locError ? <p role="alert" className="text-sm">{t("directory.error", locale)}</p> : null}
-        <Button type="submit" className={TOUCH}>{t("directory.search", locale)}</Button>
+          <Button type="submit" className={TOUCH}>{t("directory.search", locale)}</Button>
+        </div>
+        <Disclosure title="More filters" hint={activeFilters > 0 ? `${activeFilters} on` : undefined}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(["service", "language", "hmo"] as const).map((k) => (
+              <div key={k} className="space-y-1">
+                <Label htmlFor={`f-${k}`}>{t(`directory.filter.${k}` as const, locale)}</Label>
+                <Input id={`f-${k}`} value={filters[k]} onChange={(e) => set(k, e.target.value)} />
+              </div>
+            ))}
+            <label className={`flex items-center gap-2 ${TOUCH}`}>
+              <input type="checkbox" checked={filters.nhia} onChange={(e) => set("nhia", e.target.checked)} />
+              {t("directory.filter.nhia", locale)}
+            </label>
+            <label className={`flex items-center gap-2 ${TOUCH}`}>
+              <input type="checkbox" checked={filters.openNow} onChange={(e) => set("openNow", e.target.checked)} />
+              {t("directory.filter.open_now", locale)}
+            </label>
+            <label className={`flex items-center gap-2 ${TOUCH}`}>
+              <input type="checkbox" checked={filters.near !== null} onChange={(e) => toggleNearMe(e.target.checked)} />
+              {t("directory.filter.use_location", locale)}
+            </label>
+            <p className={`text-sm ${MUTED}`}>{t("directory.filter.location_note", locale)}</p>
+            {locError ? <p role="alert" className="text-sm">{t("directory.error", locale)}</p> : null}
+          </div>
+        </Disclosure>
       </form>
 
-      {result.error instanceof DirectoryNotOpenError ? <p role="status">{t("directory.not_open", locale)}</p> : null}
+      {result.error instanceof DirectoryNotOpenError ? (
+        <div className="space-y-3">
+          <p role="status">{t("directory.not_open", locale)}</p>
+          <JoinWaitlist feature="directory" />
+        </div>
+      ) : null}
       {result.isError && !(result.error instanceof DirectoryNotOpenError) ? <p role="alert">{t("directory.error", locale)}</p> : null}
       {result.isSuccess && result.data.length === 0 ? <p role="status">{t("directory.none", locale)}</p> : null}
+      {result.isSuccess && result.data.length > 0 ? (
+        <p role="status" className="text-sm font-medium">{result.data.length} {result.data.length === 1 ? "place" : "places"}</p>
+      ) : null}
       <div className="space-y-3">
         {(result.data ?? []).map((row) => (
           <Listing key={`${row.listing_table}-${row.listing_id}`} row={row} locale={locale} platform={detectMapsPlatform()} hmoQuery={submitted?.filters.hmo.trim() ?? ""} />

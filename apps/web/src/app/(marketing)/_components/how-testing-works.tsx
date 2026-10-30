@@ -22,23 +22,23 @@ const LENSES: { id: Lens; title: string; body: string; href: string; linkLabel: 
   {
     id: "annual",
     title: "Your Annual Health Check",
-    body: "One bundled lab visit, once a year: core bloodwork, organ-baseline checks, and infectious-disease screening in a single trip.",
+    body: "One bundled laboratory visit each year, covering core blood tests, baseline checks of your organs, and screening for infectious disease in a single trip.",
     href: MARKETING_ROUTES.annualHealthCheck,
-    linkLabel: "See what's in the bundle",
+    linkLabel: "See what is in the bundle",
   },
   {
     id: "periodic",
     title: "Your Screening Journey",
-    body: "The fuller, personal calendar: every screening recommended for your exact age and sex, each on its own real-world cycle, some every year, some every two or three, whether or not it's part of a bundle.",
+    body: "A fuller, personal calendar of every screening recommended for your age and sex. Each test follows its own recommended interval, some every year and some every two or three years, whether or not it is part of a bundle.",
     href: MARKETING_ROUTES.screeningJourney,
     linkLabel: "See your screening calendar",
   },
   {
     id: "chronic",
     title: "Chronic Condition Monitoring",
-    body: "If you're diagnosed with something like hypertension or diabetes, a separate, much more frequent set of checks, some daily, some every few months, for as long as you're on that care plan.",
+    body: "If you are diagnosed with a condition such as hypertension or diabetes, you follow a separate and much more frequent set of checks, some daily and some every few months, for as long as you are on that care plan.",
     href: MARKETING_ROUTES.hypertension,
-    linkLabel: "See hypertension & diabetes monitoring",
+    linkLabel: "See hypertension and diabetes monitoring",
   },
 ];
 
@@ -50,12 +50,12 @@ export function HowTestingWorks({ current }: { current: Lens }) {
           How the pieces fit together
         </p>
         <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
-          Three different things, easy to mix up
+          Three different kinds of testing
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-charcoal-ink/70">
-          These run alongside each other, not instead of one another. Which ones apply to you
-          depends on your age, sex, and whether you have a diagnosed condition, not a choice you
-          have to make.
+          These run alongside each other and do not replace one another. Which ones apply to you
+          depends on your age, your sex and whether you have a diagnosed condition. You do not
+          have to choose between them.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
@@ -73,7 +73,7 @@ export function HowTestingWorks({ current }: { current: Lens }) {
             >
               {isCurrent ? (
                 <span className="mb-2 inline-block rounded-full bg-brand-green px-2.5 py-0.5 text-[11px] font-medium text-white">
-                  You&apos;re here
+                  You are here
                 </span>
               ) : null}
               <h3 className="font-heading text-base font-semibold text-charcoal-ink">

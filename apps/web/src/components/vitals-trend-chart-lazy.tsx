@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 
 function ChartSkeleton() {
@@ -38,12 +38,16 @@ const RechartsVitalsTrendChart = dynamic(
  */
 export function LazyVitalsTrendChart({ patientId }: { patientId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Resolved once, synchronously, rather than set from inside the effect
-  // below — an environment with no IntersectionObserver at all is a fact
-  // known up front, not something to react to.
-  const [shouldRender, setShouldRender] = useState(
+  // An environment with no IntersectionObserver at all is a fact known up front. Read through useSyncExternalStore with a server
+  // snapshot of false so the server and the first client render agree (reading it in a useState initialiser made the server render
+  // the chart and the browser render the skeleton: a hydration mismatch).
+  const noObserver = useSyncExternalStore(
+    () => () => {},
     () => typeof IntersectionObserver === "undefined",
+    () => false,
   );
+  const [revealed, setRevealed] = useState(false);
+  const shouldRender = revealed || noObserver;
 
   useEffect(() => {
     if (shouldRender) return;
@@ -55,7 +59,7 @@ export function LazyVitalsTrendChart({ patientId }: { patientId: string }) {
           // Disconnecting happens via this effect's own cleanup below, once
           // the shouldRender dependency flips true and the effect re-runs —
           // not here too, which would just double-disconnect.
-          setShouldRender(true);
+          setRevealed(true);
         }
       },
       // Start loading slightly before the card is fully in view, so the

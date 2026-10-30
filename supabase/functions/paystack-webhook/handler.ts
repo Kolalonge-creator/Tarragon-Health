@@ -219,43 +219,38 @@ export function intervalToMs(interval: string | null): number {
 }
 
 /**
- * A duplicate of send-pending-notifications/index.ts's sendTermiiSms, not a
- * shared import: Edge Functions in this repo each deploy standalone (no
- * `_shared/` directory exists between them yet), and this is the one place
- * that must send an SMS to someone with NO profile row at all — the
- * `notifications` table demands a non-null recipient_id, which cannot exist
- * yet for a sponsored_service_reservations recipient until they claim, so
- * the queue that every other notification goes through cannot carry this
- * one. Best-effort and never throws: a failed SMS must not fail the
- * payment's own activation, which has already happened in the DB by the
- * time this runs.
+ * Tell the SPONSOR (never the recipient, who has no profile and is not texted: Part C D3) that the claim link for a
+ * paid reservation is ready to share. One in-app row, neutral wording rendered from the repo's template mechanism
+ * (`sponsored_reservation_ready`), keyed to the reservation so a redelivery never adds a second. Best effort: it never
+ * throws and never fails the payment, whose activation already happened in the database.
  */
-async function sendReservationInviteSms(toPhone: string, text: string): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = Deno.env.get("TERMII_API_KEY");
-  if (!apiKey) return { ok: false, error: "TERMII_API_KEY not configured" };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+export async function notifySponsorReservationReady(
+  supabase: SupabaseClient,
+  reservation: { id: string; organisation_id: string; sponsor_profile_id: string | null },
+): Promise<void> {
+  if (!reservation.sponsor_profile_id) return;
   try {
-    const res = await fetch("https://api.ng.termii.com/api/sms/send", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        to: toPhone,
-        from: "Tarragon",
-        sms: text,
-        type: "plain",
-        channel: "generic",
-      }),
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("template", "sponsored_reservation_ready")
+      .eq("source_id", reservation.id)
+      .maybeSingle();
+    if (existing) return;
+    const { error } = await supabase.from("notifications").insert({
+      organisation_id: reservation.organisation_id,
+      recipient_id: reservation.sponsor_profile_id,
+      channel: "in_app",
+      status: "pending",
+      template: "sponsored_reservation_ready",
+      payload: {},
+      content_class: "non_clinical",
+      source_table: "sponsored_service_reservations",
+      source_id: reservation.id,
     });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true };
+    if (error) console.error("paystack-webhook: sponsor reservation notice failed", { reservationId: reservation.id, error });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "unknown error" };
-  } finally {
-    clearTimeout(timer);
+    console.error("paystack-webhook: sponsor reservation notice threw", { reservationId: reservation.id, err });
   }
 }
 
@@ -780,13 +775,6 @@ export async function processVerifiedEvent(
           } else {
             await markProcessed({ organisation_id: triggerRow.organisation_id });
           }
-        } else if (String(metadata.kind) === "platform_credit_topup") {
-          // Platform Credit was removed 2026-09-30 (S01b). A top-up charge that was already in flight at
-          // Paystack has no handler, no balance to credit and no sweep left. Say so plainly (not the
-          // generic add-on lookup error) so finance refunds it in Paystack and reconciles by hand.
-          await markFailed(
-            `retired platform_credit_topup charge (reference=${event.data.reference}): Platform Credit no longer exists; refund this charge in Paystack and reconcile manually`,
-          );
         } else if (metadata.kind === "add_on") {
           const { data: row } = await supabase
             .from("subscription_add_ons")
@@ -826,14 +814,9 @@ export async function processVerifiedEvent(
           // payment_provider_ref does exist and is set by the trigger on
           // success, the same shape sponsored_subscription's own
           // TRIGGER_ACTIVATED_KIND_TABLE entry matches against. The real
-          // reason this stays a dedicated branch is the extra fields a
-          // genuine success needs that the generic mechanism's
-          // id/organisation_id/status-only select can't provide: unlike
-          // every other trigger-activated kind, a success here means
-          // someone with no profile yet must be told by SMS (invite_token,
-          // recipient_phone, recipient_first_name), since
-          // public.notifications demands a non-null recipient_id that
-          // cannot exist for them until they claim.
+          // reason this stays a dedicated branch is that the recipient has no profile row yet, so
+          // there is nobody to notify here: the sponsor shares the claim link themselves (no SMS,
+          // Part C / D3).
           const reservationId = metadata.reservation_id;
           if (!reservationId) {
             await markFailed("sponsored_service_reservation charge.success missing metadata.reservation_id");
@@ -842,7 +825,7 @@ export async function processVerifiedEvent(
 
           const { data: reservation } = await supabase
             .from("sponsored_service_reservations")
-            .select("id, organisation_id, status, payment_provider_ref, invite_token, recipient_phone, recipient_first_name")
+            .select("id, organisation_id, status, payment_provider_ref, sponsor_profile_id")
             .eq("id", reservationId)
             .maybeSingle();
 
@@ -854,22 +837,12 @@ export async function processVerifiedEvent(
             );
           } else {
             await markProcessed({ organisation_id: reservation.organisation_id });
-
-            const claimUrl = `${Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng"}/claim/${reservation.invite_token}`;
-            const smsResult = await sendReservationInviteSms(
-              reservation.recipient_phone,
-              `Hi ${reservation.recipient_first_name}, someone paid for care for you on Tarragon Health. Claim it: ${claimUrl}`,
-            );
-            if (!smsResult.ok) {
-              // The reservation itself is correctly activated regardless —
-              // this only means the recipient has to be told some other
-              // way. Logged, not a markFailed(): the payment_transactions
-              // row already reflects a genuine success above.
-              console.error("paystack-webhook: reservation invite SMS failed", {
-                reservationId: reservation.id,
-                error: smsResult.error,
-              });
-            }
+            // No SMS is sent (Part C, D3: SMS is for verification codes only). The sponsor shares the
+            // claim link themselves from /patient/supporting (ClaimLink, their own share sheet), which is
+            // where Paystack returns them. The sponsor (who has a profile) also gets one neutral in-app
+            // notice that the link is ready. It is best effort and never required: the reservation is
+            // already activated, and a failed or missing notice changes nothing about it.
+            await notifySponsorReservationReady(supabase, reservation);
           }
         } else {
           // Exhaustiveness: CheckoutKind has exactly 10 members and every one
@@ -890,7 +863,10 @@ export async function processVerifiedEvent(
           // kind" failure instead of a silent, wrong subscription_add_ons
           // lookup.
           const unexpectedKind: never = metadata.kind;
-          await markFailed(`charge.success with unrecognised metadata.kind=${String(unexpectedKind)}`);
+          await markFailed(
+            `charge.success with unrecognised metadata.kind=${String(unexpectedKind)} (reference=${event.data.reference}): ` +
+              "if this is a retired charge, refund it in Paystack and reconcile manually",
+          );
         }
         break;
       }

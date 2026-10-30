@@ -41,7 +41,7 @@ export default async function BuyCareForSomeonePage() {
         backTo={{ href: "/patient/supporting", label: "People you support" }}
         title="Buy care for someone"
         icon={NAV_ICON.healthyAgeing}
-        description="Pick someone you already support, or set up a record for a relative who isn't on Tarragon yet, then pay for a doctor's time or Continuous Monitoring on their behalf, in naira, via Paystack."
+        description="Choose who it is for, then pay for their doctor's time in naira."
       />
       <BuyCareForSomeone />
     </div>

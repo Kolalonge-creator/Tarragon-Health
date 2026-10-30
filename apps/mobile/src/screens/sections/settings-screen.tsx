@@ -10,15 +10,17 @@ import { CalloutCard, GroupedList, GroupedListRow, MutedText, SectionDivider, Se
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { LegacySheet } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
 import { BackupCodesSection } from "@/screens/sections/backup-codes-section";
 import { DataUseSection } from "@/screens/sections/data-use-section";
+import { AppPinSetting } from "@/screens/sections/app-pin-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { readLowDataEnabled, writeLowDataEnabled } from "@/lib/low-data";
-import { supabase } from "@/lib/supabase";
+import { signOutOfThisPhone } from "@/lib/sign-out";
 import type { SectionId } from "@/lib/sections";
 
 const NOTIF_PREFS_KEY = "settings-notification-prefs-v1";
@@ -34,10 +36,12 @@ const DEFAULT_PREFS: NotifPrefs = { refill: true, careTeam: true, education: fal
 interface SettingsScreenProps {
   patientName: string;
   initials: string;
+  /** The signed-in account, for the optional app PIN (kept per account on this phone). */
+  accountId: string;
   onNavigate: (section: SectionId) => void;
 }
 
-export function SettingsScreen({ patientName, initials, onNavigate }: SettingsScreenProps) {
+export function SettingsScreen({ patientName, initials, accountId, onNavigate }: SettingsScreenProps) {
   const colors = useLegacyColors();
   const firstName = patientName.split(/\s+/)[0] ?? patientName;
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -119,9 +123,9 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View>
-          <Text style={{ fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase", color: colors.muted }}>
+          <AppText variant="label" tone="textMuted" style={{ letterSpacing: 0.4, textTransform: "uppercase" }}>
             Hello,
-          </Text>
+          </AppText>
           <Text style={{ fontSize: 27, fontWeight: "800", color: colors.ink }}>{firstName}</Text>
         </View>
         <View
@@ -139,7 +143,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
             elevation: 4,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
+          <AppText variant="title" tone="brandText">{initials}</AppText>
         </View>
       </View>
 
@@ -234,6 +238,19 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
             }
           />
         </GroupedList>
+        {/* Always shown: a PIN needs no fingerprint or face, so a phone with only a passcode can use it. Setting one switches App lock on. */}
+        <AppPinSetting
+          accountId={accountId}
+          appLockEnabled={appLockEnabled}
+          onPinSet={() => {
+            setAppLockEnabled(true);
+            void writeAppLockEnabled(true).catch(() => {
+              readAppLockEnabled()
+                .then(setAppLockEnabled)
+                .catch(() => {});
+            });
+          }}
+        />
       </View>
 
       <SectionDivider />
@@ -268,11 +285,11 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => void supabase.auth.signOut()}
+        onPress={() => void signOutOfThisPhone()}
         style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
       >
         <Ionicons name="log-out-outline" size={18} color={colors.ink} />
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
+        <AppText variant="bodyStrong">Sign out</AppText>
       </Pressable>
 
       {/* Profile follows the scheme, so its sheet does too. */}
@@ -311,7 +328,7 @@ function ProfileTile({
       })}
     >
       <Ionicons name={icon} size={20} color={colors.ink} />
-      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{label}</Text>
+      <AppText variant="bodyStrong">{label}</AppText>
     </Pressable>
   );
 }

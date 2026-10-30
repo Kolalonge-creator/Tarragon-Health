@@ -12,6 +12,7 @@ import {
 } from "@/lib/queries/pharmacist";
 import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { useControlledMedicineList } from "@/lib/queries/controlled-medicine-list";
 import { CONTROLLED_AT_COUNTER_TEXT } from "@/lib/pharmacy-collection/model";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
+import { sliceState } from "@/lib/queries/query-slice";
 import { cn } from "@/lib/utils";
 import { itemsSummary, type PharmacistOrderRow } from "../_lib/items";
 import { statusMeta, isOpenStatus, isAwaitingStatus, needsPharmacistResponse } from "../_lib/order-status";
@@ -210,7 +213,8 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
   const [unavailableOpen, setUnavailableOpen] = useState(false);
   const [unavailableReason, setUnavailableReason] = useState("");
 
-  const controlledInfo = useMemo(() => controlledSubstanceInfo(drugName), [drugName]);
+  const controlledList = useControlledMedicineList();
+  const controlledInfo = useMemo(() => controlledSubstanceInfo(drugName, controlledList), [drugName, controlledList]);
 
   const meta = statusMeta(order.status);
 
@@ -583,6 +587,7 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
 
 export function PharmacistOrders() {
   const { data, isLoading, isError } = usePharmacistOrders();
+  const state = sliceState({ data, isLoading, isError });
   const [filter, setFilter] = useState<FilterKey>("open");
 
   const visibleOrders = useMemo(() => {
@@ -622,9 +627,20 @@ export function PharmacistOrders() {
           <CardTitle>Orders</CardTitle>
         </CardHeader>
         <CardContent className="p-0 px-5">
-          {isLoading && <p className="py-5 text-sm text-charcoal-ink/60">Loading…</p>}
-          {isError && <p className="py-5 text-sm text-red-600">Could not load your orders.</p>}
-          {!isLoading && !isError && visibleOrders.length === 0 && (
+          {state === "loading" && <p className="py-5 text-sm text-charcoal-ink/60">Loading…</p>}
+          {state === "failed" && (
+            <LoadFailure className="my-5">
+              Your orders could not be loaded. This does not mean there are none. Reload the page to
+              try again.
+            </LoadFailure>
+          )}
+          {state === "stale" && (
+            <StaleDataNotice className="my-5">
+              These orders may be out of date: the last refresh failed. New orders may be waiting.
+              Reload the page to try again.
+            </StaleDataNotice>
+          )}
+          {state === "ready" && visibleOrders.length === 0 && (
             <p className="py-5 text-sm text-charcoal-ink/60">No orders in this filter.</p>
           )}
           {visibleOrders.length > 0 && (

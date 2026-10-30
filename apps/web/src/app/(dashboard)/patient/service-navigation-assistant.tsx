@@ -1,5 +1,6 @@
 "use client";
 
+import { AiLabel } from "@/components/ai/ai-label";
 import { useState, type FormEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,10 +54,7 @@ export function ServiceNavigationAssistant() {
 
         {result && (
           <div className="space-y-2 rounded-md border border-mist-grey/60 dark:border-night-ink/15 bg-mist-grey/20 dark:bg-night-ink/10 p-3">
-            <p className="flex items-start gap-1.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              <SEMANTIC_ICON.aiCoach className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-              AI-drafted: from our facility directory, not a recommendation
-            </p>
+            <AiLabel variant="directory" />
 
             {result.status === "failed" && (
               <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{result.error}</p>

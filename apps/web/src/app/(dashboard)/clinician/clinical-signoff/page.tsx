@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -31,10 +31,14 @@ import { BpDevicesList } from "../recommended-devices/devices-list";
 import { CuffCheckRulesPanel } from "../_signoff-panels/cuff-check-rules-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { NutritionTargetsConfigPanel } from "../_signoff-panels/nutrition-targets-config-panel";
+import { LowCarbProtocolConfigPanel } from "../_signoff-panels/lowcarb-protocol-config-panel";
+import { NutritionGuidanceConfigPanel } from "../_signoff-panels/nutrition-guidance-config-panel";
 import { HealthReportConfigPanel } from "../_signoff-panels/health-report-config-panel";
 import { SerologyRulesPanel } from "../_signoff-panels/serology-rules-panel";
 import { ObservationLimitsPanel } from "../_signoff-panels/observation-limits-panel";
 import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-config-panel";
+import { FastingSafetyConfigPanel } from "../_signoff-panels/fasting-safety-config-panel";
+import { HomeCardConfigPanel } from "../_signoff-panels/home-card-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
@@ -46,11 +50,21 @@ import { PagingDeliveryConfigPanel, TaskLayerConfigPanel } from "../_signoff-pan
 import { readPagingActivationCheck, readPendingQueuePagingConfigSignoff } from "@/lib/queries/pending-queue-paging-config-signoff";
 import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
 import { CascadeConfigPanel } from "../_signoff-panels/cascade-config-panel";
+import { BaselineLabsRulePanel } from "../_signoff-panels/baseline-labs-rule-panel";
+import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
+import { AiMonitoringPanel } from "../_signoff-panels/ai-monitoring-panel";
+import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
+import { CareGapConfigPanel } from "../_signoff-panels/care-gap-config-panel";
+import { readPendingCareGapConfigSignoff } from "@/lib/queries/pending-care-gap-config-signoff";
+import { AdjustmentConfigPanel, ReliableChangeConfigPanel } from "../_signoff-panels/outcome-definitions-panel";
+import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outcome-definitions-signoff";
 import { MentalWellbeingPanel } from "../_signoff-panels/mental-wellbeing-panel";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { readPendingPostCheckinSignoff } from "@/lib/queries/pending-post-checkin-signoff";
 import { SymptomUxPanel } from "../_signoff-panels/symptom-ux-panel";
+import { MskProgrammesPanel } from "../_signoff-panels/msk-programmes-panel";
+import { readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
 import { LegacyNoticeRetirementPanel } from "../_signoff-panels/legacy-notice-retirement-panel";
@@ -62,6 +76,10 @@ import { VitalsTaskTypePanel } from "../_signoff-panels/vitals-task-type-panel";
 import { VitalsTriageRulesPanel } from "../_signoff-panels/vitals-triage-rules-panel";
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
+import { OwedSignoffPanel } from "../_signoff-panels/owed-signoff-panel";
+import { ScreeningRuleSetPanel } from "../_signoff-panels/screening-rule-set-panel";
+import { SCREENING_RULE_SET_ITEM_KEY, readPendingScreeningRuleSet } from "@/lib/queries/pending-screening-rule-set-signoff";
+import { OWED_ITEM_PREFIX } from "@/lib/queries/pending-owed-signoffs";
 import { ThresholdPolicyPanel } from "../_signoff-panels/threshold-policy-panel";
 import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
@@ -69,6 +87,8 @@ import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
 import { S06S10Banner } from "./s06-s10-banner";
 import { OpenOnHash } from "./open-on-hash";
+import { AdvanceToNext } from "./advance-to-next";
+import { signoffAnchorId } from "@/lib/signoff-anchor";
 import { readFlash } from "@/lib/go-live/flash";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { t } from "@tarragon/i18n";
@@ -111,10 +131,14 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   cuff_check_rules: () => <CuffCheckRulesPanel />,
   my_health_config: () => <MyHealthConfigPanel />,
   nutrition_target_config: () => <NutritionTargetsConfigPanel />,
+  lowcarb_protocol_config: () => <LowCarbProtocolConfigPanel />,
+  nutrition_guidance_config: () => <NutritionGuidanceConfigPanel />,
   health_report_config_versions: () => <HealthReportConfigPanel />,
   serology_rule_versions: () => <SerologyRulesPanel />,
   observation_limit_signoffs: () => <ObservationLimitsPanel />,
   activity_safety_config: () => <ActivitySafetyConfigPanel />,
+  fasting_safety_config: () => <FastingSafetyConfigPanel />,
+  home_card_config: () => <HomeCardConfigPanel />,
 };
 
 /**
@@ -165,7 +189,8 @@ export default async function ClinicianClinicalSignoffPage({
   const checklistFailed = checklist.loadFailed;
 
   // Only fetch what an inline panel needs, and only when its line is on the list.
-  const keys = new Set(hub.items.map((i) => i.key));
+  // G-01: operational settings keep their inline panels; they are just listed apart and never counted as owed signatures.
+  const keys = new Set([...hub.items, ...hub.operational, ...hub.live].map((i) => i.key));
   const [blocksRes, releaseRes] = await Promise.all([
     keys.has("lpe_content_blocks")
       ? supabase
@@ -218,7 +243,7 @@ export default async function ClinicianClinicalSignoffPage({
     );
   }
 
-  for (const item of hub.items) {
+  for (const item of [...hub.items, ...hub.operational, ...hub.live]) {
     const table = item.key.startsWith("versioned:")
       ? item.key.slice("versioned:".length)
       : item.key.startsWith("versioned_draft:")
@@ -273,9 +298,30 @@ export default async function ClinicianClinicalSignoffPage({
     const pendingWellbeing = await readPendingMentalWellbeingSignoff(supabase);
     inlinePanels[MENTAL_WELLBEING_ITEM_KEY] = <MentalWellbeingPanel worklistVersion={pendingWellbeing.worklistVersion} worklistRules={pendingWellbeing.worklistRules} attestations={pendingWellbeing.attestations} />;
   }
+  if (keys.has(MSK_PROGRAMMES_ITEM_KEY)) {
+    const pendingMsk = await readPendingMskProgrammesSignoff(supabase);
+    inlinePanels[MSK_PROGRAMMES_ITEM_KEY] = <MskProgrammesPanel programmes={pendingMsk.programmes} />;
+  }
   if (keys.has(CASCADE_CONFIG_ITEM_KEY)) {
     const pendingCascade = await readPendingCascadeConfigSignoff(supabase);
     inlinePanels[CASCADE_CONFIG_ITEM_KEY] = <CascadeConfigPanel version={pendingCascade.version} rules={pendingCascade.rules} />;
+  }
+  if (keys.has(CARE_GAP_CONFIG_ITEM_KEY)) {
+    const pendingCareGap = await readPendingCareGapConfigSignoff(supabase);
+    inlinePanels[CARE_GAP_CONFIG_ITEM_KEY] = <CareGapConfigPanel version={pendingCareGap.version} rules={pendingCareGap.rules} />;
+  }
+  if (keys.has(RELIABLE_CHANGE_ITEM_KEY) || keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) {
+    const pendingOutcomes = await readPendingOutcomeDefinitionsSignoff(supabase);
+    if (keys.has(RELIABLE_CHANGE_ITEM_KEY)) inlinePanels[RELIABLE_CHANGE_ITEM_KEY] = <ReliableChangeConfigPanel version={pendingOutcomes.reliableChange.version} view={pendingOutcomes.reliableChange.view} />;
+    if (keys.has(ADJUSTMENT_CONFIG_ITEM_KEY)) inlinePanels[ADJUSTMENT_CONFIG_ITEM_KEY] = <AdjustmentConfigPanel version={pendingOutcomes.adjustment.version} view={pendingOutcomes.adjustment.view} />;
+  }
+  if (keys.has(BASELINE_LABS_ITEM_KEY)) {
+    const pendingBaseline = await readPendingBaselineLabsRuleSignoff(supabase);
+    inlinePanels[BASELINE_LABS_ITEM_KEY] = <BaselineLabsRulePanel version={pendingBaseline.version} rule={pendingBaseline.rule} />;
+  }
+  if (keys.has(AI_MONITORING_ITEM_KEY)) {
+    const pendingAiMonitoring = await readPendingAiMonitoringSignoff(supabase);
+    inlinePanels[AI_MONITORING_ITEM_KEY] = <AiMonitoringPanel version={pendingAiMonitoring.version} rules={pendingAiMonitoring.rules} />;
   }
   if (keys.has(THRESHOLD_POLICY_ITEM_KEY)) {
     const thresholds = await readThresholdHubState(supabase);
@@ -295,6 +341,14 @@ export default async function ClinicianClinicalSignoffPage({
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
+  if (keys.has(SCREENING_RULE_SET_ITEM_KEY)) {
+    const pendingRules = await readPendingScreeningRuleSet(supabase);
+    inlinePanels[SCREENING_RULE_SET_ITEM_KEY] = <ScreeningRuleSetPanel pending={pendingRules} />;
+  }
+  // Owed signatures (a safety case, switches pressed from chat, a licence, drafts): one signing form per line.
+  for (const item of hub.items) {
+    if (item.key.startsWith(OWED_ITEM_PREFIX)) inlinePanels[item.key] = <OwedSignoffPanel subjectKey={item.key.slice(OWED_ITEM_PREFIX.length)} running={item.severity === "live_unsigned"} />;
+  }
   // Glucose triage rules (plan item R2): the numbers, the guideline basis of every rule, the patient wording in full, then the Sign control.
   if (keys.has(GLUCOSE_TRIAGE_ITEM_KEY)) inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel back="hub" />;
   // Pulse, SpO2 and temperature triage rules: the numbers, the guideline basis (with the NEWS2 comparison), the patient wording in full, then the Sign control.
@@ -342,6 +396,7 @@ export default async function ClinicianClinicalSignoffPage({
 
       <S06S10Banner snapshot={hub.s06s10} />
       <OpenOnHash />
+      <AdvanceToNext lineIds={hub.items.map((i) => signoffAnchorId(i.key))} />
 
       {/* Never an all-clear when a read failed: say so, and keep whatever did load. */}
       {hub.failed && (
@@ -361,12 +416,41 @@ export default async function ClinicianClinicalSignoffPage({
       {hub.items.length === 0 && (hub.failed || checklistFailed) ? null : hub.items.length === 0 ? (
         <Card className="border-brand-green/30 bg-brand-green/5">
           <CardContent className="pt-6 text-sm text-charcoal-ink/70">
-            Nothing is waiting on your signature. Every clinical rule, governed configuration, protocol,
-            AI system version, coaching content block and result release policy carries a signature.
+            Nothing is waiting on your signature. Every clinical protocol on the patient-harm list (triage rules,
+            thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules,
+            mental-health follow-up, fasting wording, AI system versions) carries a signature. Operational settings,
+            if any are waiting, are listed below and owe no signature.
           </CardContent>
         </Card>
       ) : (
         <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
+      )}
+
+      {hub.operational.length > 0 && (
+        <details className="rounded-md border border-mist-grey/40 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+            Operational settings ({hub.operational.length}): not clinical protocols, no signature owed
+          </summary>
+          <p className="mt-2 max-w-3xl text-sm text-charcoal-ink/70">
+            Capacity, quality, the ops desk, paging delivery, task-layer rules, care-gap and cascade definitions, wording and screen
+            attestations, device lists and the proposed registry values. Each is versioned and audited, but it is a setting, not a
+            protocol: it does not count above and it blocks nothing live. Set one when the feature that reads it needs it (decision G-01).
+          </p>
+          <div className="mt-4">
+            <SignoffQueueList items={hub.operational} inlinePanels={inlinePanels} variant="operational" />
+          </div>
+        </details>
+      )}
+
+      {hub.live.length > 0 && (
+        <details className="rounded-md border border-mist-grey/40 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+            Signed and running ({hub.live.length}): nothing to sign, open to switch off
+          </summary>
+          <div className="mt-4">
+            <SignoffQueueList items={hub.live} inlinePanels={inlinePanels} variant="live" />
+          </div>
+        </details>
       )}
 
       {hub.attention.length > 0 && (

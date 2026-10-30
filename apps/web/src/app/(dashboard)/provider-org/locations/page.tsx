@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { LocationsManager } from "./locations-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function ProviderOrgLocationsPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function ProviderOrgLocationsPage({
   }
 
   const supabase = await createClient();
-  const { data: locations } = await supabase
+  const { data: locations, error } = await supabase
     .from("provider_org_locations")
     .select("id, name, city, state, address, is_headquarters, is_active")
     .eq("organisation_id", selected.id)
@@ -34,7 +35,7 @@ export default async function ProviderOrgLocationsPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Locations</h1>
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
-      <LocationsManager organisationId={selected.id} locations={locations ?? []} />
+      {error ? <ListUnavailable title="Locations" /> : <LocationsManager organisationId={selected.id} locations={locations ?? []} />}
     </div>
   );
 }

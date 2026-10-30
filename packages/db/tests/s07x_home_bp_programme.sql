@@ -268,8 +268,9 @@ select pg_temp.ck('real', 'D4 the clinic reading is invisible to the patient and
 select pg_temp.seed12(pg_temp.f('p2'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 138, 86);
 select pg_temp.seed12(pg_temp.f('p3'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 126, 78);
 select pg_temp.seed12(pg_temp.f('p4'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 126, 78);
-select pg_temp.ck('real', 'D5pre the pattern guard cannot be switched on before the clinician-only attestation is recorded', 'refused',
-  (select case when o ~ '^ERR' then 'refused' else o end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''bp_pattern_flag'', true, ''S07x proof'')::text') o) z));
+-- G-01: the pattern flag is a feature, so its conditions are advisory and the CMO can open it before the attestation is recorded
+select pg_temp.ck('real', 'D5pre G-01: the pattern guard opens without its attestation (a feature, not a master)', 'ok',
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''bp_pattern_flag'', true, ''S07x proof'')::text') o) z));
 select pg_temp.ck('real', 'D5a the CMO records the clinician-only attestation', 'ok',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.attest_go_live_condition(''bp_pattern_flag'', ''pattern_is_clinician_only'', true, ''S07x proof: no patient screen, notification or export shows the flag'')::text') o) z));
 select pg_temp.ck('real', 'D5 the CMO switches the pattern guard on (its data conditions are met)', 'ok',

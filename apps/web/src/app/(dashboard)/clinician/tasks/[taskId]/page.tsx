@@ -14,6 +14,7 @@ import { completionOptions, DEDICATED_FLOW_TASK_TYPES, SYSTEM_CLOSED_TASK_TYPES,
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
 import { getRedPatientResponse } from "@/lib/paging/queries";
 import { RedPatientAnswer } from "@/components/paging/red-patient-answer";
+import { ManualTimeForm, TimeCapture } from "@/components/clinician/time-capture";
 
 export const metadata = { title: "Task" };
 export const dynamic = "force-dynamic";
@@ -127,6 +128,8 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
         </CardContent>
       </Card>
       <HandBackForm taskId={task.id} />
+      <TimeCapture source="task" sourceRef={task.id} patientId={task.patient_id} />
+      <ManualTimeForm patientId={task.patient_id} />
     </div>
   );
 }

@@ -110,7 +110,7 @@ export function WellbeingTrendChart({ patientId }: { patientId: string }) {
         )}
         {!isLoading && !isError && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            Log a few more check-ins to see your trend over time.
+            Complete a few more check-ins to see how your wellbeing changes over time.
           </p>
         )}
         {points.length >= 2 && (

@@ -1,6 +1,7 @@
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { useCallback, useEffect, useState } from "react";
 import { t, pointsTierLabel, pointsRuleLabel, milestoneCopy, pendingActionLabel } from "@tarragon/i18n";
-import { describePending, type PendingCreditItem, type PendingMilestone } from "@tarragon/shared";
+import { describePending, groupLedger, type PendingCreditItem, type PendingMilestone } from "@tarragon/shared";
 import { setSupportPrefill } from "@/lib/support-prefill";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
@@ -33,8 +34,9 @@ import {
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -58,7 +60,7 @@ function StatusBadge({ text, tone }: { text: string; tone: Tone }) {
   const c = toneColor(colors)[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{text}</Text>
+      <Text style={{ ...textStyles.label, color: c.text }}>{text}</Text>
     </View>
   );
 }
@@ -186,12 +188,11 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
  * comparison, no loss wording, and the database returns nothing while an emergency is open, so a red flow always comes first.
  */
 function MilestoneCard({ milestone, onDismiss }: { milestone: PendingMilestone; onDismiss: () => void }) {
-  const colors = useLegacyColors();
   const copy = milestoneCopy(milestone.code);
   return (
     <Card style={{ gap: 6 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>{t("points.milestone.heading")}</Text>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{copy.title}</Text>
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>{t("points.milestone.heading")}</AppText>
+      <AppText variant="bodyLargeStrong">{copy.title}</AppText>
       <MutedText>{copy.body}</MutedText>
       <PrimaryButton title={t("points.milestone.dismiss")} onPress={onDismiss} />
     </Card>
@@ -199,18 +200,17 @@ function MilestoneCard({ milestone, onDismiss }: { milestone: PendingMilestone; 
 }
 
 function PendingCreditList({ items, onAskSupport }: { items: PendingCreditItem[]; onAskSupport: () => void }) {
-  const colors = useLegacyColors();
   if (items.length === 0) return null;
   const askSupport = items.some((i) => i.ask_support);
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>{t("points.pending.title")}</Text>
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>{t("points.pending.title")}</AppText>
       <MutedText>{t("points.pending.intro")}</MutedText>
       {items.map((item) => {
         const d = describePending(item);
         return (
           <View key={item.event_id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3, gap: 8 }}>
-            <Text style={{ fontSize: 13, color: colors.ink, flexShrink: 1 }}>{pendingActionLabel(item.rule_codes)}</Text>
+            <AppText variant="body" style={{ flexShrink: 1 }}>{pendingActionLabel(item.rule_codes)}</AppText>
             <MutedText>{d.state === "expected" ? t("points.pending.expected", "en", { time: d.time }) : t("points.pending.later")}</MutedText>
           </View>
         );
@@ -244,7 +244,7 @@ function PointsCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.title")}</Text>
+      <AppText variant="bodyStrong">{t("points.title")}</AppText>
       <MutedText>{t("points.subtitle")}</MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
@@ -264,7 +264,7 @@ function PointsCard({
             <MutedText>{t("points.level.adults_only")}</MutedText>
           ) : (
             <>
-              <Text style={{ fontSize: 13, color: colors.ink }}>{t("points.level.current", "en", { tier: pointsTierLabel(status.tier) })}</Text>
+              <AppText variant="body">{t("points.level.current", "en", { tier: pointsTierLabel(status.tier) })}</AppText>
               {status.tier_from === "last_year" && (
                 <MutedText>{t("points.level.kept", "en", { tier: pointsTierLabel(status.tier) })}</MutedText>
               )}
@@ -280,22 +280,20 @@ function PointsCard({
       )}
 
       {rules.length > 0 && (
-        <View style={{ gap: 4 }}>
-          <Text style={label}>{t("points.how.title")}</Text>
-          <MutedText>{t("points.how.intro")}</MutedText>
+        <Disclosure title={t("points.how.title")} hint={t("points.how.intro")}>
           {rules.map((r) => (
             <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3 }}>
-              <Text style={{ fontSize: 13, color: colors.ink, flexShrink: 1 }}>
+              <AppText variant="body" style={{ flexShrink: 1 }}>
                 {pointsRuleLabel(r.code)}
                 {r.verified_action ? ` · ${t("points.how.verified")}` : ""}
-              </Text>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
+              </AppText>
+              <AppText variant="label" tone="brandText">
                 {r.points_source === "catalogue" ? t("points.how.catalogue") : t("points.how.per", "en", { points: r.points })}
-              </Text>
+              </AppText>
             </View>
           ))}
           <MutedText>{t("points.how.daily_note")}</MutedText>
-        </View>
+        </Disclosure>
       )}
 
       <View style={{ gap: 2 }}>
@@ -307,10 +305,13 @@ function PointsCard({
       <View style={{ gap: 4 }}>
         <Text style={label}>{t("points.activity.title")}</Text>
         {ledger.length === 0 && <MutedText>{t("points.activity.empty")}</MutedText>}
-        {ledger.map((entry) => (
-          <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-            <Text style={{ fontSize: 13, color: colors.ink }}>{reasonLabel(entry.reason)}</Text>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
+        {groupLedger(ledger).map((entry) => (
+          <View key={`${entry.reason}-${entry.points > 0}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <AppText variant="body">
+              {reasonLabel(entry.reason)}
+              {entry.count > 1 ? ` (${entry.count} times)` : ""}
+            </AppText>
+            <Text style={{ ...textStyles.label, color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
               {entry.points > 0 ? "+" : ""}
               {entry.points}
             </Text>
@@ -327,7 +328,7 @@ function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned:
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Badges</Text>
+      <AppText variant="bodyStrong">Badges</AppText>
       <MutedText>
         {earned.length} of {catalogue.length} earned.
       </MutedText>
@@ -352,8 +353,8 @@ function BadgesCard({ catalogue, earned }: { catalogue: WellnessBadge[]; earned:
                 }}
               >
                 <Text style={{ fontSize: 20 }}>🏅</Text>
-                <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.ink, textAlign: "center" }}>{badge.name}</Text>
-                <Text style={{ fontSize: 10.5, color: colors.muted, textAlign: "center" }}>{badge.description}</Text>
+                <AppText variant="label" style={{ textAlign: "center" }}>{badge.name}</AppText>
+                <AppText variant="caption" tone="textMuted" style={{ textAlign: "center" }}>{badge.description}</AppText>
               </View>
             );
           })}
@@ -390,7 +391,7 @@ function ActiveEnrolmentRow({ enrolment }: { enrolment: ChallengeEnrolment }) {
   return (
     <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{challenge.title}</Text>
+        <AppText variant="label">{challenge.title}</AppText>
         <StatusBadge text={enrolment.status} tone={enrolment.status === "completed" ? "brand" : "neutral"} />
       </View>
       {enrolment.status === "active" && progress && (
@@ -436,7 +437,7 @@ function ChallengesCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Challenges</Text>
+      <AppText variant="bodyStrong">Challenges</AppText>
       <MutedText>Time-boxed goals that pay a points bonus when you finish.</MutedText>
 
       {shown.length > 0 && (
@@ -449,26 +450,23 @@ function ChallengesCard({
 
       {available.length > 0 && (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, color: colors.muted }}>
+          <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.3 }}>
             Available
-          </Text>
+          </AppText>
           {available.map((challenge) => (
             <View
               key={challenge.id}
               style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{challenge.title}</Text>
+                <AppText variant="label">{challenge.title}</AppText>
                 <MutedText>
                   {challenge.description} · {challenge.points_reward} pts
                 </MutedText>
               </View>
-              <Text
-                onPress={() => (joining ? null : join(challenge.id))}
-                style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: joining === challenge.id ? 0.5 : 1 }}
-              >
+              <AppText variant="label" tone="brandText" onPress={() => (joining ? null : join(challenge.id))} style={{ opacity: joining === challenge.id ? 0.5 : 1 }}>
                 Join
-              </Text>
+              </AppText>
             </View>
           ))}
         </View>
@@ -522,7 +520,7 @@ function ClassesCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Workout classes &amp; health workshops</Text>
+      <AppText variant="bodyStrong">Workout classes &amp; health workshops</AppText>
       <MutedText>Live sessions from partner instructors and studios, coming soon in your area.</MutedText>
 
       {classes.length === 0 && (
@@ -539,27 +537,21 @@ function ClassesCard({
                 style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{cls.title}</Text>
+                  <AppText variant="label">{cls.title}</AppText>
                   <MutedText>
                     {classDateTime(cls.starts_at)} · {cls.duration_minutes} min ·{" "}
                     {cls.class_type === "virtual" ? "Virtual" : "In person"} · {cls.points_reward} pts
                   </MutedText>
                 </View>
                 {!registration && (
-                  <Text
-                    onPress={() => (busyId ? null : register(cls.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === cls.id ? 0.5 : 1 }}
-                  >
+                  <AppText variant="label" tone="brandText" onPress={() => (busyId ? null : register(cls.id))} style={{ opacity: busyId === cls.id ? 0.5 : 1 }}>
                     Register
-                  </Text>
+                  </AppText>
                 )}
                 {registration && registration.status === "registered" && (
-                  <Text
-                    onPress={() => (busyId ? null : markAttended(registration.id))}
-                    style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, opacity: busyId === registration.id ? 0.5 : 1 }}
-                  >
+                  <AppText variant="label" tone="brandText" onPress={() => (busyId ? null : markAttended(registration.id))} style={{ opacity: busyId === registration.id ? 0.5 : 1 }}>
                     Mark attended
-                  </Text>
+                  </AppText>
                 )}
                 {registration && registration.status === "attended" && <StatusBadge text="Attended" tone="brand" />}
               </View>

@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { SheetButton } from "@/components/ui/sheet-button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { statTileValue } from "@/components/ui/stat-tile-value";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -49,8 +51,27 @@ export function WeightClient({ patientId }: { patientId: string }) {
   const yDomain: [number, number] | undefined =
     yValues.length > 0 ? [Math.min(...yValues) - 2, Math.max(...yValues) + 2] : undefined;
 
+  const startingKg = goal.data?.starting_weight_kg ?? null;
+  const moved = startingKg != null && currentWeight != null ? startingKg - currentWeight : null;
+  const heroMeta = [
+    latest.data?.taken_at ? formatPatientDate(latest.data.taken_at, { day: "numeric", month: "short" }) : null,
+    goalWeight != null ? `Goal ${fmtKg(goalWeight)}` : null,
+    moved != null && moved !== 0 ? `${Math.abs(moved).toFixed(1)} kg ${moved > 0 ? "down" : "up"} since you started` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="space-y-6">
+      {/* The page opens on the current weight; setting a goal is one tap away instead of a form on the page (design audit P4). */}
+      <HeroMetric
+        label="Current weight"
+        value={latest.isLoading || latest.isError ? null : currentWeight != null ? currentWeight.toFixed(1) : null}
+        unit="kg"
+        meta={heroMeta || undefined}
+        emptyText={latest.isError ? "We couldn't load this just now. Try again in a moment." : latest.isLoading ? "Loading…" : "No weight logged yet. Log weight from your vitals or lifestyle check-in."}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Weight</CardTitle>
@@ -113,6 +134,65 @@ export function WeightClient({ patientId }: { patientId: string }) {
   );
 }
 
+function WeightGoalForm({
+  patientId,
+  currentWeightKg,
+  startingWeightKg,
+  goalWeightKg,
+  onDone,
+}: {
+  patientId: string;
+  currentWeightKg: number | null;
+  startingWeightKg: number | null;
+  goalWeightKg: number | null;
+  onDone: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [state, formAction] = useActionState<WeightGoalActionState, FormData>(
+    async (prev, formData) => {
+      const result = await setWeightGoalAction(prev, formData);
+      if (result?.success) {
+        queryClient.invalidateQueries({ queryKey: ["weight-goal", patientId] });
+        onDone();
+      }
+      return result;
+    },
+    undefined,
+  );
+  return (
+    <form action={formAction} className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-1">
+          <Label htmlFor="starting_weight_kg">Starting weight (kg)</Label>
+          <Input
+            id="starting_weight_kg"
+            name="starting_weight_kg"
+            type="number"
+            step="0.1"
+            min={1}
+            defaultValue={startingWeightKg ?? currentWeightKg ?? undefined}
+            required
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="goal_weight_kg">Goal weight (kg)</Label>
+          <Input
+            id="goal_weight_kg"
+            name="goal_weight_kg"
+            type="number"
+            step="0.1"
+            min={1}
+            defaultValue={goalWeightKg ?? undefined}
+            required
+          />
+        </div>
+      </div>
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
+      <Button type="submit">Save goal</Button>
+    </form>
+  );
+}
+
 function WeightGoalSection({
   patientId,
   currentWeightKg,
@@ -128,26 +208,6 @@ function WeightGoalSection({
   hasGoal: boolean;
   isLoading: boolean;
 }) {
-  const queryClient = useQueryClient();
-  // Not seeded from `hasGoal` directly: that prop starts `false` before the
-  // goal query resolves (async), and a useState initializer only runs once —
-  // seeding from it here would permanently show the edit form on every fresh
-  // load, even for a patient who already has a saved goal. Wait for the
-  // query to settle before deciding there's nothing to edit.
-  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
-  const editing = editingOverride ?? (!isLoading && !hasGoal);
-  const [state, formAction] = useActionState<WeightGoalActionState, FormData>(
-    async (prev, formData) => {
-      const result = await setWeightGoalAction(prev, formData);
-      if (result?.success) {
-        queryClient.invalidateQueries({ queryKey: ["weight-goal", patientId] });
-        setEditingOverride(false);
-      }
-      return result;
-    },
-    undefined,
-  );
-
   const change =
     startingWeightKg != null && currentWeightKg != null ? startingWeightKg - currentWeightKg : null;
 
@@ -155,51 +215,25 @@ function WeightGoalSection({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>My Weight Goal</CardTitle>
-        {hasGoal && !editing && (
-          <Button size="sm" variant="outline" onClick={() => setEditingOverride(true)}>
-            Edit
-          </Button>
+        {!isLoading && (
+          <SheetButton size="sm" label={hasGoal ? "Edit goal" : "Set a goal"} title="My weight goal">
+            {(close) => (
+              <WeightGoalForm
+                patientId={patientId}
+                currentWeightKg={currentWeightKg}
+                startingWeightKg={startingWeightKg}
+                goalWeightKg={goalWeightKg}
+                onDone={close}
+              />
+            )}
+          </SheetButton>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        {editing ? (
-          <form action={formAction} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1">
-                <Label htmlFor="starting_weight_kg">Starting weight (kg)</Label>
-                <Input
-                  id="starting_weight_kg"
-                  name="starting_weight_kg"
-                  type="number"
-                  step="0.1"
-                  min={1}
-                  defaultValue={startingWeightKg ?? currentWeightKg ?? undefined}
-                  required
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="goal_weight_kg">Goal weight (kg)</Label>
-                <Input
-                  id="goal_weight_kg"
-                  name="goal_weight_kg"
-                  type="number"
-                  step="0.1"
-                  min={1}
-                  defaultValue={goalWeightKg ?? undefined}
-                  required
-                />
-              </div>
-            </div>
-            {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
-            <div className="flex gap-2">
-              <Button type="submit">Save goal</Button>
-              {hasGoal && (
-                <Button type="button" variant="outline" onClick={() => setEditingOverride(false)}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-          </form>
+        {!hasGoal ? (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            {isLoading ? "Loading…" : "No goal yet. Set one whenever you are ready and your progress will show here."}
+          </p>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-4 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4">

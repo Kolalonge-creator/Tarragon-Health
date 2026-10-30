@@ -1,3 +1,4 @@
+import { LatestBpHero } from "./latest-bp-hero";
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
@@ -34,6 +35,10 @@ import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-statu
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { ThresholdOverrideNotice } from "@/app/(dashboard)/patient/threshold-override-notice";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
+import { WeeklyCardsSection } from "@/app/(dashboard)/patient/weekly-cards-section";
+import { AboveTargetMembershipCard } from "@/app/(dashboard)/patient/above-target-membership-card";
+import { FollowWithDoctorCard } from "@/app/(dashboard)/patient/follow-with-doctor-card";
+import { membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membership";
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
@@ -56,11 +61,17 @@ export default async function PatientVitalsPage() {
     <DashboardSection
       id="vitals"
       title="Vitals & symptoms"
-      description="Log readings and symptoms, and see how they trend over time."
+      description="Record your readings and symptoms, and see how they change over time."
       icon={SEMANTIC_ICON.bp}
     >
+      <LatestBpHero patientId={subjectId} />
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
       <VitalsTrendChart patientId={subjectId} />
+      {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
+      {/* Offers sit under the patient's own readings, never above them. W-53 / D-03: the calm-screen Membership offer; price and refund window come from versioned config. */}
+      {subjectId === profile.id ? <FollowWithDoctorCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
+      {/* Journey 1: above target for a week, the same offer with its own title. The database decides (Free, above target, checkout open). */}
+      {subjectId === profile.id ? <AboveTargetMembershipCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
       {/* Renders nothing until there is sensor glucose to show. */}
       <AgpCard patientId={subjectId} audience="patient" />
       <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
@@ -70,7 +81,9 @@ export default async function PatientVitalsPage() {
             one moment they are actually thinking about what happens to it. */}
         <MonitoringCoverCard />
 
-        <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
+        <div id="log-reading" className="scroll-mt-20">
+          <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
+        </div>
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />
           <GlucoseInsights patientId={subjectId} />

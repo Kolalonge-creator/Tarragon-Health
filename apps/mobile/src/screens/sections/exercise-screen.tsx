@@ -7,6 +7,8 @@ import {
   loadExerciseProgrammes,
   loadLatestReadinessScreen,
   loadExerciseEnrollments,
+  loadExerciseSessions,
+  type ExerciseSessionLog,
   loadActivityGate,
   loadWorkoutPlans,
   type WorkoutPlan,
@@ -23,9 +25,11 @@ import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/ac
 import { orderPlans, type WorkoutPlanDisplayConfig } from "@tarragon/clinical/workout-plans";
 import { usePatientAge } from "@/lib/use-patient-age";
 import { ActivityGateCard } from "@/screens/sections/movement-extras";
+import { EnrolmentProgress, ExerciseProgressHero, LogSessionCard, RecentSessions } from "@/screens/sections/exercise-sessions";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const INTENSITY_LABEL: Record<string, string> = {
   beginner: "Beginner",
@@ -64,6 +68,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [programmes, setProgrammes] = useState<ExerciseProgramme[]>([]);
   const [screen, setScreen] = useState<ExerciseReadinessScreen | null>(null);
   const [enrollments, setEnrollments] = useState<ExerciseEnrollment[]>([]);
+  const [sessions, setSessions] = useState<ExerciseSessionLog[]>([]);
   // null until the gate has answered; nothing is offered before then. An unreadable answer is the fail-closed one, never a permissive guess.
   const [gate, setGate] = useState<{ gate: ActivityGateResult; unavailable: boolean } | null>(null);
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
@@ -79,18 +84,20 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
   const [justEnrolled, setJustEnrolled] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult] = await Promise.all([
+    const [programmesResult, screenResult, enrollmentsResult, gateResult, planResult, sessionsResult] = await Promise.all([
       loadExerciseProgrammes(),
       loadLatestReadinessScreen(patientId),
       loadExerciseEnrollments(patientId),
       loadActivityGate(),
       loadWorkoutPlans(),
+      loadExerciseSessions(patientId),
     ]);
     setGate(gateResult);
     setPlans(planResult);
     if (programmesResult.ok) setProgrammes(programmesResult.data);
     if (screenResult.ok) setScreen(screenResult.data);
     if (enrollmentsResult.ok) setEnrollments(enrollmentsResult.data);
+    if (sessionsResult.ok) setSessions(sessionsResult.data);
     setLoading(false);
   }, [patientId]);
 
@@ -143,7 +150,10 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <ExerciseProgressHero sessions={sessions} />
       <ActivityGateCard gate={gate} />
+      <LogSessionCard patientId={patientId} enrollments={enrollments} onLogged={load} />
+      <RecentSessions patientId={patientId} sessions={sessions} onChanged={load} />
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>
         <MutedText>
@@ -191,17 +201,17 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
                     borderColor: answers[q.name] ? colors.brand : colors.border,
                     backgroundColor: answers[q.name] ? colors.brand : "transparent",
                     textAlign: "center",
+                    ...textStyles.label,
                     lineHeight: 20,
                     color: "#fff",
-                    fontSize: 13,
-                    fontWeight: "700",
+                    
                   }}
                 >
                   {answers[q.name] ? "✓" : ""}
                 </Text>
-                <Text style={{ flex: 1, fontSize: 13.5, color: colors.ink }} onPress={() => setAnswers((a) => ({ ...a, [q.name]: !a[q.name] }))}>
+                <AppText variant="body" onPress={() => setAnswers((a) => ({ ...a, [q.name]: !a[q.name] }))} style={{ flex: 1 }}>
                   {q.label}
-                </Text>
+                </AppText>
               </View>
             ))}
             <TextInput keyboardAppearance={scheme}
@@ -212,7 +222,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
               maxLength={300}
               multiline
               numberOfLines={2}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 14, color: colors.ink }}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink }}
             />
             {screenError ? <ErrorText>{screenError}</ErrorText> : null}
             <PrimaryButton title="Submit" loading={screenSubmitting} onPress={() => void handleSubmitReadiness()} />
@@ -224,9 +234,12 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
         <Card style={{ gap: 8 }}>
           <SectionLabel>Your programmes</SectionLabel>
           {enrollments.map((e) => (
-            <View key={e.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{e.programme?.title}</Text>
-              <Badge tone={e.status === "active" ? "brand" : "neutral"}>{e.status}</Badge>
+            <View key={e.id} style={{ paddingVertical: 4, gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{e.programme?.title}</Text>
+                <Badge tone={e.status === "active" ? "brand" : "neutral"}>{e.status}</Badge>
+              </View>
+              <EnrolmentProgress enrollment={e} sessions={sessions} />
             </View>
           ))}
         </Card>
@@ -237,13 +250,13 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
           <SectionLabel>{t("activity.plans.title")}</SectionLabel>
           {orderedPlans.map((plan) => (
             <View key={plan.code} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 6 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{plan.title}</Text>
+              <AppText variant="bodyStrong">{plan.title}</AppText>
               <Badge tone="neutral">{plan.format === "chair_class" ? t("activity.plans.chair") : t("activity.plans.home")}</Badge>
               {plan.sessions.map((s, i) => (
                 <View key={i} style={{ gap: 2 }}>
                   <MutedText>{`${s.minutes} ${t("activity.plans.minutes")}`}</MutedText>
                   {s.steps.map((step, j) => (
-                    <Text key={j} style={{ fontSize: 13.5, color: colors.ink }}>{`${j + 1}. ${step}`}</Text>
+                    <AppText variant="body" key={j}>{`${j + 1}. ${step}`}</AppText>
                   ))}
                 </View>
               ))}
@@ -261,7 +274,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
           return (
             <View key={p.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 12, gap: 8 }}>
               <View>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{p.title}</Text>
+                <AppText variant="bodyStrong">{p.title}</AppText>
                 <MutedText>{p.summary}</MutedText>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                   <Badge tone="neutral">{INTENSITY_LABEL[p.intensity_level]}</Badge>

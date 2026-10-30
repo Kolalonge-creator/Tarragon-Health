@@ -3,23 +3,9 @@ import { resolveSelectedInsurer } from "@/lib/payer/scope";
 import { InsurerPicker } from "./insurer-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { NAV_ICON } from "@/lib/icons";
-
-type DashboardAnalytics = {
-  suppressed: boolean;
-  min_cohort_size: number;
-  note?: string;
-  member_count?: number;
-  programmes?: {
-    programme_name: string;
-    condition: string;
-    members_with_condition: number | null;
-    enrolled: number | null;
-    controlled: number | null;
-    overdue_review: number | null;
-    suppressed_subgroup: boolean;
-  }[];
-};
+import { payerOverviewState } from "@/lib/payer/overview-state";
 
 export default async function PayerOverviewPage({
   searchParams,
@@ -44,10 +30,9 @@ export default async function PayerOverviewPage({
   }
 
   const supabase = await createClient();
-  const { data: analytics } = await supabase.rpc("payer_dashboard_analytics", {
-    p_insurer_id: selected.id,
-  });
-  const dashboard = analytics as DashboardAnalytics | null;
+  const state = payerOverviewState(
+    await supabase.rpc("payer_dashboard_analytics", { p_insurer_id: selected.id }),
+  );
 
   return (
     <div className="space-y-6">
@@ -56,13 +41,18 @@ export default async function PayerOverviewPage({
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
 
-      {!dashboard || dashboard.suppressed ? (
+      {state.kind === "failed" ? (
+        <LoadFailure>
+          The member figures could not be loaded just now. They are unknown, not zero, and not withheld for privacy.
+          Refresh the page to try again.
+        </LoadFailure>
+      ) : state.kind === "suppressed" ? (
         <Card variant="soft">
           <CardHeader>
             <CardTitle>Not enough members yet</CardTitle>
             <CardDescription>
-              {dashboard?.note ??
-                `Fewer than ${dashboard?.min_cohort_size ?? 10} verified members. Figures are withheld to protect individual privacy.`}
+              {state.note ??
+                `Fewer than ${state.minCohortSize} verified members. Figures are withheld to protect individual privacy.`}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -72,7 +62,7 @@ export default async function PayerOverviewPage({
             <StatTile
               icon={NAV_ICON.members}
               label="Verified members"
-              value={String(dashboard.member_count ?? 0)}
+              value={state.dashboard.member_count === undefined ? "Unknown" : String(state.dashboard.member_count)}
             />
           </div>
 
@@ -82,7 +72,9 @@ export default async function PayerOverviewPage({
               <CardDescription>27.13: members, enrolment, control and overdue review, by programme.</CardDescription>
             </CardHeader>
             <CardContent>
-              {!dashboard.programmes || dashboard.programmes.length === 0 ? (
+              {state.dashboard.programmes === undefined ? (
+                <p className="text-sm text-charcoal-ink/60">Programme figures were not returned. Refresh the page to try again.</p>
+              ) : state.dashboard.programmes.length === 0 ? (
                 <p className="text-sm text-charcoal-ink/60">
                   No programme activity among this insurer&apos;s members yet.
                 </p>
@@ -99,7 +91,7 @@ export default async function PayerOverviewPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {dashboard.programmes.map((p) => (
+                      {state.dashboard.programmes.map((p) => (
                         <tr key={p.programme_name} className="border-t border-charcoal-ink/10">
                           <td className="py-2 pr-4 font-medium">{p.programme_name}</td>
                           <td className="py-2 pr-4">{p.members_with_condition ?? "Insufficient data"}</td>

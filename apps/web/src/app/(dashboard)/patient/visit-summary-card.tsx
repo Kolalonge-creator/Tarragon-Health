@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { AVS_URGENT_KEY, avsItemLabel, t, type Locale } from "@tarragon/i18n";
+import { visitFollowUpOpen } from "@tarragon/shared";
 import { recordVisitSummaryOpened, useAddVisitItemToTasks, useMyVisitSummaries, useSetVisitItemDone } from "@/lib/queries/patient-visit-summaries";
 import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +23,8 @@ export function VisitSummaryCard({ locale, patientId, readOnly = false }: { loca
   const addTask = useAddVisitItemToTasks();
 
   const list = summaries.data ?? [];
+  // "Now" is read once when the card mounts (not during every render): the prompt only needs day-level accuracy.
+  const [nowMs] = useState(() => Date.now());
 
   // Once per summary per page load; the database also keeps it to one record a day. A failure never blocks reading.
   const noted = useRef<Set<string>>(new Set());
@@ -90,6 +94,17 @@ export function VisitSummaryCard({ locale, patientId, readOnly = false }: { loca
                   </ul>
                 )}
               </div>
+
+              {/* A prompt only (visit.follow_up_prompt): it makes the existing conversation easy to find; it adds no entitlement and promises no reply time. */}
+              {!readOnly && s.approved_at && visitFollowUpOpen(s.approved_at, nowMs) && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">{t("avs.followup.title", locale)}</h3>
+                  <p className={`text-sm ${MUTED}`}>{t("avs.followup.body", locale, { date: formatPatientDate(s.approved_at) })}</p>
+                  <Link href="/patient/messages" className={`inline-flex ${TOUCH} items-center rounded-md border px-4 text-sm font-medium`}>
+                    {t("avs.followup.cta", locale)}
+                  </Link>
+                </div>
+              )}
 
               <div role="note" className="rounded-md bg-charcoal-ink/5 p-3 dark:bg-night-ink/10">
                 <h3 className="text-sm font-medium">{t("avs.urgent.title", locale)}</h3>

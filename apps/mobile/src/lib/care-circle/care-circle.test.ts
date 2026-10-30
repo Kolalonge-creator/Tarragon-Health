@@ -43,6 +43,23 @@ describe("parsing", () => {
     expect(parseInviteMade({ token: "short", expires_at: "t" })).toBeNull();
   });
 
+  it("W-11: a week with too few readings keeps its count and null averages; a week with none is a gap", () => {
+    const v = parseSupporterView({
+      patient_id: "p", name: "Mum", shared_until: "t",
+      bp_trend: { weeks: [
+        { week_start: "2026-10-05", systolic: null, diastolic: null, readings: 1 },
+        { week_start: "2026-10-12", systolic: null, diastolic: null, readings: 0 },
+        { week_start: "2026-10-19", systolic: 141, diastolic: 90, readings: 3 },
+      ], direction: null },
+    });
+    expect(v?.bpTrend?.weeks).toEqual([
+      { weekStart: "2026-10-05", systolic: null, diastolic: null, readings: 1 },
+      { weekStart: "2026-10-12", systolic: null, diastolic: null, readings: 0 },
+      { weekStart: "2026-10-19", systolic: 141, diastolic: 90, readings: 3 },
+    ]);
+    expect(en["supporterview.bp.row_few"]).toMatch(/not enough readings/);
+  });
+
   it("the supporter view keeps only the blocks sent, and no stray field (safety case 21, app side)", () => {
     const v = parseSupporterView({
       patient_id: "p", name: "Mum", shared_until: "t",

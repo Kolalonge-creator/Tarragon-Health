@@ -10,6 +10,7 @@
  */
 import { t } from "@tarragon/i18n";
 import { renewalCopy } from "@/lib/marketing/membership";
+import { YEARLY_PANEL_TESTS, type PanelTestGroup } from "@/lib/commerce/yearly-panel-tests";
 
 export interface LadderCard {
   id: "free" | "evergreen" | "evergreen_plus";
@@ -19,7 +20,15 @@ export interface LadderCard {
   priceLine: string;
   summary: string;
   includes: readonly string[];
+  /** The tests in the yearly blood panel, grouped for reading. Only the card that includes the panel sets it. */
+  panelTests?: readonly PanelTestGroup[];
 }
+
+// The list of tests itself lives in @/lib/commerce/yearly-panel-tests, so the signed-in Membership screen reads the very same data without
+// pulling this marketing module (and its anonymous database client) into a patient page. It is re-exported here so every import of it
+// from the pricing content still works, and the registry check in pricing-ladder.test.ts still covers the one list.
+export { YEARLY_PANEL_TESTS };
+export type { PanelTestGroup };
 
 export interface LadderPriceLabels {
   evergreen: string;
@@ -39,12 +48,12 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
       name: "Free",
       difference: "Annual blood panel: no",
       priceLine: "No cost, no card, no time limit",
-      summary: "The app: tracking, reminders, education and guidance.",
+      summary: "The app, including health tracking, reminders, education and guidance.",
       includes: [
-        "Log your readings and see your trends",
+        "Record your readings and see your trends",
         "Reminders and the screening calendar",
         "The full education library",
-        "Urgent-care guidance if something looks wrong",
+        "Urgent-care guidance if a reading or symptom looks serious",
       ],
     },
     {
@@ -71,6 +80,7 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
         t("catalog.membership_annual.incl.3", "en"),
         t("catalog.membership_annual.incl.4", "en"),
       ],
+      panelTests: YEARLY_PANEL_TESTS,
     },
   ];
 }
@@ -85,7 +95,7 @@ export function ladderFaq(refundDays: number, autoRenews = false): { question: s
     {
       question: "Can I move from Membership to Membership Plus later?",
       answer:
-        "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way happens when your year ends, at renewal.",
+        "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way can only happen when your year ends, at renewal.",
     },
     {
       question: "Does it renew by itself?",

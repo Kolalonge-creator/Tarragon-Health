@@ -60,6 +60,13 @@ begin
   values (v_doctor_profile, v_org, 'Vax Test Doctor', 'senior_medical_officer', true, 'MDCN', 'VAXTEST-DOC-001', true, v_verifier, v_verifier, now())
   returning id into v_doctor_staff;
 
+  -- Staff writes are tied to the patient (private.staff_may_write -> clinician_has_patient_access). Without a
+  -- care-team tie both staff rows would be filtered out by RLS before the trigger under test ever ran, so the
+  -- 'coordinator cannot' assertion would pass vacuously and the 'doctor can' assertion could never pass.
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id, assigned_at)
+  values (v_org, v_patient_profile, v_doctor_profile, v_coordinator_profile, now())
+  on conflict (patient_id) do update set clinician_id = excluded.clinician_id, care_coordinator_id = excluded.care_coordinator_id;
+
   -- ---------------------------------------------------------------------
   -- 1) Declined / contraindicated
   -- ---------------------------------------------------------------------

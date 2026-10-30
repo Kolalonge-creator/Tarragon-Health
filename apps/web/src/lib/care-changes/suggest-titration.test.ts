@@ -45,11 +45,10 @@ const adherence = (percent: number | null) => ({
   window_start: ago(7), window_end: ago(0), below_threshold: false,
 });
 
-function setup(opts: { sex?: string; pregnancyRow?: boolean | null; readings?: number; planTarget?: unknown; alerts?: unknown[] } = {}): void {
+function setup(opts: { sex?: string; pregnancyRow?: boolean | null; pregnancyUnreadable?: boolean; readings?: number; planTarget?: unknown; alerts?: unknown[] } = {}): void {
   overrides = {};
   tableData = {
     profiles: { data: { date_of_birth: "1974-05-01", sex: opts.sex ?? "male", is_test: false }, error: null },
-    patient_pregnancy: { data: opts.pregnancyRow === undefined || opts.pregnancyRow === null ? null : { is_pregnant: opts.pregnancyRow }, error: null },
     care_plans: {
       data: [{ status: "active", target_ranges: opts.planTarget ?? { blood_pressure: { systolic_max: 135, diastolic_max: 85 } } }],
       error: null,
@@ -70,6 +69,10 @@ function setup(opts: { sex?: string; pregnancyRow?: boolean | null; readings?: n
     medication_weekly_adherence: adherence(90),
     read_medication_dose_log_audited: { status: "ok", rows: [] },
     propose_care_plan_change: "change-1",
+    // OQ-555 follow-up: the three-state answer. An unreadable status is 'unknown' (never "no record"); a readable one with no row has has_record false.
+    pregnancy_safety_status: opts.pregnancyUnreadable
+      ? { pregnancy: "unknown", has_record: false, last_delivery_date: null }
+      : { pregnancy: opts.pregnancyRow === true ? "pregnant" : "not_pregnant", has_record: opts.pregnancyRow !== undefined && opts.pregnancyRow !== null, last_delivery_date: null },
   };
   rpc.mockReset();
   rpc.mockImplementation(async (name) => {
@@ -100,7 +103,7 @@ describe("suggestTitration", () => {
     await suggestTitration(PATIENT);
     const names = rpc.mock.calls.map(([n]) => n);
     expect(names).toEqual(expect.arrayContaining(["read_patient_vitals_audited", "read_patient_medications_audited", "medication_weekly_adherence", "read_medication_dose_log_audited"]));
-    for (const forbidden of ["vitals_readings", "medications", "dose_events", "medication_logs", "triage_events", "prescriptions"]) {
+    for (const forbidden of ["patient_pregnancy", "postnatal_profiles", "vitals_readings", "medications", "dose_events", "medication_logs", "triage_events", "prescriptions"]) {
       expect(tables).not.toContain(forbidden);
     }
   });
@@ -170,6 +173,21 @@ describe("suggestTitration", () => {
     setup({ sex: "female", pregnancyRow: true });
     const yes = await suggestTitration(PATIENT);
     expect(yes.kind === "no_proposal" && yes.reasons[0]?.code).toBe("pregnancy_or_unknown");
+  });
+
+  it("an UNREADABLE pregnancy status (not tied, a failed read, a malformed reply) stops the proposal; it is never read as not pregnant", async () => {
+    setup({ sex: "female", pregnancyUnreadable: true });
+    let r = await suggestTitration(PATIENT);
+    expect(r.kind === "no_proposal" && r.reasons.map((x) => x.code)).toEqual(["pregnancy_or_unknown"]);
+    // a failed call and a malformed reply are the same thing
+    setup({ sex: "female", pregnancyRow: false });
+    overrides.pregnancy_safety_status = { data: null, error: { message: "boom" } };
+    r = await suggestTitration(PATIENT);
+    expect(r.kind === "no_proposal" && r.reasons.map((x) => x.code)).toEqual(["pregnancy_or_unknown"]);
+    setup({ sex: "female", pregnancyRow: false });
+    overrides.pregnancy_safety_status = { data: { pregnancy: "maybe" }, error: null };
+    r = await suggestTitration(PATIENT);
+    expect(r.kind === "no_proposal" && r.reasons.map((x) => x.code)).toEqual(["pregnancy_or_unknown"]);
   });
 
   it("an open emergency alert is red triage; an open review alert is amber; a routine or closed one is not", async () => {

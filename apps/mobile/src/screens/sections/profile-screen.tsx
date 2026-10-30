@@ -7,11 +7,11 @@ import {
   measurementUnitsFromProfile,
   type GlucoseDisplayUnit,
 } from "@tarragon/shared";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -19,11 +19,12 @@ import {
   GroupedListRow,
   MutedText,
   PrimaryButton,
-  ScreenTitle,
   SecondaryButton,
   SectionDivider,
   SectionLabel,
 } from "@/ui/legacy-kit";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
@@ -57,7 +58,7 @@ function Input(props: TextInputProps) {
         borderColor: colors.border,
         borderRadius: radius.control,
         paddingHorizontal: 10,
-        fontSize: 14,
+        ...textStyles.body,
         color: colors.ink,
         backgroundColor: colors.card,
       }}
@@ -221,7 +222,7 @@ function GlucoseUnitSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+            <Text style={{ ...textStyles.bodyStrong, color: value === option ? colors.onBrand : colors.ink }}>
               {GLUCOSE_UNIT_LABEL[option]}
             </Text>
           </Pressable>
@@ -285,7 +286,7 @@ function MeasurementUnitsSection({
       </MutedText>
       {UNIT_ROWS.map((row) => (
         <View key={row.key} style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{row.title}</Text>
+          <AppText variant="bodyStrong">{row.title}</AppText>
           <View style={{ flexDirection: "row", gap: 10 }}>
             {row.options.map((o) => {
               const selected = units[row.key] === o.value;
@@ -306,7 +307,7 @@ function MeasurementUnitsSection({
                     opacity: saving ? 0.6 : 1,
                   }}
                 >
-                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: selected ? "#FFFFFF" : colors.ink }}>{o.label}</Text>
+                  <Text style={{ ...textStyles.bodyStrong, color: selected ? colors.onBrand : colors.ink }}>{o.label}</Text>
                 </Pressable>
               );
             })}
@@ -319,10 +320,9 @@ function MeasurementUnitsSection({
 }
 
 function GroupHeading({ title, description }: { title: string; description: string }) {
-  const colors = useLegacyColors();
   return (
     <View accessible accessibilityRole="header" style={{ gap: 2 }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: colors.ink }}>{title}</Text>
+      <AppText variant="title">{title}</AppText>
       <MutedText>{description}</MutedText>
     </View>
   );
@@ -365,7 +365,7 @@ function ConditionLanguageSection({
     <View style={{ gap: 10 }}>
       <SectionLabel>How we describe your condition</SectionLabel>
       <MutedText>
-        Choose the wording we use across your dashboard — a gentler everyday term ("weight") or the
+        Choose the wording we use across your dashboard: a gentler everyday term ("weight") or the
         clinical term ("obesity"). This does not change your actual record.
       </MutedText>
       <View style={{ flexDirection: "row", gap: 10 }}>
@@ -385,7 +385,7 @@ function ConditionLanguageSection({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+            <Text style={{ ...textStyles.bodyStrong, color: value === option ? colors.onBrand : colors.ink }}>
               {option === "gentle" ? "Gentle" : "Clinical"}
             </Text>
           </Pressable>
@@ -418,9 +418,9 @@ function ConsentRow({ checked, onToggle, label }: { checked: boolean; onToggle: 
           justifyContent: "center",
         }}
       >
-        {checked ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+        {checked ? <Ionicons name="checkmark" size={14} color={colors.onBrand} /> : null}
       </View>
-      <Text style={{ flex: 1, fontSize: 12.5, color: colors.muted, lineHeight: 18 }}>{label}</Text>
+      <AppText variant="body" tone="textMuted" style={{ flex: 1 }}>{label}</AppText>
     </Pressable>
   );
 }
@@ -537,7 +537,7 @@ function EmergencyContactSection({
 const VERIFICATION_LABEL: Record<string, string> = {
   verified: "Verified",
   pending: "Pending review",
-  failed: "Couldn't verify — try again",
+  failed: "Could not verify. Try again.",
   not_started: "Not verified",
 };
 
@@ -574,8 +574,8 @@ function IdentityVerificationSection({
       <SectionLabel>Identity verification</SectionLabel>
       <Card style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Status</Text>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: verificationColor(colors)[status] }}>
+          <AppText variant="bodyStrong">Status</AppText>
+          <Text style={{ ...textStyles.label, color: verificationColor(colors)[status] }}>
             {VERIFICATION_LABEL[status]}
           </Text>
         </View>
@@ -630,8 +630,6 @@ function ChangePasswordSection() {
 
   return (
     <View style={{ gap: 10 }}>
-      <SectionLabel>Password</SectionLabel>
-      <MutedText>Update the password you sign in with.</MutedText>
       <Card style={{ gap: 10 }}>
         <Input
           placeholder="New password"
@@ -676,7 +674,7 @@ function RequestStatusBadge({ status }: { status: string }) {
   const tint = requestStatusColor(colors)[status] ?? colors.muted;
   return (
     <View style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 10.5, fontWeight: "700", color: tint }}>{formatRequestStatus(status)}</Text>
+      <Text style={{ ...textStyles.label, color: tint }}>{formatRequestStatus(status)}</Text>
     </View>
   );
 }
@@ -702,7 +700,6 @@ function DataPrivacySection({
   correctionRequests: CorrectionRequestRow[];
   onCorrectionCreated: (row: CorrectionRequestRow) => void;
 }) {
-  const colors = useLegacyColors();
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [recordDescription, setRecordDescription] = useState("");
   const [whatIsWrong, setWhatIsWrong] = useState("");
@@ -761,7 +758,7 @@ function DataPrivacySection({
       <SectionLabel>Data &amp; privacy</SectionLabel>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Export your data</Text>
+        <AppText variant="bodyStrong">Export your data</AppText>
         <MutedText>
           Download a machine-readable copy of your record. This opens in your browser, where you&apos;re
           signed in.
@@ -773,7 +770,7 @@ function DataPrivacySection({
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request a correction</Text>
+        <AppText variant="bodyStrong">Request a correction</AppText>
         <MutedText>
           See something wrong in your record? Tell us what it is. Your care team reviews every request
           before anything changes.
@@ -823,7 +820,7 @@ function DataPrivacySection({
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
+        <AppText variant="bodyStrong">Request deletion of your data</AppText>
         <MutedText>
           Asking us to close your account and erase your data lives in Privacy &amp; your data (open it from the menu): tap &quot;Request deletion of your data&quot;.
           It shows the waiting period, lets you cancel during it, and says plainly which records the law requires us to keep.
@@ -890,8 +887,14 @@ export function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.brand} />
+      <View style={{ flex: 1, padding: spacing.screen, backgroundColor: colors.background }}>
+        <SkeletonGroup label="Loading your profile">
+          <View style={{ gap: 12 }}>
+            <Skeleton height={28} width="55%" />
+            <Skeleton height={88} radius={16} />
+            <Skeleton height={88} radius={16} />
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -907,8 +910,14 @@ export function ProfileScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
-      <ScreenTitle>Profile data</ScreenTitle>
-      <MutedText>Keep your details, emergency contacts, and care preferences up to date.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Profile data
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Keep your details, emergency contacts, and care preferences up to date.
+        </AppText>
+      </View>
 
       <GroupHeading title="About you" description="Your details, where you are and who we call in an emergency." />
       <PersonalDetailsSection profile={profile} email={email} />
@@ -917,18 +926,19 @@ export function ProfileScreen() {
       <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
-      <GroupHeading title="How things are shown" description="Units and wording, so what you read matches what you know." />
-      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
-      <MeasurementUnitsSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
-      <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
+      <Disclosure title="How things are shown" hint="Units and wording, so what you read matches what you know.">
+        <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
+        <SectionDivider />
+        <MeasurementUnitsSection userId={userId} profile={profile} onSaved={patchProfile} />
+        <SectionDivider />
+        <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
+      </Disclosure>
       <GroupHeading title="Sign-in & security" description="Who you are to us, and how you get in." />
       <IdentityVerificationSection profile={profile} verification={verification} />
       <SectionDivider />
-      <ChangePasswordSection />
-      <SectionDivider />
+      <Disclosure title="Password" hint="Update the password you sign in with.">
+        <ChangePasswordSection />
+      </Disclosure>
       <GroupHeading title="Privacy" description="Your data, and what you can ask us to correct." />
       <DataPrivacySection
         userId={userId}

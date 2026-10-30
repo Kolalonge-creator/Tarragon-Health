@@ -56,7 +56,12 @@ export function StaffTicketDetail({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-heading text-lg font-semibold text-charcoal-ink">{ticket.subject}</h2>
-              <p className="text-xs text-charcoal-ink/60">{ticket.patient?.full_name ?? "Patient"}</p>
+              <p className="text-xs text-charcoal-ink/60">
+                {ticket.patient?.full_name ?? "Patient"} ·{" "}
+                <a href={`/clinician/support-tickets/thread/${ticket.patient_id}`} className="underline underline-offset-2">
+                  Everything this patient sent (app, phone, email)
+                </a>
+              </p>
             </div>
             <div className="flex gap-2">
               <Badge variant={priorityBadge.variant}>{priorityBadge.label}</Badge>

@@ -18,12 +18,17 @@ create temp table ids(k text primary key, v uuid) on commit drop;
 grant all on results to authenticated;
 grant all on ids to authenticated;
 
-insert into ids
-select 'patient_a', id from public.profiles
- where id in (select id from auth.users where email = 'patient.complete.test@tarragon.test');
-insert into ids
-select 'patient_b', id from public.profiles
- where id in (select id from auth.users where email = 'patient.diaspora.test@tarragon.test');
+-- Own fixtures: the seeded *.test@tarragon.test accounts this proof used to select were purged
+-- (2026-09-30), which left patient_a NULL and failed the proof on a missing fixture, not a regression.
+insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+values
+  ('b0000000-0000-4000-8000-0000000000a1', 'breast-proof-a@example.invalid', 'x', now(), '{}', '{}'),
+  ('b0000000-0000-4000-8000-0000000000b2', 'breast-proof-b@example.invalid', 'x', now(), '{}', '{}');
+update public.profiles set organisation_id = '00000000-0000-0000-0000-000000000001', role = 'patient', full_name = 'Breast Proof A'
+ where id = 'b0000000-0000-4000-8000-0000000000a1';
+update public.profiles set organisation_id = '00000000-0000-0000-0000-000000000001', role = 'patient', full_name = 'Breast Proof B'
+ where id = 'b0000000-0000-4000-8000-0000000000b2';
+insert into ids values ('patient_a', 'b0000000-0000-4000-8000-0000000000a1'), ('patient_b', 'b0000000-0000-4000-8000-0000000000b2');
 
 ------------------------------------------------------------------
 -- Case 1: reporting a breast symptom always raises a clinical alert

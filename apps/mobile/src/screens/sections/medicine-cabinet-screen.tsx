@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -82,8 +82,10 @@ import {
   type RepeatRequestItem,
 } from "@/lib/medications";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { Button, Disclosure, EmptyState, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { PharmacyOrdersSection } from "@/screens/sections/pharmacy-orders-section";
 
 interface MedicineCabinetScreenProps {
@@ -98,7 +100,7 @@ const inputStyle = (colors: ReturnType<typeof useLegacyColors>) =>
     borderColor: colors.border,
     borderRadius: radius.control,
     paddingHorizontal: 12,
-    fontSize: 14,
+    ...textStyles.body,
     color: colors.ink,
     backgroundColor: colors.card,
   }) as const;
@@ -140,7 +142,7 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{children}</Text>
+      <Text style={{ ...textStyles.label, color: s.text }}>{children}</Text>
     </View>
   );
 }
@@ -222,27 +224,31 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
-      <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Your medicines cabinet</Text>
-        <MutedText>Everything you&apos;re taking, refills, check-ins, and pack checks.</MutedText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="headline" heading>
+          Your medicines cabinet
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          Everything you&apos;re taking, refills, check-ins, and pack checks.
+        </AppText>
       </View>
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Active medications</SectionLabel>
         {medsLoading ? (
-          <ActivityIndicator color={colors.brand} />
+          <SkeletonGroup label="Loading your medications">
+            <View style={{ gap: 10 }}>
+              <Skeleton height={96} radius={16} />
+              <Skeleton height={96} radius={16} />
+            </View>
+          </SkeletonGroup>
         ) : medsError ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="We couldn't load your medications. Tap to retry." onPress={retryLoad}>
-            <Card style={{ alignItems: "center", gap: 8 }}>
-              <Ionicons name="cloud-offline-outline" size={22} color={colors.faint} />
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>We couldn&apos;t load this right now</Text>
-              <MutedText>Tap to retry.</MutedText>
-            </Card>
-          </Pressable>
+          <View style={{ gap: 10 }}>
+            <InlineAlert tone="danger" message="We couldn't load your medications." />
+            <Button title="Try again" onPress={retryLoad} variant="secondary" />
+          </View>
         ) : medications.length === 0 ? (
-          <Card>
-            <MutedText>No active medications on file.</MutedText>
-          </Card>
+          <EmptyState icon="medication" title="No active medications" body="Medicines your care team adds, or you add below, will appear here." />
         ) : (
           <View style={{ gap: 10 }}>
             {medications.map((medication) => (
@@ -318,7 +324,7 @@ function NafdacVerifyBlock() {
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
   return (
     <View style={{ gap: 4, padding: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}>
-      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("medicines.nafdac.verify.title")}</Text>
+      <AppText variant="bodyStrong">{tr("medicines.nafdac.verify.title")}</AppText>
       <MutedText>{tr("medicines.nafdac.verify.not_a_check")}</MutedText>
       {NAFDAC_VERIFY_STEP_KEYS.map((key, i) => (
         <MutedText key={key}>{`${i + 1}. ${tr(key)}`}</MutedText>
@@ -334,7 +340,6 @@ function NafdacVerifyBlock() {
  * check only. Nothing is typed, sent or received. A registration match is not proof that a pack is genuine.
  */
 function NafdacHelper() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey) => t(key, locale);
   const [state, setState] = useState<"open" | "closed" | "unknown">("closed");
@@ -351,7 +356,7 @@ function NafdacHelper() {
   const cfg = loadNafdacHelperConfig();
   return (
     <View style={{ gap: 6, marginTop: 6 }}>
-      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{tr("medicines.nafdac.helper.title")}</Text>
+      <AppText variant="bodyStrong">{tr("medicines.nafdac.helper.title")}</AppText>
       <SmallGhostButton title={tr("medicines.nafdac.helper.registration")} onPress={() => void WebBrowser.openBrowserAsync(cfg.registrationCheck.url)} />
       <MutedText>{tr("medicines.nafdac.helper.not_proof")}</MutedText>
     </View>
@@ -360,7 +365,6 @@ function NafdacHelper() {
 
 /** The number the person noted for this medicine, with the how-to folded away until asked for. Silent when none was noted. */
 function PackNumberLine({ medicationId }: { medicationId: string }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [number, setNumber] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -377,7 +381,7 @@ function PackNumberLine({ medicationId }: { medicationId: string }) {
   return (
     <View style={{ gap: 4 }}>
       <Pressable accessibilityRole="button" onPress={() => setOpen((v) => !v)} style={{ minHeight: 44, justifyContent: "center" }}>
-        <Text style={{ fontSize: 14, color: colors.ink }}>{t("medicines.nafdac.shown", locale, { number })}</Text>
+        <AppText variant="body">{t("medicines.nafdac.shown", locale, { number })}</AppText>
       </Pressable>
       {open ? <NafdacVerifyBlock /> : null}
     </View>
@@ -464,7 +468,7 @@ function MedicationCard({
   return (
     <Card style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{medication.drug_name}</Text>
+        <AppText variant="bodyLargeStrong">{medication.drug_name}</AppText>
         <Pill tone={medication.source === "clinician" ? "green" : medication.source === "specialist" ? "amber" : "grey"}>
           {SOURCE_LABEL[medication.source] ?? "Self-added"}
         </Pill>
@@ -709,16 +713,15 @@ function SupplySection({
 }
 
 function SmallGhostButton({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) {
-  const colors = useLegacyColors();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => ({ opacity: disabled ? 0.5 : pressed ? 0.6 : 1, paddingVertical: 6 })}
+      style={({ pressed }) => ({ opacity: disabled ? 0.5 : pressed ? 0.6 : 1, paddingVertical: 6, minHeight: 44, justifyContent: "center" })}
     >
-      <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>{title}</Text>
+      <AppText variant="label" tone="brandText">{title}</AppText>
     </Pressable>
   );
 }
@@ -1086,7 +1089,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
                     onPress={() => pickSuggestion(entry)}
                     style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}
                   >
-                    <Text style={{ fontSize: 14, color: colors.ink }}>{catalogueLabel(entry)}</Text>
+                    <AppText variant="body">{catalogueLabel(entry)}</AppText>
                   </Pressable>
                 ))}
                 <MutedText>{tr("medicines.search.unverified")}</MutedText>
@@ -1119,20 +1122,20 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
               <View style={{ gap: 6 }}>
                 {scanSuggestions.nafdacNumbers.slice(0, 2).map((c) => (
                   <View key={c.value} style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_number", { value: c.value })}</Text>
+                    <AppText variant="body">{tr("packscan.scan.found_number", { value: c.value })}</AppText>
                     {c.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
                     <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "nafdacNumber", value: c.value })} />
                   </View>
                 ))}
                 {scanSuggestions.strength ? (
                   <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_strength", { value: scanSuggestions.strength })}</Text>
+                    <AppText variant="body">{tr("packscan.scan.found_strength", { value: scanSuggestions.strength })}</AppText>
                     <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "dose", value: scanSuggestions.strength as string })} />
                   </View>
                 ) : null}
                 {scanSuggestions.names.slice(0, 2).map((e) => (
                   <View key={e.id} style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 14, color: colors.ink }}>{tr("packscan.scan.found_name", { value: e.genericName })}</Text>
+                    <AppText variant="body">{tr("packscan.scan.found_name", { value: e.genericName })}</AppText>
                     <SmallGhostButton title={tr("packscan.scan.use")} onPress={() => useChoice({ field: "drugName", value: e.genericName })} />
                   </View>
                 ))}
@@ -1141,7 +1144,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
             ) : null}
             {nafdacLine ? (
               <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 14, color: colors.ink }}>{tr(nafdacLine)}</Text>
+                <AppText variant="body">{tr(nafdacLine)}</AppText>
                 {nafdacLine === "packscan.nafdac.in_catalogue" ? (
                   <>
                     <MutedText>{tr("packscan.nafdac.not_a_check")}</MutedText>
@@ -1149,7 +1152,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
                   </>
                 ) : null}
                 {normaliseNafdacNumber(nafdacTyped)?.ocrCorrected ? <MutedText>{tr("packscan.scan.look_closely")}</MutedText> : null}
-                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{tr("packscan.nafdac.next_step")}</Text>
+                <AppText variant="label">{tr("packscan.nafdac.next_step")}</AppText>
                 <MutedText>{NAFDAC_MAS.howTo}</MutedText>
                 <MutedText>{NAFDAC_MAS.caveat}</MutedText>
               </View>
@@ -1273,7 +1276,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {scheduleTimes.map((time) => (
                   <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${time}`} key={time} onPress={() => removeTime(time)} style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
-                    <Text style={{ fontSize: 12, color: colors.ink }}>{time} ×</Text>
+                    <AppText variant="caption">{time} ×</AppText>
                   </Pressable>
                 ))}
               </View>
@@ -1299,7 +1302,7 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
             >
               {startedBySpecialist ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
             </View>
-            <Text style={{ fontSize: 13.5, color: colors.ink }}>A specialist started this medication</Text>
+            <AppText variant="body">A specialist started this medication</AppText>
           </Pressable>
           {startedBySpecialist ? (
             <View>
@@ -1317,11 +1320,11 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
           {error ? <ErrorText>{error}</ErrorText> : null}
           {findings && findings.length > 0 ? (
             <View accessibilityRole="alert" style={{ gap: 8, padding: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{tr("medicines.addcheck.title")}</Text>
+              <AppText variant="bodyStrong">{tr("medicines.addcheck.title")}</AppText>
               {findings.map((f, i) => (
                 <View key={`${f.adviceKey}-${i}`} style={{ gap: 2 }}>
                   <MutedText>{[...new Set(f.drugNames)].join(" · ")}</MutedText>
-                  <Text style={{ fontSize: 14, color: colors.ink }}>{tr(f.adviceKey)}</Text>
+                  <AppText variant="body">{tr(f.adviceKey)}</AppText>
                 </View>
               ))}
               <MutedText>{tr("medicines.addcheck.limits")}</MutedText>
@@ -1367,7 +1370,7 @@ function CheckinCard({ checkin, onAnswered }: { checkin: AdherenceCheckinItem; o
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13.5, color: colors.ink }}>{checkinQuestion(checkin.checkin_type, checkin.drug_name)}</Text>
+      <AppText variant="body">{checkinQuestion(checkin.checkin_type, checkin.drug_name)}</AppText>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <TextInput keyboardAppearance={scheme}
           value={answer}
@@ -1402,7 +1405,7 @@ function LabMonitoringRow({ item, isFirst }: { item: LabMonitoringItem; isFirst:
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13.5, color: colors.ink }}>{item.monitoring_label}</Text>
+        <AppText variant="body">{item.monitoring_label}</AppText>
         <MutedText>{item.drug_name ? `For ${item.drug_name}` : item.drug_class}</MutedText>
       </View>
       {item.due_date ? (
@@ -1504,11 +1507,9 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
   const verdict = result ? VERDICT_COPY[result.verdict] : null;
 
   return (
-    <View style={{ gap: 10 }}>
-      <SectionLabel>Check a medicine pack</SectionLabel>
-      <Card style={{ gap: 10 }}>
+    <Disclosure title="Check a medicine pack" hint="Compare a pack you bought with what you were prescribed">
         <MutedText>
-          Photograph a pack you have just bought for your own reference, then type the name and strength printed on it — we&apos;ll compare it
+          Photograph a pack you have just bought for your own reference, then type the name and strength printed on it. We will compare it
           with what you were prescribed.
         </MutedText>
         {photo ? (
@@ -1536,25 +1537,24 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
         {result && verdict ? (
           <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, marginTop: 2 }}>
             <Pill tone={verdict.tone}>{verdict.label}</Pill>
-            <Text style={{ fontSize: 13.5, color: colors.ink, lineHeight: 19 }}>{verdict.body}</Text>
+            <AppText variant="body">{verdict.body}</AppText>
             {result.verdict === "strength_differs" ? (
               <View style={{ backgroundColor: colors.status.warnBg, borderRadius: radius.control, padding: 10 }}>
-                <Text style={{ fontSize: 12.5, color: colors.status.warn, lineHeight: 18 }}>
+                <AppText variant="body" tone="warnText">
                   The pack says {result.packStrength?.value}
                   {result.packStrength?.unit}. Your record says {result.prescribedStrength?.value}
                   {result.prescribedStrength?.unit} of {result.matchedDrugName}. Ask your care team before taking it.
-                </Text>
+                </AppText>
               </View>
             ) : null}
             <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 4 }}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>Is it genuine? We cannot tell you that. NAFDAC can.</Text>
-              <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 17 }}>{NAFDAC_MAS.howTo}</Text>
-              <Text style={{ fontSize: 11.5, color: colors.subtle, lineHeight: 16 }}>{NAFDAC_MAS.caveat}</Text>
+              <AppText variant="label">Is it genuine? We cannot tell you that. NAFDAC can.</AppText>
+              <AppText variant="caption" tone="textMuted">{NAFDAC_MAS.howTo}</AppText>
+              <AppText variant="caption" tone="textSubtle">{NAFDAC_MAS.caveat}</AppText>
             </View>
           </View>
         ) : null}
-      </Card>
-    </View>
+    </Disclosure>
   );
 }
 

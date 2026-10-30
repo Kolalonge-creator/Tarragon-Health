@@ -6,6 +6,7 @@
 // cannot send a patient to another site after payment). The reply carries ids and the hosted checkout link only.
 import { mapOrderError, startCheckout, type CreatedOrder, type OrderCreator, type OrderStore } from "../_shared/commerce/index.ts";
 import type { PaymentProvider } from "../_shared/integrations/index.ts";
+import { edgeRateLimited } from "../_shared/rate-limit/edge-rate-limit.ts";
 
 export interface CheckoutDeps {
   readonly payments: PaymentProvider | null;
@@ -38,6 +39,9 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
   const me = await deps.whoami(auth);
   if (!me) return Response.json({ error: "unauthorised" }, { status: 401 });
+  // OQ-267: this function bypasses the web proxy, so the per-user limit is counted in the database (fails open)
+  const limited = await edgeRateLimited((fn, args) => deps.rpcAsUser(auth, fn, args), "order-checkout");
+  if (limited) return limited;
   if (!deps.payments || !deps.returnUrl) return Response.json({ error: "payment_unavailable" }, { status: 503 });
 
   let body: unknown;
@@ -77,6 +81,11 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   if (expected !== undefined && expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected < 0)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
+
+  // Membership auto-renewal: the buyer's explicit tick. Shapes only here; the database records it on the order (and ignores it for a gift, a
+  // sponsor-paid order, anything but their own Membership, or while the renewal switch is off), and a card is kept only if it was given.
+  const autoRenew = b["auto_renew"];
+  if (autoRenew !== undefined && autoRenew !== null && typeof autoRenew !== "boolean") return Response.json({ error: "invalid_input" }, { status: 400 });
 
   // Membership Plus: the state the buyer chose for blood collection. Shape only; the database decides whether it is approved (and ignores it for anything else).
   const collectionState = b["collection_state"];
@@ -123,5 +132,14 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   if (!r.ok) return Response.json({ error: r.code }, { status: STATUS[r.code] ?? 500 });
   // Fully covered: no checkout link exists and none is asked for. The reply says so, with the sponsor's name for "Covered by ...".
   if (r.covered) return Response.json({ covered: true, order_id: r.orderId, reference: r.reference, sponsor_name: r.sponsorName });
+  // Record the consent BEFORE the buyer reaches the payment page. Best effort and fail-safe: if this call fails the order simply carries no
+  // consent, so no card is kept and the Membership does not renew by itself.
+  if (autoRenew === true && !viaRequest) {
+    try {
+      await deps.rpcAsUser(auth, "set_order_renewal_consent", { p_order: r.orderId, p_consent: true });
+    } catch {
+      // see above: no consent recorded, no renewal
+    }
+  }
   return Response.json({ order_id: r.orderId, reference: r.reference, amount_kobo: r.amountKobo, checkout_url: r.checkoutUrl });
 }

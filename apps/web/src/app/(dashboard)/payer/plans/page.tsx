@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedInsurer } from "@/lib/payer/scope";
 import { InsurerPicker } from "../insurer-picker";
 import { PlansManager } from "./plans-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function PayerPlansPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function PayerPlansPage({
   }
 
   const supabase = await createClient();
-  const { data: plans } = await supabase
+  const { data: plans, error } = await supabase
     .from("payer_plans")
     .select("id, code, name, plan_year, status, effective_from, effective_to")
     .eq("insurer_id", selected.id)
@@ -33,7 +34,7 @@ export default async function PayerPlansPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Plans</h1>
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
-      <PlansManager insurerId={selected.id} plans={plans ?? []} />
+      {error ? <ListUnavailable title="Plans" /> : <PlansManager insurerId={selected.id} plans={plans ?? []} />}
     </div>
   );
 }

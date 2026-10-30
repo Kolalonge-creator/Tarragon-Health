@@ -12,6 +12,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
 import { t, type Locale } from "@tarragon/i18n";
@@ -298,7 +299,7 @@ export function SignupForm({
 
   return (
     <div className="space-y-5">
-      <div role="tablist" aria-label={t("auth.signup.title", locale)} className="grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
+      <div role="tablist" aria-label={t("auth.signup.title", locale)} className={cn("grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium", !TEXT_CODES_ENABLED && "hidden")}>
         {(["email", "phone"] as const).map((value) => (
           <button
             key={value}
@@ -315,7 +316,7 @@ export function SignupForm({
           </button>
         ))}
       </div>
-      {method === "email" ? <EmailSignupForm locale={locale} {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
+      {method === "email" || !TEXT_CODES_ENABLED ? <EmailSignupForm locale={locale} {...props} /> : <PhoneSignupForm locale={locale} {...props} />}
     </div>
   );
 }

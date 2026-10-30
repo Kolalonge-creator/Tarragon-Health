@@ -167,8 +167,7 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (!requests || requests.length === 0) && !open && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            No requests yet -- if something about the app or your care admin is getting in the way, let
-            us know above.
+            You have not made any requests yet. If something about the app or your care administration is getting in the way, tell us using the form above.
           </p>
         )}
         {requests && requests.length > 0 && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +19,8 @@ import {
   PAID_APPOINTMENT_PRODUCT_CODE,
   PER_ITEM_APPOINTMENT_TYPES,
 } from "./appointment-labels";
+import { daysAwayLabel, nextAvailable } from "@tarragon/shared";
+import { formatNairaForPatient } from "@/lib/format-money";
 import { filterConsultSlots, NO_SLOT_FILTERS, slotFilterOptions, type ConsultSlot, type SlotFilters } from "@/lib/consultations/slots";
 import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
@@ -67,10 +70,18 @@ export function BookAppointment({
   patientId,
   initialAppointmentType,
   locale = "en",
+  renderPendingPayment,
+  renderTerms,
 }: {
   organisationId: string;
   patientId: string;
   locale?: Locale;
+  /** The "Before you pay" card is written to the patient ("your Membership"). A Care Coordinator booking for someone else shows terms
+   * written about that patient instead. */
+  renderTerms?: (appointmentType: AppointmentType) => React.ReactNode;
+  /** A Care Coordinator booking on a phone call shows its own payment panel (a pay link for the patient or a relative) instead of
+   * the "Pay to confirm" button, which would start a purchase for the signed-in coordinator. */
+  renderPendingPayment?: (held: { appointmentId: string; productCode: string; slotStart: string; appointmentType: AppointmentType }) => React.ReactNode;
   /** Preselects the type picker — e.g. the Wellbeing page linking straight
    * into "Therapy session" rather than defaulting to GP. */
   initialAppointmentType?: AppointmentType;
@@ -142,6 +153,10 @@ export function BookAppointment({
   });
   const filteredDeclared = (filteredSlots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
   const shownSlots = declaredTimeSlots.length > 0 ? filterConsultSlots(hasFilters ? filteredDeclared : declaredTimeSlots, filters) : (slots ?? []);
+  // The earliest time a clinician has actually offered, with the price from the booking terms. Shown only when both are real.
+  const [mountedAt] = useState(() => Date.now());
+  const nextSlot = declaredTimeSlots.length > 0 ? nextAvailable(declaredTimeSlots, mountedAt) : null;
+  const termsForPicker = useMyBookingTerms(appointmentType).data;
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
@@ -257,10 +272,11 @@ export function BookAppointment({
         text: "Could not book that slot. Try another.",
       });
     } catch (error) {
+      // The database's refusals are written as a clause ("this patient needs to join Membership..."); show them as a sentence.
+      const raw = (error as Error).message;
       setMessage({
         tone: "error",
-        text:
-          (error as Error).message || "Could not book that slot. Try another.",
+        text: raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "Could not book that slot. Try another.",
       });
     }
   }
@@ -327,34 +343,6 @@ export function BookAppointment({
         <CardTitle>Book an appointment</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="space-y-1">
-            <label
-              className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
-              htmlFor="appointment-type"
-            >
-              Appointment type
-            </label>
-            <Select
-              id="appointment-type"
-              value={appointmentType}
-              onChange={(e) => {
-                setAppointmentType(e.target.value as AppointmentType);
-                setFilters(NO_SLOT_FILTERS);
-              }}
-            >
-              {pickerTypes.map((value) => (
-                <option key={value} value={value}>
-                  {APPOINTMENT_TYPE_LABELS[value]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <p className="self-end pb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Telemedicine, with a Tarragon doctor.
-          </p>
-        </div>
-
         {closed && guard.isError && (
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("golive.consultations.check_failed", locale)}</p>
@@ -364,10 +352,43 @@ export function BookAppointment({
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("golive.consultations.closed.title", locale)}</p>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("golive.consultations.closed.body", locale)}</p>
+            <JoinWaitlist feature="consultations" />
           </div>
         )}
 
-        {!closed && <BookingTermsCard appointmentType={appointmentType} locale={locale} />}
+        {/* While consultations are closed the form would only offer choices that cannot be booked, so only the notice shows,
+            and nothing flashes while the guard is still being read (design audit P3). */}
+        {guard.data === true && (
+          <div className="flex flex-wrap gap-3">
+            <div className="space-y-1">
+              <label
+                className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+                htmlFor="appointment-type"
+              >
+                Appointment type
+              </label>
+              <Select
+                id="appointment-type"
+                value={appointmentType}
+                onChange={(e) => {
+                  setAppointmentType(e.target.value as AppointmentType);
+                  setFilters(NO_SLOT_FILTERS);
+                }}
+              >
+                {pickerTypes.map((value) => (
+                  <option key={value} value={value}>
+                    {APPOINTMENT_TYPE_LABELS[value]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <p className="self-end pb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Telemedicine, with a Tarragon doctor.
+            </p>
+          </div>
+        )}
+
+        {!closed && (renderTerms ? renderTerms(appointmentType) : <BookingTermsCard appointmentType={appointmentType} locale={locale} />)}
 
         {!closed && declaredTimeSlots.length > 0 && (
           <div className="space-y-2" role="group" aria-label={t("book.filter.title", locale)}>
@@ -416,7 +437,14 @@ export function BookAppointment({
           </p>
         )}
 
-        {pendingPaymentAppointment && (
+        {pendingPaymentAppointment && renderPendingPayment?.({
+          appointmentId: pendingPaymentAppointment.id,
+          productCode: pendingPaymentAppointment.productCode,
+          slotStart: pendingPaymentAppointment.slotStart,
+          appointmentType: pendingPaymentAppointment.appointmentType,
+        })}
+
+        {pendingPaymentAppointment && !renderPendingPayment && (
           <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 p-3">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm text-charcoal-ink dark:text-night-ink">
@@ -456,6 +484,20 @@ export function BookAppointment({
             >
               {joinWaitingList.isPending ? "Joining…" : "Join the waiting list"}
             </Button>
+          </div>
+        )}
+
+        {!closed && !isLoading && nextSlot && (
+          <div className="rounded-xl bg-soft-sage/50 p-4 dark:bg-brand-green/10" aria-label="Next available visit">
+            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">Next available</p>
+            <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
+              {daysAwayLabel(nextSlot.daysAway)}, {formatSlot(nextSlot.slot.slot_start)}
+            </p>
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              With {nextSlot.slot.clinician_name}
+              {nextSlot.slot.specialty ? `, ${nextSlot.slot.specialty}` : ""}
+              {termsForPicker?.price_kobo != null ? `. ${formatNairaForPatient(termsForPicker.price_kobo)}` : ""}
+            </p>
           </div>
         )}
 

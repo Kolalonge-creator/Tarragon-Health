@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { loadMySeniorCaseReviews, type SeniorCaseReviewWithReviewer } from "@/lib/senior-case-review";
 import { formatCareDate } from "@/lib/care";
 import { formatDoctorName } from "@/lib/doctor-name";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Native "Senior case review" — retired from patient purchase 2026-09-24
@@ -39,16 +40,16 @@ export function SeniorCaseReviewSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Senior case review</Text>
+      <AppText variant="bodyLargeStrong">Senior case review</AppText>
       <View style={{ gap: 10 }}>
         {reviews.map((r) => {
           const completed = r.status === "completed";
           return (
             <Card key={r.id} style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
+                <AppText variant="bodyStrong" style={{ flex: 1 }}>
                   {r.situation_summary}
-                </Text>
+                </AppText>
                 <Badge tone={completed ? "brand" : "neutral"}>
                   {completed ? "Plan ready" : r.status === "declined" ? "Declined" : "With a senior doctor"}
                 </Badge>
@@ -56,7 +57,7 @@ export function SeniorCaseReviewSection({ patientId }: { patientId: string }) {
               {r.status === "declined" && r.declined_reason && <ErrorText>{r.declined_reason}</ErrorText>}
               {completed && r.written_plan && (
                 <>
-                  <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.written_plan}</Text>
+                  <AppText variant="body">{r.written_plan}</AppText>
                   {r.reviewer && r.reviewed_at && (
                     <MutedText>
                       {formatDoctorName(r.reviewer.full_name)} · {formatCareDate(r.reviewed_at)}

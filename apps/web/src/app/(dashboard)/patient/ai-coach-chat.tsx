@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { CoachSuggestedAction } from "@tarragon/shared";
+import { AiLabel } from "@/components/ai/ai-label";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
 import { CareTeamHandoffStatus } from "@/components/ai/care-team-handoff-status";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
@@ -111,6 +112,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <AiLabel variant="coach" />
         {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
         <AssistantEmergencyButton />
         <AssistantNudgeCard />
@@ -225,8 +227,8 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         {limitReached && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-              Need more room today? A 30-day pass raises your daily message limit. Buy again any
-              time, no auto-renewal.
+              Need to send more messages today? A 30-day pass raises your daily message limit. You can buy
+              another at any time, and it does not renew automatically.
             </p>
             <Button size="sm" variant="outline" asChild>
               <a href="/patient/subscription">Get the AI Coach Daily Pass</a>

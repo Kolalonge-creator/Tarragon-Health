@@ -134,7 +134,7 @@ describe("401 handling", () => {
 
     await expect(postDeviceReading({ systolic: 120 })).resolves.toEqual({
       success: false,
-      error: "Your session expired — please sign in again.",
+      error: "Your session expired. Please sign in again.",
     });
 
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -154,6 +154,23 @@ describe("401 handling", () => {
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares one refresh between requests that hit a 401 at the same time", async () => {
+    let call = 0;
+    mockFetch.mockImplementation(async () => (call++ < 3 ? jsonResponse(401, { error: "expired" }) : jsonResponse(200, {})));
+    refreshSession.mockResolvedValue({
+      data: { session: { access_token: "jwt-refreshed" }, user: {} },
+      error: null,
+    } as unknown as Awaited<ReturnType<typeof supabase.auth.refreshSession>>);
+
+    await Promise.all([
+      postDeviceReading({ systolic: 120 }),
+      postDeviceReading({ systolic: 121 }),
+      postDeviceReading({ systolic: 122 }),
+    ]);
+
     expect(refreshSession).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ import {
   useExerciseProgrammes,
   useLatestReadinessScreen,
   useExerciseEnrollments,
+  useExerciseSessions,
   clearsForModerate,
   clearsForVigorous,
   type ExerciseProgramme,
@@ -15,6 +16,7 @@ import {
   enrollExerciseProgrammeAction,
   type ExerciseActionState,
 } from "./actions";
+import { ExerciseProgressHero, EnrolmentProgress, LogSessionCard, RecentSessions } from "./exercise-progress";
 import { READINESS_QUESTIONS } from "@/lib/validation/exercise";
 import { intensityAllowed, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
 import { useActivityGate, useWorkoutPlans, type WorkoutPlan } from "@/lib/queries/activity-gate";
@@ -27,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Disclosure } from "@/components/ui/disclosure";
 
 const SCREEN_KEY = "exercise-readiness-screen";
 const ENROLLMENTS_KEY = "exercise-enrollments";
@@ -41,6 +44,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const programmes = useExerciseProgrammes();
   const screen = useLatestReadinessScreen(patientId);
   const enrollments = useExerciseEnrollments(patientId);
+  const sessions = useExerciseSessions(patientId);
 
   const okModerate = clearsForModerate(screen.data);
   const okVigorous = clearsForVigorous(screen.data);
@@ -50,10 +54,14 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
   const plans = useWorkoutPlans();
   const gate: ActivityGateResult | null = gateQuery.data?.gate ?? null;
   const resting = gate?.decision === "rest";
+  const activeCount = (enrollments.data ?? []).filter((e) => e.status === "active").length;
 
   return (
     <div className="space-y-6">
+      <ExerciseProgressHero patientId={patientId} />
       <ActivityGateBanner />
+      <LogSessionCard patientId={patientId} enrollments={enrollments.data ?? []} />
+      <RecentSessions patientId={patientId} />
       <ReadinessCard patientId={patientId} screen={screen.data} />
 
       {(enrollments.data?.length ?? 0) > 0 && (
@@ -63,9 +71,12 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
           </CardHeader>
           <CardContent className="space-y-2">
             {(enrollments.data ?? []).map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{e.programme?.title}</p>
-                <Badge variant={e.status === "active" ? "green" : "grey"}>{e.status}</Badge>
+              <div key={e.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{e.programme?.title}</p>
+                  <Badge variant={e.status === "active" ? "green" : "grey"}>{e.status}</Badge>
+                </div>
+                <EnrolmentProgress enrollment={e} sessions={sessions.data ?? []} />
               </div>
             ))}
           </CardContent>
@@ -75,11 +86,8 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
       {(plans.data?.length ?? 0) > 0 && !resting && <WorkoutPlansCard plans={plans.data ?? []} patientId={patientId} />}
 
       {!resting && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Programme catalogue</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <Disclosure title="Programme catalogue" hint="Choose a programme to start" defaultOpen={activeCount === 0}>
+          <div className="space-y-3">
             {(programmes.isLoading || gateQuery.isLoading) && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
             {gate !== null &&
               (programmes.data ?? []).map((p) => (
@@ -91,9 +99,13 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
                   gateAllows={intensityAllowed(gate, p.intensity_level === "beginner" ? "gentle" : p.intensity_level)}
                 />
               ))}
-          </CardContent>
-        </Card>
+          </div>
+        </Disclosure>
       )}
+
+      <Disclosure title="Exercise readiness" hint="A few safety questions for moderate or vigorous programmes">
+        <ReadinessCard patientId={patientId} screen={screen.data} />
+      </Disclosure>
     </div>
   );
 }

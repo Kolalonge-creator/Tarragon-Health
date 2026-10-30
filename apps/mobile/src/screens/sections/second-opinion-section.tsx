@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -24,13 +24,13 @@ import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /** The referral a doctor recommended with the answer: accept it, then open the letter. */
 function RecommendedReferralBlock({ requestId, referralId, onChanged }: { requestId: string; referralId: string; onChanged: () => void }) {
   const [referral, setReferral] = useState<RecommendedReferral | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const colors = useLegacyColors();
 
   const load = useCallback(async () => {
     const r = await loadRecommendedReferral(referralId);
@@ -60,7 +60,7 @@ function RecommendedReferralBlock({ requestId, referralId, onChanged }: { reques
   };
   return (
     <View style={{ gap: 6, marginTop: 6 }}>
-      <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Your doctor suggests seeing a specialist</Text>
+      <AppText variant="bodyStrong">A doctor suggests seeing a specialist</AppText>
       {referral.reason && <MutedText>{referral.reason}</MutedText>}
       {referral.status === "draft" ? (
         <>
@@ -220,7 +220,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Second opinion</Text>
+      <AppText variant="bodyLargeStrong">Second opinion</AppText>
       <MutedText>
         Already have a result or diagnosis from somewhere else? A doctor on your care team reviews
         it and writes back their own assessment, no visit needed.
@@ -228,7 +228,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
 
       {isMember === false && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: colors.brandPressed }}>A second opinion is part of Membership.</Text>
+          <AppText variant="body" tone="brandText">A second opinion is part of Membership.</AppText>
           <SecondaryButton
             title="Join Membership"
             onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/membership`)}
@@ -242,9 +242,9 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
 
       {needsCredit && isMember === true && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: colors.brandPressed }}>
+          <AppText variant="body" tone="brandText">
             Pay for your second opinion to send this request.
-          </Text>
+          </AppText>
           <SecondaryButton
             title="Pay in the browser"
             onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
@@ -274,7 +274,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
       />
       {shareable.length > 0 && (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Show the doctor your Tarragon results (optional)</Text>
+          <AppText variant="bodyStrong">Show the doctor your Tarragon results (optional)</AppText>
           <MutedText>Only the results you pick are shown, only to the doctor reviewing this request.</MutedText>
           {shareable.map((r) => {
             const on = sharedIds.includes(r.id);
@@ -289,7 +289,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         </View>
       )}
       <View style={{ gap: 6 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Reports from elsewhere (optional)</Text>
+        <AppText variant="bodyStrong">Reports from elsewhere (optional)</AppText>
         <MutedText>PDF or photo, up to {SECOND_OPINION_MAX_FILES} files of 8 MB each. Only the doctor reviewing this request sees them.</MutedText>
         {photos.length > 0 && <MutedText>{photos.length} {photos.length === 1 ? "file" : "files"} added</MutedText>}
         <SecondaryButton title="Choose a PDF or file" onPress={() => void addFile()} />
@@ -310,16 +310,16 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
             return (
               <Card key={r.id} style={{ gap: 6 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
+                  <AppText variant="bodyStrong" style={{ flex: 1 }}>
                     {r.existing_diagnosis_or_result}
-                  </Text>
+                  </AppText>
                   <Badge tone={answered ? "brand" : "neutral"}>
                     {answered ? "Answered" : "With your care team"}
                   </Badge>
                 </View>
                 {answered && r.answer && (
                   <>
-                    <Text style={{ fontSize: 13.5, color: colors.ink }}>{r.answer}</Text>
+                    <AppText variant="body">{r.answer}</AppText>
                     {r.answerer && r.answered_at && (
                       <MutedText>
                         Answered by {formatDoctorName(r.answerer.full_name)} on {formatCareDate(r.answered_at)}

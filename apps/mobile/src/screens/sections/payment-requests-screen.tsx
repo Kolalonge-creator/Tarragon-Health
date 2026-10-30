@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, View } from "react-native";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { paymentRequestLink, requestErrorKey, type PaymentRequestRow } from "@tarragon/commerce";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -9,6 +9,7 @@ import type { CatalogueItem } from "@/lib/commerce/parse";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const isKey = (k: string): k is MessageKey => Object.hasOwn(en, k);
 const lagos = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -70,28 +71,28 @@ export function PaymentRequestsScreen() {
       <MutedText>{tr("request.only_year")}</MutedText>
       {items.map((i) => (
         <Card key={i.code}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{isKey(i.nameKey) ? t(i.nameKey, locale) : i.code}</Text>
+          <AppText variant="bodyStrong">{isKey(i.nameKey) ? t(i.nameKey, locale) : i.code}</AppText>
           <PrimaryButton title={busy ? tr("request.creating") : tr("request.create")} onPress={() => void make(i.code)} disabled={busy} />
         </Card>
       ))}
       {error ? <ErrorText>{tr(error)}</ErrorText> : null}
       {link ? (
         <Card>
-          <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{tr("request.link_ready")}</Text>
+          <AppText variant="bodyStrong" accessibilityRole="header">{tr("request.link_ready")}</AppText>
           <MutedText>{tr("request.link_once")}</MutedText>
-          <Text selectable accessibilityLabel={tr("request.link_ready")} style={{ color: colors.ink }}>{link}</Text>
+          <AppText variant="body" selectable accessibilityLabel={tr("request.link_ready")}>{link}</AppText>
           <PrimaryButton title={tr("request.share")} onPress={() => void share(link)} />
         </Card>
       ) : null}
       <Card>
-        <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{tr("request.list.title")}</Text>
+        <AppText variant="bodyStrong" accessibilityRole="header">{tr("request.list.title")}</AppText>
         {rows.length === 0 ? <MutedText>{tr("request.list.empty")}</MutedText> : null}
         {rows.map((r) => {
           const sk = `request.status.${r.status}`;
           return (
             <View key={r.id} style={{ paddingVertical: 8, gap: 6 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ color: colors.ink, flexShrink: 1 }}>{isKey(r.nameKey) ? t(r.nameKey, locale) : r.itemCode}</Text>
+                <AppText variant="body" style={{ flexShrink: 1 }}>{isKey(r.nameKey) ? t(r.nameKey, locale) : r.itemCode}</AppText>
                 <Badge tone={r.status === "paid" ? "brand" : "neutral"}>{isKey(sk) ? t(sk, locale) : ""}</Badge>
               </View>
               {r.status === "open" ? <MutedText>{tr("request.expires_on", { date: lagos(r.expiresAt) })}</MutedText> : null}

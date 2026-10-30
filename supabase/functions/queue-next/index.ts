@@ -5,6 +5,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mapQueueError } from "../_shared/queue/claims.ts";
 import { withSentry } from "../_shared/observability/sentry.ts";
+import { edgeRateLimited } from "../_shared/rate-limit/edge-rate-limit.ts";
 
 Deno.serve(withSentry("queue-next", async (req) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
@@ -14,6 +15,9 @@ Deno.serve(withSentry("queue-next", async (req) => {
     global: { headers: { Authorization: auth } },
     auth: { persistSession: false },
   });
+  // OQ-267: this function bypasses the web proxy, so the per-user limit is counted in the database (fails open)
+  const limited = await edgeRateLimited((fn, args) => client.rpc(fn, args), "queue-next");
+  if (limited) return limited;
   const { data, error } = await client.rpc("queue_next");
   if (error) {
     const { status, code } = mapQueueError(error.message);

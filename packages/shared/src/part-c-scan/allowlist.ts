@@ -13,12 +13,10 @@ export interface PartCAllow {
   readonly reason: string;
 }
 
-const EXP = "2026-11-06";
-
 export const PART_C_ALLOWLIST: readonly PartCAllow[] = [
-  // SMS: none beyond verification codes (sent by Supabase phone auth, never through the app). The emergency-contact exception (D3) and clinician SMS paging were removed 2026-10-16 (OQ-332, OQ-333).
+  // SMS: none beyond verification codes (sent by Supabase phone auth, never through the app). The emergency-contact exception (D3) and clinician SMS paging were removed 2026-10-16 (OQ-332, OQ-333); the last SMS and voice sender code (OQ-727) was deleted 2026-10-27.
   // Fertile window: the six `fertile-window-label` entries were removed by S85 D2 (OQ-12): opt-in "Planning a pregnancy"
   // mode and the shared label are built on web and phone. Do not add one back; fix the screen.
-  // Platform Credit was removed from the schema; one refund branch for a retired charge remains
-  { rule: "stored-balance", file: "supabase/functions/paystack-webhook/handler.ts", oq: "OQ-309", expires: EXP, reason: "refund-and-reconcile branch for a retired platform_credit_topup charge" },
+  // Platform Credit: the last allowlist entry (OQ-309, paystack-webhook refund branch) was deleted with its branch 2026-10-27 after live evidence of 0 rows.
+  { rule: "paystack-recurring", file: "supabase/functions/paystack-webhook/handler.ts", oq: "OQ-97", expires: "2026-11-26", reason: "dormant subscription.create handler (0 live subscriptions); OQ-97 decided to delete the retired plan paths" },
 ];

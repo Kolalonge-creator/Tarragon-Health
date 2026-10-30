@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { describeRpcError, handbackSchema, queueNextResultSchema } from "@/lib/clinician/written-questions";
 import { t } from "@tarragon/i18n";
 import { loose } from "@/lib/clinician/loose-client";
+import { overrideReasonCodeSchema } from "@/lib/clinician/override-reasons";
 import {
   attemptsFromRows, completeTaskSchema, completionOptions, DEDICATED_FLOW_TASK_TYPES, SYSTEM_CLOSED_TASK_TYPES, uuidSchema, type AttemptRow,
 } from "@/lib/clinician/queue-console";
@@ -92,6 +93,10 @@ export async function completeTask(_prev: QueueActionState, formData: FormData):
   }
   const { error } = await supabase.rpc("queue_complete", { p_task: parsed.data.taskId, p_outcome: outcome });
   if (error) return { error: describeRpcError(error) };
+  // W-02: the optional coded reason, recorded AFTER the task is finished and never allowed to fail the completion. The database accepts it
+  // because the caller held the claim (history), so completing first cannot race it.
+  const reason = overrideReasonCodeSchema.safeParse(String(formData.get("override_reason") ?? ""));
+  if (reason.success) await loose(supabase).rpc("record_task_override_reason", { p_task: parsed.data.taskId, p_code: reason.data });
   revalidatePath(QUEUE);
   redirect(`${QUEUE}?done=1`);
 }

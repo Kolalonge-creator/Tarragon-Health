@@ -3,7 +3,9 @@ import { PROPOSED_CONFIG } from "@tarragon/shared";
 import { loadGuards, loadSignoffs } from "@/lib/go-live/load";
 import {
   buildConfigRows,
+  groupGuards,
   guardHasDrifted,
+  guardIsOpen,
   lagosToday,
   openRows,
   viewerMaySwitchOn,
@@ -64,11 +66,7 @@ export async function GoLivePage({
       {!guards.ok ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("golive.load_error", locale)}</p>
       ) : (
-        <ul className="grid gap-4">
-          {guards.data.map((g) => (
-            <GuardCard key={g.key} g={g} viewer={writer} locale={locale} />
-          ))}
-        </ul>
+        <GuardSections guards={guards.data} viewer={writer} locale={locale} />
       )}
 
       {writer && (
@@ -95,6 +93,132 @@ export async function GoLivePage({
   );
 }
 
+/**
+ * G-01 layout (2026-10-29): the nine master switches first, each with the features that stand under it, then the features that stand on
+ * their own. A master keeps its conditions and its role. A feature is one card with its state, why it is closed (its master, or a hold
+ * with the reason), and a switch either viewer may press.
+ */
+function GuardSections({ guards, viewer, locale }: { guards: GuardStatus[]; viewer: Viewer | null; locale: Locale }) {
+  const { groups, standalone } = groupGuards(guards);
+  return (
+    <div className="space-y-8">
+      <section aria-labelledby="masters" className="space-y-3">
+        <div>
+          <h2 id="masters" className="font-heading text-xl font-semibold text-charcoal-ink">{t("golive.section.masters", locale)}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("golive.section.masters.intro", locale)}</p>
+        </div>
+        <ul className="grid gap-4">
+          {groups.map(({ master, features }) => (
+            <li key={master.key} className="space-y-3">
+              <GuardCard g={master} viewer={viewer} locale={locale} />
+              {features.length > 0 && (
+                <details className="ml-4 rounded-xl border border-dashed border-charcoal-ink/15 p-3">
+                  <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+                    {t("golive.section.under", locale, { master: master.label, count: features.length })}
+                  </summary>
+                  <ul className="mt-3 grid gap-3">
+                    {features.map((f) => (
+                      <FeatureCard key={f.key} g={f} master={master} viewer={viewer} locale={locale} />
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+      {standalone.length > 0 && (
+        <section aria-labelledby="standalone" className="space-y-3">
+          <div>
+            <h2 id="standalone" className="font-heading text-xl font-semibold text-charcoal-ink">{t("golive.section.standalone", locale)}</h2>
+            <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("golive.feature.intro", locale)}</p>
+          </div>
+          <ul className="grid gap-3">
+            {standalone.map((f) => (
+              <FeatureCard key={f.key} g={f} master={null} viewer={viewer} locale={locale} />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** One feature (G-01): state, why it is closed, and a switch for either viewer. Its conditions are advisory and are not listed here. */
+function FeatureCard({ g, master, viewer, locale }: { g: GuardStatus; master: GuardStatus | null; viewer: Viewer | null; locale: Locale }) {
+  const open = guardIsOpen(g);
+  const held = !g.is_on && !!g.held_reason;
+  const parentOff = g.is_on && master !== null && !master.is_on;
+  const stateKey = open ? "golive.state.open" : held ? "golive.state.held" : "golive.state.closed";
+  const badge = open ? "bg-emerald-100 text-emerald-900" : held ? "bg-amber-100 text-amber-900" : "bg-charcoal-ink/10 text-charcoal-ink";
+  return (
+    <li id={g.key} data-kind="feature" className="space-y-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm dark:border-night-ink/15 dark:bg-night-card">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-heading text-base font-semibold text-charcoal-ink">{g.label}</h3>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge}`}>{t(stateKey, locale)}</span>
+      </div>
+      <p className="font-mono text-xs text-charcoal-ink/50">{g.key}</p>
+      <p className="text-sm text-charcoal-ink">
+        <span className="font-medium">{t("golive.blocks", locale)}:</span> {g.blocks}
+      </p>
+      {g.enforced_in.length === 0 && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{t("golive.enforced.none", locale)}</p>}
+      {parentOff && master && (
+        <p className="rounded-lg bg-charcoal-ink/5 px-3 py-2 text-sm text-charcoal-ink">{t("golive.feature.parent_off", locale, { master: master.label })}</p>
+      )}
+      {held && g.held_reason && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span className="font-medium">{t("golive.state.held", locale)}:</span> {g.held_reason}
+        </p>
+      )}
+      {viewer === null ? (
+        <p className="text-xs text-charcoal-ink/70">{t("golive.readonly", locale)}</p>
+      ) : (
+        <form action={switchGuardAction} className="space-y-2">
+          <input type="hidden" name="viewer" value={viewer} />
+          <input type="hidden" name="key" value={g.key} />
+          {g.is_on ? (
+            <>
+              <label className="block text-xs text-charcoal-ink">
+                {t("golive.feature.hold.note", locale)}
+                <input name="note" required minLength={20} maxLength={1000} className={field} />
+              </label>
+              <button type="submit" name="on" value="0" className={`${button} border border-red-300 text-red-900`}>{t("golive.feature.hold", locale)}</button>
+            </>
+          ) : (
+            <>
+              <label className="block text-xs text-charcoal-ink">
+                {t("golive.feature.open.note", locale)}
+                <input name="note" required maxLength={1000} className={field} />
+              </label>
+              {/* Enter in the note field submits this form; opening needs the box ticked as well, same as a master, so a stray Enter cannot open a feature. */}
+              <label className="flex items-start gap-2 text-xs text-charcoal-ink">
+                <input type="checkbox" name="confirm" required className="mt-0.5" />
+                {t("golive.feature.open.confirm", locale)}
+              </label>
+              <button type="submit" name="on" value="1" className={`${button} bg-brand-green text-white`}>{t("golive.feature.open", locale)}</button>
+            </>
+          )}
+        </form>
+      )}
+      {g.recent.length > 0 && (
+        <ul className="space-y-1 text-xs text-charcoal-ink/80">
+          {g.recent.slice(0, 2).map((r, i) => (
+            <li key={`${r.at}-${i}`}>
+              {t("golive.last_change", locale, {
+                what: r.action === "switched_on" ? t("golive.action.switched_on", locale) : t("golive.action.switched_off", locale),
+                who: r.by ?? "?",
+                when: lagos(r.at),
+              })}
+              {r.note ? `. ${r.note}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+/** One MASTER switch: its conditions, its role, its switch. Features render through FeatureCard (GuardSections routes them). */
 function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | null; locale: Locale }) {
   const mayOn = viewer !== null && viewerMaySwitchOn(g, viewer);
   const drift = guardHasDrifted(g);

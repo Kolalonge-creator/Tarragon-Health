@@ -145,7 +145,7 @@ export function HeartAgeTrendClient({ patientId }: { patientId: string }) {
           )}
 
           <p className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Recalculated each time you have a new cholesterol panel recorded — the age at which
+            Recalculated each time a new cholesterol panel is recorded. It is the age at which
             someone with ideal blood pressure and cholesterol would carry the same 10-year
             cardiovascular risk your own results show. Not a lab-based or genetic biological-age
             test, and not a medical diagnosis. 10-year CVD risk is estimated with SCORE2

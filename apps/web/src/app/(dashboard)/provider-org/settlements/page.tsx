@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { SettlementsManager } from "./settlements-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function ProviderOrgSettlementsPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function ProviderOrgSettlementsPage({
   }
 
   const supabase = await createClient();
-  const { data: settlements } = await supabase
+  const { data: settlements, error } = await supabase
     .from("provider_org_settlements")
     .select("id, reference, period_start, period_end, invoiced_total_kobo, status")
     .eq("organisation_id", selected.id)
@@ -33,7 +34,7 @@ export default async function ProviderOrgSettlementsPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Settlements</h1>
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
-      <SettlementsManager organisationId={selected.id} settlements={settlements ?? []} />
+      {error ? <ListUnavailable title="Settlements" /> : <SettlementsManager organisationId={selected.id} settlements={settlements ?? []} />}
     </div>
   );
 }

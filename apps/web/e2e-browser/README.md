@@ -48,6 +48,14 @@ own comment) rather than failing the run.
 
 ## What's covered
 
+- **`events-care-message-round-trip.spec.ts`** and **`events-booking-round-trip.spec.ts`** —
+  events harness E5 to E7: a care message from patient to doctor and back, and a
+  booking from slot to cancellation, each with the in-app bell asserted for every
+  person involved (exactly one notice, in words, linking to the right screen). They
+  need a production build locally, as CI uses: `E2E_PRODUCTION_BUILD=1`. In dev
+  mode a first-compiled route can 404 and never clear. Email and push are not
+  covered here.
+
 - **`b2c-signup-to-entitlement.spec.ts`** — the signup form itself (a
   standalone UI check, since real email confirmation can't be completed
   headlessly), then a full authenticated journey using a pre-seeded,

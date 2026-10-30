@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadLocationConsent, revokeLocationConsent, sendHelpAlert, type HelpAlertResult } from "@/lib/care-circle/help-alert";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The one-tap "ask my Care Circle for help" card (S65, spec 15.15). One deliberate tap tells the people in the circle who can receive
@@ -13,7 +13,6 @@ import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui
  * lets a person who turned sharing on from the web turn it off.
  */
 export function HelpAlertCard() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<HelpAlertResult | null>(null);
@@ -51,20 +50,20 @@ export function HelpAlertCard() {
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.help.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("circle.help.title", locale)}</AppText>
       <MutedText>{t("circle.help.intro", locale)}</MutedText>
       <PrimaryButton title={t("circle.help.button", locale)} onPress={() => void tap()} loading={sending} />
       {notOpen ? <MutedText>{t("circle.help.not_open", locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.help.error", locale)}</ErrorText> : null}
       {result ? (
         <View style={{ gap: 4 }}>
-          <Text style={{ color: colors.ink }}>
+          <AppText variant="body">
             {result.alreadySent
               ? t("circle.help.already", locale)
               : result.recipientsTold > 0
                 ? t("circle.help.sent", locale, { count: String(result.recipientsTold) })
                 : t("circle.help.sent_none", locale)}
-          </Text>
+          </AppText>
           <MutedText>{result.locationShared ? t("circle.help.location_on", locale) : t("circle.help.location_off", locale)}</MutedText>
         </View>
       ) : null}

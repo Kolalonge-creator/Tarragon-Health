@@ -29,6 +29,8 @@ import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, Lis
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
+import { LowCarbLinkCard } from "@/screens/sections/lowcarb-link-card";
+import type { SectionId } from "@/lib/sections";
 import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
 import { PharmacyCollectCard } from "@/screens/sections/pharmacy-collect-card";
 import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
@@ -41,6 +43,8 @@ interface MedicationsScreenProps {
    * (home-shell.tsx), so the heading never implies these are the device
    * owner's own doses while marking somebody else's. */
   subjectName?: string;
+  /** Opens another section; used only for the quiet link to the supported eating programme (S50b). */
+  onNavigate?: (id: SectionId) => void;
 }
 
 /** Matches the slot key the reminder plan uses (medication, Lagos date, time), so snoozes and replans agree and yesterday's open dose never collides with today's. */
@@ -94,7 +98,7 @@ function badgeTone(state: SlotState): "neutral" | "positive" | "warn" {
   return "neutral";
 }
 
-export function MedicationsScreen({ patientId, organisationId, subjectName }: MedicationsScreenProps) {
+export function MedicationsScreen({ patientId, organisationId, subjectName, onNavigate }: MedicationsScreenProps) {
   const { colors } = useTheme();
   const toast = useToast();
   const locale = asLocale(useUiLanguage());
@@ -357,30 +361,16 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       {/* A change is the patient's own yes, so it is not shown while acting for someone else. */}
       {ownsReminders ? <CareChangeCard /> : null}
 
+      {/* Only for someone a clinician has offered the supported eating programme; nothing for anyone else. */}
+      {ownsReminders ? <LowCarbLinkCard onNavigate={onNavigate} /> : null}
+
       {ownsReminders ? <RenewalReviewCard tr={tr} /> : null}
 
       {/* Choose a pharmacy for prescribed medicines and show the collection code (S28e). Shows nothing while collection is not open or nothing is waiting. */}
       {ownsReminders ? <PharmacyCollectCard tr={tr} /> : null}
 
-      {ownsReminders && issues.length > 0 ? (
-        <Card style={{ gap: space.sm }}>
-          <AppText variant="bodyStrong">{tr("meds.reminder_health.title")}</AppText>
-          {issues.map((issue) => (
-            <InlineAlert key={issue} tone="info" message={tr(ISSUE_TEXT[issue])} />
-          ))}
-          <AppText variant="caption" tone="textMuted">
-            {tr("meds.reminder_health.list_still_right")}
-          </AppText>
-          <Button title={tr("meds.reminder_health.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
-          <Button title={tr("meds.reminder_health.send_test")} variant="ghost" onPress={() => void testReminder()} />
-        </Card>
-      ) : null}
-
-      {ownsReminders ? <ReminderReliabilityCard /> : null}
-
-      {Platform.OS === "android" && ownsReminders ? (
-        <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
-      ) : null}
+      {/* Short warning stays above the doses; the fixes themselves are lower down. */}
+      {ownsReminders && issues.length > 0 ? <InlineAlert tone="info" message={tr(ISSUE_TEXT[issues[0]])} /> : null}
 
       <View style={{ gap: space.md }}>
         <AppText variant="title" heading>
@@ -534,6 +524,27 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           </>
         )}
       </View>
+
+      {/* Reminder health sits under Today's doses: doses are the job of this screen, fixing reminders is secondary. */}
+      {ownsReminders && issues.length > 0 ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="bodyStrong">{tr("meds.reminder_health.title")}</AppText>
+          {issues.map((issue) => (
+            <InlineAlert key={issue} tone="info" message={tr(ISSUE_TEXT[issue])} />
+          ))}
+          <AppText variant="caption" tone="textMuted">
+            {tr("meds.reminder_health.list_still_right")}
+          </AppText>
+          <Button title={tr("meds.reminder_health.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
+          <Button title={tr("meds.reminder_health.send_test")} variant="ghost" onPress={() => void testReminder()} />
+        </Card>
+      ) : null}
+
+      {ownsReminders ? <ReminderReliabilityCard /> : null}
+
+      {Platform.OS === "android" && ownsReminders ? (
+        <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
+      ) : null}
 
       {ranOutPrompt ? (
         <Card style={{ gap: space.sm }}>

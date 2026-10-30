@@ -42,7 +42,7 @@ export function OptionalScreeningsCard({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-red-600 dark:text-red-300">
-            Could not load optional screenings you might want to add.
+            We could not load the optional screenings. Please try again shortly.
           </p>
         </CardContent>
       </Card>
@@ -61,7 +61,7 @@ export function OptionalScreeningsCard({
           Optional screenings
         </CardTitle>
         <CardDescription>
-          These aren&apos;t on your calendar automatically — add one only if you want it.
+          These screenings are not added to your calendar automatically. Add one only if you want it.
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -1,5 +1,6 @@
 import {
   buildMedicineProposal,
+  fastingSupplyProblem,
   buildScheduleProposal,
   buildTargetProposal,
   proposeMedicineChangeSchema,
@@ -90,5 +91,46 @@ describe("signChangeSchema and rejectChangeSchema", () => {
   it("rejecting needs a reason", () => {
     expect(rejectChangeSchema.safeParse({ ...ids, reason: " " }).success).toBe(false);
     expect(rejectChangeSchema.safeParse({ ...ids, reason: "Not needed now" }).success).toBe(true);
+  });
+});
+
+describe("S50b fasting tag on a medicine change", () => {
+  const base = { action: "change" as const, patientId: PATIENT, medicationId: MED, item: ITEM, rationale: RATIONALE };
+  const tag = { fast: "ramadan" as const, valid_from: "2027-02-01", valid_to: "2027-03-12" };
+
+  it("carries the tag into the stored proposal", () => {
+    const parsed = proposeMedicineChangeSchema.parse({ ...base, fasting: tag });
+    expect(buildMedicineProposal(parsed)).toMatchObject({ action: "change", medication_id: MED, fasting: tag });
+  });
+
+  it("a change without the tag stores none (an ordinary medicine change is untouched)", () => {
+    expect(buildMedicineProposal(proposeMedicineChangeSchema.parse(base))).not.toHaveProperty("fasting");
+  });
+
+  it("refuses an unknown fast, a reversed window, a missing date and a window over 120 days", () => {
+    for (const bad of [{ ...tag, fast: "diwali" }, { ...tag, valid_to: "2027-01-01" }, { ...tag, valid_from: "" }, { ...tag, valid_to: "2027-09-01" }]) {
+      expect(proposeMedicineChangeSchema.safeParse({ ...base, fasting: bad }).success).toBe(false);
+    }
+  });
+
+  it("the supply must last the whole fast, so the new row cannot run out part-way", () => {
+    const short = proposeMedicineChangeSchema.parse({ ...base, item: { ...ITEM, duration_days: "10" }, fasting: tag });
+    expect(fastingSupplyProblem(short)).toContain("at least 40 days");
+    const enough = proposeMedicineChangeSchema.parse({ ...base, item: { ...ITEM, duration_days: "40" }, fasting: tag });
+    expect(fastingSupplyProblem(enough)).toBeNull();
+    expect(fastingSupplyProblem(proposeMedicineChangeSchema.parse(base))).toBeNull();
+    expect(fastingSupplyProblem(proposeMedicineChangeSchema.parse({ action: "stop", patientId: PATIENT, medicationId: MED, rationale: RATIONALE }))).toBeNull();
+  });
+
+  it("a start can carry the tag too (the replacement for a self-entered medicine), and its supply is checked the same way", () => {
+    const start = proposeMedicineChangeSchema.parse({ action: "start", patientId: PATIENT, item: { ...ITEM, duration_days: "10" }, rationale: RATIONALE, fasting: tag });
+    expect(buildMedicineProposal(start)).toMatchObject({ action: "start", fasting: tag });
+    expect(fastingSupplyProblem(start)).toContain("at least 40 days");
+    expect(buildMedicineProposal(proposeMedicineChangeSchema.parse({ action: "start", patientId: PATIENT, item: ITEM, rationale: RATIONALE }))).not.toHaveProperty("fasting");
+  });
+
+  it("a stop cannot carry the tag", () => {
+    const stop = proposeMedicineChangeSchema.parse({ action: "stop", patientId: PATIENT, medicationId: MED, rationale: RATIONALE, fasting: tag });
+    expect(buildMedicineProposal(stop)).not.toHaveProperty("fasting");
   });
 });

@@ -5,7 +5,7 @@ import { t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { usePrivateLock, type PrivateLockApi } from "@/lib/private-lock";
 import { requestRecoveryCode, verifyRecoveryCode, type RecoveryAuth } from "@/lib/private-lock-recovery";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -38,15 +38,15 @@ export function PrivateSection({ accountId, title, outside, children }: { accoun
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 12 }}>
             {lock.status === "unlocked" ? (
               <>
-                <Text onPress={() => void lock.lock()} style={{ color: colors.brandPressed, fontWeight: "700", fontSize: 13 }}>
+                <Text onPress={() => void lock.lock()} style={{ color: colors.brandPressed, ...textStyles.label }}>
                   {COPY.lockNow}
                 </Text>
-                <Text onPress={() => void lock.turnOff()} style={{ color: colors.muted, fontWeight: "600", fontSize: 13 }}>
+                <Text onPress={() => void lock.turnOff()} style={{ color: colors.muted, ...textStyles.label }}>
                   {COPY.turnOffLock}
                 </Text>
               </>
             ) : (
-              <Text onPress={() => void lock.resetAfterReverification()} style={{ color: colors.muted, fontWeight: "600", fontSize: 13 }}>
+              <Text onPress={() => void lock.resetAfterReverification()} style={{ color: colors.muted, ...textStyles.label }}>
                 {COPY.turnOnLock}
               </Text>
             )}
@@ -58,13 +58,13 @@ export function PrivateSection({ accountId, title, outside, children }: { accoun
   );
 }
 
-function PinInput({ value, onChange, label, max, disabled }: { value: string; onChange: (v: string) => void; label: string; max: number; disabled?: boolean }) {
+export function PinInput({ value, onChange, label, max, disabled }: { value: string; onChange: (v: string) => void; label: string; max: number; disabled?: boolean }) {
   const { scheme } = useTheme();
   const colors = useLegacyColors();
   const style = useTextInputStyle();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>{label}</Text>
+      <Text style={{ ...textStyles.label, color: colors.ink }}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         keyboardAppearance={scheme}
@@ -81,7 +81,7 @@ function PinInput({ value, onChange, label, max, disabled }: { value: string; on
   );
 }
 
-function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
+export function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   const cfg = getPrivateLockConfig();
   const colors = useLegacyColors();
   const [pin, setPin] = useState("");
@@ -99,7 +99,7 @@ function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{title}</Text>
+      <Text style={{ ...textStyles.bodyLargeStrong, color: colors.ink }}>{title}</Text>
       <MutedText>{COPY.setupIntro}</MutedText>
       <PinInput value={pin} onChange={setPin} label={COPY.newPin} max={cfg.pinMaxDigits} />
       <PinInput value={confirm} onChange={setConfirm} label={COPY.confirmPin} max={cfg.pinMaxDigits} />
@@ -112,7 +112,7 @@ function SetupCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   );
 }
 
-function UnlockCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
+export function UnlockCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
   const cfg = getPrivateLockConfig();
   const colors = useLegacyColors();
   const [pin, setPin] = useState("");
@@ -140,7 +140,7 @@ function UnlockCard({ title, lock }: { title: string; lock: PrivateLockApi }) {
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{title}</Text>
+      <Text style={{ ...textStyles.bodyLargeStrong, color: colors.ink }}>{title}</Text>
       <MutedText>{COPY.unlockIntro}</MutedText>
       {hasPin && <PinInput value={pin} onChange={setPin} label={COPY.enterPin} max={cfg.pinMaxDigits} disabled={lockedOut} />}
       {(message || lockedOut) && <ErrorText>{lockedOut ? COPY.lockedOut.replace("{seconds}", String(lock.lockoutSeconds)) : (message ?? "")}</ErrorText>}
@@ -184,7 +184,7 @@ function RecoveryCard({ lock, onBack }: { lock: PrivateLockApi; onBack: () => vo
 
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{COPY.recoveryTitle}</Text>
+      <Text style={{ ...textStyles.bodyLargeStrong, color: colors.ink }}>{COPY.recoveryTitle}</Text>
       <MutedText>{COPY.recoveryIntro}</MutedText>
       {!userId ? (
         <PrimaryButton title={COPY.sendCode} loading={busy} onPress={() => void send()} />

@@ -15,6 +15,7 @@ import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
 import { readMedicationDoseLogAudited } from "@/lib/clinical/dose-log";
 import { readWeeklyAdherence } from "@/lib/clinical/weekly-adherence";
+import { readPregnancySafety } from "@/lib/clinical/pregnancy-status";
 
 /**
  * "Suggest next step" for a patient's hypertension treatment (S24, spec 6.3, safety case 10).
@@ -121,7 +122,8 @@ export async function suggestTitration(patientId: string): Promise<SuggestTitrat
       readPatientMedicationsAudited(supabase, patientId),
       readWeeklyAdherence(supabase, patientId),
       readMedicationDoseLogAudited(supabase, patientId),
-      supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
+      // OQ-555 follow-up: a three-state answer decided in the database, so an unreadable status is never mistaken for "no record" or "not pregnant".
+      readPregnancySafety(supabase, patientId),
       supabase.from("care_plans").select("target_ranges, status").eq("patient_id", patientId).order("created_at", { ascending: false }),
       supabase.from("clinician_alerts").select("level, override_level, status").eq("patient_id", patientId).is("closed_at", null),
     ]);
@@ -187,7 +189,7 @@ export async function suggestTitration(patientId: string): Promise<SuggestTitrat
 
     // Unknown is not "no": a female patient with no pregnancy row, or an unreadable one, is unknown and stops the proposal.
     const pregnancyStatus: TitrationInput["patient"]["pregnancy"] =
-      prof.sex === "male" ? "no" : pregnancy.error || !pregnancy.data ? "unknown" : pregnancy.data.is_pregnant ? "yes" : "no";
+      prof.sex === "male" ? "no" : pregnancy.status === "unknown" || !pregnancy.hasRecord ? "unknown" : pregnancy.status === "pregnant" ? "yes" : "no";
 
     const input: TitrationInput = {
       now: now.toISOString(),

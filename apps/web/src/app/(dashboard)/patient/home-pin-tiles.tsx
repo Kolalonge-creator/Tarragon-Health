@@ -58,7 +58,7 @@ async function PinGrid(props: HomePinTilesProps) {
               <Tile key={pin} pin={pin}>
                 <StatTile
                   icon={icon}
-                  label="Latest BP"
+                  label="Latest blood pressure"
                   {...statTileValue(
                     stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : null,
                     "No reading yet",

@@ -183,8 +183,9 @@ end $$;
 do $$
 declare v_t1 uuid := pg_temp.f('t1'); v_t2 uuid := pg_temp.f('t2'); j text;
 begin
-  perform pg_temp.r('4.1 the guard cannot be switched on while no term is approved (gate refuses)', 'true',
-    (pg_temp.msg_as(pg_temp.f('a2'), $q$select public.set_go_live_guard('partner_settlement_enabled', true, 'Trying before any terms are approved')::text$q$) like 'ERR:%')::text);
+  -- G-01: partner_settlement_enabled is a feature. The approved-term condition is still reported on the dashboard, but it no longer blocks the switch.
+  perform pg_temp.r('4.1 the approved-term condition reads unmet while no term is approved (reported, not enforced)', 'false',
+    (select c ->> 'met' from jsonb_array_elements(private.go_live_conditions('partner_settlement_enabled', pg_temp.f('org'))) c where c ->> 'code' = 'settlement_terms_approved'));
   perform pg_temp.r('4.2 ...and it stayed off', 'false', (select is_on::text from public.go_live_guards where key = 'partner_settlement_enabled'));
   perform pg_temp.do_as(pg_temp.f('a2'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t1));
   perform pg_temp.do_as(pg_temp.f('a2'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t2));
@@ -307,7 +308,7 @@ begin
   perform pg_temp.r('7.12 no payout or earnings column points at a settlement or payable', '0',
     (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('payouts', 'payout_transfers', 'earnings_ledger') and column_name ~* '(settlement|payable)'));
   perform pg_temp.r('7.13 settlement code calls no payment provider (no transfer function is referenced)', '0',
-    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and p.proname !~ '^(finance_|reconcile_settlement_report$)' /* finance_* imports Paystack's own bank settlements, and reconcile_settlement_report (S14x) compares the processor's settlement report with our ledger: different things, neither moves money */ and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
+    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and p.proname !~ '^(finance_|reconcile_settlement_report$|settlement_tieout_)' /* settlement_tieout_* (S80) only compares the processor's settlement lines with the ledger and calls no provider; finance_* imports Paystack's own bank settlements, and reconcile_settlement_report (S14x) compares the processor's settlement report with our ledger: different things, neither moves money */ and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
 end $$;
 
 -- terms end; a voided statement is final

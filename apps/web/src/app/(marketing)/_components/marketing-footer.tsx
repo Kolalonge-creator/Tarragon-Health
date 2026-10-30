@@ -11,7 +11,7 @@ const FOOTER_LINKS = {
     // Kept in sync with the top-nav relabel in marketing-nav.tsx
     // (2026-09-22) — same route, same label, so a visitor doesn't see two
     // different names for the identical page.
-    { href: MARKETING_ROUTES.careCoordination, label: "Labs & medication" },
+    { href: MARKETING_ROUTES.careCoordination, label: "Laboratories and medication" },
     { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   programmes: [
@@ -29,24 +29,24 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
     { href: MARKETING_ROUTES.monitoring, label: "Continuous monitoring" },
-    { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
+    { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your laboratory results" },
     { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
-    { href: MARKETING_ROUTES.labs, label: "Labs" },
+    { href: MARKETING_ROUTES.labs, label: "Laboratories" },
     { href: MARKETING_ROUTES.bmiCalculator, label: "BMI & Calorie Calculator" },
     { href: MARKETING_ROUTES.activityCalculator, label: "Activity Calculator" },
   ],
   company: [
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
     { href: MARKETING_ROUTES.gift, label: "Gift Tarragon" },
-    { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
+    { href: MARKETING_ROUTES.whoItsFor, label: "Who it is for" },
     { href: MARKETING_ROUTES.forYou, label: "For individuals" },
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
     { href: MARKETING_ROUTES.impact, label: "Our impact" },
     { href: MARKETING_ROUTES.partners, label: "Our partners" },
-    { href: MARKETING_ROUTES.accountability, label: "How we're accountable" },
+    { href: MARKETING_ROUTES.accountability, label: "How we are accountable" },
     { href: MARKETING_ROUTES.coverage, label: "Where we work" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
@@ -175,8 +175,8 @@ export function MarketingFooter() {
               Care that stays with you.
             </p>
             <p className="max-w-xs text-sm leading-relaxed text-white/65">
-              Continuous monitoring for chronic disease, preventive health,
-              family care, and the follow-up between visits.
+              Continuous monitoring for chronic disease, preventive health
+              and family care, with follow-up between visits.
             </p>
             <p className="text-sm text-white/65">
               <a

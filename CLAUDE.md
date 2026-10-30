@@ -630,6 +630,30 @@ The v5 build spec lives at `docs/BUILD-SPEC-v5.md` (never edit it; sessions cite
 
 Rule: **PROPOSED values live in versioned configuration** (`packages/shared/src/proposed-config`), never hard-coded; a repo scan test enforces it.
 
+## Gates (G-01, founder decision 2026-10-29)
+
+Read `docs/design/GATE-MODEL.md` before adding any switch, signature or question. The short form:
+
+- **Nine master switches are the only on/off decisions**: `public_signup_enabled`, `checkout_enabled`, `clinical_operations_enabled`,
+  `prescribing_enabled`, `payouts_enabled`, `lab_booking_enabled`, `research_export_enabled`, `assistant_enabled`, `on_call_cover_ok`
+  (`go_live_guards.kind = 'master'`). They keep their role, their conditions and their note. Adding a master is a founder decision
+  recorded in `docs/DECISIONS.md` and in the fixed list in `packages/db/tests/gate_model_masters_and_features.sql`.
+- **Everything else is a feature** (`kind = 'feature'`): open when its row is on, it is not held, and its parent master (if any) is on.
+  An admin or the CMO switches it from the go-live page; no condition is evaluated; holding it needs a reason of at least 20
+  characters (`held_reason`, shown on the page). Never write a condition branch for a feature. Never add a feature guard at all unless
+  a real person could reach the thing while every master is off AND it can do harm; if you do, name its parent and open it at merge.
+- **One gate per feature, never two.** If the AI registry (`ai_systems.is_enabled`) gates it, no guard. If a master gates it, no guard.
+  No new platform module, no new feature flag.
+- **The CMO signs the patient-harm list only** (triage rules, glucose/vitals/BP thresholds, escalation SLAs, prescribing and interaction
+  rules, screening and result-release rules, mental-health follow-up, fasting and low-carbohydrate wording, AI approvals, explicitly
+  owed items). Any other governed table is an operational setting: versioned, audited, a change note, no signature. On the hub that is
+  `items` (counted) versus `operational` (not); `isClinicalSignoff` in `lib/queries/cmo-signing-hub.ts` is the one place a line is
+  classified, and its test lists the known keys.
+- **A `proposed` registry value under a signed protocol is in force by that signature.** Do not open a question for it.
+- **An open question that blocks no master closes as "default taken: X".** Do not open one for a feature guard or a setting.
+- The G-01 migration switched nothing on; the founder opens standalone features from `/admin/go-live` (one click, attributed, logged).
+  Check `go_live_guards.is_on`, not this file, for what is open today.
+
 ## Worktree hygiene (standing rules)
 
 - Keep the main checkout on `main-dev`; do session work only in worktrees.

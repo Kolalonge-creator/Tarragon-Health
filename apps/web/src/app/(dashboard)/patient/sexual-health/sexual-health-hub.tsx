@@ -343,7 +343,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
 
       {activeTab === "contraception" && (
         <div className="space-y-6">
-          <EmergencyContraceptionCard />
+          <EmergencyContraceptionCard patientId={patientId} />
           <ContraceptionPanel patientId={patientId} />
         </div>
       )}

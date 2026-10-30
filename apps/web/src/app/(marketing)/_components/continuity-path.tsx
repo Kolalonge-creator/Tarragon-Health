@@ -22,25 +22,25 @@ const MOMENTS = [
     label: "Reading",
     cx: 104,
     cy: 38,
-    detail: "You log a reading, take a screening, or complete a check, through the app or web.",
+    detail: "You record a reading, take a screening or complete a health check, in the app or on the website.",
   },
   {
     label: "Reminder",
     cx: 168,
     cy: 48,
-    detail: "Due dates and missed check-ins get a gentle nudge before anything is overdue.",
+    detail: "A reminder is sent when a check-up is due or a check-in has been missed, before anything becomes overdue.",
   },
   {
     label: "Doctor call",
     cx: 244,
     cy: 33,
-    detail: "Your care team reviews the trend and follows up, escalating to a doctor when it's needed.",
+    detail: "Your care team reviews the trend and follows up, and refers you to a doctor when that is needed.",
   },
   {
     label: "Follow-up",
     cx: 340,
     cy: 36,
-    detail: "The loop continues on the same record: nothing is ever a one-off, and nothing gets dropped.",
+    detail: "Follow-up continues on the same record, so each check builds on the last and nothing is lost.",
   },
 ] as const;
 

@@ -88,12 +88,14 @@ begin
     pg_temp.owner_try(format($q$insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, active) values (%L, 'tt_pack', 'care_pack', 'k', 'd', 90, false)$q$, v_org)));
   perform pg_temp.ck('and switching it on is refused by the constraint', 'true',
     (pg_temp.owner_try($q$update public.catalog_items set active = true where code = 'tt_pack'$q$) like '23514:%')::text);
-  perform pg_temp.ck('no doctor-time product is for sale except the Members-only second opinion', '0',
-    (select count(*)::text from public.service_products where is_active and code <> 'second_opinion_credit' and code ~ '(_credit$|^verified_document|^chronic_doctor_supported_pack$|^written_result_interpretation$|^preventive_health_check_review$)'));
+  perform pg_temp.ck('no doctor-time product is for sale except the Members-only second opinion and extra online meeting', '0',
+    (select count(*)::text from public.service_products where is_active and code not in ('second_opinion_credit', 'video_visit_credit') and code ~ '(_credit$|^verified_document|^chronic_doctor_supported_pack$|^written_result_interpretation$|^preventive_health_check_review$)'));
   perform pg_temp.ck('the doctor-time products are kept, with their prices', 'true',
     (select (count(*) >= 5 and bool_and(price_kobo is not null))::text from public.service_products where code in ('video_visit_credit', 'async_consult_credit', 'second_opinion_credit', 'prescription_renewal_credit', 'result_interpretation_credit')));
-  perform pg_temp.ck('video_visit_credit cannot be switched back on', 'true',
-    (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'video_visit_credit'$q$) like '23514:%')::text);
+  perform pg_temp.ck('the extra online meeting (video_visit_credit) is on sale at 500000 kobo, Members only (decision 2026-10-29)', '500000/true',
+    (select price_kobo::text || '/' || is_active::text from public.service_products where code = 'video_visit_credit'));
+  perform pg_temp.ck('async_consult_credit still cannot be switched on', 'true',
+    (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'async_consult_credit'$q$) like '23514:%')::text);
   perform pg_temp.ck('the chronic doctor-supported pack cannot be switched on either', 'true',
     (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'chronic_doctor_supported_pack'$q$) like '23514:%')::text);
   r := pg_temp.q_as(v_p1, format($q$select public.record_service_purchase_intent(%L, 'video_visit_credit')::text$q$, v_p1));

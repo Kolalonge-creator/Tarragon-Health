@@ -6,6 +6,7 @@ import * as SecureStore from "expo-secure-store";
 import {
   PrivateLockController,
   getPrivateLockConfig,
+  PRIVATE_LOCK_KEY_PREFIX,
   type BiometricAdapter,
   type LockMethod,
   type LockStatus,
@@ -62,22 +63,54 @@ export const deviceBiometric: BiometricAdapter = {
   },
 };
 
+/**
+ * Which lock. "private" is the S66 section lock (on by default, optional biometric). "app" is the optional PIN that sits on the
+ * whole-app lock: the same tested controller, but with its own stored record (a PIN set for one never opens the other), OFF unless the
+ * person turns it on, and PIN only. No biometric, on purpose: the device biometric prompt falls back to the phone's passcode, and the
+ * point of an app PIN is that knowing the phone's passcode (a partner, a relative, a borrowed phone) is not enough to open the app.
+ */
+export type LockScope = "private" | "app";
+const APP_PIN_KEY_PREFIX = "app-lock-pin-v1:";
+
+/** Storage for the app PIN: the controller's key prefix is swapped so the two locks never share a SecureStore record. */
+export const appPinLockStorage: LockStorage = {
+  get: (key) => secureStoreLockStorage.get(appPinKey(key)),
+  set: (key, value) => secureStoreLockStorage.set(appPinKey(key), value),
+  remove: (key) => secureStoreLockStorage.remove(appPinKey(key)),
+};
+export function appPinKey(key: string): string {
+  return key.startsWith(PRIVATE_LOCK_KEY_PREFIX) ? APP_PIN_KEY_PREFIX + key.slice(PRIVATE_LOCK_KEY_PREFIX.length) : APP_PIN_KEY_PREFIX + key;
+}
+
 const controllers = new Map<string, PrivateLockController>();
 
-export function controllerFor(accountId: string): PrivateLockController {
-  let c = controllers.get(accountId);
+export function controllerFor(accountId: string, scope: LockScope = "private"): PrivateLockController {
+  const cacheKey = `${scope}:${accountId}`;
+  let c = controllers.get(cacheKey);
   if (!c) {
+    const base = getPrivateLockConfig();
     c = new PrivateLockController({
-      storage: secureStoreLockStorage,
-      config: getPrivateLockConfig(),
+      storage: scope === "app" ? appPinLockStorage : secureStoreLockStorage,
+      config: scope === "app" ? { ...base, onByDefault: false } : base,
       now: () => Date.now(),
       randomBytes: (n) => Crypto.getRandomBytes(n),
-      biometric: deviceBiometric,
+      ...(scope === "app" ? {} : { biometric: deviceBiometric }),
       accountId,
     });
-    controllers.set(accountId, c);
+    controllers.set(cacheKey, c);
   }
   return c;
+}
+
+/**
+ * Called by the lock screen BEFORE it reads the PIN state. The controller is cached for the life of the process and only re-locks through
+ * the hook's background listener, which exists only while a component using the hook is mounted. After the PIN is entered the lock screen
+ * unmounts, so nothing listens and the controller would stay unlocked: the next time the app locks (returning from background) the screen
+ * would read "unlocked", skip the PIN card, and fall back to the device prompt, which accepts the phone's passcode. The lock screen being
+ * shown at all means the app asked for proof again, so the PIN is locked first. Synchronous on purpose.
+ */
+export function lockAppPinForGate(accountId: string): void {
+  controllerFor(accountId, "app").lock();
 }
 
 export interface PrivateLockApi {
@@ -95,8 +128,8 @@ export interface PrivateLockApi {
   resetAfterReverification: () => Promise<boolean>;
 }
 
-export function usePrivateLock(accountId: string): PrivateLockApi {
-  const controller = useMemo(() => controllerFor(accountId), [accountId]);
+export function usePrivateLock(accountId: string, scope: LockScope = "private"): PrivateLockApi {
+  const controller = useMemo(() => controllerFor(accountId, scope), [accountId, scope]);
   const [status, setStatus] = useState<LockStatus | "loading">("loading");
   const [method, setMethod] = useState<LockMethod | null>(null);
   const [lockoutSeconds, setLockoutSeconds] = useState(0);

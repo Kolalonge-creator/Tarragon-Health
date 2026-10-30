@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { HubLinks } from "@/components/ui/hub-links";
 import { NAV_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
@@ -172,8 +173,25 @@ export default async function FinancialProfilePage() {
         icon={NAV_ICON.finance}
         description="Your services, vouchers, transactions, and anything still being refunded, all in one place."
       />
+      <HubLinks
+        label="Related to your finances"
+        links={[
+          { href: "/patient/receipts", label: "Receipts" },
+          { href: "/patient/payment-requests", label: "Ask someone to pay" },
+          { href: "/patient/insurance", label: "Insurance" },
+        ]}
+      />
+
+      {(myServices.length === 0 || recentFailures.length === 0) && (
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+          {[myServices.length === 0 ? "No services yet." : null, recentFailures.length === 0 ? "No recent payment problems." : null]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {myServices.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle as="h2">Your services</CardTitle>
@@ -215,7 +233,9 @@ export default async function FinancialProfilePage() {
             )}
           </CardContent>
         </Card>
+        )}
 
+        {recentFailures.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle as="h2">Recent payment issues</CardTitle>
@@ -238,6 +258,7 @@ export default async function FinancialProfilePage() {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       {pendingPurchases.length > 0 && (
