@@ -52738,6 +52738,7 @@ export type Database = {
         Args: { p_pilot: string; p_reason: string }
         Returns: string
       };
+      close_patient_account: { Args: { p_request: string }; Returns: Json };
       confirm_employer_seat_pilot_payment: {
         Args: { p_method: string; p_pilot: string; p_reference: string }
         Returns: Json
