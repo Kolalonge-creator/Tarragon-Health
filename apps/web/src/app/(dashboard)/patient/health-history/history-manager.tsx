@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,6 +94,7 @@ export function HistoryManager({ procedures, family, canEdit, locale }: { proced
             </ul>
           )}
           {canEdit && (
+            <Disclosure title="Add a procedure" hint="An operation or procedure you have had." defaultOpen={procedures.length === 0}>
             <form
               className="grid gap-3 sm:grid-cols-3"
               onSubmit={(e) => {
@@ -120,6 +122,7 @@ export function HistoryManager({ procedures, family, canEdit, locale }: { proced
                 {t("healthhistory.add", locale)}
               </Button>
             </form>
+            </Disclosure>
           )}
         </CardContent>
       </Card>
@@ -154,6 +157,7 @@ export function HistoryManager({ procedures, family, canEdit, locale }: { proced
             </ul>
           )}
           {canEdit && (
+            <Disclosure title="Add a family condition" hint="A health condition that runs in your family." defaultOpen={family.length === 0}>
             <form
               className="grid gap-3 sm:grid-cols-3"
               onSubmit={(e) => {
@@ -186,6 +190,7 @@ export function HistoryManager({ procedures, family, canEdit, locale }: { proced
                 {t("healthhistory.add", locale)}
               </Button>
             </form>
+            </Disclosure>
           )}
         </CardContent>
       </Card>

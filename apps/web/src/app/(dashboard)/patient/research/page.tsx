@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/ui/disclosure";
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
@@ -48,8 +49,8 @@ export default async function PatientResearchPage({ searchParams }: { searchPara
           ))}
         </ul>
       )}
-      <section aria-labelledby="res-ask" className="space-y-3">
-        <h2 id="res-ask" className="text-base font-semibold text-charcoal-ink">{t("res.ask.heading", locale)}</h2>
+      <Disclosure title={t("res.ask.heading", locale)}>
+      <section className="space-y-3">
         <p className="max-w-3xl text-sm text-charcoal-ink/70">{t("res.ask.intro", locale)}</p>
         <form action={raiseResearchChallengeAction} className="grid max-w-xl gap-3">
           <label className="block text-xs text-charcoal-ink">{t("res.ask.about", locale)}
@@ -62,6 +63,7 @@ export default async function PatientResearchPage({ searchParams }: { searchPara
           <div><button type="submit" className="rounded-lg bg-brand-green px-3 py-1.5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">{t("res.ask.submit", locale)}</button></div>
         </form>
       </section>
+      </Disclosure>
       <section aria-labelledby="res-mine" className="space-y-2">
         <h2 id="res-mine" className="text-base font-semibold text-charcoal-ink">{t("res.ask.mine", locale)}</h2>
         {!mine.ok ? (

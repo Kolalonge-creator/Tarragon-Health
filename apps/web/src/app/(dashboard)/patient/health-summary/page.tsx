@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/ui/disclosure";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
@@ -90,63 +91,57 @@ export default async function HealthSummaryPage() {
         </Card>
       </div>
 
-      <div className="space-y-3">
-        <SectionHeading>Recent measurements</SectionHeading>
-        <VitalsTrendChart patientId={subjectId} />
-      </div>
+      <Disclosure title="Recent measurements">
+          <VitalsTrendChart patientId={subjectId} />
+      </Disclosure>
 
-      <div className="space-y-3">
-        <SectionHeading>Recent investigations</SectionHeading>
-        <LabResults
-          patientId={subjectId}
-          emptyHint="Nothing on file yet. Results appear here once a lab report has been reviewed."
-        />
-        <Link
-          href="/patient/labs"
-          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-        >
-          See all labs &amp; bookings
-        </Link>
-      </div>
+      <Disclosure title="Recent investigations">
+          <LabResults
+            patientId={subjectId}
+            emptyHint="Nothing on file yet. Results appear here once a lab report has been reviewed."
+          />
+          <Link
+            href="/patient/labs"
+            className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+          >
+            See all labs &amp; bookings
+          </Link>
+      </Disclosure>
 
-      <div className="space-y-3">
-        <SectionHeading>Care programmes</SectionHeading>
-        <WeeklyPlanCard
-          patientId={subjectId}
-          emptyHint="You are not on a care programme at the moment. Your weekly plan shows up here when you join one."
-        />
-      </div>
+      <Disclosure title="Care programmes">
+          <WeeklyPlanCard
+            patientId={subjectId}
+            emptyHint="You are not on a care programme at the moment. Your weekly plan shows up here when you join one."
+          />
+      </Disclosure>
 
-      <div className="space-y-3">
-        <SectionHeading>Appointments</SectionHeading>
-        <CareScheduleCard
-          patientId={subjectId}
-          emptyHint="Nothing booked yet. Anything coming up shows here."
-        />
-        <Link
-          href="/patient/appointments"
-          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-        >
-          Book or manage an appointment
-        </Link>
-      </div>
+      <Disclosure title="Appointments">
+          <CareScheduleCard
+            patientId={subjectId}
+            emptyHint="Nothing booked yet. Anything coming up shows here."
+          />
+          <Link
+            href="/patient/appointments"
+            className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+          >
+            Book or manage an appointment
+          </Link>
+      </Disclosure>
 
-      <div className="space-y-3">
-        <SectionHeading>Referrals</SectionHeading>
-        <YourReferrals
-          patientId={subjectId}
-          emptyHint="No specialist referrals on file yet."
-        />
-        <BariatricReferralStatus patientId={subjectId} />
-      </div>
+      <Disclosure title="Referrals">
+          <YourReferrals
+            patientId={subjectId}
+            emptyHint="No specialist referrals on file yet."
+          />
+          <BariatricReferralStatus patientId={subjectId} />
+      </Disclosure>
 
-      <div className="space-y-3">
-        <SectionHeading>Preventive tasks</SectionHeading>
-        <PreventionCompletionCard
-          patientId={subjectId}
-          emptyHint="Nothing outstanding yet. Fill in your health profile and your screening and vaccination calendar appears here."
-        />
-      </div>
+      <Disclosure title="Preventive tasks">
+          <PreventionCompletionCard
+            patientId={subjectId}
+            emptyHint="Nothing outstanding yet. Fill in your health profile and your screening and vaccination calendar appears here."
+          />
+      </Disclosure>
     </div>
   );
 }
