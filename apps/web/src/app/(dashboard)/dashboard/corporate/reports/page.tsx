@@ -52,10 +52,10 @@ export default async function CorporateReportsPage() {
 
   return (
     <div className="space-y-6">
-      <AgeBandSummary distribution={data.ageBands} />
+      <AgeBandSummary distribution={data.ageBands} failed={data.unavailable.ageBands} />
       <OutcomeEvidenceSummary organisationId={data.organisationId} />
-      <MedicationOutcomesCard outcomes={data.medicationOutcomes} />
-      <EngagementOutcomesCard buckets={data.engagementOutcomes} />
+      <MedicationOutcomesCard outcomes={data.medicationOutcomes} failed={data.unavailable.medicationOutcomes} />
+      <EngagementOutcomesCard buckets={data.engagementOutcomes} failed={data.unavailable.engagementOutcomes} />
       <LifestyleOutcomesCard supabase={data.access.client} organisationId={data.access.organisationId} />
       <OutcomeReportsPanel organisationId={data.organisationId} />
       <SubsidySpendSummary organisationId={data.organisationId} />

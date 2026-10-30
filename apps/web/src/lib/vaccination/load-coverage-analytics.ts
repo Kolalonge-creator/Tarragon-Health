@@ -55,18 +55,19 @@ export async function loadVaccinationCoverage(
   organisationId: string,
   minCohortSize: number
 ): Promise<VaccinationCoverageSummary | null> {
-  const { data: patients } = await supabase
+  const { data: patients, error: patientsError } = await supabase
     .from("profiles")
     .select("id, state")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
+  if (patientsError) throw patientsError;
   if (!patients || patients.length === 0) return null;
   if (isCohortSuppressed(patients.length, minCohortSize)) return null;
 
   const patientIds = patients.map((p) => p.id);
   const stateByPatient = new Map(patients.map((p) => [p.id, p.state ?? null]));
 
-  const [{ data: catalog }, { data: records }, { data: schedules }] = await Promise.all([
+  const [catalogRes, recordsRes, schedulesRes] = await Promise.all([
     supabase.from("vaccination_catalog").select("id, name").eq("is_active", true),
     supabase
       .from("vaccination_records")
@@ -78,6 +79,14 @@ export async function loadVaccinationCoverage(
       .in("patient_id", patientIds)
       .eq("status", "overdue"),
   ]);
+
+  // A failed read would show 0 vaccinated and 0% uptake.
+  for (const res of [catalogRes, recordsRes, schedulesRes]) {
+    if (res.error) throw res.error;
+  }
+  const catalog = catalogRes.data;
+  const records = recordsRes.data;
+  const schedules = schedulesRes.data;
 
   const vaccinatedPatientIds = new Set((records ?? []).map((r) => r.profile_id));
   const overduePatientIds = new Set((schedules ?? []).map((s) => s.patient_id));

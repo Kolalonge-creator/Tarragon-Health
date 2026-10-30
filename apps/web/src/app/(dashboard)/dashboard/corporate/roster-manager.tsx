@@ -11,6 +11,7 @@ import {
   useInviteRosterMember,
   useAssignBenefitPackage,
 } from "@/lib/queries/employer-roster";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { useEmployerDepartments, useEmployerLocations } from "@/lib/queries/employer-accounts";
 import { useBenefitPackages } from "@/lib/queries/employer-benefits";
 import { rosterMemberSchema } from "@/lib/validation/employer-roster";
@@ -131,6 +132,12 @@ export function RosterManager({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {counts.isError && (
+          <LoadFailure>
+            The enrolment counts could not be loaded just now, so no totals are shown. They are not zero. Refresh the
+            page to try again.
+          </LoadFailure>
+        )}
         {counts.data && (
           <div className="grid grid-cols-2 gap-3">
             <StatTile
@@ -220,7 +227,13 @@ export function RosterManager({
         {displayError && <p className="text-sm text-red-600">{displayError}</p>}
 
         {roster.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {activeRows.length === 0 && !roster.isLoading && (
+        {roster.isError && (
+          <LoadFailure>
+            The roster could not be loaded just now. It has not been emptied. Refresh the page to try again before
+            adding anyone, in case they are already on it.
+          </LoadFailure>
+        )}
+        {activeRows.length === 0 && !roster.isLoading && !roster.isError && (
           <p className="text-sm text-charcoal-ink/60">No one on your roster yet. Add someone above.</p>
         )}
         {activeRows.length > 0 && (

@@ -131,11 +131,12 @@ export async function loadCareGaps(
   organisationId: string,
   minCohortSize: number
 ): Promise<CareGapSummary | null> {
-  const { data: patients } = await supabase
+  const { data: patients, error: patientsError } = await supabase
     .from("profiles")
     .select("id")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
+  if (patientsError) throw patientsError;
   if (!patients || patients.length === 0) return null;
   // I9 small-cell suppression — a gap count over a handful of people names
   // them by implication. Same gate as loadCohortAnalytics.

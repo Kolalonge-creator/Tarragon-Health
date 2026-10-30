@@ -1,9 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { AGE_BANDS, type AgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
 
-export function AgeBandSummary({ distribution }: { distribution: AgeBandDistribution }) {
+export function AgeBandSummary({ distribution, failed = false }: { distribution: AgeBandDistribution; failed?: boolean }) {
+  if (failed) return <SectionUnavailable title="Age segmentation" />;
   if (!distribution) return null;
 
   return (
