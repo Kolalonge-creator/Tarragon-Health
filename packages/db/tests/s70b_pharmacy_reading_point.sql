@@ -90,7 +90,7 @@ create function pg_temp.open_to_everyone() returns void language plpgsql as
 $f$ begin
   execute 'create or replace function private.pharmacy_assisted_entry_allowed(p_patient uuid) returns boolean language sql stable security definer set search_path = '''' as $b$ select true $b$';
   execute 'create or replace function private.pharmacy_visit_org(p_patient uuid) returns table (organisation_id uuid) language sql stable security definer set search_path = '''' as $b$ select p.organisation_id from public.profiles p where p.id = p_patient $b$';
-  perform pg_temp.sab('public', 'pharmacist_record_bp', 'if v_org is null then', 'v_org := coalesce(v_org, (select p.organisation_id from public.profiles p where p.id = p_patient)); if false then');
+  perform pg_temp.sab('public', 'pharmacist_record_bp', 'if v_org is null then', 'v_org := coalesce(v_org, (select o.organisation_id from private.pharmacy_visit_org(p_patient) o)); if false then');
   perform pg_temp.seam_only();
 end $f$;
 
