@@ -597,3 +597,9 @@ export function useMyOwnedThreadIds(userId: string | null | undefined) {
     enabled: !!userId,
   });
 }
+
+/** The id of the first message of a thread this staff member just started (they cannot select message rows, so it comes from the audited open). */
+export async function firstMessageIdOfThread(supabase: ReturnType<typeof createClient>, threadId: string): Promise<string | null> {
+  const messages = await loadThreadMessages(supabase, threadId);
+  return messages[0]?.id ?? null;
+}
