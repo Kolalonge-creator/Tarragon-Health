@@ -54,6 +54,24 @@ describe("PreventionTabs", () => {
     }
   });
 
+  it("keeps looking for a few seconds, not just once", () => {
+    jest.useFakeTimers();
+    try {
+      render(<PreventionTabs tabs={tabs} />);
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(screen.getByRole("tab", { name: "First" }).getAttribute("aria-selected")).toBe("true");
+      window.history.replaceState(null, "", "#deep");
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(screen.getByRole("tab", { name: "Second" }).getAttribute("aria-selected")).toBe("true");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("does not move a person who has already picked a tab", () => {
     jest.useFakeTimers();
     try {
