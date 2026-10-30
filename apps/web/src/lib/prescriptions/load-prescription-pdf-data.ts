@@ -205,9 +205,10 @@ export async function loadPrescriptionBundle(
   const patient = await loadPatient(supabase, patientId);
   if (!patient) return { status: "not_found" };
 
+  const controlledListPromise = loadControlledMedicineList(supabase);
   const { folios, error: folioError } = await loadFolios(supabase, rows);
   if (folioError) return { status: "error", message: folioError };
-  const controlledList = await loadControlledMedicineList(supabase);
+  const controlledList = await controlledListPromise;
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
   const names: string[] = [];

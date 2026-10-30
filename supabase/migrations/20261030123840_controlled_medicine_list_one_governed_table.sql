@@ -9,8 +9,9 @@
 --      (narcotic | restricted) and a label for the advisory text, an active flag (retire, never delete), and a change note that must be NEW on every change.
 --   2. public.controlled_medicine_term_history: append-only. A trigger writes one row per insert or update (who, when, why), so the list has a version
 --      (the history id) and every edit is traceable whichever path made it. Deletes are refused.
---   3. public.set_controlled_medicine_term(...): the only write path for a user. Chief Medical Officer only, change note of at least 10 characters,
---      audited. This is an operational list, not a signature item: no protocol sign-off is owed (G-01).
+--   3. public.set_controlled_medicine_term(...): the only write path for a user. Chief Medical Officer only, change note of at least 10 characters
+--      and different from the term's last note, audited. The list can never be emptied: the last active term cannot be retired. This is an operational
+--      list, not a signature item: no protocol sign-off is owed (founder decision OQ-484, 2026-10-30).
 --   4. public.get_controlled_medicine_list(): the list as the web reads it (version plus active terms). Signed-in users only.
 --   5. private.is_controlled_medicine(text) now reads the table. Everything that called it (signing hard stop, S28 counter, QR page, phone desk, order
 --      screen, prescription_has_controlled_item) follows with no further change. It was IMMUTABLE; it reads a table now, so it is STABLE (checked live:
@@ -92,6 +93,24 @@ create trigger controlled_medicine_terms_a_guard
   before update or delete on public.controlled_medicine_terms
   for each row execute function private.controlled_medicine_terms_guard();
 
+-- Nothing, not even the owner or the service role, truncates either table or edits the history.
+create function private.controlled_medicine_tables_immutable()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  raise exception 'The controlled-medicine list and its history are never truncated, and the history is never edited' using errcode = '42501';
+end;
+$$;
+revoke all on function private.controlled_medicine_tables_immutable() from public, anon, authenticated;
+create trigger controlled_medicine_terms_c_no_truncate
+  before truncate on public.controlled_medicine_terms
+  for each statement execute function private.controlled_medicine_tables_immutable();
+create trigger controlled_medicine_term_history_a_immutable
+  before update or delete on public.controlled_medicine_term_history
+  for each row execute function private.controlled_medicine_tables_immutable();
+create trigger controlled_medicine_term_history_b_no_truncate
+  before truncate on public.controlled_medicine_term_history
+  for each statement execute function private.controlled_medicine_tables_immutable();
+
 create function private.controlled_medicine_terms_history()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -101,7 +120,10 @@ begin
                when old.active and not new.active then 'retired'
                when not old.active and new.active then 'reinstated'
                else 'changed' end,
-          new.change_note, coalesce((select auth.uid()), new.changed_by));
+          new.change_note,
+          -- a signed-in actor, else the row's own changed_by when this write set it; a direct edit by a migration or the service role that left it
+          -- untouched is recorded with no actor rather than under the previous one
+          coalesce((select auth.uid()), case when tg_op = 'INSERT' or new.changed_by is distinct from old.changed_by then new.changed_by end));
   return null;
 end;
 $$;
@@ -187,10 +209,10 @@ create or replace function private.is_controlled_medicine(p_name text)
 returns boolean
 language sql stable security definer set search_path = ''
 as $$
-  select exists (
-    select 1 from public.controlled_medicine_terms t
-     where t.active
-       and lower(btrim(coalesce(p_name, ''))) ~* ('\m' || t.term || '\M'));
+  -- one pattern over the active terms (one scan, one regex match per call); no active term means no pattern, which is false
+  select coalesce(
+    lower(btrim(coalesce(p_name, ''))) ~* (select '\m(' || string_agg(t.term, '|') || ')\M' from public.controlled_medicine_terms t where t.active),
+    false);
 $$;
 revoke all on function private.is_controlled_medicine(text) from public, anon, authenticated;
 grant execute on function private.is_controlled_medicine(text) to service_role;
@@ -249,6 +271,13 @@ begin
   else
     if v_row.tier = p_tier and v_row.label = v_label and v_row.active = p_active then
       raise exception 'nothing to change: the term is already like that' using errcode = '22023';
+    end if;
+    if v_note = v_row.change_note then
+      raise exception 'write a new change note: it is the same as the last note on this term' using errcode = '22023';
+    end if;
+    -- LAST-TERM GUARD: the list can be changed but never emptied, so the hard stop cannot be switched off by retiring everything
+    if v_row.active and not p_active and not exists (select 1 from public.controlled_medicine_terms where active and id <> v_row.id) then
+      raise exception 'the list must keep at least one active term' using errcode = '22023';
     end if;
     update public.controlled_medicine_terms
        set tier = p_tier, label = v_label, active = p_active, change_note = v_note, changed_by = v_uid

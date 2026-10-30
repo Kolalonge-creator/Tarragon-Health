@@ -46,23 +46,32 @@ export function fallbackControlledMedicineList(): ControlledMedicineList {
   return { version: CONTROLLED_MEDICINE_FALLBACK_VERSION, terms: CONTROLLED_MEDICINE_FALLBACK, source: "fallback" };
 }
 
-/** Null when the response is not a well-formed list. An empty list is well-formed (the CMO may have retired every term). */
+/**
+ * Null when the response is not a well-formed list. An EMPTY list is treated as malformed too: the database refuses to retire the last term, so an empty
+ * answer means something is wrong, and the safe direction is the generated fallback, never "nothing is controlled".
+ */
 export function parseControlledMedicineList(raw: unknown): ControlledMedicineList | null {
   const parsed = listSchema.safeParse(raw);
-  if (!parsed.success) return null;
+  if (!parsed.success || parsed.data.terms.length === 0) return null;
   return { version: parsed.data.version, terms: parsed.data.terms, source: "database" };
 }
 
 type Client = Pick<SupabaseClient<Database>, "rpc">;
 
-/** Reads the list through `get_controlled_medicine_list`. Never throws: any failure returns the generated fallback. */
+function usingFallback(reason: string): ControlledMedicineList {
+  // Visible in the server log or browser console: a guard running on the generated list can drift from the database list without anyone noticing.
+  console.warn(`controlled-medicine list: using the generated fallback (${reason})`);
+  return fallbackControlledMedicineList();
+}
+
+/** Reads the list through `get_controlled_medicine_list`. Never throws: any failure returns the generated fallback, and says so in the log. */
 export async function loadControlledMedicineList(supabase: Client): Promise<ControlledMedicineList> {
   try {
     const { data, error } = await supabase.rpc("get_controlled_medicine_list");
-    if (error) return fallbackControlledMedicineList();
-    return parseControlledMedicineList(data) ?? fallbackControlledMedicineList();
+    if (error) return usingFallback("the read failed");
+    return parseControlledMedicineList(data) ?? usingFallback("the answer was empty or malformed");
   } catch {
-    return fallbackControlledMedicineList();
+    return usingFallback("the read threw");
   }
 }
 

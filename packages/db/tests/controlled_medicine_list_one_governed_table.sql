@@ -8,8 +8,11 @@
 --   3. Guards: only the CMO writes (admin, prescriber, patient refused, anon cannot execute); the tables are closed to the API; nothing is deleted or renamed;
 --      every change needs a NEW note of at least 10 characters; a no-op, a regex-looking term and a bad tier are refused; every change lands in the history
 --      with its actor and note, and in audit_log.
+--   3b. The list can never be emptied (the last active term cannot be retired), the history cannot be edited, deleted or truncated even by the owner,
+--      the terms table cannot be truncated, a repeated note is refused with a clear message, and a direct edit with no signed-in actor is not recorded
+--      under the previous actor.
 --   4. SABOTAGE: (A) the function put back to a fixed regex that ignores the table, (B) the CMO check removed, (C) the history trigger disabled,
---      (D) the new-note guard disabled. Every one must flip a check, or the proof is vacuous.
+--      (D) the new-note guard disabled, (E) the last-term guard removed. Every one must flip a check, or the proof is vacuous.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -207,6 +210,39 @@ begin
   perform pg_temp.ck('every seeded term is still controlled', 'true', (select bool_and(private.is_controlled_medicine(term)) from public.controlled_medicine_terms where change_note like 'Seeded%')::text);
 end $$;
 
+-- 3b. Never emptied, history immutable, notes ------------------------------------------------------------------------------------
+do $$
+declare v_cmo uuid := pg_temp.f('cmo'); r text; t record; v_before integer; v_actor text;
+begin
+  perform pg_temp.ck('a repeated note is refused with a clear message', 'ERR:write a new change note: it is the same as the last note on this term',
+    pg_temp.set_term(v_cmo, 'proofium', 'narcotic', 'Proof class', false, 'Reinstated by the proof'));
+  perform pg_temp.ck('the history cannot be edited by anyone, the owner included', '42501', pg_temp.st_owner($q$update public.controlled_medicine_term_history set change_note = 'rewritten history' where version = 1$q$));
+  perform pg_temp.ck('...nor deleted', '42501', pg_temp.st_owner($q$delete from public.controlled_medicine_term_history where version = 1$q$));
+  perform pg_temp.ck('...nor truncated', '42501', pg_temp.st_owner($q$truncate public.controlled_medicine_term_history$q$));
+  perform pg_temp.ck('the terms table cannot be truncated either', '42501', pg_temp.st_owner($q$truncate public.controlled_medicine_terms$q$));
+  -- a direct edit with no signed-in user is recorded with no actor, not under the CMO who last touched the row
+  update public.controlled_medicine_terms set label = 'Opioid analgesic ', change_note = 'Direct edit by the owner in the proof' where term = 'morphine';
+  v_actor := (select coalesce(changed_by::text, 'none') from public.controlled_medicine_term_history where term = 'morphine' order by version desc limit 1);
+  perform pg_temp.ck('a direct edit with no signed-in user is recorded with no actor', 'none', v_actor);
+  update public.controlled_medicine_terms set label = 'Opioid analgesic', change_note = 'Direct edit undone by the owner in the proof' where term = 'morphine';
+
+  -- the list cannot be emptied: retire every term but one through the CMO function; the last one is refused
+  v_before := (select count(*) from public.controlled_medicine_terms where active);
+  for t in select term, tier, label from public.controlled_medicine_terms where active and term <> 'ketalar' order by term loop
+    r := pg_temp.set_term(v_cmo, t.term, t.tier, t.label, false, 'Retired in the proof to test the floor');
+    if r like 'ERR:%' then raise exception 'retiring % failed: %', t.term, r; end if;
+  end loop;
+  perform pg_temp.ck('all but one term can be retired', '1', (select count(*)::text from public.controlled_medicine_terms where active));
+  perform pg_temp.ck('...the last active term cannot be retired', 'ERR:the list must keep at least one active term',
+    pg_temp.set_term(v_cmo, 'ketalar', 'restricted', 'Dissociative anaesthetic', false, 'Trying to empty the list in the proof'));
+  perform pg_temp.ck('...so the hard stop still catches it', 'true|false', private.is_controlled_medicine('Ketalar 50mg')::text || '|' || private.is_controlled_medicine('Morphine')::text);
+  -- put the list back (reinstate every term the loop retired) so the sabotage section starts from the seeded list
+  for t in select term, tier, label from public.controlled_medicine_terms where not active and change_note = 'Retired in the proof to test the floor' loop
+    r := pg_temp.set_term(v_cmo, t.term, t.tier, t.label, true, 'Reinstated after the floor test');
+  end loop;
+  perform pg_temp.ck('...and the list is whole again afterwards', v_before::text, (select count(*)::text from public.controlled_medicine_terms where active));
+end $$;
+
 -- 4. SABOTAGE ------------------------------------------------------------------------------------------------------------------
 do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_pat uuid := pg_temp.f('pat');
@@ -242,6 +278,16 @@ begin
   insert into results values ('sabotaged', 'D: an update with the same note is refused', '23514',
     pg_temp.st_owner($q$update public.controlled_medicine_terms set label = 'Changed' where term = 'morphine'$q$));
   alter table public.controlled_medicine_terms enable trigger controlled_medicine_terms_a_guard;
+
+  -- E. the last-term guard removed: the list can be emptied
+  v_orig := pg_get_functiondef('public.set_controlled_medicine_term(text,text,text,boolean,text)'::regprocedure);
+  v_def := replace(v_orig, 'if v_row.active and not p_active and not exists (select 1 from public.controlled_medicine_terms where active and id <> v_row.id) then', 'if false then');
+  if v_def = v_orig then raise exception 'SABOTAGE E not applied'; end if;
+  execute v_def;
+  update public.controlled_medicine_terms set active = false, change_note = 'Sabotage E: all but one retired' where term <> 'ketalar' and active;
+  r := pg_temp.set_term(v_cmo, 'ketalar', 'restricted', 'Dissociative anaesthetic', false, 'Sabotage E: retire the last term');
+  insert into results values ('sabotaged', 'E: the last active term cannot be retired', 'refused', case when r like 'ERR:the list must keep%' then 'refused' else 'accepted' end);
+  execute v_orig;
 end $$;
 
 do $$
@@ -254,7 +300,7 @@ begin
   end if;
   select count(distinct left(check_name, 1)) into v_flipped from results where phase = 'sabotaged' and expected is distinct from actual;
   select count(distinct left(check_name, 1)) into v_total from results where phase = 'sabotaged';
-  if v_total < 4 or v_flipped < 4 then
+  if v_total < 5 or v_flipped < 5 then
     raise exception 'VACUOUS TEST: the sabotage flipped % of % checks (%)', v_flipped, v_total,
       (select string_agg(check_name || ' => ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged');
   end if;
