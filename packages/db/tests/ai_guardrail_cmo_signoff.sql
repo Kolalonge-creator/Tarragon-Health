@@ -52,35 +52,61 @@ begin
     (v_other, 'r1', 'output_constraint', 'other', 'blocking', true);
 
   perform pg_temp.act(v_doc);
-  perform pg_temp.rec('a doctor is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991')$q$));
+  perform pg_temp.rec('a doctor is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991', 2)$q$));
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('an admin who is not the CMO is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991')$q$));
+  perform pg_temp.rec('an admin who is not the CMO is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991', 2)$q$));
+  perform pg_temp.rec('an admin cannot write an approval straight to the table', '42501', pg_temp.try(format($q$update public.ai_guardrails set approved_at = now() where ai_system_id = %L$q$, v_sys)));
+  perform pg_temp.rec('an admin cannot insert an already-approved rule', '42501', pg_temp.try(format($q$insert into public.ai_guardrails (ai_system_id, rule_code, kind, description, enforcement, is_active, approved_at) values (%L, 'rx', 'output_constraint', 'x', 'blocking', true, now())$q$, v_sys)));
   perform pg_temp.back();
   perform pg_temp.act_anon();
-  perform pg_temp.rec('anon is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991')$q$));
+  perform pg_temp.rec('anon is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-991', 2)$q$));
   perform pg_temp.back();
   perform pg_temp.rec('nothing was approved by the refusals', '0', (select count(*)::text from public.ai_guardrails where approved_at is not null and ai_system_id in (v_sys, v_other)));
 
   perform pg_temp.act(v_cmo);
-  perform pg_temp.rec('an unknown system code is refused', '22023', pg_temp.try($q$select public.approve_ai_guardrails('AI-NOPE')$q$));
-  v_n := public.approve_ai_guardrails('AI-991', 'read every rule');
+  perform pg_temp.rec('an unknown system code is refused', '22023', pg_temp.try($q$select public.approve_ai_guardrails('AI-998', 1)$q$));
+  perform pg_temp.rec('a wrong count is refused', '22023', pg_temp.try($q$select public.approve_ai_guardrails('AI-991', 3)$q$));
   perform pg_temp.back();
+  perform pg_temp.rec('...and nothing was stamped by the wrong count', '0', (select count(*)::text from public.ai_guardrails where approved_at is not null and ai_system_id = v_sys));
+  perform pg_temp.act(v_cmo);
+  v_n := public.approve_ai_guardrails('AI-991', 2, 'read every rule');
+  perform pg_temp.back();
+  perform pg_temp.rec('the audit row keeps the rule text', 'r1,r2', (select string_agg(r ->> 'rule_code', ',' order by r ->> 'rule_code') from public.audit_log a, jsonb_array_elements(a.event -> 'rules') r where a.action = 'ai_guardrails.approved' and a.entity_id = v_sys));
   perform pg_temp.rec('two active rules approved', '2', v_n::text);
   perform pg_temp.rec('stamped with the CMO staff id and a time', '2', (select count(*)::text from public.ai_guardrails where ai_system_id = v_sys and is_active and approved_by = v_staff and approved_at is not null));
   perform pg_temp.rec('the retired rule is untouched', 'null', (select coalesce(approved_at::text, 'null') from public.ai_guardrails where ai_system_id = v_sys and not is_active));
   perform pg_temp.rec('the other system is untouched', 'null', (select coalesce(approved_at::text, 'null') from public.ai_guardrails where ai_system_id = v_other));
   perform pg_temp.rec('one audit row with the note', '1', (select count(*)::text from public.audit_log where action = 'ai_guardrails.approved' and actor_id = v_cmo and entity_id = v_sys and event ->> 'note' = 'read every rule'));
   perform pg_temp.act(v_cmo);
-  perform pg_temp.rec('a second call finds nothing left', '22023', pg_temp.try($q$select public.approve_ai_guardrails('AI-991')$q$));
+  perform pg_temp.rec('a second call finds nothing left', '22023', pg_temp.try($q$select public.approve_ai_guardrails('AI-991', 2)$q$));
   perform pg_temp.back();
   perform pg_temp.rec('execute grants: anon none, authenticated yes', 'false,true',
-    has_function_privilege('anon', 'public.approve_ai_guardrails(text, text)', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.approve_ai_guardrails(text, text)', 'EXECUTE')::text);
+    has_function_privilege('anon', 'public.approve_ai_guardrails(text, integer, text)', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.approve_ai_guardrails(text, integer, text)', 'EXECUTE')::text);
 
-  -- SABOTAGE: drop the CMO check; a doctor must now be able to approve the other system
-  create or replace function public.approve_ai_guardrails(p_system_code text, p_note text default null) returns integer language sql security definer set search_path = '' as
-    $f$ update public.ai_guardrails set approved_at = now(), approved_by = (select id from public.clinical_staff where doctor_tier = 'chief_medical_officer' limit 1) where is_active and approved_at is null and ai_system_id = (select id from public.ai_systems where system_code = p_system_code); select 1 $f$;
+  -- editing an approved rule clears its approval; a harmless touch keeps it
+  update public.ai_guardrails set description = 'one, reworded' where ai_system_id = v_sys and rule_code = 'r1';
+  perform pg_temp.rec('editing the wording clears that approval', 'null', (select coalesce(approved_at::text, 'null') from public.ai_guardrails where ai_system_id = v_sys and rule_code = 'r1'));
+  perform pg_temp.rec('...and leaves the untouched rule approved', 'true', (select (approved_at is not null)::text from public.ai_guardrails where ai_system_id = v_sys and rule_code = 'r2'));
+  update public.ai_guardrails set enforcement = 'escalate' where ai_system_id = v_sys and rule_code = 'r2';
+  perform pg_temp.rec('changing enforcement clears that approval', 'null', (select coalesce(approved_at::text, 'null') from public.ai_guardrails where ai_system_id = v_sys and rule_code = 'r2'));
+
+  -- SABOTAGE 1: drop the CMO check; a doctor must now be able to approve the other system
+  create or replace function public.approve_ai_guardrails(p_system_code text, p_expected_count integer, p_note text default null) returns integer language plpgsql security definer set search_path = '' as
+    $f$ begin
+      perform set_config('app.ai_guardrail_signoff', 'on', true);
+      update public.ai_guardrails set approved_at = now(), approved_by = (select id from public.clinical_staff where doctor_tier = 'chief_medical_officer' limit 1)
+       where is_active and approved_at is null and ai_system_id = (select id from public.ai_systems where system_code = p_system_code);
+      perform set_config('app.ai_guardrail_signoff', '', true);
+      return 1;
+    end $f$;
   perform pg_temp.act(v_doc);
-  insert into results values ('sabotaged', 'a doctor is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-992')$q$));
+  insert into results values ('sabotaged', 'a doctor is refused', '42501', pg_temp.try($q$select public.approve_ai_guardrails('AI-992', 1)$q$));
+  perform pg_temp.back();
+
+  -- SABOTAGE 2: drop the approval trigger; an admin must now be able to stamp an approval straight onto the table
+  drop trigger ai_guardrails_approval_guard on public.ai_guardrails;
+  perform pg_temp.act(v_admin);
+  insert into results values ('sabotaged', 'an admin write is refused', '42501', pg_temp.try(format($q$update public.ai_guardrails set approved_at = now() where ai_system_id = %L$q$, v_other)));
   perform pg_temp.back();
 end $$;
 
@@ -92,7 +118,7 @@ begin
     raise exception 'AI guardrail sign-off proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught = 0 then raise exception 'VACUOUS TEST: removing the CMO check did not change the result'; end if;
+  if v_caught < 2 then raise exception 'VACUOUS TEST: removing the CMO check and the approval trigger must each change a result'; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;
