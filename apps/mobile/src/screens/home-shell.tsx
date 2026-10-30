@@ -382,7 +382,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
     ),
     technicalSupport: () => (
-      <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
+      <TechnicalSupportScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
     emergency: () => <EmergencyCardScreen patientId={userId} organisationId={organisationId} />,
     settings: () => (
