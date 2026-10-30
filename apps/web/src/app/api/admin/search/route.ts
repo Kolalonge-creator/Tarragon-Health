@@ -1,4 +1,4 @@
-import { fetchStaffFolios } from "@/lib/clinical/staff-folio";
+import { fetchStaffFolios, searchStaffIdsByFolio } from "@/lib/clinical/staff-folio";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -44,15 +44,23 @@ export async function GET(request: Request): Promise<Response> {
   const results: PersonResult[] = [];
   let failed = false;
 
-  const [staff, queue] = await Promise.all([
+  const [byName, folioIds, queue] = await Promise.all([
     supabase
       .from("clinical_staff")
       .select("id, full_name, staff_number, active")
-      // OQ-358: credential_number is not readable from the table by everyone, so it is not a search column here.
+      // OQ-358: credential_number is not readable from the table by everyone, so it is not a column filter here;
+      // a folio match comes from the staff-only search function below.
       .or(`full_name.ilike.%${term}%,staff_number.ilike.%${term}%`)
       .limit(6),
+    searchStaffIdsByFolio(supabase, term),
     rpcParsed(supabase, "credentialing_queue", {}, queueSchema).catch(() => null),
   ]);
+  const extraIds = folioIds.filter((id) => !(byName.data ?? []).some((s) => s.id === id));
+  const byFolio =
+    extraIds.length > 0
+      ? await supabase.from("clinical_staff").select("id, full_name, staff_number, active").in("id", extraIds)
+      : { data: [], error: null };
+  const staff = { data: [...(byName.data ?? []), ...(byFolio.data ?? [])], error: byName.error ?? byFolio.error };
 
   if (staff.error) failed = true;
   // This route is admin / Chief Medical Officer only, both entitled to the folio; it comes from the folio function.
