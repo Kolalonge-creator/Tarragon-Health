@@ -1,7 +1,7 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { Disclosure } from "@/components/ui/disclosure";
+import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import { AnnualBundleCard } from "@/app/(dashboard)/patient/annual-bundle-card";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
@@ -18,6 +18,57 @@ import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-
 export default async function PatientLabsPage() {
   const { subjectId, uiLanguage } = await getPatientDashboardContext();
 
+  const tabs: PreventionTab[] = [
+    {
+      id: "results",
+      label: "Results & orders",
+      content: (
+        <>
+          {/* Lab notifications link to /patient/labs with no hash, so the first tab must hold everything a notification
+              is about: a released result and the status of an order in progress. */}
+          <LabOrdersList patientId={subjectId} />
+          <ReleasedLabResults patientId={subjectId} locale={uiLanguage} />
+          <LabTrendCard patientId={subjectId} locale={uiLanguage} />
+          <LabResults patientId={subjectId} />
+          <ResultsTrendsCard patientId={subjectId} />
+        </>
+      ),
+    },
+    {
+      id: "book",
+      label: "Book a test",
+      anchorIds: ["locations"],
+      content: (
+        <>
+          {/* BookingRequestsList stays because vaccination bookings still
+              create real requests a patient needs to see. */}
+          <BookingRequestsList patientId={subjectId} />
+          <AnnualBundleCard patientId={subjectId} />
+          <LabCatalogue />
+          {/* Synlab Nigeria was contracted 2026-08-21 and this branch
+              directory shipped 2026-08-29 (list_lab_test_locations) — the
+              older "no facility directory" line here predated both and is
+              stale. Pharmacies/specialists remain unaffected by this.
+              The id is the target of the symptom-triage "nearest clinic" link (/patient/labs#locations). */}
+          <div id="locations" className="scroll-mt-24">
+            <LabLocationDirectory />
+          </div>
+        </>
+      ),
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      content: (
+        <>
+          <ResultDocuments patientId={subjectId} />
+          <EcgReportDocuments patientId={subjectId} />
+          <ImagingReportDocuments patientId={subjectId} />
+        </>
+      ),
+    },
+  ];
+
   return (
     <DashboardSection
       id="labs"
@@ -31,35 +82,9 @@ export default async function PatientLabsPage() {
           holding must always reach a doctor whatever they pay. What stays paid
           is the doctor's own review of that result (result_document_review),
           gated where the review is offered rather than on this whole section. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-4">
-          <ReleasedLabResults patientId={subjectId} locale={uiLanguage} />
-          <LabTrendCard patientId={subjectId} locale={uiLanguage} />
-          <LabResults patientId={subjectId} />
-          <ResultDocuments patientId={subjectId} />
-          <EcgReportDocuments patientId={subjectId} />
-          <ImagingReportDocuments patientId={subjectId} />
-          <ResultsTrendsCard patientId={subjectId} />
-        </div>
-        <div className="space-y-4">
-          <LabOrdersList patientId={subjectId} />
-          {/* BookingRequestsList stays because vaccination bookings still
-              create real requests a patient needs to see. */}
-          <BookingRequestsList patientId={subjectId} />
-          {/* Ordering material (the annual bundle, the full test catalogue and the branch directory) is long and
-              only needed when someone is about to request a test, so it is folded: results and order status stay
-              the first things on the page (design audit P3). */}
-          <Disclosure title="Request a lab test" hint="Annual bundle, the test catalogue and where to go">
-            <AnnualBundleCard patientId={subjectId} />
-            <LabCatalogue />
-            {/* Synlab Nigeria was contracted 2026-08-21 and this branch
-                directory shipped 2026-08-29 (list_lab_test_locations) — the
-                older "no facility directory" line here predated both and is
-                stale. Pharmacies/specialists remain unaffected by this. */}
-            <LabLocationDirectory />
-          </Disclosure>
-        </div>
-      </div>
+      {/* Three tabs instead of one 11,000px scroll (design audit W1): what came back, what to order, and the files.
+          Every panel stays mounted, so an upload in progress survives a tab switch. */}
+      <PreventionTabs ariaLabel="Labs sections" tabs={tabs} />
     </DashboardSection>
   );
 }
