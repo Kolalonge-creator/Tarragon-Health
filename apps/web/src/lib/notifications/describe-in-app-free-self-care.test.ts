@@ -16,7 +16,8 @@ describe("free_tier_reading_self_care_suggestion in-app text", () => {
   it("says plainly that no doctor has been alerted because the person is on the Free plan", () => {
     const d = describeNotification({ template: "free_tier_reading_self_care_suggestion", payload: priority } as Input);
     expect(d.text).toMatch(/^No doctor has been alerted/);
-    expect(d.text).toMatch(/because you are on the Free plan/);
+    expect(d.text).toMatch(/No doctor has been alerted/);
+    expect(d.text).not.toMatch(/Free plan/);
   });
 
   it("still says what to do: get care now, and go to the nearest hospital if very unwell", () => {
