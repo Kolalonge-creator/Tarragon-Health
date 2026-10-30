@@ -89,9 +89,17 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
         <MutedText>Your services, vouchers, transactions, and anything still being refunded, all in one place.</MutedText>
       </View>
 
+      {(profile.activeServices.length === 0 || profile.recentFailures.length === 0) && (
+        <MutedText>
+          {[profile.activeServices.length === 0 ? "No active services yet." : null, profile.recentFailures.length === 0 ? "No recent payment problems." : null]
+            .filter(Boolean)
+            .join(" ")}
+        </MutedText>
+      )}
+
+      {profile.activeServices.length > 0 && (
       <View>
         <AppText variant="label" style={{ marginBottom: 8 }}>Your services</AppText>
-        {profile.activeServices.length === 0 && <MutedText>No active services yet.</MutedText>}
         {profile.activeServices.map((s) => (
           <Card key={s.id} style={{ gap: 2, marginBottom: 8 }}>
             <AppText variant="bodyStrong">
@@ -104,20 +112,19 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
           </Card>
         ))}
       </View>
+      )}
 
+      {profile.recentFailures.length > 0 && (
       <View>
         <AppText variant="label" style={{ marginBottom: 8 }}>Recent payment issues</AppText>
         <MutedText>Your card details are not stored with us. A failed charge means Paystack declined it, not that anything on our side went wrong.</MutedText>
-        {profile.recentFailures.length === 0 ? (
-          <MutedText>No recent payment problems.</MutedText>
-        ) : (
-          profile.recentFailures.map((f) => (
-            <MutedText key={f.id}>
-              {when(f.created_at)}: {f.error}
-            </MutedText>
-          ))
-        )}
+        {profile.recentFailures.map((f) => (
+          <MutedText key={f.id}>
+            {when(f.created_at)}: {f.error}
+          </MutedText>
+        ))}
       </View>
+      )}
 
       {profile.pendingShares.length > 0 && (
         <View>

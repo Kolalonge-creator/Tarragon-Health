@@ -7,32 +7,33 @@ import {
 } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import {
   useFinanceDashboard, useKpiSummary, useRevenueByFundingSource, useRiskFlags,
 } from "@/lib/finance/queries";
-import { SectionCard, CenterNote, formatMinor, formatNumber } from "./primitives";
+import { buildFinanceOverview } from "@/lib/finance/overview-summary";
+import { SectionCard } from "./primitives";
 
-function pct(v: number | null | undefined): string {
-  return v == null ? "—" : `${v > 0 ? "+" : ""}${v}%`;
+/**
+ * A refresh failed but the last good figures are on screen. Names the section
+ * so two stale notices on one page are not identical, and says what a reload
+ * would show if the cause is a change in finance access (a refused read fails
+ * the same way a dropped connection does).
+ */
+function staleText(which: string): string {
+  return `${which} may be out of date: the last refresh failed. They are the last ones we read successfully, not a live count. Reload the page to try again; if your finance access has changed, the reload will say so.`;
 }
 
 export function FinanceOverview() {
-  const { data, isLoading, isError } = useFinanceDashboard();
+  const dashboard = useFinanceDashboard();
   const kpis = useKpiSummary("NGN");
   const funding = useRevenueByFundingSource("NGN");
   const flags = useRiskFlags();
 
-  if (isError) {
-    return <CenterNote>Could not load finance data. You may not have finance access.</CenterNote>;
-  }
-
-  const flagCount =
-    (flags.data?.pending_approvals_count ?? 0) +
-    (flags.data?.aged_unreconciled_count ?? 0) +
-    (flags.data?.reconciliation_flags_count ?? 0) +
-    (flags.data?.fraud_signals_count ?? 0) +
-    (flags.data?.ap_overdue_count ?? 0) +
-    (flags.data?.compliance_overdue_count ?? 0);
+  // A figure that has not loaded, or failed to, is never shown as zero (see
+  // lib/finance/overview-summary.ts).
+  const view = buildFinanceOverview({ dashboard, kpis, funding, flags });
+  const { tiles } = view.dashboard;
 
   return (
     <div className="space-y-6">
@@ -42,114 +43,102 @@ export function FinanceOverview() {
         is delivered. All figures are NGN through Paystack, the only live payment provider.
       </p>
 
-      {flagCount > 0 && (
+      {view.flags.state === "failed" && (
+        <LoadFailure>
+          The bookkeeping health flags could not be loaded. No flags showing here does not mean
+          there are none: fraud signals, overdue filings and unreconciled payments would appear
+          here. Reload the page to try again.
+        </LoadFailure>
+      )}
+      {view.flags.state === "stale" && (
+        <StaleDataNotice>{staleText("The bookkeeping flags below")}</StaleDataNotice>
+      )}
+      {view.flags.items.length > 0 && (
         <SectionCard title="Needs attention" description="Bookkeeping health flags across the finance console.">
           <div className="flex flex-wrap gap-2">
-            {(flags.data?.pending_approvals_count ?? 0) > 0 && (
-              <Link href="/finance/approvals">
-                <Badge variant="amber">{flags.data?.pending_approvals_count} pending approval{flags.data?.pending_approvals_count === 1 ? "" : "s"}</Badge>
+            {view.flags.items.map((item) => (
+              <Link key={item.key} href={item.href}>
+                <Badge variant={item.variant}>{item.label}</Badge>
               </Link>
-            )}
-            {(flags.data?.aged_unreconciled_count ?? 0) > 0 && (
-              <Link href="/finance/reconciliation">
-                <Badge variant="red">{flags.data?.aged_unreconciled_count} unreconciled payment{flags.data?.aged_unreconciled_count === 1 ? "" : "s"} &gt;7 days old</Badge>
-              </Link>
-            )}
-            {(flags.data?.reconciliation_flags_count ?? 0) > 0 && (
-              <Link href="/finance/reconciliation">
-                <Badge variant="red">{flags.data?.reconciliation_flags_count} reconciliation flag{flags.data?.reconciliation_flags_count === 1 ? "" : "s"}</Badge>
-              </Link>
-            )}
-            {(flags.data?.fraud_signals_count ?? 0) > 0 && (
-              <Link href="/finance/fraud">
-                <Badge variant="red">{flags.data?.fraud_signals_count} fraud signal{flags.data?.fraud_signals_count === 1 ? "" : "s"}</Badge>
-              </Link>
-            )}
-            {(flags.data?.ap_overdue_count ?? 0) > 0 && (
-              <Link href="/finance/payables">
-                <Badge variant="red">{flags.data?.ap_overdue_count} overdue bill{flags.data?.ap_overdue_count === 1 ? "" : "s"}</Badge>
-              </Link>
-            )}
-            {(flags.data?.ap_due_soon_count ?? 0) > 0 && (
-              <Link href="/finance/payables">
-                <Badge variant="amber">{flags.data?.ap_due_soon_count} bill{flags.data?.ap_due_soon_count === 1 ? "" : "s"} due within 7 days</Badge>
-              </Link>
-            )}
-            {(flags.data?.compliance_overdue_count ?? 0) > 0 && (
-              <Link href="/finance/compliance">
-                <Badge variant="red">{flags.data?.compliance_overdue_count} overdue statutory filing{flags.data?.compliance_overdue_count === 1 ? "" : "s"}</Badge>
-              </Link>
-            )}
+            ))}
           </div>
         </SectionCard>
       )}
+      {view.flags.allClear && (
+        <p className="text-xs text-charcoal-ink/60">No bookkeeping flags right now.</p>
+      )}
 
+      {view.dashboard.state === "failed" && (
+        <LoadFailure>
+          The ledger figures could not be loaded, so the tiles below are blank and not zero. This
+          can also happen if you do not have finance access. Reload the page to try again.
+        </LoadFailure>
+      )}
+      {view.dashboard.state === "stale" && (
+        <StaleDataNotice>{staleText("The ledger figures below")}</StaleDataNotice>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Banknote} label="Cash & clearing (NGN)" value={formatMinor(data?.cash_ngn ?? 0, "NGN")} />
-        <StatTile icon={TrendingUp} label="Revenue YTD (NGN)" value={formatMinor(data?.revenue_ytd_ngn ?? 0, "NGN")} />
-        <StatTile icon={Scale} label="Deferred revenue" value={formatMinor(data?.deferred_revenue_ngn ?? 0, "NGN")} />
-        <StatTile icon={FileText} label="Receivables" value={formatMinor(data?.receivables_ngn ?? 0, "NGN")} />
-        <StatTile icon={Receipt} label="VAT payable" value={formatMinor(data?.vat_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Landmark} label="WHT payable" value={formatMinor(data?.wht_payable_ngn ?? 0, "NGN")} />
-        <StatTile icon={Ticket} label="Customer prepayments" value={formatMinor(data?.care_voucher_liability_ngn ?? 0, "NGN")} />
-        <StatTile
-          icon={AlertCircle}
-          label="Unreconciled payments"
-          value={formatNumber(data?.unreconciled.count ?? 0)}
-        />
+        <StatTile icon={Banknote} label="Cash & clearing (NGN)" {...tiles.cash} />
+        <StatTile icon={TrendingUp} label="Revenue YTD (NGN)" {...tiles.revenueYtd} />
+        <StatTile icon={Scale} label="Deferred revenue" {...tiles.deferred} />
+        <StatTile icon={FileText} label="Receivables" {...tiles.receivables} />
+        <StatTile icon={Receipt} label="VAT payable" {...tiles.vat} />
+        <StatTile icon={Landmark} label="WHT payable" {...tiles.wht} />
+        <StatTile icon={Ticket} label="Customer prepayments" {...tiles.prepayments} />
+        <StatTile icon={AlertCircle} label="Unreconciled payments" {...tiles.unreconciled} />
       </div>
 
       <SectionCard title="Key ratios (NGN, month to date)" description="Margin, growth and cash-health at a glance.">
-        {kpis.isLoading ? (
-          <CenterNote>Loading…</CenterNote>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile icon={Percent} label="Gross margin" value={kpis.data?.gross_margin_pct != null ? `${kpis.data.gross_margin_pct}%` : "—"} />
-            <StatTile icon={Gauge} label="Net margin" value={kpis.data?.net_margin_pct != null ? `${kpis.data.net_margin_pct}%` : "—"} />
-            <StatTile icon={TrendingUp} label="MoM revenue growth" value={pct(kpis.data?.mom_revenue_growth_pct)} />
-            <StatTile icon={TrendingUp} label="YoY revenue growth" value={pct(kpis.data?.yoy_revenue_growth_pct)} />
-            <StatTile icon={Clock} label="Days sales outstanding" value={kpis.data?.dso_days != null ? `${kpis.data.dso_days}d` : "—"} />
-            <StatTile icon={PiggyBank} label="Cash runway" value={kpis.data?.cash_runway_months != null ? `${kpis.data.cash_runway_months} mo` : "—"} />
-          </div>
+        {view.kpis.state === "failed" && (
+          <LoadFailure className="mb-4">
+            Key ratios could not be loaded. Reload the page to try again.
+          </LoadFailure>
         )}
+        {view.kpis.state === "stale" && (
+          <StaleDataNotice className="mb-4">{staleText("The key ratios below")}</StaleDataNotice>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile icon={Percent} label="Gross margin" {...view.kpis.tiles.grossMargin} />
+          <StatTile icon={Gauge} label="Net margin" {...view.kpis.tiles.netMargin} />
+          <StatTile icon={TrendingUp} label="MoM revenue growth" {...view.kpis.tiles.momGrowth} />
+          <StatTile icon={TrendingUp} label="YoY revenue growth" {...view.kpis.tiles.yoyGrowth} />
+          <StatTile icon={Clock} label="Days sales outstanding" {...view.kpis.tiles.dso} />
+          <StatTile icon={PiggyBank} label="Cash runway" {...view.kpis.tiles.runway} />
+        </div>
       </SectionCard>
 
       <SectionCard
         title="Revenue by funding source (NGN, month to date)"
         description="How much of this month's revenue was actually collected vs. given away. Promo codes and reward vouchers never represent real cash in the door."
       >
-        {funding.isLoading ? (
-          <CenterNote>Loading…</CenterNote>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatTile
-              icon={Banknote}
-              label="Cash collected"
-              value={formatMinor(funding.data?.cash_minor ?? 0, "NGN")}
-            />
-            <StatTile
-              icon={Gift}
-              label="Promo / voucher-funded"
-              value={formatMinor(funding.data?.promotional_minor ?? 0, "NGN")}
-            />
-          </div>
+        {view.funding.state === "failed" && (
+          <LoadFailure className="mb-4">
+            The funding split could not be loaded. Reload the page to try again.
+          </LoadFailure>
         )}
+        {view.funding.state === "stale" && (
+          <StaleDataNotice className="mb-4">{staleText("The funding split below")}</StaleDataNotice>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatTile icon={Banknote} label="Cash collected" {...view.funding.tiles.cash} />
+          <StatTile icon={Gift} label="Promo / voucher-funded" {...view.funding.tiles.promotional} />
+        </div>
       </SectionCard>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard title="Revenue by currency" description="Net recognised + point-of-sale revenue booked to date.">
-          {isLoading ? (
-            <CenterNote>Loading…</CenterNote>
-          ) : (data?.revenue_by_currency ?? []).length === 0 ? (
-            <CenterNote>No revenue booked yet.</CenterNote>
+          {view.dashboard.revenueByCurrency.status === "unknown" ? (
+            <p className="py-6 text-center text-sm text-charcoal-ink/60">
+              {view.dashboard.revenueByCurrency.message}
+            </p>
+          ) : view.dashboard.revenueByCurrency.status === "empty" ? (
+            <p className="py-6 text-center text-sm text-charcoal-ink/60">No revenue booked yet.</p>
           ) : (
             <ul className="space-y-2">
-              {(data?.revenue_by_currency ?? []).map((r) => (
-                <li key={r.currency ?? "?"} className="flex items-center justify-between text-sm">
-                  <span className="text-charcoal-ink/70">{r.currency ?? "—"}</span>
-                  <span className="font-medium tabular-nums text-charcoal-ink">
-                    {formatMinor(r.recognised_minor, r.currency ?? "NGN")}
-                  </span>
+              {view.dashboard.revenueByCurrency.rows.map((r) => (
+                <li key={r.currency} className="flex items-center justify-between text-sm">
+                  <span className="text-charcoal-ink/70">{r.currency}</span>
+                  <span className="font-medium tabular-nums text-charcoal-ink">{r.amount}</span>
                 </li>
               ))}
             </ul>
@@ -160,19 +149,19 @@ export function FinanceOverview() {
           <dl className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <dt className="text-charcoal-ink/60">Current open period</dt>
-              <dd className="font-medium text-charcoal-ink">{data?.open_period ?? "—"}</dd>
+              <dd className="font-medium text-charcoal-ink">{view.dashboard.ledger.openPeriod}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-charcoal-ink/60">Journal entries posted</dt>
-              <dd className="font-medium tabular-nums text-charcoal-ink">{formatNumber(data?.entries_count ?? 0)}</dd>
+              <dd className="font-medium tabular-nums text-charcoal-ink">{view.dashboard.ledger.entries}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-charcoal-ink/60">Revenue this month (NGN)</dt>
-              <dd className="font-medium tabular-nums text-charcoal-ink">{formatMinor(data?.revenue_mtd_ngn ?? 0, "NGN")}</dd>
+              <dd className="font-medium tabular-nums text-charcoal-ink">{view.dashboard.ledger.revenueMtd}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-charcoal-ink/60">Operating expense YTD (NGN)</dt>
-              <dd className="font-medium tabular-nums text-charcoal-ink">{formatMinor(data?.expenses_ytd_ngn ?? 0, "NGN")}</dd>
+              <dd className="font-medium tabular-nums text-charcoal-ink">{view.dashboard.ledger.expensesYtd}</dd>
             </div>
           </dl>
           <div className="mt-4 flex flex-wrap gap-2">

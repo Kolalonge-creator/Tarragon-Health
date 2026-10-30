@@ -1,6 +1,7 @@
 export { AppText, type TextTone } from "./AppText";
 export { Button } from "./Button";
 export { Card } from "./Card";
+export { Disclosure } from "./Disclosure";
 export { EmptyState } from "./EmptyState";
 export { Field } from "./Field";
 export { haptic } from "./haptics";

@@ -11,6 +11,15 @@ export interface InAppNotificationInput {
  * anything unmapped still shows (generic text, dashboard link) rather than
  * silently disappearing from the bell. Exported so the communication-history
  * card (17.8) can reuse the same copy instead of a second, drifting mapping. */
+/**
+ * How many screenings one grouped reminder stands for, or null for an ordinary single reminder. The nightly job sends one reminder
+ * carrying a count instead of one per screening when a patient has more than 2 in the same stage (migration 20261030110000), so a new
+ * patient is not met with a reminder for every check at once. It names no test (INV-07).
+ */
+function groupedCount(payload: Record<string, unknown>): number | null {
+  return typeof payload.count === "number" && Number.isInteger(payload.count) && payload.count > 1 ? payload.count : null;
+}
+
 export function describe(n: InAppNotificationInput): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
   if (n.template === "ai_restriction_notice") {
@@ -678,6 +687,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Your preventive review is due", href: "/patient/prevention" };
   }
   if (n.template === "screening_due") {
+    const grouped = groupedCount(payload);
+    if (grouped !== null) return { text: `You have ${grouped} checks due`, href: "/patient/prevention" };
     // S98: when the preventive engine has already issued the test request, say so (generic text, INV-07: no test name).
     if (typeof payload.lab_order_id === "string" && payload.lab_order_id !== "") {
       return { text: "Your test request is ready to download", href: "/patient/prevention" };
@@ -1018,6 +1029,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
     // From escalating_preventive_reminders.sql -- the overdue/escalated
     // siblings of screening_due above, same payload shape.
+    const grouped = groupedCount(payload);
+    if (grouped !== null) {
+      const text =
+        n.template === "screening_upcoming" ? `${grouped} checks are coming up soon`
+        : n.template === "screening_overdue" ? `${grouped} checks are still waiting`
+        : `${grouped} checks are still waiting: your care team may follow up`;
+      return { text, href: "/patient/prevention" };
+    }
     const hasRequest = typeof payload.lab_order_id === "string" && payload.lab_order_id !== "";
     const label =
       n.template === "screening_upcoming" ? "A reminder is coming up soon"
