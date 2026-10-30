@@ -104,6 +104,7 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [existingDiagnoses, setExistingDiagnoses] = useState<string[]>([]);
+  const priorHpvYes = priorResponses?.find((r) => r.question_key === "hpv_vaccinated")?.response === true;
   // "None of these" is an answer in its own right (an empty list means the same thing to the server, but a blank list reads as
   // "I have not answered"). It is never submitted: it only clears the ticks and shows that the question was answered.
   const [noDiagnoses, setNoDiagnoses] = useState(false);
@@ -144,7 +145,7 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
       .map((plan) => CONDITION_TO_DIAGNOSIS[plan.condition])
       .filter((v): v is string => v != null);
     const merged = [...new Set([...fromPriorAnswer, ...fromCarePlans])];
-    if (existingDiagnoses.length === 0 && merged.length > 0) {
+    if (existingDiagnoses.length === 0 && merged.length > 0 && !noDiagnoses) {
       setExistingDiagnoses(merged);
       if (merged.includes("other")) setShowDiagnosesOther(true);
     }
@@ -491,7 +492,9 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
-            {sex !== "male" && <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />}
+            {/* Left out for a man (the question is about cervical risk) unless his last answer was yes: submitting without the tick would
+                overwrite that yes with no. */}
+            {(sex !== "male" || priorHpvYes) && <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />}
             <div className="space-y-1.5">
               <Label htmlFor="other_vaccines_detail">Any other vaccines? (optional)</Label>
               <Input id="other_vaccines_detail" name="other_vaccines_detail" type="text" maxLength={300} />

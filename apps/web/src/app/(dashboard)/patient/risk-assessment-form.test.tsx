@@ -25,8 +25,9 @@ jest.mock("@/lib/queries/vitals", () => ({
 jest.mock("@/lib/queries/care-plans", () => ({
   useCarePlans: () => ({ data: undefined }),
 }));
+let mockPriorResponses: unknown = undefined;
 jest.mock("@/lib/queries/risk-assessment", () => ({
-  useRiskAssessmentResponses: () => ({ data: undefined }),
+  useRiskAssessmentResponses: () => ({ data: mockPriorResponses }),
 }));
 
 let capturedFormData: FormData | null = null;
@@ -47,6 +48,7 @@ describe("RiskAssessmentForm", () => {
   beforeEach(() => {
     capturedFormData = null;
     mockNextResult = { success: true };
+    mockPriorResponses = undefined;
   });
 
   it("carries every step's answers to the final submit, even after navigating past earlier steps", async () => {
@@ -257,5 +259,11 @@ describe("RiskAssessmentForm", () => {
     fireEvent.click(screen.getByText("Save assessment"));
     await screen.findByText(/Choose one for smoking/);
     expect(screen.getByText(/Step 2 of 4/)).toBeTruthy();
+  });
+
+  it("still shows the HPV tick to a man whose last answer was yes, so a resubmit cannot turn it into no", () => {
+    mockPriorResponses = [{ question_key: "hpv_vaccinated", response: true }];
+    render(<RiskAssessmentForm patientId="patient-1" sex="male" />);
+    expect(screen.getByLabelText("I've had the HPV vaccine")).toBeTruthy();
   });
 });
