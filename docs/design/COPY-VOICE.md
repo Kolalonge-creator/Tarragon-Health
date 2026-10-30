@@ -46,3 +46,5 @@ To fix a failure, reword the string. Do not raise the number in `baseline.ts`. O
 ## Status
 
 The marketing site, the patient dashboard, the clinician dashboard, the admin screens, the notification templates and the English string catalogue have all had a pass (2026-10-30). Mobile app copy, the database-stored notification templates and the legal pages have not.
+
+Update 2026-10-30: the 126 contractions in `apps/web/src/app/(marketing)/_content/resources.ts` were expanded to full forms (rule 5); no wording or fact changed.
