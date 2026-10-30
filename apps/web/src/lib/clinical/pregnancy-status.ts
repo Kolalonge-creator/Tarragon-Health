@@ -42,11 +42,19 @@ const UNKNOWN: PregnancySafety = { status: "unknown", hasRecord: false, lastDeli
 export async function readPregnancySafety(client: PregnancyRpcClient, patientId: string): Promise<PregnancySafety> {
   try {
     const { data, error } = await client.rpc("pregnancy_safety_status", { p_patient: patientId });
-    if (error) return UNKNOWN;
+    if (error) {
+      // A failed call looks the same as a legitimate "not tied" answer to the screen, so say so in the log (no patient id: it would be PHI in a log line).
+      console.error("pregnancy_safety_status failed; treating the status as unknown", error.code ?? "", error.message ?? "");
+      return UNKNOWN;
+    }
     const parsed = replySchema.safeParse(data);
-    if (!parsed.success) return UNKNOWN;
+    if (!parsed.success) {
+      console.error("pregnancy_safety_status returned an unexpected reply; treating the status as unknown");
+      return UNKNOWN;
+    }
     return { status: parsed.data.pregnancy, hasRecord: parsed.data.has_record, lastDeliveryDate: parsed.data.last_delivery_date };
-  } catch {
+  } catch (e) {
+    console.error("pregnancy_safety_status threw; treating the status as unknown", e instanceof Error ? e.message : "");
     return UNKNOWN;
   }
 }

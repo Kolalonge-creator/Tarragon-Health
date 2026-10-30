@@ -31,11 +31,19 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Files that read one of the two tables with .select( within 400 characters of the .from( call. */
+/**
+ * Files that read one of the two tables with .select( within 400 characters of the .from( call, or embed one in another table's select string
+ * (for example `profiles.select("id, patient_pregnancy(is_pregnant)")`).
+ */
 function directReaders(): string[] {
-  const re = new RegExp(`from\\(\\s*["'\`](?:${TABLES.join("|")})["'\`]\\s*\\)[\\s\\S]{0,400}?\\.select\\(`);
+  const names = TABLES.join("|");
+  const direct = new RegExp(`from\\(\\s*["'\`](?:${names})["'\`]\\s*\\)[\\s\\S]{0,400}?\\.select\\(`);
+  const embedded = new RegExp(`\\b(?:${names})\\s*(?:![a-z_]+)?\\(`);
   return walk(SRC)
-    .filter((f) => re.test(readFileSync(f, "utf8")))
+    .filter((f) => {
+      const text = readFileSync(f, "utf8");
+      return direct.test(text) || (/\.select\(/.test(text) && embedded.test(text));
+    })
     .map((f) => relative(SRC, f).split("\\").join("/"))
     .sort();
 }

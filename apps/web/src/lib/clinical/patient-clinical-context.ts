@@ -13,7 +13,7 @@ import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
 import { readPatientMedicationsAudited } from "./medications-audited";
 import { readPatientVitalsAudited } from "./vitals-audited";
 import { readAuditedSection } from "./audited-chart";
-import { isPossiblyPregnant, readPregnancySafety } from "./pregnancy-status";
+import { isPossiblyPregnant, PREGNANCY_UNKNOWN_MESSAGE, readPregnancySafety } from "./pregnancy-status";
 import {
   medicationEffectivenessVitalType,
   computeMedicationEffectiveness,
@@ -231,7 +231,8 @@ export async function loadMedicationSafety(
   });
 
   return {
-    report,
+    // The engine's own pregnancy note says the pregnancy is "self-reported by the patient"; for an unreadable status that would be untrue, so say what happened.
+    report: pregnancyUnknown ? { ...report, pregnancyCheckNote: PREGNANCY_UNKNOWN_MESSAGE } : report,
     egfr: context.egfr,
     egfrUnavailableReason: context.egfrUnavailableReason,
     ckdRisk: context.ckdRisk,

@@ -188,7 +188,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
 
         {pregnancyUnknown ? <PregnancyUnknownNotice /> : null}
 
-        {pregnancyCheckNote && medicationCount > 0 ? (
+        {pregnancyCheckNote && medicationCount > 0 && !pregnancyUnknown ? (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
             {pregnancyCheckNote}
           </p>

@@ -38,7 +38,21 @@ describe("loadMedicationSafety pregnancy status", () => {
   it("unreadable: flagged for the panel, and the engine keeps its pregnancy caveat (cautious branch)", async () => {
     const view = await loadMedicationSafety(clientWith({ pregnancy: "unknown", has_record: false, last_delivery_date: null }), "p1");
     expect(view.pregnancyUnknown).toBe(true);
-    expect(view.report.pregnancyCheckNote).toMatch(/pregnan/i);
+    // the cautious flag is on, but the note says what happened rather than claiming a self-report that never was
+    expect(view.report.pregnancyCheckNote).toBe("Pregnancy status could not be read. Check before prescribing.");
+  });
+
+  it("the cautious branch really reaches the rules: an unreadable status fires the pregnancy contraindication on Gliclazide, a readable 'not pregnant' does not", async () => {
+    (readPatientMedicationsAudited as unknown as jest.Mock<(...a: unknown[]) => Promise<unknown>>).mockResolvedValue({
+      status: "ok",
+      rows: [{ id: "m1", drug_name: "Gliclazide", dose: "80mg", prescriber_name: null, source: "clinician" }],
+    });
+    const pregnancyFinding = (v: Awaited<ReturnType<typeof loadMedicationSafety>>) =>
+      v.report.findings.some((f) => f.severity === "contraindicated" && /pregnan/i.test(`${f.title} ${f.message}`));
+    const unknown = await loadMedicationSafety(clientWith({ pregnancy: "unknown", has_record: false, last_delivery_date: null }), "p1");
+    const notPregnant = await loadMedicationSafety(clientWith({ pregnancy: "not_pregnant", has_record: true, last_delivery_date: null }), "p1");
+    expect(pregnancyFinding(unknown)).toBe(true);
+    expect(pregnancyFinding(notPregnant)).toBe(false);
   });
 
   it("a failed or malformed answer is the same as unreadable", async () => {

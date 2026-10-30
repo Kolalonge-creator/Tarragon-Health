@@ -18,8 +18,9 @@ export async function readTrendBandsEligible(
   moduleEnabled: boolean,
   prof: TrendBandsProfile,
 ): Promise<boolean> {
+  // nothing below can make a band eligible if the module is off or the profile is unreadable, so skip the round trip
+  if (!moduleEnabled || prof.error || !prof.data) return false;
   const pregnancy = await readPregnancySafety(client, patientId);
-  if (prof.error || !prof.data) return false;
   if (pregnancy.status === "unknown") return false;
   return trendBandsEligible({
     moduleEnabled,

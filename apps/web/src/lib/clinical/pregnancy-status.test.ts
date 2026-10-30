@@ -12,6 +12,12 @@ function client(result: { data: unknown; error: { message?: string; code?: strin
 }
 
 describe("readPregnancySafety (OQ-555 follow-up)", () => {
+  let errorSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => errorSpy.mockRestore());
+
   it("asks the database's three-state function with the patient only", async () => {
     const c = client({ data: { pregnancy: "pregnant", has_record: true, last_delivery_date: null }, error: null });
     expect(await readPregnancySafety(c, "p1")).toEqual({ status: "pregnant", hasRecord: true, lastDeliveryDate: null });
@@ -35,6 +41,13 @@ describe("readPregnancySafety (OQ-555 follow-up)", () => {
     ["a thrown call", new Error("network")],
   ])("%s is unknown, never 'not pregnant'", async (_label, result) => {
     expect(await readPregnancySafety(client(result), "p1")).toEqual({ status: "unknown", hasRecord: false, lastDeliveryDate: null });
+    // a failure is logged, so an outage does not pass for a legitimate "not tied" answer
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("the database's own 'unknown' (a legitimate refusal) is not logged as a failure", async () => {
+    await readPregnancySafety(client({ data: { pregnancy: "unknown", has_record: false, last_delivery_date: null }, error: null }), "p1");
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it("only a clear 'not pregnant' is not possibly pregnant", () => {
