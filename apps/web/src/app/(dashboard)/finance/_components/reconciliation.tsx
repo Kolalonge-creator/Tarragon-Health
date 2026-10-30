@@ -16,6 +16,7 @@ import {
   resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
 import { lagosToday } from "@/lib/format-date";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput, parseOptionalMoney } from "@/lib/finance/money-input";
 
@@ -30,6 +31,7 @@ const PAYSTACK_BANK_ACCOUNT = "1000";
 
 export function Reconciliation() {
   const qc = useQueryClient();
+  const { ask, dialog } = useConfirmAction();
   const summary = useReconciliationSummary();
   const data = summary.data;
   const isLoading = summary.isLoading;
@@ -152,7 +154,26 @@ export function Reconciliation() {
             </thead>
             <tbody>
               {(flags ?? []).map((f) => (
-                <FlagRow key={f.id} flag={f} onResolve={resolveFlag} />
+                <FlagRow
+                  key={f.id}
+                  flag={f}
+                  onResolve={(id, status) =>
+                    status === "ignored"
+                      ? ask({
+                          title: "Ignore this reconciliation flag?",
+                          description: "It leaves the open list without being matched or explained. Use Resolved instead if it was dealt with.",
+                          facts: [
+                            { label: "Issue", value: FLAG_TYPE_LABEL[f.flag_type] ?? f.flag_type },
+                            { label: "Provider", value: f.provider },
+                            { label: "Reference", value: f.provider_reference },
+                            { label: "Detected", value: f.detected_at.slice(0, 10) },
+                          ],
+                          confirmLabel: "Ignore flag",
+                          run: () => resolveFlag(id, status),
+                        })
+                      : resolveFlag(id, status)
+                  }
+                />
               ))}
             </tbody>
           </TableShell>
@@ -291,6 +312,8 @@ export function Reconciliation() {
           </TableShell>
         )}
       </SectionCard>
+
+      {dialog}
     </div>
   );
 }

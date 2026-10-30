@@ -15,6 +15,7 @@ import {
 } from "@/lib/finance/queries";
 import { upsertBudgetAction, deleteBudgetAction } from "@/lib/finance/actions";
 import { lagosToday, lagosMonth, lagosMonthStart } from "@/lib/format-date";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
@@ -30,6 +31,7 @@ export function Budgets() {
   const accounts = useFinanceAccounts();
   const costCenters = useCostCenters();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { ask, dialog } = useConfirmAction();
 
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
@@ -186,7 +188,20 @@ export function Budgets() {
                   <td className="py-1.5 pr-4 text-charcoal-ink/50">{b.cost_center_code ?? "—"}</td>
                   <td className="py-1.5 pr-4 text-right tabular-nums">{formatMinor(b.amount_minor, b.currency)}</td>
                   <td className="py-1.5 text-right">
-                    <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => remove(b.id)}>Remove</button>
+                    <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() =>
+                      ask({
+                        title: "Remove this budget line?",
+                        description: "The line is deleted and no longer counts in budget vs actual. This cannot be undone.",
+                        facts: [
+                          { label: "Month", value: b.period_month },
+                          { label: "Account", value: `${b.account_code} · ${b.account_name}` },
+                          { label: "Cost centre", value: b.cost_center_code ?? "Unassigned" },
+                          { label: "Amount", value: formatMinor(b.amount_minor, b.currency) },
+                        ],
+                        confirmLabel: "Remove budget line",
+                        run: () => remove(b.id),
+                      })
+                    }>Remove</button>
                   </td>
                 </tr>
               ))}
@@ -194,6 +209,7 @@ export function Budgets() {
           </TableShell>
         )}
       </SectionCard>
+      {dialog}
     </div>
   );
 }
