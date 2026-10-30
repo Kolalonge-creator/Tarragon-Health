@@ -136,8 +136,23 @@ function flagItems(f: RiskFlags): FlagItem[] {
       variant: "red",
       label: plural(f.compliance_overdue_count, "overdue statutory filing", "overdue statutory filings"),
     });
-  return items;
+  return items.sort((a, b) => FLAG_PRIORITY.indexOf(a.key) - FLAG_PRIORITY.indexOf(b.key));
 }
+
+/**
+ * Most urgent first: money that may be leaving or wrong, then statutory
+ * deadlines, then reconciliation drift, then bills, then routine approvals.
+ * The first item is the one the page leads with.
+ */
+const FLAG_PRIORITY: ReadonlyArray<keyof RiskFlags> = [
+  "fraud_signals_count",
+  "compliance_overdue_count",
+  "aged_unreconciled_count",
+  "reconciliation_flags_count",
+  "ap_overdue_count",
+  "pending_approvals_count",
+  "ap_due_soon_count",
+];
 
 export interface FinanceOverviewInputs {
   dashboard: QuerySlice<DashboardSummary>;

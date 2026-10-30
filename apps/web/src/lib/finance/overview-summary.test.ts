@@ -171,6 +171,37 @@ describe("buildFinanceOverview: loaded", () => {
   });
 });
 
+describe("buildFinanceOverview: flag order", () => {
+  it("leads with the most urgent flag whatever order the counts arrive in", () => {
+    const everything: RiskFlags = {
+      pending_approvals_count: 4,
+      aged_unreconciled_count: 3,
+      reconciliation_flags_count: 2,
+      fraud_signals_count: 1,
+      ap_due_soon_count: 5,
+      ap_overdue_count: 6,
+      compliance_overdue_count: 7,
+    };
+    const v = buildFinanceOverview(inputs({ flags: loaded(everything) }));
+    expect(v.flags.items.map((i) => i.key)).toEqual([
+      "fraud_signals_count",
+      "compliance_overdue_count",
+      "aged_unreconciled_count",
+      "reconciliation_flags_count",
+      "ap_overdue_count",
+      "pending_approvals_count",
+      "ap_due_soon_count",
+    ]);
+  });
+
+  it("puts a routine approval behind an overdue bill", () => {
+    const v = buildFinanceOverview(
+      inputs({ flags: loaded({ ...NO_FLAGS, pending_approvals_count: 9, ap_overdue_count: 1 }) })
+    );
+    expect(v.flags.items[0]?.key).toBe("ap_overdue_count");
+  });
+});
+
 describe("buildFinanceOverview: still loading", () => {
   it("shows Loading, never ₦0", () => {
     const v = buildFinanceOverview(
@@ -247,7 +278,6 @@ describe("flags", () => {
     );
     expect(v.flags.allClear).toBe(false);
     expect(v.flags.items).toEqual([
-      { key: "pending_approvals_count", href: "/finance/approvals", variant: "amber", label: "1 pending approval" },
       { key: "fraud_signals_count", href: "/finance/fraud", variant: "red", label: "2 fraud signals" },
       {
         key: "compliance_overdue_count",
@@ -255,6 +285,7 @@ describe("flags", () => {
         variant: "red",
         label: "1 overdue statutory filing",
       },
+      { key: "pending_approvals_count", href: "/finance/approvals", variant: "amber", label: "1 pending approval" },
     ]);
   });
 

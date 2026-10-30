@@ -106,6 +106,20 @@ describe("FinanceOverview", () => {
     expect(screen.queryByText("No bookkeeping flags right now.")).toBeNull();
   });
 
+  it("leads with the most urgent flag under 'Needs you first' and lists the rest after it", () => {
+    setAll({ fl: ok({ ...NO_FLAGS, pending_approvals_count: 5, fraud_signals_count: 1, ap_overdue_count: 2 }) });
+    render(<FinanceOverview />);
+    const section = screen.getByRole("region", { name: "Needs you first" });
+    const links = Array.from(section.querySelectorAll("a")).map((a) => a.textContent);
+    expect(links).toEqual(["1 fraud signal", "2 overdue bills", "5 pending approvals"]);
+  });
+
+  it("does not draw the 'Needs you first' list when the flags failed", () => {
+    setAll({ fl: failed });
+    render(<FinanceOverview />);
+    expect(screen.queryByRole("region", { name: "Needs you first" })).toBeNull();
+  });
+
   it("shows blank tiles and an alert, not zeros, when the ledger figures failed", () => {
     setAll({ d: failed });
     const { container } = render(<FinanceOverview />);

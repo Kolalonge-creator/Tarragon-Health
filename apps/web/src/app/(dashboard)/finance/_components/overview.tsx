@@ -37,12 +37,6 @@ export function FinanceOverview() {
 
   return (
     <div className="space-y-6">
-      <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
-        payments and commissions post automatically; a service bought up front is deferred until it
-        is delivered. All figures are NGN through Paystack, the only live payment provider.
-      </p>
-
       {view.flags.state === "failed" && (
         <LoadFailure>
           The bookkeeping health flags could not be loaded. No flags showing here does not mean
@@ -54,18 +48,35 @@ export function FinanceOverview() {
         <StaleDataNotice>{staleText("The bookkeeping flags below")}</StaleDataNotice>
       )}
       {view.flags.items.length > 0 && (
-        <SectionCard title="Needs attention" description="Bookkeeping health flags across the finance console.">
-          <div className="flex flex-wrap gap-2">
-            {view.flags.items.map((item) => (
-              <Link key={item.key} href={item.href}>
-                <Badge variant={item.variant}>{item.label}</Badge>
-              </Link>
-            ))}
-          </div>
-        </SectionCard>
+        <section
+          aria-labelledby="finance-first"
+          className="rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm"
+        >
+          <h2 id="finance-first" className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+            Needs you first
+          </h2>
+          <Link
+            href={view.flags.items[0].href}
+            className="mt-2 inline-flex items-center gap-2 font-heading text-xl font-semibold text-charcoal-ink hover:underline"
+          >
+            {view.flags.items[0].label}
+          </Link>
+          <p className="mt-1 text-sm text-charcoal-ink/60">Open it to see the items and deal with them.</p>
+          {view.flags.items.length > 1 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {view.flags.items.slice(1).map((item) => (
+                <Link key={item.key} href={item.href}>
+                  <Badge variant={item.variant}>{item.label}</Badge>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       )}
       {view.flags.allClear && (
-        <p className="text-xs text-charcoal-ink/60">No bookkeeping flags right now.</p>
+        <p className="rounded-xl border border-charcoal-ink/10 bg-white px-5 py-4 text-sm text-charcoal-ink/70">
+          No bookkeeping flags right now.
+        </p>
       )}
 
       {view.dashboard.state === "failed" && (
@@ -80,13 +91,21 @@ export function FinanceOverview() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Banknote} label="Cash & clearing (NGN)" {...tiles.cash} />
         <StatTile icon={TrendingUp} label="Revenue YTD (NGN)" {...tiles.revenueYtd} />
-        <StatTile icon={Scale} label="Deferred revenue" {...tiles.deferred} />
-        <StatTile icon={FileText} label="Receivables" {...tiles.receivables} />
-        <StatTile icon={Receipt} label="VAT payable" {...tiles.vat} />
-        <StatTile icon={Landmark} label="WHT payable" {...tiles.wht} />
-        <StatTile icon={Ticket} label="Customer prepayments" {...tiles.prepayments} />
         <StatTile icon={AlertCircle} label="Unreconciled payments" {...tiles.unreconciled} />
+        <StatTile icon={Scale} label="Deferred revenue" {...tiles.deferred} />
       </div>
+      <details className="group rounded-xl border border-charcoal-ink/10 bg-white">
+        <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-charcoal-ink">
+          Owed and held <span className="text-charcoal-ink/60">(receivables, VAT, withholding tax, prepayments)</span>
+          <span aria-hidden className="ml-2 inline-block transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile icon={FileText} label="Receivables" {...tiles.receivables} />
+          <StatTile icon={Receipt} label="VAT payable" {...tiles.vat} />
+          <StatTile icon={Landmark} label="WHT payable" {...tiles.wht} />
+          <StatTile icon={Ticket} label="Customer prepayments" {...tiles.prepayments} />
+        </div>
+      </details>
 
       <SectionCard title="Key ratios (NGN, month to date)" description="Margin, growth and cash-health at a glance.">
         {view.kpis.state === "failed" && (
@@ -177,6 +196,11 @@ export function FinanceOverview() {
           </div>
         </SectionCard>
       </div>
+      <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
+        This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
+        payments and commissions post automatically; a service bought up front is deferred until it
+        is delivered. All figures are NGN through Paystack, the only live payment provider.
+      </p>
     </div>
   );
 }
