@@ -5,7 +5,7 @@ import { useMyPointsStatus, useRewardRules, useWellnessPointsLedger } from "@/li
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { PendingCredit } from "./pending-credit";
-import { groupLedger } from "./group-ledger";
+import { groupLedger } from "@tarragon/shared";
 import { ChevronDown } from "lucide-react";
 
 /**

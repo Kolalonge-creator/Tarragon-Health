@@ -1,6 +1,7 @@
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { useCallback, useEffect, useState } from "react";
 import { t, pointsTierLabel, pointsRuleLabel, milestoneCopy, pendingActionLabel } from "@tarragon/i18n";
-import { describePending, type PendingCreditItem, type PendingMilestone } from "@tarragon/shared";
+import { describePending, groupLedger, type PendingCreditItem, type PendingMilestone } from "@tarragon/shared";
 import { setSupportPrefill } from "@/lib/support-prefill";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import {
@@ -279,9 +280,7 @@ function PointsCard({
       )}
 
       {rules.length > 0 && (
-        <View style={{ gap: 4 }}>
-          <Text style={label}>{t("points.how.title")}</Text>
-          <MutedText>{t("points.how.intro")}</MutedText>
+        <Disclosure title={t("points.how.title")} hint={t("points.how.intro")}>
           {rules.map((r) => (
             <View key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 3 }}>
               <AppText variant="body" style={{ flexShrink: 1 }}>
@@ -294,7 +293,7 @@ function PointsCard({
             </View>
           ))}
           <MutedText>{t("points.how.daily_note")}</MutedText>
-        </View>
+        </Disclosure>
       )}
 
       <View style={{ gap: 2 }}>
@@ -306,9 +305,12 @@ function PointsCard({
       <View style={{ gap: 4 }}>
         <Text style={label}>{t("points.activity.title")}</Text>
         {ledger.length === 0 && <MutedText>{t("points.activity.empty")}</MutedText>}
-        {ledger.map((entry) => (
-          <View key={entry.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-            <AppText variant="body">{reasonLabel(entry.reason)}</AppText>
+        {groupLedger(ledger).map((entry) => (
+          <View key={`${entry.reason}-${entry.points > 0}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <AppText variant="body">
+              {reasonLabel(entry.reason)}
+              {entry.count > 1 ? ` (${entry.count} times)` : ""}
+            </AppText>
             <Text style={{ ...textStyles.label, color: entry.points > 0 ? colors.brandPressed : colors.muted }}>
               {entry.points > 0 ? "+" : ""}
               {entry.points}
