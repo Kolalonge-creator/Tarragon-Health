@@ -34,7 +34,7 @@ export const childLog = {
   "cdl.log.view_only": "You can look at this child's log but not add to it.",
   "cdl.log.undo_note": "Entries are never changed. If you tapped by mistake, tap the right one and your care team will see both.",
   "cdl.logged_by.label": "Who is logging?",
-  "cdl.logged_by.placeholder": "For example Mum, Dad or Aunty",
+  "cdl.logged_by.placeholder": "For example Mother, Father or Aunty",
   "cdl.logged_by.help": "A name tag on each entry. It is not an account.",
   "cdl.logged_by.by": "by {name}",
   // Timeline
