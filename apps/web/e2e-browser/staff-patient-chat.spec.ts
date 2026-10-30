@@ -133,37 +133,41 @@ test.describe("staff to patient chat", () => {
 
   // A staff member starts a conversation with a file and a button on the very first message. The thread is created first, then the
   // first message's id is looked up (first_care_message_id, no second thread read), then the button and the file are attached.
+  // (Journey patients each live in their own organisation, so this uses the same patient as the test above, via "Start a new conversation".)
   test("a new conversation can carry a file and a button on its first message", async ({ browser }) => {
-    const second = await createJourneyPatient(String(Number(runId) + 1));
-    try {
-      psql(`update public.profiles set full_name = '[e2e-test] Attach Patient' where id = '${second.userId}'`);
-      const staffContext = await browser.newContext({ storageState: staffState });
-      const staffPage = await staffContext.newPage();
-      if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
-      await gotoRoute(staffPage, `/clinician/patients/${second.userId}`);
-      await staffPage.getByRole("button", { name: /Open chat with/ }).click();
-      await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
-      await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
-      await staffPage.getByLabel("Book an appointment").check();
-      await staffPage.locator('input[type="file"]').setInputFiles({
-        name: "letter.pdf",
-        mimeType: "application/pdf",
-        buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
-      });
-      await staffPage.getByRole("button", { name: "Send", exact: true }).click();
-      await expect(staffPage.getByText("The letter is attached.")).toBeVisible({ timeout: 30_000 });
+    const staffContext = await browser.newContext({ storageState: staffState });
+    const staffPage = await staffContext.newPage();
+    if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    await gotoRoute(staffPage, `/clinician/patients/${patient.userId}`);
+    await staffPage.getByRole("button", { name: /Open chat with/ }).click();
+    await staffPage.getByRole("button", { name: "Start a new conversation" }).click();
+    await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
+    await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
+    await staffPage.getByLabel("Book an appointment").check();
+    await staffPage.locator('input[type="file"]').setInputFiles({
+      name: "letter.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+    });
+    await staffPage.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(staffPage.getByText("The letter is attached.")).toBeVisible({ timeout: 30_000 });
 
-      // Both extras landed on the first (only) message, and the staff page shows no "could not be added" notice.
-      const counts = psql(
-        `select (select count(*) from public.care_message_attachments where patient_id = '${second.userId}') || ',' ||
-                (select count(*) from public.care_message_actions where patient_id = '${second.userId}')`,
-      );
-      expect(counts).toBe("1,1");
-      await expect(staffPage.getByText(/could not be added/)).toHaveCount(0);
-      await staffContext.close();
-    } finally {
-      await deleteTestPatient(second);
-    }
+    // Both extras landed on the first message of the new thread, and the staff page shows no "could not be added" notice.
+    await expect
+      .poll(
+        () =>
+          psql(
+            `select (select count(*) from public.care_message_attachments a join public.care_message_threads t on t.id = a.thread_id
+                      where t.patient_id = '${patient.userId}' and t.subject = '[e2e-test] Your referral letter') || ',' ||
+                    (select count(*) from public.care_message_actions x join public.care_messages m on m.id = x.message_id
+                      join public.care_message_threads t on t.id = m.thread_id
+                      where t.patient_id = '${patient.userId}' and t.subject = '[e2e-test] Your referral letter')`,
+          ),
+        { timeout: 30_000 },
+      )
+      .toBe("1,1");
+    await expect(staffPage.getByText(/could not be added/)).toHaveCount(0);
+    await staffContext.close();
   });
 
   // The 24 hour reply target shows as a red badge inside the 14 day lookback. Older than that it is not badged; it is counted in a quiet sentence.
