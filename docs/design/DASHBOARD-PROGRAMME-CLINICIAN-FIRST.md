@@ -68,6 +68,7 @@ One worktree per PR, none merged without required CI.
 3. **PR 3: scribe omission review** (the top open competitor finding).
 4. **PR 4: E5 to E7 browser journeys.**
 5. Then the next dashboard: Admin, Finance, Analytics, then partner side, using the same spec template.
+   - **Admin home, slice 1 (2026-10-30).** `packages/shared/src/admin-home.ts` ranks what needs the person (serious incidents, AI governance sign-off, clinician verifications, booking requests) and refuses to turn a failed read into "caught up"; `attention-hero.tsx` draws it. The ~60 area tiles stay, grouped as before, but each group is a collapsed section so the page leads with the work (the search bar reaches any page by name). A "something is down" banner shows when a dependency check reports down. Removed: the AI-governance banner (now an item in the ranked list, same wording and link) and the static "On the roadmap" card (two stale bullets). Not in this slice: refund requests and new leads in the ranked list (their data sources need checking), per-section loading states, before/after screenshots.
 
 ## 6. Decisions (2026-10-30, founder)
 
