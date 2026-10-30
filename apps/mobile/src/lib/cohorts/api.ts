@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  communityErrorKey, parseBoard, parseChallenges, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, parseTemplates,
-  type Board, type Challenge, type MyCohorts, type RosterRow, type Template,
+  communityErrorKey, parseChallenges, parseHistory, parseSummary, parseInviteMade, parseMyCohorts, parseOk, parsePreview, parseRoster, parseTemplates,
+  type Challenge, type ChallengeSummary, type EffortHistory, type MyCohorts, type RosterRow, type Template,
 } from "./parse";
 import type { MessageKey } from "@tarragon/i18n";
 
@@ -26,10 +26,6 @@ export async function loadChallenges(cohort: string): Promise<QueryResult<Challe
 export async function loadRoster(cohort: string): Promise<QueryResult<RosterRow[]>> {
   const { data, error } = await supabase.rpc("cohort_roster", { p_cohort: cohort });
   return error ? { ok: false, error: error.message } : { ok: true, data: parseRoster(data) };
-}
-export async function loadBoard(challenge: string): Promise<QueryResult<Board>> {
-  const { data, error } = await supabase.rpc("cohort_board", { p_challenge: challenge });
-  return error ? { ok: false, error: error.message } : { ok: true, data: parseBoard(data) };
 }
 export async function loadTemplates(): Promise<QueryResult<Template[]>> {
   const { data, error } = await supabase.rpc("list_challenge_templates");
@@ -58,3 +54,16 @@ export async function createInvite(cohort: string): Promise<{ ok: true; token: s
   const made = parseInviteMade(data);
   return made ? { ok: true, token: made.token } : fail("unknown");
 }
+
+// S69c: cooperative actions. A skip and a rest check-in are private; nothing is sent to the group.
+export async function loadSummary(challenge: string): Promise<QueryResult<ChallengeSummary>> {
+  const { data, error } = await supabase.rpc("my_challenge_summary", { p_challenge: challenge });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseSummary(data) };
+}
+export async function loadHistory(): Promise<QueryResult<EffortHistory>> {
+  const { data, error } = await supabase.rpc("my_effort_history");
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseHistory(data) };
+}
+export const restCheckin = (challenge: string) => act(supabase.rpc("rest_checkin_for_challenge", { p_challenge: challenge }));
+export const skipWeek = (challenge: string, skip: boolean) =>
+  act(skip ? supabase.rpc("skip_challenge_week", { p_challenge: challenge }) : supabase.rpc("undo_skip_challenge_week", { p_challenge: challenge }));

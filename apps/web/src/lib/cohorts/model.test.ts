@@ -1,4 +1,4 @@
-import { COHORT_KINDS, communityErrorKey, communityJoinPath, parseBoard, parseChallenges, parseMyCohorts, parsePreview, parseRoster } from "./model";
+import { COHORT_KINDS, communityErrorKey, communityJoinPath, parseChallenges, parseMyCohorts, parsePreview, parseRoster } from "./model";
 
 const shown = {
   challenge_id: "c1", label: "Move together", unit: "minutes", starts_on: "2026-10-07", ends_on: "2026-10-20", phase: "active", available: true, contributing: true,
@@ -19,14 +19,8 @@ describe("community model", () => {
     expect(parseChallenges("nope")).toEqual([]);
     expect(parseChallenges([{ challenge_id: 1 }])).toEqual([]);
     expect(parseMyCohorts(null)).toEqual({ open: false, off: false, cohorts: [] });
-    expect(parseBoard({ state: "boom" })).toEqual({ state: "hidden" });
     expect(parseRoster({})).toEqual([]);
     expect(parsePreview({ ok: true, name: "x", kind: "club" })).toEqual({ ok: false });
-  });
-
-  it("a board row has a label, a rank and a percentage only", () => {
-    const b = parseBoard({ state: "shown", rows: [{ label: "Group 2", rank: 2, progress_pct: 50, is_yours: false, cohort_name: "Grace Fellowship" }] });
-    expect(JSON.stringify(b)).not.toContain("Grace");
   });
 
   it("maps database refusals to messages, with a safe default", () => {

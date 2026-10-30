@@ -72,20 +72,6 @@ export function parseRoster(data: unknown): RosterRow[] {
   });
 }
 
-export const boardSchema = z.discriminatedUnion("state", [
-  z.object({ state: z.literal("hidden") }),
-  z.object({ state: z.literal("not_ready") }),
-  z.object({
-    state: z.literal("shown"),
-    rows: z.array(z.object({ label: z.string(), rank: z.number(), progress_pct: z.number(), is_yours: z.boolean() })),
-  }),
-]);
-export type Board = z.infer<typeof boardSchema>;
-export function parseBoard(data: unknown): Board {
-  const r = boardSchema.safeParse(data);
-  return r.success ? r.data : { state: "hidden" };
-}
-
 export const templateSchema = z.object({
   code: z.string(),
   label: z.string(),
@@ -171,4 +157,25 @@ export function communityErrorKey(message: unknown): MessageKey {
 /** The link a moderator shares. The token is in the path (so it survives the sign-in redirect) and nowhere else. No WhatsApp link is built: the OS share sheet is the only way out. */
 export function communityJoinPath(token: string): string {
   return `/patient/cohorts/join/${encodeURIComponent(token)}`;
+}
+
+/** S69c: the member's OWN summary (booleans and a count of weeks) and OWN effort history. Neither is part of any group view. */
+export const summarySchema = z.discriminatedUnion("available", [
+  z.object({ available: z.literal(false) }),
+  z.object({ available: z.literal(true), contributing: z.boolean(), did_today: z.boolean(), skipped_this_week: z.boolean(), rest_available: z.boolean(), weeks_active: z.number() }),
+]);
+export type ChallengeSummary = z.infer<typeof summarySchema>;
+export function parseSummary(data: unknown): ChallengeSummary {
+  const r = summarySchema.safeParse(data);
+  return r.success ? r.data : { available: false };
+}
+
+export const historySchema = z.object({
+  weeks_active: z.number(),
+  challenges: z.array(z.object({ label: z.string(), unit: z.enum(["days", "lessons", "minutes"]), starts_on: z.string(), ends_on: z.string(), phase: z.string(), days_with_effort: z.number(), total_effort: z.number(), rest_days: z.number() })),
+});
+export type EffortHistory = z.infer<typeof historySchema>;
+export function parseHistory(data: unknown): EffortHistory {
+  const r = historySchema.safeParse(data);
+  return r.success ? r.data : { weeks_active: 0, challenges: [] };
 }

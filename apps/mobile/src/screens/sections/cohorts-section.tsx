@@ -1,53 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Share, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Share, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
-  closeCohort, contribute, createCohort, createInvite, joinCohort, leaveCohort, loadBoard, loadChallenges, loadMyCohorts, loadRoster, loadTemplates, previewInvite,
+  closeCohort, contribute, createCohort, createInvite, joinCohort, leaveCohort, loadChallenges, loadMyCohorts, loadRoster, loadTemplates, previewInvite,
   reportMember, setCommunityOff, setMuted, setTotalsConsent, startChallenge, type Done,
 } from "@/lib/cohorts/api";
 import {
   COHORT_KINDS, KIND_KEYS, UNIT_KEYS, communityJoinPath, tokenFromInput,
-  type Board, type Challenge, type Cohort, type MyCohorts, type RosterRow, type Template,
+  type Challenge, type Cohort, type MyCohorts, type RosterRow, type Template,
 } from "@/lib/cohorts/parse";
-import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
+import { placeholderColorFor, useTextInputStyle, useTheme } from "@/ui/design";
+import { CooperativeActions, EffortHistoryCard, SharedGoalPath } from "./cooperative-views";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
-
-/** A goal bar: the cohort's percentage only. Nothing here can carry a person's figure. */
-function GoalBar({ percent, label }: { percent: number; label: string }) {
-  const colors = useLegacyColors();
-  return (
-    <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityValue={{ min: 0, max: 100, now: percent }}>
-      <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.border, overflow: "hidden" }}>
-        <View style={{ height: 10, width: `${percent}%`, backgroundColor: colors.brand }} />
-      </View>
-      <AppText variant="body" style={{ marginTop: 4 }}>{label}</AppText>
-    </View>
-  );
-}
-
-function BoardView({ challengeId }: { challengeId: string }) {
-  const colors = useLegacyColors();
-  const locale = asLocale(useUiLanguage());
-  const [board, setBoard] = useState<Board>({ state: "hidden" });
-  useEffect(() => {
-    void loadBoard(challengeId).then((r) => { if (r.ok) setBoard(r.data); });
-  }, [challengeId]);
-  if (board.state === "hidden") return null;
-  return (
-    <View style={{ gap: 4 }}>
-      <AppText variant="bodyStrong">{t("community.board.title", locale)}</AppText>
-      <MutedText>{t("community.board.note", locale)}</MutedText>
-      {board.state === "not_ready" ? <AppText variant="body">{t("community.board.not_ready", locale)}</AppText> : board.rows.map((r) => (
-        <Text key={`${r.rank}-${r.label}`} style={{ color: colors.ink, fontWeight: r.isYours ? "700" : "400" }}>
-          {t("community.board.row", locale, { label: r.isYours ? t("community.board.yours", locale) : r.label, percent: String(r.progressPct) })}
-        </Text>
-      ))}
-    </View>
-  );
-}
 
 function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contributing: boolean; onChanged: () => void }) {
   const locale = asLocale(useUiLanguage());
@@ -72,12 +39,18 @@ function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contribut
       <MutedText>{t(phaseKey, locale, { date: c.phase === "scheduled" ? c.startsOn : c.endsOn })}</MutedText>
       {c.total.state === "shown" ? (
         <View style={{ gap: 6 }}>
-          <GoalBar percent={c.total.progressPct} label={t("community.challenge.progress", locale, { percent: String(c.total.progressPct) })} />
+          <SharedGoalPath progressPct={c.total.progressPct} />
+          <AppText variant="body">{t("community.challenge.progress", locale, { percent: String(c.total.progressPct) })}</AppText>
           <AppText variant="body">{t("community.challenge.total", locale, { total: String(c.total.total), unit: t(UNIT_KEYS[c.unit], locale) })}</AppText>
           {c.total.goalReached ? <AppText variant="bodyStrong">{t("community.challenge.goal", locale)}</AppText> : null}
           <MutedText>{`${t("community.challenge.group_size", locale, { band: c.total.groupSize })} · ${t("community.challenge.as_of", locale, { date: c.total.asOf })}`}</MutedText>
         </View>
-      ) : <MutedText>{t(c.total.state === "hidden" ? "community.challenge.hidden" : "community.challenge.pending", locale)}</MutedText>}
+      ) : (
+        <View style={{ gap: 6 }}>
+          <SharedGoalPath progressPct={null} />
+          <MutedText>{t(c.total.state === "hidden" ? "community.challenge.hidden" : "community.challenge.pending", locale)}</MutedText>
+        </View>
+      )}
       {!c.available ? <AppText variant="body">{t("community.challenge.unavailable", locale)}</AppText> : c.phase === "active" ? (
         !contributing ? <AppText variant="body">{t("community.challenge.needs_consent", locale)}</AppText> : (
           <View style={{ gap: 8 }}>
@@ -90,7 +63,7 @@ function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contribut
         )
       ) : null}
       {note ? <MutedText>{t(note, locale)}</MutedText> : null}
-      <BoardView challengeId={c.challengeId} />
+      <CooperativeActions challengeId={c.challengeId} active={c.phase === "active"} consenting={contributing} />
     </Card>
   );
 }
@@ -191,6 +164,7 @@ function CohortDetail({ cohort, onBack, onChanged }: { cohort: Cohort; onBack: (
       <AppText variant="bodyStrong">{t("community.challenges.title", locale)}</AppText>
       {challenges === null ? <ActivityIndicator /> : challenges.length === 0 ? <MutedText>{t("community.challenges.none", locale)}</MutedText>
         : challenges.map((c) => <ChallengeCard key={c.challengeId} c={c} contributing={cohort.contributing} onChanged={() => void refresh()} />)}
+      <EffortHistoryCard />
       <Card style={{ gap: 6 }}>
         <AppText variant="bodyStrong">{t("community.group.members", locale)}</AppText>
         <MutedText>{t("community.group.members_note", locale)}</MutedText>
