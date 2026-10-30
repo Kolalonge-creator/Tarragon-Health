@@ -142,6 +142,11 @@ jest.mock("@/lib/queries/pending-screening-rule-set-signoff", () => ({
   SCREENING_RULE_SET_ITEM_KEY: "screening_rule_set",
   readPendingScreeningRuleSet: (...args: unknown[]) => readPendingScreeningRuleSet(...args),
 }));
+const readPendingStage2Attestation = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-stage2-attestation", () => ({
+  STAGE2_ITEM_KEY: "stage2_launch_attestation",
+  readPendingStage2Attestation: (...args: unknown[]) => readPendingStage2Attestation(...args),
+}));
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
@@ -199,6 +204,8 @@ beforeEach(() => {
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
   readPendingRedOutreachSignoff.mockReset();
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingStage2Attestation.mockReset();
+  readPendingStage2Attestation.mockResolvedValue({ waiting: false, failed: false });
   readPendingSoleCmoException.mockReset();
   readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
   readLegacyNoticeRetirementState.mockReset();
@@ -1089,5 +1096,24 @@ describe("readCmoSigningHub: G-01, clinical protocols versus operational setting
     expect(isClinicalSignoff(SYMPTOM_UX_ITEM_KEY)).toBe(false);
     expect(isClinicalSignoff("proposed_values_s06_s10")).toBe(false);
     expect(isClinicalSignoff("versioned:my_health_config")).toBe(false);
+  });
+});
+
+describe("readCmoSigningHub: Stage 2 launch attestation", () => {
+  it("lists the attestation as an operational line (never counted as a clinical signature) while it is unrecorded", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingStage2Attestation.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.operational.map((i) => i.key)).toEqual(["stage2_launch_attestation"]);
+    expect(hub.items).toEqual([]);
+    expect(isClinicalSignoff("stage2_launch_attestation")).toBe(false);
+  });
+  it("shows nothing once recorded, and says so when the read failed rather than looking all clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).operational).toEqual([]);
+    readPendingStage2Attestation.mockResolvedValue({ waiting: false, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the Stage 2 launch attestation");
   });
 });
