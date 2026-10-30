@@ -96,10 +96,9 @@ describe("yearly panel test list on the Membership Plus card", () => {
     expect(cards.find((c) => c.id === "free")!.panelTests).toBeUndefined();
   });
 
-  it("matches the analytes of the membership_annual lab panel, minus the analytes deliberately not promised", () => {
-    // anti_hbs: clinician-set add-on. tsh: removed from the yearly panel by founder decision 2026-10-30, but lab_panel_versions v3 (live) and
-    // the registry still carry it until a new panel version is signed. Remove "tsh" here once that version lands.
-    const NOT_PROMISED = ["anti_hbs", "tsh"];
+  it("matches the analytes of the membership_annual lab panel, minus the clinician-only anti-HBs add-on", () => {
+    // anti_hbs: a clinician-set add-on the patient never chooses, so the page does not promise it. TSH is no longer on the panel at all (v5).
+    const NOT_PROMISED = ["anti_hbs"];
     const entries = PROPOSED_CONFIG.filter((e) => e.key === "lab.panels");
     const latest = entries.reduce((a, b) => (b.version > a.version ? b : a));
     const v = latest.value as { panels: { membership_annual: { analytes: { code: string; label: string }[] } } };
