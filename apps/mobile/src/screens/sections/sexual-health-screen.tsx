@@ -299,7 +299,7 @@ function PrivacySettingsRow({ status, onChanged }: { status: SexualHealthPrivacy
     <Card style={{ gap: 8 }}>
       <AppText variant="label">Privacy PIN</AppText>
       <MutedText>
-        {status.hasPin ? "This section asks for a PIN before it opens, useful on a shared phone." : "Add a PIN so this section doesn't open right away on a shared phone. Completely optional."}
+        {status.hasPin ? "This section asks for a PIN before it opens, useful on a shared phone." : "Add a PIN so this section does not open right away on a shared phone. Completely optional."}
       </MutedText>
       {!editing ? (
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -367,7 +367,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
       <AppText variant="bodyStrong">Need emergency contraception?</AppText>
       <MutedText>
         Timing matters here, but there is almost always still something that can help. Tell us roughly
-        when, and we&apos;ll tell you what to get and where — plus your care team will follow up fast.
+        when, and we&apos;ll tell you what to get and where. Your care team will also follow up quickly.
       </MutedText>
       <AppText variant="label">Hours since intercourse</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
@@ -456,7 +456,7 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
 
       <Card style={{ gap: 8 }}>
         <AppText variant="bodyStrong">Your contraception plans</AppText>
-        {plans.length === 0 && <MutedText>You haven&apos;t requested a method yet. Browse above whenever you&apos;re ready.</MutedText>}
+        {plans.length === 0 && <MutedText>You have not requested a method yet. Browse above whenever you are ready.</MutedText>}
         {plans.map((plan) => (
           <View key={plan.id} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
             <View>

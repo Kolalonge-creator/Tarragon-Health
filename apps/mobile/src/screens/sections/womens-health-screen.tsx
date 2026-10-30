@@ -232,8 +232,8 @@ function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: Wome
         <Card style={{ gap: 10 }}>
           <AppText variant="body" tone="textMuted">
             {sex === null
-              ? "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause for female patients. We don't have a sex recorded on your health profile yet, so we can't tell whether it applies to you. Add it on your profile and this section will open up if it's relevant."
-              : "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause, so it doesn't apply to your health profile. Everything here is built around care that's specific to female patients."}
+              ? "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause for female patients. We do not have a sex recorded on your health profile yet, so we cannot tell whether it applies to you. Add it on your profile and this section will open up if it is relevant."
+              : "This section covers cycle tracking, contraception, pregnancy, postnatal care and menopause, so it does not apply to your health profile. Everything here is built around care that is specific to female patients."}
           </AppText>
           <Button variant="ghost" title="Screenings and checks relevant to you: Prevention" onPress={() => onNavigate("prevention")} />
         </Card>

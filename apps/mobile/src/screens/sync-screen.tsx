@@ -91,7 +91,7 @@ function ReadingValue({ reading }: { reading: ParsedReading }) {
     case "glucometer":
       return (
         <Text style={valueStyle}>
-          {reading.glucoseMmolL ?? "—"} <Text style={unitStyle}>mmol/L</Text>
+          {reading.glucoseMmolL ?? "-"} <Text style={unitStyle}>mmol/L</Text>
         </Text>
       );
     case "scale":

@@ -209,7 +209,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
       <CalloutCard
         icon="happy-outline"
         title="Mental wellbeing check-in"
-        subtitle="A quick, private check-in (PHQ-9/GAD-7/AUDIT-C) — already native, in your Wellbeing section."
+        subtitle="A quick, private check-in (the PHQ-9, GAD-7 and AUDIT-C questionnaires). You can find it in your Wellbeing section."
         ctaLabel="Go to Wellbeing"
         onPress={() => onNavigate("wellbeing")}
       />
@@ -233,7 +233,7 @@ function LipidProfileCard({ lipids }: { lipids: LipidProfile }) {
                 {meta.computed ? " (computed)" : ""}
               </MutedText>
               <AppText variant="bodyLargeStrong">
-                {reading ? `${reading.value} ` : "—"}
+                {reading ? `${reading.value} ` : "-"}
                 {reading && <AppText variant="caption" tone="textMuted">{meta.unit}</AppText>}
               </AppText>
             </View>
@@ -320,7 +320,7 @@ function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoCon
   return (
     <Card style={{ gap: 8 }}>
       <AppText variant="bodyStrong">Pick a time for your video consult</AppText>
-      <MutedText>Your doctor is ready to walk you through your results. Pick whichever works for you.</MutedText>
+      <MutedText>A doctor is ready to walk you through your results. Pick whichever works for you.</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {consult.proposedSlots.map((slot) => (
           <Text

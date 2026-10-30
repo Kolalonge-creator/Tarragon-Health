@@ -127,7 +127,7 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
                   title={def?.label ?? v.vitalType}
                   trailing={
                     <AppText variant="body" tone="textMuted" style={{ textAlign: "right", flexShrink: 1 }}>
-                      {def?.format(v.latest) ?? "—"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
+                      {def?.format(v.latest) ?? "Not recorded"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
                     </AppText>
                   }
                 />

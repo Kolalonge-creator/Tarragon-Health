@@ -365,7 +365,7 @@ function ConditionLanguageSection({
     <View style={{ gap: 10 }}>
       <SectionLabel>How we describe your condition</SectionLabel>
       <MutedText>
-        Choose the wording we use across your dashboard — a gentler everyday term ("weight") or the
+        Choose the wording we use across your dashboard: a gentler everyday term ("weight") or the
         clinical term ("obesity"). This does not change your actual record.
       </MutedText>
       <View style={{ flexDirection: "row", gap: 10 }}>
@@ -537,7 +537,7 @@ function EmergencyContactSection({
 const VERIFICATION_LABEL: Record<string, string> = {
   verified: "Verified",
   pending: "Pending review",
-  failed: "Couldn't verify — try again",
+  failed: "Could not verify. Try again.",
   not_started: "Not verified",
 };
 

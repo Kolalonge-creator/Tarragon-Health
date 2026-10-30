@@ -72,13 +72,13 @@ export function HealthConnectRationaleModal({
           <RationaleRow icon="walk-outline" text="Daily step count." />
           <RationaleRow
             icon="time-outline"
-            text="Past readings going back further than the usual 30 days (so your first sync isn't missing recent history), and readings that arrive while TarragonHealth isn't open, so nothing is missed between visits."
+            text="Past readings going back further than the usual 30 days (so your first sync is not missing recent history), and readings that arrive while TarragonHealth is not open, so nothing is missed between visits."
           />
         </View>
 
         <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 12, gap: 6 }}>
           <AppText variant="body">
-            We only read this data — TarragonHealth never writes anything back to Health Connect.
+            We only read this data. TarragonHealth never writes anything back to Health Connect.
             Your care team sees it alongside the rest of your record, the same as a reading you
             type in yourself. You choose exactly which of these Android lets you grant on the next
             screen, and you can change or revoke any of them later in Health Connect's own app

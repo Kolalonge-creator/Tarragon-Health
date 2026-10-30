@@ -74,7 +74,7 @@ export function ScreeningDaysScreen() {
       <View>
         <ScreenTitle>Group screening days</ScreenTitle>
         <MutedText>
-          Bring a group — a church, a market association, a cooperative, an office — and get a discounted rate on
+          Bring a group, such as a church, a market association, a cooperative or an office, and get a discounted rate on
           a health check for everyone. One payer covers the whole group upfront; we&apos;ll confirm the price and
           headcount with you first.
         </MutedText>

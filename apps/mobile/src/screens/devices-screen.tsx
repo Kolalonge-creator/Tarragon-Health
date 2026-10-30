@@ -328,7 +328,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
       {/* Honest framing for the first store release: the BLE pairing path
           (lib/ble.ts + the shared GATT parsers) is fully built but has never
-          been exercised against a real cuff/glucometer/scale — see CLAUDE.md's
+          been exercised against a real cuff/glucometer/scale; see CLAUDE.md's
           Device & Wearable Integration section. Manual entry is the
           proven path and stays primary; this card says so rather than
           letting a patient conclude the app is broken when a device that
@@ -458,7 +458,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           {faultSuccess ? (
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="checkmark-circle-outline" size={28} color={colors.brand} />
-              <AppText variant="bodyLargeStrong">Thanks — we've got it</AppText>
+              <AppText variant="bodyLargeStrong">Thank you, we have received it</AppText>
               <MutedText>Your care team will follow up if this device needs troubleshooting or replacing.</MutedText>
               <PrimaryButton title="Done" onPress={() => setFaultTarget(null)} />
             </Card>

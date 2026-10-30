@@ -311,7 +311,7 @@ function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnroll
       </View>
 
       {enrollment.status === "paused" ? (
-        <MutedText>This programme is paused while your care team checks in with you. We&apos;re here to support you.</MutedText>
+        <MutedText>This programme is paused while your care team checks in with you. We are here to support you.</MutedText>
       ) : (
         <>
           {enrollment.currentPhaseName && (

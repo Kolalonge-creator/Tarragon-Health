@@ -214,7 +214,7 @@ export async function loadActionCentreItems(patientId: string): Promise<QueryRes
     items.push({
       icon: "calendar-outline",
       type: "Video call",
-      title: "Your doctor offered times for a video call: pick one",
+      title: "A doctor offered times for a video call: pick one",
       dueDate: null,
       target: "care",
       alwaysHighPriority: true,
