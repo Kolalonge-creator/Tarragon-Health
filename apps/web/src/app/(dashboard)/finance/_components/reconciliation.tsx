@@ -16,7 +16,8 @@ import {
   resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
 import { lagosToday } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseMoneyInput, parseOptionalMoney } from "@/lib/finance/money-input";
 
 // Paystack (NGN) is the only live payment rail. The Stripe option and its
 // diaspora bank account (GL 1010) were removed 2026-09-05: Stripe was never a
@@ -53,23 +54,41 @@ export function Reconciliation() {
     net: "",
     notes: "",
   });
-  const variance = useMemo(
-    () => majorToMinor(f.gross) - majorToMinor(f.net) - majorToMinor(f.fees),
-    [f.gross, f.net, f.fees],
-  );
+  // Gross and net must be given. Fees may be left blank, which means none. Anything that cannot be
+  // read is reported, not treated as zero, so the variance below is never worked out from a guess.
+  const amounts = useMemo(() => {
+    const gross = parseMoneyInput(f.gross);
+    const net = parseMoneyInput(f.net);
+    const fees = parseOptionalMoney(f.fees);
+    return { gross, net, fees };
+  }, [f.gross, f.net, f.fees]);
+  const amountError = !amounts.gross.ok
+    ? `Gross: ${amounts.gross.error}`
+    : !amounts.net.ok
+      ? `Net paid out: ${amounts.net.error}`
+      : !amounts.fees.ok
+        ? `Fees: ${amounts.fees.error}`
+        : null;
+  const variance =
+    amounts.gross.ok && amounts.net.ok && amounts.fees.ok
+      ? amounts.gross.minor - amounts.net.minor - (amounts.fees.minor ?? 0)
+      : null;
   const [saving, setSaving] = useState(false);
 
   async function importSettlement() {
-    setSaving(true);
     setMsg(null);
+    if (!amounts.gross.ok || !amounts.net.ok || !amounts.fees.ok) {
+      return setMsg({ ok: false, text: amountError ?? "Check the amounts." });
+    }
+    setSaving(true);
     const res = await importSettlementAction({
       provider: SETTLEMENT_PROVIDER,
       external_ref: f.external_ref,
       settlement_date: f.settlement_date,
       currency: SETTLEMENT_CURRENCY,
-      gross_minor: majorToMinor(f.gross),
-      fees_minor: majorToMinor(f.fees),
-      net_minor: majorToMinor(f.net),
+      gross_minor: amounts.gross.minor,
+      fees_minor: amounts.fees.minor ?? 0,
+      net_minor: amounts.net.minor,
       bank_account_code: PAYSTACK_BANK_ACCOUNT,
       notes: f.notes,
     });
@@ -178,8 +197,14 @@ export function Reconciliation() {
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm">
             Variance:{" "}
-            <b className={variance === 0 ? "text-brand-green" : "text-red-600"}>{formatMinor(variance, SETTLEMENT_CURRENCY)}</b>
-            {variance !== 0 && <span className="ml-1 text-xs text-charcoal-ink/50">(gross must equal net + fees to post)</span>}
+            {variance === null ? (
+              <span className="text-red-600">{amountError}</span>
+            ) : (
+              <>
+                <b className={variance === 0 ? "text-brand-green" : "text-red-600"}>{formatMinor(variance, SETTLEMENT_CURRENCY)}</b>
+                {variance !== 0 && <span className="ml-1 text-xs text-charcoal-ink/50">(gross must equal net + fees to post)</span>}
+              </>
+            )}
           </span>
           <Button size="sm" onClick={importSettlement} disabled={saving}>{saving ? "Saving…" : "Import settlement"}</Button>
         </div>

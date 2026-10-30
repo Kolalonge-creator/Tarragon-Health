@@ -40,6 +40,8 @@ import { ActivitySafetyConfigPanel } from "../_signoff-panels/activity-safety-co
 import { FastingSafetyConfigPanel } from "../_signoff-panels/fasting-safety-config-panel";
 import { HomeCardConfigPanel } from "../_signoff-panels/home-card-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
+import { Stage2AttestationPanel } from "../_signoff-panels/stage2-attestation-panel";
+import { STAGE2_ITEM_KEY } from "@/lib/queries/pending-stage2-attestation";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
@@ -264,6 +266,8 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
+
+  if (keys.has(STAGE2_ITEM_KEY)) inlinePanels[STAGE2_ITEM_KEY] = <Stage2AttestationPanel />;
 
   // S07y: the recommended blood pressure monitors waiting for review, reviewed inline against the registry link shown with each.
   if (keys.has(BP_DEVICE_REVIEW_ITEM_KEY)) inlinePanels[BP_DEVICE_REVIEW_ITEM_KEY] = <BpDevicesList mode="cmo" />;

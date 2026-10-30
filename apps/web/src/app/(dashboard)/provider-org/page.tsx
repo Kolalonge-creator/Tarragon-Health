@@ -6,6 +6,8 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { NAV_ICON } from "@/lib/icons";
 import { providerOverview } from "@/lib/provider-org/overview-summary";
+import { providerOrgFirstView } from "@/lib/provider-org/first-view";
+import { ProviderOrgFirst } from "./provider-org-first";
 
 export default async function ProviderOrgOverviewPage({
   searchParams,
@@ -45,6 +47,8 @@ export default async function ProviderOrgOverviewPage({
           try again.
         </LoadFailure>
       )}
+
+      <ProviderOrgFirst view={providerOrgFirstView(overview, selected.id)} />
 
       {overview.kind === "ready" && (
         <>

@@ -22,4 +22,15 @@ describe("lab liaison page", () => {
   it("keeps the patient-list failure message instead of 'No patients yet'", () => {
     expect(code).toContain("summary.patientListFailed");
   });
+
+  it("puts the uploader before the counts and the recorded files", () => {
+    const worklist = code.indexOf("<LabLiaisonWorklist");
+    expect(worklist).toBeGreaterThan(-1);
+    expect(worklist).toBeLessThan(code.indexOf("<StatTile"));
+    expect(worklist).toBeLessThan(code.indexOf("<HeldUploads"));
+  });
+
+  it("still shows every failure notice: the figures notice stays above the uploader", () => {
+    expect(code.indexOf("summary.anyCountFailed")).toBeLessThan(code.indexOf("<LabLiaisonWorklist"));
+  });
 });

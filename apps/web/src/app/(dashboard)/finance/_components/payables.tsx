@@ -24,7 +24,8 @@ import {
   payBillAction,
   voidBillAction,
 } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /** Approving posts the expense; paying books the cash out. Neither is
  * reversible from this screen (a mistake has to be corrected with a journal
@@ -120,12 +121,14 @@ export function PayablesAndVendors() {
     if (!bf.vendor_id || !bf.amount || !bf.expense_account_code) {
       return setMsg({ ok: false, text: "Vendor, amount and expense account are required." });
     }
+    const amount = parseMoneyInput(bf.amount, { allowZero: false });
+    if (!amount.ok) return setMsg({ ok: false, text: amount.error });
     const res = await createBillAction({
       vendor_id: bf.vendor_id,
       bill_date: bf.bill_date,
       due_date: bf.due_date || undefined,
       currency: bf.currency,
-      amount_minor: majorToMinor(bf.amount),
+      amount_minor: amount.minor,
       expense_account_code: bf.expense_account_code,
       description: bf.description,
     });

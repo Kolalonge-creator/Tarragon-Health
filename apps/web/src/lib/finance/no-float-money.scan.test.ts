@@ -27,26 +27,6 @@ interface Allowed {
 
 const ALLOW: Allowed[] = [
   {
-    file: "app/(dashboard)/finance/_components/primitives.tsx",
-    line: "const n = typeof value === \"number\" ? value : parseFloat(value);",
-    reason: "Form input boundary: majorToMinor rounds once to integer minor units. Real violation of the pattern, tolerated until it is replaced by nairaInputToKobo (blank input behaviour differs, so not changed here).",
-  },
-  {
-    file: "app/(dashboard)/finance/_components/primitives.tsx",
-    line: "return Math.round(n * 100);",
-    reason: "Same helper as above: single rounding to integer minor units at the input boundary.",
-  },
-  {
-    file: "app/(dashboard)/finance/partner-settlements/actions.ts",
-    line: "const invoicedTotalKobo = Math.round(parseFloat(invoicedTotalNaira) * 100);",
-    reason: "Server action input boundary: naira text to integer kobo. Should move to nairaInputToKobo (rejects NaN, which this does not).",
-  },
-  {
-    file: "app/(dashboard)/finance/partner-settlements/actions.ts",
-    line: "invoiced_kobo: Math.round(parseFloat(invoicedNaira ?? \"\") * 100),",
-    reason: "Same as above, per-line invoiced amount. NaN is not rejected here: follow-up, not fixed in this pass (do not refactor finance logic).",
-  },
-  {
     file: "app/(dashboard)/finance/_components/settings.tsx",
     line: "defaultValue={(s.threshold_minor / 100).toString()}",
     reason: "Display only: pre-fills a naira form field from an integer kobo value. Nothing is stored from this expression.",

@@ -39,6 +39,8 @@ function atOrAfter(iso: string | null, since: Date): boolean {
 export interface LabPartnerOverview {
   /** The orders read failed or came back in an unexpected shape. */
   failed: boolean;
+  /** Orders still needing the lab. null when the read failed: unknown, not zero. */
+  awaitingCount: number | null;
   tiles: {
     routed: StatTileValueProps;
     awaiting: {
@@ -62,6 +64,7 @@ export function buildLabPartnerOverview(
   if (rows === null) {
     return {
       failed: true,
+      awaitingCount: null,
       tiles: {
         routed: tile(null),
         awaiting: { tile: tile(null), needsAttention: false, delta: undefined },
@@ -74,6 +77,7 @@ export function buildLabPartnerOverview(
   const awaiting = rows.filter((o) => !FINISHED_STATUSES.has(o.status)).length;
   return {
     failed: false,
+    awaitingCount: awaiting,
     tiles: {
       routed: tile(rows.length),
       awaiting: {
