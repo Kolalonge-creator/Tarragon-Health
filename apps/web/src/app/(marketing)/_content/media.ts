@@ -264,7 +264,7 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
     youtubeId: "",
     title: "See how Tarragon manages blood pressure",
     caption:
-      "How readings, medication, doctor review, and escalation work together to keep your blood pressure followed up between visits.",
+      "How readings, medication and doctor review work together, and how a reading that needs attention reaches a doctor, to keep your blood pressure followed up between visits.",
   },
   diabetes: {
     youtubeId: "",

@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
  * sync by hand since the underlying list rarely changes.
  */
 const RELATIONSHIPS = [
-  { value: "parent", label: "Mum or Dad" },
+  { value: "parent", label: "Mother or father" },
   { value: "spouse", label: "Spouse or partner" },
   { value: "sibling", label: "Sibling" },
   { value: "child", label: "Child" },

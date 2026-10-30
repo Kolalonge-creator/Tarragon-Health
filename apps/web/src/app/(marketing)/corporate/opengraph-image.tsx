@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Corporate Health",
     subtitle:
-      "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
+      "Corporate wellness plans that show workforce chronic disease risk and help staff catch up on overdue care early, with anonymised reporting for HR.",
   });
 }

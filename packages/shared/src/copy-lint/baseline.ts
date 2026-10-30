@@ -11,4 +11,7 @@ export const COPY_LINT_BASELINE: Readonly<Record<string, number>> = {
   cure: 3, // all "miracle cures" anti-claims; false positives kept until an allowlist exists
   "instant-doctor": 0,
   "free-healthcare": 0,
+  "abbreviation-bp": 0, // patient-facing text only (see PATIENT_FACING); added with the voice rules 2026-10-30
+  "internal-term": 0, // "escalate" and "care gap" in patient-facing text
+  colloquial: 1, // "panic.title" in packages/i18n, inside the reviewed-strings ledger; changing it needs a recorded reviewer
 };
