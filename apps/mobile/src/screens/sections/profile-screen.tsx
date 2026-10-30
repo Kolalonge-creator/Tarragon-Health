@@ -23,7 +23,7 @@ import {
   SectionDivider,
   SectionLabel,
 } from "@/ui/legacy-kit";
-import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
@@ -630,8 +630,6 @@ function ChangePasswordSection() {
 
   return (
     <View style={{ gap: 10 }}>
-      <SectionLabel>Password</SectionLabel>
-      <MutedText>Update the password you sign in with.</MutedText>
       <Card style={{ gap: 10 }}>
         <Input
           placeholder="New password"
@@ -928,18 +926,19 @@ export function ProfileScreen() {
       <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
-      <GroupHeading title="How things are shown" description="Units and wording, so what you read matches what you know." />
-      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
-      <MeasurementUnitsSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
-      <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
-      <SectionDivider />
+      <Disclosure title="How things are shown" hint="Units and wording, so what you read matches what you know.">
+        <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
+        <SectionDivider />
+        <MeasurementUnitsSection userId={userId} profile={profile} onSaved={patchProfile} />
+        <SectionDivider />
+        <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
+      </Disclosure>
       <GroupHeading title="Sign-in & security" description="Who you are to us, and how you get in." />
       <IdentityVerificationSection profile={profile} verification={verification} />
       <SectionDivider />
-      <ChangePasswordSection />
-      <SectionDivider />
+      <Disclosure title="Password" hint="Update the password you sign in with.">
+        <ChangePasswordSection />
+      </Disclosure>
       <GroupHeading title="Privacy" description="Your data, and what you can ask us to correct." />
       <DataPrivacySection
         userId={userId}
