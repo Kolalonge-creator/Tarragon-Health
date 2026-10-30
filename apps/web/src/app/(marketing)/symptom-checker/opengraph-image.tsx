@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Symptom Checker",
     subtitle:
-      "A free, anonymous starting point: tell us what you're noticing, get a suggested next step.",
+      "A free, anonymous starting point: tell us what you are noticing, get a suggested next step.",
   });
 }

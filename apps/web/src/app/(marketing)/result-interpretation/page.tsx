@@ -32,7 +32,7 @@ export const revalidate = 300;
  */
 
 export const metadata: Metadata = pageMetadata({
-  title: "Understand your lab results",
+  title: "Understand your laboratory results",
   description:
     "Upload a result from any laboratory in Nigeria and a doctor will write back what it means, which figures are outside the normal range, and what to do next.",
   path: MARKETING_ROUTES.resultInterpretation,

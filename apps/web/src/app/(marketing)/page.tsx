@@ -77,7 +77,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
     {
       question: "Do I need a diagnosis to join?",
       answer:
-        "No. Many people join to stay well. You receive a screening and vaccination calendar based on your age and history, and a yearly health check. If you do have a condition, we follow it between your doctor visits.",
+        "No. Many people join to stay well. You receive a screening and vaccination calendar based on your age and history, and a yearly health check. If you do have a condition, we follow it between your appointments.",
     },
     {
       question: "What happens if a reading is dangerous?",

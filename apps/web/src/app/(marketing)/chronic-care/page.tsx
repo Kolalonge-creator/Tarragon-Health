@@ -18,7 +18,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
-    "Ongoing monitoring for hypertension, diabetes and weight: readings, medication, labs and doctor review on one record, escalated when care is needed.",
+    "Ongoing monitoring for hypertension, diabetes and weight: readings, medication, labs and doctor review on one record, with referral to a doctor when needed.",
   path: MARKETING_ROUTES.chronicCare,
 });
 
@@ -101,7 +101,7 @@ export default async function ChronicCarePage() {
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Cholesterol and cardiovascular risk (the risk of heart disease and stroke) are followed on the
-          same record, not in a separate programme. Your doctor reviews your cholesterol alongside
+          same record, not in a separate programme. A doctor reviews your cholesterol alongside
           your blood pressure and blood sugar, because they contribute to the same underlying risk.
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">

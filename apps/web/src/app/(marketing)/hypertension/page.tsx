@@ -40,7 +40,7 @@ export default async function HypertensionPage() {
         <SectionHeading
           eyebrow="What we monitor"
           title="Every check, and how often"
-          description="Once your doctor places you on a hypertension care plan, this is what is tracked and how often."
+          description="Once a doctor places you on a hypertension care plan, this is what is tracked and how often."
         />
         <ConditionMonitoringGrid categories={HYPERTENSION_MONITORING} />
       </Section>

@@ -56,6 +56,12 @@ export function ConsentStep({
   const versions = onlyTypes
     ? allVersions?.filter((v) => onlyTypes.includes(v.consent_type))
     : allVersions;
+  // The optional consents (research, sharing group figures with a programme) are not agreed to by this step. They used to be
+  // listed here as bare collapsed titles, with no wording visible and no way to act, so a patient could not tell what they were
+  // or whether continuing meant saying yes. They are now shown separately, in full, with a plain statement that continuing
+  // does not agree to them. They are chosen later, in Privacy & data.
+  const requiredVersions = versions?.filter((v) => !v.is_optional);
+  const optionalVersions = onlyTypes ? [] : (versions?.filter((v) => v.is_optional) ?? []);
 
   useEffect(() => {
     if (state?.success) onComplete();
@@ -79,7 +85,7 @@ export function ConsentStep({
       )}
 
       <div className="space-y-3">
-        {versions?.map((version) => {
+        {requiredVersions?.map((version) => {
           const sections = parseLegalSections(version.body);
           const publicPath = PUBLIC_LEGAL_PATH[version.consent_type];
           return (
@@ -117,6 +123,24 @@ export function ConsentStep({
           );
         })}
       </div>
+
+      {optionalVersions.length > 0 && (
+        <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-3">
+          <div>
+            <h3 className="text-sm font-semibold text-charcoal-ink">Two choices that are yours, and are optional</h3>
+            <p className="mt-1 text-sm text-charcoal-ink/70">
+              You are not agreeing to either of these by continuing, and you can use Tarragon fully without them. You can
+              choose them later under Privacy &amp; data, and change your mind at any time.
+            </p>
+          </div>
+          {optionalVersions.map((version) => (
+            <div key={version.id}>
+              <p className="text-sm font-medium text-charcoal-ink">{version.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">{version.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <form action={formAction} className="space-y-3">
         {/* Restricts the server action to recording exactly the consent

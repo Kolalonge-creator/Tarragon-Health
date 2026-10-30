@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
@@ -208,6 +209,35 @@ export async function loadCareMessageScope(
     .single();
   if (error) throw error;
   return data;
+}
+
+/** Cheap thread-level state, polled while a thread is open: when the last message arrived and when each
+ * side last opened it. Polling this (not the messages) keeps the audited open from writing an audit
+ * row on every tick; callers refetch the messages only when `last_message_at` moves. */
+export function useThreadStatus(threadId: string | null) {
+  const queryClient = useQueryClient();
+  const lastSeen = useRef<string | null>(null);
+  return useQuery({
+    queryKey: ["care-thread-status", threadId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_message_threads")
+        .select("organisation_id, last_message_at, patient_last_read_at, care_team_last_read_at")
+        .eq("id", threadId as string)
+        .maybeSingle();
+      if (error) throw error;
+      // A newer message than the last poll saw: pull the messages once (live feel without a websocket).
+      if (data?.last_message_at && lastSeen.current && lastSeen.current !== data.last_message_at) {
+        queryClient.invalidateQueries({ queryKey: ["care-messages", threadId] });
+      }
+      lastSeen.current = data?.last_message_at ?? lastSeen.current;
+      return data;
+    },
+    enabled: !!threadId,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  });
 }
 
 /** Messages in a thread, oldest first (reading order). */
@@ -449,5 +479,121 @@ export function useCloseThread() {
       queryClient.invalidateQueries({ queryKey: ["care-threads"] });
       queryClient.invalidateQueries({ queryKey: ["org-care-threads"] });
     },
+  });
+}
+
+
+/** Action buttons attached to the messages of a thread (care-team messages only). */
+export function useMessageActions(messageIds: string[]) {
+  return useQuery({
+    queryKey: ["care-message-actions", messageIds],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_message_actions")
+        .select("id, message_id, kind")
+        .in("message_id", messageIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: messageIds.length > 0,
+  });
+}
+
+export function useAddMessageActions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { messageId: string; patientId: string; organisationId: string; kinds: string[] }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("care_message_actions").insert(
+        input.kinds.map((kind) => ({
+          message_id: input.messageId,
+          patient_id: input.patientId,
+          organisation_id: input.organisationId,
+          kind,
+        }))
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["care-message-actions"] }),
+  });
+}
+
+/** Staff-only: who owns a conversation, and the hand-over note left for them. */
+export function useThreadOwner(threadId: string) {
+  return useQuery({
+    queryKey: ["care-thread-owner", threadId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_thread_owners")
+        .select("owner_id, handover_note, assigned_at, organisation_id, owner:profiles!care_thread_owners_owner_id_fkey(full_name)")
+        .eq("thread_id", threadId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as {
+        owner_id: string;
+        handover_note: string | null;
+        assigned_at: string;
+        organisation_id: string;
+        owner: { full_name: string | null } | null;
+      } | null;
+    },
+  });
+}
+
+/** Colleagues a conversation can be handed to. */
+export function useCareStaff() {
+  return useQuery({
+    queryKey: ["care-staff"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("role", ["clinician", "care_coordinator"])
+        .eq("is_active", true)
+        .order("full_name");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSetThreadOwner() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { threadId: string; organisationId: string; ownerId: string; note?: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("care_thread_owners").upsert(
+        {
+          thread_id: input.threadId,
+          organisation_id: input.organisationId,
+          owner_id: input.ownerId,
+          handover_note: input.note?.trim() || null,
+        },
+        { onConflict: "thread_id" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: ["care-thread-owner", v.threadId] });
+      queryClient.invalidateQueries({ queryKey: ["my-owned-threads"] });
+    },
+  });
+}
+
+/** Ids of the conversations this staff member owns. */
+export function useMyOwnedThreadIds(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["my-owned-threads", userId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("care_thread_owners").select("thread_id").eq("owner_id", userId as string);
+      if (error) throw error;
+      return new Set((data ?? []).map((r) => r.thread_id));
+    },
+    enabled: !!userId,
   });
 }

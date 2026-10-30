@@ -64,7 +64,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
       ) : null}
 
       <Section>
-        <SectionHeading title="What's included" />
+        <SectionHeading title="What is included" />
         <ul className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
           {content.included.map((item, index) => (
             <Card

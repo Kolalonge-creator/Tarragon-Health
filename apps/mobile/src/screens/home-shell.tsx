@@ -357,7 +357,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       ) : (
         <DevicesScreen patientId={userId} organisationId={organisationId} onOpenDevice={setOpenDevice} />
       ),
-    messages: () => <MessagesScreen patientId={userId} />,
+    messages: () => <MessagesScreen patientId={userId} onNavigate={handleSelect} />,
     aiCoach: () => <AiCoachScreen patientId={userId} onNavigate={handleSelect} />,
     supporting: () => (
       <SupportingScreen

@@ -525,6 +525,11 @@ export const TEMPLATE_MAP: Record<
         "reply. Tarragon Health",
     };
   },
+  // A care-team message the patient has not opened for a day (private.remind_patients_of_unread_care_messages).
+  // Says only that a message is waiting, never what it says.
+  care_message_reminder: () => ({
+    smsText: "You have an unread message from your care team. Open the Tarragon Health app to read and reply. Tarragon Health",
+  }),
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never in a chat app.
@@ -1317,6 +1322,17 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText,
       email: neutralMail(selfBooked ? `Your order ${orderNumber} is confirmed` : "Your care team made a request for you", [`Hi ${patientName},`, lead], [["Order number", orderNumber]]),
+    };
+  },
+  // E8: the patient's notice when a lab order is marked sample_rejected (private.handle_lab_order_sample_rejected, on the patient's own
+  // channel, so it can be push or email). It had no renderer, so a push or email copy failed as "unknown template". Fixed wording; the
+  // reason and test name in the payload are not echoed.
+  lab_sample_rejected: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    return {
+      smsText: "Your sample could not be used and a new one is needed. Open the Tarragon Health app to see what to do next.",
+      pushUrl: "/patient/labs",
+      email: neutralMail("A new sample is needed", [`Hi ${patientName},`, "Your sample could not be used, so a new one is needed. Sign in to see what to do next."]),
     };
   },
   preventive_care_plan_updated: (payload) => {
