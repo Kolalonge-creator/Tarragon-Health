@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { parseAnalyticsAnswer } from "./answer";
 import {
   accountingSummarySchema,
   acquisitionFunnelSchema,
@@ -72,7 +73,7 @@ export function useBusinessSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_business_summary");
       if (error) throw error;
-      return businessSummarySchema.parse(data);
+      return parseAnalyticsAnswer(businessSummarySchema, data);
     },
   });
 }
@@ -101,7 +102,7 @@ export function useGrowthTimeseries(period: GrowthPeriod = "month") {
         p_period: period,
       });
       if (error) throw error;
-      return growthTimeseriesSchema.parse(data);
+      return parseAnalyticsAnswer(growthTimeseriesSchema, data);
     },
   });
 }
@@ -112,7 +113,7 @@ export function useFinancialSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_financial_summary");
       if (error) throw error;
-      return financialSummarySchema.parse(data);
+      return parseAnalyticsAnswer(financialSummarySchema, data);
     },
   });
 }
@@ -125,7 +126,7 @@ export function useRevenueTimeseries(period: GrowthPeriod = "month") {
         p_period: period,
       });
       if (error) throw error;
-      return revenueTimeseriesSchema.parse(data);
+      return parseAnalyticsAnswer(revenueTimeseriesSchema, data);
     },
   });
 }
@@ -136,7 +137,7 @@ export function useRevenueByProduct() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_revenue_by_product");
       if (error) throw error;
-      return revenueByProductSchema.parse(data);
+      return parseAnalyticsAnswer(revenueByProductSchema, data);
     },
   });
 }
@@ -147,7 +148,7 @@ export function usePopulationSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_population_summary");
       if (error) throw error;
-      return populationSummarySchema.parse(data);
+      return parseAnalyticsAnswer(populationSummarySchema, data);
     },
   });
 }
@@ -159,7 +160,7 @@ export function useGeoHealthAggregates() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("get_geo_health_aggregates");
       if (error) throw error;
-      return geoHealthAggregatesSchema.parse(data);
+      return parseAnalyticsAnswer(geoHealthAggregatesSchema, data);
     },
   });
 }
@@ -173,7 +174,7 @@ export function useDiseaseSurveillance(period: GrowthPeriod = "month") {
         p_period: period,
       });
       if (error) throw error;
-      return diseaseSurveillanceSchema.parse(data);
+      return parseAnalyticsAnswer(diseaseSurveillanceSchema, data);
     },
   });
 }
@@ -185,7 +186,7 @@ export function useProgrammeFunnel() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_programme_funnel");
       if (error) throw error;
-      return programmeFunnelSchema.parse(data);
+      return parseAnalyticsAnswer(programmeFunnelSchema, data);
     },
   });
 }
@@ -214,7 +215,7 @@ export function useAuditLog(filters: AuditFilters) {
         p_offset: filters.offset ?? 0,
       });
       if (error) throw error;
-      return auditLogSchema.parse(data);
+      return parseAnalyticsAnswer(auditLogSchema, data);
     },
   });
 }
@@ -228,7 +229,7 @@ export function useAuditSummary(from?: string | null, to?: string | null) {
         p_to: to ?? undefined,
       });
       if (error) throw error;
-      return auditSummarySchema.parse(data);
+      return parseAnalyticsAnswer(auditSummarySchema, data);
     },
   });
 }
@@ -240,7 +241,7 @@ export function useTrafficSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_traffic_summary", {});
       if (error) throw error;
-      return trafficSummarySchema.parse(data);
+      return parseAnalyticsAnswer(trafficSummarySchema, data);
     },
   });
 }
@@ -253,7 +254,7 @@ export function useTrafficTimeseries(period: GrowthPeriod = "day") {
         p_period: period,
       });
       if (error) throw error;
-      return trafficTimeseriesSchema.parse(data);
+      return parseAnalyticsAnswer(trafficTimeseriesSchema, data);
     },
   });
 }
@@ -264,7 +265,7 @@ export function useAcquisitionFunnel() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_acquisition_funnel", {});
       if (error) throw error;
-      return acquisitionFunnelSchema.parse(data);
+      return parseAnalyticsAnswer(acquisitionFunnelSchema, data);
     },
   });
 }
@@ -276,7 +277,7 @@ export function useReputationReviewConversion() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_reputation_review_conversion");
       if (error) throw error;
-      return reputationReviewConversionSchema.parse(data);
+      return parseAnalyticsAnswer(reputationReviewConversionSchema, data);
     },
   });
 }
@@ -288,7 +289,7 @@ export function useEngagementSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_engagement_summary");
       if (error) throw error;
-      return engagementSummarySchema.parse(data);
+      return parseAnalyticsAnswer(engagementSummarySchema, data);
     },
   });
 }
@@ -299,7 +300,7 @@ export function useCareEngagementSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_care_engagement_summary");
       if (error) throw error;
-      return careEngagementSummarySchema.parse(data);
+      return parseAnalyticsAnswer(careEngagementSummarySchema, data);
     },
   });
 }
@@ -312,7 +313,7 @@ export function useActiveUsersTimeseries(period: GrowthPeriod = "day") {
         p_period: period,
       });
       if (error) throw error;
-      return activeUsersTimeseriesSchema.parse(data);
+      return parseAnalyticsAnswer(activeUsersTimeseriesSchema, data);
     },
   });
 }
@@ -323,7 +324,7 @@ export function useFeatureAdoption() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_feature_adoption");
       if (error) throw error;
-      return featureAdoptionSchema.parse(data);
+      return parseAnalyticsAnswer(featureAdoptionSchema, data);
     },
   });
 }
@@ -334,7 +335,7 @@ export function useRetentionCohorts() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_retention_cohorts");
       if (error) throw error;
-      return retentionCohortsSchema.parse(data);
+      return parseAnalyticsAnswer(retentionCohortsSchema, data);
     },
   });
 }
@@ -345,7 +346,7 @@ export function useEngagementOutcomeCorrelation() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_engagement_outcome_correlation");
       if (error) throw error;
-      return engagementOutcomeCorrelationSchema.parse(data);
+      return parseAnalyticsAnswer(engagementOutcomeCorrelationSchema, data);
     },
   });
 }
@@ -357,7 +358,7 @@ export function useClinicalOutcomes() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_clinical_outcomes");
       if (error) throw error;
-      return clinicalOutcomesSchema.parse(data);
+      return parseAnalyticsAnswer(clinicalOutcomesSchema, data);
     },
   });
 }
@@ -368,7 +369,7 @@ export function useEscalationQuality() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_escalation_quality", {});
       if (error) throw error;
-      return escalationQualitySchema.parse(data);
+      return parseAnalyticsAnswer(escalationQualitySchema, data);
     },
   });
 }
@@ -380,7 +381,7 @@ export function useDiagnosticSafetyDashboard() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("diagnostic_safety_dashboard");
       if (error) throw error;
-      return diagnosticSafetyDashboardSchema.parse(data);
+      return parseAnalyticsAnswer(diagnosticSafetyDashboardSchema, data);
     },
   });
 }
@@ -394,7 +395,7 @@ export function useDiagnosticPathwayAnalytics(from?: string | null, to?: string 
         p_to: to ?? undefined,
       });
       if (error) throw error;
-      return diagnosticPathwayAnalyticsSchema.parse(data);
+      return parseAnalyticsAnswer(diagnosticPathwayAnalyticsSchema, data);
     },
   });
 }
@@ -408,7 +409,7 @@ export function useDiagnosticGovernanceAnalytics(from?: string | null, to?: stri
         p_to: to ?? undefined,
       });
       if (error) throw error;
-      return diagnosticGovernanceAnalyticsSchema.parse(data);
+      return parseAnalyticsAnswer(diagnosticGovernanceAnalyticsSchema, data);
     },
   });
 }
@@ -420,7 +421,7 @@ export function useOperationsSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_operations_summary");
       if (error) throw error;
-      return operationsSummarySchema.parse(data);
+      return parseAnalyticsAnswer(operationsSummarySchema, data);
     },
   });
 }
@@ -431,7 +432,7 @@ export function useDeliverability() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_deliverability", {});
       if (error) throw error;
-      return deliverabilitySchema.parse(data);
+      return parseAnalyticsAnswer(deliverabilitySchema, data);
     },
   });
 }
@@ -443,7 +444,7 @@ export function useSupportTicketSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_support_ticket_summary", {});
       if (error) throw error;
-      return supportTicketSummarySchema.parse(data);
+      return parseAnalyticsAnswer(supportTicketSummarySchema, data);
     },
   });
 }
@@ -454,7 +455,7 @@ export function useComplaintsSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_complaints_summary", {});
       if (error) throw error;
-      return complaintsSummarySchema.parse(data);
+      return parseAnalyticsAnswer(complaintsSummarySchema, data);
     },
   });
 }
@@ -466,7 +467,7 @@ export function useUserSegments() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_user_segments");
       if (error) throw error;
-      return userSegmentsSchema.parse(data);
+      return parseAnalyticsAnswer(userSegmentsSchema, data);
     },
   });
 }
@@ -477,7 +478,7 @@ export function useFacilityEngagement() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_facility_engagement");
       if (error) throw error;
-      return facilityEngagementSchema.parse(data);
+      return parseAnalyticsAnswer(facilityEngagementSchema, data);
     },
   });
 }
@@ -491,7 +492,7 @@ export function usePatientSearch(query: string) {
         p_query: query,
       });
       if (error) throw error;
-      return patientSearchSchema.parse(data);
+      return parseAnalyticsAnswer(patientSearchSchema, data);
     },
     enabled: query.trim().length >= 2,
   });
@@ -505,7 +506,7 @@ export function usePatientActivity(patientId: string | null) {
         p_patient_id: patientId as string,
       });
       if (error) throw error;
-      return patientActivitySchema.parse(data);
+      return parseAnalyticsAnswer(patientActivitySchema, data);
     },
     enabled: !!patientId,
   });
@@ -531,7 +532,7 @@ export function useDoctorPerformance() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_doctor_performance", {});
       if (error) throw error;
-      return doctorPerformanceSchema.parse(data);
+      return parseAnalyticsAnswer(doctorPerformanceSchema, data);
     },
   });
 }
@@ -546,7 +547,7 @@ export function useDoctorIncome(range?: { from?: string; to?: string }) {
         p_to: range?.to,
       });
       if (error) throw error;
-      return doctorIncomeSchema.parse(data);
+      return parseAnalyticsAnswer(doctorIncomeSchema, data);
     },
   });
 }
@@ -574,7 +575,7 @@ export function useDoctorPaidJobs(params?: {
         p_limit: params?.limit,
       });
       if (error) throw error;
-      return doctorPaidJobsSchema.parse(data);
+      return parseAnalyticsAnswer(doctorPaidJobsSchema, data);
     },
     // Only fetch line items once a doctor is actually selected — the whole-
     // period list can be large and the UI only shows it inside a drill-down.
@@ -589,7 +590,7 @@ export function useProviderCapacity() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_provider_capacity");
       if (error) throw error;
-      return providerCapacitySchema.parse(data);
+      return parseAnalyticsAnswer(providerCapacitySchema, data);
     },
   });
 }
@@ -601,7 +602,7 @@ export function useStaffActivity() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_staff_activity", {});
       if (error) throw error;
-      return staffActivitySchema.parse(data);
+      return parseAnalyticsAnswer(staffActivitySchema, data);
     },
   });
 }
@@ -613,7 +614,7 @@ export function useGovernanceSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_governance_summary");
       if (error) throw error;
-      return governanceSummarySchema.parse(data);
+      return parseAnalyticsAnswer(governanceSummarySchema, data);
     },
   });
 }
@@ -625,7 +626,7 @@ export function useSafetyDashboardSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_safety_dashboard_summary");
       if (error) throw error;
-      return safetyDashboardSummarySchema.parse(data);
+      return parseAnalyticsAnswer(safetyDashboardSummarySchema, data);
     },
   });
 }
@@ -636,7 +637,7 @@ export function useAlertBurden() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_alert_burden");
       if (error) throw error;
-      return alertBurdenSchema.parse(data);
+      return parseAnalyticsAnswer(alertBurdenSchema, data);
     },
   });
 }
@@ -647,7 +648,7 @@ export function useRiskRegister() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_risk_register");
       if (error) throw error;
-      return riskRegisterSchema.parse(data);
+      return parseAnalyticsAnswer(riskRegisterSchema, data);
     },
   });
 }
@@ -693,7 +694,7 @@ export function useInvestorSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_investor_summary");
       if (error) throw error;
-      return investorSummarySchema.parse(data);
+      return parseAnalyticsAnswer(investorSummarySchema, data);
     },
   });
 }
@@ -704,7 +705,7 @@ export function useFinanceInputs() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_finance_inputs");
       if (error) throw error;
-      return financeInputsSchema.parse(data);
+      return parseAnalyticsAnswer(financeInputsSchema, data);
     },
   });
 }
@@ -750,7 +751,7 @@ export function useAccountingSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_accounting_summary");
       if (error) throw error;
-      return accountingSummarySchema.parse(data);
+      return parseAnalyticsAnswer(accountingSummarySchema, data);
     },
   });
 }
@@ -762,7 +763,7 @@ export function useExecutiveSummary() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_executive_summary");
       if (error) throw error;
-      return executiveSummarySchema.parse(data);
+      return parseAnalyticsAnswer(executiveSummarySchema, data);
     },
   });
 }
@@ -777,7 +778,7 @@ export function useScreeningReferralFunnel(from?: string | null, to?: string | n
         p_to: to ?? undefined,
       });
       if (error) throw error;
-      return screeningReferralFunnelSchema.parse(data);
+      return parseAnalyticsAnswer(screeningReferralFunnelSchema, data);
     },
   });
 }
@@ -789,7 +790,7 @@ export function useAppointmentCapacity() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_appointment_capacity");
       if (error) throw error;
-      return appointmentCapacitySchema.parse(data);
+      return parseAnalyticsAnswer(appointmentCapacitySchema, data);
     },
   });
 }
@@ -803,7 +804,7 @@ export function useAlertQuality(from?: string | null, to?: string | null) {
         p_to: to ?? undefined,
       });
       if (error) throw error;
-      return alertQualitySchema.parse(data);
+      return parseAnalyticsAnswer(alertQualitySchema, data);
     },
   });
 }
@@ -814,7 +815,7 @@ export function useReferralTurnaround() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_referral_turnaround");
       if (error) throw error;
-      return referralTurnaroundSchema.parse(data);
+      return parseAnalyticsAnswer(referralTurnaroundSchema, data);
     },
   });
 }
@@ -825,7 +826,7 @@ export function useSupportResponseTime() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("analytics_support_response_time");
       if (error) throw error;
-      return supportResponseTimeSchema.parse(data);
+      return parseAnalyticsAnswer(supportResponseTimeSchema, data);
     },
   });
 }
@@ -842,7 +843,7 @@ export function useServiceCoverage() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("public_service_coverage");
       if (error) throw error;
-      return serviceCoverageSchema.parse(data);
+      return parseAnalyticsAnswer(serviceCoverageSchema, data);
     },
   });
 }
