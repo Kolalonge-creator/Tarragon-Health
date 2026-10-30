@@ -150,3 +150,20 @@ export function lagosDateTimeInputToIso(value: string): string | null {
   const parsed = new Date(`${withSeconds}${LAGOS_UTC_OFFSET}`);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
+
+/**
+ * The first and last instant of a Lagos calendar day, as ISO instants.
+ *
+ * A report period is two Lagos dates. Turning them into `T00:00:00.000Z` and
+ * `T23:59:59.999Z` reads them as UTC days, which puts everything between 00:00
+ * and 01:00 Lagos time into the previous day. Returns null for anything that is
+ * not a `YYYY-MM-DD` date, so a caller can refuse rather than query a range it
+ * invented.
+ */
+export function lagosDayBounds(date: string): { start: string; end: string } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const start = new Date(`${date}T00:00:00.000${LAGOS_UTC_OFFSET}`);
+  const end = new Date(`${date}T23:59:59.999${LAGOS_UTC_OFFSET}`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return { start: start.toISOString(), end: end.toISOString() };
+}
