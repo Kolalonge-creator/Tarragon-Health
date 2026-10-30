@@ -46,6 +46,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "care_message_reminder") {
+    return { text: "You have an unread message from your care team", href: "/patient/messages" };
+  }
   if (n.template === "clinician_new_care_message") {
     // Provider-facing counterpart to new_care_message — a patient or their
     // sponsor posted and the assigned clinician hadn't been told (see

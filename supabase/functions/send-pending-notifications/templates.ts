@@ -525,6 +525,11 @@ export const TEMPLATE_MAP: Record<
         "reply. Tarragon Health",
     };
   },
+  // A care-team message the patient has not opened for a day (private.remind_patients_of_unread_care_messages).
+  // Says only that a message is waiting, never what it says.
+  care_message_reminder: () => ({
+    smsText: "You have an unread message from your care team. Open the Tarragon Health app to read and reply. Tarragon Health",
+  }),
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never in a chat app.
