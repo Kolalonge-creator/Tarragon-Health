@@ -318,7 +318,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // saying it was ticked rather than rated. 6 is the existing server paging line for
     // chest pain, severe headache, vision change, confusion, trouble breathing, weakness or
     // numbness and trouble speaking (handle_symptom_red_flag; proved in
-    // packages/db/tests/bp_form_ticks_page_clinician.sql, whose BP_FORM_SEVERITY line must match).
+    // packages/db/tests/bp_form_ticks_page_clinician.sql, whose v_form_severity constant must match).
     // The CMO confirms the value; grading itself stays with S11/S12 (OQ-67).
     value: { severity: 6 },
     owner: "CMO",

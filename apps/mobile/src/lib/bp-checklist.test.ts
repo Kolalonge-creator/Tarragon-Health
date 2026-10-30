@@ -110,11 +110,11 @@ describe("symptom checklist config", () => {
   });
 
   // OQ-82: the server pages a ticked trouble-breathing (and every other red-flag tick) from this stored severity. The database proof
-  // packages/db/tests/bp_form_ticks_page_clinician.sql proves paging at the severity named in its BP_FORM_SEVERITY line; if the config moves
+  // packages/db/tests/bp_form_ticks_page_clinician.sql proves paging at the severity in its v_form_severity constant; if the config moves
   // away from it the proof would no longer describe what the phone sends, so the two must change together.
   it("stores a tick at exactly the severity the database proof shows paging", () => {
     const proof = readFileSync(resolve(__dirname, "../../../../packages/db/tests/bp_form_ticks_page_clinician.sql"), "utf8");
-    const m = /BP_FORM_SEVERITY=(\d+)/.exec(proof);
+    const m = /v_form_severity constant integer := (\d+);/.exec(proof);
     expect(m).not.toBeNull();
     expect(loadBpSymptomChecklist().severity).toBe(Number(m?.[1]));
   });

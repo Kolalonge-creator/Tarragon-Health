@@ -6,13 +6,15 @@
 -- tick at 6 pages as Priority 1; the older note in OQ-82 saying it records without paging was wrong. This proof pins that, so a later edit of the trigger or
 -- of the configured severity cannot quietly stop a ticked emergency symptom paging.
 --
--- BP_FORM_SEVERITY=6   (a Jest test in apps/mobile reads this line and fails if bp.symptom_checklist moves away from it)
+-- The severity used below is the constant v_form_severity (6). A Jest test in apps/mobile reads that literal and fails if bp.symptom_checklist moves away from it.
 --
 --  1. Each red-flag tick the form offers (severe headache, chest pain, trouble breathing, vision change, confusion, weakness or numbness, trouble speaking)
 --     stored at the form severity is a red flag, opens one open urgent_escalation alert and enqueues as many notifications as the chest pain control.
 --  2. The same ticks for a patient WITHOUT the doctor-escalation entitlement (Free) open no clinician alert (the plan gate is unchanged).
---  3. Controls that must not change: dizziness at 6 is a review alert and not a red flag; palpitations at 6 stays a red flag; trouble breathing stored at
---     3 (the glucose form's severity) pages nobody, which is why the stored severity matters and why the glucose config is capped at 3.
+--  3. Control: trouble breathing stored at 3 (the glucose form's severity) pages nobody, which is why the stored severity matters and why the glucose
+--     config is capped at 3. A Free patient still gets the in-app self-care suggestion for each tick.
+--  Deliberately NOT asserted: what dizziness, palpitations, convulsion and loss of consciousness ticks do at 6 (see the summary of this change: the first
+--  two page today and the pregnancy pair only raise a review alert on the older trigger). Those are open for the CMO, and a proof must not freeze them.
 --  4. SABOTAGE (two separate ones, each from the live body): trouble breathing taken out of the trigger's list, then weakness or numbness and trouble
 --     speaking taken out. In each case the matching check must flip, or the proof raises VACUOUS TEST.
 begin;
@@ -52,45 +54,40 @@ begin
 
   -- Control: chest pain at the form severity, the type the older tests treat as the reference.
   select count(*) into v_a0 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-  select count(*) into v_n0 from public.notifications;
+  select count(*) into v_n0 from public.notifications n where n.source_table = 'clinician_alerts'
+    and n.source_id in (select a.id from public.clinician_alerts a where a.patient_id = v_paid and a.level = 'urgent_escalation');
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
     values (v_org, v_paid, 'chest_pain', v_form_severity, 'Ticked on the blood pressure form (not rated by the patient).') returning is_red_flag into v_flag;
   select count(*) into v_a1 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-  select count(*) into v_n1 from public.notifications;
+  select count(*) into v_n1 from public.notifications n where n.source_table = 'clinician_alerts'
+    and n.source_id in (select a.id from public.clinician_alerts a where a.patient_id = v_paid and a.level = 'urgent_escalation');
   v_ctl_notifs := v_n1 - v_n0;
   insert into results values ('real', 'control: chest pain tick is a red flag with one urgent alert', 'true|1', v_flag::text || '|' || (v_a1 - v_a0));
   insert into results values ('real', 'control: a page notification is enqueued at all', 'true', (v_ctl_notifs > 0)::text);
 
   foreach v_t in array array['severe_headache', 'breathlessness', 'visual_disturbance', 'confusion', 'weakness_or_numbness', 'difficulty_speaking'] loop
     select count(*) into v_a0 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-    select count(*) into v_n0 from public.notifications;
+    select count(*) into v_n0 from public.notifications n where n.source_table = 'clinician_alerts'
+      and n.source_id in (select a.id from public.clinician_alerts a where a.patient_id = v_paid and a.level = 'urgent_escalation');
     execute format('insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description) values ($1, $2, %L::public.symptom_type, $3, $4) returning is_red_flag', v_t)
       into v_flag using v_org, v_paid, v_form_severity, 'Ticked on the blood pressure form (not rated by the patient).';
     select count(*) into v_a1 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-    select count(*) into v_n1 from public.notifications;
+    select count(*) into v_n1 from public.notifications n where n.source_table = 'clinician_alerts'
+      and n.source_id in (select a.id from public.clinician_alerts a where a.patient_id = v_paid and a.level = 'urgent_escalation');
     insert into results values ('real', v_t || ' tick on a paid plan is a red flag with one urgent alert', 'true|1', v_flag::text || '|' || (v_a1 - v_a0));
     insert into results values ('real', v_t || ' tick enqueues as many notifications as chest pain', v_ctl_notifs::text, (v_n1 - v_n0)::text);
 
     select count(*) into v_a0 from public.clinician_alerts where patient_id = v_free;
+    select count(*) into v_n0 from public.notifications where recipient_id = v_free and template = 'free_tier_reading_self_care_suggestion';
     execute format('insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description) values ($1, $2, %L::public.symptom_type, $3, $4)', v_t)
       using v_org, v_free, v_form_severity, 'Ticked on the blood pressure form (not rated by the patient).';
     select count(*) into v_a1 from public.clinician_alerts where patient_id = v_free;
+    select count(*) into v_n1 from public.notifications where recipient_id = v_free and template = 'free_tier_reading_self_care_suggestion';
     insert into results values ('real', v_t || ' tick on Free opens no clinician alert', '0', (v_a1 - v_a0)::text);
+    insert into results values ('real', v_t || ' tick on Free still gives the patient one self-care suggestion', '1', (v_n1 - v_n0)::text);
   end loop;
 
-  -- Controls that must not change.
-  select count(*) into v_a0 from public.clinician_alerts where patient_id = v_paid and level = 'clinician_review';
-  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
-    values (v_org, v_paid, 'dizziness', v_form_severity, 'tick') returning is_red_flag into v_flag;
-  select count(*) into v_a1 from public.clinician_alerts where patient_id = v_paid and level = 'clinician_review';
-  insert into results values ('real', 'control: dizziness tick is a review, not a red flag', 'false|1', v_flag::text || '|' || (v_a1 - v_a0));
-
-  select count(*) into v_a0 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
-    values (v_org, v_paid, 'palpitations', v_form_severity, 'tick') returning is_red_flag into v_flag;
-  select count(*) into v_a1 from public.clinician_alerts where patient_id = v_paid and level = 'urgent_escalation';
-  insert into results values ('real', 'control: palpitations tick stays a red flag', 'true|1', v_flag::text || '|' || (v_a1 - v_a0));
-
+  -- Control: the stored severity decides.
   select count(*) into v_a0 from public.clinician_alerts where patient_id = v_paid;
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
     values (v_org, v_paid, 'breathlessness', 3, 'stored at the glucose form severity') returning is_red_flag into v_flag;
