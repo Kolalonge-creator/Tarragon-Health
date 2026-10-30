@@ -678,3 +678,18 @@ Related wording decision, same day: the Membership Plus, upgrade, standard labor
 uploaded to the account and that results outside the normal range are checked by a clinician first. This matches the release rules
 (normal results release automatically, abnormal, critical and sensitive results are held for review) and the in-app help text HLP-012.
 
+## Founder decisions, 2026-10-30 (master-switch blockers)
+
+Chosen from selectable prompts in one sitting; each was then built and merged (PR numbers in the last column). Where the live check found the
+premise already out of date, the decision stands and the build did the smaller thing that was still true (noted in the PR).
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **B-01** | OQ-82/83/629: a trouble-breathing tick on the blood pressure form pages the care team; add the missing server symptom types for the glucose signs and for weakness, numbness and trouble speaking. | A tick that shows "go to hospital" on the device but pages nobody leaves the care team blind. | Live check: breathlessness already pages (line 6), the neuro types and glucose signs already exist and are in the signed rule set. Mobile now logs the two neuro ticks; a standing proof pins the paging. #1509 |
+| **B-02** | OQ-666: the MDCN folio is hidden from patients and any non-staff reader, and stays on documents through a staff-only function. | Registration numbers belong on a referral letter, not in a directory every patient can read. | Already closed by 20261015004428 and 20261022114116; one regression fixed (admin search by folio). Lab result and verified-document PDFs keep printing no folio, by the earlier CMO decision OQ-358b. #1507 |
+| **B-03** | OQ-S04b2-2: build the close-account executor; an admin runs it from an approved request past the waiting period. | The privacy page promised removals the system did not perform. | `public.close_patient_account`, admin button on `/admin/data-rights`; also restores the S04b-2 consent trigger that production had lost to an out-of-order apply. #1513 |
+| **B-04** | OQ-483: accept `confirm_care_plan_change` acting as the signer for the length of the apply; add proofs; the founder's acceptance is the security review. | Rebuilding eight triggers to avoid it would spread the exception. | 51-check proof, no function change needed (claims are restored on every path). #1514 |
+| **B-05** | OQ-484: the CMO owns the controlled-medicine list; one list, in the database. | Two hand-typed copies drift. | `controlled_medicine_terms` (60 terms, versioned, CMO-only write, never emptied); the web guard reads it. An operational list, not a signature item. #1515 |
+| **B-06** | OQ-S98-7: hide sensitive-bundle orders from caregivers and guardians entirely. | A caregiver could read the bundle id and order number of a sensitive screening request. | `lab_orders_select` and six other doors closed. The sensitive flag covers 14 of 32 active bundles, so caregivers also lose routine ones; narrowing is a change to the S98b flag. #1512 |
+| **B-07** | OQ-555/558: staff reads of the five reproductive tables are audited and tied, with no reason typed. | INV-10. | `read_womens_health_record_audited`, tied staff policies, and a three-state `pregnancy_safety_status` so an unreadable status is "unknown", never "not pregnant". #1516 |
+
