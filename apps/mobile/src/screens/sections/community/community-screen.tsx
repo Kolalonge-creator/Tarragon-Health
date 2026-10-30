@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { JoinWaitlist } from "../join-waitlist";
 import { BackHandler, View } from "react-native";
 import type { MessageKey } from "@tarragon/i18n";
 import { loadGroupList, loadMyActions, searchGroups, searchPosts } from "@/lib/community/api";
@@ -95,7 +96,13 @@ function GroupListView({ onOpen, onOpenAppeals, onOpenSearch }: { onOpen: (slug:
 
   const gate = communityGate(list ?? undefined);
   if (gate !== "ready") {
-    return <InlineAlert message={copy(gate === "adults_only" ? "community.adults_only" : "community.not_open")} tone="info" />;
+    return (
+      <View style={{ gap: space.md }}>
+        <InlineAlert message={copy(gate === "adults_only" ? "community.adults_only" : "community.not_open")} tone="info" />
+        {/* Only a known-closed answer offers the list; an unreadable one (list is null) says nothing about the feature. */}
+        {gate === "not_open" && list !== null ? <JoinWaitlist feature="community" /> : null}
+      </View>
+    );
   }
 
   return (

@@ -47,7 +47,7 @@ const TRUST_ITEMS = [
   },
   {
     title: "Payments handled by Paystack",
-    body: "Your card details stay with them, not with us.",
+    body: "Your card details are held by Paystack, not by Tarragon.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <rect x="3" y="6" width="18" height="13" rx="2" />
@@ -56,8 +56,8 @@ const TRUST_ITEMS = [
     ),
   },
   {
-    title: "No hidden costs, ever",
-    body: "You see the exact price and confirm before you pay, always.",
+    title: "No hidden costs",
+    body: "You always see the exact price and confirm it before you pay.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M4 7h16M4 12h16M4 17h10" />
@@ -80,7 +80,7 @@ export function TrustBand() {
             sizes="(min-width: 1024px) 420px, 100vw"
           />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-clinical-navy/90 to-transparent p-5">
-            <p className="text-sm font-medium text-white/85">Your care team, whoever&apos;s covering</p>
+            <p className="text-sm font-medium text-white/85">Your care team, whichever doctor is on duty</p>
           </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">

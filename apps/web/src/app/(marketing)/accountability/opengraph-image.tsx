@@ -6,7 +6,7 @@ export const contentType = OG_CONTENT_TYPE;
 
 export default function Image() {
   return renderOgImage({
-    title: "How we're accountable",
+    title: "How we are accountable",
     subtitle:
       "How fast TarragonHealth responds when something looks wrong, and who signed off on those commitments.",
   });

@@ -19,6 +19,9 @@ jest.mock("@/lib/queries/care-messages", () => ({
   useMarkThreadRead: () => ({ mutate: jest.fn() }),
   useUploadCareMessageAttachment: () => ({ mutate: jest.fn(), isPending: false }),
   useCareMessageTemplates: () => ({ data: [] }),
+  useThreadStatus: () => ({ data: undefined }),
+  useMessageActions: () => ({ data: [] }),
+  useAddMessageActions: () => ({ mutate: jest.fn() }),
 }));
 
 const THREAD = {

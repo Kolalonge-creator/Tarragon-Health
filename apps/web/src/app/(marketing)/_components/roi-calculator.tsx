@@ -20,10 +20,10 @@ export function RoiCalculator() {
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 shadow-sm">
       <h3 className="font-heading text-2xl font-semibold text-charcoal-ink">
-        Sketch the numbers for your workforce
+        Estimate screening numbers for your workforce
       </h3>
       <p className="mt-2 text-charcoal-ink/70">
-        Move the sliders: every figure is an assumption you control, not a promise.
+        Move the sliders to change the figures. Every figure is an assumption that you control, not a promise.
       </p>
       <div className="mt-6 space-y-5">
         <div>
@@ -78,7 +78,7 @@ export function RoiCalculator() {
       <div className="mt-6 rounded-xl bg-soft-sage p-5">
         <p className="text-sm text-deep-forest">
           ~{screened.toLocaleString()} people screened → ~{catches.toLocaleString()} early{" "}
-          {catches === 1 ? "catch" : "catches"} a year
+          {catches === 1 ? "finding" : "findings"} a year
         </p>
       </div>
       <p className="mt-3 text-xs text-charcoal-ink/65">

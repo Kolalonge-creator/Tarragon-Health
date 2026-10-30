@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Mental Well-being Check",
     subtitle:
-      "A free, anonymous two-minute check-in on how you're really doing. Not a diagnosis, nothing saved.",
+      "A free, anonymous two-minute check-in on how you are really doing. Not a diagnosis, nothing saved.",
   });
 }

@@ -97,7 +97,7 @@ function stepCopy(subject: string, them: string) {
       },
       {
         title: "Add the medicines",
-        detail: `Whatever ${them} take now. Once they are on the list, ${them} get dose reminders and refill nudges.`,
+        detail: `Include every medicine ${them} take now. Once a medicine is on the list, ${them} receive dose reminders and refill reminders.`,
         cta: "Add a medicine",
       },
     ],

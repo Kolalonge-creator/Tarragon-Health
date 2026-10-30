@@ -96,7 +96,7 @@ export function FindriscCheck() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fr_hg">Ever told your sugar was high?</Label>
+              <Label htmlFor="fr_hg">Have you ever been told your blood sugar was high?</Label>
               <Select id="fr_hg" name="high_glucose" defaultValue="no">
                 <option value="no">No</option>
                 <option value="yes">Yes</option>

@@ -76,7 +76,7 @@ export default async function HowPricingWorksPage() {
       <Section>
         <SectionHeading
           eyebrow="Nothing to trial"
-          title="It's simply free until you want a doctor"
+          title="It is simply free until you want a doctor"
           description={FREE_TRIAL_INTRO}
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -177,7 +177,7 @@ export default async function HowPricingWorksPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Tarragon vs a one-off checkup"
-          title="The result is the same. What happens next isn't."
+          title="The result is the same. What happens next is not."
           description={CHECKUP_COMPARE_INTRO}
         />
         <div className="mx-auto max-w-3xl overflow-x-auto">

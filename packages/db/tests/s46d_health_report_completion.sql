@@ -178,8 +178,8 @@ end $$;
 do $$
 declare v3 public.lab_panel_versions%rowtype; a jsonb; r jsonb;
 begin
-  select * into v3 from public.lab_panel_versions where panel_code = 'membership_annual' and is_active;
-  perform pg_temp.ck('the active panel version is 3', '3', v3.version::text);
+  select * into v3 from public.lab_panel_versions where panel_code = 'membership_annual' and version = 3;
+  perform pg_temp.ck('panel version 3 (the S46d version) exists; a later version may now be the active one', '3', v3.version::text);
   perform pg_temp.ck('one active panel version', '1', (select count(*)::text from public.lab_panel_versions where is_active));
   perform pg_temp.ck('19 analytes', '19', jsonb_array_length(v3.analytes)::text);
   select x into a from jsonb_array_elements(v3.analytes) x where x ->> 'code' = 'anti_hbs';

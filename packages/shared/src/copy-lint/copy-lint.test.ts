@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { fileURLToPath } from "node:url";
 import { COPY_LINT_BASELINE } from "./baseline";
-import { copyLintMode, countSourceFiles, scanRepo, scanText, summarise } from "./scan";
+import { copyLintMode, countSourceFiles, PATIENT_FACING, scanRepo, scanText, summarise } from "./scan";
 
 describe("copy-lint detector", () => {
   it.each([
@@ -51,6 +51,62 @@ describe("copy-lint detector", () => {
   it("reports file and line", () => {
     const [v] = scanText("a/b.tsx", 'ok\nbad "your doctor"');
     expect(v).toMatchObject({ file: "a/b.tsx", line: 2, rule: "your-doctor" });
+  });
+});
+
+describe("copy-lint voice rules (docs/design/COPY-VOICE.md)", () => {
+  const patient = "apps/web/src/app/(marketing)/x.tsx";
+  const staff = "apps/web/src/app/(dashboard)/clinician/x.tsx";
+  const rules = (file: string, line: string) => scanText(file, line).map((v) => v.rule);
+
+  it.each([
+    ['label: "Uncontrolled BP"', "abbreviation-bp"],
+    ["<p>Check your BP daily</p>", "abbreviation-bp"],
+    ['description: "Readings, doctor review and escalation"', "internal-term"],
+    ["<p>Close care gaps early</p>", "internal-term"],
+    ['{ label: "Mum or Dad" }', "colloquial"],
+    ['title: "Let\'s keep it that way"', "colloquial"],
+  ])("flags %s in patient-facing code", (line, rule) => {
+    expect(rules(patient, line)).toContain(rule);
+  });
+
+  it("applies the BP and internal-term rules to patient-facing code only", () => {
+    for (const line of ['label: "Uncontrolled BP"', 'title: "Open care gaps"', 'note: "Escalated to the CMO"']) {
+      expect(rules(staff, line)).toEqual([]);
+    }
+    expect(PATIENT_FACING.test("apps/mobile/src/screens/sections/care-support-screen.tsx")).toBe(true);
+    expect(PATIENT_FACING.test("apps/mobile/src/screens/clinician/on-call-screen.tsx")).toBe(false);
+    expect(PATIENT_FACING.test("apps/web/src/app/(dashboard)/admin/page.tsx")).toBe(false);
+  });
+
+  it("flags chatty words in staff-facing code too", () => {
+    expect(rules(staff, '"Mum or Dad"')).toEqual(["colloquial"]);
+  });
+
+  it("does not flag the approved wording, identifiers, comments or import paths", () => {
+    const clean = [
+      'label: "Uncontrolled blood pressure"',
+      'description: "Doctor review, with referral to a doctor when needed"',
+      '{ label: "Mother or father" }',
+      'title: "Let us slow down together"',
+      "const escalated = escalate(alert);",
+      'import { flagAbnormalSleep } from "@/lib/sleep/escalate";',
+      'export { escalate } from "@/lib/sleep/escalate";',
+      "// the BP card escalates to a doctor",
+      '"Dispatch"',
+    ];
+    for (const line of clean) expect(rules(patient, line)).toEqual([]);
+  });
+
+  it("skips an import or re-export line but not an export that merely contains the word from", () => {
+    expect(rules(patient, 'import { a } from "@/lib/care-gap";')).toEqual([]);
+    expect(rules(patient, 'export * from "@/lib/care-gap";')).toEqual([]);
+    expect(rules(patient, 'export const label = "Learn from a doctor — fast";')).toEqual(["em-dash"]);
+  });
+
+  it("only counts a word inside one whole string literal or JSX text", () => {
+    expect(rules(patient, 'variant="body" style={{ flex: 1 }}>{escalation.reason}</Text>')).toEqual([]);
+    expect(rules(patient, "<Text>{escalation.reason}</Text>")).toEqual([]);
   });
 });
 

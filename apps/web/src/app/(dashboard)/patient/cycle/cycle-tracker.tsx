@@ -23,7 +23,7 @@ import {
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { suggestCycleReading } from "@/lib/rules/cycle-reading";
 import { HeroMetric } from "@/components/ui/hero-metric";
-import { cycleHero } from "@/lib/rules/cycle-hero";
+import { cycleHero, showCycleHero } from "@tarragon/shared";
 import { CycleCalendar } from "./cycle-calendar";
 import { CycleInsightsCard } from "./cycle-insights-card";
 import { CycleLengthChart } from "./cycle-length-chart";
@@ -191,9 +191,7 @@ export function CycleTracker({
   // The countdown only makes sense while periods are expected: not for a pregnant or menopausal life stage, and never beside an urgent flag,
   // where the flag is the one thing the page should lead with.
   const hero = cycleHero(prediction);
-  const showHero =
-    (lifeStage === "menstruating" || lifeStage === "trying_to_conceive") &&
-    !prediction.flags.some((flag) => flag.severity === "urgent");
+  const showHero = showCycleHero(lifeStage, prediction);
   const reading = suggestCycleReading({
     phase: prediction.currentPhase,
     lifeStage,

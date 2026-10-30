@@ -65,7 +65,7 @@
 | Pre-purchase auto-renewal disclosure on the subscription onboarding flow | ✅ Code-complete (already existed) | Confirmed present before this session started |
 | Pre-purchase disclosure on the "Change plan" and "Add-on" actions on the live subscription-management page | ✅ Code-complete | Real gap found and fixed this session — those two actions had zero renewal-terms disclosure at the point of clicking |
 | Whether the current "cancel any time, no pro-rata refund" position meets FCCPC's specific requirements | 🔴 Requires external action | Needs counsel's view — see cover memo Question 7. |
-| Membership terms (2026-10-13 draft): 21-day refund, nothing after, immediate end of access on refund, 14-day grace, no auto-renewal | 🔴 Requires external action | Research draft and counsel items in `membership-terms-nigeria-review.md`; owner sign-off sheet `membership-terms-signoff.md`. Not live; unpublished. |
+| Terms of Service and Telehealth Consent, merged v2 (2026-10-30; Free, Membership, Membership Plus): 21-day refund, nothing after, immediate end of access on refund, 14-day grace, no auto-renewal | 🔴 Requires external action | Owner signature, then publishing. Research and counsel items in `membership-terms-nigeria-review.md` (v2 addendum); owner sign-off sheet `membership-terms-signoff.md`; unapplied publish script `drafts/consent_membership_ladder_v2_DRAFT.sql`. Not live; unpublished. The 2026-10-13 two-plan draft is superseded. |
 
 ---
 

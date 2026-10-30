@@ -667,3 +667,14 @@ Design note: `docs/design/GATE-MODEL.md`. Migration `20261029223751_gate_model_m
 
 The migration switches nothing on. Opening the standalone features live is the founder's act from the go-live page (one click each,
 attributed and logged), chosen over a migration flip so the audit trail names a person and the CI replay keeps its meaning.
+
+## Founder decision, 2026-10-30 (TSH is not part of the yearly blood panel)
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **P-01** | TSH is removed from the Membership Plus yearly blood panel. A doctor orders it only when a patient needs it, using the existing clinician "Order a lab test" flow ("Thyroid Function (TSH, Free T4)"), and the patient takes the request to any laboratory or a partner laboratory. | A thyroid test is not needed for every patient every year; ordering it on clinical need keeps the panel to tests that apply to everyone. | `lab_panel_versions` membership_annual version 4 (18 analytes, applied live 2026-10-30, migration `20261030001645_lab_panel_membership_annual_v4_without_tsh.sql`); registry `lab.panels` version 5; marketing list `YEARLY_PANEL_TESTS`. The draft lab sign-off (version 5) is unsigned and waits for the CMO on the sign-off hub. |
+
+Related wording decision, same day: the Membership Plus, upgrade, standard laboratory panel and home sample kit lines now say results are
+uploaded to the account and that results outside the normal range are checked by a clinician first. This matches the release rules
+(normal results release automatically, abnormal, critical and sensitive results are held for review) and the in-app help text HLP-012.
+

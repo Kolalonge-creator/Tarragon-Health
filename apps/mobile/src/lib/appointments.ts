@@ -55,6 +55,14 @@ export async function loadUpcomingAppointments(
   return { ok: true, data: data as AppointmentWithClinician[] };
 }
 
+/** The price in kobo for booking this type, from the same terms function the web booking card reads. A failed read, an unpriced type or a malformed answer is null: the screen leaves the price out rather than guess. */
+export async function loadBookingPriceKobo(appointmentType: AppointmentType): Promise<number | null> {
+  const { data, error } = await supabase.rpc("my_booking_terms" as never, { p_appointment_type: appointmentType } as never);
+  if (error || data === null || typeof data !== "object" || Array.isArray(data)) return null;
+  const price = (data as { price_kobo?: unknown }).price_kobo;
+  return typeof price === "number" && Number.isFinite(price) && price > 0 ? price : null;
+}
+
 /** Open slots for a bookable type, telemedicine-only (the "How" choice web
  * removed for the same reason — no in-person option exists). */
 export async function loadAvailableSlots(

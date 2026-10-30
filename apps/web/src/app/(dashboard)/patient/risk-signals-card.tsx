@@ -76,8 +76,8 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
         ) : (
           <>
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              A plain-language look at what&apos;s shaping your care, not a diagnosis.
-              If your care team reaches out, this is usually part of why.
+              A plain-language summary of what is shaping your care. It is not a diagnosis.
+              If your care team contacts you, this is usually part of the reason.
             </p>
             <ul className="space-y-1.5">
               {elevated.map((row) => {

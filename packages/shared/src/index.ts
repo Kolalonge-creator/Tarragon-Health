@@ -279,6 +279,7 @@ export * from "./proposed-config/biomarker-grade-bands";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
+export * from "./messages/reply-time";
 
 // S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
 export * from "./private-section";
@@ -327,3 +328,4 @@ export * from "./document-suggestions";
 // S71 A3: the refund and cancellation rule numbers and lines, shared by web and phone.
 export * from "./refund-rule";
 export * from "./default-meal-type";
+export * from "./consultations/next-available";

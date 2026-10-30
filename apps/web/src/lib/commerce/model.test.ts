@@ -50,6 +50,11 @@ describe("copy keys", () => {
       expect(en[key].length).toBeGreaterThan(0);
     }
   });
+  it("a rate-limited reply from the checkout function has its own plain message", () => {
+    const key = checkoutErrorKey("rate_limited");
+    expect(key).toBe("shop.error.rate_limited");
+    expect(en[key]).toMatch(/wait a minute/);
+  });
   it("every order state has a label", () => {
     for (const s of ORDER_STATES) expect(en[orderStateKey(s)].length).toBeGreaterThan(0);
   });

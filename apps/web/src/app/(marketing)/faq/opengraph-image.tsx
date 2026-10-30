@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Frequently asked questions",
     subtitle:
-      "Clear answers about how TarragonHealth works, what's included, and how care and escalation happen.",
+      "Clear answers about how TarragonHealth works, what is included, and when a case is referred to a doctor.",
   });
 }

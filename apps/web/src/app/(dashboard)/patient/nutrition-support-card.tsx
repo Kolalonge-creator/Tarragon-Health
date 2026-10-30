@@ -22,10 +22,10 @@ import { Badge } from "@/components/ui/badge";
  */
 
 const STATUS_COPY: Record<string, string> = {
-  requested: "You've asked for nutrition support. Your care team will follow up to arrange a consultation.",
+  requested: "You have asked for nutrition support. Your care team will contact you to arrange a consultation.",
   scheduled: "Your dietitian consultation is scheduled.",
-  consultation_complete: "Your consultation is complete. A personalised plan is being prepared.",
-  plan_issued: "Your personalised nutrition plan is ready. Ask your care team to walk you through it.",
+  consultation_complete: "Your consultation is complete. Your personalised nutrition plan is now being prepared.",
+  plan_issued: "Your personalised nutrition plan is ready. Your care team can go through it with you.",
   declined: "This request wasn't taken forward right now.",
   not_applicable: "Nutrition support wasn't needed for this request.",
 };
@@ -101,7 +101,7 @@ export function NutritionSupportCard({
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {risk.atRisk
                 ? risk.reasons.map((r) => RISK_REASON_LABELS[r]).join(" ")
-                : "Want extra support with your nutrition? Your care team can connect you with a dietitian for a plan built around you."}
+                : "If you would like extra support with your nutrition, your care team can arrange for you to see a dietitian, who will prepare a plan based on your needs."}
             </p>
             {canBookDietitian ? (
               <p className="text-sm">

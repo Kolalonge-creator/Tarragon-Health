@@ -219,7 +219,7 @@ export default async function OpsConsolePage() {
         <CardHeader>
           <CardTitle>Exception queue</CardTitle>
           <CardDescription>
-            Every appointment, referral, lab order, pharmacy order, alert, support message,
+            Every appointment, referral, laboratory order, pharmacy order, alert, support message,
             payment and incident that needs a person to act on it, worst first. Filter by domain
             below.
           </CardDescription>

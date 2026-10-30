@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/ui/disclosure";
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
@@ -29,20 +30,24 @@ export default async function HealthyAgeingPage() {
       description={
         isOlderAdult
           ? "Independence, prevention, and coordinated care, not just a list of conditions."
-          : "Built with older adults and the people who care for them in mind, and still useful for anyone tracking mobility, falls risk, or support at home."
+          : "Designed for older adults and the people who care for them, and useful for anyone monitoring mobility, risk of falls or support at home."
       }
       icon={NAV_ICON.healthyAgeing}
     >
       <HealthyAgeingSnapshotTile patientId={subjectId} />
       <CoordinatedCareSummaryCard patientId={subjectId} />
-      <AgeingAssessmentSection patientId={subjectId} />
+      <Disclosure title="Ageing check-in" hint="A short yearly set of questions about mobility, memory and daily life.">
+        <AgeingAssessmentSection patientId={subjectId} />
+      </Disclosure>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <FallsRiskSection patientId={subjectId} />
         <SocialDeterminantsSection patientId={subjectId} />
       </div>
 
-      <VitalsTrendChart patientId={subjectId} />
+      <Disclosure title="Readings over time" hint="Blood pressure, weight and other readings you have logged.">
+        <VitalsTrendChart patientId={subjectId} />
+      </Disclosure>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HomeCareRequestSection patientId={subjectId} />

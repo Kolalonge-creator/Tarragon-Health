@@ -30,8 +30,8 @@ export default async function ResourcesPage() {
             Health, in plain language
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Straight answers to the questions people actually ask: no jargon, no fear, no
-            miracle cures. Just what the evidence supports and what to do next.
+            Clear answers to the questions people commonly ask. The articles avoid jargon and
+            exaggeration, and explain what the evidence supports and what to do next.
           </p>
         </div>
       </Section>
@@ -73,8 +73,8 @@ export default async function ResourcesPage() {
       <Section variant="sage">
         <CtaBand
           variant="gradient"
-          title="Reading is a start; monitoring is the difference"
-          description="Tarragon turns knowing into doing: your readings tracked, your screenings scheduled, a care team watching the trend."
+          title="Reading is a start, and monitoring makes the difference"
+          description="Tarragon helps you act on what you learn: your readings are recorded, your screenings are scheduled, and a care team follows the trend."
           primaryHref="/signup"
           primaryLabel="Start free"
           secondaryHref="/services"

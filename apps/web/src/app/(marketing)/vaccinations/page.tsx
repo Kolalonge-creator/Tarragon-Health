@@ -17,38 +17,38 @@ export const metadata: Metadata = pageMetadata({
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Your schedule builds itself",
-    body: "Your own due and upcoming vaccines are worked out automatically, from routine childhood immunisation through to adult and travel doses like HPV. Add a child too young to have their own login, and their schedule lives on your account the same way.",
+    title: "Your schedule is created for you",
+    body: "The vaccines that are due or coming up for you are worked out automatically, from routine childhood immunisation to adult and travel vaccines such as human papillomavirus (HPV). If you add a child who is too young to have their own login, their schedule is kept on your account in the same way.",
   },
   {
     step: 2,
     title: "A reminder when a dose is due",
-    body: "A reminder lands before each dose is due, no more guessing from memory or a paper card, and you get it done at whichever clinic suits you.",
+    body: "A reminder arrives before each dose is due, so you do not have to rely on memory or a paper card. You can have the dose at whichever clinic suits you.",
   },
   {
     step: 3,
-    title: "Log the dose, upload the record",
-    body: "After the visit, log the dose and attach a photo of the physical certificate or record given at the facility.",
+    title: "Record the dose and upload the proof",
+    body: "After the visit, record the dose and attach a photo of the certificate or record that the facility gave you.",
   },
   {
     step: 4,
     title: "A doctor verifies it",
-    body: "A Tarragon doctor checks the uploaded record and issues a verified Tarragon certificate with its own serial number: proof that holds up, not just a photo in your camera roll.",
+    body: "A Tarragon doctor checks the uploaded record and issues a verified Tarragon certificate with its own serial number. This is reliable proof, rather than only a photo on your phone.",
   },
 ];
 
 const WHATS_INCLUDED = [
   {
     title: "Your own record, and your children's",
-    body: "A child too young to have their own login keeps their schedule on your account. A parent or other adult you support keeps their own account, which you follow as next of kin once they've agreed.",
+    body: "A child too young to have their own login keeps their schedule on your account. A parent or other adult you support keeps their own account, which you can follow as next of kin once they have agreed.",
   },
   {
-    title: "Reminders, not memory",
-    body: "You're prompted ahead of a due date, not left to remember a schedule from a paper card that can be lost, torn, or left behind on a trip.",
+    title: "Reminders instead of memory",
+    body: "You are reminded ahead of each due date, so you do not need to remember a schedule from a paper card that can be lost, torn or left behind on a trip.",
   },
   {
-    title: "Get it done wherever suits you",
-    body: "There's no in-app booking yet, so take the dose at whichever clinic suits you, pay them directly, and log it here afterwards.",
+    title: "Have the dose wherever suits you",
+    body: "Booking is not yet available in the app. Have the dose at whichever clinic suits you, pay the clinic directly, and record it here afterwards.",
   },
   {
     title: "Doctor-verified certificate",
@@ -56,11 +56,11 @@ const WHATS_INCLUDED = [
   },
   {
     title: "The next dose, scheduled automatically",
-    body: "Multi-dose series roll forward on their own once a dose is verified: no manual re-entry, no missed follow-up shots.",
+    body: "For vaccines given in several doses, the next dose is scheduled automatically once a dose is verified, so you do not need to enter it again or miss a follow-up dose.",
   },
   {
     title: "Free for everyone",
-    body: "Vaccination tracking, reminders, and verification are free for every Tarragon member; this is prevention we think everyone should have.",
+    body: "Vaccination tracking, reminders and verification are free for every Tarragon member, because we believe everyone should have access to this kind of prevention.",
   },
 ];
 
@@ -70,15 +70,15 @@ export default function VaccinationsPage() {
       <Section className="pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Keep track for good
+            Keep a lasting record
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
             Vaccinations, tracked and verified
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             A personal vaccination schedule, a reminder before each dose is due, and a
-            doctor-verified certificate that stays safe, even if the paper one does not. Get the
-            dose wherever suits you and pay them directly; we take nothing on it.
+            doctor-verified certificate that stays safe even if the paper one is lost. Have the
+            dose wherever suits you and pay the provider directly. We take no commission.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -89,7 +89,7 @@ export default function VaccinationsPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Log a vaccination from your dashboard&apos;s Prevention section.
+            If you are already a member, record a vaccination from the Prevention section of your dashboard.
           </p>
         </div>
       </Section>
@@ -98,20 +98,20 @@ export default function VaccinationsPage() {
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              What&apos;s included
+              What is included
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Everything a paper card should have been
+              Everything a paper card cannot offer
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Built for families in Nigeria, where a lost card usually means starting the record
-              over from nothing.
+              This is designed for families in Nigeria, where a lost card often means the record has to
+              be started again from nothing.
             </p>
           </div>
           <MarketingMediaFrame
             media={{
               illustration: "vaccine-record",
-              imageAlt: "A doctor-verified vaccination certificate that can't be lost",
+              imageAlt: "A doctor-verified vaccination certificate that cannot be lost",
             }}
           />
         </div>
@@ -151,22 +151,22 @@ export default function VaccinationsPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             A child too young to have their own login keeps their routine immunisation schedule on
             your account, tracked the same way as your own, including the doses that are easy to
-            lose track of between school-age boosters and travel. If you&apos;re abroad, their
-            schedule and verified certificates are visible to you from anywhere; the visit itself
-            still happens wherever they are, in Nigeria.
+            lose track of, such as school-age boosters and travel vaccines. If you are abroad, you can
+            see their schedule and verified certificates from anywhere. The vaccination visit itself
+            still takes place wherever they are, in Nigeria.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Caring for an adult relative, like a parent? They keep their own Tarragon account and
-            their own vaccination schedule; you follow it as next of kin once they&apos;ve agreed,
-            rather than by adding them to yours. See{" "}
+            If you care for an adult relative, such as a parent, they keep their own Tarragon account and
+            their own vaccination schedule. You follow it as next of kin once they have agreed,
+            rather than by adding them to your account. See{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
-            for how that works. Vaccinations are one part of{" "}
+            for how this works. Vaccinations are one part of{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               preventive health at Tarragon
             </Link>
-            , which also builds your free screening calendar and your yearly Health Check.
+            , which also provides your free screening calendar and your yearly Health Check.
           </p>
         </div>
       </Section>
@@ -174,8 +174,8 @@ export default function VaccinationsPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Give your vaccine record a permanent home."
-          description="Free to start, verified when it matters."
+          title="Keep your vaccination record in one safe place"
+          description="Free to start, and verified by a doctor when you need proof."
           primaryHref="/signup"
           primaryLabel="Start your schedule"
         />

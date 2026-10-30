@@ -62,7 +62,7 @@ export async function buyHealthCheckVoucher(
 
   const result = data as { voucher_number?: string; sku_name?: string };
   return {
-    message: `Reserved ${result.sku_name ?? "a health check"} (${result.voucher_number ?? "voucher"}). Pay for it whenever you're ready, in one go or bit by bit, and they can book it whenever suits them.`,
+    message: `Reserved ${result.sku_name ?? "a health check"} (${result.voucher_number ?? "voucher"}). You can pay for it in one payment or in instalments, and the person it is for can book it when it suits them.`,
   };
 }
 
@@ -83,7 +83,7 @@ export async function payTowardVoucher(
   const voucherId = formData.get("voucherId") as string;
   const amountNaira = Number(formData.get("amountNaira"));
 
-  if (!voucherId) return { error: "Which voucher are you paying for?" };
+  if (!voucherId) return { error: "Please choose which voucher you are paying for." };
   if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
     return { error: "Enter how much you'd like to pay." };
   }

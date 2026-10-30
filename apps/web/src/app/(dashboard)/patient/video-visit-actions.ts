@@ -75,7 +75,7 @@ async function insertVideoVisitRequestRow(formData: FormData): Promise<
     .eq("id", parsed.data.slotId)
     .maybeSingle();
   if (!slot) {
-    return { ok: false, error: { error: "That time is no longer available, pick another slot." } };
+    return { ok: false, error: { error: "That time is no longer available. Please choose another time." } };
   }
 
   const { data: request, error: insertError } = await supabase
@@ -220,7 +220,7 @@ export async function submitConsultationPrep(
   const consultationId = z.string().uuid().safeParse(String(formData.get("consultation_id") ?? ""));
   const notes = prepNotesSchema.safeParse(String(formData.get("notes") ?? ""));
   if (!consultationId.success) return { error: "Invalid consultation" };
-  if (!notes.success) return { error: "Keep it under 1000 characters" };
+  if (!notes.success) return { error: "Please keep this under 1000 characters" };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("submit_consultation_prep", {

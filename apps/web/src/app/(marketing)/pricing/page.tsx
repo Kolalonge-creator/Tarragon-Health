@@ -14,6 +14,7 @@ import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { PanelTests } from "../_components/panel-tests";
 import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
@@ -83,7 +84,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
           as="h1"
           eyebrow="Pricing"
           title="Free, Membership or Membership Plus"
-          description="Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
+          description="Everything you do yourself in the app is free. Membership and Membership Plus each provide a year of care with your care team. The only difference is the yearly blood panel."
         />
         <p className="mx-auto mb-4 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
         <p className="mx-auto mb-10 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAME_CARE_STATEMENT}</p>
@@ -101,6 +102,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
                   <li key={line}>{line}</li>
                 ))}
               </ul>
+              {card.panelTests ? <PanelTests groups={card.panelTests} /> : null}
             </section>
           ))}
         </div>
@@ -140,7 +142,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
         <CtaBand
           variant="gradient"
           title="Ready to get started?"
-          description="Join TarragonHealth today, for yourself or someone you love."
+          description="Join TarragonHealth today, for yourself or for a family member."
           secondaryHref={MARKETING_ROUTES.contact}
           secondaryLabel="Talk to us first"
         />
@@ -173,8 +175,8 @@ export default async function PricingPage() {
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title={`Free, or ${paidProductName()}. Nothing in between.`}
-          description={`Everything you can do yourself costs nothing, with no time limit and no card required. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month.`}
+          title={`Free, or ${paidProductName()}`}
+          description={`Everything you do yourself in the app is free, with no time limit and no card required. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month.`}
         />
         <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
         <PricingFreeFeatures />
@@ -187,7 +189,7 @@ export default async function PricingPage() {
           </Button>
         </div>
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
-          Want the full picture first? Read our{" "}
+          For more detail, read our{" "}
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
             No-Hidden-Cost Promise and how we compare to your HMO
           </Link>
@@ -217,7 +219,7 @@ export default async function PricingPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="What's always free" title="Free, and not from us" />
+        <SectionHeading eyebrow="Always free" title="Free through other providers" />
         <div className="mx-auto max-w-2xl">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
             <div className="flex items-start justify-between gap-3">
@@ -258,7 +260,7 @@ export default async function PricingPage() {
         <CtaBand
           variant="gradient"
           title="Ready to get started?"
-          description="Join TarragonHealth today, for yourself or someone you love."
+          description="Join TarragonHealth today, for yourself or for a family member."
           secondaryHref={MARKETING_ROUTES.contact}
           secondaryLabel="Talk to us first"
         />

@@ -45,7 +45,7 @@ export const DEFAULT_HERO: ChannelHeroCopy = {
   eyebrow: "Free to join. No card needed.",
   title: "Care that stays with you.",
   description:
-    "Care usually stops the moment you leave the hospital. Tarragon is what happens next: your readings watched, your screenings tracked, and a doctor when you actually need one.",
+    "For most people, care ends when they leave the hospital. Tarragon continues it: your readings are monitored, your screenings are tracked, and a doctor is available when you need one.",
   primaryHref: "/signup",
   primaryLabel: "Create your free account",
   secondaryHref: MARKETING_ROUTES.pricing,
@@ -55,9 +55,9 @@ export const DEFAULT_HERO: ChannelHeroCopy = {
 export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
   hmo: {
     eyebrow: "For HMO members",
-    title: "Keep your HMO. Add the layer that watches.",
+    title: "Keep your HMO. Add monitoring between visits.",
     description:
-      "Your HMO pays when you're ill. Tarragon watches your BP and blood sugar so problems get caught early, even when you feel fine.",
+      "Your HMO pays for treatment when you are ill. Tarragon monitors your blood pressure and blood sugar so that problems are found early, even when you feel well.",
     primaryHref: "/signup",
     primaryLabel: "Get started",
     secondaryHref: MARKETING_ROUTES.howPricingWorks,
@@ -65,9 +65,9 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
   },
   employer: {
     eyebrow: "For teams",
-    title: "A health benefit your team will actually use.",
+    title: "A health benefit your staff will use.",
     description:
-      "Enrol your team for hypertension, diabetes, and preventive screening, and get a clear, anonymised risk picture HR can act on.",
+      "Enrol your staff for hypertension care, diabetes care and preventive screening, and receive a clear, anonymised summary of health risk that HR can act on.",
     primaryHref: MARKETING_ROUTES.corporate,
     primaryLabel: "Request employer health plan",
     secondaryHref: MARKETING_ROUTES.corporate,
@@ -75,7 +75,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
   },
   diaspora: {
     eyebrow: "For family abroad",
-    title: "You already send money home for health.",
+    title: "You already send money home for healthcare.",
     description:
       "Give a parent or relative a year of Membership instead: a yearly blood test and a monthly video call with their care team. They choose to accept it, and you are told when they do.",
     primaryHref: MARKETING_ROUTES.gift,

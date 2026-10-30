@@ -1,5 +1,6 @@
-import { cycleHero } from "./cycle-hero";
-import type { CyclePrediction } from "./cycle-prediction";
+import { describe, expect, it } from "@jest/globals";
+import { cycleHero, showCycleHero } from "./hero";
+import type { CyclePrediction } from "./prediction";
 
 const p = (o: Partial<CyclePrediction>) => o as CyclePrediction;
 
@@ -21,5 +22,18 @@ describe("cycleHero", () => {
     const h = cycleHero(p({ predictedNextPeriodDate: "x", isOverdue: true, daysOverdue: 3, daysUntilNextPeriod: -3 }));
     expect(h.value).toBe(3);
     expect(h.unit).toBe("days late");
+  });
+});
+
+describe("showCycleHero", () => {
+  const withFlags = (...severities: string[]) => p({ flags: severities.map((severity) => ({ severity })) as never });
+  it("shows while periods are expected and nothing is urgent", () => {
+    expect(showCycleHero("menstruating", withFlags())).toBe(true);
+    expect(showCycleHero("trying_to_conceive", withFlags("info", "discuss"))).toBe(true);
+  });
+  it("is hidden for other life stages and beside an urgent flag", () => {
+    expect(showCycleHero("menopausal", withFlags())).toBe(false);
+    expect(showCycleHero("pregnant", withFlags())).toBe(false);
+    expect(showCycleHero("menstruating", withFlags("discuss", "urgent"))).toBe(false);
   });
 });

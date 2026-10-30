@@ -31,8 +31,8 @@ export default async function HypertensionPage() {
       riskNote={
         <ConditionRiskNote
           eyebrow="Why this matters"
-          statement="Most hypertension complications don't come from one bad reading. They come from months of drift nobody was watching."
-          support="A blood pressure cuff only tells you the truth the moment you use it. Tarragon's care team follows the trend between your visits, so a quiet climb gets a call, not a surprise."
+          statement="Most complications of hypertension do not come from one high reading. They come from months of gradual rise that nobody was monitoring."
+          support="A blood pressure cuff only shows you your blood pressure at the moment you use it. Tarragon's care team follows the trend between your visits, so a slow rise leads to a call from us instead of a surprise."
         />
       }
     >
@@ -40,7 +40,7 @@ export default async function HypertensionPage() {
         <SectionHeading
           eyebrow="What we monitor"
           title="Every check, and how often"
-          description="Once your doctor puts you on a hypertension care plan, here's exactly what gets tracked, and on what schedule."
+          description="Once a doctor places you on a hypertension care plan, this is what is tracked and how often."
         />
         <ConditionMonitoringGrid categories={HYPERTENSION_MONITORING} />
       </Section>
@@ -56,15 +56,15 @@ export default async function HypertensionPage() {
           />
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Log a reading
+              Record a reading
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              A blood pressure reading, logged in under a minute
+              Record a blood pressure reading in under a minute
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Systolic, diastolic, and you&apos;re done. Every reading lands straight on your record,
-              so your care team always has a current picture, not just whatever you remember to
-              mention at your next check-in.
+              Enter the systolic (upper) and diastolic (lower) numbers and the reading is saved. Every
+              reading goes straight to your record, so your care team always has a current picture and
+              does not depend on what you remember to mention at your next check-in.
             </p>
           </div>
         </div>
@@ -81,7 +81,7 @@ export default async function HypertensionPage() {
       {bloodPressureArticles.length > 0 ? (
         <Section variant="sage">
           <ResourceCarousel
-            title="Explore more Blood Pressure resources"
+            title="More resources on blood pressure"
             articles={bloodPressureArticles}
           />
         </Section>

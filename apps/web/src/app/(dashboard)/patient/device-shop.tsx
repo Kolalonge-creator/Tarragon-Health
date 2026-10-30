@@ -41,10 +41,10 @@ export function DeviceShop() {
       <Card>
         <CardContent className="space-y-2 pt-6 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           <p>
-            These are third-party devices Tarragon has clinically vetted for accuracy and app
-            compatibility. Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn
-            anything if you buy one. Get one from any retailer you trust, or log any reading by
-            hand in Vitals &amp; symptoms at any time, with any device.
+            These are third-party devices that Tarragon has clinically reviewed for accuracy and app
+            compatibility. Tarragon does not sell or ship them, and does not earn anything if you
+            buy one. You can buy one from any retailer you trust, or enter a reading by hand in
+            Vitals &amp; symptoms at any time, with any device.
           </p>
         </CardContent>
       </Card>
@@ -54,8 +54,8 @@ export function DeviceShop() {
       {catalogue && catalogue.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            We&apos;re still finishing testing on our recommended devices. Check back soon. In
-            the meantime, log any reading by hand in{" "}
+            We are still completing our testing of recommended devices, so none are listed yet. In
+            the meantime, you can enter any reading by hand in{" "}
             <Link href="/patient/vitals" className="text-brand-green dark:text-brand-green-bright underline">
               Vitals &amp; symptoms
             </Link>
@@ -65,7 +65,7 @@ export function DeviceShop() {
       )}
 
       <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-        Any other device: type it in. A reading you type in reaches your care team in exactly the same way.
+        If you use a different device, you can type the reading in. A reading entered by hand reaches your care team in exactly the same way.
       </p>
 
       {CATEGORY_ORDER.map((category) => {

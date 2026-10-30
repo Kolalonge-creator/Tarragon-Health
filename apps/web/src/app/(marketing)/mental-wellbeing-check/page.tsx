@@ -17,7 +17,7 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "Is this a diagnosis?",
-    a: "No. This is a general wellbeing pulse-check, not a clinical or diagnostic tool, and it's not a substitute for talking to a doctor.",
+    a: "No. This is a general wellbeing check-in. It is not a clinical or diagnostic tool, and it does not replace talking to a doctor.",
   },
   {
     q: "Is my answer saved anywhere?",
@@ -25,11 +25,11 @@ const FAQS = [
   },
   {
     q: "What happens after I get a result?",
-    a: "Whatever your result, the choice is yours. If you'd like to talk to someone, a Tarragon doctor is available through the app, and signed-up patients also get access to a more thorough, clinician-reviewed mental health screen as part of their care.",
+    a: "Whatever your result, the choice is yours. If you would like to talk to someone, a Tarragon doctor is available through the app, and patients who have signed up can also use a more thorough mental health screen that a clinician reviews, as part of their care.",
   },
   {
-    q: "What if I'm in crisis right now?",
-    a: "Please don't wait for a quiz result. Call one of the support lines below, reach out to someone you trust, or go to the nearest emergency department. Tarragon does not provide emergency or crisis response.",
+    q: "What if I am in crisis right now?",
+    a: "Please do not wait for a quiz result. Call one of the support lines below, reach out to someone you trust, or go to the nearest emergency department. Tarragon does not provide emergency or crisis response.",
   },
 ];
 
@@ -45,9 +45,9 @@ export default function MentalWellbeingCheckPage() {
             How are you really doing?
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Mental well-being is as real as your blood pressure, and just as worth checking on.
-            This is a free, anonymous pulse-check, not a diagnosis, just an honest starting
-            point.
+            Mental well-being matters as much as your blood pressure, and is just as worth checking.
+            This is a free, anonymous check-in. It is not a diagnosis, but it gives you an honest
+            starting point.
           </p>
         </div>
       </Section>
@@ -75,17 +75,17 @@ export default function MentalWellbeingCheckPage() {
       <Section variant="sage">
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 text-center">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            Beyond the quiz
+            Beyond the questionnaire
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            A pulse-check is a starting point, not the full picture. Once you&apos;re signed up,
+            A check-in is a starting point, not the full picture. Once you have signed up,
             Tarragon&apos;s{" "}
             <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Health Education
             </Link>{" "}
-            surfaces guidance built around you, and your care team can arrange a fuller,
-            clinician-reviewed screen as part of your ongoing care, the same way physical checks
-            are.
+            provides guidance matched to you, and your care team can arrange a fuller screen,
+            reviewed by a clinician, as part of your ongoing care, in the same way as physical
+            checks.
           </p>
         </div>
       </Section>
@@ -93,8 +93,8 @@ export default function MentalWellbeingCheckPage() {
       <Section className="pb-24">
         <CtaBand
           variant="gradient"
-          title="You don't have to figure it out alone."
-          description="A doctor on Tarragon is a message away, whenever you're ready."
+          title="You do not have to manage this alone"
+          description="A doctor on Tarragon is available by message whenever you are ready."
           primaryHref="/signup"
           primaryLabel="Talk to a doctor"
           secondaryHref={MARKETING_ROUTES.healthEducation}

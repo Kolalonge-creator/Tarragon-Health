@@ -1,5 +1,6 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
@@ -56,8 +57,6 @@ export default async function DataExchangePage() {
             <CardHeader><CardTitle>{t("exchange.ips.title", uiLanguage)}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm">{t("exchange.ips.body", uiLanguage)}</p>
-              <p className="text-sm">{t("exchange.ips.leaves_out", uiLanguage)}</p>
-              <p className="text-sm">{t("exchange.ips.not_validated", uiLanguage)}</p>
               <div className="flex flex-wrap gap-3">
                 <a href="/api/patient/ips-export" download className="inline-block min-h-11 rounded-md bg-brand-green px-4 py-3 text-sm font-medium text-white">
                   {t("exchange.ips.button", uiLanguage)}
@@ -66,6 +65,10 @@ export default async function DataExchangePage() {
                   {t("exchange.ips.preview_link", uiLanguage)}
                 </a>
               </div>
+              <Disclosure title="What this summary leaves out">
+                <p className="text-sm">{t("exchange.ips.leaves_out", uiLanguage)}</p>
+                <p className="text-sm">{t("exchange.ips.not_validated", uiLanguage)}</p>
+              </Disclosure>
             </CardContent>
           </Card>
 
@@ -93,40 +96,34 @@ export default async function DataExchangePage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>{t("exchange.received_title", uiLanguage)}</CardTitle></CardHeader>
-            <CardContent>
-              {(received?.data ?? []).length === 0 ? (
-                <p className="text-sm">{t("exchange.received_none", uiLanguage)}</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {(received?.data ?? []).map((r) => (
-                    <li key={r.id}>
-                      {fmt(r.imported_at)}: {r.fhir_resource_type} from <strong>{r.source_system}</strong>.{" "}
-                      {r.superseded_at ? t("exchange.received.replaced", uiLanguage) : t(`exchange.received.${r.disposition as "proposed" | "stored_only"}`, uiLanguage)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <Disclosure title={`${t("exchange.received_title", uiLanguage)} (${(received?.data ?? []).length})`}>
+            {(received?.data ?? []).length === 0 ? (
+              <p className="text-sm">{t("exchange.received_none", uiLanguage)}</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {(received?.data ?? []).map((r) => (
+                  <li key={r.id}>
+                    {fmt(r.imported_at)}: {r.fhir_resource_type} from <strong>{r.source_system}</strong>.{" "}
+                    {r.superseded_at ? t("exchange.received.replaced", uiLanguage) : t(`exchange.received.${r.disposition as "proposed" | "stored_only"}`, uiLanguage)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Disclosure>
 
-          <Card>
-            <CardHeader><CardTitle>{t("exchange.copies_title", uiLanguage)}</CardTitle></CardHeader>
-            <CardContent>
-              {(copies?.data ?? []).length === 0 ? (
-                <p className="text-sm">{t("exchange.copies_none", uiLanguage)}</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {(copies?.data ?? []).map((c) => (
-                    <li key={c.id}>
-                      {fmt(c.created_at)}: {t(`exchange.copy.${c.requester_kind as "self" | "supporter" | "staff"}`, uiLanguage)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <Disclosure title={`${t("exchange.copies_title", uiLanguage)} (${(copies?.data ?? []).length})`}>
+            {(copies?.data ?? []).length === 0 ? (
+              <p className="text-sm">{t("exchange.copies_none", uiLanguage)}</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {(copies?.data ?? []).map((c) => (
+                  <li key={c.id}>
+                    {fmt(c.created_at)}: {t(`exchange.copy.${c.requester_kind as "self" | "supporter" | "staff"}`, uiLanguage)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Disclosure>
         </>
       )}
     </div>

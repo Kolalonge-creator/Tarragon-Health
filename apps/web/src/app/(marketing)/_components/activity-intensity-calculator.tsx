@@ -137,7 +137,7 @@ export function ActivityIntensityCalculator() {
 
         <div className="mt-4 border-t border-deep-forest/10 pt-4">
           <p className="text-xs font-medium text-charcoal-ink/70">
-            Progress towards WHO&apos;s 150-minutes-a-week moderate-activity guideline
+            Progress towards Who is 150-minutes-a-week moderate-activity guideline
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
             <div
@@ -147,7 +147,7 @@ export function ActivityIntensityCalculator() {
           </div>
           <p className="mt-2 text-xs text-charcoal-ink/60">
             {activity.intensity === "light"
-              ? "Light activity is great for recovery and daily movement, but doesn't count towards this particular guideline."
+              ? "Light activity is great for recovery and daily movement, but does not count towards this particular guideline."
               : `This session alone is about ${progressPct}% of the weekly target${activity.intensity === "vigorous" ? " (vigorous minutes count double)" : ""}.`}
           </p>
         </div>
@@ -160,8 +160,8 @@ export function ActivityIntensityCalculator() {
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate from average energy-expenditure tables, not a personalised
         prescription. Actual calories burned vary with fitness level, terrain, and effort. If
-        you&apos;re starting a new routine and live with a heart condition, high blood pressure, or
-        another chronic condition, it&apos;s worth checking with your doctor first.
+        you are starting a new routine and live with a heart condition, high blood pressure, or
+        another chronic condition, it is worth checking with a doctor first.
       </p>
 
       <div className="mt-5 flex flex-wrap gap-3 border-t border-charcoal-ink/10 pt-5">

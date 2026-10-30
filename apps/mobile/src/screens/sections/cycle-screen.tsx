@@ -24,6 +24,7 @@ import {
   type CycleConfidence,
   type ReproductiveLifeStage,
 } from "@/lib/cycle-prediction";
+import { cycleHero, showCycleHero } from "@tarragon/shared";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
@@ -220,6 +221,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     await refresh(next);
   }
 
+  const [lifeStage, setLifeStage] = useState<ReproductiveLifeStage>("menstruating");
   const refresh = useCallback(async (modeOverride?: boolean) => {
     setActionError(null);
     // Same query shape as web's CyclePage: read the patient's self-reported
@@ -243,6 +245,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
     setError(null);
     // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
     setPlanningMode(mode);
+    setLifeStage(stage);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
   }, [patientId]);
@@ -302,6 +305,9 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
       </View>
 
       <FlagsCard flags={prediction.flags} onNavigate={onNavigate} />
+
+      {/* The countdown, from the same prediction as everything below, only while periods are expected and nothing is urgent. */}
+      {showCycleHero(lifeStage, prediction) ? <CycleHeroCard prediction={prediction} /> : null}
 
       {/* ---------- Where you are now ---------- */}
       <Card style={{ gap: 10 }}>
@@ -742,6 +748,25 @@ function DayLogForm({
 }
 
 /** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+function CycleHeroCard({ prediction }: { prediction: Parameters<typeof cycleHero>[0] }) {
+  const hero = cycleHero(prediction);
+  return (
+    <Card style={{ gap: 4 }}>
+      <AppText variant="caption" tone="textMuted">Period countdown</AppText>
+      {hero.value === null ? (
+        <MutedText>{hero.caption}</MutedText>
+      ) : (
+        <>
+          <AppText variant="stat" accessibilityRole="header">
+            {hero.unit ? `${hero.value} ${hero.unit}` : String(hero.value)}
+          </AppText>
+          <MutedText>{hero.caption}</MutedText>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export function CycleScreen(props: CycleScreenProps) {
   return (
     <FeatureConsentGate dataType="reproductive" title="Your cycle">

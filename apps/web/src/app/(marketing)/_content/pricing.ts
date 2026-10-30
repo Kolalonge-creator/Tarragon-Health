@@ -114,14 +114,14 @@ export const PRICING_LABELS: Record<
   // own retail price, which makes any margin a markup on a number the patient
   // can look up. Do not restore the "we will bill for this later" wording.
   "YOU PAY THE LAB": {
-    title: "You pay the lab",
+    title: "You pay the laboratory",
     description:
       "We work out what is needed and write the request. You take it to whichever laboratory or pharmacy you choose and pay them directly, at their price. Tarragon adds nothing and takes no cut. We show you roughly what a test costs at a major private laboratory so you can compare before you go; smaller laboratories are often cheaper for the same test.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
     title: "Free elsewhere",
-    description: "Already free, usually from a government programme; we just remind and direct you",
+    description: "Already free, usually through a government programme. We remind you and direct you to where it is offered.",
     className: "bg-soft-sage text-charcoal-ink",
   },
   "PAID SERVICE": {
@@ -166,24 +166,24 @@ export type FreeFeatureGroup = {
 export const FREE_FEATURES: FreeFeatureGroup[] = [
   {
     id: "tracking",
-    title: "Track everything, on any device",
-    body: "Log your own numbers and keep them in one record that stays yours. Every reading is checked against care protocols whatever you pay, and a dangerous one gets you clear guidance and a specific next step immediately.",
+    title: "Record your health readings on any device",
+    body: "Record your own readings and keep them in one health record that belongs to you. Every reading is checked against care protocols whatever you pay, and a dangerous reading immediately gives you clear guidance and a specific next step.",
     items: [
       "Blood pressure, blood sugar, weight, temperature and oxygen logging",
       "Medication reminders, dose tracking and adherence check-ins",
-      "Connect a wearable, or pair a Bluetooth BP cuff or glucometer",
-      "Your full history, charted, with trends over time",
+      "Connect a wearable, or pair a Bluetooth blood pressure cuff or glucometer",
+      "Your full history, shown as charts, with trends over time",
       "Downloadable Health Passport PDF",
-      "Emergency safety net: immediate guidance, your emergency contact notified, and a check-in afterwards",
+      "Emergency safety net: immediate guidance, notification of your emergency contact, and a check-in afterwards",
     ],
   },
   {
     id: "prevention",
-    title: "Know what to check, and when",
-    body: "A screening and vaccination calendar built around your age, sex and history, so you find out what is worth doing without paying anyone to tell you.",
+    title: "Know which checks you need, and when",
+    body: "A screening and vaccination calendar built around your age, sex and medical history, so you can see which checks are worthwhile without paying anyone to tell you.",
     items: [
       "Personal screening calendar and vaccination schedule",
-      "Reminders when a check or a dose comes due",
+      "Reminders when a check or a vaccine dose is due",
       "We work out which tests you need and write the request",
       "Results tracking over time",
       "Your children's vaccination schedules and verified certificates",
@@ -193,7 +193,7 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
   {
     id: "learning",
     title: "Understand your own health",
-    body: "The whole education library, not a teaser of it: a couple of hundred plain-language articles across 14 categories, with short knowledge checks.",
+    body: "The complete education library, not a sample of it: around two hundred plain-language articles in 14 categories, each with a short knowledge check.",
     items: [
       "Full health education library",
       "Personalised reading for your own conditions",
@@ -203,12 +203,12 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
   },
   {
     id: "lifestyle",
-    title: "Diet, activity and weight",
-    body: "The whole lifestyle programme, which used to sit behind the most expensive plan. None of it needs a doctor's time, so none of it costs you anything.",
+    title: "Nutrition, activity and weight",
+    body: "The complete lifestyle programme, which was previously part of the most expensive plan. None of it requires a doctor's time, so none of it is charged.",
     items: [
       "Weight tracking against a goal you set",
       "Steps and activity, logged or synced from a wearable",
-      "Meal and nutrition logging, with photo estimation",
+      "Meal and nutrition records, with estimates from a photo",
       "Structured diet and exercise tracks",
       "Your quarterly progress report",
     ],
@@ -216,19 +216,19 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
   {
     id: "coordination",
     title: "Keep your care organised",
-    body: "Requests, refills and the people around your care. Coordination is software, so it is free; what a doctor personally does is on the paid list below.",
+    body: "Test requests, medicine refills and the people involved in your care. Coordination is handled by software, so it is free. What a doctor does personally is listed under the paid services below.",
     items: [
       "Lab test requests written for you, to take to any laboratory",
       "Refill-date tracking and reminders, for any pharmacy",
       "Upload any result and keep it on your record",
-      "Name a next of kin, and manage a child's or a relative's record",
+      "Name a next of kin, and manage the record of a child or relative",
       "The chronic programme, self-monitoring track",
     ],
   },
 ];
 
 export const FREE_FEATURES_NOTE =
-  "All of the above is free, with no time limit, no card required, and nothing that turns into a charge on its own. You pay laboratories and pharmacies directly for tests, medicines and vaccines, at their price. Tarragon takes no cut of what they charge you.";
+  "All of the above is free, with no time limit, no card required, and nothing that becomes a charge on its own. You pay laboratories and pharmacies directly for tests, medicines and vaccines, at their price. Tarragon takes no share of what they charge you.";
 
 /** Repointed 2026-09-10: a voucher buys any paid service. The 12-week pack it
  * used to point at is retired and unbundled, so the natural thing to sponsor is
@@ -239,32 +239,32 @@ export const CARE_VOUCHER_INTRO =
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
-    title: "Someone can give it to you",
-    body: "A family member, in Nigeria or abroad, can give you a year of Membership. They see that they gave it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
+    title: "Someone can pay for it on your behalf",
+    body: "A family member, in Nigeria or abroad, can give you a year of Membership. They can see that they gave it and, later, that it was used. They cannot see anything about your results. You pay for your tests at the laboratory, like any other patient.",
   },
   {
-    title: "You choose to accept it",
-    body: "A gift waits for you to accept it. If you decline, or do not answer in time, the person who gave it is refunded. Nothing about a gift ever bills you, then or later.",
+    title: "You decide whether to accept it",
+    body: "A gift waits until you accept it. If you decline, or do not reply in time, the person who gave it is refunded. A gift never results in a charge to you, now or later.",
   },
   {
-    title: "Refer a friend",
-    body: "Share your referral link from your dashboard. Once your friend becomes a Member, you both get a reward voucher towards your care.",
+    title: "Refer someone you know",
+    body: "Share your referral link from your dashboard. Once the person you referred becomes a Member, you both receive a reward voucher towards your care.",
   },
 ];
 
 export const HMO_COMPARE_INTRO =
-  "A common question: “Why pay for Tarragon when I already have a basic HMO plan?” Because they do different jobs, and they work best together.";
+  "A common question is why someone with a basic HMO plan would use Tarragon as well. The two do different jobs, and they work best together.";
 
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
-  { need: "Checks your BP and blood sugar readings against care protocols every time you log one, even when you feel fine", hmo: false, tarragon: true },
-  { need: "Spots a worrying pattern in your numbers and escalates it before it becomes an emergency", hmo: false, tarragon: true },
-  { need: "Reminds you when a test or refill is due, hands you a request to take to any lab or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
-  { need: "Keeps your whole health story in one record your family can see (with your consent)", hmo: false, tarragon: true },
+  { need: "Checks your blood pressure and blood sugar readings against care protocols every time you record one, even when you feel well", hmo: false, tarragon: true },
+  { need: "Notices a worrying pattern in your readings and refers it to a doctor before it becomes an emergency", hmo: false, tarragon: true },
+  { need: "Reminds you when a test or refill is due, gives you a request to take to any laboratory or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
+  { need: "Keeps your whole health history in one record that your family can see (with your consent)", hmo: false, tarragon: true },
 ];
 
 export const HMO_COMPARE_NOTE =
-  "Keep your HMO: you'll still need it the day you're admitted. Tarragon is the layer that watches your numbers between hospital visits so that day comes later, or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can talk to us directly.";
+  "Keep your HMO, because you will still need it if you are admitted to hospital. Tarragon monitors your readings between hospital visits, so that day may come later or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can contact us directly.";
 
 /**
  * "Tarragon vs a one-off checkup": the other comparison people actually make
@@ -276,29 +276,29 @@ export const HMO_COMPARE_NOTE =
  * before and after the result, not who is cheaper.
  */
 export const CHECKUP_COMPARE_INTRO =
-  "A one-off checkup and Tarragon both send you to a laboratory you choose, and you pay that laboratory directly, at their price. What's different is everything around the result.";
+  "A one-off checkup and Tarragon both send you to a laboratory you choose, and you pay that laboratory directly, at their price. The difference is what happens before and after the result.";
 
 export const CHECKUP_COMPARE_ROWS: { need: string; oneOff: boolean; tarragon: boolean }[] = [
   { need: "Gives you a written result", oneOff: true, tarragon: true },
-  { need: "Explains what the numbers actually mean, in plain language", oneOff: false, tarragon: true },
+  { need: "Explains what the numbers mean, in plain language", oneOff: false, tarragon: true },
   { need: "A doctor follows up if something comes back abnormal", oneOff: false, tarragon: true },
-  { need: "Keeps last time's result so you can see the trend, not just today's number", oneOff: false, tarragon: true },
-  { need: "Tells you when your next check is actually due, and why", oneOff: false, tarragon: true },
-  { need: "One record your family can see, with your consent", oneOff: false, tarragon: true },
+  { need: "Keeps your previous results, so you can see the trend and not only the latest number", oneOff: false, tarragon: true },
+  { need: "Tells you when your next check is due, and why", oneOff: false, tarragon: true },
+  { need: "One record that your family can see, with your consent", oneOff: false, tarragon: true },
 ];
 
 export const CHECKUP_COMPARE_NOTE =
-  "Nothing here is a claim that a one-off checkup is a bad idea; it's a fine way to get a snapshot. Tarragon is for when you want that snapshot to turn into an ongoing picture, with someone actually reading it and following up.";
+  "A one-off checkup is a reasonable way to get a snapshot of your health. Tarragon is for people who want that snapshot to become an ongoing picture, with a clinician reading each result and following up.";
 
 export const ALWAYS_FREE: PricingLineItem & { description: string } = {
   feature: "HPV vaccine for girls aged 9–14",
   label: "FREE ELSEWHERE",
   description:
-    "Free at every government Primary Health Care (PHC) centre in Nigeria, as part of the national immunisation programme. Tarragon does not charge anything for this; we simply send a reminder and tell you the nearest PHC centre offering it.",
+    "Free at every government Primary Health Care (PHC) centre in Nigeria, as part of the national immunisation programme. Tarragon does not charge for this. We send a reminder and tell you the nearest PHC centre that offers it.",
 };
 
 export const ALWAYS_FREE_NOTE =
-  "The education library, Health Passport, and 90-Day Health Reset are free to every patient, for as long as you use Tarragon, with no expiry date.";
+  "The education library, Health Passport and 90-Day Health Reset are free to every patient for as long as you use Tarragon, with no expiry date.";
 
 /**
  * "Try before you commit" is now structural rather than a promotion: the app
@@ -313,11 +313,11 @@ export const FREE_TRIAL_INTRO =
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
-    title: "Start with your own numbers",
-    body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous one gets you immediate guidance.",
+    title: "Start with your own readings",
+    body: "Record your blood pressure, blood sugar or weight and receive your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous reading immediately gives you guidance.",
   },
   {
-    title: `Join ${P} when you want a doctor`,
+    title: `Join ${P} when you want to see a doctor`,
     body: `If you want your care team to look at your numbers with you every month, and a yearly blood test, join ${P}. There is no plan to join first, and nothing carries on charging you afterwards.`,
   },
 ];
@@ -332,24 +332,24 @@ export const FREE_TRIAL_TERMS: string[] = freeTrialTerms(false);
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your care team tells you (or you ask)",
-    body: "A test, refill, or vaccine is due.",
+    title: "Your care team tells you, or you ask",
+    body: "A test, refill or vaccine is due.",
   },
   {
     title: `For ${P}, you see the exact price`,
-    body: "In the app, before you are ever charged. No estimates, no “roughly.” A test, refill, or vaccine is not something Tarragon charges for at all, so there is no price of ours to show; see the next step.",
+    body: "In the app, before you are charged. The price is exact, not an estimate. Tarragon does not charge for a test, refill or vaccine, so there is no Tarragon price to show for those; see the next step.",
   },
   {
-    title: "You confirm and pay, or take a request to the provider",
+    title: "You confirm and pay, or take the request to the provider",
     body: "For Membership: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
-    body: "It names exactly which tests to run and why, so the laboratory knows what to do. You choose where to go and when.",
+    body: "It names exactly which tests to run and why, so the laboratory knows what is needed. You choose where to go and when.",
   },
   {
     title: "Your result or delivery comes back in the app",
-    body: "Explained in plain language, with an alert so you do not miss it. If anything needs attention, your care team calls you; this does not create any new charge.",
+    body: "Your result is explained in plain language, and you receive an alert so that you do not miss it. If anything needs attention, your care team calls you. This does not create a new charge.",
   },
 ];
 
@@ -363,4 +363,4 @@ export const OUR_UNDERTAKINGS: string[] = [
 ];
 
 export const EMPLOYER_HMO_NOTE =
-  "If you're looking to cover staff, members, or a population, corporate wellness plans and HMO partnerships are priced differently, based on the size and needs of your organisation. These aren't self-service plans; speak to our team directly and we'll build a clear, transparent quote for you, with the same no-hidden-cost approach you see above.";
+  "If you want to cover staff, members or a wider population, corporate wellness plans and HMO partnerships are priced differently, according to the size and needs of your organisation. These are not self-service plans. Speak to our team and we will prepare a clear quote for you, with the same approach of no hidden costs described above.";

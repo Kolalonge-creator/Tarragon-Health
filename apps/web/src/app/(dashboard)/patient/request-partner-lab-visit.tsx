@@ -66,7 +66,7 @@ export function RequestPartnerLabVisit({
         onClick={() => setExpanded(true)}
         className="text-xs font-medium text-deep-forest dark:text-brand-green-bright hover:underline"
       >
-        Prefer to book at a specific lab instead?
+        Would you prefer to book at a specific laboratory?
       </button>
     );
   }
@@ -111,7 +111,7 @@ export function RequestPartnerLabVisit({
       )}
       {requestVisit.isError && (
         <p className="text-xs text-red-600 dark:text-red-300">
-          Could not set that up just now. Please try again.
+          We could not set that up just now. Please try again.
         </p>
       )}
       <div className="flex items-center gap-2">

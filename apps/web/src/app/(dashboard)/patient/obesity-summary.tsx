@@ -15,9 +15,9 @@ import { formatPatientDate } from "@/lib/format-date";
  */
 const STATUS_COPY: Record<string, string> = {
   preclinical:
-    "Your care team sees this as a risk state to get ahead of, with steady lifestyle support as the focus to keep you well.",
+    "Your care team considers this a risk that is best addressed early. The focus is steady lifestyle support to help you stay well.",
   clinical:
-    "Your care team is managing this as an ongoing condition, with your lifestyle programme at the centre of your plan.",
+    "Your care team is treating this as an ongoing condition. Your lifestyle programme is the main part of your care plan.",
 };
 
 export async function ObesitySummary({
@@ -59,8 +59,7 @@ export async function ObesitySummary({
           )}
         </div>
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-          Any questions about this are welcome. Your care team is here to support you, one small step at a
-          time.
+          You are welcome to ask your care team any questions about this. They will support you at a pace that suits you.
         </p>
       </CardContent>
     </Card>

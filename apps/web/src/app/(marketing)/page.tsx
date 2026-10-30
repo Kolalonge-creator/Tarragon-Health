@@ -71,18 +71,18 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
     {
       question: "Is Tarragon really free?",
       answer: ladder
-        ? `Yes. The app is free, with no time limit and no card. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel.`
-        : `Yes. The app is free, with no time limit and no card. ${paidProductName()} is optional: ₦${price} a year, and it includes a yearly blood test collected for you and a video call with your care team every month. Anyone can also request the annual test bundle and pay the laboratory directly.`,
+        ? `Yes. The app is free, with no time limit and no payment card needed. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel (a set of blood tests).`
+        : `Yes. The app is free, with no time limit and no payment card needed. ${paidProductName()} is optional: ₦${price} a year, and it includes a yearly blood test collected for you and a video call with your care team every month. Anyone can also request the annual test bundle and pay the laboratory directly.`,
     },
     {
       question: "Do I need a diagnosis to join?",
       answer:
-        "No. Many people join to stay well: you get a screening and vaccination calendar built for you and a yearly health check. If you do have a condition, we follow it between your doctor visits.",
+        "No. Many people join to stay well. You receive a screening and vaccination calendar based on your age and history, and a yearly health check. If you do have a condition, we follow it between your appointments.",
     },
     {
       question: "What happens if a reading is dangerous?",
       answer:
-        "You get clear guidance and a specific next step straight away. If a dangerous reading goes unacknowledged, the person you named as next of kin is contacted too.",
+        "You receive clear guidance and a specific next step straight away. If you do not acknowledge a dangerous reading, the person you named as your next of kin is contacted as well.",
     },
     {
       question: ladder ? "Does Membership renew by itself?" : `Does ${paidProductName()} renew by itself?`,
@@ -178,8 +178,8 @@ export default async function MarketingHomePage() {
       <Section variant="sage">
         <StoryPanel
           eyebrow="The gap"
-          title="You were fine when you left the hospital. Then what?"
-          description="You got a diagnosis, a prescription, and a date to come back in three months. In between, readings drift, drugs run out, and the test you were told to do slips. Nobody is watching, so nothing gets caught early."
+          title="Between hospital visits, nobody is watching your health"
+          description="After a diagnosis you usually leave with a prescription and an appointment in three months. In between, your readings can drift, your medication can run out, and a test you were asked to do can be forgotten. Because nobody is watching, problems are often found late."
           media={homepage.problem}
         />
       </Section>
@@ -189,8 +189,8 @@ export default async function MarketingHomePage() {
       <Section>
         <SectionHeading
           eyebrow="How it works"
-          title="Five minutes to set up. Then we keep watch."
-          description="You log what is easy to log. Every reading is checked against your care protocols, you get a nudge when something is due, and a doctor is brought in when a result needs one."
+          title="Setting up takes about five minutes, then we keep watch"
+          description="You record the readings that are easy for you to take. Each reading is checked against your care protocols, you receive a reminder when something is due, and a doctor reviews your case when a result needs it."
         />
         <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
           <StepsExplorer
@@ -211,9 +211,9 @@ export default async function MarketingHomePage() {
             the native apps are "coming". Do not add store badges until a
             listing is confirmed live. */}
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Tarragon works in any phone browser. Add it to your home screen and it opens like an app,
-          with the same secure record and your care team in your pocket. Native apps for iPhone and
-          Android are coming.{" "}
+          Tarragon works in any phone browser. If you add it to your home screen, it opens like an app
+          and gives you the same secure record and access to your care team. Native apps for iPhone
+          and Android are planned.{" "}
           <Link href={MARKETING_ROUTES.services} className="font-medium text-brand-green hover:underline">
             See the full walkthrough
           </Link>
@@ -227,8 +227,8 @@ export default async function MarketingHomePage() {
           title={ladderPrices ? "Free, Membership or Membership Plus" : `Free to start. ${paidProductName()} when you want a doctor involved.`}
           description={
             ladderPrices
-              ? "Everything you can do yourself costs nothing. Membership and Membership Plus are a year of care with your care team. The one difference is the yearly blood panel."
-              : "Two plans, nothing in between. Everything you can do yourself costs nothing."
+              ? "Everything you can do yourself is free. Membership and Membership Plus give you a year of care with your care team. The only difference between them is the yearly blood panel."
+              : "There are two plans. Everything you can do yourself is free."
           }
         />
         {ladderPrices ? (
@@ -242,8 +242,8 @@ export default async function MarketingHomePage() {
       <Section>
         <SectionHeading
           eyebrow="Start where you are"
-          title="Two ways in, one record"
-          description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
+          title="Two ways to start, one health record"
+          description="Tarragon is for people managing a long-term condition, and equally for people who do not have one and want to stay well."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
           <Card
@@ -252,14 +252,14 @@ export default async function MarketingHomePage() {
           >
             <Link href={MARKETING_ROUTES.prevention} className="group block p-8 focus-visible:outline-none">
               <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I&apos;m healthy
+                I am healthy
               </p>
               <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Stay that way <span aria-hidden>→</span>
+                Stay well <span aria-hidden>→</span>
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                A screening and vaccination calendar built for you, plus a yearly health check. You
-                don&apos;t need a diagnosis to belong here.
+                A screening and vaccination calendar based on your age and history, plus a yearly
+                health check. You do not need a diagnosis to join.
               </p>
             </Link>
           </Card>
@@ -269,13 +269,13 @@ export default async function MarketingHomePage() {
           >
             <Link href={MARKETING_ROUTES.chronicCare} className="group block p-8 focus-visible:outline-none">
               <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I&apos;m managing a condition
+                I am managing a condition
               </p>
               <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Get followed up properly <span aria-hidden>→</span>
+                Get regular follow-up <span aria-hidden>→</span>
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                Monitored between visits, and escalated to a doctor when a result needs one.
+                Your readings are monitored between visits, and a doctor reviews your case when a result needs it.
               </p>
             </Link>
           </Card>
@@ -323,7 +323,7 @@ export default async function MarketingHomePage() {
       <Section variant="navy">
         <SectionHeading
           eyebrow="Why people trust Tarragon"
-          title="Built to be accountable to you"
+          title="Designed so that we are accountable to you"
           invert
           size="large"
         />
@@ -338,7 +338,7 @@ export default async function MarketingHomePage() {
 
       {/* 10. FAQ. */}
       <Section>
-        <SectionHeading eyebrow="Questions" title="Before you sign up" />
+        <SectionHeading eyebrow="Questions" title="Questions before you sign up" />
         <FaqAccordion items={faq} variant="minimal" />
         <p className="mt-6 text-center text-sm">
           <Link href={MARKETING_ROUTES.faq} className="font-medium text-brand-green hover:underline">
@@ -356,7 +356,7 @@ export default async function MarketingHomePage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Get started today, for yourself or someone you love."
+          description="Get started today, for yourself or for someone you care for."
           primaryHref="/signup"
           primaryLabel="Get started"
         />

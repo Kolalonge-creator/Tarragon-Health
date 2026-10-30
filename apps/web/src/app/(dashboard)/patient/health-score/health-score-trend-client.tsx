@@ -35,8 +35,9 @@ const RISK_LEVEL_BADGE: Record<
   very_high: { variant: "red", label: "Needs urgent attention" },
 };
 
-function formatDate(computedAt: string): string {
-  return new Date(computedAt).toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+/** Day and month on the Lagos calendar, so scores computed in the same month do not all read the same on the axis. */
+export function chartDateLabel(computedAt: string): string {
+  return formatPatientDate(computedAt, { day: "numeric", month: "short" });
 }
 
 export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
@@ -51,7 +52,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
   const scoredHistory = (history ?? []).filter(
     (h): h is { score: number; inputs: typeof h.inputs; computed_at: string } => h.score !== null,
   );
-  const points = scoredHistory.map((h) => ({ date: formatDate(h.computed_at), score: h.score }));
+  const points = scoredHistory.map((h) => ({ date: chartDateLabel(h.computed_at), score: h.score }));
 
   const trend = scoredHistory.length >= 2 ? computeHealthScoreTrend(scoredHistory) : null;
   const trendLine = trend ? describeHealthScoreTrend(trend) : null;
@@ -103,12 +104,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
             </p>
           )}
 
-          {trendLine && (
-            <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
-              {trendLine}
-            </p>
-          )}
-
+          {/* The trend sentence is the hero's caption; it is not repeated here. */}
           {points.length >= 2 && (
             <ChartContainer config={SCORE_CONFIG}>
               <LineChart data={points}>
@@ -170,7 +166,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
             {priorityTip && (
               <div className="space-y-1 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
                 <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-                  Start here for the biggest lift
+                  Start here for the largest improvement
                 </p>
                 <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
                   {priorityTip.tip}

@@ -182,7 +182,16 @@ export default async function FinancialProfilePage() {
         ]}
       />
 
+      {(myServices.length === 0 || recentFailures.length === 0) && (
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+          {[myServices.length === 0 ? "No services yet." : null, recentFailures.length === 0 ? "No recent payment problems." : null]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {myServices.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle as="h2">Your services</CardTitle>
@@ -224,7 +233,9 @@ export default async function FinancialProfilePage() {
             )}
           </CardContent>
         </Card>
+        )}
 
+        {recentFailures.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle as="h2">Recent payment issues</CardTitle>
@@ -247,6 +258,7 @@ export default async function FinancialProfilePage() {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
 
       {pendingPurchases.length > 0 && (

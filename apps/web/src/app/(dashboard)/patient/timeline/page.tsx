@@ -21,7 +21,7 @@ export default async function PatientTimelinePage() {
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Activity timeline"
         icon={NAV_ICON.audit}
-        description="Every lab result, medication change, screening, and care-team update on your record, grouped by month."
+        description="Every laboratory result, medication change, screening and care team update on your record, grouped by month."
       />
       <TimelineClient patientId={subjectId} allowNotes={subjectId === profile.id} />
     </div>
