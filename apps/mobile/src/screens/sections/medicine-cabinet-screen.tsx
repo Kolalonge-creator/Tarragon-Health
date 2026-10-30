@@ -84,7 +84,7 @@ import {
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
-import { Button, EmptyState, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Button, Disclosure, EmptyState, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { PharmacyOrdersSection } from "@/screens/sections/pharmacy-orders-section";
 
@@ -1507,9 +1507,7 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
   const verdict = result ? VERDICT_COPY[result.verdict] : null;
 
   return (
-    <View style={{ gap: 10 }}>
-      <SectionLabel>Check a medicine pack</SectionLabel>
-      <Card style={{ gap: 10 }}>
+    <Disclosure title="Check a medicine pack" hint="Compare a pack you bought with what you were prescribed">
         <MutedText>
           Photograph a pack you have just bought for your own reference, then type the name and strength printed on it. We will compare it
           with what you were prescribed.
@@ -1556,8 +1554,7 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
             </View>
           </View>
         ) : null}
-      </Card>
-    </View>
+    </Disclosure>
   );
 }
 
