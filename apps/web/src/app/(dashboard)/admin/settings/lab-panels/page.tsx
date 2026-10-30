@@ -13,7 +13,7 @@ export default async function AdminLabPanelsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Lab ranges and release policy" description="Read only. The Chief Medical Officer signs these." />
-      {loadFailed ? <p role="alert" className="text-sm text-red-700">The lab ranges could not be loaded.</p> : <LabPanelsView signoff={signoff} panels={panels} canSign={false} />}
+      {loadFailed ? <p role="alert" className="text-sm text-red-700">The laboratory ranges could not be loaded.</p> : <LabPanelsView signoff={signoff} panels={panels} canSign={false} />}
     </div>
   );
 }

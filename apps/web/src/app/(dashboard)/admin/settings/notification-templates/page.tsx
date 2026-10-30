@@ -18,7 +18,7 @@ export default async function NotificationTemplatesSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Notification templates"
-        description="The catalogue of every notification the platform sends: what it's for, how urgent, which channels, and whether it needs Clinical Director sign-off."
+        description="The catalogue of every notification the platform sends: what it is for, how urgent, which channels, and whether it needs Clinical Director sign-off."
       />
       <NotificationTemplatesManager />
     </div>
