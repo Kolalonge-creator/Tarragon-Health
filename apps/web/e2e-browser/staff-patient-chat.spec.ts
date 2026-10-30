@@ -134,7 +134,7 @@ test.describe("staff to patient chat", () => {
   // A staff member starts a conversation with a file and a button on the very first message. The thread is created first, then the
   // first message's id is looked up (first_care_message_id, no second thread read), then the button and the file are attached.
   test("a new conversation can carry a file and a button on its first message", async ({ browser }) => {
-    const second = await createJourneyPatient(`${runId}-attach`);
+    const second = await createJourneyPatient(String(Number(runId) + 1));
     try {
       psql(`update public.profiles set full_name = '[e2e-test] Attach Patient' where id = '${second.userId}'`);
       const staffContext = await browser.newContext({ storageState: staffState });
