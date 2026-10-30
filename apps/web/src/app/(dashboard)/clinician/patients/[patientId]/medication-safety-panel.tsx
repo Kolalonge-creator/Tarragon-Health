@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
 import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+import { PregnancyUnknownNotice } from "./pregnancy-unknown-notice";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
 const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
@@ -42,7 +43,7 @@ const CKD_RISK_VARIANT: Record<string, "red" | "amber" | "grey" | "green"> = {
  */
 export async function MedicationSafetyPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable, medicationsUnavailable } =
+  const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies, allergiesUnavailable, medicationsUnavailable, pregnancyUnknown } =
     await loadMedicationSafety(supabase, patientId);
   const { pregnancyCheckNote } = report;
 
@@ -184,6 +185,8 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
             {report.renalCheckSkipped}
           </p>
         ) : null}
+
+        {pregnancyUnknown ? <PregnancyUnknownNotice /> : null}
 
         {pregnancyCheckNote && medicationCount > 0 ? (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">

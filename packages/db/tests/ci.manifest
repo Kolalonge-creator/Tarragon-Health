@@ -1710,3 +1710,5 @@ care_team_reply_time.sql
 staff_chat_attachments_reminders_owner_actions.sql
 # OQ-555 / OQ-558: the clinician Women's Health record (pregnancy, antenatal, postnatal, breast, fertility) is read through one audited, tied function with no reason typed; every opening and every refusal is audited (break-glass and an emergency grant are refused); a direct select of the four reproductive tables returns nothing to an untied clinician, coordinator, caregiver or break-glass holder; the cycle report still accepts a reason but needs none. Sabotage: audit writer no-op, tie check opened, audit writer raising (read must fail closed).
 womens_health_record_audited_tied_staff_reads.sql
+# OQ-555 follow-up: public.pregnancy_safety_status gives a three-state answer for safety checks. The patient and a tied clinician get the real answer; an untied clinician, a break-glass holder, a coordinator, an admin, a sponsor, a caregiver with a reproductive grant, another organisation's clinician and another patient all get 'unknown', never 'not_pregnant'; no session refused; anon cannot execute. Sabotage: tie check opened, refusal answering not_pregnant.
+pregnancy_safety_status.sql

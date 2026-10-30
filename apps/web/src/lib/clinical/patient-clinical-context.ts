@@ -13,6 +13,7 @@ import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
 import { readPatientMedicationsAudited } from "./medications-audited";
 import { readPatientVitalsAudited } from "./vitals-audited";
 import { readAuditedSection } from "./audited-chart";
+import { isPossiblyPregnant, readPregnancySafety } from "./pregnancy-status";
 import {
   medicationEffectivenessVitalType,
   computeMedicationEffectiveness,
@@ -169,6 +170,8 @@ export interface MedicationSafetyView {
    * medicines and means "the check did not run", never "no findings": the panel must say so.
    */
   medicationsUnavailable: "denied" | "error" | null;
+  /** True when pregnancy status could not be read. The safety check then assumed "possibly pregnant" and the panel must say so. */
+  pregnancyUnknown: boolean;
 }
 
 /**
@@ -182,21 +185,14 @@ export async function loadMedicationSafety(
 ): Promise<MedicationSafetyView> {
   const context = await loadPatientClinicalContext(supabase, patientId);
 
-  const [medicationsResult, allergyResult, { data: pregnancy }] = await Promise.all([
+  const [medicationsResult, allergyResult, pregnancySafety] = await Promise.all([
     // INV-10: staff read medications through the audited, tie-gated read, not the table.
     readPatientMedicationsAudited(supabase, patientId, { active: true }),
     // INV-10: staff read allergies through the audited chart function, not the table.
     readAuditedSection(supabase, patientId, "allergies"),
-    // The same `patient_pregnancy` row AddMedicationForm already reads
-    // (clinician/patients/[patientId]/page.tsx) to drive the diabetes-ladder
-    // pregnancy warnings — reused here rather than reproductive_health_profiles
-    // (a separate, self-report-only life-stage nudge) so the two medication
-    // safety surfaces can never disagree about a patient's pregnancy status.
-    supabase
-      .from("patient_pregnancy")
-      .select("is_pregnant")
-      .eq("patient_id", patientId)
-      .maybeSingle(),
+    // OQ-555 follow-up: three states (pregnant, not_pregnant, unknown) from the database, the same answer AddMedicationForm gets
+    // (clinician/patients/[patientId]/page.tsx), so the two medication safety surfaces can never disagree. A status that could not be read is NOT "not pregnant".
+    readPregnancySafety(supabase, patientId),
   ]);
 
   const medicationsUnavailable = medicationsResult.status === "ok" ? null : medicationsResult.status;
@@ -222,13 +218,9 @@ export async function loadMedicationSafety(
       source: a.source,
     }));
 
-  // Matches the existing `?? false` default everywhere else this table is
-  // read (clinician/patients/[patientId]/page.tsx, patient/pregnancy-status.tsx)
-  // rather than treating a missing row as "unknown" — a patient never having
-  // opened the pregnancy form is already, elsewhere on this platform, treated
-  // as not pregnant, and diverging from that here would let this panel and
-  // AddMedicationForm's own inline pregnancy warning disagree for the same patient.
-  const pregnant = pregnancy?.is_pregnant ?? false;
+  // Unknown takes the cautious branch: the engine is told "possibly pregnant" so pregnancy-related warnings are not silenced, and the view says why.
+  const pregnancyUnknown = pregnancySafety.status === "unknown";
+  const pregnant = isPossiblyPregnant(pregnancySafety.status);
 
   const report = assessMedicationSafety(inputs, {
     egfr: context.egfr?.egfr ?? null,
@@ -248,6 +240,7 @@ export async function loadMedicationSafety(
     allergies,
     allergiesUnavailable,
     medicationsUnavailable,
+    pregnancyUnknown,
   };
 }
 

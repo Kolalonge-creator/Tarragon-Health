@@ -13,6 +13,7 @@ import {
 } from "@tarragon/clinical/lowcarb-programme";
 import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
 import { readPatientMedicationsAudited } from "@/lib/clinical/medications-audited";
+import { readPregnancySafety } from "@/lib/clinical/pregnancy-status";
 import { LOWCARB_PROTOCOL_CODE } from "./programme";
 
 /**
@@ -94,13 +95,13 @@ export async function runLowCarbMedicineReview(
     if (table === null || protocolId === null) return { kind: "no_protocol" };
 
     const since = new Date(now.getTime() - config.medicine_review.window_days * MS_PER_DAY).toISOString();
-    const [profile, glucose, meds, pregnancy, reproductive, postnatal, alerts] = await Promise.all([
+    const [profile, glucose, meds, pregnancy, reproductive, alerts] = await Promise.all([
       supabase.from("profiles").select("date_of_birth, sex, is_test").eq("id", patientId).maybeSingle(),
       readPatientVitalsAudited(supabase, patientId, { vitalType: "glucose", since, limit: 500 }),
       readPatientMedicationsAudited(supabase, patientId, { active: true }),
-      supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", patientId).maybeSingle(),
+      // OQ-555 follow-up: pregnancy and the latest delivery come as ONE three-state answer decided in the database, so an unreadable status is never "no record".
+      readPregnancySafety(supabase, patientId),
       supabase.from("reproductive_health_profiles").select("life_stage").eq("patient_id", patientId).maybeSingle(),
-      supabase.from("postnatal_profiles").select("delivery_date").eq("patient_id", patientId).maybeSingle(),
       supabase.from("clinician_alerts").select("level, override_level, status").eq("patient_id", patientId).is("closed_at", null),
     ]);
     const prof = profileRow.safeParse(profile.data);
@@ -117,13 +118,13 @@ export async function runLowCarbMedicineReview(
       if (!a.success) return fail("An open alert could not be read.");
       alertRows.push(a.data);
     }
-    // Unknown is not "no": an unreadable pregnancy record, or a female patient with none, stops the proposal. The category-scoped RLS decides what this reads.
-    // Any positive source is a yes, as in the database screen (pregnant, the postpartum life stage, a delivery inside the postnatal year). All reads go through
-    // the category-scoped RLS: a clinician who may not read them gets nothing back and the answer is unknown, which refuses.
-    const postnatalYear = postnatal.data?.delivery_date ? now.getTime() - Date.parse(postnatal.data.delivery_date) < config.eligibility.postnatal_months * 30.5 * MS_PER_DAY : false;
+    // Unknown is not "no": an unreadable pregnancy status, or a female patient with none on record, stops the proposal.
+    // Any positive source is a yes, as in the database screen (pregnant, the postpartum life stage, a delivery inside the postnatal year). The status and the
+    // delivery come from the database's three-state answer; a clinician who may not look gets 'unknown', which refuses.
+    const postnatalYear = pregnancy.lastDeliveryDate ? now.getTime() - Date.parse(pregnancy.lastDeliveryDate) < config.eligibility.postnatal_months * 30.5 * MS_PER_DAY : false;
     const stage = reproductive.data?.life_stage;
-    const anyYes = pregnancy.data?.is_pregnant === true || stage === "pregnant" || stage === "postpartum" || postnatalYear;
-    const anyRead = Boolean(pregnancy.data) && !pregnancy.error && !reproductive.error && !postnatal.error;
+    const anyYes = pregnancy.status === "pregnant" || stage === "pregnant" || stage === "postpartum" || postnatalYear;
+    const anyRead = pregnancy.status !== "unknown" && pregnancy.hasRecord && !reproductive.error;
     const pregnancyStatus: LowCarbReviewInput["pregnancy"] = anyYes ? "yes" : prof.data.sex === "male" ? "no" : anyRead ? "no" : "unknown";
 
     const medicines: LowCarbMedicine[] = meds.rows

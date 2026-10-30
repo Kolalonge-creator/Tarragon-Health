@@ -35,22 +35,22 @@ function table(answer: unknown) {
   return q;
 }
 
-function setup(opts: { approved?: unknown; draft?: unknown; isTest?: boolean; sex?: string; pregnancy?: unknown; glucose?: number[]; alerts?: unknown[]; medicines?: unknown[] }) {
+function setup(opts: { approved?: unknown; draft?: unknown; isTest?: boolean; sex?: string; pregnancyRpc?: unknown; glucose?: number[]; alerts?: unknown[]; medicines?: unknown[] }) {
   rpc.mockReset();
   vitals.mockReset();
   meds.mockReset();
   from.mockReset();
   rpc.mockImplementation(async (name: string) => {
     if (name === "get_approved_protocol") return { data: opts.approved ?? null, error: null };
+    // OQ-555 follow-up: the three-state pregnancy answer (default: readable, not pregnant, no record, no delivery)
+    if (name === "pregnancy_safety_status") return { data: opts.pregnancyRpc ?? { pregnancy: "not_pregnant", has_record: false, last_delivery_date: null }, error: null };
     if (name === "propose_care_plan_change") return { data: "11111111-1111-4111-8111-111111111111", error: null };
     throw new Error(`unexpected rpc ${name}`);
   });
   const answers: Record<string, unknown> = {
     protocols: { data: opts.draft ?? null, error: null },
     profiles: { data: { date_of_birth: "1975-01-01", sex: opts.sex ?? "male", is_test: opts.isTest ?? true }, error: null },
-    patient_pregnancy: opts.pregnancy ?? { data: null, error: null },
     reproductive_health_profiles: { data: null, error: null },
-    postnatal_profiles: { data: null, error: null },
     clinician_alerts: { data: opts.alerts ?? [], error: null },
   };
   from.mockImplementation((t: string) => table(answers[t]));
@@ -85,7 +85,7 @@ describe("runLowCarbMedicineReview", () => {
     if (r.kind !== "result" || r.result.kind !== "review") throw new Error("expected a review");
     expect(r.result.proposals.map((p) => p.stepId)).toEqual(["su_stop_on_low", "su_review"]);
     expect(r.created).toEqual([]);
-    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["get_approved_protocol"]);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["get_approved_protocol", "pregnancy_safety_status"]); // the second is a read-only status check
   });
 
   it("creating drafts proposes only the stop, with the engine as proposer, and never signs", async () => {
@@ -97,7 +97,7 @@ describe("runLowCarbMedicineReview", () => {
     expect(args.p_proposed_by).toBe("engine");
     expect(args.p_proposal).toEqual({ action: "stop", medication_id: "m1" });
     expect(args.p_protocol_id).toBe("p1");
-    expect(rpc.mock.calls.map((c) => c[0]).every((n) => ["get_approved_protocol", "propose_care_plan_change"].includes(n as string))).toBe(true);
+    expect(rpc.mock.calls.map((c) => c[0]).every((n) => ["get_approved_protocol", "pregnancy_safety_status", "propose_care_plan_change"].includes(n as string))).toBe(true);
     if (r.kind === "result") expect(r.created).toEqual([{ changeId: "11111111-1111-4111-8111-111111111111", drugName: "Gliclazide" }]);
   });
 
@@ -120,8 +120,27 @@ describe("runLowCarbMedicineReview", () => {
   });
 
   it("a recorded pregnancy stops it", async () => {
-    const r = await run(setup({ approved: approvedRow, sex: "female", pregnancy: { data: { is_pregnant: true }, error: null } }));
+    const r = await run(setup({ approved: approvedRow, sex: "female", pregnancyRpc: { pregnancy: "pregnant", has_record: true, last_delivery_date: null } }));
     expect(r.kind === "result" && r.result.kind).toBe("no_proposal");
+  });
+
+  it("an UNREADABLE pregnancy status (the clinician is not tied) stops it and is never read as not pregnant", async () => {
+    const r = await run(setup({ approved: approvedRow, sex: "female", pregnancyRpc: { pregnancy: "unknown", has_record: false, last_delivery_date: null } }));
+    expect(r.kind === "result" && r.result).toEqual({ kind: "no_proposal", reasons: ["pregnancy_or_unknown"] });
+  });
+
+  it("a readable, recorded 'not pregnant' lets it through as before; a delivery inside the postnatal year still stops it", async () => {
+    const ok = await run(setup({ approved: approvedRow, sex: "female", pregnancyRpc: { pregnancy: "not_pregnant", has_record: true, last_delivery_date: null } }));
+    expect(ok.kind === "result" && ok.result.kind).toBe("review");
+    const recent = await run(setup({ approved: approvedRow, sex: "female", pregnancyRpc: { pregnancy: "not_pregnant", has_record: true, last_delivery_date: day(30).slice(0, 10) } }));
+    expect(recent.kind === "result" && recent.result.kind).toBe("no_proposal");
+  });
+
+  it("never reads the pregnancy or postnatal tables directly", async () => {
+    await run(setup({ approved: approvedRow, sex: "female" }));
+    const tablesRead = from.mock.calls.map((c) => c[0]);
+    expect(tablesRead).not.toContain("patient_pregnancy");
+    expect(tablesRead).not.toContain("postnatal_profiles");
   });
 
   it("an open emergency alert stops it", async () => {

@@ -51888,6 +51888,8 @@ export type Database = {
       }
       // OQ-555: the audited, tied staff read of the Women's Health record (no reason argument), spliced by hand.
       read_womens_health_record_audited: { Args: { p_patient: string }; Returns: Json }
+      // OQ-555 follow-up: three-state pregnancy answer for safety checks, spliced by hand.
+      pregnancy_safety_status: { Args: { p_patient: string }; Returns: Json }
       process_due_reproductive_tracker_deletions: { Args: never; Returns: number }
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       // Two-tier review decisions (renewals at the monthly review): spliced by hand.
