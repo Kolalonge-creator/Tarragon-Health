@@ -286,6 +286,8 @@ export * from "./messages/reply-time";
 // S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
 export * from "./private-section";
 export * from "./maternal-child";
+// S68b: the daily child log, plain-language growth bands, vaccine checklist, timeline and the shared-phone child picker.
+export * from "./child-log";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 export { assessDeviceSync, loadDeviceSyncConfig, SYNC_CLOCK_SKEW_TOLERANCE_MS } from "./device-sync-freshness";
 export { loadVisitFollowUpConfig, visitFollowUpOpen } from "./visit-follow-up";

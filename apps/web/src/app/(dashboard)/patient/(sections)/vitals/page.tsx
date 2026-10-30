@@ -109,6 +109,9 @@ export default async function PatientVitalsPage() {
             organisationId={profile.organisation_id}
             ageYears={ageYears}
           />
+          {ageYears !== null && ageYears < 19 ? null : (
+            <Link href="/patient/child" className="text-sm font-semibold underline">{t("cdl.title")}</Link>
+          )}
           {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
           <HeldReadingsCard patientId={subjectId} />
           <VitalsHistory patientId={subjectId} viewerId={profile.id} />

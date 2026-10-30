@@ -22,7 +22,13 @@ export type OutboxKind =
   // S08z: the patient's anchor times and "my day has shifted" entries. Settings, not records: they queue so they work offline.
   | "anchor_times"
   | "day_shift"
-  | "day_shift_end";
+  | "day_shift_end"
+  // S68b: the daily child log and the S68 writes that used to be online-only.
+  | "child_event"
+  | "feed_log"
+  | "growth"
+  | "lifecycle"
+  | "card_photo";
 export type OutboxState = "pending" | "rejected";
 
 export interface OfflineSyncConfig {
