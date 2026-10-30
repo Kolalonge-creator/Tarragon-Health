@@ -92,3 +92,15 @@ Findings (none changed here):
 - The active `alert_rules` row still lists `whatsapp` in the abnormal-result `channel_sequence`. It is harmless in paging: `notify_clinician_alert` reads it through `normalize_escalation_channels`, which maps a retired token to email. But it still shows in the admin alert-rules screen. Cosmetic cleanup for the next alert-rules version, which needs CMO sign-off.
 - `private.auto_assign_escalation` has two identical tier branches (both require senior or CMO), though its comment says "any clinical tier otherwise". Correct after F-05, which left one doctor tier. Dead code, not a defect.
 - The ladder's timeout is 30 minutes for abnormal results but the sweep runs every 10 minutes, so a hop can fire up to 10 minutes late. Within tolerance, noted for the SLA review.
+
+## 9. Clinician home slice (PR 2, 2026-10-30)
+
+Built: the display model `packages/shared/src/clinician-home.ts` (ranking, countdown, "unknown is not zero" figures, Lagos day bounds), a hero card (`next-action-hero.tsx`) and a three-tile today strip (`today-strip.tsx`), and the page reordered so the work comes first: failure notice, hero, today strip, setup warning and attestations, urgent escalations, notes to complete, the three priority buckets, the KPI tiles, the worklist, then the Clinical Director and role-information cards.
+
+Decisions made in the build:
+- The hero draws only from cases routed to this doctor or still unassigned. The org-wide "Urgent escalations" list is unchanged and still shows every open case.
+- The attestation cards stay above the work: an expired attestation blocks acting on an alert, so they are not "For you" material.
+- A failed read renders as unknown in the hero and in every tile, never as the all-clear or zero. Tests pin this on the rendered output.
+- Appointments today counts this doctor's visits for the Lagos calendar day, excluding cancelled, no-show and still-held slots.
+
+Not done in this slice: before and after screenshots (no signed-in clinician session was run in a browser), per-section loading boundaries, the offline state. The next slice is the scribe omission review.
