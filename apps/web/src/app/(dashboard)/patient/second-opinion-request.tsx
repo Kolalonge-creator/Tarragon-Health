@@ -339,7 +339,7 @@ export function SecondOpinionRequestCard({
         )}
         {submit.isSuccess && (
           <p className="text-sm text-brand-green dark:text-brand-green-bright">
-            Sent. A doctor will answer here within 72 hours.
+            Your request has been sent. A doctor will reply here within 72 hours.
             {submit.data?.resultsAttached === false &&
               " We could not attach the results you chose, so the doctor will review your description only."}
             {(submit.data?.filesFailed ?? 0) > 0 &&

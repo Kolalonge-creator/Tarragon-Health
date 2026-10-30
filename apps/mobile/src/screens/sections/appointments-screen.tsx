@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { daysAwayLabel, nextAvailable } from "@tarragon/shared";
+import { formatNaira } from "@/lib/data-cost-rules";
 import { Alert, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
@@ -6,6 +8,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import {
   loadUpcomingAppointments,
   loadAvailableSlots,
+  loadBookingPriceKobo,
   bookAppointment,
   cancelAppointment,
   paidProductCodeFor,
@@ -47,6 +50,21 @@ function formatSlot(iso: string): string {
   });
 }
 
+/** The earliest time a doctor has actually offered, how soon it is, and the price when there is one. Nothing is estimated. */
+function NextAvailableCard({ slots, nowMs, priceKobo }: { slots: AvailableSlot[]; nowMs: number; priceKobo: number | null }) {
+  const next = nextAvailable(slots, nowMs);
+  if (!next) return null;
+  return (
+    <Card style={{ gap: 4 }}>
+      <AppText variant="caption" tone="textMuted">Next available</AppText>
+      <AppText variant="headline" heading>{`${daysAwayLabel(next.daysAway)}, ${formatSlot(next.slot.slot_start)}`}</AppText>
+      <AppText variant="body" tone="textMuted">
+        {`With ${next.slot.clinician_name}${priceKobo !== null ? `. ${formatNaira(priceKobo)}` : ""}`}
+      </AppText>
+    </Card>
+  );
+}
+
 interface AppointmentsScreenProps {
   patientId: string;
   organisationId: string;
@@ -74,6 +92,8 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
   const [type, setType] = useState<AppointmentType>("telemedicine");
   const [slots, setSlots] = useState<AvailableSlot[] | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [priceKobo, setPriceKobo] = useState<number | null>(null);
+  const [mountedAt] = useState(() => Date.now());
   const [booking, setBooking] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +135,13 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
 
   useEffect(() => {
     void refreshSlots(type);
+    let cancelled = false;
+    void loadBookingPriceKobo(type).then((p) => {
+      if (!cancelled) setPriceKobo(p);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [type, refreshSlots]);
 
   async function book(slot: AvailableSlot) {
@@ -265,6 +292,9 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
           <AppText variant="body" tone="textMuted">
             {tr("appts.slots.empty")}
           </AppText>
+        ) : null}
+        {!slotsLoading && slots && slots.length > 0 ? (
+          <NextAvailableCard slots={slots} nowMs={mountedAt} priceKobo={priceKobo} />
         ) : null}
         {!slotsLoading && slots && slots.length > 0 ? (
           <Card padded={false}>

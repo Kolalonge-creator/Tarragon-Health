@@ -28,6 +28,21 @@ import { useActivityGoal, useTodaySteps } from "@/lib/queries/activity";
 import { useWellnessPointsBalance } from "@/lib/queries/wellness";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
+/** One tile's headline: the number large, the unit and a one-line caption small. No number yet shows the caption alone. */
+function HeroValue({ value, unit, caption }: { value: string | null; unit?: string; caption: string }) {
+  return (
+    <div className="mt-1">
+      {value !== null && (
+        <p className="text-3xl font-semibold tabular-nums text-charcoal-ink dark:text-night-ink">
+          {value}
+          {unit ? <span className="ml-1 text-sm font-normal text-charcoal-ink/60 dark:text-night-ink/60">{unit}</span> : null}
+        </p>
+      )}
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{caption}</p>
+    </div>
+  );
+}
+
 const TRACKERS = [
   {
     href: "/patient/nutrition",
@@ -50,7 +65,7 @@ const TRACKERS = [
   {
     href: "/patient/exercise",
     label: "Exercise programmes",
-    description: "Structured plans, paced to what's safe for you",
+    description: "Structured plans, paced to what is safe for you",
     icon: SEMANTIC_ICON.exerciseProgramme,
   },
   {
@@ -93,20 +108,23 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
   const { data: todaySteps } = useTodaySteps(patientId);
   const { data: pointsBalance } = useWellnessPointsBalance(patientId);
 
-  const weightLine = (() => {
-    if (!latestWeight?.weight_kg) return "Log a weight to start tracking";
+  const weight = (() => {
+    if (!latestWeight?.weight_kg) return { value: null, caption: "Log a weight to start tracking" };
     const current = latestWeight.weight_kg;
-    if (!weightGoal?.goal_weight_kg) return `${current} kg logged`;
+    if (!weightGoal?.goal_weight_kg) return { value: String(current), caption: "Latest weight logged" };
     const remaining = current - weightGoal.goal_weight_kg;
-    if (Math.abs(remaining) < 0.1) return `${current} kg, at your goal`;
-    return remaining > 0
-      ? `${current} kg, ${remaining.toFixed(1)} kg to your ${weightGoal.goal_weight_kg} kg goal`
-      : `${current} kg, ${Math.abs(remaining).toFixed(1)} kg past your ${weightGoal.goal_weight_kg} kg goal`;
+    if (Math.abs(remaining) < 0.1) return { value: String(current), caption: "At your goal" };
+    return {
+      value: String(current),
+      caption:
+        remaining > 0
+          ? `${remaining.toFixed(1)} kg to your ${weightGoal.goal_weight_kg} kg goal`
+          : `${Math.abs(remaining).toFixed(1)} kg past your ${weightGoal.goal_weight_kg} kg goal`,
+    };
   })();
 
   const stepGoal = activityGoal?.daily_step_goal ?? 7500;
   const steps = todaySteps ?? 0;
-  const stepsLine = `${steps.toLocaleString()} of ${stepGoal.toLocaleString()} steps today`;
 
   const points = pointsBalance?.balance ?? 0;
 
@@ -122,23 +140,21 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
               <SEMANTIC_ICON.weight className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Weight</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{weightLine}</p>
+            <HeroValue value={weight.value} unit="kg" caption={weight.caption} />
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
               <SEMANTIC_ICON.steps className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Activity</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{stepsLine}</p>
+            <HeroValue value={steps.toLocaleString()} caption={`of ${stepGoal.toLocaleString()} steps today`} />
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
               <NAV_ICON.wellness className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Rewards</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">
-              {points.toLocaleString()} points banked
-            </p>
+            <HeroValue value={points.toLocaleString()} unit="points" caption="Banked so far" />
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-4">
@@ -202,7 +218,7 @@ export function LifestyleClient({
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Lifestyle coaching"
         icon={NAV_ICON.lifestyle}
-        description="Small, steady changes, logged here, supported by your care team."
+        description="Small, steady changes that you record here, with support from your care team."
         actions={<GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />}
       />
 
@@ -295,8 +311,8 @@ function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
     <form action={submit} className="space-y-4">
       <input type="hidden" name="consent" value={consented ? "on" : "off"} />
       <p className="text-sm text-muted-foreground dark:text-night-ink/60">
-        Before we start on weight or eating goals, a few quick questions: this
-        is just so your care team can support you well from day one.
+        Before we set any weight or eating goals, we would like to ask a few short
+        questions. Your answers help your care team support you safely from the start.
       </p>
 
       <fieldset className="space-y-2">

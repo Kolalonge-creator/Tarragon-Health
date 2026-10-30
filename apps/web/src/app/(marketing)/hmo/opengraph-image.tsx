@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "HMO Support",
     subtitle:
-      "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
+      "Monitor member risk, follow up on overdue care, and generate outcome evidence: chronic disease and preventive care for HMO members.",
   });
 }

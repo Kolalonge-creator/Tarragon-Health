@@ -3,6 +3,7 @@
 // the webhook and the sweeper use, so it is safe to call repeatedly and cannot pay an order twice. Only the order's buyer or
 // beneficiary can ask (order_for_checkout is run with their own JWT).
 import { confirmPayment, type CommerceDeps } from "../_shared/commerce/index.ts";
+import { edgeRateLimited } from "../_shared/rate-limit/edge-rate-limit.ts";
 
 export interface VerifyDeps {
   readonly commerce: CommerceDeps | null;
@@ -15,6 +16,9 @@ export async function handleVerify(req: Request, deps: VerifyDeps): Promise<Resp
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
+  // OQ-267: this function bypasses the web proxy, so the per-user limit is counted in the database (fails open)
+  const limited = await edgeRateLimited((fn, args) => deps.rpcAsUser(auth, fn, args), "order-verify");
+  if (limited) return limited;
   let body: unknown;
   try {
     body = await req.json();

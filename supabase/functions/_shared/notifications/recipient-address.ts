@@ -27,6 +27,8 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "clinician_alert_ack_timeout_backup",
   "clinician_alert_ack_timeout_senior",
   "clinician_alert_ack_timeout_admin",
+  // The push and email copies of an emergency-keyword care message, queued with only the clinician's profile id.
+  "care_message_safety_flag",
 ]);
 
 /**

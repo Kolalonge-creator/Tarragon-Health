@@ -15,49 +15,49 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "hypertension",
     href: MARKETING_ROUTES.hypertension,
     title: "Hypertension",
-    description: "Stay ahead of high blood pressure before it causes complications.",
+    description: "Keep high blood pressure under control and lower your risk of stroke and heart disease.",
     built: true,
   },
   {
     key: "diabetes",
     href: MARKETING_ROUTES.diabetes,
     title: "Diabetes",
-    description: "Track glucose, HbA1c, medication, labs, and complications in one place.",
+    description: "Keep glucose readings, HbA1c, medication and test results in one record.",
     built: true,
   },
   {
     key: "obesity",
     href: MARKETING_ROUTES.obesity,
     title: "Weight Health",
-    description: "Weight tracking, a lifestyle plan, and doctor review, together on one record.",
+    description: "Weight tracking, a lifestyle plan and doctor review on one record.",
     built: true,
   },
   {
     key: "parentcare",
     href: MARKETING_ROUTES.parentcare,
     title: "Caring for a parent",
-    description: "Know how your parent is doing, even when you are not there every day.",
+    description: "Follow your parent's health, even when you cannot be with them every day.",
     built: true,
   },
   {
     key: "prevention",
     href: MARKETING_ROUTES.prevention,
     title: "Preventive Health",
-    description: "For healthy people: screenings, vaccinations, and yearly checks that keep you that way.",
+    description: "For people who feel well: screenings, vaccinations and yearly checks that find problems early.",
     built: true,
   },
   {
     key: "medication",
     href: MARKETING_ROUTES.medication,
     title: "Medication",
-    description: "Reduce missed doses and avoid running out of medication.",
+    description: "Take your medication on time and never run out.",
     built: true,
   },
   {
     key: "labs",
     href: MARKETING_ROUTES.labs,
-    title: "Labs",
-    description: "Know what tests are due, take the request to any lab, and track follow-up.",
+    title: "Laboratory tests",
+    description: "Know which tests are due, use any laboratory, and have every result followed up.",
     built: true,
   },
 ];
@@ -155,19 +155,19 @@ export const WHAT_WE_TRACK = [
  * (verified live 2026-09-22).
  */
 export const HOW_IT_WORKS_STEPS = [
-  { step: 1, title: "Create your account", body: "A couple of minutes, for yourself or for someone you look after." },
-  { step: 2, title: "Tell us what to watch", body: "Your conditions, your medication, and the history that matters." },
-  { step: 3, title: "Log as you go", body: "Blood pressure, sugar, weight, doses. Type them in, or let your cuff, phone or watch send them." },
-  { step: 4, title: "Every reading gets checked", body: "Each reading is compared against your care protocols automatically, not simply filed away." },
+  { step: 1, title: "Create your account", body: "Sign-up takes a few minutes, whether the account is for you or for someone you look after." },
+  { step: 2, title: "Tell us about your health", body: "Add your conditions, your medication and any relevant medical history." },
+  { step: 3, title: "Record your readings", body: "Enter your blood pressure, blood sugar, weight and medication doses, or let a connected cuff, phone or watch send them." },
+  { step: 4, title: "Every reading is checked", body: "Each reading is compared automatically against your care protocols, rather than simply stored." },
   {
     step: 5,
-    title: "Something looks wrong",
-    body: "A dangerous reading gets you clear guidance straight away, alerts the person you named, and is followed up. With Continuous Monitoring, a doctor is alerted too.",
+    title: "A reading is dangerous",
+    body: "A dangerous reading brings you clear guidance straight away, alerts the person you named, and is followed up. With Continuous Monitoring, a doctor is alerted as well.",
   },
   {
     step: 6,
-    title: "Someone else is kept in the loop",
-    body: "Name a next of kin who can follow your care and be contacted first in an emergency.",
+    title: "A family member stays informed",
+    body: "Name a next of kin who can follow your care and who is contacted first in an emergency.",
   },
 ] as const;
 
@@ -179,16 +179,16 @@ export const HOW_IT_WORKS_STEPS = [
  */
 export const HOME_HOW_IT_WORKS = [
   {
-    title: "Tell us what to watch",
-    body: "Your conditions, your medication, your age. About five minutes, for yourself or for a parent.",
+    title: "Tell us about your health",
+    body: "Add your conditions, your medication and your age. It takes about five minutes, for yourself or for a parent.",
   },
   {
-    title: "Log as you go",
-    body: "Blood pressure, sugar, weight, doses. Type them in, or let your cuff, phone or watch send them for you.",
+    title: "Record your readings",
+    body: "Enter your blood pressure, blood sugar, weight and medication doses, or let a connected cuff, phone or watch send them for you.",
   },
   {
-    title: "We tell you when it matters",
-    body: "Quiet weeks stay quiet. A worrying reading gets you clear guidance straight away and alerts the person you named. An abnormal test result gets a doctor.",
+    title: "We contact you when it matters",
+    body: "When your readings are stable, you hear very little from us. A worrying reading brings you clear guidance straight away and alerts the person you named. An abnormal test result is passed to a doctor.",
   },
 ] as const;
 
@@ -212,12 +212,12 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   {
     key: "patient",
     tabLabel: "For you",
-    title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, weight, medication, and lab checks, in one secure place, with a doctor behind it when you need one.",
+    title: "Monitor your health with clinical support behind you.",
+    body: "Blood pressure, blood sugar, weight, medication and laboratory tests are kept in one secure record, with a doctor available when you need one.",
     points: [
-      "BP, glucose, and weight logging with trend review",
+      "Blood pressure, glucose and weight recording, with trend review",
       "Medication reminders and refill alerts",
-      "Scheduled doctor check-in, doctor escalation when needed",
+      "Scheduled doctor check-ins, and referral to a doctor when needed",
     ],
     stats: [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
@@ -230,12 +230,12 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   {
     key: "healthy",
     tabLabel: "For staying healthy",
-    title: "You don't need a diagnosis to belong here.",
-    body: "Tarragon builds a personal screening and vaccination calendar matched to your age, sex, and history, reminds you when checks are due, and explains your results. Most years, that's just confirmation you're doing fine.",
+    title: "You do not need a diagnosis to use Tarragon.",
+    body: "Tarragon builds a personal screening and vaccination calendar matched to your age, sex and medical history, reminds you when checks are due, and explains your results. In most years, the outcome is reassurance that you are well.",
     points: [
-      "Screening and vaccination calendar, built for you",
-      "Yearly Health Check, requested in minutes",
-      "Doctor follow-up within a day, if a result ever needs it",
+      "A screening and vaccination calendar matched to you",
+      "A yearly Health Check that takes minutes to request",
+      "Doctor follow-up within a day if a result needs it",
     ],
     stats: [
       { label: "Next screening due", value: "Cervical · 4 mths" },
@@ -248,12 +248,12 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   {
     key: "family",
     tabLabel: "For families",
-    title: "Know how your parent is doing, even from far away.",
-    body: "Follow Mum's blood pressure, Dad's medication, and their preventive checks without taking over their record. They keep their own account and name you as next of kin, so what you see is something they chose to share.",
+    title: "Follow your parent's health, even from far away.",
+    body: "See your mother's blood pressure, your father's medication and their preventive checks without taking over their record. They keep their own account and name you as next of kin, so everything you see is something they chose to share.",
     points: [
-      "Is my parent okay today? Green, amber, or red.",
+      "How is my parent today? A clear green, amber or red status.",
       "Are they taking their medication?",
-      "Is anything overdue: labs, refills, review?",
+      "Is anything overdue, such as tests, refills or a review?",
     ],
     stats: [
       { label: "Dad: today's status", value: "", pill: { text: "Stable", tone: "green" } },
@@ -266,16 +266,16 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   {
     key: "corporate",
     tabLabel: "For employers",
-    title: "Know your workforce health risks before they become costs.",
-    body: "Corporate wellness reports that surface chronic disease risk and care gaps, described clearly, acted on early.",
+    title: "Understand your workforce's health risks before they become costs.",
+    body: "Corporate wellness reports that show chronic disease risk and gaps in care, presented clearly so that you can act early.",
     points: [
       "Staff enrolment and annual health checks",
       "Anonymised risk dashboard by cohort",
-      "Screening compliance reporting for HR",
+      "Screening completion reports for HR",
     ],
     stats: [
       { label: "Pre-diabetic (workforce)", value: "", pill: { text: "12%", tone: "amber" } },
-      { label: "Uncontrolled BP", value: "", pill: { text: "8%", tone: "red" } },
+      { label: "Uncontrolled blood pressure", value: "", pill: { text: "8%", tone: "red" } },
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
@@ -284,12 +284,12 @@ export const AUDIENCE_TABS: AudienceTab[] = [
   {
     key: "hmo",
     tabLabel: "For HMOs",
-    title: "We don't just manage chronic disease. We catch it earlier, and prove it.",
-    body: "Member monitoring, care-gap closure, and outcome evidence, so you can show what proactive care delivers.",
+    title: "We manage chronic disease, detect it earlier, and show the evidence.",
+    body: "Member monitoring, closure of gaps in care, and outcome data that demonstrate what proactive care delivers.",
     points: [
       "Population risk stratification, live",
       "Care gap closure tracked to completion",
-      "Outcome reporting built for renewal conversations",
+      "Outcome reports designed for renewal discussions",
     ],
     stats: [
       { label: "Members monitored", value: "4,820" },
@@ -312,25 +312,25 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What is Tarragon Health?",
     answer:
-      "TarragonHealth is a health monitoring platform for chronic disease (hypertension, diabetes, and weight management), preventive health, and family care coordination in Nigeria, with clinical review and escalation built in.",
+      "TarragonHealth is a health monitoring platform in Nigeria for chronic disease (hypertension, diabetes and weight management), preventive health and family care coordination. Every reading is checked against clinical protocols, and a doctor reviews anything that needs attention.",
   },
   {
     category: "general",
-    question: "I'm healthy, is Tarragon for me?",
+    question: "I am healthy. Is Tarragon for me?",
     answer:
-      "Yes: prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. The app itself is free; the yearly check is a one-off you pay for when you take it. Most years, that's just confirmation all is well; if a check ever finds something, a doctor follows up within a day, or within 12 hours if it's critical.",
+      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free, and you pay for the yearly check only when you take it. In most years the result is reassurance. If a check does find something, a doctor follows up within a day, or within 12 hours if the result is critical.",
   },
   {
     category: "general",
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own free Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their health checks and their doctor's time from anywhere; the tests and refills are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
+      "Yes. Your relative holds their own free Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent happens. You can pay for their health checks and their doctor's time from anywhere. Tests and refills are still paid directly to the laboratory or pharmacy they use in Nigeria, at its own price.",
   },
   {
     category: "general",
     question: "Can I add a family member or caregiver to help manage my care?",
     answer:
-      "Yes. You can invite someone you trust, a spouse, an adult child, a caregiver, to help: they can follow your appointments and readings, or help with bookings and refills, depending on what you allow. You choose what they can see and do, they have to accept before it starts, and you can change or withdraw their access at any time. It's not a shared plan or a joint account: you each keep your own free Tarragon account.",
+      "Yes. You can invite someone you trust, such as a spouse, an adult child or a caregiver. Depending on what you allow, they can follow your appointments and readings, or help with bookings and refills. You choose what they can see and do, they must accept before access begins, and you can change or withdraw their access at any time. This is not a shared plan or a joint account. Each of you keeps your own free Tarragon account.",
   },
   {
     category: "general",
@@ -342,73 +342,73 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. Reminders and alerts come through the app, and you can message your care team any time in the app for support.",
+      "You record readings in the Tarragon app or on the web dashboard, which keeps your record accurate and secure. Reminders and alerts arrive in the app, and you can message your care team there at any time.",
   },
   {
     category: "general",
     question: "Can I connect a fitness tracker, smartwatch, or Bluetooth device?",
     answer:
-      "That's part of the platform, and we're bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP, and Dexcom. Manual logging works today, in seconds, for everyone, so you are not left waiting on a connection to keep your record current.",
+      "Yes, this is part of the platform, and we are bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP and Dexcom. Manual entry works today for everyone and takes only seconds, so you do not need to wait for a connection to keep your record current.",
   },
   {
     category: "general",
     question: "Do I need a smartphone?",
     answer:
-      "You need a smartphone or computer to use the app or web dashboard, where your health record, care actions, and messages with your care team all live. Reminders and alerts come to you there too.",
+      "Yes, you need a smartphone or a computer. Your health record, your care actions and your messages with your care team are all in the app and on the web dashboard, and reminders and alerts arrive there too.",
   },
   {
     category: "general",
     question: "Is there a Tarragon app?",
     answer:
-      "Tarragon works in any phone browser today, and you can add it to your home screen so it opens like an app. It's the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are coming, and we'll say so here the day they're available to download.",
+      "Tarragon works in any phone browser today, and you can add it to your home screen so that it opens like an app. It is the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything. Native apps for iPhone and Android are being built, and we will announce them here when they are available to download.",
   },
   {
     category: "general",
     question: "Will my health data be kept private?",
     answer:
-      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it is shared with an employer, insurer or anyone else only with your consent. If a relative or institution can see your care, it's because you granted that access, not by default.",
+      "Your health record is protected by access controls enforced at the database level. Only your own care team can see it, and it is shared with an employer, insurer or anyone else only with your consent. If a relative or institution can see your care, it is because you granted that access.",
   },
   {
     category: "general",
-    question: "What if I'm not comfortable with health tech?",
+    question: "What if I am not comfortable with health technology?",
     answer:
-      "You don't need to be. Signing up takes a minute, logging a reading takes seconds, and the app will remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
+      "You do not need to be. Signing up takes about a minute, recording a reading takes seconds, and the app reminds you when something is due. If you get stuck, you can message your care team in the app and a person will reply.",
   },
   {
     category: "general",
-    question: "I don't have time for another health app.",
+    question: "I do not have time for another health app.",
     answer:
-      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. The app tells you when something's due, and your care team does the reviewing in the background, not you.",
+      "It needs very little time. Recording a blood pressure reading, a glucose check or your weight takes under a minute. The app tells you when something is due, and your care team does the reviewing, not you.",
   },
   {
     category: "clinical",
     question: "What happens when readings are high?",
     answer:
-      "Your readings are reviewed against care protocols. If they need attention, your care team follows up and escalates to a doctor when closer care is needed.",
+      "Your readings are reviewed against clinical protocols. If they need attention, your care team contacts you and refers you to a doctor when closer care is needed.",
   },
   {
     category: "clinical",
-    question: "What's the difference between my Health Score and my Annual Health Check?",
+    question: "What is the difference between my Health Score and my Annual Health Check?",
     answer:
-      "Your Health Score is a quick, non-diagnostic read on a handful of things already on your record: blood pressure control, HbA1c, weight, smoking status, and how current your screenings and vaccinations are. It updates whenever you log something new, showing the effect of what you're doing day to day. Your Annual Health Check (or Comprehensive Screen) is the once-a-year safety net: a fuller panel covering what your Health Score isn't built to track, so nothing gets missed for being outside the daily picture. Anything it flags reaches a doctor within a day, or within 12 hours if it's critical.",
+      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your Annual Health Check (or Comprehensive Screen) is a fuller yearly panel that covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within a day, or within 12 hours if the result is critical.",
   },
   {
     category: "clinical",
     question: "What about preventive checks and screening results?",
     answer:
-      "Tarragon tracks what checks may be due, reminds you to complete them, and reviews results when they come back. An abnormal screening result triggers doctor follow-up and can upgrade you into chronic care monitoring when needed.",
+      "Tarragon keeps track of which checks are due, reminds you to complete them, and reviews the results when they return. An abnormal screening result prompts doctor follow-up and, where needed, moves you into chronic care monitoring.",
   },
   {
     category: "clinical",
     question: "Does Tarragon replace my doctor?",
     answer:
-      "No. Tarragon is the layer that keeps watching between visits: logging your numbers, reviewing them against care protocols, and coordinating labs, pharmacies, and specialist referrals on one record. Every review and escalation is still a real doctor's clinical judgement, made by a doctor working to Tarragon's care protocols, not an app or an algorithm on its own.",
+      "No. Tarragon supports you between visits by recording your numbers, reviewing them against clinical protocols, and coordinating laboratories, pharmacies and specialist referrals on one record. Every review and referral is the clinical judgement of a doctor working to Tarragon's care protocols, not the output of an app or an algorithm on its own.",
   },
   {
     category: "clinical",
     question: "Is a real doctor actually reviewing my results?",
     answer:
-      "Yes. Any result, escalation, or verified document that shows a doctor's name reflects a real review by a real doctor on that date, rather than a placeholder. Care is delivered by a team with coverage shared across shifts, so it won't always be the same individual, but every review is still genuinely theirs.",
+      "Yes. Any result, referral or verified document that shows a doctor's name reflects a genuine review by that doctor on the date shown. Care is provided by a team that shares coverage across shifts, so it will not always be the same individual, but each review is that doctor's own.",
   },
 ] as const;
 

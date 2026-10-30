@@ -22,7 +22,7 @@ export default async function AiCoachSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="AI Health Coach: internal testing"
-        description="Same LangGraph + Claude flow patients get, running against your own admin profile. Each message is a real Claude API call, so it's billed the same as a patient conversation. Use the controls below to grant it to specific patients or open it to everyone once you're ready."
+        description="Same LangGraph + Claude flow patients get, running against your own admin profile. Each message is a real Claude API call, so it is billed in the same way as a patient conversation. Use the controls below to grant it to specific patients or open it to everyone when you are ready."
       />
       <AccessRulesManager />
       <ServiceCapsManager />

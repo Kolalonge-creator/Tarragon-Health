@@ -177,7 +177,7 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
         // only lives on this web page too (no native print/order flow yet).
         subtitle="Get and print a lab request, or use a Care Voucher, on the web."
         ctaLabel="Open health checks"
-        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/health-check`)}
+        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/health-check?step=tests`)}
       />
 
       {lipids && lipids.latestDrawnAt && <LipidProfileCard lipids={lipids} />}

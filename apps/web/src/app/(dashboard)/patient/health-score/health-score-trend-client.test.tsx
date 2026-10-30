@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 import { render, screen } from "@testing-library/react";
-import { HealthScoreTrendClient } from "./health-score-trend-client";
+import { HealthScoreTrendClient, chartDateLabel } from "./health-score-trend-client";
 
 const latest = jest.fn();
 const history = jest.fn();
@@ -38,5 +38,19 @@ describe("Health Score page hero", () => {
     render(<HealthScoreTrendClient patientId="p1" />);
     expect(screen.getByText(/couldn.t load your Health Score/i)).toBeTruthy();
     expect(screen.queryByText(/appears after your next/i)).toBeNull();
+  });
+
+  it("says the trend sentence once, not in the hero and again under Over time", () => {
+    latest.mockReturnValue(ok({ score: 33, risk_level: "high", computed_at: "2026-09-16T00:00:00Z", inputs: { components: [] } }));
+    history.mockReturnValue(ok([
+      { score: 100, inputs: { components: [] }, computed_at: "2026-09-01T00:00:00Z" },
+      { score: 33, inputs: { components: [] }, computed_at: "2026-09-16T00:00:00Z" },
+    ]));
+    render(<HealthScoreTrendClient patientId="p1" />);
+    expect(screen.getAllByText(/has moved from 100 to 33/)).toHaveLength(1);
+  });
+
+  it("labels points by day so two scores in one month are distinguishable", () => {
+    expect(chartDateLabel("2026-09-01T10:00:00Z")).not.toBe(chartDateLabel("2026-09-16T10:00:00Z"));
   });
 });

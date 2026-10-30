@@ -46,24 +46,24 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ALL_BANDS,
     category: "Heart & metabolic",
-    summary: "Blood sugar (HbA1c), cholesterol, blood pressure, and BMI: the numbers behind diabetes and heart disease, years before symptoms show.",
-    price: "Paid to the lab, not to us",
+    summary: "Blood sugar (HbA1c), cholesterol, blood pressure and body mass index (BMI). These measurements show your risk of diabetes and heart disease years before symptoms appear.",
+    price: "Paid to the laboratory, not to Tarragon",
     steps: [
       {
         title: "Is this for you?",
-        body: "Yes, at any age. These are the checks that quietly explain most preventable illness in Nigeria, and they only get more useful once you have a few years of readings to compare against.",
+        body: "Yes, at any age. These checks measure the main risks behind most preventable illness in Nigeria, and they become more useful once you have several years of results to compare.",
       },
       {
         title: "Book it",
-        body: "Request the Annual Health Check in the app, then take it to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
+        body: "Request the Annual Health Check in the app, then take the request to any laboratory you choose. You pay the laboratory directly at its own price, and Tarragon takes no fee from that payment.",
       },
       {
         title: "Test day",
-        body: "One visit: a blood draw plus blood pressure, weight, and height measured properly. Fasting isn't required for every version, and the app tells you exactly what to do beforehand.",
+        body: "One visit: a blood sample, plus your blood pressure, weight and height. Fasting is not required for every version, and the app tells you how to prepare beforehand.",
       },
       {
-        title: "Results & what's next",
-        body: "A doctor reads every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear; that's the point, and it's worth paying for. If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical.",
+        title: "Results & what is next",
+        body: "A doctor reviews every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear, and a clear result is still valuable because it gives you a baseline. If something needs attention, a doctor follows up within a day, and within 12 hours if the result is critical.",
       },
     ],
   },
@@ -73,24 +73,24 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "female",
     ageBands: ["25-39", "40-49", "50-plus"],
     category: "Cancer screening",
-    summary: "A quick, confidential test that catches changes years before they could become cervical cancer.",
-    price: "Paid to the lab, not to us",
+    summary: "A quick, confidential test that detects changes years before they could become cervical cancer.",
+    price: "Paid to the laboratory, not to Tarragon",
     steps: [
       {
         title: "Is this for you?",
-        body: "Recommended for women from age 25, repeated on a schedule your doctor sets based on your results and history.",
+        body: "Recommended for women from age 25, repeated on a schedule a doctor sets based on your results and history.",
       },
       {
         title: "Book it",
-        body: "Request it directly and confidentially in the app, on its own, no bundle required, then take it to any laboratory or clinic you like.",
+        body: "Request it directly and confidentially in the app, on its own with no bundle required, then take it to any laboratory or clinic you choose.",
       },
       {
         title: "Test day",
-        body: "A short, routine sample collection, done by a clinician in a few minutes. Uncomfortable for some, but not usually painful.",
+        body: "A clinician collects a sample in a few minutes. It may be uncomfortable for some people but is not usually painful.",
       },
       {
-        title: "Results & what's next",
-        body: "Results go only to you and the reviewing doctor. A normal result means you're on track for your next scheduled screening; an abnormal one gets an immediate doctor follow-up to explain, calmly, what happens next.",
+        title: "Results & what is next",
+        body: "Results go only to you and the reviewing doctor. A normal result means you are on track for your next scheduled screening. If a result is abnormal, a doctor follows up immediately to explain what happens next.",
       },
     ],
   },
@@ -100,24 +100,24 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "female",
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
-    summary: "Screening matched to your age, because catching breast cancer early changes almost everything about how treatable it is.",
+    summary: "Screening matched to your age, because breast cancer found early is much easier to treat.",
     price: "Included in Comprehensive Screen",
     steps: [
       {
         title: "Is this for you?",
-        body: "Formal screening is recommended from age 40. Before that, knowing what's normal for you and mentioning changes to your doctor matters more than a scheduled test.",
+        body: "Formal screening is recommended from age 40. Before that, it matters more to know what is normal for your breasts and to tell a doctor about any change than to have a scheduled test.",
       },
       {
         title: "Book it",
-        body: "Included as part of Comprehensive Screen or arranged directly by your doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
+        body: "It is included in Comprehensive Screen, or arranged directly by a doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
       },
       {
         title: "Test day",
-        body: "An imaging order (ultrasound if you're under 40, mammography from 40), which you take to any imaging facility near you. You pay them directly, at their price, and upload the result yourself, just like the rest of Comprehensive Screen.",
+        body: "You receive an imaging request (ultrasound if you are under 40, mammography from 40), which you take to any imaging facility near you. You pay the facility directly at its own price and upload the result yourself, as with the rest of Comprehensive Screen.",
       },
       {
-        title: "Results & what's next",
-        body: "Your doctor talks you through the result directly. Most are clear. If not, you move straight into follow-up on the same record, with no starting over.",
+        title: "Results & what is next",
+        body: "A doctor explains the result to you directly. Most results are clear. If not, you move straight into follow-up on the same record, without starting again.",
       },
     ],
   },
@@ -127,24 +127,24 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "male",
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
-    summary: "A blood test that helps your doctor judge prostate health, discussed with you rather than ordered blindly.",
+    summary: "A blood test that helps a doctor assess prostate health, and that is discussed with you before it is ordered.",
     price: "Included in Advanced Screen",
     steps: [
       {
         title: "Is this for you?",
-        body: "Generally considered from age 45, or age 40 with a family history. This is one worth a short conversation with a doctor first, since PSA testing has real trade-offs.",
+        body: "Generally considered from age 45, or from age 40 with a family history. Speak to a doctor first, because PSA testing has both benefits and drawbacks.",
       },
       {
         title: "Book it",
-        body: "Ordered by your doctor as part of Advanced Screen, not sold as a stand-alone test; PSA isn't offered as a bare self-service booking because it genuinely needs that conversation first.",
+        body: "Ordered by a doctor as part of Advanced Screen, not sold as a stand-alone test. PSA is not offered as a self-service booking because it needs that conversation first.",
       },
       {
         title: "Test day",
-        body: "A simple blood draw alongside your other Advanced Screen samples, same visit, no extra trip.",
+        body: "A simple blood sample, taken with your other Advanced Screen samples during the same visit.",
       },
       {
-        title: "Results & what's next",
-        body: "Your doctor explains the number in context, your age, family history, and how it's trending, not as a bare pass/fail.",
+        title: "Results & what is next",
+        body: "A doctor explains the result in context, including your age, your family history and how the figure is changing over time, rather than as a simple pass or fail.",
       },
     ],
   },
@@ -154,8 +154,8 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
-    summary: "Catching changes in the colon early, when treatment is simplest.",
-    price: "Ordered by your doctor",
+    summary: "Finding changes in the colon early, when treatment is simplest.",
+    price: "Ordered by a doctor",
     steps: [
       {
         title: "Is this for you?",
@@ -163,15 +163,15 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Your doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
+        body: "A doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
       },
       {
         title: "Test day",
-        body: "Depends on what your doctor orders; they'll walk you through exactly what to expect and how to prepare before anything is booked.",
+        body: "This depends on what a doctor orders. Your care team explains what to expect and how to prepare before anything is booked.",
       },
       {
-        title: "Results & what's next",
-        body: "Reviewed by your doctor, with a clear explanation either way, and coordinated follow-up on the same record if anything needs a closer look.",
+        title: "Results & what is next",
+        body: "Reviewed by a doctor, with a clear explanation either way, and coordinated follow-up on the same record if anything needs a closer look.",
       },
     ],
   },
@@ -181,23 +181,23 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ALL_BANDS,
     category: "Infectious disease",
-    summary: "HIV, Hepatitis B, and Hepatitis C: the WHO-priority checks for Nigeria, booked quietly, on your own terms.",
-    price: "Paid to the lab, not to us",
+    summary: "HIV, hepatitis B and hepatitis C: the infection checks that WHO prioritises for Nigeria, booked confidentially and on your own terms.",
+    price: "Paid to the laboratory, not to Tarragon",
     steps: [
       {
         title: "Is this for you?",
-        body: "Yes, at any adult age, whether or not you think you're at risk. These are the checks that do the most damage when nobody is looking for them.",
+        body: "Yes, at any adult age, whether or not you think you are at risk. These infections can cause serious harm when nobody is testing for them.",
       },
       {
         title: "Book it",
-        body: "Book each test on its own, directly and confidentially in the app; no referral, no explanation needed to anyone.",
+        body: "Book each test on its own, directly and confidentially in the app. No referral is needed and you do not have to explain your reasons to anyone.",
       },
       {
         title: "Test day",
-        body: "A simple blood sample at whichever lab you choose, usually done in minutes.",
+        body: "A simple blood sample at the laboratory of your choice, usually taken within minutes.",
       },
       {
-        title: "Results & what's next",
+        title: "Results & what is next",
         body: "Results go only to you and the reviewing doctor, and are shared elsewhere on the platform only with your consent. Support and next steps are arranged privately if a result needs it.",
       },
     ],
@@ -208,24 +208,24 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ALL_BANDS,
     category: "Know your basics",
-    summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something few Nigerians are ever told plainly.",
-    price: "Paid to the lab, not to us",
+    summary: "Blood group and sickle cell genotype (AA, AS or SS). Useful for marriage counselling, pregnancy planning and emergencies, and information that few people in Nigeria are ever told clearly.",
+    price: "Paid to the laboratory, not to Tarragon",
     steps: [
       {
         title: "Is this for you?",
-        body: "Worth knowing at any age, and especially before marriage or planning a pregnancy, since two AS/AS partners carry a real risk worth understanding beforehand.",
+        body: "Worth knowing at any age, and especially before marriage or when planning a pregnancy, because two partners who both have the AS genotype risk having a child with sickle cell disease.",
       },
       {
         title: "Book it",
-        body: "Request it directly in the app, on its own, then take it to any lab you like.",
+        body: "Request it directly in the app, on its own, then take it to any laboratory you choose.",
       },
       {
         title: "Test day",
-        body: "One quick blood sample; no preparation needed.",
+        body: "One blood sample is taken. No preparation is needed.",
       },
       {
-        title: "Results & what's next",
-        body: "Saved to your Health Passport for good, so you (or a partner planning a family with you) can answer 'do you know your genotype?' without a shrug.",
+        title: "Results & what is next",
+        body: "Saved permanently to your Health Passport, so you and any partner planning a family with you can always confirm your genotype.",
       },
     ],
   },
@@ -256,7 +256,7 @@ export function ScreeningJourney() {
     <div className="mx-auto max-w-4xl">
       <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
         <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
-          Tell us two things, see your screening journey
+          Choose your age group and sex to see your recommended screening
         </h3>
 
         <fieldset className="mt-5">

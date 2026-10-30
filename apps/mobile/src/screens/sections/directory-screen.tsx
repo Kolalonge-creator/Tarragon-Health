@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { JoinWaitlist } from "./join-waitlist";
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { asLocale, t, type Locale } from "@tarragon/i18n";
 import { directionsHref, telHref } from "@tarragon/shared";
@@ -175,7 +176,12 @@ export function DirectoryScreen() {
       </Card>
 
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
-      {status === "not_open" ? <MutedText>{t("directory.not_open", locale)}</MutedText> : null}
+      {status === "not_open" ? (
+        <View style={{ gap: 12 }}>
+          <MutedText>{t("directory.not_open", locale)}</MutedText>
+          <JoinWaitlist feature="directory" />
+        </View>
+      ) : null}
       {status === "error" ? <ErrorText>{t("directory.error", locale)}</ErrorText> : null}
       {rows !== null && rows.length === 0 ? <MutedText>{t("directory.none", locale)}</MutedText> : null}
       {(rows ?? []).map((row) => (

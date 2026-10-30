@@ -40,7 +40,7 @@ const CATEGORY_COPY: Record<
   underweight: {
     label: "Underweight range",
     tone: "text-clinical-navy",
-    body: "Your BMI is below the typical range. This can be completely normal for some body types, but it's worth a conversation with a doctor, especially if it's a recent change.",
+    body: "Your BMI is below the typical range. This can be completely normal for some body types, but it is worth a conversation with a doctor, especially if it is a recent change.",
   },
   healthy: {
     label: "Healthy weight range",
@@ -50,7 +50,7 @@ const CATEGORY_COPY: Record<
   overweight: {
     label: "Overweight range",
     tone: "text-charcoal-ink",
-    body: "Your BMI is above the typical range. Small, steady changes (not crash diets) are what tend to work, and it's a good time to check in with a doctor before anything becomes harder to manage.",
+    body: "Your BMI is above the typical range. Small, steady changes (not crash diets) are what tend to work, and it is a good time to check in with a doctor before anything becomes harder to manage.",
   },
   obesity_class_i: {
     label: "Higher weight range",
@@ -231,7 +231,7 @@ export function BmiCalorieCalculator() {
       ) : null}
 
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
-        A general estimate, not a diagnosis or personalised medical advice. BMI doesn&apos;t
+        A general estimate, not a diagnosis or personalised medical advice. BMI does not
         account for muscle mass, pregnancy, or every body type, and calorie needs vary by
         individual. For a plan built around your real health picture, a doctor on Tarragon can
         help.

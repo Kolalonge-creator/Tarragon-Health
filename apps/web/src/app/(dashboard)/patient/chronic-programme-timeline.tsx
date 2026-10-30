@@ -154,8 +154,7 @@ function CheckinBooker({
       )}
       {!isLoading && slots && slots.length === 0 && (
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-          No open doctor times in the next two weeks. Check back shortly, or
-          contact us if this call is due soon.
+          There are no open doctor times in the next two weeks. Please check again shortly, or contact us if this call is due soon.
         </p>
       )}
       {!isLoading && slots && slots.length > 0 && (
@@ -259,7 +258,7 @@ function BuyDoctorSupportedAddon({ enrolmentId }: { enrolmentId: string }) {
   return (
     <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
       <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-        Want a doctor on this with you?
+        Would you like a doctor to support you through this programme?
       </p>
       <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         Continuous Monitoring, ₦30,000 for 90 days: 3 check-in calls with whichever doctor

@@ -1,7 +1,9 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { Disclosure } from "@/components/ui/disclosure";
 import { CreateTicketForm } from "./create-ticket-form";
 import { TicketList } from "./ticket-list";
 import { ComplaintList } from "./complaint-list";
@@ -34,30 +36,48 @@ export default async function PatientSupportPage({ searchParams }: { searchParam
     <DashboardSection
       id="support"
       title="Help & support"
-      description="App or technical issue? Send it here. Appointment, pharmacy, lab, insurance, referral, or payment help lives on your Care page under 'Need help'."
+      description="Answers first. If you still need help, message your care team or report a problem with the app."
       icon={SEMANTIC_ICON.clinicianFollowUp}
     >
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.1fr_1fr]">
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="pt-6">
-              <CreateTicketForm patientId={subjectId} {...(prefill ? { prefill } : {})} />
-            </CardContent>
-          </Card>
+      <div className="space-y-4">
+        <Link
+          href="/patient/messages"
+          className="flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-brand-green/30 bg-brand-green/5 px-4 py-3 text-sm font-semibold text-charcoal-ink hover:bg-brand-green/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green dark:text-night-ink"
+        >
+          <span>
+            Message your care team
+            <span className="block text-xs font-normal text-charcoal-ink/60 dark:text-night-ink/60">
+              For anything about your health, appointments, medicines or results.
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+        </Link>
 
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-charcoal-ink">Common questions</h3>
+          <FaqAccordion />
+        </div>
+
+        <Disclosure
+          title="Report a problem with the app"
+          hint="Something is broken or not working as it should."
+          defaultOpen={Boolean(prefill)}
+        >
+          <CreateTicketForm patientId={subjectId} {...(prefill ? { prefill } : {})} />
           <div>
             <h3 className="mb-2 text-sm font-semibold text-charcoal-ink">Your tickets</h3>
             <TicketList patientId={subjectId} />
           </div>
+        </Disclosure>
 
+        <Disclosure title="Complaints" hint="Not happy with how something was handled.">
           <ComplaintList patientId={subjectId} />
           <FileComplaintForm patientId={subjectId} />
-        </div>
+        </Disclosure>
 
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-charcoal-ink">Frequently asked questions</h3>
-          <FaqAccordion />
-        </div>
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+          For help with appointments, pharmacy, laboratory, insurance, referrals or payments, use the Need help card on your Care page.
+        </p>
       </div>
     </DashboardSection>
   );

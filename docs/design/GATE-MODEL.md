@@ -115,3 +115,8 @@ A new hub line has to be put in one list on purpose.
   `platform_modules` directly).
 - Deleting the dead condition branches for features in `private.go_live_conditions*` (they are advisory now, recorded in the log).
 - The bulk pass over `docs/OPEN-QUESTIONS.md` (834 ids) under rule 6, and marking registry values in force under rule 5.
+
+Status, 2026-10-30: stage one of the open-questions pass is done (`docs/design/OQ-TRIAGE-2026-10-30.md`). The other three were
+sized and not started: widening the operational activation functions would change nothing for an admin while the sign screens sit
+under `/clinician`; folding modules and flags would rewrite 24 live functions and 49 proofs for no visible gain, since a module
+already switches with one admin click and a note; the dead condition branches are advice on the dashboard, not a gate.

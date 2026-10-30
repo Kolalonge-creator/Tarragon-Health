@@ -30,9 +30,9 @@ export default async function AccountabilityPage() {
             How we hold ourselves accountable
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Trusting a new company with your family&apos;s health is a real thing to ask. These are
+            Asking you to trust a new company with your family&apos;s health is a serious request. These are
             the commitments we have written down, who put their name to them, and where your
-            information actually sits.
+            information is kept.
           </p>
         </div>
       </Section>
@@ -48,8 +48,8 @@ export default async function AccountabilityPage() {
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               These times come straight from the version our Clinical Director signed. If that
-              document changes, this page changes with it, and we won&apos;t quote a number
-              nobody has approved.
+              document changes, this page changes with it, and we will not quote a number
+              that nobody has approved.
             </p>
           </div>
           <MarketingMediaFrame
@@ -86,8 +86,8 @@ export default async function AccountabilityPage() {
 
             <p className="rounded-2xl bg-white/60 p-6 text-sm text-charcoal-ink/70">
               Each figure is the longest we allow ourselves, not our best case. Most emergency
-              flags reach a doctor far faster than the ceiling shown; the ceiling is what we hold
-              ourselves to, whichever part of the platform raised it.
+              flags reach a doctor far faster than the limit shown. The limit is the standard we hold
+              ourselves to, whichever part of the platform raised the flag.
               {published.approvedByName && (
                 <>
                   {" "}
@@ -111,13 +111,13 @@ export default async function AccountabilityPage() {
         ) : (
           <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-6">
             <p className="text-sm text-charcoal-ink/70">
-              Our response commitments are being reviewed and re-signed, so we won&apos;t quote a
-              number that isn&apos;t currently approved. The escalation process runs unchanged
+              Our response commitments are being reviewed and re-signed, so we will not quote a
+              number that is not currently approved. The process for referring a case to a doctor continues unchanged
               throughout: a flagged reading still reaches a doctor, and no urgent case can be
               closed without one.
             </p>
             <p className="mt-3 text-sm text-charcoal-ink/70">
-              We aim to reply as quickly as we can, and if we are running slower than usual we will
+              We aim to reply as quickly as we can, and if we are slower than usual we will
               tell you in the app. If something is urgent, or you feel very unwell, do not wait for a
               reply: go to your nearest emergency department or call emergency services now.
             </p>
@@ -129,12 +129,12 @@ export default async function AccountabilityPage() {
         <SectionHeading
           eyebrow="Your data"
           title="Where it lives and who can reach it"
-          description="Plainly, including the part we would rather were different."
+          description="A direct account, including the part that we would prefer to be different."
         />
         <div className="mx-auto max-w-3xl space-y-4">
           <DataPoint
             title="Stored in Europe, not Nigeria"
-            body="Our database is hosted in Ireland; we'd prefer Nigeria, but our infrastructure provider has no African region yet. We're saying this outright rather than leaving it for a policy document, and we will move if that changes."
+            body="Our database is hosted in Ireland. We would prefer it to be in Nigeria, but our infrastructure provider does not yet have an African region. We state this here rather than leaving it to a policy document, and we will move the database if that changes."
           />
           <DataPoint
             title="Encrypted in transit and at rest"
@@ -142,22 +142,22 @@ export default async function AccountabilityPage() {
           />
           <DataPoint
             title="Access enforced by the database, not by our code"
-            body="Every table that holds patient information carries row-level rules inside the database itself, so a mistake in an app screen cannot show one person another person's record. That's checked on every query, not once at login."
+            body="Every table that holds patient information carries row-level rules inside the database itself, so a mistake in an app screen cannot show one person another person's record. This is checked on every query, not only at login."
           />
           <DataPoint
             title="Family access is granted by you, and it is not symmetrical"
-            body="Someone you name as next of kin must accept, then can follow your record without changing it. Someone funding your care sees what their money paid for and what it cost. Neither sees your readings, results, or notes unless you've given them that level yourself."
+            body="Someone you name as next of kin must accept, and can then follow your record without changing it. Someone funding your care sees what their money paid for and what it cost. Neither can see your readings, results or notes unless you have given them that level of access yourself."
           />
           <DataPoint
             title="Every clinical action is attributed"
-            body="When a doctor reviews your case, the record carries their name. If no doctor has reviewed something, we show you nothing rather than a reassuring label."
+            body="When a doctor reviews your case, the record carries their name. If no doctor has reviewed something, we show nothing rather than a reassuring label."
           />
         </div>
       </Section>
 
       <CtaBand
         title="Questions we have not answered here?"
-        description="Ask us directly. We would rather answer a hard question before you sign up than after."
+        description="Ask us directly. We would rather answer a difficult question before you sign up than after."
         primaryHref="/contact"
         primaryLabel="Ask us"
         secondaryHref="/privacy"

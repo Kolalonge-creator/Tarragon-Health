@@ -6,24 +6,24 @@ const PILLARS = [
     body: "Real doctors review your readings and results against care protocols, rather than an algorithm acting alone.",
   },
   {
-    title: "Warm, not automated",
-    body: "You get a care team who knows your name and follows up like a person, not a hospital PA system.",
+    title: "Personal, not automated",
+    body: "You have a care team who know your name and follow up with you personally.",
   },
   {
     title: "Calm, early follow-up",
-    body: "We notice things early and reach out calmly, so a small change gets attention before it becomes a crisis.",
+    body: "We notice changes early and contact you calmly, so that a small change receives attention before it becomes a crisis.",
   },
   {
     title: "Explained in plain language",
-    body: "We tell you what a result means and what to do next in clear words, so you are left in no doubt.",
+    body: "We explain what a result means and what to do next in clear words, so that you know what is happening.",
   },
   {
-    title: "Premium, within reach",
-    body: "High-quality, consistent care that stays affordable, built for Nigerians rather than a select few.",
+    title: "High quality, within reach",
+    body: "Consistent, high-quality care that stays affordable, built for people across Nigeria rather than a select few.",
   },
   {
     title: "Built for Nigeria",
-    body: "Grounded in how care really works here, from the pharmacy down the road to the lab across town.",
+    body: "Based on how care works in Nigeria, from the local pharmacy to the laboratory across town.",
   },
 ] as const;
 
@@ -31,7 +31,7 @@ const PILLARS = [
 const COMMITMENTS = [
   "Calm, measured language, with no scare tactics",
   "Clear, upfront pricing with no hidden costs",
-  "Honest about what we can and can't do",
+  "Honest about what we can and cannot do",
   "We support your hospital rather than replace it",
 ] as const;
 

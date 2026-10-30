@@ -157,7 +157,7 @@ function NoteFields({
           onChange={(e) => onChange("plan", e.target.value)}
         />
         <p className="mt-1 text-xs text-charcoal-ink/50">
-          A narrative account only: actual medication/lab/referral orders belong on their own
+          A narrative account only: actual medication, laboratory and referral orders belong on their own
           tabs, not here.
         </p>
       </div>

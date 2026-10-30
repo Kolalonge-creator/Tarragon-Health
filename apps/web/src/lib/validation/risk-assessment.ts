@@ -41,25 +41,33 @@ export const riskAssessmentSchema = z
     family_cancer_other_detail: z.string().trim().max(300).optional(),
 
     // lifestyle
-    smoking_status: z.enum(SMOKING_STATUSES),
-    cigarettes_per_day: z.enum(CIGARETTES_PER_DAY).optional(),
-    alcohol_use: z.enum(ALCOHOL_USES),
-    exercise_days_per_week: z.coerce.number().int().min(0).max(7),
-    exercise_minutes_per_session: z.coerce.number().int().min(0).max(300),
+    smoking_status: z.enum(SMOKING_STATUSES, { message: "Choose one for smoking: never smoked, used to smoke, or currently smoke." }),
+    cigarettes_per_day: z.enum(CIGARETTES_PER_DAY, { message: "Choose roughly how many cigarettes a day." }).optional(),
+    alcohol_use: z.enum(ALCOHOL_USES, { message: "Choose how much alcohol you drink (none, moderate or heavy)." }),
+    exercise_days_per_week: z.coerce
+      .number({ message: "Enter how many days a week you exercise (0 if none)." })
+      .int({ message: "Enter a whole number of days, from 0 to 7." })
+      .min(0, "Enter a number of days from 0 to 7.")
+      .max(7, "Enter a number of days from 0 to 7."),
+    exercise_minutes_per_session: z.coerce
+      .number({ message: "Enter how many minutes you exercise each time (0 if none)." })
+      .int({ message: "Enter a whole number of minutes, from 0 to 300." })
+      .min(0, "Enter minutes from 0 to 300.")
+      .max(300, "Enter minutes from 0 to 300."),
     diet_pattern: z.array(z.enum(DIET_TAGS)),
-    sleep_hours: z.enum(SLEEP_HOURS),
-    stress_level: z.enum(STRESS_LEVELS),
+    sleep_hours: z.enum(SLEEP_HOURS, { message: "Choose how many hours you usually sleep." }),
+    stress_level: z.enum(STRESS_LEVELS, { message: "Choose your usual stress level (low, moderate or high)." }),
     // Feeds BMI alongside weight_kg below (or the patient's most recent
     // vitals_readings.weight_kg if weight_kg is left blank).
     height_cm: z.coerce
-      .number()
+      .number({ message: "Enter your height in centimetres." })
       .min(100, "Height must be at least 100 cm")
       .max(230, "Height must be at most 230 cm"),
     // Same bounds as weightSchema in lib/validation/vitals.ts — same
     // physical quantity, same platform. Optional: falls back to the
     // patient's most recent logged vitals weight if omitted.
     weight_kg: z.coerce
-      .number()
+      .number({ message: "Enter your weight in kilograms, or leave it blank." })
       .min(20, "Weight must be at least 20 kg")
       .max(300, "Weight must be at most 300 kg")
       .optional(),
@@ -103,6 +111,15 @@ export const riskAssessmentSchema = z
       });
     }
   });
+
+/** Which step of the wizard each field is on (1 family history, 2 lifestyle, 3 medical history, 4 vaccination and screening). */
+export const FIELD_STEP: Partial<Record<string, number>> = {
+  family_cancer_types: 1, family_cancer_other_detail: 1,
+  smoking_status: 2, cigarettes_per_day: 2, alcohol_use: 2, exercise_days_per_week: 2, exercise_minutes_per_session: 2,
+  sleep_hours: 2, stress_level: 2, height_cm: 2, weight_kg: 2, diet_pattern: 2,
+  existing_diagnoses: 3, existing_diagnoses_other_detail: 3, current_medications: 3,
+  hpv_vaccinated: 4, other_vaccines_detail: 4, prior_abnormal_result: 4,
+};
 
 export type RiskAssessmentInput = z.infer<typeof riskAssessmentSchema>;
 

@@ -53,7 +53,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "How Tarragon manages hypertension",
     sections: [
       {
-        heading: "The two numbers, in plain language",
+        heading: "What the two numbers mean",
         paragraphs: [
           "A blood pressure reading has two numbers, written like 120/80. The first (systolic) is the pressure in your arteries when your heart squeezes; the second (diastolic) is the pressure between beats, when the heart rests. Both matter.",
           "For most adults, a reading under 130/85 at rest is in a healthy range. Readings that stay at 140/90 or higher, measured properly on separate days, are what doctors call hypertension: high blood pressure.",
@@ -62,7 +62,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why one high reading is not a diagnosis",
         paragraphs: [
-          "Blood pressure moves all day. Stress, caffeine, a rushed walk into the pharmacy, even the measurement itself ('white-coat effect') can push a single reading up. That is why no good clinician diagnoses hypertension from one number.",
+          "Blood pressure moves all day. Stress, caffeine, a rushed walk into the pharmacy, or even the experience of being measured (the 'white-coat effect'), can push a single reading up. That is why no good clinician diagnoses hypertension from one number.",
           "What matters is the pattern: several readings, taken while rested, on different days. A home blood-pressure monitor (used correctly, seated, arm supported) often gives a truer picture than an occasional clinic check.",
         ],
       },
@@ -75,8 +75,8 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What to actually do",
         paragraphs: [
-          "If you have not had it checked, do: at a pharmacy, a lab, or with a home cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
-          "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your doctor can see whether the plan is working.",
+          "If you have not had your blood pressure checked, have it measured at a pharmacy, a laboratory or at home with a cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
+          "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your care team can see whether the plan is working.",
         ],
       },
     ],
@@ -102,7 +102,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "Reading your result",
         paragraphs: [
           "As a widely used guide: below 5.7% is in the normal range; 5.7–6.4% is called prediabetes, a warning zone where change still prevents diabetes; 6.5% or higher on a proper laboratory test supports a diagnosis of diabetes.",
-          "If you already live with diabetes, your doctor will set a personal target, often around 7%, balancing control against the risk of sugar going too low. Your target is a conversation, not a universal number.",
+          "If you already live with diabetes, a doctor will set a personal target, often around 7%, balancing control against the risk of sugar going too low. Your target is a conversation, not a universal number.",
         ],
       },
       {
@@ -123,7 +123,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "lower-blood-pressure-naturally",
     title: "Five changes that genuinely lower blood pressure",
     description:
-      "Salt, weight, movement, alcohol and sleep: what the evidence supports, and what it can and can't replace.",
+      "Salt, weight, movement, alcohol and sleep: what the evidence supports, and what it can and cannot replace.",
     category: "Blood pressure",
     readMinutes: 5,
     relatedHref: "/hypertension",
@@ -132,11 +132,11 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "First, an honest frame",
         paragraphs: [
-          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Do not stop a prescribed medicine on your own; blood pressure rebounds quietly.",
+          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Do not stop a prescribed medicine on your own, because blood pressure rises again without any warning.",
         ],
       },
       {
-        heading: "1. Cut the salt you can't see",
+        heading: "1. Reduce the salt you cannot see",
         paragraphs: [
           "Most excess salt is not from your salt spoon: it hides in seasoning cubes, instant noodles, processed and tinned foods, and suya spice mixes. Halving these often does more than banning table salt. Aim to cook more from fresh ingredients and taste before you season.",
         ],
@@ -150,7 +150,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "3. Move most days",
         paragraphs: [
-          "About 30 minutes of brisk walking most days lowers blood pressure on its own, independent of weight loss. It does not require a gym; it requires a route and a habit.",
+          "About 30 minutes of brisk walking most days lowers blood pressure on its own, independent of weight loss. It does not require a gym, only a regular route and a routine.",
         ],
       },
       {
@@ -179,7 +179,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The uncomfortable truth: many people feel nothing",
+        heading: "Many people have no symptoms",
         paragraphs: [
           "Type 2 diabetes builds gradually, and the body adapts. Many people live with raised sugar for years before diagnosis, often until a complication shows up first. Feeling fine is not evidence your sugar is fine.",
         ],
@@ -201,34 +201,34 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "diabetes-just-diagnosed",
-    title: "So you've just been diagnosed with diabetes. Now what?",
+    title: "Newly diagnosed with diabetes: what happens next",
     description:
-      "The first week, the questions worth asking your doctor, and what actually changes versus what doesn't.",
+      "The first week, the questions worth asking a doctor, and what actually changes versus what does not.",
     category: "Diabetes",
     readMinutes: 5,
     relatedHref: "/diabetes",
     relatedLabel: "Diabetes care at Tarragon",
     sections: [
       {
-        heading: "Take a breath first",
+        heading: "Understanding the diagnosis",
         paragraphs: [
-          "A new diabetes diagnosis can feel like a lot at once. It is not an emergency that demands you overhaul your entire life today. It is a starting line: you now have information that lets you and a doctor act, and that is better than not knowing.",
+          "A new diabetes diagnosis can feel like a lot at once. It is not an emergency, and you do not have to change your whole life today. You now have information that allows you and a doctor to act, which is better than not knowing.",
         ],
       },
       {
         heading: "What actually needs to happen this week",
         paragraphs: [
-          "Your doctor will confirm the type (type 1, type 2, or gestational, if you are pregnant), because that changes the plan. Expect baseline tests beyond the sugar result itself: HbA1c, kidney function, cholesterol, and blood pressure, plus a referral for an eye check. If a medicine is prescribed, start it as instructed even before you have mastered the diet side; the two work together, not in sequence.",
+          "A doctor will confirm the type (type 1, type 2, or gestational, if you are pregnant), because that changes the plan. Expect baseline tests beyond the sugar result itself: HbA1c, kidney function, cholesterol, and blood pressure, plus a referral for an eye check. If a medicine is prescribed, start it as instructed even before you have mastered the diet side; the two work together, not in sequence.",
         ],
       },
       {
-        heading: "Questions worth taking to your first proper review",
+        heading: "Questions to take to your first review",
         paragraphs: [
           "What is my HbA1c and what target are we aiming for? Do I need medication now, or are we starting with lifestyle change first? What symptoms mean I should call sooner rather than wait for the next appointment? When is my next check, and what will it look at?",
         ],
       },
       {
-        heading: "What changes, and what genuinely doesn't",
+        heading: "What changes and what stays the same",
         paragraphs: [
           "You can still eat foods you love, in sensible portions; still travel; still work as before. What changes is a new habit of checking in on your body on a schedule rather than only when something feels wrong. Most people with type 2 diabetes who follow their plan consistently live long, ordinary lives; the complications people fear come from years of unmanaged sugar, not from the diagnosis itself.",
         ],
@@ -248,7 +248,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "No food is banned outright",
         paragraphs: [
-          "Eba, pounded yam, rice, and other everyday staples don't have to disappear from your table. What matters most is portion size and what you eat them alongside; a smaller starchy portion next to more protein and vegetables behaves very differently in your body than a large one eaten alone.",
+          "Eba, pounded yam, rice, and other everyday staples do not have to disappear from your table. What matters most is portion size and what you eat them alongside; a smaller starchy portion next to more protein and vegetables behaves very differently in your body than a large one eaten alone.",
         ],
       },
       {
@@ -264,7 +264,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "What's actually worth cutting back",
+        heading: "What is worth cutting back",
         paragraphs: [
           "Sugary zobo, soft drinks, and table sugar in tea add sugar with no fibre to slow it down; deep-fried foods and packaged snacks add the kind of fat that works against your numbers over time. Small, consistent swaps you can keep up beat one dramatic overhaul that lasts a fortnight.",
         ],
@@ -290,19 +290,19 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What the evidence actually shows",
         paragraphs: [
-          "A few of these (cinnamon and bitter melon among them) show a small effect on blood sugar in some studies. Small is the operative word: nowhere close to replacing medication for someone already diagnosed, and outside a laboratory there is no way to know the dose or purity of what you're actually taking.",
+          "A few of these (cinnamon and bitter melon among them) show a small effect on blood sugar in some studies. Small is the operative word: nowhere close to replacing medication for someone already diagnosed, and outside a laboratory there is no way to know the dose or purity of what you are actually taking.",
         ],
       },
       {
-        heading: "The real risk isn't trying them, it's stopping what works",
+        heading: "The real risk is not trying them, it is stopping what works",
         paragraphs: [
-          "Do not replace a prescribed diabetes medicine with a herbal product without your doctor knowing. Tell your care team about anything you're taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
+          "Do not replace a prescribed diabetes medicine with a herbal product without your care team knowing. Tell your care team about anything you are taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
         ],
       },
       {
         heading: "What genuinely does earn its place",
         paragraphs: [
-          "Food choices, movement, weight, and sleep are not the exciting answer, but they are the proven one: real, repeated evidence shows they measurably lower blood sugar over time. The honest message is that there is no shortcut supplement, but the boring, unglamorous changes genuinely work.",
+          "Food choices, movement, weight, and sleep are not the exciting answer, but they are the proven one: real, repeated evidence shows they measurably lower blood sugar over time. There is no shortcut supplement, but ordinary, consistent changes do work.",
         ],
       },
     ],
@@ -320,7 +320,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Diabetes distress is real, and common",
         paragraphs: [
-          "Living with a condition that asks for daily attention, checking sugar, timing meals, taking medicine on schedule, is genuinely tiring. Frustration, guilt after a 'bad' reading, and burnout from the routine are common enough to have a name: diabetes distress. It overlaps with depression but isn't quite the same thing.",
+          "Living with a condition that asks for daily attention, checking sugar, timing meals, taking medicine on schedule, is genuinely tiring. Frustration, guilt after a 'bad' reading, and burnout from the routine are common enough to have a name: diabetes distress. It overlaps with depression but is not quite the same thing.",
         ],
       },
       {
@@ -356,19 +356,19 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Build a routine, not a perfect day",
         paragraphs: [
-          "The goal isn't a flawless day; it's a repeatable one. Roughly consistent meal times and a fixed time for medicine turn diabetes care into a habit rather than a decision you have to make from scratch every day, which is where consistency quietly comes from.",
+          "The goal is not a flawless day; it is a repeatable one. Roughly consistent meal times and a fixed time for medicine turn diabetes care into a habit rather than a decision you have to make from scratch every day, which is where consistency quietly comes from.",
         ],
       },
       {
         heading: "Monitoring: what each check actually tells you",
         paragraphs: [
-          "A home glucose check, if your doctor has prescribed one, shows today's number: useful, but a single snapshot. HbA1c, done every three to six months, shows the bigger three-month trend. They answer different questions; neither replaces the other.",
+          "A home glucose check, if a doctor has prescribed one, shows today's number: useful, but a single snapshot. HbA1c, done every three to six months, shows the bigger three-month trend. They answer different questions; neither replaces the other.",
         ],
       },
       {
         heading: "Medicine: consistency beats perfection",
         paragraphs: [
-          "Take medicine on schedule even on a day you've eaten well and feel fine. Missed doses are one of the most common, and most preventable, reasons control slips. A phone reminder tied to an existing daily habit works better than relying on memory alone.",
+          "Take medicine on schedule even on a day you have eaten well and feel fine. Missed doses are one of the most common, and most preventable, reasons control slips. A phone reminder tied to an existing daily habit works better than relying on memory alone.",
         ],
       },
       {
@@ -398,7 +398,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why your waist tells you more",
         paragraphs: [
-          "Fat stored around the organs (the belly, not the hips) is what drives diabetes, hypertension and heart disease risk. A waist above roughly 94 cm for men or 80 cm for women signals raised risk even when BMI looks moderate. A tape measure is a better early-warning tool than a mirror.",
+          "Fat stored around the organs (the belly, not the hips) is what drives diabetes, hypertension and heart disease risk. A waist above roughly 94 cm for men or 80 cm for women signals raised risk even when BMI looks moderate. A tape measure gives a better early warning than a mirror.",
         ],
       },
       {
@@ -410,17 +410,17 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What does",
         paragraphs: [
-          "The boring, proven combination: modest calorie reduction you can sustain, protein and fibre that keep you full, 30 minutes of movement most days, sleep, and tracking, the step most people skip, so the trend is visible. A 5–10% loss held for a year improves blood pressure, sugar and cholesterol measurably.",
-          "If your BMI is 30+ or your weight comes with raised sugar or pressure, this is a medical matter that deserves a doctor's structured support, not a willpower verdict. That is exactly what a managed programme is for.",
+          "What is proven to work: modest calorie reduction you can sustain, protein and fibre that keep you full, 30 minutes of movement most days, sleep, and tracking, the step most people skip, so the trend is visible. A 5–10% loss held for a year improves blood pressure, sugar and cholesterol measurably.",
+          "If your BMI is 30+ or your weight comes with raised sugar or pressure, this is a medical matter that deserves a doctor's structured support rather than a judgement about willpower. A managed programme exists to provide exactly that.",
         ],
       },
     ],
   },
   {
     slug: "weight-loss-medication-questions-for-your-doctor",
-    title: "Weight-loss medication: what to ask your doctor before you start",
+    title: "Weight-loss medication: what to ask a doctor before you start",
     description:
-      "What these medicines actually do, who they're usually considered for, and the questions worth taking to that conversation.",
+      "What these medicines actually do, who they are usually considered for, and the questions worth taking to that conversation.",
     category: "Weight",
     readMinutes: 5,
     relatedHref: "/obesity",
@@ -430,11 +430,11 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "What these medicines actually do",
         paragraphs: [
           "The weight-loss medications getting attention right now work mainly by slowing digestion and quieting appetite signals in the brain, so people eat less without fighting constant hunger. They are prescription medicines, taken under medical supervision, not a supplement you start on your own.",
-          "They work best alongside the same lifestyle changes that already help everyone, not instead of them. Food, movement and sleep still matter once you're on one; the medicine makes those changes easier to sustain, not unnecessary.",
+          "They work best alongside the same lifestyle changes that already help everyone, not instead of them. Food, movement and sleep still matter once you are on one; the medicine makes those changes easier to sustain, not unnecessary.",
         ],
       },
       {
-        heading: "Who they're usually considered for",
+        heading: "Who they are usually considered for",
         paragraphs: [
           "They are typically considered for people with a BMI in the obesity range, or an overweight BMI alongside a related condition like raised blood pressure or blood sugar, after a proper assessment of history and risk. They are not usually a first answer for someone who wants to lose a few kilograms for an event.",
         ],
@@ -442,13 +442,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Questions worth taking to that conversation",
         paragraphs: [
-          "Am I actually a candidate, based on my BMI and health history, not just what I'd like? What side effects are common, and which ones mean I should call back sooner rather than wait? What happens to my weight if I stop the medicine later? How will this be monitored over time, and what does it cost to continue, not just to start?",
+          "Am I actually a candidate, based on my BMI and health history, not just what I would like? What side effects are common, and which ones mean I should call back sooner rather than wait? What happens to my weight if I stop the medicine later? How will this be monitored over time, and what does it cost to continue, not just to start?",
         ],
       },
       {
         heading: "Where Tarragon fits today",
         paragraphs: [
-          "Tarragon's weight programme is lifestyle-managed: weight and waist tracking, a personalised plan, monitoring of related conditions like blood pressure and sugar, and regular doctor review. We don't currently prescribe weight-loss medication ourselves, and we'd rather say that plainly than overpromise. Where a doctor review suggests a medical conversation about medication is worth having, that's flagged so you can pursue it, informed rather than guessing.",
+          "Tarragon's weight programme is lifestyle-managed: weight and waist tracking, a personalised plan, monitoring of related conditions like blood pressure and sugar, and regular doctor review. We do not currently prescribe weight-loss medication ourselves, and we would rather say that plainly than overpromise. Where a doctor review suggests a medical conversation about medication is worth having, that is flagged so you can pursue it, informed rather than guessing.",
         ],
       },
     ],
@@ -457,14 +457,14 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "finding-healthy-food-on-any-budget",
     title: "Finding healthy food in any Nigerian market, on any budget",
     description:
-      "You don't need imported diet products. Local markets already have what a healthier plate needs, if you know what to look for.",
+      "You do not need imported diet products. Local markets already have what a healthier plate needs, if you know what to look for.",
     category: "Weight",
     readMinutes: 4,
     relatedHref: "/obesity",
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "Healthy doesn't mean imported",
+        heading: "Healthy food does not have to be imported",
         paragraphs: [
           "Vegetables like ugu, waterleaf and garden egg, beans, fresh fish, and unripe plantain are already close to what any healthy-eating guide recommends. None of it comes in a branded 'diet' package, and none of it needs to.",
         ],
@@ -472,17 +472,17 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Shop the fresh sections, not the packaged aisle",
         paragraphs: [
-          "Produce, fish and meat sections tend to be both fresher and, per meal, cheaper than heavily processed or packaged alternatives once you account for how far a home-cooked pot of soup stretches. Buying what's in season usually costs less and tastes better too.",
+          "Produce, fish and meat sections tend to be both fresher and, per meal, cheaper than heavily processed or packaged alternatives once you account for how far a home-cooked pot of soup stretches. Buying what is in season usually costs less and tastes better too.",
         ],
       },
       {
-        heading: "Protein and fibre stretch further than you'd think",
+        heading: "Protein and fibre stretch further than you would think",
         paragraphs: [
           "Beans, eggs and fish are usually cheaper sources of protein than red meat, and fibre-rich vegetables bulk out a plate cheaply while keeping you fuller for longer. A bigger vegetable-and-protein base with a smaller starch portion often costs about the same as the reverse.",
         ],
       },
       {
-        heading: "Small swaps that don't cost extra",
+        heading: "Small swaps that do not cost extra",
         paragraphs: [
           "Water or unsweetened zobo instead of a sugary soft drink, a slightly smaller rice or eba portion with beans added in, grilled instead of deep-fried where the price is similar. None of these require a bigger food budget, just a different way of filling the same plate.",
         ],
@@ -500,15 +500,15 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "Most overeating isn't really about hunger",
+        heading: "Most overeating is not caused by hunger",
         paragraphs: [
-          "Eating in front of a screen, finishing a plate out of habit rather than appetite, or reaching for food when stressed or bored, all feel like hunger in the moment but usually aren't. Learning to tell the difference between physical hunger and an emotional or habitual trigger is the useful skill, not willpower.",
+          "Eating in front of a screen, finishing a plate out of habit rather than appetite, or reaching for food when stressed or bored, all feel like hunger in the moment but usually are not. Learning to tell the difference between physical hunger and an emotional or habitual trigger is the useful skill, not willpower.",
         ],
       },
       {
         heading: "Common triggers worth noticing",
         paragraphs: [
-          "Stress and anxiety, boredom or understimulation, poor sleep (which genuinely raises appetite hormones the next day), social pressure to finish what's served, and simply eating on autopilot while distracted are the ones that come up most often. None of them mean anything is wrong with you; they're just worth noticing.",
+          "Stress and anxiety, boredom or understimulation, poor sleep (which genuinely raises appetite hormones the next day), social pressure to finish what is served, and simply eating on autopilot while distracted are the ones that come up most often. None of them mean anything is wrong with you; they are just worth noticing.",
         ],
       },
       {
@@ -518,9 +518,9 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "When to loop in your care team",
+        heading: "When to speak to your care team",
         paragraphs: [
-          "If eating feels genuinely out of your control, or seems tied to low mood that's lasted more than a couple of weeks, that's worth raising with a doctor rather than treating as a personal failing. Addressing it is part of good weight care, not a separate, lesser concern.",
+          "If eating feels genuinely out of your control, or seems tied to low mood that is lasted more than a couple of weeks, that is worth raising with a doctor rather than treating as a personal failing. Addressing it is part of good weight care, not a separate, lesser concern.",
         ],
       },
     ],
@@ -548,22 +548,22 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Added by age and history",
+        heading: "Additional tests by age and history",
         paragraphs: [
           "From the 40s onward: an ECG and a fuller cardiovascular risk review. For women: cervical screening from the mid-20s and breast checks from 40. For men from 45: a prostate conversation with a doctor, informed, not automatic. Family history of any of these moves the start dates earlier.",
         ],
       },
       {
-        heading: "The part most checkups get wrong",
+        heading: "Why follow-up matters more than the tests",
         paragraphs: [
-          "A stack of results with no follow-up is theatre. The value is in what happens next: someone explains each result, an abnormal finding triggers an actual plan, and next year's numbers get compared to this year's. When you book any screening, the question to ask is not 'which tests?' but 'who follows up?'",
+          "A set of results with no follow-up has little value. The benefit comes from what happens next: someone explains each result, an abnormal finding triggers an actual plan, and next year's numbers get compared to this year's. When you book any screening, the question to ask is not 'which tests?' but 'who follows up?'",
         ],
       },
     ],
   },
   {
     slug: "cholesterol-explained",
-    title: "Cholesterol results, decoded: LDL, HDL and the number nobody mentions",
+    title: "Cholesterol results explained: LDL, HDL and non-HDL",
     description:
       "What a lipid panel measures, which number matters most, and when cholesterol needs treating.",
     category: "Cholesterol",
@@ -578,7 +578,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The number nobody mentions: non-HDL",
+        heading: "A less well-known measure: non-HDL cholesterol",
         paragraphs: [
           "Subtract HDL from total cholesterol and you get non-HDL cholesterol: everything capable of clogging arteries in one figure. Many clinicians now consider it a better single measure than LDL alone, and it needs no extra test: it is arithmetic on results you already have.",
         ],
@@ -611,7 +611,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What a statin actually does",
         paragraphs: [
-          "A statin lowers LDL cholesterol by slowing how much your liver makes, rather than by removing what's already stuck in your arteries. Taken consistently, it measurably lowers the risk of heart attack and stroke in people whose overall cardiovascular risk is high enough to warrant it, one of the largest, most repeated findings in modern medicine.",
+          "A statin lowers LDL cholesterol by slowing how much your liver makes, rather than by removing what is already stuck in your arteries. Taken consistently, it measurably lowers the risk of heart attack and stroke in people whose overall cardiovascular risk is high enough to warrant it, one of the largest, most repeated findings in modern medicine.",
         ],
       },
       {
@@ -621,7 +621,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Muscle aches: real, but often over-blamed",
+        heading: "Muscle aches: real, but often wrongly blamed",
         paragraphs: [
           "Muscle aches are the complaint people raise most, and they are real for some people. But controlled studies that compare a statin against a fake pill find most reported muscle pain happens on the fake pill too, meaning expectation plays a large role. If aches do appear, a doctor can usually solve it by switching statins or adjusting dose rather than stopping treatment altogether.",
         ],
@@ -629,7 +629,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The actual risk of not taking it",
         paragraphs: [
-          "For someone whose doctor has assessed real cardiovascular risk and recommended a statin, stopping it quietly, without a conversation, removes one of the best-proven protections against a heart attack or stroke you can have. If side effects are genuinely bothering you, that is a reason to call your doctor, not to simply stop; there is almost always another option.",
+          "For someone whose doctor has assessed real cardiovascular risk and recommended a statin, stopping it quietly, without a conversation, removes one of the best-proven protections against a heart attack or stroke you can have. If side effects are genuinely bothering you, that is a reason to call a doctor, not to simply stop; there is almost always another option.",
         ],
       },
     ],
@@ -638,7 +638,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "home-blood-pressure-monitoring",
     title: "How to measure your blood pressure at home, properly",
     description:
-      "The five mistakes that quietly inflate a home reading, and how to build a measurement habit your doctor can actually trust.",
+      "The five mistakes that quietly inflate a home reading, and how to build a measurement habit your care team can actually trust.",
     category: "Blood pressure",
     readMinutes: 4,
     relatedHref: "/hypertension",
@@ -659,56 +659,56 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "A simple routine that removes the guesswork",
         paragraphs: [
-          "Sit quietly for five minutes first. Feet flat on the floor, back supported, arm resting at heart height. Take two readings, one minute apart, and record both rather than only the lower one. Do this at roughly the same time each day, morning and evening if your doctor has asked for that, for at least a week before any decision is made from the pattern.",
+          "Sit quietly for five minutes first. Feet flat on the floor, back supported, arm resting at heart height. Take two readings, one minute apart, and record both rather than only the lower one. Do this at roughly the same time each day, morning and evening if a doctor has asked for that, for at least a week before any decision is made from the pattern.",
         ],
       },
       {
         heading: "What to do with the numbers",
         paragraphs: [
-          "A log of real readings, dated, is far more useful to a doctor than a verbal 'it's usually fine.' If your home average sits at 135/85 or higher, or any single reading is well above 180/120, that is worth a call rather than waiting for your next scheduled appointment.",
+          "A log of real readings, dated, is far more useful to a doctor than a verbal 'it is usually fine.' If your home average sits at 135/85 or higher, or any single reading is well above 180/120, that is worth a call rather than waiting for your next scheduled appointment.",
         ],
       },
     ],
   },
   {
     slug: "blood-pressure-medication-myths",
-    title: "Why you shouldn't stop your blood pressure medicine when you feel fine",
+    title: "Why you should not stop blood pressure medicine when you feel well",
     description:
-      "The quiet reason so many people stop treatment early, and why hypertension has no symptom that tells you it's back.",
+      "The quiet reason so many people stop treatment early, and why hypertension has no symptom that tells you it is back.",
     category: "Blood pressure",
     readMinutes: 4,
     relatedHref: "/hypertension",
     relatedLabel: "Hypertension care at Tarragon",
     sections: [
       {
-        heading: "The trap: feeling fine means nothing",
+        heading: "Feeling well does not mean your blood pressure is controlled",
         paragraphs: [
-          "Hypertension is sometimes called a silent condition for a reason: it produces essentially no symptoms until it has already caused damage. A person whose pressure has been brought under control by medication feels exactly the same as a person whose pressure is quietly climbing again. Feeling fine is not feedback; only a reading is.",
+          "Hypertension is sometimes called a silent condition for a reason: it produces essentially no symptoms until it has already caused damage. A person whose pressure has been brought under control by medication feels exactly the same as a person whose pressure is quietly climbing again. Feeling well tells you nothing about your blood pressure; only a reading does.",
         ],
       },
       {
         heading: "Why people stop anyway",
         paragraphs: [
-          "The most common reasons are rarely medical: running out and delaying a refill, a busy week that breaks the routine, hearing a rumour that the medicine 'damages the kidneys' or is only meant to be short-term, or simply feeling well enough to assume it's no longer needed. None of these are safe reasons to stop without telling a doctor first.",
+          "The most common reasons are rarely medical: running out and delaying a refill, a busy week that breaks the routine, hearing a rumour that the medicine 'damages the kidneys' or is only meant to be short-term, or simply feeling well enough to assume it is no longer needed. None of these are safe reasons to stop without telling a doctor first.",
         ],
       },
       {
         heading: "What actually happens when you stop",
         paragraphs: [
-          "For most blood pressure medicines, pressure rises back towards its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely isn't suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
+          "For most blood pressure medicines, pressure rises back towards its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely is not suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
         ],
       },
       {
         heading: "If cost or access is the real reason",
         paragraphs: [
-          "Tell your doctor. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that delivers, rather than a plan quietly falling apart in silence.",
+          "Tell your care team. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that delivers, rather than a plan quietly falling apart in silence.",
         ],
       },
     ],
   },
   {
     slug: "why-crash-diets-dont-work",
-    title: "Why crash diets don't work, and what actually keeps weight off",
+    title: "Why crash diets do not work, and what actually keeps weight off",
     description:
       "The biology behind the rebound, and the unglamorous approach that actually holds weight loss for good.",
     category: "Weight",
@@ -717,7 +717,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "The rebound is not a willpower failure",
+        heading: "Regaining weight is not a failure of willpower",
         paragraphs: [
           "When weight drops very fast, your body reads it as a threat, not a goal. Hunger hormones rise, metabolism slows slightly to conserve energy, and the drive to eat becomes genuinely stronger, not weaker. Most people who lose weight quickly on a crash diet regain it within a year, and this is a predictable biological response, not a personal failing.",
         ],
@@ -746,22 +746,22 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "exercise-for-weight-loss-how-much",
     title: "Exercise for weight loss: how much do you actually need?",
     description:
-      "Why exercise alone rarely moves the scale much, and what it's actually the best tool in existence for.",
+      "Why exercise alone rarely moves the scale much, and what it is actually the best tool in existence for.",
     category: "Weight",
     readMinutes: 4,
     relatedHref: "/obesity",
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "The uncomfortable truth about exercise and the scale",
+        heading: "What exercise can and cannot do for weight",
         paragraphs: [
-          "A 30-minute brisk walk burns roughly what a small bottle of soft drink contains in calories. Exercise alone, without any change to eating, moves the scale far less than most people expect, and appetite often quietly rises to compensate. This is not a reason to skip it; it's a reason to be honest about what it's for.",
+          "A 30-minute brisk walk burns roughly what a small bottle of soft drink contains in calories. Exercise alone, without any change to eating, moves the scale far less than most people expect, and appetite often quietly rises to compensate. This is not a reason to skip it; it is a reason to be honest about what it is for.",
         ],
       },
       {
         heading: "What exercise is genuinely the best tool for",
         paragraphs: [
-          "Keeping weight off once it's lost, protecting muscle while you lose fat (so the weight that comes off is fat, not muscle), and lowering blood pressure, blood sugar and cardiovascular risk largely independent of what happens to your weight at all. People who exercise regularly keep weight off far better than people who rely on diet changes alone.",
+          "Keeping weight off once it is lost, protecting muscle while you lose fat (so the weight that comes off is fat, not muscle), and lowering blood pressure, blood sugar and cardiovascular risk largely independent of what happens to your weight at all. People who exercise regularly keep weight off far better than people who rely on diet changes alone.",
         ],
       },
       {
@@ -771,9 +771,9 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "It doesn't need a gym",
+        heading: "It does not need a gym",
         paragraphs: [
-          "Brisk walking, stairs instead of a lift, dancing, carrying shopping, an okada-free commute twice a week, all count. The best form of exercise is the one you'll actually keep doing in six months; a modest routine you sustain beats an ambitious one you abandon after a fortnight.",
+          "Brisk walking, stairs instead of a lift, dancing, carrying shopping, an okada-free commute twice a week, all count. The best form of exercise is the one you will actually keep doing in six months; a modest routine you sustain beats an ambitious one you abandon after a fortnight.",
         ],
       },
     ],
@@ -809,7 +809,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "For everyone from 45",
         paragraphs: [
-          "Colorectal screening is worth discussing from 45, or earlier with a family history or persistent symptoms like unexplained bleeding or a change in bowel habit that lasts more than a couple of weeks. None of these tests are pleasant to think about, which is exactly why they're worth booking on a schedule rather than waiting for a reason to feel ready.",
+          "Colorectal screening is worth discussing from 45, or earlier with a family history or persistent symptoms like unexplained bleeding or a change in bowel habit that lasts more than a couple of weeks. None of these tests are pleasant to think about, which is exactly why they are worth booking on a schedule rather than waiting for a reason to feel ready.",
         ],
       },
     ],
@@ -827,7 +827,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why these three deserve their own conversation",
         paragraphs: [
-          "HIV, Hepatitis B and Hepatitis C can each be carried for years with no symptoms at all, quietly, while doing real damage in the background. Nigeria carries a significant share of both HIV and chronic Hepatitis B in the region, and a large share of people living with either don't yet know it. Testing, not guessing from how you feel, is the only way to actually know.",
+          "HIV, Hepatitis B and Hepatitis C can each be carried for years with no symptoms at all, quietly, while doing real damage in the background. Nigeria carries a significant share of both HIV and chronic Hepatitis B in the region, and a large share of people living with either do not yet know it. Testing, not guessing from how you feel, is the only way to actually know.",
         ],
       },
       {
@@ -839,7 +839,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What a positive result actually means today",
         paragraphs: [
-          "HIV managed with modern treatment allows a long, normal life, and consistent treatment brings the virus low enough that it cannot be transmitted to a partner. Hepatitis B is managed with monitoring and, when needed, medication that controls it for decades. Neither diagnosis today looks like it did a generation ago; the earlier it's found, the simpler that management is.",
+          "HIV managed with modern treatment allows a long, normal life, and consistent treatment brings the virus low enough that it cannot be transmitted to a partner. Hepatitis B is managed with monitoring and, when needed, medication that controls it for decades. Neither diagnosis today looks like it did a generation ago; the earlier it is found, the simpler that management is.",
         ],
       },
       {
@@ -852,16 +852,16 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "adult-vaccines-you-might-be-missing",
-    title: "Vaccines aren't just for children: what adults need too",
+    title: "Vaccines are not just for children: what adults need too",
     description:
-      "The boosters and catch-up doses adults quietly miss, and why 'I had that as a child' isn't always the end of the story.",
+      "The boosters and catch-up doses adults quietly miss, and why 'I had that as a child' is not always the end of the story.",
     category: "Screening",
     readMinutes: 4,
     relatedHref: "/prevention",
     relatedLabel: "Preventive care at Tarragon",
     sections: [
       {
-        heading: "Immunity doesn't always last forever",
+        heading: "Immunity does not always last forever",
         paragraphs: [
           "Some childhood vaccines wane over decades and need a booster in adulthood to stay effective; tetanus is the clearest example, needing a top-up roughly every ten years, a detail few adults are ever told. A vaccination record kept from childhood through adulthood, not two separate untracked histories, is what actually lets a doctor spot a gap.",
         ],
@@ -869,13 +869,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "HPV catch-up, for women who missed it",
         paragraphs: [
-          "HPV vaccination is free at government primary health centres for girls aged 9 to 14 in Nigeria, but women who missed that window aren't out of options: catch-up doses are bookable up to age 45 and still meaningfully lower the risk of the cancers HPV causes, including cervical cancer.",
+          "HPV vaccination is free at government primary health centres for girls aged 9 to 14 in Nigeria, but women who missed that window are not out of options: catch-up doses are bookable up to age 45 and still meaningfully lower the risk of the cancers HPV causes, including cervical cancer.",
         ],
       },
       {
         heading: "Hepatitis B, if your series was left unfinished",
         paragraphs: [
-          "The Hepatitis B vaccine is a series of doses, not a single shot, and an incomplete series (a common gap when doses were given at different clinics with no shared record) doesn't give full protection. If you're not certain your series was completed, that's worth confirming rather than assuming.",
+          "The Hepatitis B vaccine is a series of doses, not a single shot, and an incomplete series (a common gap when doses were given at different clinics with no shared record) does not give full protection. If you are not certain your series was completed, that is worth confirming rather than assuming.",
         ],
       },
       {
@@ -909,15 +909,15 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Carrying the trait isn't the same as having the disease",
+        heading: "Carrying the trait is not the same as having the disease",
         paragraphs: [
-          "AS (sickle cell trait) is not sickle cell disease; most people who carry it live entirely normal lives with no symptoms. It only becomes a serious consideration for the children of two AS (or one AS, one SS) parents. Discovering you're AS is information for family planning, not a diagnosis to be alarmed by.",
+          "AS (sickle cell trait) is not sickle cell disease; most people who carry it live entirely normal lives with no symptoms. It only becomes a serious consideration for the children of two AS (or one AS, one SS) parents. Discovering you are AS is information for family planning, not a diagnosis to be alarmed by.",
         ],
       },
       {
         heading: "How to actually get tested",
         paragraphs: [
-          "Both are simple blood tests at any decent laboratory, results typically back within a day, no special preparation needed. If you have not had either checked, or you are planning a marriage or pregnancy and don't have a written result you trust, it is one of the cheapest, most consequential pieces of information you can gather about your family's future.",
+          "Both are simple blood tests at any decent laboratory, results typically back within a day, no special preparation needed. If you have not had either checked, or you are planning a marriage or pregnancy and do not have a written result you trust, it is one of the cheapest, most consequential pieces of information you can gather about your family's future.",
         ],
       },
     ],
@@ -926,7 +926,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "prediabetes-the-reversible-warning-stage",
     title: "Prediabetes: the warning stage you can still reverse",
     description:
-      "What prediabetes means, why it's not a diagnosis of diabetes, and why this is the moment where change works best.",
+      "What prediabetes means, why it is not a diagnosis of diabetes, and why this is the moment where change works best.",
     category: "Diabetes",
     readMinutes: 4,
     relatedHref: "/diabetes",
@@ -947,13 +947,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually reverses it",
         paragraphs: [
-          "Losing 5 to 7% of body weight, regular movement, cutting sugary drinks, and eating more fibre are the changes with real evidence behind them. Most people at this stage do not need medication to turn things around, though that is a conversation for your doctor based on your specific numbers.",
+          "Losing 5 to 7% of body weight, regular movement, cutting sugary drinks, and eating more fibre are the changes with real evidence behind them. Most people at this stage do not need medication to turn things around, though that is a conversation to have with a doctor, based on your specific numbers.",
         ],
       },
       {
         heading: "Who should get tested",
         paragraphs: [
-          "The same risk factors as diabetes apply: family history, extra weight around the waist, age 40 and above, high blood pressure, or a previous borderline reading. A single fasting glucose or HbA1c test tells you where you stand, and a yearly recheck afterward tracks which direction you're moving.",
+          "The same risk factors as diabetes apply: family history, extra weight around the waist, age 40 and above, high blood pressure, or a previous borderline reading. A single fasting glucose or HbA1c test tells you where you stand, and a yearly recheck afterward tracks which direction you are moving.",
         ],
       },
     ],
@@ -962,34 +962,34 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "diabetes-medications-explained",
     title: "Diabetes medications explained: how the tablets actually work",
     description:
-      "The main classes of diabetes tablets, in plain language, and what to actually ask your doctor or pharmacist about yours.",
+      "The main classes of diabetes tablets, in plain language, and what to actually ask a doctor or pharmacist about yours.",
     category: "Diabetes",
     readMinutes: 5,
     relatedHref: "/diabetes",
     relatedLabel: "Diabetes care at Tarragon",
     sections: [
       {
-        heading: "Why there isn't just one diabetes tablet",
+        heading: "Why there is not just one diabetes tablet",
         paragraphs: [
-          "Different tablets work on different parts of the problem: some help the body respond to its own insulin better, some help the pancreas release more insulin, and some help the kidneys clear excess sugar directly. Your doctor picks based on your numbers, kidney function, other conditions and cost, not a single default answer.",
+          "Different tablets work on different parts of the problem: some help the body respond to its own insulin better, some help the pancreas release more insulin, and some help the kidneys clear excess sugar directly. A doctor picks based on your numbers, kidney function, other conditions and cost, not a single default answer.",
         ],
       },
       {
         heading: "The tablet most people start on",
         paragraphs: [
-          "Metformin is usually prescribed first. It reduces how much sugar the liver releases and helps the body use its own insulin more effectively. Taking it with food reduces stomach upset, and on its own it doesn't cause blood sugar to drop too low.",
+          "Metformin is usually prescribed first. It reduces how much sugar the liver releases and helps the body use its own insulin more effectively. Taking it with food reduces stomach upset, and on its own it does not cause blood sugar to drop too low.",
         ],
       },
       {
-        heading: "If one tablet isn't enough",
+        heading: "If one tablet is not enough",
         paragraphs: [
           "Other classes commonly get added over time, not necessarily because things are getting worse, but because diabetes control often needs more than one approach, the same way high blood pressure frequently needs more than one medicine. Some newer classes also protect the heart and kidneys as a side benefit, which is why a doctor might recommend one even if your sugar reading alone looks fine.",
         ],
       },
       {
-        heading: "What's actually worth asking",
+        heading: "What is actually worth asking",
         paragraphs: [
-          "What is this tablet doing, and how will we know it's working? What side effects mean I should call rather than wait? Does this interact with anything else I'm taking, including herbal remedies? Bring every medicine you take to that conversation, so nothing hides in the blind spot.",
+          "What is this tablet doing, and how will we know it is working? What side effects mean I should call rather than wait? Does this interact with anything else I am taking, including herbal remedies? Bring every medicine you take to that conversation, so nothing hides in the blind spot.",
         ],
       },
     ],
@@ -998,7 +998,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "starting-insulin-what-to-expect",
     title: "Starting insulin: what it means, and how injections actually work",
     description:
-      "Why needing insulin isn't a sign you've failed, and the basics of how the injection itself works.",
+      "Why needing insulin is not a sign you have failed, and the basics of how the injection itself works.",
     category: "Diabetes",
     readMinutes: 4,
     relatedHref: "/diabetes",
@@ -1007,7 +1007,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Needing insulin is not a failure",
         paragraphs: [
-          "Type 1 diabetes needs insulin from day one, no tablet involved, because the pancreas makes little or none. Type 2 diabetes sometimes needs insulin added later, not because someone did something wrong, but because the pancreas naturally makes less insulin over time for some people. It's a tool matched to what your body needs now, not a verdict on effort.",
+          "Type 1 diabetes needs insulin from day one, no tablet involved, because the pancreas makes little or none. Type 2 diabetes sometimes needs insulin added later, not because someone did something wrong, but because the pancreas naturally makes less insulin over time for some people. It is a tool matched to what your body needs now, not a verdict on effort.",
         ],
       },
       {
@@ -1023,9 +1023,9 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "It gets easier",
+        heading: "Injections become routine",
         paragraphs: [
-          "The first injection is the hardest part for almost everyone. A nurse or doctor walks through it with you before you're ever expected to do it alone, and within a couple of weeks most people describe it as routine, not something they think much about anymore.",
+          "The first injection is the hardest part for almost everyone. A nurse or doctor walks through it with you before you are ever expected to do it alone, and within a couple of weeks most people describe it as routine, not something they think much about anymore.",
         ],
       },
     ],
@@ -1043,13 +1043,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why feet specifically",
         paragraphs: [
-          "Years of raised blood sugar can quietly reduce feeling in the feet, so you might not notice a cut or a stone in your shoe, and can slow how well small wounds heal. Feet take the most daily wear and get seen the least, which is exactly why diabetes complications often show up there first.",
+          "Years of raised blood sugar can reduce feeling in the feet without any warning, so you might not notice a cut or a stone in your shoe, and can slow how well small wounds heal. Feet take the most daily wear and get seen the least, which is exactly why diabetes complications often show up there first.",
         ],
       },
       {
         heading: "The 2-minute daily check",
         paragraphs: [
-          "Look at the top, sole and between every toe each evening, using a mirror or asking someone if you can't see well. Feel for anything hot, swollen or newly numb. Check inside shoes before putting them on for a stone or rough seam you wouldn't otherwise feel.",
+          "Look at the top, sole and between every toe each evening, using a mirror or asking someone if you cannot see well. Feel for anything hot, swollen or newly numb. Check inside shoes before putting them on for a stone or rough seam you would not otherwise feel.",
         ],
       },
       {
@@ -1061,7 +1061,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "When a small wound becomes urgent",
         paragraphs: [
-          "Any cut, blister or sore that hasn't visibly started healing within a couple of days, any redness spreading outward, or any wound with a bad smell needs a doctor that same week, not the next routine visit. Caught early, almost every foot problem in diabetes is manageable; caught late, options narrow fast.",
+          "Any cut, blister or sore that has not visibly started healing within a couple of days, any redness spreading outward, or any wound with a bad smell needs a doctor that same week, not the next routine visit. Caught early, almost every foot problem in diabetes is manageable; caught late, options narrow fast.",
         ],
       },
     ],
@@ -1086,7 +1086,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "Eyes, kidneys, and skin",
         paragraphs: [
           "Diabetic retinopathy, damage to the light-sensitive back of the eye, is a leading cause of preventable blindness worldwide, and it is symptomless in its early, most treatable stage. A dilated eye exam, not just a vision check, should happen at least yearly.",
-          "The kidneys filter blood through tiny vessels that raised sugar can damage over time. A simple urine test, checking for protein, catches this stage years before any symptom would appear, and it's one of the cheapest, most valuable tests in ongoing diabetes care. Skin can also become drier and slower to heal, a smaller sign of the same underlying vessel changes.",
+          "The kidneys filter blood through tiny vessels that raised sugar can damage over time. A simple urine test, checking for protein, catches this stage years before any symptom would appear, and it is one of the cheapest, most valuable tests in ongoing diabetes care. Skin can also become drier and slower to heal, a smaller sign of the same underlying vessel changes.",
         ],
       },
       {
@@ -1098,45 +1098,45 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What genuinely slows all of this down",
         paragraphs: [
-          "The same three things: sugar in your target range over time, tracked by HbA1c rather than one reading, blood pressure control, and not smoking. None of this is exotic advice; it's the actual evidence for why the boring daily routine matters as much as it does.",
+          "The same three things: sugar in your target range over time, tracked by HbA1c rather than one reading, blood pressure control, and not smoking. None of this is exotic advice; it is the actual evidence for why the boring daily routine matters as much as it does.",
         ],
       },
     ],
   },
   {
     slug: "diabetes-and-sexual-health",
-    title: "Diabetes and sexual health: a common complication worth raising with your doctor",
+    title: "Diabetes and sexual health: a common complication worth raising with a doctor",
     description:
-      "Why diabetes can affect sexual health in both men and women, and why it's a medical conversation, not an embarrassing one.",
+      "Why diabetes can affect sexual health in both men and women, and why it is a medical conversation, not an embarrassing one.",
     category: "Diabetes",
     readMinutes: 3,
     relatedHref: "/diabetes",
     relatedLabel: "Diabetes care at Tarragon",
     sections: [
       {
-        heading: "It's more common than people realise",
+        heading: "It is more common than people realise",
         paragraphs: [
           "Years of raised blood sugar can affect the same small blood vessels and nerves involved in sexual function, in both men and women. For men this often shows up as difficulty getting or keeping an erection; for women, as reduced sensation, dryness or lower interest. Neither is a personal failing, and neither is rare among people managing diabetes.",
         ],
       },
       {
-        heading: "Why it's worth actually saying out loud",
+        heading: "Why it is worth raising with a doctor",
         paragraphs: [
-          "Many people quietly live with this for years rather than mention it, often out of embarrassment. Your care team has heard it many times before, and raising it usually leads somewhere useful, because it's frequently connected to the same sugar, blood pressure and circulation numbers already being tracked.",
+          "Many people quietly live with this for years rather than mention it, often out of embarrassment. Your care team has heard it many times before, and raising it usually leads somewhere useful, because it is frequently connected to the same sugar, blood pressure and circulation numbers already being tracked.",
         ],
       },
       {
         heading: "What can help",
         paragraphs: [
-          "Better overall sugar and blood pressure control often improves things on its own over time. Beyond that, there are safe, well-established treatment options a doctor can discuss once other causes, medication side effects, thyroid, mood, are ruled out. This isn't a dead end; it's a normal part of a diabetes review.",
+          "Better overall sugar and blood pressure control often improves things on its own over time. Beyond that, there are safe, well-established treatment options a doctor can discuss once other causes, medication side effects, thyroid, mood, are ruled out. This is not a dead end; it is a normal part of a diabetes review.",
         ],
       },
     ],
   },
   {
     slug: "diabetes-myths-that-need-to-die",
-    title: "Diabetes myths that need to die",
-    description: "Common things people believe about diabetes that simply aren't true, and what actually holds up.",
+    title: "Common myths about diabetes",
+    description: "Common beliefs about diabetes that are not true, and what the evidence supports.",
     category: "Diabetes",
     readMinutes: 4,
     relatedHref: "/diabetes",
@@ -1145,17 +1145,17 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "\"Only overweight people get diabetes\"",
         paragraphs: [
-          "Excess weight raises risk, but plenty of people with type 2 diabetes are of normal weight, and thin people can carry harmful fat around their organs that doesn't show on a scale. Type 1 diabetes has nothing to do with weight at all. Judging risk by appearance misses more than it catches.",
+          "Excess weight raises risk, but plenty of people with type 2 diabetes are of normal weight, and thin people can carry harmful fat around their organs that does not show on a scale. Type 1 diabetes has nothing to do with weight at all. Judging risk by appearance misses more than it catches.",
         ],
       },
       {
         heading: "\"Eating too much sugar directly causes it\"",
         paragraphs: [
-          "Sugar alone doesn't cause diabetes; the real drivers are genetics, excess weight from any source of extra calories, inactivity and age. Sugary drinks matter because of the calories and rapid glucose spike, not because sugar itself is uniquely toxic.",
+          "Sugar alone does not cause diabetes; the real drivers are genetics, excess weight from any source of extra calories, inactivity and age. Sugary drinks matter because of the calories and rapid glucose spike, not because sugar itself is uniquely toxic.",
         ],
       },
       {
-        heading: "\"Once you're on insulin, that's the final, most serious stage\"",
+        heading: "\"Once you are on insulin, that is the final, most serious stage\"",
         paragraphs: [
           "Insulin is a tool matched to what your body needs at a given point, not a marker of how serious or advanced a case has become. Many people start insulin, do well on it, and some are even able to come off it later if other changes bring their numbers down.",
         ],
@@ -1172,16 +1172,16 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   {
     slug: "blood-pressure-medications-explained",
     title: "Blood pressure medications explained: the main types, in plain language",
-    description: "Why there are several classes of BP tablets, what each broadly does, and what's worth asking about yours.",
+    description: "Why there are several classes of blood pressure tablets, what each broadly does, and what is worth asking about yours.",
     category: "Blood pressure",
     readMinutes: 5,
     relatedHref: "/hypertension",
     relatedLabel: "Hypertension care at Tarragon",
     sections: [
       {
-        heading: "Why one tablet doesn't fit everyone",
+        heading: "Why one tablet does not fit everyone",
         paragraphs: [
-          "Blood pressure is controlled by several different systems in the body, how much fluid you're carrying, how tightly blood vessels squeeze, how hard the heart pumps, so different medicine classes work on different parts of the problem. Many people end up on a combination, not because one alone failed, but because two mechanisms working together control pressure better at lower individual doses.",
+          "Blood pressure is controlled by several different systems in the body, how much fluid you are carrying, how tightly blood vessels squeeze, how hard the heart pumps, so different medicine classes work on different parts of the problem. Many people end up on a combination, not because one alone failed, but because two mechanisms working together control pressure better at lower individual doses.",
         ],
       },
       {
@@ -1191,15 +1191,15 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Why your doctor picked the one you're on",
+        heading: "Why a doctor picked the one you are on",
         paragraphs: [
           "Age, kidney function, other conditions like diabetes, pregnancy plans, and even evidence about how different groups respond, all factor into the choice. There is genuine science behind why two people with the same blood pressure reading might be started on different tablets.",
         ],
       },
       {
-        heading: "What's actually worth asking",
+        heading: "What is actually worth asking",
         paragraphs: [
-          "What is this tablet doing, and roughly how long before we'd expect to see the effect on my readings? What side effects mean I should call rather than wait? If cost or availability is a problem, say so directly; there is almost always an equally effective alternative.",
+          "What is this tablet doing, and roughly how long before we would expect to see the effect on my readings? What side effects mean I should call rather than wait? If cost or availability is a problem, say so directly; there is almost always an equally effective alternative.",
         ],
       },
     ],
@@ -1207,7 +1207,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   {
     slug: "cooking-with-less-salt-nigerian-kitchen",
     title: "Cooking with less salt: herbs, oils and swaps for Nigerian kitchens",
-    description: "Where the salt actually hides, which oils behave better, and flavour swaps that don't mean bland food.",
+    description: "Where the salt actually hides, which oils behave better, and flavour swaps that do not mean bland food.",
     category: "Blood pressure",
     readMinutes: 4,
     relatedHref: "/hypertension",
@@ -1228,13 +1228,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Oil matters too, just differently",
         paragraphs: [
-          "This is more about heart and cholesterol than blood pressure directly, but the two are managed together: groundnut, sunflower or olive oil used in sensible amounts behave better than repeatedly reused frying oil or heavily processed cooking fats, which develop harmful compounds each time they're reheated.",
+          "This is more about heart and cholesterol than blood pressure directly, but the two are managed together: groundnut, sunflower or olive oil used in sensible amounts behave better than repeatedly reused frying oil or heavily processed cooking fats, which develop harmful compounds each time they are reheated.",
         ],
       },
       {
         heading: "A realistic way to start",
         paragraphs: [
-          "You don't need to overhaul every pot this week. Pick the two or three dishes your household eats most often and rework those first; a change that survives six months beats a perfect week that quietly reverts back.",
+          "You do not need to overhaul every pot this week. Pick the two or three dishes your household eats most often and rework those first; a change that survives six months beats a perfect week that quietly reverts back.",
         ],
       },
     ],
@@ -1249,7 +1249,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "Hypertension care at Tarragon",
     sections: [
       {
-        heading: "Why it's called silent",
+        heading: "Why it is called silent",
         paragraphs: [
           "Raised blood pressure itself usually produces no symptoms, but the constant extra force on artery walls does quiet damage over years, in vessels supplying the heart, brain and kidneys among others. The damage, not the number itself, is what eventually causes symptoms, often abruptly.",
         ],
@@ -1267,16 +1267,16 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The genuinely reassuring part",
+        heading: "The reassuring part",
         paragraphs: [
-          "Every one of these risks drops substantially once blood pressure is brought under control and kept there. This isn't a one-time fix; it's the reason ongoing monitoring and consistent medicine matter more than any single reading.",
+          "Every one of these risks drops substantially once blood pressure is brought under control and kept there. This is not a one-time fix; it is the reason ongoing monitoring and consistent medicine matter more than any single reading.",
         ],
       },
     ],
   },
   {
     slug: "cholesterol-and-heart-disease-connection",
-    title: "Cholesterol and heart disease: how one connects to the other, and what's reversible",
+    title: "Cholesterol and heart disease: how one connects to the other, and what is reversible",
     description: "The plain-language mechanism linking a lab number to an actual heart attack, and what genuinely changes that trajectory.",
     category: "Cholesterol",
     readMinutes: 4,
@@ -1286,19 +1286,19 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "From a number to an actual artery",
         paragraphs: [
-          "Excess LDL cholesterol doesn't just float harmlessly in your blood. Over years it can work into the walls of arteries and, alongside inflammation, build into fatty deposits called plaque. A narrowed artery restricts blood flow; a plaque that ruptures can trigger a sudden clot, which is often what a heart attack or stroke actually is, happening inside a vessel.",
+          "Excess LDL cholesterol does not just float harmlessly in your blood. Over years it can work into the walls of arteries and, alongside inflammation, build into fatty deposits called plaque. A narrowed artery restricts blood flow; a plaque that ruptures can trigger a sudden clot, which is often what a heart attack or stroke actually is, happening inside a vessel.",
         ],
       },
       {
         heading: "Why this takes years, not days",
         paragraphs: [
-          "This process, atherosclerosis, builds slowly and silently, often over decades, which is exactly why a cholesterol result in your 30s or 40s matters even though nothing feels wrong yet. The earlier it's identified and managed, the more of that decades-long buildup is prevented rather than treated after the fact.",
+          "This process, atherosclerosis, builds slowly and silently, often over decades, which is exactly why a cholesterol result in your 30s or 40s matters even though nothing feels wrong yet. The earlier it is identified and managed, the more of that decades-long buildup is prevented rather than treated after the fact.",
         ],
       },
       {
-        heading: "What's genuinely reversible",
+        heading: "What is genuinely reversible",
         paragraphs: [
-          "Plaque that has already hardened doesn't simply disappear, but lowering LDL meaningfully slows or halts further buildup, and there is real evidence that some soft, early plaque can shrink with sustained treatment. The goal is less about erasing the past and more about changing the next twenty years.",
+          "Plaque that has already hardened does not simply disappear, but lowering LDL meaningfully slows or halts further buildup, and there is real evidence that some soft, early plaque can shrink with sustained treatment. The goal is less about erasing the past and more about changing the next twenty years.",
         ],
       },
       {
@@ -1327,7 +1327,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why trans fat specifically earns its bad reputation",
         paragraphs: [
-          "It's mostly found in some margarines, shortenings and reused or heavily processed frying oil, and it uniquely both raises the 'bad' LDL cholesterol and lowers the 'good' HDL at the same time, a combination no other fat manages. It shows up most in repeatedly reheated deep-frying oil and some packaged snacks and baked goods.",
+          "It is mostly found in some margarines, shortenings and reused or heavily processed frying oil, and it uniquely both raises the 'bad' LDL cholesterol and lowers the 'good' HDL at the same time, a combination no other fat manages. It shows up most in repeatedly reheated deep-frying oil and some packaged snacks and baked goods.",
         ],
       },
       {
@@ -1339,14 +1339,14 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "A realistic starting point",
         paragraphs: [
-          "You don't need to remove all fat; a completely fat-free diet isn't the goal or even healthy. The practical shift is towards fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
+          "You do not need to remove all fat; a completely fat-free diet is not the goal or even healthy. The practical shift is towards fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
         ],
       },
     ],
   },
   {
     slug: "cancer-warning-signs-worth-not-ignoring",
-    title: "Cancer warning signs worth not ignoring",
+    title: "Cancer warning signs that need a medical check",
     description: "The changes in your body that deserve a doctor's visit, explained without the fear, because most turn out to be something else.",
     category: "Screening",
     readMinutes: 4,
@@ -1356,19 +1356,19 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Most of these signs are not cancer",
         paragraphs: [
-          "A lump, a persistent cough, or a mole that's changed is far more often something ordinary than something serious. Knowing these signs isn't about worry; it's about knowing what's worth a check rather than a wait-and-see, so that on the rare occasion it does matter, it's caught early.",
+          "A lump, a persistent cough, or a mole that is changed is far more often something ordinary than something serious. Knowing these signs is not about worry; it is about knowing what is worth a check rather than a wait-and-see, so that on the rare occasion it does matter, it is caught early.",
         ],
       },
       {
-        heading: "Signs worth a visit, not a panic",
+        heading: "Signs that need a medical check",
         paragraphs: [
-          "A new lump or swelling anywhere on the body. A sore or wound that hasn't started healing after a few weeks. Unexplained weight loss. A cough or hoarseness lasting more than three weeks. A change in bowel or bladder habits that persists. Unusual bleeding, including between periods or after menopause. A mole that's changed size, shape or colour. Persistent difficulty swallowing.",
+          "A new lump or swelling anywhere on the body. A sore or wound that has not started healing after a few weeks. Unexplained weight loss. A cough or hoarseness lasting more than three weeks. A change in bowel or bladder habits that persists. Unusual bleeding, including between periods or after menopause. A mole that is changed size, shape or colour. Persistent difficulty swallowing.",
         ],
       },
       {
-        heading: "Why 'it'll probably go away' isn't the right instinct here",
+        heading: "Why waiting for symptoms to settle is not the best approach",
         paragraphs: [
-          "Most causes of these symptoms are minor and resolve on their own, which is exactly why people put off checking. The small share that aren't minor are also the ones where catching it early makes the biggest difference to treatment and outcome, so the cost of checking is low and the value of ruling something out is real either way.",
+          "Most causes of these symptoms are minor and resolve on their own, which is exactly why people put off checking. The small share that are not minor are also the ones where catching it early makes the biggest difference to treatment and outcome, so the cost of checking is low and the value of ruling something out is real either way.",
         ],
       },
       {
@@ -1381,8 +1381,8 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "what-actually-reduces-cancer-risk",
-    title: "What actually reduces cancer risk (and what doesn't)",
-    description: "The genuinely evidence-backed changes, and an honest look at the diets and products marketed as cancer cures that aren't.",
+    title: "What actually reduces cancer risk (and what does not)",
+    description: "The genuinely evidence-backed changes, and an honest look at the diets and products marketed as cancer cures that are not.",
     category: "Screening",
     readMinutes: 4,
     relatedHref: "/prevention",
@@ -1401,23 +1401,23 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "What doesn't hold up",
+        heading: "What does not hold up",
         paragraphs: [
-          "'Alkaline diets', juice cleanses and specific superfoods marketed as cancer-fighting have no reliable evidence behind the claims made for them. The real risk isn't trying them for general wellbeing; it's delaying or replacing an actual screening or medical assessment because a product promised protection it can't deliver.",
+          "'Alkaline diets', juice cleanses and specific superfoods marketed as cancer-fighting have no reliable evidence behind the claims made for them. The real risk is not trying them for general wellbeing; it is delaying or replacing an actual screening or medical assessment because a product promised protection it cannot deliver.",
         ],
       },
       {
         heading: "Screening is prevention too, in a different sense",
         paragraphs: [
-          "Some screenings, like cervical smears and colorectal tests, don't just detect cancer early, they can catch and allow removal of changes before they ever become cancer at all. Staying up to date with screening is as much a part of risk reduction as diet or exercise, not a separate, later step.",
+          "Some screenings, like cervical smears and colorectal tests, do not just detect cancer early, they can catch and allow removal of changes before they ever become cancer at all. Staying up to date with screening is as much a part of risk reduction as diet or exercise, not a separate, later step.",
         ],
       },
     ],
   },
   {
     slug: "abnormal-screening-result-what-happens-next",
-    title: "Your screening result came back abnormal. Here's what happens next.",
-    description: "What an abnormal result actually means, why it usually isn't cancer, and what Tarragon does the moment a result like this lands.",
+    title: "If your screening result is abnormal: what happens next",
+    description: "What an abnormal result actually means, why it usually is not cancer, and what Tarragon does the moment a result like this lands.",
     category: "Screening",
     readMinutes: 4,
     relatedHref: "/prevention",
@@ -1432,7 +1432,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually happens at Tarragon the moment it lands",
         paragraphs: [
-          "An abnormal result is treated as one of the highest-priority events on the platform. It's routed straight to a doctor for review rather than sitting in a queue with everything else, and where it's genuinely urgent, your care team follows up directly rather than waiting for you to notice and ask.",
+          "An abnormal result is treated as one of the highest-priority events on the platform. It is routed straight to a doctor for review rather than sitting in a queue with everything else, and where it is genuinely urgent, your care team follows up directly rather than waiting for you to notice and ask.",
         ],
       },
       {
@@ -1461,7 +1461,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "More than a lung problem",
         paragraphs: [
-          "Smoking is linked to cancers of the mouth, throat, oesophagus, bladder, pancreas and cervix, not only the lungs, because the harmful chemicals travel through the bloodstream to tissues well beyond where the smoke itself goes. It's also a major driver of heart disease, stroke and hypertension, so quitting works on several fronts at once.",
+          "Smoking is linked to cancers of the mouth, throat, oesophagus, bladder, pancreas and cervix, not only the lungs, because the harmful chemicals travel through the bloodstream to tissues well beyond where the smoke itself goes. It is also a major driver of heart disease, stroke and hypertension, so quitting works on several fronts at once.",
         ],
       },
       {
@@ -1471,7 +1471,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Why quitting is hard, and that's not a character flaw",
+        heading: "Why quitting is difficult",
         paragraphs: [
           "Nicotine is genuinely addictive, and most people who successfully quit for good tried more than once first. Cravings are strongest and most frequent in the first couple of weeks and ease meaningfully after that, which is the window worth planning support around rather than trying to manage alone.",
         ],
@@ -1479,7 +1479,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What helps in practice",
         paragraphs: [
-          "Setting an actual quit date rather than a vague intention, telling people around you so they can support rather than tempt, removing cigarettes and lighters from the house ahead of time, and having a plan for the specific moments that usually trigger a cigarette. Raise it with your doctor too; there are safe, effective aids that make quitting materially easier.",
+          "Setting an actual quit date rather than a vague intention, telling people around you so they can support rather than tempt, removing cigarettes and lighters from the house ahead of time, and having a plan for the specific moments that usually trigger a cigarette. Raise it with a doctor too; there are safe, effective aids that make quitting materially easier.",
         ],
       },
     ],
@@ -1488,7 +1488,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     slug: "recommended-dietary-allowances-nigeria",
     title: "Recommended Dietary Allowances: what Nigeria's own numbers actually are",
     description:
-      "Why the %RDA on a Nigerian food label isn't the same figure used abroad, and NAFDAC's own daily reference numbers for protein, salt, iron, vitamin A and more.",
+      "Why the %RDA on a Nigerian food label is not the same figure used abroad, and NAFDAC's own daily reference numbers for protein, salt, iron, vitamin A and more.",
     category: "Nutrition",
     readMinutes: 6,
     relatedHref: "/prevention",
@@ -1497,22 +1497,22 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What \"RDA\" actually means, and why Nigeria has its own numbers",
         paragraphs: [
-          "A Recommended Dietary Allowance is not a personal target or a diagnosis; it's a planning number, the amount of a nutrient estimated to meet the needs of almost everyone in a healthy population. It exists to guide food policy and food labels, not to tell any one person exactly what to eat.",
-          "The %RDA printed on a packet in Lagos isn't calculated against the same reference numbers as one printed in London, Singapore or the United States. Nigeria has its own legally binding figures, called Nutrient Reference Values, set out in NAFDAC's Food Fortification Regulations. They're adapted from the Codex Alimentarius standard, the joint WHO/FAO food-standards body that most countries build their own national numbers from, which is why they're similar to other countries' figures but rarely identical.",
+          "A Recommended Dietary Allowance is not a personal target or a diagnosis; it is a planning number, the amount of a nutrient estimated to meet the needs of almost everyone in a healthy population. It exists to guide food policy and food labels, not to tell any one person exactly what to eat.",
+          "The %RDA printed on a packet in Lagos is not calculated against the same reference numbers as one printed in London, Singapore or the United States. Nigeria has its own legally binding figures, called Nutrient Reference Values, set out in NAFDAC's Food Fortification Regulations. They are adapted from the Codex Alimentarius standard, the joint WHO/FAO food-standards body that most countries build their own national numbers from, which is why they are similar to other countries' figures but rarely identical.",
         ],
       },
       {
         heading: "The big three: energy, protein and salt",
         paragraphs: [
-          "Nigerian food labels are built around a reference intake of 2,000 kilocalories a day for an average adult, more for a very active person or someone breastfeeding, less for someone smaller or older. It's a starting point for comparing products, not a number to hit exactly every day.",
+          "Nigerian food labels are built around a reference intake of 2,000 kilocalories a day for an average adult, more for a very active person or someone breastfeeding, less for someone smaller or older. It is a starting point for comparing products, not a number to hit exactly every day.",
           "Protein's reference figure is 50 grams a day, comfortably covered by a normal Nigerian diet that includes beans, fish, eggs, meat or dairy at most meals, even without deliberately tracking it.",
-          "Salt is the number worth the most attention. The official ceiling is 2,000 milligrams of sodium a day, roughly a level teaspoon of salt, and that includes what's already in bread, seasoning cubes, and anything packaged or eaten out, not just what's added at the table. Balancing it is potassium, found in beans, plantain and leafy vegetables, which the guidance says most adults should reach at least 3,500 milligrams of a day.",
+          "Salt is the number worth the most attention. The official ceiling is 2,000 milligrams of sodium a day, roughly a level teaspoon of salt, and that includes what is already in bread, seasoning cubes, and anything packaged or eaten out, not just what is added at the table. Balancing it is potassium, found in beans, plantain and leafy vegetables, which the guidance says most adults should reach at least 3,500 milligrams of a day.",
         ],
       },
       {
         heading: "Vitamins and minerals: the numbers on a Nigerian label",
         paragraphs: [
-          "These are the figures NAFDAC requires a manufacturer to test a product against before printing a claim like '30% of your daily vitamin C.' A few worth knowing: vitamin A 800 micrograms, vitamin C 100 milligrams, vitamin D 5 micrograms, calcium 1,000 milligrams, iron 14 milligrams, zinc 11 milligrams, and iodine 150 micrograms. Folate sits at 400 micrograms and vitamin B12 at 2.4 micrograms, both worth knowing if you're pregnant or planning to be.",
+          "These are the figures NAFDAC requires a manufacturer to test a product against before printing a claim like '30% of your daily vitamin C.' A few worth knowing: vitamin A 800 micrograms, vitamin C 100 milligrams, vitamin D 5 micrograms, calcium 1,000 milligrams, iron 14 milligrams, zinc 11 milligrams, and iodine 150 micrograms. Folate sits at 400 micrograms and vitamin B12 at 2.4 micrograms, both worth knowing if you are pregnant or planning to be.",
           "Three of those are already engineered into the Nigerian food supply. NAFDAC mandates vitamin A and iron fortification of milled wheat and maize flour, vitamin A fortification of vegetable oil, sugar and margarine, and iodine in table salt, precisely so that ordinary cooking with a genuine, properly labelled brand already delivers a meaningful share of the day's number without anyone having to think about it.",
         ],
       },
@@ -1520,7 +1520,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         heading: "Why iron and folate deserve special attention here",
         paragraphs: [
           "Iron matters more in Nigeria than the 14 milligram reference figure alone suggests. The last Nigeria Demographic and Health Survey found anaemia in well over half of women of reproductive age, and in more than three in five pregnant women, a gap the general adult reference number was not designed to close on its own.",
-          "Pregnancy needs more than the general figure, which is why antenatal iron-folate tablets exist as standard care: World Health Organisation guidance calls for 30 to 60 milligrams of iron and 400 micrograms of folic acid daily throughout pregnancy, with the higher end of that iron range specifically recommended wherever anaemia in pregnancy is already common, which, given the numbers above, describes most of Nigeria. It's a supplement layered on top of food, not a replacement for it.",
+          "Pregnancy needs more than the general figure, which is why antenatal iron-folate tablets exist as standard care: World Health Organisation guidance calls for 30 to 60 milligrams of iron and 400 micrograms of folic acid daily throughout pregnancy, with the higher end of that iron range specifically recommended wherever anaemia in pregnancy is already common, which, given the numbers above, describes most of Nigeria. It is a supplement layered on top of food, not a replacement for it.",
           "On the food side, iron from meat, liver and fish is absorbed more easily than iron from beans or leafy vegetables like ugu, but pairing a plant source with vitamin C, an orange after a bean meal, for instance, measurably improves how much of it the body actually takes up.",
         ],
       },

@@ -27,7 +27,7 @@ export default async function ObesityPage() {
         <SectionHeading
           eyebrow="Try it yourself"
           title="Where do you stand today?"
-          description="Two free, no-sign-up tools to start with: check your BMI range, or see how active a typical week actually is for you."
+          description="Two free tools, with no sign-up needed: check your body mass index (BMI) range, or see how active a typical week is for you."
         />
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           <Link
@@ -35,10 +35,10 @@ export default async function ObesityPage() {
             className="rounded-xl border border-charcoal-ink/10 bg-white p-6 transition-colors hover:border-brand-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           >
             <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
-              BMI & Calorie Calculator →
+              BMI and Calorie Calculator →
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              Your BMI range and an estimated daily calorie target.
+              Shows your BMI range and an estimated daily calorie target.
             </p>
           </Link>
           <Link
@@ -49,7 +49,7 @@ export default async function ObesityPage() {
               Activity Intensity Calculator →
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              Calories burned and how a session counts towards your weekly guideline.
+              Shows the calories you burn and how a session counts towards your weekly activity guideline.
             </p>
           </Link>
         </div>
@@ -58,13 +58,13 @@ export default async function ObesityPage() {
       <Section>
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            Honest expectations
+            What to expect
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             This programme is lifestyle-led and doctor-reviewed. It does not currently include
             weight-loss medication (such as GLP-1 injections) or any other prescribing specific
-            to weight. If that&apos;s what you&apos;re looking for, say so at your first review,
-            your doctor can talk you through the options available elsewhere.
+            to weight. If you are looking for that, say so at your first review, and a doctor can
+            explain the options available elsewhere.
           </p>
         </div>
       </Section>
@@ -72,7 +72,7 @@ export default async function ObesityPage() {
       {weightArticles.length > 0 ? (
         <Section variant="sage">
           <ResourceCarousel
-            title="Explore more Weight Management resources"
+            title="More resources on weight management"
             articles={weightArticles}
           />
         </Section>

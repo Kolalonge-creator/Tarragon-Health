@@ -38,7 +38,7 @@ export function HomePlanCompare({
         <CardContent className="flex h-full flex-col p-7">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">The app</p>
           <p className="mt-2 font-heading text-3xl font-bold text-charcoal-ink">Free</p>
-          <p className="mt-1 text-sm text-charcoal-ink/65">No time limit. No card needed.</p>
+          <p className="mt-1 text-sm text-charcoal-ink/65">There is no time limit, and no card is needed.</p>
           {/* Derived from the same FREE_FEATURES /pricing renders, so the homepage
               can never promise a free feature the pricing page does not. */}
           <ul className="mt-5 space-y-2 text-sm leading-relaxed text-charcoal-ink/80">

@@ -348,6 +348,7 @@ export function OnboardingFlow({
               patientId={profile.id}
               onSkip={() => setIntakeCollapsed(true)}
               intent={intent}
+              sex={demographics.sex}
             />
           )}
           {consentDone && demographicsDone && intakeCollapsed && (

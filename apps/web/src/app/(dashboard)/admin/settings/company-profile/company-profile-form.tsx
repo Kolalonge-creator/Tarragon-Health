@@ -135,7 +135,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
         <Field label="Registered phone" value={form.registered_phone} onChange={(v) => set("registered_phone", v)} placeholder="+234…" />
       </Section>
 
-      <Section title="Governance" description="Free text: this page doesn't model a directors table; keep it in sync with what's actually on file at CAC.">
+      <Section title="Governance" description="Free text: this page does not model a directors table, so keep it in sync with what is on file at the CAC.">
         <div className="sm:col-span-2">
           <Label>Directors (as filed with CAC)</Label>
           <Textarea rows={3} value={form.directors_text} onChange={(e) => set("directors_text", e.target.value)} placeholder="One per line" />

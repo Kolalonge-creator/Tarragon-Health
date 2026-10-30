@@ -25,7 +25,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     return {
       kind: "redirect",
       message:
-        "It sounds like you may already be managing a diagnosed condition. Prevention's screening calendar is built for people without one yet; Tarragon's chronic care programme (hypertension, diabetes, weight, and more) is likely the better starting point, with regular doctor review built in.",
+        "It sounds as though you may already be managing a diagnosed condition. The screening calendar is designed for people who do not have one yet. Tarragon's chronic care programme (hypertension, diabetes, weight management and more) is likely to be a better starting point, with regular doctor review included.",
     };
   }
 
@@ -58,9 +58,9 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     kind: "example",
     calendar,
     firstNinetyDays: [
-      "A real two-minute health profile builds your real calendar; this example only used three quick picks.",
-      "You request your first due check in the app and take it to any lab you like. You pay them directly, and we take nothing on it.",
-      "Most results just confirm you're on track. If one doesn't, a doctor follows up within a day, not next month.",
+      "A real two-minute health profile builds your actual calendar. This example used only three quick selections.",
+      "You request your first due check in the app and take it to any laboratory you choose. You pay the laboratory directly, and we take nothing from it.",
+      "Most results confirm that you are on track. If a result is abnormal, a doctor follows up within a day rather than waiting until a later appointment.",
     ],
   };
 }
@@ -137,7 +137,7 @@ export function PlanPreviewSample() {
         See what a plan could look like
       </h3>
       <p className="mt-1 text-sm text-charcoal-ink/60">
-        Three quick picks, purely illustrative: nothing here is saved or scored.
+        Make three quick selections. This is only an illustration, and nothing is saved or scored.
       </p>
       <div className="mt-5 space-y-4">
         <PillGroup legend="Age range" options={AGE_OPTIONS} value={age} onChange={setAge} />
@@ -203,7 +203,7 @@ export function PlanPreviewSample() {
         </div>
       ) : (
         <p className="mt-6 text-sm text-charcoal-ink/60">
-          Pick one answer for each question to see an example.
+          Choose one answer for each question to see an example.
         </p>
       )}
     </div>

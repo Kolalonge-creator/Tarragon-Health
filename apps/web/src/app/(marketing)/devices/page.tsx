@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Devices that work well with Tarragon",
   description:
-    "There is no need to buy a device: typing a reading takes seconds and is free. If you want one, these BP monitors, scales and glucometers work well with us.",
+    "You do not need a device, because typing in a reading takes seconds. If you want one, these blood pressure monitors, scales and glucometers work well.",
   path: MARKETING_ROUTES.devices,
 });
 
@@ -22,7 +22,7 @@ export default function DevicesPage() {
           as="h1"
           eyebrow="Devices"
           title="Devices that work well with Tarragon"
-          description="There is no need for one: typing a reading into the app takes seconds. If you'd like a device anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync rolls out. Tarragon doesn't manufacture, sell, or earn anything from them."
+          description="You do not need a device, because typing a reading into the app takes seconds. If you would like one anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync is introduced. Tarragon does not make or sell these devices and earns nothing from them."
         />
 
         <h2 className="sr-only">Suggested devices</h2>
@@ -57,8 +57,8 @@ export default function DevicesPage() {
         </div>
 
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Don&apos;t have a compatible device yet, or would rather not buy one? Every reading can
-          be logged by hand in the app too. A device just makes it faster.{" "}
+          If you do not have a compatible device, or would rather not buy one, every reading can
+          also be entered by hand in the app. A device only makes this faster.{" "}
           <Link href="/signup" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Get started
           </Link>
@@ -74,7 +74,7 @@ export default function DevicesPage() {
       <Section>
         <CtaBand
           title="Ready to get started?"
-          description="Join TarragonHealth and bring continuity to your care."
+          description="Join TarragonHealth and keep your care connected over time."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

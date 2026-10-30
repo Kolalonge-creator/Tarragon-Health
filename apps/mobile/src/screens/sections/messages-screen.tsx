@@ -2,13 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, FlatList, KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
+import { loadReplyTimeSentence, loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
+import { loadMessageActions, MESSAGE_ACTIONS } from "@/lib/message-actions";
+import type { SectionId } from "@/lib/sections";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 import { MAX_FONT_SCALE, MIN_TARGET, radii, space, textStyles, useTheme } from "@/ui/design";
 import { AppText, Button, EmptyState, Icon, InlineAlert, PressableScale, Skeleton, SkeletonGroup } from "@/ui/kit";
 
 interface MessagesScreenProps {
   patientId: string;
+  /** Opens a screen when the patient taps a button the care team attached to a message. */
+  onNavigate?: (id: SectionId) => void;
 }
 
 const draftKey = (patientId: string) => `messages:draft:${patientId}`;
@@ -23,19 +27,22 @@ function formatSentAt(iso: string): string {
   });
 }
 
-export function MessagesScreen({ patientId }: MessagesScreenProps) {
+export function MessagesScreen({ patientId, onNavigate }: MessagesScreenProps) {
   const { colors, scheme } = useTheme();
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
 
   const [threadId, setThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<CareMessage[]>([]);
+  const [actions, setActions] = useState<Record<string, string[]>>({});
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   // A failed thread fetch must not render the "send a message to start a
   // conversation" empty state over a thread that exists — loadError replaces
   // the list with an explicit retry state instead.
   const [loadError, setLoadError] = useState(false);
+  // The care team's recent reply time, or null (a failed read or a thin sample shows nothing). Loaded apart from the thread so it never delays it.
+  const [replyLine, setReplyLine] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sendFailed, setSendFailed] = useState(false);
   const listRef = useRef<FlatList<CareMessage>>(null);
@@ -45,7 +52,10 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
     const openThread = threads.find((th) => th.status === "open") ?? threads[0] ?? null;
     setThreadId(openThread?.id ?? null);
     if (openThread) {
-      setMessages(await loadThreadMessages(openThread.id));
+      const loaded = await loadThreadMessages(openThread.id);
+      setMessages(loaded);
+      // The buttons are a convenience: a failure to load them must not hide the messages.
+      setActions(await loadMessageActions(loaded.map((m) => m.id)).catch(() => ({})));
     }
     setLoadError(false);
   }, [patientId]);
@@ -55,6 +65,18 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadReplyTimeSentence()
+      .then((line) => {
+        if (!cancelled) setReplyLine(line);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // A half-written message survives the app being closed (power cuts, calls).
   useEffect(() => {
@@ -150,6 +172,11 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       <AppText variant="body" tone="textMuted">
         {tr("messages.subtitle")}
       </AppText>
+      {replyLine ? (
+        <AppText variant="caption" tone="textMuted">
+          {replyLine}
+        </AppText>
+      ) : null}
     </View>
   );
 
@@ -216,6 +243,16 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
                   <AppText variant="body" tone={fromMe ? "textOnBrand" : "text"}>
                     {item.body}
                   </AppText>
+                  {!fromMe && onNavigate
+                    ? (actions[item.id] ?? []).map((kind) => (
+                        <Button
+                          key={kind}
+                          title={MESSAGE_ACTIONS[kind].label}
+                          variant="secondary"
+                          onPress={() => onNavigate(MESSAGE_ACTIONS[kind].section)}
+                        />
+                      ))
+                    : null}
                   <AppText variant="caption" tone={fromMe ? "textOnBrand" : "textSubtle"}>
                     {sentAt}
                   </AppText>

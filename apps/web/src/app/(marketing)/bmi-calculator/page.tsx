@@ -21,19 +21,19 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "How is BMI calculated?",
-    a: "Body Mass Index is your weight in kilograms divided by your height in metres, squared (kg/m²). It's a quick screening tool, not a full body-composition measurement, so it's read alongside waist size and how you actually feel, not on its own.",
+    a: "Body mass index is your weight in kilograms divided by your height in metres, squared (kg/m²). It is a quick screening tool and not a full measure of body composition, so it should be read alongside your waist size and how you feel, and not on its own.",
   },
   {
     q: "How is the calorie estimate worked out?",
-    a: "We use the Mifflin-St Jeor equation, a widely used formula for estimating how many calories your body burns at rest, then adjust it for your activity level. It's a solid starting estimate, but everybody's metabolism differs a little.",
+    a: "We use the Mifflin-St Jeor equation, a widely used formula for estimating how many calories your body burns at rest, and then adjust it for your activity level. It is a reliable starting estimate, but everyone's metabolism differs slightly.",
   },
   {
     q: "Is BMI accurate for everyone?",
-    a: "No single number is. BMI doesn't distinguish muscle from fat, and can read differently for very muscular people, pregnant women, older adults, or children. It's a useful first check, not a diagnosis.",
+    a: "No single number is. BMI does not distinguish muscle from fat, and it can be misleading for very muscular people, pregnant women, older adults and children. It is a useful first check, not a diagnosis.",
   },
   {
     q: "What should I do with a high or low result?",
-    a: "Use it as a starting point for a conversation, not a verdict. A doctor on Tarragon can look at your BMI alongside your waist measurement, your history, and how you're actually doing, and build a real plan around it if one is needed.",
+    a: "Use it as a starting point for a conversation, not as a verdict. A doctor on Tarragon can consider your BMI together with your waist measurement, your history and how you are feeling, and can build a plan around it if one is needed.",
   },
 ];
 
@@ -48,7 +48,7 @@ export default async function BmiCalculatorPage() {
           as="h1"
           eyebrow="Free tool"
           title="BMI & Calorie Calculator"
-          description="A quick, honest starting point: your body mass index range and an estimated daily calorie target. No account, no email required."
+          description="A quick starting point: your body mass index range and an estimated daily calorie target. No account or email address is required."
         />
         <BmiCalorieCalculator />
       </Section>
@@ -72,7 +72,7 @@ export default async function BmiCalculatorPage() {
         <SectionHeading
           eyebrow="Beyond the number"
           title="What comes after a BMI check"
-          description="A calculator gives you a range. A doctor turns that into a real picture: your waist measurement, your history, and whether anything actually needs to change."
+          description="A calculator gives you a range. A doctor builds a fuller picture from it, using your waist measurement and your history, and advises whether anything needs to change."
         />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
@@ -84,7 +84,7 @@ export default async function BmiCalculatorPage() {
               <Link href={MARKETING_ROUTES.prevention} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Prevention programme
               </Link>{" "}
-              builds a screening and vaccination calendar around you, so small things get caught
+              creates a screening and vaccination calendar for you, so that small problems are found
               early, whether or not your weight is a factor.
             </p>
           </div>
@@ -97,13 +97,13 @@ export default async function BmiCalculatorPage() {
               <Link href={MARKETING_ROUTES.obesity} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Weight Health programme
               </Link>{" "}
-              is lifestyle-first support, not judgment: a doctor reviews your progress and adjusts
-              medication or guidance as needed.
+              offers support that begins with lifestyle changes and without judgement. A doctor reviews
+              your progress and adjusts medication or guidance as needed.
             </p>
           </div>
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Curious how active you are day to day too? Try the{" "}
+          If you would also like to know how active you are day to day, try the{" "}
           <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             physical activity intensity calculator
           </Link>
@@ -113,7 +113,7 @@ export default async function BmiCalculatorPage() {
 
       {weightArticles.length > 0 ? (
         <Section variant="sage">
-          <ResourceCarousel title="Explore more Weight Management resources" articles={weightArticles} />
+          <ResourceCarousel title="More resources on weight management" articles={weightArticles} />
         </Section>
       ) : null}
 
@@ -125,7 +125,7 @@ export default async function BmiCalculatorPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Get started today; it takes minutes to set up."
+          description="Get started today. Setting up takes only a few minutes."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

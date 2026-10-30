@@ -1,4 +1,4 @@
-import type { CyclePrediction } from "@/lib/rules/cycle-prediction";
+import type { CyclePrediction, ReproductiveLifeStage } from "./prediction";
 
 export interface CycleHero {
   /** Null before any period is logged: the page shows the prompt, never a made-up number. */
@@ -25,4 +25,12 @@ export function cycleHero(prediction: CyclePrediction): CycleHero {
   if (until === null || until < 0) return { value: "Any day", caption: estimate };
   if (until === 0) return { value: "Today", caption: estimate };
   return { value: until, unit: until === 1 ? "day to your period" : "days to your period", caption: estimate };
+}
+
+/**
+ * Whether the countdown belongs on the page at all: only while periods are expected (not pregnant, postpartum or menopausal life
+ * stages), and never beside an urgent flag, where the flag is the one thing the page should lead with.
+ */
+export function showCycleHero(lifeStage: ReproductiveLifeStage, prediction: CyclePrediction): boolean {
+  return (lifeStage === "menstruating" || lifeStage === "trying_to_conceive") && !prediction.flags.some((flag) => flag.severity === "urgent");
 }

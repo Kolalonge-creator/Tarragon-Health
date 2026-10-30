@@ -43,7 +43,7 @@ export default async function TestingDaysPage() {
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Testing days"
         icon={SEMANTIC_ICON.preventive}
-        description="Your yearly health check happens at a testing day near you. Pick a day, hold your place, and we will remind you."
+        description="Your yearly health check happens at a testing day near you. Choose a day to reserve your place, and we will remind you."
       />
       {notMember ? (
         <Card>
