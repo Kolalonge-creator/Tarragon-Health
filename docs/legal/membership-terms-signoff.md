@@ -36,7 +36,7 @@ The 2026-10-13 redraft (#1068) described a single 120,000-naira Membership and w
 - The blood test list is on the pricing page only, not the payment screen.
 - Free plan: the "no doctor was alerted" message shows only for the most serious readings, so the text now says that, and also says that no doctor is alerted about any reading or symptom logged on the Free plan.
 - Reminders: "we aim to remind you".
-- Schedule A: removed a stale "your own language" claim (English only) and aligned "phone or video" with the Telehealth Consent.
+- Schedule A: removed a stale "your own language" claim (English only); an emergency (not an urgent) case needs a phone or video conversation before it is closed, as in the Telehealth Consent and the product; "alert your care team" now says where your plan includes doctor review; the required-consent list names the Terms, the Telehealth Consent and this notice, and no longer lists the escalation contact consent, because no code was found that requires it to activate an account (the live sentence saying so is carried over unchanged and is still unverified).
 
 **Product gaps left open (code changes, not text):**
 - The Free plan nudge for a RED-level reading does not say that no doctor was told.

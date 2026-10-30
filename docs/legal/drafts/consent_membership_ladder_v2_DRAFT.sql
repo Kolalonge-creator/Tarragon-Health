@@ -310,7 +310,7 @@ Most of what we hold about you (your readings, symptoms, diagnoses, medications,
 ## Why we process your data, and the specific consents we ask for
 We rely on more than one lawful basis, depending on the purpose.
 
-• Delivery of your care: processing your readings, symptoms, and clinical information to classify your results, alert your care team, and maintain your record is necessary for the provision of healthcare by a licensed clinician under a duty of confidentiality.
+• Delivery of your care: processing your readings, symptoms, and clinical information to classify your results, alert your care team where your plan includes doctor review, and maintain your record is necessary for the provision of healthcare by a licensed clinician under a duty of confidentiality.
 
 • Specific, scoped consent: for anything beyond your direct care, we ask for a specific consent, tracked individually:
 
@@ -326,7 +326,7 @@ We rely on more than one lawful basis, depending on the purpose.
 
 • Legal obligation: we process certain data, for example payment and tax records, to meet our obligations under Nigerian law.
 
-Some consents are required to hold an account, because our care cannot work without them: this notice, our Terms of Service, our Telehealth Consent and the escalation contact consent. You cannot withdraw a required consent and keep your account. To end one, ask us to close your account (see "Deleting your account" below). Every other consent is optional, and you can withdraw it at any time, as easily as you gave it.
+Some consents are required to hold an account, because our care cannot work without them: this notice, our Terms of Service, our Telehealth Consent, and any other consent this notice says is required. You cannot withdraw a required consent and keep your account. To end one, ask us to close your account (see "Deleting your account" below). Every other consent is optional, and you can withdraw it at any time, as easily as you gave it.
 
 ## Where your data is stored, and international transfer
 Your data is stored in a Postgres database operated by our infrastructure provider, Supabase, in the AWS eu-west-1 region (Ireland). We use this region because our provider does not currently offer a data centre in Nigeria or elsewhere in Africa; eu-west-1 is the nearest available region.
@@ -342,7 +342,7 @@ Every reading you log is automatically classified against a clinical protocol ap
 
 When you tap "Help me understand this" on a reading or risk signal, the same kind of AI tool drafts a short, plain-language explanation: never a diagnosis, just a way to understand the number in front of you. As with the doctor-facing summary, this explanation is only ever a draft: it does not replace your doctor's own review, and a real doctor always makes the actual decision about your care.
 
-A result classified urgent or emergency can only be closed by your doctor after they have spoken with you directly by phone or video; it cannot be closed from a written note alone. You may ask us for an explanation of any automated assessment shown to you.
+A result classified as an emergency can only be closed by your doctor after they have spoken with you directly by phone or video; it cannot be closed from a written note alone. You may ask us for an explanation of any automated assessment shown to you.
 
 ## Who we share your data with
 We share your data only as needed to provide your care and run the platform.

@@ -7,7 +7,7 @@
 // and refuses to run. Pass the final version string only after the owner has
 // signed. The patient text starts at the first "## " heading of each file;
 // everything above it (the title and the italic draft banner) is not published.
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +37,7 @@ for (const [tag, body] of [
   if (body.includes(`$${tag}$`)) throw new Error(`body contains its own quote tag ${tag}`);
 }
 
+function buildSql(version) {
 const banner =
   version === "SET-AT-PUBLISH"
     ? `-- DRAFT. NOT APPLIED. DO NOT APPLY until the owner has signed off
@@ -194,15 +195,29 @@ begin
   end if;
 end $$;
 `;
+return sql;
+}
 
 const out = join(here, "consent_membership_ladder_v2_DRAFT.sql");
+const sql = buildSql(version);
 if (check) {
-  if (readFileSync(out, "utf8") !== sql) {
+  // The draft carries the placeholder; any published migration copy carries its own version.
+  let bad = false;
+  if (readFileSync(out, "utf8") !== buildSql("SET-AT-PUBLISH")) {
     console.error("consent_membership_ladder_v2_DRAFT.sql is out of date; rerun this script");
-    process.exit(1);
+    bad = true;
   }
-  console.log("draft script matches the three consent files");
-  process.exit(0);
+  const migrations = join(legal, "..", "..", "supabase", "migrations");
+  for (const f of readdirSync(migrations).filter((n) => n.endsWith("_consent_membership_ladder_v2.sql"))) {
+    const text = readFileSync(join(migrations, f), "utf8");
+    const v = /v_version constant text := '([^']+)'/.exec(text)?.[1];
+    if (!v || text !== buildSql(v)) {
+      console.error(`${f} does not match the three consent files; regenerate it`);
+      bad = true;
+    }
+  }
+  if (!bad) console.log("draft script and published migration match the three consent files");
+  process.exit(bad ? 1 : 0);
 }
 writeFileSync(out, sql);
 console.log(`wrote ${out} (${sql.length} chars, version ${version})`);
