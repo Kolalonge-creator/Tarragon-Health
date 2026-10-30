@@ -9,27 +9,34 @@ import {
 } from "@/lib/queries/pharmacist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
-import { isOpenStatus, isAwaitingStatus } from "./_lib/order-status";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { itemsSummary, type PharmacistOrderRow } from "./_lib/items";
-import { formatRequestedAt, isLagosToday } from "./_lib/format";
+import { formatRequestedAt } from "./_lib/format";
+import { buildPharmacistOverview } from "./_lib/overview-summary";
 
-function licenseExpiryColor(expiresAt: string | null): string {
-  if (!expiresAt) return "text-charcoal-ink";
-  const days = Math.round((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  return days < 60 ? "text-amber-700" : "text-charcoal-ink";
-}
+const LICENCE_TONE_CLASS = {
+  ok: "text-charcoal-ink",
+  soon: "text-amber-700",
+  expired: "text-red-700",
+} as const;
 
 export function PharmacistOverview() {
-  const { data: orders, isLoading: ordersLoading } = usePharmacistOrders();
-  const { data: dispenses, isLoading: dispensesLoading } = usePharmacistDispenseHistory();
-  const { data: profile, isLoading: profileLoading } = usePharmacistProfile();
+  const orders = usePharmacistOrders();
+  const dispenses = usePharmacistDispenseHistory();
+  const profile = usePharmacistProfile();
 
-  const rows = (orders ?? []) as PharmacistOrderRow[];
-  const openOrders = rows.filter((o) => isOpenStatus(o.status));
-  const awaitingOrders = rows.filter((o) => isAwaitingStatus(o.status));
-  const inProgressOrders = rows.filter((o) => o.status === "confirmed");
-  const dispensedToday = (dispenses ?? []).filter((d) => isLagosToday(d.dispensed_on));
-  const awaitingSnapshot = openOrders.slice(0, 3);
+  // A figure that has not loaded, or failed to, is never shown as zero or as
+  // "caught up" (see _lib/overview-summary.ts).
+  const view = buildPharmacistOverview({
+    orders: {
+      data: orders.data as PharmacistOrderRow[] | undefined,
+      isLoading: orders.isLoading,
+      isError: orders.isError,
+    },
+    dispenses: { data: dispenses.data, isLoading: dispenses.isLoading, isError: dispenses.isError },
+    profile: { data: profile.data, isLoading: profile.isLoading, isError: profile.isError },
+  });
+  const { tiles } = view.orders;
 
   return (
     <div className="flex flex-col gap-5">
@@ -39,27 +46,27 @@ export function PharmacistOverview() {
           tintClassName="bg-amber-100"
           iconClassName="text-amber-700"
           label="Orders awaiting"
-          value={ordersLoading ? "—" : String(awaitingOrders.length)}
+          {...tiles.awaiting}
         />
         <StatTile
           icon={Truck}
           tintClassName="bg-blue-100"
           iconClassName="text-blue-700"
           label="In progress"
-          value={ordersLoading ? "—" : String(inProgressOrders.length)}
+          {...tiles.inProgress}
         />
         <StatTile
           icon={Pill}
           tintClassName="bg-green-100"
           iconClassName="text-green-700"
           label="Dispensed today"
-          value={dispensesLoading ? "—" : String(dispensedToday.length)}
+          {...view.dispenses.tile}
         />
         <StatTile
           icon={ShoppingBag}
           iconTint="ivory"
           label="Total open orders"
-          value={ordersLoading ? "—" : String(openOrders.length)}
+          {...tiles.open}
         />
       </div>
 
@@ -71,13 +78,25 @@ export function PharmacistOverview() {
           </Link>
         </CardHeader>
         <CardContent>
-          {ordersLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-          {!ordersLoading && awaitingSnapshot.length === 0 && (
+          {view.orders.state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {view.orders.state === "failed" && (
+            <LoadFailure>
+              Your orders could not be loaded. This does not mean there are none waiting. Reload the
+              page to try again.
+            </LoadFailure>
+          )}
+          {view.orders.state === "stale" && (
+            <StaleDataNotice className="mb-3">
+              These orders may be out of date: the last refresh failed. New orders may be waiting.
+              Reload the page to try again.
+            </StaleDataNotice>
+          )}
+          {view.orders.caughtUp && (
             <p className="text-sm text-charcoal-ink/60">No orders waiting. You&apos;re caught up.</p>
           )}
-          {awaitingSnapshot.length > 0 && (
+          {view.orders.snapshot.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
-              {awaitingSnapshot.map((o) => (
+              {view.orders.snapshot.map((o) => (
                 <li key={o.order_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
                     <span className="font-medium text-charcoal-ink">{o.patient_name ?? "Patient"}</span>
@@ -97,13 +116,24 @@ export function PharmacistOverview() {
             <CardTitle className="text-base">Dispensed today</CardTitle>
           </CardHeader>
           <CardContent>
-            {dispensesLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-            {!dispensesLoading && dispensedToday.length === 0 && (
+            {view.dispenses.state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+            {view.dispenses.state === "failed" && (
+              <LoadFailure>
+                Your dispensing history could not be loaded. This does not mean nothing was dispensed
+                today. Reload the page to try again.
+              </LoadFailure>
+            )}
+            {view.dispenses.state === "stale" && (
+              <StaleDataNotice className="mb-3">
+                This list may be out of date: the last refresh failed. Reload the page to try again.
+              </StaleDataNotice>
+            )}
+            {view.dispenses.nothingYet && (
               <p className="text-sm text-charcoal-ink/60">Nothing dispensed yet today.</p>
             )}
-            {dispensedToday.length > 0 && (
+            {view.dispenses.today.length > 0 && (
               <ul className="divide-y divide-charcoal-ink/10">
-                {dispensedToday.slice(0, 3).map((d) => (
+                {view.dispenses.today.slice(0, 3).map((d) => (
                   <li key={d.dispense_id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <div className="min-w-0">
                       <span className="font-medium text-charcoal-ink">{d.patient_name ?? "Patient"}</span>
@@ -127,32 +157,38 @@ export function PharmacistOverview() {
             </Link>
           </CardHeader>
           <CardContent>
-            {profileLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-            {!profileLoading && !profile && (
+            {view.profile.state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+            {view.profile.state === "failed" && (
+              <LoadFailure>
+                Your pharmacy details could not be loaded. This does not mean no profile is on file.
+                Reload the page to try again.
+              </LoadFailure>
+            )}
+            {view.profile.state === "stale" && (
+              <StaleDataNotice className="mb-3">
+                These details may be out of date: the last refresh failed. Reload the page to try again.
+              </StaleDataNotice>
+            )}
+            {view.profile.kind === "none" && (
               <p className="text-sm text-charcoal-ink/60">No pharmacy profile on file yet.</p>
             )}
-            {profile && (
+            {view.profile.kind === "ready" && (
               <dl className="flex flex-col gap-2 text-sm">
                 <div className="flex items-center justify-between">
                   <dt className="text-charcoal-ink/55">Regions covered</dt>
-                  <dd className="font-medium text-charcoal-ink">
-                    {profile.regions.length > 0 ? profile.regions.join(", ") : "—"}
-                  </dd>
+                  <dd className="font-medium text-charcoal-ink">{view.profile.regions}</dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-charcoal-ink/55">Licence</dt>
-                  <dd className="font-medium text-charcoal-ink">{profile.license_number ?? "—"}</dd>
+                  <dd className="font-medium text-charcoal-ink">{view.profile.licence}</dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-charcoal-ink/55">Expires</dt>
-                  <dd className={`font-medium ${licenseExpiryColor(profile.license_expires_at)}`}>
-                    {profile.license_expires_at
-                      ? new Date(profile.license_expires_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : "—"}
+                  <dd className={`font-medium ${LICENCE_TONE_CLASS[view.profile.expires.tone]}`}>
+                    {view.profile.expires.text}
+                    {view.profile.expires.note && (
+                      <span className="ml-1.5 text-xs font-semibold">({view.profile.expires.note})</span>
+                    )}
                   </dd>
                 </div>
               </dl>
