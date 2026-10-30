@@ -79,6 +79,12 @@ const GLUCOSE_SIGN_LABEL: Record<"vomiting" | "abdominal_pain" | "cannot_swallow
   cannot_swallow: "Cannot swallow safely",
 };
 
+/** Signs ticked on the blood pressure form that the symptom list itself never offers (OQ-83); a history row can still be one of them. */
+const BP_FORM_SIGN_LABEL: Record<"weakness_or_numbness" | "difficulty_speaking", string> = {
+  weakness_or_numbness: "Weakness or numbness",
+  difficulty_speaking: "Trouble speaking",
+};
+
 /** Label lookup covering every symptom_type value, including the paediatric
  * ones this screen's form never writes — used for rendering history, which
  * can contain either. */
@@ -87,6 +93,7 @@ export function symptomLabel(type: SymptomType): string {
     (SYMPTOM_LABEL as Record<string, string>)[type] ??
     PAEDIATRIC_SYMPTOM_LABEL[type as keyof typeof PAEDIATRIC_SYMPTOM_LABEL] ??
     GLUCOSE_SIGN_LABEL[type as keyof typeof GLUCOSE_SIGN_LABEL] ??
+    BP_FORM_SIGN_LABEL[type as keyof typeof BP_FORM_SIGN_LABEL] ??
     type.replace(/_/g, " ")
   );
 }

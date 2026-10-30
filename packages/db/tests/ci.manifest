@@ -10,6 +10,8 @@
 # runs nowhere is the exact problem this manifest was added to fix.
 care_access_request_identity_and_pending_read_window.sql
 care_access_request_phone_proof.sql
+# OQ-82/OQ-83: a symptom ticked on the phone's blood pressure form pages the care team on a paid plan and only gives self-care guidance on Free. Each red-flag tick (severe headache, chest pain, trouble breathing, vision change, confusion, weakness or numbness, trouble speaking) stored at the form severity (6) is a red flag with one urgent alert and the same notifications as chest pain; Free opens no alert and still gets the in-app self-care suggestion; control: trouble breathing stored at 3 pages nobody. Sabotage: trouble breathing and the two neuro types taken out of the trigger list, patched from the live body; each must flip.
+bp_form_ticks_page_clinician.sql
 # P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
 exercise_session_logs.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql

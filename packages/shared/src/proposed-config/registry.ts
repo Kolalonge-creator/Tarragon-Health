@@ -316,7 +316,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // A symptom ticked on the blood pressure form is stored as a symptoms row. The form does
     // not ask the patient to rate it, so it is recorded at this severity, with a description
     // saying it was ticked rather than rated. 6 is the existing server paging line for
-    // chest pain, severe headache, vision change and confusion (handle_symptom_red_flag).
+    // chest pain, severe headache, vision change, confusion, trouble breathing, weakness or
+    // numbness and trouble speaking (handle_symptom_red_flag; proved in
+    // packages/db/tests/bp_form_ticks_page_clinician.sql, whose v_form_severity constant must match).
     // The CMO confirms the value; grading itself stays with S11/S12 (OQ-67).
     value: { severity: 6 },
     owner: "CMO",

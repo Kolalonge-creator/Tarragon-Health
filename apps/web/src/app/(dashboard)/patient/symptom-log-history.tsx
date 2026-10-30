@@ -21,6 +21,8 @@ const SYMPTOM_LABEL: Record<string, string> = {
   vomiting: "Vomiting",
   abdominal_pain: "Stomach pain",
   cannot_swallow: "Cannot swallow safely",
+  weakness_or_numbness: "Weakness or numbness",
+  difficulty_speaking: "Trouble speaking",
   other: "Other",
 };
 

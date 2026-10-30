@@ -28,6 +28,10 @@ export type BpChecklistSymptom = Extract<
   | "breathlessness"
   | "visual_disturbance"
   | "confusion"
+  // OQ-83: weakness or numbness on one side and trouble speaking already have server symptom types (S11d) and are in the signed
+  // blood pressure rule set's red-flag group, so they are logged with the other ticks instead of only shown as a guidance line.
+  | "weakness_or_numbness"
+  | "difficulty_speaking"
   | "dizziness"
   | "palpitations"
   // S67 (pregnancy danger signs, CMO selection A2, PROPOSED): offered only while pregnant or just after a birth.
@@ -46,6 +50,8 @@ export const BP_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "breathlessness",
   "visual_disturbance",
   "confusion",
+  "weakness_or_numbness",
+  "difficulty_speaking",
   "dizziness",
   "palpitations",
 ];
@@ -65,6 +71,8 @@ export const RED_FLAG_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "breathlessness",
   "visual_disturbance",
   "confusion",
+  "weakness_or_numbness",
+  "difficulty_speaking",
   // A convulsion or loss of consciousness in pregnancy is an emergency whatever the reading (BP-P6); the guidance never waits for numbers.
   "convulsion",
   "loss_of_consciousness",
