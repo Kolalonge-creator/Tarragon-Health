@@ -50,6 +50,7 @@ import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, Secondar
 import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit/Disclosure";
 
 function ScalePicker({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
   const colors = useLegacyColors();
@@ -217,9 +218,10 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
 
         <WellbeingTrendChart patientId={patientId} reloadToken={trendReloadToken} />
 
-        <MoodBesideReadings patientId={patientId} reloadToken={trendReloadToken} />
-
-        <MoodPatternsCard patientId={patientId} enabled={features.insights} initiallyHidden={features.insightsHidden} reloadToken={trendReloadToken} />
+        <Disclosure title="Mood alongside your readings" hint="How your mood lines up with your health numbers">
+          <MoodBesideReadings patientId={patientId} reloadToken={trendReloadToken} />
+          <MoodPatternsCard patientId={patientId} enabled={features.insights} initiallyHidden={features.insightsHidden} reloadToken={trendReloadToken} />
+        </Disclosure>
 
         <CheckinForm
           patientId={patientId}
@@ -229,19 +231,20 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
           calmToolEnabled={features.panic}
         />
 
-        <MentalHealthSummaryCard screens={screens} />
-
         <MentalHealthHandoffCard screens={screens} />
 
-        <ShareSummaryCard enabled={features.share} />
+        <Disclosure title="Mental health check-in" hint="The longer questionnaire your care team reads, and your past answers">
+          <MentalHealthSummaryCard screens={screens} />
+          {showScreenForm ? (
+            <FeatureConsentGate dataType="mental_health">
+              <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+            </FeatureConsentGate>
+          ) : (
+            <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
+          )}
+        </Disclosure>
 
-        {showScreenForm ? (
-          <FeatureConsentGate dataType="mental_health">
-            <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
-          </FeatureConsentGate>
-        ) : (
-          <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
-        )}
+        <ShareSummaryCard enabled={features.share} />
 
         <CalmLibraryCard />
 
