@@ -477,3 +477,45 @@ export async function runAiEvalSuitesAction(
   revalidatePath(PATH);
   return { results, recordError };
 }
+
+const itemApprovalSchema = z.object({
+  kind: z.enum(["guardrails", "knowledge_sources"]),
+  ids: z.array(z.string().uuid()).min(1, "Tick at least one to approve.").max(200, "Approve at most 200 at a time."),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve AI guardrails or knowledge sources (40.5 / 40.7). The database
+ * functions are the real gate: only an active Chief Medical Officer is
+ * accepted, the approval is stamped with their own clinical_staff row and
+ * audited, and nothing else can write the approval columns. This action
+ * forwards exactly the ids the person ticked; it never selects, defaults or
+ * "approves all" on anyone's behalf.
+ */
+export async function approveAiItemsAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = itemApprovalSchema.safeParse({
+    kind: formData.get("kind"),
+    ids: formData.getAll("ids").map(String),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const args = { p_ids: parsed.data.ids, p_note: parsed.data.note };
+  const { data, error } =
+    parsed.data.kind === "guardrails"
+      ? await supabase.rpc("approve_ai_guardrails", args)
+      : await supabase.rpc("approve_ai_knowledge_sources", args);
+  if (error) return { error: error.message };
+
+  revalidatePath(PATH);
+  revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
+  const n = data ?? 0;
+  return { success: n === 0 ? "Nothing new to approve; those were already approved." : `Approved ${n}. It is on the record under your name.` };
+}

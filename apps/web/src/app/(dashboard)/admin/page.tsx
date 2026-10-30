@@ -135,6 +135,8 @@ export default async function AdminPage() {
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
   const pendingAiVersionApprovalCount = aiGovernanceSignoff.pendingVersionApprovalCount;
   const pendingClinicalAccuracyLabelCount = aiGovernanceSignoff.pendingClinicalAccuracyLabelCount;
+  const pendingAiGuardrailCount = aiGovernanceSignoff.pendingGuardrailApprovalCount;
+  const pendingAiKnowledgeSourceCount = aiGovernanceSignoff.pendingKnowledgeSourceApprovalCount;
   const aiGovernanceFailed = aiGovernanceSignoff.failed;
   const aiGovernanceAttentionCount = aiGovernanceSignoff.attentionCount;
 
@@ -542,6 +544,10 @@ export default async function AdminPage() {
                     `${formatNumber(pendingAiVersionApprovalCount)} AI system version${pendingAiVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
                   pendingClinicalAccuracyLabelCount > 0 &&
                     `${formatNumber(pendingClinicalAccuracyLabelCount)} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
+                  pendingAiGuardrailCount > 0 &&
+                    `${formatNumber(pendingAiGuardrailCount)} guardrail${pendingAiGuardrailCount === 1 ? "" : "s"} awaiting your approval`,
+                  pendingAiKnowledgeSourceCount > 0 &&
+                    `${formatNumber(pendingAiKnowledgeSourceCount)} knowledge source${pendingAiKnowledgeSourceCount === 1 ? "" : "s"} awaiting your approval`,
                 ]
                   .filter(Boolean)
                   .join(" and ")}

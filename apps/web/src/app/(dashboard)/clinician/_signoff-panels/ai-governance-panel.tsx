@@ -6,6 +6,7 @@ import {
   type AiClinicalAccuracyCaseRow,
   type AiSystemVersionRow,
 } from "@/app/(dashboard)/admin/settings/ai-governance/ai-governance-console";
+import { AiApprovalList, type AiApprovalItem } from "@/app/(dashboard)/admin/settings/ai-governance/ai-approval-list";
 import {
   AI_SYSTEM_VERSION_COLUMNS,
   AI_EVALUATION_CASE_COLUMNS,
@@ -20,7 +21,7 @@ import {
 export async function AiGovernancePanel() {
   const supabase = await createClient();
 
-  const [versionsRes, casesRes] = await Promise.all([
+  const [versionsRes, casesRes, guardrailsRes, sourcesRes] = await Promise.all([
     supabase
       .from("ai_system_versions")
       // Same column list the admin console's page.tsx queries
@@ -37,9 +38,22 @@ export async function AiGovernancePanel() {
       .eq("ai_evaluation_suites.kind", "clinical")
       .is("expected_tier", null)
       .order("case_code"),
+    supabase
+      .from("ai_guardrails")
+      .select("id, rule_code, kind, description, enforcement, config, ai_systems(name, system_code)")
+      .eq("is_active", true)
+      .is("approved_at", null)
+      .order("ai_system_id")
+      .order("rule_code"),
+    supabase
+      .from("ai_knowledge_sources")
+      .select("id, title, source_type, citation_label, external_url, reference_table, ai_systems(name, system_code)")
+      .eq("is_active", true)
+      .is("approved_at", null)
+      .order("title"),
   ]);
 
-  if (versionsRes.error || casesRes.error) {
+  if (versionsRes.error || casesRes.error || guardrailsRes.error || sourcesRes.error) {
     return <LoadFailure>AI governance sign-off items could not be loaded.</LoadFailure>;
   }
 
@@ -47,6 +61,23 @@ export async function AiGovernancePanel() {
     ai_systems: { name: string; system_code: string } | null;
   })[];
   const cases = (casesRes.data ?? []) as unknown as AiClinicalAccuracyCaseRow[];
+
+  const guardrailItems: AiApprovalItem[] = (guardrailsRes.data ?? []).map((g) => ({
+    id: g.id,
+    systemName: g.ai_systems?.name ?? null,
+    headline: g.rule_code,
+    detail: g.description,
+    meta: `${g.kind.replace(/_/g, " ")} · ${g.enforcement}${
+      g.config && Object.keys(g.config as Record<string, unknown>).length > 0 ? ` · ${JSON.stringify(g.config)}` : ""
+    }`,
+  }));
+  const sourceItems: AiApprovalItem[] = (sourcesRes.data ?? []).map((k) => ({
+    id: k.id,
+    systemName: k.ai_systems?.name ?? null,
+    headline: k.title,
+    detail: `Patients are shown: "${k.citation_label}"`,
+    meta: `${k.source_type.replace(/_/g, " ")}${k.external_url ? ` · ${k.external_url}` : k.reference_table ? ` · ${k.reference_table}` : ""}`,
+  }));
 
   return (
     <div className="space-y-8">
@@ -70,6 +101,31 @@ export async function AiGovernancePanel() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">AI guardrails awaiting your approval</h2>
+        <p className="max-w-3xl text-sm text-charcoal-ink/70">
+          These rules already apply to the AI systems. Approving records that you have read each one and stand behind
+          it, under your name. If a rule is edited later, your approval on it is removed and it comes back here.
+        </p>
+        {guardrailItems.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">Nothing waiting. Every active guardrail is approved.</p>
+        ) : (
+          <AiApprovalList kind="guardrails" items={guardrailItems} />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">AI knowledge sources awaiting your approval</h2>
+        <p className="max-w-3xl text-sm text-charcoal-ink/70">
+          An AI answer can only cite a source you have approved. The line in quotes is what patients are shown.
+        </p>
+        {sourceItems.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">Nothing waiting. Every active knowledge source is approved.</p>
+        ) : (
+          <AiApprovalList kind="knowledge_sources" items={sourceItems} />
         )}
       </section>
 

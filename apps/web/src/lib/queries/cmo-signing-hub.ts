@@ -244,11 +244,15 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
         `${ai.pendingVersionApprovalCount} AI system version${ai.pendingVersionApprovalCount === 1 ? "" : "s"} to approve`,
       ai.pendingClinicalAccuracyLabelCount > 0 &&
         `${ai.pendingClinicalAccuracyLabelCount} clinical-accuracy scenario${ai.pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} for your tier judgement`,
+      ai.pendingGuardrailApprovalCount > 0 &&
+        `${ai.pendingGuardrailApprovalCount} guardrail${ai.pendingGuardrailApprovalCount === 1 ? "" : "s"} to approve`,
+      ai.pendingKnowledgeSourceApprovalCount > 0 &&
+        `${ai.pendingKnowledgeSourceApprovalCount} knowledge source${ai.pendingKnowledgeSourceApprovalCount === 1 ? "" : "s"} to approve`,
     ].filter(Boolean);
     items.push({
       key: "ai_governance",
       title: "AI governance",
-      detail: `${parts.join(" and ")}.`,
+      detail: `${parts.join(", ")}.`,
       href: "/clinician/ai-governance",
       severity: "draft_pending",
       count: ai.attentionCount,
