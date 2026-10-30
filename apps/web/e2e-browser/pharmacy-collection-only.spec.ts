@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient, createTestPatient, deleteTestPatient, pollUntil, type TestPatient } from "./helpers/supabase-admin";
+import { ownIp } from "./helpers/own-ip";
 
 // Click-through for the collection-only pharmacy model (spec Part C.2, OQ-16): the screens that used to carry delivery
 // controls still render and still work after the delivery columns, statuses and RPC argument were removed. Runs against
@@ -68,6 +69,9 @@ async function gotoRoute(page: Page, path: string): Promise<void> {
 async function shot(page: Page, name: string): Promise<void> {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 }
+
+// Its own client IP, so its sign-ins do not share the 20-per-5-minutes bucket with every other spec (helpers/own-ip.ts).
+test.use({ extraHTTPHeaders: ownIp() });
 
 test.describe("collection-only pharmacy screens", () => {
   test.describe.configure({ mode: "serial" });

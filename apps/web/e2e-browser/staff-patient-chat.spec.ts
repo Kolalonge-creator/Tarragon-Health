@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient, deleteTestPatient, pollUntil, type TestPatient } from "./helpers/supabase-admin";
 import { createJourneyPatient } from "./journeys/journey-helpers";
+import { ownIp } from "./helpers/own-ip";
 
 // Staff to patient chat, click-through: a care coordinator opens the chat from a patient's page, starts a conversation, replies with an
 // action button, the patient sees the message and the button (and the button opens the right screen), and the coordinator's thread
@@ -83,7 +84,7 @@ test.describe("staff to patient chat", () => {
   });
 
   test("coordinator messages the patient; the patient sees it and its button; the coordinator sees it was seen", async ({ browser }) => {
-    const staffContext = await browser.newContext();
+    const staffContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const staffPage = await staffContext.newPage();
     await login(staffPage, coordinator, /\/(dashboard|clinician)/);
 
@@ -109,7 +110,7 @@ test.describe("staff to patient chat", () => {
     expect(row).toBe("2,1");
 
     // 3. The patient sees both messages and the button, and the button opens the appointments screen.
-    const patientContext = await browser.newContext();
+    const patientContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const patientPage = await patientContext.newPage();
     await login(patientPage, patient, /\/patient/);
     await gotoRoute(patientPage, "/patient/messages");

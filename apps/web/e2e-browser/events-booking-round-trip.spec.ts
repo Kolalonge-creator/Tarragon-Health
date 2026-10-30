@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { deleteTestPatient, seedActiveServicePurchase, type TestPatient } from "./helpers/supabase-admin";
 import { createJourneyPatient } from "./journeys/journey-helpers";
 import { deleteAccount, gotoRoute, login, makeDoctor, psql, type Account } from "./helpers/staff-session";
+import { ownIp } from "./helpers/own-ip";
 
 // Events harness E6 in a real browser (docs/design/DASHBOARD-PROGRAMME-CLINICIAN-FIRST.md section 4). One booking followed across the people
 // who touch it: a doctor has a working day, the patient books a slot from the app, the patient is told once in the bell, the doctor sees
@@ -52,7 +53,7 @@ test.describe("E6: a booking makes the round trip across patient and doctor scre
 
   test("patient books; both sides see it; patient cancels; the slot comes back", async ({ browser }) => {
     // 1. The patient books the first offered slot.
-    const patientContext = await browser.newContext();
+    const patientContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const patientPage = await patientContext.newPage();
     await login(patientPage, patient, /\/patient/);
     await gotoRoute(patientPage, "/patient/appointments");
@@ -84,7 +85,7 @@ test.describe("E6: a booking makes the round trip across patient and doctor scre
     expect(await booking.count()).toBe(1);
 
     // 3. The doctor sees the visit on their appointments screen.
-    const doctorContext = await browser.newContext();
+    const doctorContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const doctorPage = await doctorContext.newPage();
     await login(doctorPage, doctor);
     await gotoRoute(doctorPage, "/clinician/appointments");
