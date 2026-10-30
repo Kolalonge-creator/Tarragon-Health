@@ -40,27 +40,34 @@ export function PreventionTabs({ tabs, ariaLabel = "Prevention sections" }: { ta
   }, [activeId]);
 
   useEffect(() => {
-    function resolveHash() {
+    // True when the hash named one of this page's anchors (and its tab is now open).
+    function resolveHash(): boolean {
       const hash = window.location.hash.replace("#", "");
-      if (!hash) return;
+      if (!hash) return false;
       const owningTab = tabs.find((tab) => tab.anchorIds?.includes(hash));
-      if (!owningTab) return;
+      if (!owningTab) return false;
       setActiveId(owningTab.id);
       requestAnimationFrame(() => {
         document.getElementById(hash)?.scrollIntoView({ block: "start" });
       });
+      return true;
     }
     resolveHash();
-    // On a cold load from another page the hash is not always readable the first time this runs (a link to /patient/labs#locations
-    // opened on the first tab on production while the same hash changed after load worked). Check once more shortly after, unless
-    // the person has already chosen a tab.
-    const late = window.setTimeout(() => {
-      if (!pickedByUser.current) resolveHash();
-    }, 400);
-    window.addEventListener("hashchange", resolveHash);
+    // On a cold load from another page the hash is not readable when this first runs, and it comes back later with no event
+    // (/patient/labs#locations opened on the first tab on production, a 400 ms re-check did not fix it, yet the same hash changed
+    // after load worked). So keep looking for a few seconds, and stop as soon as it resolves or the person picks a tab themselves.
+    let tries = 0;
+    const poll = window.setInterval(() => {
+      tries += 1;
+      if (pickedByUser.current || tries > 25 || resolveHash()) window.clearInterval(poll);
+    }, 200);
+    const onHashChange = () => {
+      resolveHash();
+    };
+    window.addEventListener("hashchange", onHashChange);
     return () => {
-      window.clearTimeout(late);
-      window.removeEventListener("hashchange", resolveHash);
+      window.clearInterval(poll);
+      window.removeEventListener("hashchange", onHashChange);
     };
     // Deliberately mount-only: `tabs` is a fresh array/JSX literal every
     // render, so depending on it would re-run this every render.
