@@ -529,6 +529,7 @@ export const TEMPLATE_MAP: Record<
   // Says only that a message is waiting, never what it says.
   care_message_reminder: () => ({
     smsText: "You have an unread message from your care team. Open the Tarragon Health app to read and reply. Tarragon Health",
+    pushUrl: "/patient/messages",
   }),
   // Sent to the patient as a scheduled periodic health review comes due (see
   // private.queue_preventive_review_reminders). Reminder only — the review is

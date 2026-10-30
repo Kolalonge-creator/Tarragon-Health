@@ -14,6 +14,11 @@ describe("sectionForNotification", () => {
     expect(sectionForNotification({ url: "/patient/vitals/history" })).toBe("vitals");
     expect(sectionForNotification({ url: "/patient/vitals?x=1" })).toBe("vitals");
   });
+  it("the care-team message reminder opens messages by its web path, including a query", () => {
+    expect(sectionForNotification({ url: "/patient/messages" })).toBe("messages");
+    expect(sectionForNotification({ url: "/patient/messages?thread=abc" })).toBe("messages");
+    expect(sectionForNotification({ url: "/patient/messagesx" })).toBeNull();
+  });
   it("anything else opens nothing", () => {
     expect(sectionForNotification({ url: "/patient/medications" })).toBeNull();
     expect(sectionForNotification({ url: "/patient/vitalsx" })).toBeNull();

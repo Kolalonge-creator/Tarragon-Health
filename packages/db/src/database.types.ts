@@ -40049,6 +40049,10 @@ export type Database = {
         Args: { p_expected_count: number; p_note?: string; p_system_code: string }
         Returns: number
       }
+      first_care_message_id: {
+        Args: { p_thread: string }
+        Returns: string
+      }
       approve_ai_knowledge_sources: {
         Args: { p_ids: string[]; p_note?: string }
         Returns: number

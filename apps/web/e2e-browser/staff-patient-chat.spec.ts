@@ -126,4 +126,68 @@ test.describe("staff to patient chat", () => {
     await patientContext.close();
     await staffContext.close();
   });
+
+  // A staff member starts a conversation with a file and a button on the very first message. The thread is created first, then the
+  // first message's id is looked up (first_care_message_id, no second thread read), then the button and the file are attached.
+  test("a new conversation can carry a file and a button on its first message", async ({ browser }) => {
+    const second = await createJourneyPatient(`${runId}-attach`);
+    try {
+      psql(`update public.profiles set full_name = '[e2e-test] Attach Patient' where id = '${second.userId}'`);
+      const staffContext = await browser.newContext();
+      const staffPage = await staffContext.newPage();
+      await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+      await gotoRoute(staffPage, `/clinician/patients/${second.userId}`);
+      await staffPage.getByRole("button", { name: /Open chat with/ }).click();
+      await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
+      await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
+      await staffPage.getByLabel("Book an appointment").check();
+      await staffPage.locator('input[type="file"]').setInputFiles({
+        name: "letter.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+      });
+      await staffPage.getByRole("button", { name: "Send", exact: true }).click();
+      await expect(staffPage.getByText("The letter is attached.")).toBeVisible({ timeout: 30_000 });
+
+      // Both extras landed on the first (only) message, and the staff page shows no "could not be added" notice.
+      const counts = psql(
+        `select (select count(*) from public.care_message_attachments where patient_id = '${second.userId}') || ',' ||
+                (select count(*) from public.care_message_actions where patient_id = '${second.userId}')`,
+      );
+      expect(counts).toBe("1,1");
+      await expect(staffPage.getByText(/could not be added/)).toHaveCount(0);
+      await staffContext.close();
+    } finally {
+      await deleteTestPatient(second);
+    }
+  });
+
+  // The 24 hour reply target shows as a red badge inside the 14 day lookback. Older than that it is not badged; it is counted in a quiet sentence.
+  test("the reply-target badge shows inside 14 days and not beyond it", async ({ browser }) => {
+    const asPatient = (subject: string, hoursAgo: number) => {
+      psql(`begin;
+        select set_config('request.jwt.claims', json_build_object('sub', '${patient.userId}', 'role', 'authenticated')::text, true);
+        set local role authenticated;
+        select public.start_care_thread('${subject}', 'A question from the patient');
+        commit;`);
+      psql(`update public.care_message_threads set last_message_at = now() - interval '${hoursAgo} hours', care_team_last_read_at = null
+             where patient_id = '${patient.userId}' and subject = '${subject}'`);
+    };
+    asPatient("[e2e-test] Badge recent", 25);
+    asPatient("[e2e-test] Badge old", 24 * 20);
+
+    const staffContext = await browser.newContext();
+    const staffPage = await staffContext.newPage();
+    await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    await gotoRoute(staffPage, "/clinician/messages");
+
+    const recent = staffPage.locator("li", { hasText: "[e2e-test] Badge recent" });
+    const old = staffPage.locator("li", { hasText: "[e2e-test] Badge old" });
+    await expect(recent).toBeVisible({ timeout: 60_000 });
+    await expect(recent.getByText("Past 24h reply target")).toBeVisible();
+    await expect(old).toBeVisible();
+    await expect(old.getByText("Past 24h reply target")).toHaveCount(0);
+    await expect(staffPage.getByText(/older conversation.*no badge/)).toBeVisible();
+    await staffContext.close();
+  });
 });

@@ -10357,6 +10357,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "Founder decision in chat, 2026-10-30: reply within 24 hours.",
   },
   {
+    key: "care_messages.reply_target",
+    // How long a patient message may wait for a reply from the care team before the inbox marks it as past the target. Read by the staff inbox
+    // (apps/web/src/app/(dashboard)/clinician/messages/worklist.tsx) and shown per conversation and as a count for the person who owns them.
+    value: { "hours": 24, "lookbackDays": 14 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-30",
+    source: "Founder decision in chat, 2026-10-30: reply within 24 hours. Same day: a conversation whose last patient message is older than 14 days is counted quietly as older, not badged.",
+  },
+  {
     key: "care_messages.unread_reminder",
     // When a patient who has not opened a care-team message is nudged. Mirrored by private.remind_patients_of_unread_care_messages in
     // supabase/migrations/20261030101027_staff_chat_attachments_reminders_owner_actions.sql (care-messages-mirror.test.ts fails if they drift).
@@ -10367,6 +10378,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-30",
     source: "Engineering proposal when the staff chat shipped (PR 1479): 24 hours, again after 48 more, at most two, 08:00 to 20:00 Lagos.",
+  },
+  {
+    key: "care_messages.unread_reminder",
+    // When a patient who has not opened a care-team message is nudged. Mirrored by private.remind_patients_of_unread_care_messages in
+    // supabase/migrations/20261030101027_staff_chat_attachments_reminders_owner_actions.sql (care-messages-mirror.test.ts fails if they drift).
+    // The nudge says only that a message is waiting. Test accounts are skipped. Unsigned.
+    value: { "firstAfterHours": 24, "gapHours": 48, "maxReminders": 2, "sendWindowLagos": { "fromHour": 8, "toHour": 20 }, "lookbackDays": 14 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-10-30",
+    source: "Engineering proposal when the staff chat shipped (PR 1479): 24 hours, again after 48 more, at most two, 08:00 to 20:00 Lagos. Confirmed by the founder in chat 2026-10-30, with a 14 day ceiling (no reminder for a message older than that).",
   },
   {
     key: "child_log.growth_bands",
