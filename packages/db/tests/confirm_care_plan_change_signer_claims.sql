@@ -14,8 +14,15 @@
 --      signed_by, an unsigned draft cannot be confirmed, and two changes signed by two different doctors are each attributed to their own signer.
 --   4. Fail closed: a signer who was deactivated, or whose licence expired, between signing and confirming gets "needs_review": nothing is applied, the
 --      change lapses, and the session is the patient's again.
---   5. SABOTAGE (copies of the live body): (A) restore and assertion removed on the success path, (B) restore removed on the lost-authority return,
---      (C) the lost-authority check removed, (D) the patient check removed. At least three of the four must flip a check, or the proof is vacuous.
+--   5. Other return paths and kinds: a signed stop or change that went stale (the medicine was already stopped) is sent back with the session restored;
+--      a target change and a reading-schedule change apply and leave the plan guard closed to the patient afterwards; a session that carries ONLY the
+--      claims JSON (no separate sub setting) is restored too.
+--   6. SABOTAGE (copies of the live body): (A) restore and assertion removed on the success path, (B) restore removed on the lost-authority return,
+--      (C) the lost-authority check removed, (D) the patient check removed, (E) the apply wrapped in a handler that swallows its error, (F) only the
+--      claims-JSON restore removed (the auth.uid() assertion stays silent, the session check must not), (G) restore removed on the stale-stop return.
+--      Every one of the seven must flip a check, or the proof is vacuous.
+--   Note on the error path: PostgreSQL itself reverts a transaction-local setting made inside a rolled-back savepoint, so the error-path checks pin the
+--      observable result (session, flag, nothing applied, change still waiting, retry works). Sabotage E shows they notice a handler that swallows the error.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -29,10 +36,10 @@ create function pg_temp.f(p text) returns uuid language sql as $$ select v from 
 create function pg_temp.setf(p text, p_v uuid) returns void language sql as
 $$ insert into fx values (p, p_v) on conflict (k) do update set v = excluded.v $$;
 -- Act as a signed-in API user the way PostgREST does: both claim settings, the role claim, and the database role.
-create function pg_temp.act(p_uid uuid) returns void language plpgsql as
+create function pg_temp.act(p_uid uuid, p_claims_only boolean default false) returns void language plpgsql as
 $f$ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
-  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  perform set_config('request.jwt.claim.sub', case when p_claims_only then '' else p_uid::text end, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
 end $f$;
@@ -103,6 +110,31 @@ $$ select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), '
 -- The session of a signed-in user whose claims were never touched.
 create function pg_temp.as_user(p_uid uuid) returns text language sql as
 $$ select p_uid::text || '|' || p_uid::text || '|authenticated|-|authenticated' $$;
+-- The same for a session that carries only the claims JSON (no separate sub setting).
+create function pg_temp.as_user_json(p_uid uuid) returns text language sql as
+$$ select '-|' || p_uid::text || '|authenticated|-|authenticated' $$;
+-- Sign a change of any kind (draft_sign below is the medicine-start shortcut).
+create function pg_temp.draft_sign_any(p_doc uuid, p_patient uuid, p_kind text, p_proposal jsonb, p_plan uuid default null) returns uuid language plpgsql as
+$f$ declare r text; c uuid;
+begin
+  r := pg_temp.q_as(p_doc, format($q$select public.propose_care_plan_change(%L, %L, %L::jsonb, 'Average home readings are above the agreed target.', %L)::text$q$, p_patient, p_kind, p_proposal::text, p_plan));
+  if r like 'ERR%' then raise exception 'fixture propose failed: %', r; end if;
+  c := r::uuid;
+  r := pg_temp.try_as(p_doc, format($q$select public.sign_care_plan_change(%L, %L, %L, %L)$q$, c, 'Your care team would like to make a change.', true, null));
+  if r <> 'ok' then raise exception 'fixture sign failed: %', r; end if;
+  return c;
+end $f$;
+-- Run as a signed-in patient with row security off on care_plans so the write reaches the plan guard trigger; returns the SQLSTATE or 'ok'.
+create function pg_temp.try_plan_write(p_uid uuid, p_sql text) returns text language plpgsql as
+$f$ declare r text;
+begin
+  alter table public.care_plans disable row level security;
+  perform pg_temp.act(p_uid);
+  begin execute p_sql; r := 'ok'; exception when others then r := sqlstate; end;
+  perform pg_temp.back();
+  alter table public.care_plans enable row level security;
+  return r;
+end $f$;
 
 create function pg_temp.state_of(p_id uuid) returns text language sql as $$ select state from public.care_plan_changes where id = p_id $$;
 create function pg_temp.pcount(p_patient uuid, p_drug text) returns integer language sql as
@@ -112,10 +144,10 @@ $$ select coalesce(string_agg(distinct added_by::text, ','), 'none') from public
 
 -- Confirm as the patient and, in the SAME transaction and the SAME session, report: the outcome, the session afterwards, and how many clinician-only
 -- staff-only reads it can still make ('refused' for a patient, 'staff' for the signer). A caught error is reported by its message, the session still read after it.
-create function pg_temp.confirm_probe(p_uid uuid, p_change uuid) returns text language plpgsql as
+create function pg_temp.confirm_probe(p_uid uuid, p_change uuid, p_claims_only boolean default false) returns text language plpgsql as
 $f$ declare r text; s text; n text;
 begin
-  perform pg_temp.act(p_uid);
+  perform pg_temp.act(p_uid, p_claims_only);
   begin
     r := (public.confirm_care_plan_change(p_change) ->> 'outcome');
   exception when others then r := 'ERR:' || sqlerrm; end;
@@ -260,13 +292,62 @@ begin
   update public.clinical_staff set license_expires_at = null where profile_id = v_smo;
 end $$;
 
--- 5. SABOTAGE: copies of the live body that forget to restore, or skip a check -------------------------------------------------
+-- 4b. Other return paths and kinds -------------------------------------------------------------------------------------------
+do $$
+declare v_smo uuid := pg_temp.f('smo'); v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); base uuid; base2 uuid; plan uuid; c uuid; r text;
+begin
+  base := pg_temp.q_as(v_smo, format($q$select public.prescribe_medication(%L, 'StaleBase', '5 mg', 'daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null, true)::text$q$, v_pat))::uuid;
+  base2 := pg_temp.q_as(v_smo, format($q$select public.prescribe_medication(%L, 'StaleBase2', '5 mg', 'daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null, true)::text$q$, v_pat))::uuid;
+  perform pg_temp.setf('stale1', base);
+  -- a. a signed stop whose medicine the patient already stopped
+  c := pg_temp.draft_sign_any(v_smo, v_pat, 'medication', jsonb_build_object('action', 'stop', 'medication_id', base, 'reason', 'Review outcome'));
+  perform pg_temp.try_as(v_pat, format($q$update public.medications set is_active = false, stopped_at = now(), stopped_reason = 'stopped by patient' where id = %L$q$, base));
+  r := pg_temp.confirm_probe(v_pat, c);
+  perform pg_temp.ck('stale stop: sent back', 'needs_review', split_part(r, '#', 1));
+  perform pg_temp.ck('...session, flag and role are the patient''s again', pg_temp.as_user(v_pat), split_part(r, '#', 2));
+  perform pg_temp.ck('...a later staff-only read is still refused', 'refused', split_part(r, '#', 3));
+  -- b. a signed change whose medicine the patient already stopped
+  c := pg_temp.draft_sign_any(v_smo, v_pat, 'medication',
+         jsonb_build_object('action', 'change', 'medication_id', base2, 'item', jsonb_build_object('drug_name', 'StaleBase2', 'dose', '10 mg', 'frequency', 'daily', 'duration_days', 30, 'quantity', '30 tablets')));
+  perform pg_temp.try_as(v_pat, format($q$update public.medications set is_active = false, stopped_at = now(), stopped_reason = 'stopped by patient' where id = %L$q$, base2));
+  r := pg_temp.confirm_probe(v_pat, c);
+  perform pg_temp.ck('stale change: sent back', 'needs_review', split_part(r, '#', 1));
+  perform pg_temp.ck('...session, flag and role are the patient''s again', pg_temp.as_user(v_pat), split_part(r, '#', 2));
+  perform pg_temp.ck('...nothing was applied', '0', pg_temp.pcount(v_pat, 'StaleBase2')::text);
+  -- c. care plan target and reading schedule
+  insert into public.care_plans (organisation_id, patient_id, condition, status, target_ranges) values (v_org, v_pat, 'hypertension', 'active', '{"systolic_max":140,"diastolic_max":90}')
+  returning id into plan;
+  c := pg_temp.draft_sign_any(v_smo, v_pat, 'target', '{"target_ranges":{"systolic_max":130,"diastolic_max":80}}'::jsonb, plan);
+  r := pg_temp.confirm_probe(v_pat, c);
+  perform pg_temp.ck('target change: applied', 'applied', split_part(r, '#', 1));
+  perform pg_temp.ck('...session, flag and role are the patient''s again', pg_temp.as_user(v_pat), split_part(r, '#', 2));
+  perform pg_temp.ck('...the target changed', '130', (select target_ranges ->> 'systolic_max' from public.care_plans where id = plan));
+  perform pg_temp.ck('...afterwards the patient cannot edit the target herself (the plan guard is closed again)', '42501',
+    pg_temp.try_plan_write(v_pat, format($q$update public.care_plans set target_ranges = '{"systolic_max":200}' where id = %L$q$, plan)));
+  c := pg_temp.draft_sign_any(v_smo, v_pat, 'reading_schedule', '{"reading_schedule":{"per_week":7}}'::jsonb, plan);
+  r := pg_temp.confirm_probe(v_pat, c);
+  perform pg_temp.ck('reading schedule change: applied, session the patient''s again', 'applied|' || pg_temp.as_user(v_pat), split_part(r, '#', 1) || '|' || split_part(r, '#', 2));
+  perform pg_temp.ck('...afterwards the patient cannot edit the schedule herself', '42501',
+    pg_temp.try_plan_write(v_pat, format($q$update public.care_plans set reading_schedule = '{"per_week":1}' where id = %L$q$, plan)));
+  -- d. a session that carries only the claims JSON
+  c := pg_temp.draft_sign(v_smo, v_pat, 'JsonOnly');
+  r := pg_temp.confirm_probe(v_pat, c, true);
+  perform pg_temp.ck('claims-JSON-only session: applied', 'applied', split_part(r, '#', 1));
+  perform pg_temp.ck('...restored exactly (no sub setting invented, claims JSON is the patient''s)', pg_temp.as_user_json(v_pat), split_part(r, '#', 2));
+  perform pg_temp.ck('...a later staff-only read is still refused', 'refused', split_part(r, '#', 3));
+  perform pg_temp.ck('...the medicine is attributed to the signer', v_smo::text, pg_temp.added_by(v_pat, 'JsonOnly'));
+end $$;
+
+-- 6. SABOTAGE: copies of the live body that forget to restore, or skip a check -------------------------------------------------
 -- Each sabotage re-runs the same probe on a fresh change. The rows go in as phase 'sabotaged' (never printed) and must differ from what the real body gives.
 do $$
 declare v_smo uuid := pg_temp.f('smo'); v_smo2 uuid := pg_temp.f('smo2'); v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2');
   v_orig text; v_def text; c uuid; r text;
   restore3 text := E'  perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n  perform set_config(''request.jwt.claims'', v_save_claims, true);\n  perform set_config(''tarragon.change_apply'', '''', true);\n';
   auth_restore text := E'    perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n    perform set_config(''request.jwt.claims'', v_save_claims, true);\n    perform set_config(''tarragon.change_apply'', '''', true);\n    update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n    perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''authority''));\n';
+  stale_restore text := E'\n        perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n        perform set_config(''request.jwt.claims'', v_save_claims, true);\n        perform set_config(''tarragon.change_apply'', '''', true);\n        update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n        perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''stale''));\n        return jsonb_build_object(''outcome'', ''needs_review'');';
+  stale_restore_gone text := E'\n        update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n        perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''stale''));\n        return jsonb_build_object(''outcome'', ''needs_review'');';
+  v_base uuid;
   auth_restore_gone text := E'    update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n    perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''authority''));\n';
 begin
   v_orig := pg_get_functiondef('public.confirm_care_plan_change(uuid)'::regprocedure);
@@ -302,7 +383,9 @@ begin
   c := pg_temp.draft_sign(v_smo, v_pat, 'SabC');
   update public.clinical_staff set license_expires_at = now() - interval '1 day' where profile_id = v_smo;
   r := pg_temp.confirm_probe(v_pat, c);
+  if split_part(r, '#', 1) <> 'applied' then raise exception 'SABOTAGE C flipped for another reason: %', r; end if;
   insert into results values ('sabotaged', 'C: a signer with an expired licence is sent back', 'needs_review', split_part(r, '#', 1));
+  insert into results values ('sabotaged', 'C: ...and nothing is applied', '0', pg_temp.pcount(v_pat, 'SabC')::text);
   update public.clinical_staff set license_expires_at = null where profile_id = v_smo;
   execute v_orig;
 
@@ -313,6 +396,40 @@ begin
   c := pg_temp.draft_sign(v_smo, v_pat, 'SabD');
   r := pg_temp.confirm_probe(v_pat2, c);
   insert into results values ('sabotaged', 'D: another patient cannot confirm the change', 'ERR:Not authorised to confirm this change', split_part(r, '#', 1));
+  execute v_orig;
+
+  -- E. the apply wrapped in a handler that swallows its error and reports success
+  v_def := replace(v_orig, E'  return jsonb_build_object(''outcome'', ''applied'');\nend;', E'  return jsonb_build_object(''outcome'', ''applied'');\nexception when others then\n  return jsonb_build_object(''outcome'', ''applied'');\nend;');
+  if v_def = v_orig then raise exception 'SABOTAGE E not applied'; end if;
+  execute v_def;
+  create or replace function private.oq483_fail() returns trigger language plpgsql as $t$ begin raise exception 'oq483 forced failure'; end $t$;
+  create trigger zz_oq483_fail before insert on public.medications for each row when (new.drug_name = 'ZZ-FAIL-E') execute function private.oq483_fail();
+  c := pg_temp.draft_sign(v_smo, v_pat, 'ZZ-FAIL-E');
+  r := pg_temp.confirm_probe(v_pat, c);
+  insert into results values ('sabotaged', 'E: the apply raised part-way and the caller is told', 'ERR:oq483 forced failure', split_part(r, '#', 1));
+  insert into results values ('sabotaged', 'E: ...nothing applied and the change still waiting', 'signed|0', pg_temp.state_of(c) || '|' || pg_temp.pcount(v_pat, 'ZZ-FAIL-E'));
+  drop trigger zz_oq483_fail on public.medications;
+  execute v_orig;
+
+  -- F. only the claims-JSON restore removed on the success path: auth.uid() still reads the restored sub setting, so the function's own assertion stays silent
+  v_def := replace(v_orig, restore3 || E'  -- Defence in depth', replace(restore3, E'  perform set_config(''request.jwt.claims'', v_save_claims, true);\n', '') || E'  -- Defence in depth');
+  if v_def = v_orig then raise exception 'SABOTAGE F not applied'; end if;
+  execute v_def;
+  c := pg_temp.draft_sign(v_smo, v_pat, 'SabF');
+  r := pg_temp.confirm_probe(v_pat, c);
+  if split_part(r, '#', 1) <> 'applied' then raise exception 'SABOTAGE F was caught by the function''s own assertion, not by the session check: %', r; end if;
+  insert into results values ('sabotaged', 'F: the claims JSON is the patient''s again after a partial restore', pg_temp.as_user(v_pat), split_part(r, '#', 2));
+  execute v_orig;
+
+  -- G. the stale-stop return: restore removed
+  v_def := replace(v_orig, stale_restore, stale_restore_gone);
+  if v_def = v_orig then raise exception 'SABOTAGE G not applied'; end if;
+  execute v_def;
+  v_base := pg_temp.q_as(v_smo, format($q$select public.prescribe_medication(%L, 'SabGBase', '5 mg', 'daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null, true)::text$q$, v_pat))::uuid;
+  c := pg_temp.draft_sign_any(v_smo, v_pat, 'medication', jsonb_build_object('action', 'stop', 'medication_id', v_base, 'reason', 'Review outcome'));
+  perform pg_temp.try_as(v_pat, format($q$update public.medications set is_active = false, stopped_at = now(), stopped_reason = 'stopped by patient' where id = %L$q$, v_base));
+  r := pg_temp.confirm_probe(v_pat, c);
+  insert into results values ('sabotaged', 'G: stale-stop return leaves the patient''s session', pg_temp.as_user(v_pat), split_part(r, '#', 2));
   execute v_orig;
 end $$;
 
@@ -325,11 +442,11 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ')
          from results where phase = 'real' and expected is distinct from actual);
   end if;
-  -- the sabotage rows are grouped by their letter: how many of the four sabotages flipped at least one check
+  -- the sabotage rows are grouped by their letter: how many of the seven sabotages flipped at least one check
   select count(distinct left(check_name, 1)) into v_flipped from results where phase = 'sabotaged' and expected is distinct from actual;
   select count(distinct left(check_name, 1)) into v_total from results where phase = 'sabotaged';
   select string_agg(check_name || ' => ' || coalesce(actual, 'null'), '; ') into v_names from results where phase = 'sabotaged';
-  if v_total < 4 or v_flipped < 4 then
+  if v_total < 7 or v_flipped < 7 then
     raise exception 'VACUOUS TEST: the sabotage flipped % of % checks (%)', v_flipped, v_total, v_names;
   end if;
 end $$;
