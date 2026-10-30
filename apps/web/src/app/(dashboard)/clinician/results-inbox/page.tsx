@@ -397,7 +397,7 @@ export default async function ResultsInboxPage({
                 : searchQuery
                   ? `Nothing matches “${q?.trim()}” among the ${rows.length} unactioned items currently loaded here.${
                       inboxWindowTruncated
-                        ? " This inbox is showing only the oldest 200 unactioned items — a matching result could still exist further back; this is not a confirmation the document doesn't exist."
+                        ? " This inbox shows only the oldest 200 unactioned items. A matching result could still exist further back, so this does not confirm that the document does not exist."
                         : " Try clearing the search."
                     }`
                   : "Nothing in this view. Choose All to see the rest of the inbox."}
