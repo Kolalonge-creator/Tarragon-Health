@@ -188,6 +188,8 @@ begin
     pg_temp.q_as(v_ph, format($q$insert into public.vitals_readings (organisation_id, patient_id, vital_type, source, glucose_mmol_l, logged_by_profile_id, taken_at) values (%L, %L, 'glucose', 'manual', 6.1, %L, now())$q$, v_org, v_pat, v_ph)));
   perform pg_temp.ck(p_phase, 'a pharmacist cannot insert a wearable-source blood pressure', 'ERR:42501',
     pg_temp.q_as(v_ph, format($q$insert into public.vitals_readings (organisation_id, patient_id, vital_type, source, systolic, diastolic, logged_by_profile_id, taken_at) values (%L, %L, 'blood_pressure', 'wearable', 120, 80, %L, now())$q$, v_org, v_pat, v_ph)));
+  -- The claim marker is transaction-local and this proof is one transaction, so clear it: a direct insert must look like one made with no claim.
+  perform set_config('tarragon.pharmacy_visit', '', true);
   perform pg_temp.ck(p_phase, 'a direct insert outside the function (no claim in this transaction) is refused', 'ERR:42501',
     pg_temp.q_as(v_ph, format($q$insert into public.vitals_readings (organisation_id, patient_id, vital_type, source, systolic, diastolic, logged_by_profile_id, taken_at) values (%L, %L, 'blood_pressure', 'manual', 120, 80, %L, now())$q$, v_org, v_pat, v_ph)));
 
