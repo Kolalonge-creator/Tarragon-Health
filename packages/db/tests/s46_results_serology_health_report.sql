@@ -375,7 +375,7 @@ begin
   update public.lab_orders set status = 'payment_confirmed' where id = o;
   update public.lab_orders set status = 'sample_collected' where id = o;
   r := pg_temp.q_as(v_labuser, format($q$select public.lab_partner_submit_result(%L, 'membership_annual', %L::jsonb)::text$q$, o,
-        pg_temp.items(0.9, ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2},{"analyte_code":"hbsag","value_text":"positive"}')));
+        pg_temp.items(0.9, ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"hbsag","value_text":"positive"}')));
   perform pg_temp.ck('ACCEPTANCE (INV-04): the package order submit worked', 'false', (r like 'ERR:%')::text);
   rid := (r::jsonb ->> 'lab_result_id')::uuid;
   perform pg_temp.ck('ACCEPTANCE (INV-04): a sensitive positive in a package is never auto-released', 'clinician_disclosure_required', (select release_state from public.lab_results where id = rid));

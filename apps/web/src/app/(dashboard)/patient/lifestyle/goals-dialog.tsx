@@ -348,7 +348,7 @@ function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
   if (goals.length === 0) {
     return (
       <p className="text-sm text-muted-foreground dark:text-night-ink/60">
-        No past goals yet, goals you complete or let go of will show up here.
+        You have no past goals yet. Goals you complete or let go of will appear here.
       </p>
     );
   }

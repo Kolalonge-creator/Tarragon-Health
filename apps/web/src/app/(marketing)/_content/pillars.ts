@@ -20,33 +20,33 @@ export type PillarCopy = {
 export const PILLARS: readonly PillarCopy[] = [
   {
     module: "diet",
-    title: "Eat",
-    body: "An eating pattern built around food you already have access to.",
+    title: "Eating",
+    body: "An eating pattern built around the food you can already get.",
   },
   {
     module: "activity",
-    title: "Move",
-    body: "Regular movement, a daily walk, a couple of strength sessions a week.",
+    title: "Activity",
+    body: "Regular activity: a daily walk and two or three strength sessions a week.",
   },
   {
     module: "sleep",
     title: "Sleep",
-    body: "Better sleep makes blood pressure and blood sugar easier to control.",
+    body: "Good sleep makes blood pressure and blood sugar easier to control.",
   },
   {
     module: "stress",
-    title: "Relax",
-    body: "A few minutes of breathing can lower your readings more than you'd expect.",
+    title: "Stress",
+    body: "A few minutes of slow breathing each day can lower blood pressure.",
   },
   {
     module: "behaviour",
-    title: "Follow through",
-    body: "A weekly plan built around your actual week, not an ideal one.",
+    title: "Consistency",
+    body: "A weekly plan built around your real routine, not an ideal one.",
   },
 ] as const;
 
 export const PILLARS_SECTION_COPY = {
   eyebrow: "Beyond the numbers",
-  title: "Five habits move the numbers your care team already watches",
-  description: "Your care team turns your readings into a short, personal weekly plan.",
+  title: "Five daily habits that affect the numbers your care team monitors",
+  description: "Your care team uses your readings to write a short weekly plan that is specific to you.",
 } as const;

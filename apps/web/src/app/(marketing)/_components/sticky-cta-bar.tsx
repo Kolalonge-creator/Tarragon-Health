@@ -86,7 +86,7 @@ export function StickyCtaBar() {
       )}
     >
       <div className="flex w-full max-w-md items-center justify-between gap-4 rounded-full border border-charcoal-ink/10 bg-white/95 p-2 pl-5 shadow-lg shadow-charcoal-ink/15 backdrop-blur">
-        <p className="text-sm font-medium text-charcoal-ink">Free to join. Pay only for a doctor&apos;s time.</p>
+        <p className="text-sm font-medium text-charcoal-ink">Joining is free. You pay only for a doctor&apos;s time.</p>
         <Button asChild size="sm" className="shrink-0" tabIndex={visible ? 0 : -1}>
           <Link href="/signup">Get started</Link>
         </Button>

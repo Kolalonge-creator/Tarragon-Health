@@ -40,8 +40,8 @@ export function PatientLocationForm({
           Your location
         </CardTitle>
         <CardDescription>
-          Save where you are. We&apos;ll use it to show nearby labs, vaccination centres, and
-          pharmacies as soon as that&apos;s available in your area.
+          Save your location. We will use it to show nearby laboratories, vaccination centres and
+          pharmacies once this is available in your area.
         </CardDescription>
       </CardHeader>
       <CardContent>

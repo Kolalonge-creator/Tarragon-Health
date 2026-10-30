@@ -194,7 +194,7 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
           )}
           {!isLoading && manageable.length === 0 && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              Nobody yet. If they already have a Tarragon account, ask them to name you as an
+              No one is listed yet. If they already have a Tarragon account, ask them to name you as an
               eldercare grantee from{" "}
               <Link href="/patient/family" className="text-brand-green underline">
                 their own Your people page

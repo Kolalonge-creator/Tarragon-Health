@@ -98,8 +98,7 @@ export function CvdRiskCheck() {
           <div className="mt-4 space-y-1 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
             {result.band === "insufficient" ? (
               <p className={band.tone}>
-                This check is for adults (18+) with a known blood pressure reading — add both to see
-                your result.
+                This check is for adults aged 18 and over with a known blood pressure reading. Add both to see your result.
               </p>
             ) : (
               <>
@@ -108,14 +107,13 @@ export function CvdRiskCheck() {
                 </p>
                 {!result.labUsed && (
                   <p className="text-charcoal-ink/60 dark:text-night-ink/60">
-                    Estimated without a cholesterol result. Add one from a recent lipid panel for a
-                    more complete picture.
+                    This estimate does not include a cholesterol result. Adding one from a recent lipid (blood fat) panel gives a more complete picture.
                   </p>
                 )}
                 <p className="text-charcoal-ink/80 dark:text-night-ink/80">
                   {result.band === "low"
-                    ? "Keep up the healthy habits, recheck yearly, or sooner if things change."
-                    : "We'd recommend a lipid panel and a chat with your care team to look at this more closely."}
+                    ? "Continue your healthy habits and repeat this check each year, or sooner if your circumstances change."
+                    : "We recommend a lipid panel and a conversation with your care team so that this can be looked at more closely."}
                 </p>
               </>
             )}

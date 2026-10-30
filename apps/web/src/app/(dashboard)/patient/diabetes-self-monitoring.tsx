@@ -141,8 +141,8 @@ export function DiabetesSelfMonitoring() {
         <form action={sickAction} className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-6">
           <p className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">Sick-day log</p>
           <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            If you&apos;re unwell, keep taking your insulin; do not stop it; test more often, and
-            keep fluids going.
+            If you are unwell, keep taking your insulin and do not stop it. Test your blood sugar
+            more often and keep drinking fluids.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

@@ -577,7 +577,7 @@ export function VitalsForm({
               {...fieldErrorProps(errorId, false, "vitals-note-hint")}
             />
             <p id="vitals-note-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Anything worth remembering about this reading. Up to 500 characters.
+              Add anything you want to remember about this reading (up to 500 characters).
             </p>
           </div>
 

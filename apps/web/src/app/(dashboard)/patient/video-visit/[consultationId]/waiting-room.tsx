@@ -180,7 +180,7 @@ function ReportProblemButton({ consultationId, patientId }: { consultationId: st
   const [description, setDescription] = useState("");
 
   if (sent) {
-    return <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Reported. Your care team will follow up in Messages.</p>;
+    return <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Your report has been sent. Your care team will reply in Messages.</p>;
   }
 
   if (!open) {

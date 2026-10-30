@@ -28,7 +28,7 @@ export default function ServicesPage() {
       <PhotoBannerHero
         eyebrow="Services"
         title="What we help you manage"
-        description="Chronic disease, preventive health, medication, and labs, all on one shared record so nothing falls through the cracks between visits."
+        description="Long-term conditions, preventive health, medication and laboratory tests, all on one shared record so that nothing is missed between visits."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref={MARKETING_ROUTES.pricing}
@@ -63,13 +63,13 @@ export default function ServicesPage() {
         {/* One Medical-style capability cloud: everything the record actually watches. */}
         <div className="mx-auto mt-14 max-w-4xl text-center">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-            One record, watching what matters
+            One record that follows what matters
           </h2>
           <div className="mt-6">
             <ConditionsMarquee items={[...WHAT_WE_TRACK]} />
           </div>
           <p className="mt-2 text-sm text-charcoal-ink/60">
-            All on one longitudinal record your care team actually reviews.
+            All kept on one record over time, which your care team reviews.
           </p>
         </div>
       </Section>
@@ -84,14 +84,14 @@ export default function ServicesPage() {
               From sign-up to ongoing care
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Readings, reminders, doctor review, and coordinated follow-up stay
-              connected on one record, so the next step is always clear.
+              Your readings, reminders, doctor review and follow-up are connected
+              on one record, so the next step is always clear.
             </p>
           </div>
           <MarketingMediaFrame
             media={{
               illustration: "connected-care",
-              imageAlt: "Readings, reminders, and doctor review in one connected record",
+              imageAlt: "Readings, reminders and doctor review in one connected record",
             }}
           />
         </div>
@@ -112,7 +112,7 @@ export default function ServicesPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Get started today, for yourself or someone you love."
+          description="Get started today, for yourself or for someone you care for."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

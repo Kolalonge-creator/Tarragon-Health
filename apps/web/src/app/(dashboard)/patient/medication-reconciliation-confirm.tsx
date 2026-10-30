@@ -37,8 +37,8 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Is the medication list above still accurate, nothing missing, nothing you&apos;ve
-          stopped taking? Confirming lets your care team reconcile it at your next visit.
+          Is the medication list above still correct, with nothing missing and nothing that you have
+          stopped taking? Confirming lets your care team check it against your records at your next visit.
         </p>
         <div className="space-y-1.5">
           <Label htmlFor="reconciliation_note">Anything to flag? (optional)</Label>

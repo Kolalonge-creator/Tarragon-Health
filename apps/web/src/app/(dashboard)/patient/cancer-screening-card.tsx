@@ -62,8 +62,7 @@ export function CancerScreeningCard({ sex }: { sex: Enums<"sex"> | null }) {
           Cancer screening
         </CardTitle>
         <CardDescription>
-          The screening worth doing at your age, what to ask a laboratory for, and roughly what it
-          costs.
+          The screening tests that are worth having at your age, what to ask the laboratory for, and approximately what each costs.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -73,8 +72,7 @@ export function CancerScreeningCard({ sex }: { sex: Enums<"sex"> | null }) {
         {isError && <p className="text-sm text-red-600">Could not load these screenings.</p>}
         {!isLoading && !isError && cancerBundles.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            Nothing is recommended for you here yet. Your screening calendar will tell you when
-            something falls due.
+            No screening is recommended for you here yet. Your screening calendar will tell you when a test is due.
           </p>
         )}
 

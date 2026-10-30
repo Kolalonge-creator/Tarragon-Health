@@ -196,7 +196,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
         <CtaBand
           variant="gradient"
           title={content.ctaLabel}
-          description="Tell us about your organisation and we'll follow up personally with a clear, transparent quote."
+          description="Tell us about your organisation and we will reply personally with a clear quote."
           primaryHref={contactHref}
           primaryLabel={content.ctaLabel}
           secondaryHref={MARKETING_ROUTES.pricing}

@@ -202,7 +202,7 @@ function WeeklyGuidelineCard({ minutes, loading }: { minutes: number | undefined
               />
             </div>
             <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              {progressPct >= 100 ? t("Weekly guideline reached, nice work.") : `${progressPct}% of the way there.`}
+              {progressPct >= 100 ? t("Weekly guideline reached, nice work.") : `${progressPct}% of your weekly guideline completed.`}
             </p>
           </>
         )}
@@ -251,7 +251,7 @@ function TodayCard({
           <CardTitle>{t("Today")}</CardTitle>
           {!loading && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : t("Goal reached, nice work")}
+              {remaining > 0 ? `${remaining.toLocaleString()} more steps to reach today's goal` : t("Goal reached, nice work")}
             </p>
           )}
         </div>
@@ -493,7 +493,7 @@ function WeeklyGoalCard({ patientId }: { patientId: string }) {
               <div className="h-full rounded-full bg-brand-green transition-all" style={{ width: `${pct}%` }} />
             </div>
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              {pct >= 100 ? "Weekly goal reached, nice work." : `${pct}% of the way there. Any movement counts.`}
+              {pct >= 100 ? "You have reached your weekly goal." : `${pct}% of your weekly goal completed. Any amount of activity counts towards it.`}
             </p>
             {editing && (
               <form action={formAction} className="grid gap-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 sm:max-w-xs">

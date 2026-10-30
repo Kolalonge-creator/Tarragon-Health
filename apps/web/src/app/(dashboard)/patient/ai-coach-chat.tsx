@@ -227,8 +227,8 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         {limitReached && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-              Need more room today? A 30-day pass raises your daily message limit. Buy again any
-              time, no auto-renewal.
+              Need to send more messages today? A 30-day pass raises your daily message limit. You can buy
+              another at any time, and it does not renew automatically.
             </p>
             <Button size="sm" variant="outline" asChild>
               <a href="/patient/subscription">Get the AI Coach Daily Pass</a>

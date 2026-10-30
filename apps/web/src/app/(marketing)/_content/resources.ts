@@ -53,7 +53,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "How Tarragon manages hypertension",
     sections: [
       {
-        heading: "The two numbers, in plain language",
+        heading: "What the two numbers mean",
         paragraphs: [
           "A blood pressure reading has two numbers, written like 120/80. The first (systolic) is the pressure in your arteries when your heart squeezes; the second (diastolic) is the pressure between beats, when the heart rests. Both matter.",
           "For most adults, a reading under 130/85 at rest is in a healthy range. Readings that stay at 140/90 or higher, measured properly on separate days, are what doctors call hypertension: high blood pressure.",
@@ -62,7 +62,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why one high reading is not a diagnosis",
         paragraphs: [
-          "Blood pressure moves all day. Stress, caffeine, a rushed walk into the pharmacy, even the measurement itself ('white-coat effect') can push a single reading up. That is why no good clinician diagnoses hypertension from one number.",
+          "Blood pressure moves all day. Stress, caffeine, a rushed walk into the pharmacy, or even the experience of being measured (the 'white-coat effect'), can push a single reading up. That is why no good clinician diagnoses hypertension from one number.",
           "What matters is the pattern: several readings, taken while rested, on different days. A home blood-pressure monitor (used correctly, seated, arm supported) often gives a truer picture than an occasional clinic check.",
         ],
       },
@@ -75,7 +75,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What to actually do",
         paragraphs: [
-          "If you have not had it checked, do: at a pharmacy, a lab, or with a home cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
+          "If you have not had your blood pressure checked, have it measured at a pharmacy, a laboratory or at home with a cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
           "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your doctor can see whether the plan is working.",
         ],
       },
@@ -132,11 +132,11 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "First, an honest frame",
         paragraphs: [
-          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Do not stop a prescribed medicine on your own; blood pressure rebounds quietly.",
+          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Do not stop a prescribed medicine on your own, because blood pressure rises again without any warning.",
         ],
       },
       {
-        heading: "1. Cut the salt you can't see",
+        heading: "1. Reduce the salt you cannot see",
         paragraphs: [
           "Most excess salt is not from your salt spoon: it hides in seasoning cubes, instant noodles, processed and tinned foods, and suya spice mixes. Halving these often does more than banning table salt. Aim to cook more from fresh ingredients and taste before you season.",
         ],
@@ -150,7 +150,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "3. Move most days",
         paragraphs: [
-          "About 30 minutes of brisk walking most days lowers blood pressure on its own, independent of weight loss. It does not require a gym; it requires a route and a habit.",
+          "About 30 minutes of brisk walking most days lowers blood pressure on its own, independent of weight loss. It does not require a gym, only a regular route and a routine.",
         ],
       },
       {
@@ -179,7 +179,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The uncomfortable truth: many people feel nothing",
+        heading: "Many people have no symptoms",
         paragraphs: [
           "Type 2 diabetes builds gradually, and the body adapts. Many people live with raised sugar for years before diagnosis, often until a complication shows up first. Feeling fine is not evidence your sugar is fine.",
         ],
@@ -201,7 +201,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "diabetes-just-diagnosed",
-    title: "So you've just been diagnosed with diabetes. Now what?",
+    title: "Newly diagnosed with diabetes: what happens next",
     description:
       "The first week, the questions worth asking your doctor, and what actually changes versus what doesn't.",
     category: "Diabetes",
@@ -210,9 +210,9 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "Diabetes care at Tarragon",
     sections: [
       {
-        heading: "Take a breath first",
+        heading: "Understanding the diagnosis",
         paragraphs: [
-          "A new diabetes diagnosis can feel like a lot at once. It is not an emergency that demands you overhaul your entire life today. It is a starting line: you now have information that lets you and a doctor act, and that is better than not knowing.",
+          "A new diabetes diagnosis can feel like a lot at once. It is not an emergency, and you do not have to change your whole life today. You now have information that allows you and a doctor to act, which is better than not knowing.",
         ],
       },
       {
@@ -222,13 +222,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Questions worth taking to your first proper review",
+        heading: "Questions to take to your first review",
         paragraphs: [
           "What is my HbA1c and what target are we aiming for? Do I need medication now, or are we starting with lifestyle change first? What symptoms mean I should call sooner rather than wait for the next appointment? When is my next check, and what will it look at?",
         ],
       },
       {
-        heading: "What changes, and what genuinely doesn't",
+        heading: "What changes and what stays the same",
         paragraphs: [
           "You can still eat foods you love, in sensible portions; still travel; still work as before. What changes is a new habit of checking in on your body on a schedule rather than only when something feels wrong. Most people with type 2 diabetes who follow their plan consistently live long, ordinary lives; the complications people fear come from years of unmanaged sugar, not from the diagnosis itself.",
         ],
@@ -264,7 +264,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "What's actually worth cutting back",
+        heading: "What is worth cutting back",
         paragraphs: [
           "Sugary zobo, soft drinks, and table sugar in tea add sugar with no fibre to slow it down; deep-fried foods and packaged snacks add the kind of fat that works against your numbers over time. Small, consistent swaps you can keep up beat one dramatic overhaul that lasts a fortnight.",
         ],
@@ -302,7 +302,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What genuinely does earn its place",
         paragraphs: [
-          "Food choices, movement, weight, and sleep are not the exciting answer, but they are the proven one: real, repeated evidence shows they measurably lower blood sugar over time. The honest message is that there is no shortcut supplement, but the boring, unglamorous changes genuinely work.",
+          "Food choices, movement, weight, and sleep are not the exciting answer, but they are the proven one: real, repeated evidence shows they measurably lower blood sugar over time. There is no shortcut supplement, but ordinary, consistent changes do work.",
         ],
       },
     ],
@@ -398,7 +398,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why your waist tells you more",
         paragraphs: [
-          "Fat stored around the organs (the belly, not the hips) is what drives diabetes, hypertension and heart disease risk. A waist above roughly 94 cm for men or 80 cm for women signals raised risk even when BMI looks moderate. A tape measure is a better early-warning tool than a mirror.",
+          "Fat stored around the organs (the belly, not the hips) is what drives diabetes, hypertension and heart disease risk. A waist above roughly 94 cm for men or 80 cm for women signals raised risk even when BMI looks moderate. A tape measure gives a better early warning than a mirror.",
         ],
       },
       {
@@ -410,8 +410,8 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What does",
         paragraphs: [
-          "The boring, proven combination: modest calorie reduction you can sustain, protein and fibre that keep you full, 30 minutes of movement most days, sleep, and tracking, the step most people skip, so the trend is visible. A 5–10% loss held for a year improves blood pressure, sugar and cholesterol measurably.",
-          "If your BMI is 30+ or your weight comes with raised sugar or pressure, this is a medical matter that deserves a doctor's structured support, not a willpower verdict. That is exactly what a managed programme is for.",
+          "What is proven to work: modest calorie reduction you can sustain, protein and fibre that keep you full, 30 minutes of movement most days, sleep, and tracking, the step most people skip, so the trend is visible. A 5–10% loss held for a year improves blood pressure, sugar and cholesterol measurably.",
+          "If your BMI is 30+ or your weight comes with raised sugar or pressure, this is a medical matter that deserves a doctor's structured support rather than a judgement about willpower. A managed programme exists to provide exactly that.",
         ],
       },
     ],
@@ -464,7 +464,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "Healthy doesn't mean imported",
+        heading: "Healthy food does not have to be imported",
         paragraphs: [
           "Vegetables like ugu, waterleaf and garden egg, beans, fresh fish, and unripe plantain are already close to what any healthy-eating guide recommends. None of it comes in a branded 'diet' package, and none of it needs to.",
         ],
@@ -500,7 +500,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "Most overeating isn't really about hunger",
+        heading: "Most overeating is not caused by hunger",
         paragraphs: [
           "Eating in front of a screen, finishing a plate out of habit rather than appetite, or reaching for food when stressed or bored, all feel like hunger in the moment but usually aren't. Learning to tell the difference between physical hunger and an emotional or habitual trigger is the useful skill, not willpower.",
         ],
@@ -518,7 +518,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "When to loop in your care team",
+        heading: "When to speak to your care team",
         paragraphs: [
           "If eating feels genuinely out of your control, or seems tied to low mood that's lasted more than a couple of weeks, that's worth raising with a doctor rather than treating as a personal failing. Addressing it is part of good weight care, not a separate, lesser concern.",
         ],
@@ -548,22 +548,22 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Added by age and history",
+        heading: "Additional tests by age and history",
         paragraphs: [
           "From the 40s onward: an ECG and a fuller cardiovascular risk review. For women: cervical screening from the mid-20s and breast checks from 40. For men from 45: a prostate conversation with a doctor, informed, not automatic. Family history of any of these moves the start dates earlier.",
         ],
       },
       {
-        heading: "The part most checkups get wrong",
+        heading: "Why follow-up matters more than the tests",
         paragraphs: [
-          "A stack of results with no follow-up is theatre. The value is in what happens next: someone explains each result, an abnormal finding triggers an actual plan, and next year's numbers get compared to this year's. When you book any screening, the question to ask is not 'which tests?' but 'who follows up?'",
+          "A set of results with no follow-up has little value. The benefit comes from what happens next: someone explains each result, an abnormal finding triggers an actual plan, and next year's numbers get compared to this year's. When you book any screening, the question to ask is not 'which tests?' but 'who follows up?'",
         ],
       },
     ],
   },
   {
     slug: "cholesterol-explained",
-    title: "Cholesterol results, decoded: LDL, HDL and the number nobody mentions",
+    title: "Cholesterol results explained: LDL, HDL and non-HDL",
     description:
       "What a lipid panel measures, which number matters most, and when cholesterol needs treating.",
     category: "Cholesterol",
@@ -578,7 +578,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The number nobody mentions: non-HDL",
+        heading: "A less well-known measure: non-HDL cholesterol",
         paragraphs: [
           "Subtract HDL from total cholesterol and you get non-HDL cholesterol: everything capable of clogging arteries in one figure. Many clinicians now consider it a better single measure than LDL alone, and it needs no extra test: it is arithmetic on results you already have.",
         ],
@@ -621,7 +621,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Muscle aches: real, but often over-blamed",
+        heading: "Muscle aches: real, but often wrongly blamed",
         paragraphs: [
           "Muscle aches are the complaint people raise most, and they are real for some people. But controlled studies that compare a statin against a fake pill find most reported muscle pain happens on the fake pill too, meaning expectation plays a large role. If aches do appear, a doctor can usually solve it by switching statins or adjusting dose rather than stopping treatment altogether.",
         ],
@@ -672,7 +672,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "blood-pressure-medication-myths",
-    title: "Why you shouldn't stop your blood pressure medicine when you feel fine",
+    title: "Why you should not stop blood pressure medicine when you feel well",
     description:
       "The quiet reason so many people stop treatment early, and why hypertension has no symptom that tells you it's back.",
     category: "Blood pressure",
@@ -681,9 +681,9 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "Hypertension care at Tarragon",
     sections: [
       {
-        heading: "The trap: feeling fine means nothing",
+        heading: "Feeling well does not mean your blood pressure is controlled",
         paragraphs: [
-          "Hypertension is sometimes called a silent condition for a reason: it produces essentially no symptoms until it has already caused damage. A person whose pressure has been brought under control by medication feels exactly the same as a person whose pressure is quietly climbing again. Feeling fine is not feedback; only a reading is.",
+          "Hypertension is sometimes called a silent condition for a reason: it produces essentially no symptoms until it has already caused damage. A person whose pressure has been brought under control by medication feels exactly the same as a person whose pressure is quietly climbing again. Feeling well tells you nothing about your blood pressure; only a reading does.",
         ],
       },
       {
@@ -717,7 +717,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "The rebound is not a willpower failure",
+        heading: "Regaining weight is not a failure of willpower",
         paragraphs: [
           "When weight drops very fast, your body reads it as a threat, not a goal. Hunger hormones rise, metabolism slows slightly to conserve energy, and the drive to eat becomes genuinely stronger, not weaker. Most people who lose weight quickly on a crash diet regain it within a year, and this is a predictable biological response, not a personal failing.",
         ],
@@ -753,7 +753,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "The Tarragon weight programme",
     sections: [
       {
-        heading: "The uncomfortable truth about exercise and the scale",
+        heading: "What exercise can and cannot do for weight",
         paragraphs: [
           "A 30-minute brisk walk burns roughly what a small bottle of soft drink contains in calories. Exercise alone, without any change to eating, moves the scale far less than most people expect, and appetite often quietly rises to compensate. This is not a reason to skip it; it's a reason to be honest about what it's for.",
         ],
@@ -1023,7 +1023,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "It gets easier",
+        heading: "Injections become routine",
         paragraphs: [
           "The first injection is the hardest part for almost everyone. A nurse or doctor walks through it with you before you're ever expected to do it alone, and within a couple of weeks most people describe it as routine, not something they think much about anymore.",
         ],
@@ -1043,7 +1043,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why feet specifically",
         paragraphs: [
-          "Years of raised blood sugar can quietly reduce feeling in the feet, so you might not notice a cut or a stone in your shoe, and can slow how well small wounds heal. Feet take the most daily wear and get seen the least, which is exactly why diabetes complications often show up there first.",
+          "Years of raised blood sugar can reduce feeling in the feet without any warning, so you might not notice a cut or a stone in your shoe, and can slow how well small wounds heal. Feet take the most daily wear and get seen the least, which is exactly why diabetes complications often show up there first.",
         ],
       },
       {
@@ -1114,13 +1114,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
     relatedLabel: "Diabetes care at Tarragon",
     sections: [
       {
-        heading: "It's more common than people realise",
+        heading: "It is more common than people realise",
         paragraphs: [
           "Years of raised blood sugar can affect the same small blood vessels and nerves involved in sexual function, in both men and women. For men this often shows up as difficulty getting or keeping an erection; for women, as reduced sensation, dryness or lower interest. Neither is a personal failing, and neither is rare among people managing diabetes.",
         ],
       },
       {
-        heading: "Why it's worth actually saying out loud",
+        heading: "Why it is worth raising with a doctor",
         paragraphs: [
           "Many people quietly live with this for years rather than mention it, often out of embarrassment. Your care team has heard it many times before, and raising it usually leads somewhere useful, because it's frequently connected to the same sugar, blood pressure and circulation numbers already being tracked.",
         ],
@@ -1135,8 +1135,8 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "diabetes-myths-that-need-to-die",
-    title: "Diabetes myths that need to die",
-    description: "Common things people believe about diabetes that simply aren't true, and what actually holds up.",
+    title: "Common myths about diabetes",
+    description: "Common beliefs about diabetes that are not true, and what the evidence supports.",
     category: "Diabetes",
     readMinutes: 4,
     relatedHref: "/diabetes",
@@ -1172,7 +1172,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   {
     slug: "blood-pressure-medications-explained",
     title: "Blood pressure medications explained: the main types, in plain language",
-    description: "Why there are several classes of BP tablets, what each broadly does, and what's worth asking about yours.",
+    description: "Why there are several classes of blood pressure tablets, what each broadly does, and what's worth asking about yours.",
     category: "Blood pressure",
     readMinutes: 5,
     relatedHref: "/hypertension",
@@ -1267,7 +1267,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "The genuinely reassuring part",
+        heading: "The reassuring part",
         paragraphs: [
           "Every one of these risks drops substantially once blood pressure is brought under control and kept there. This isn't a one-time fix; it's the reason ongoing monitoring and consistent medicine matter more than any single reading.",
         ],
@@ -1346,7 +1346,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "cancer-warning-signs-worth-not-ignoring",
-    title: "Cancer warning signs worth not ignoring",
+    title: "Cancer warning signs that need a medical check",
     description: "The changes in your body that deserve a doctor's visit, explained without the fear, because most turn out to be something else.",
     category: "Screening",
     readMinutes: 4,
@@ -1360,13 +1360,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Signs worth a visit, not a panic",
+        heading: "Signs that need a medical check",
         paragraphs: [
           "A new lump or swelling anywhere on the body. A sore or wound that hasn't started healing after a few weeks. Unexplained weight loss. A cough or hoarseness lasting more than three weeks. A change in bowel or bladder habits that persists. Unusual bleeding, including between periods or after menopause. A mole that's changed size, shape or colour. Persistent difficulty swallowing.",
         ],
       },
       {
-        heading: "Why 'it'll probably go away' isn't the right instinct here",
+        heading: "Why waiting for symptoms to settle is not the best approach",
         paragraphs: [
           "Most causes of these symptoms are minor and resolve on their own, which is exactly why people put off checking. The small share that aren't minor are also the ones where catching it early makes the biggest difference to treatment and outcome, so the cost of checking is low and the value of ruling something out is real either way.",
         ],
@@ -1416,7 +1416,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
   },
   {
     slug: "abnormal-screening-result-what-happens-next",
-    title: "Your screening result came back abnormal. Here's what happens next.",
+    title: "If your screening result is abnormal: what happens next",
     description: "What an abnormal result actually means, why it usually isn't cancer, and what Tarragon does the moment a result like this lands.",
     category: "Screening",
     readMinutes: 4,
@@ -1471,7 +1471,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Why quitting is hard, and that's not a character flaw",
+        heading: "Why quitting is difficult",
         paragraphs: [
           "Nicotine is genuinely addictive, and most people who successfully quit for good tried more than once first. Cravings are strongest and most frequent in the first couple of weeks and ease meaningfully after that, which is the window worth planning support around rather than trying to manage alone.",
         ],
