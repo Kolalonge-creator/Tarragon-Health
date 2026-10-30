@@ -11,8 +11,9 @@ import {
   type PharmacyOrderStatus,
 } from "@/lib/prescription-renewal";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -47,13 +48,12 @@ function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
+      <Text style={{ ...textStyles.label, color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
     </View>
   );
 }
 
 function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem; onChanged: () => Promise<void> }) {
-  const colors = useLegacyColors();
   async function openCardPayment() {
     // No native card-payment flow exists for pharmacy orders — hand off to
     // the real web payment page (card form + voucher/promo redemption),
@@ -68,11 +68,11 @@ function PharmacyOrderCard({ order, onChanged }: { order: PharmacyOrderListItem;
     <Card style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <StatusPill status={order.status} />
-        {order.orderNumber ? <Text style={{ fontSize: 11, color: colors.subtle }}>{order.orderNumber}</Text> : null}
+        {order.orderNumber ? <AppText variant="caption" tone="textSubtle">{order.orderNumber}</AppText> : null}
       </View>
-      <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+      <AppText variant="bodyStrong">
         {pharmacyOrderItemsSummary(order.items) || "Pharmacy order"}
-      </Text>
+      </AppText>
       <MutedText>
         {naira(order.totalKobo)} · requested {formatDate(order.requestedAt)}
       </MutedText>
@@ -149,7 +149,7 @@ export function PharmacyOrdersSection({ patientId }: { patientId: string }) {
           onPress={retry}
         >
           <Card style={{ alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>We couldn&apos;t load this right now</Text>
+            <AppText variant="bodyStrong">We couldn&apos;t load this right now</AppText>
             <MutedText>Tap to retry.</MutedText>
           </Card>
         </Pressable>

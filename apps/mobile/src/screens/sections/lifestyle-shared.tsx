@@ -14,8 +14,9 @@ import {
   type LpeGoalModule,
 } from "@/lib/weight-management";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Shared between weight-management-screen.tsx (obesity only) and
@@ -49,10 +50,10 @@ export const DISORDERED_BEHAVIOURS: { code: string; label: string }[] = [
 export function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) {
   const colors = useLegacyColors();
   return (
-    <Text onPress={onToggle} style={{ fontSize: 13, color: colors.ink, paddingVertical: 4 }}>
+    <AppText variant="body" onPress={onToggle} style={{ paddingVertical: 4 }}>
       <Text style={{ fontWeight: "700", color: checked ? colors.brandPressed : colors.faint }}>{checked ? "☑ " : "☐ "}</Text>
       {label}
-    </Text>
+    </AppText>
   );
 }
 
@@ -63,7 +64,6 @@ export function Checkbox({ checked, onToggle, label }: { checked: boolean; onTog
  * doctor to check in first (server-side, private.handle_obesity_ed_screen).
  */
 export function EdScreenForm({ consented, onDone }: { consented: boolean; onDone: () => void }) {
-  const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
@@ -116,7 +116,7 @@ export function EdScreenForm({ consented, onDone }: { consented: boolean; onDone
         />
       ))}
 
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginTop: 6 }}>Any of these lately?</Text>
+      <AppText variant="label" style={{ marginTop: 6 }}>Any of these lately?</AppText>
       {DISORDERED_BEHAVIOURS.map((b) => (
         <Checkbox key={b.code} checked={behaviours.includes(b.code)} onToggle={() => toggleBehaviour(b.code)} label={b.label} />
       ))}
@@ -132,9 +132,9 @@ export function EdScreenForm({ consented, onDone }: { consented: boolean; onDone
         label="Any thoughts of harming yourself"
       />
 
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 4 }}>
+      <AppText variant="label" style={{ marginTop: 4 }}>
         Anything else you&apos;d like your care team to know?
-      </Text>
+      </AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
         value={notes}
         onChangeText={setNotes}
@@ -168,7 +168,6 @@ export function EnrollCta({
   description: string;
   onEnrolled: () => void;
 }) {
-  const colors = useLegacyColors();
   const [consented, setConsented] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [needsEdScreen, setNeedsEdScreen] = useState(false);
@@ -198,7 +197,7 @@ export function EnrollCta({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{title}</Text>
+      <AppText variant="bodyLargeStrong">{title}</AppText>
       <MutedText>{description}</MutedText>
       {message && <MutedText>{message}</MutedText>}
       {error && <ErrorText>{error}</ErrorText>}
@@ -213,7 +212,6 @@ export function EnrollCta({
 }
 
 export function GoalRow({ goal, onChanged }: { goal: { id: string; module: string; title: string; personalised: boolean }; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
@@ -229,19 +227,19 @@ export function GoalRow({ goal, onChanged }: { goal: { id: string; module: strin
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
-        <Text style={{ color: colors.muted, textTransform: "capitalize" }}>{goal.module}</Text> {goal.title}
-      </Text>
+      <AppText variant="body" style={{ flex: 1 }}>
+        <AppText variant="body" tone="textMuted" style={{ textTransform: "capitalize" }}>{goal.module}</AppText> {goal.title}
+      </AppText>
       {done ? (
         <MutedText>{done}</MutedText>
       ) : goal.personalised ? (
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Text onPress={() => !busy && resolve("achieved")} style={{ fontSize: 12, fontWeight: "600", color: colors.brandPressed }}>
+          <AppText variant="label" tone="brandText" onPress={() => !busy && resolve("achieved")}>
             Mark achieved
-          </Text>
-          <Text onPress={() => !busy && resolve("abandoned")} style={{ fontSize: 12, color: colors.muted }}>
+          </AppText>
+          <AppText variant="caption" tone="textMuted" onPress={() => !busy && resolve("abandoned")}>
             Let this go
-          </Text>
+          </AppText>
         </View>
       ) : null}
     </View>
@@ -289,20 +287,20 @@ export function QuickCheckIn({ enrollment }: { enrollment: LifestyleEnrollment }
 
   return (
     <View style={{ gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: 10 }}>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Quick check-in</Text>
+      <AppText variant="label">Quick check-in</AppText>
       <View style={{ flexDirection: "row", gap: 8 }}>
         {(["mood", "weight", "activity_minutes"] as const).map((t) => (
           <Text
             key={t}
             onPress={() => setType(t)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 6,
               paddingHorizontal: 10,
               borderRadius: 999,
               backgroundColor: type === t ? colors.brand : colors.groupBg,
-              color: type === t ? "#FFFFFF" : colors.ink,
+              color: type === t ? colors.onBrand : colors.ink,
             }}
           >
             {TYPE_LABEL[t]}
@@ -352,9 +350,9 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
 
   if (!open) {
     return (
-      <Text onPress={() => setOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
+      <AppText variant="label" tone="brandText" onPress={() => setOpen(true)}>
         + Add a goal
-      </Text>
+      </AppText>
     );
   }
 
@@ -366,13 +364,13 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
             key={m}
             onPress={() => setModule(m)}
             style={{
-              fontSize: 12,
-              fontWeight: "600",
+              ...textStyles.label,
+              
               paddingVertical: 5,
               paddingHorizontal: 9,
               borderRadius: 999,
               backgroundColor: module === m ? colors.brand : colors.groupBg,
-              color: module === m ? "#FFFFFF" : colors.ink,
+              color: module === m ? colors.onBrand : colors.ink,
               textTransform: "capitalize",
             }}
           >
@@ -388,13 +386,12 @@ export function AddGoalForm({ enrollmentId, onAdded }: { enrollmentId: string; o
 }
 
 export function EnrollmentCard({ enrollment, onChanged }: { enrollment: LifestyleEnrollment; onChanged: () => void }) {
-  const colors = useLegacyColors();
   return (
     <Card style={{ gap: 10 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+        <AppText variant="bodyLargeStrong">
           {enrollment.programmeName ?? enrollment.condition}
-        </Text>
+        </AppText>
         <Badge tone={enrollment.status === "active" ? "brand" : "neutral"}>{enrollment.status}</Badge>
       </View>
 
@@ -403,9 +400,9 @@ export function EnrollmentCard({ enrollment, onChanged }: { enrollment: Lifestyl
       ) : (
         <>
           {enrollment.currentPhaseName && (
-            <Text style={{ fontSize: 13, color: colors.ink }}>
-              Current phase: <Text style={{ fontWeight: "700" }}>{enrollment.currentPhaseName}</Text>
-            </Text>
+            <AppText variant="body">
+              Current phase: <AppText variant="bodyStrong">{enrollment.currentPhaseName}</AppText>
+            </AppText>
           )}
           {enrollment.goals.map((g) => (
             <GoalRow key={g.id} goal={g} onChanged={onChanged} />

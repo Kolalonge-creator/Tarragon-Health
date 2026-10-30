@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -398,8 +399,6 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
       <p className={MUTED}>{t("circle.intro", locale)}</p>
       <p className={MUTED}>{t("circle.monthly.notice", locale)}</p>
       <p className={`text-sm font-medium`}>{t("circle.stop.reminder", locale)}</p>
-      <PausePanel pause={circle.data?.pause} pauseDays={circle.data?.pause_days ?? 7} locale={locale} />
-
       <Card>
         <CardHeader><CardTitle>{t("circle.members.title", locale)}</CardTitle></CardHeader>
         <CardContent>
@@ -436,17 +435,21 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
         <CardContent><InviteForm locale={locale} origin={base} /></CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>{t("circle.log.title", locale)}</CardTitle></CardHeader>
-        <CardContent>
+      {/* Folded (design audit P3): pausing and the who-looked log are occasional. The notices above stay visible. */}
+      <Disclosure title={t("circle.pause.title", locale)} hint="Stop alerts for a while">
+        <PausePanel pause={circle.data?.pause} pauseDays={circle.data?.pause_days ?? 7} locale={locale} />
+      </Disclosure>
+
+      <Disclosure title={t("circle.log.title", locale)}>
+        <div>
           {log.isSuccess && (log.data?.length ?? 0) === 0 ? <p className={MUTED}>{t("circle.log.empty", locale)}</p> : null}
           <ul className="space-y-1">
             {(log.data ?? []).map((row) => (
               <li key={`${row.viewer}-${row.at}`}>{t("circle.log.line", locale, { name: row.viewer, date: formatPatientDateTime(row.at) })}</li>
             ))}
           </ul>
-        </CardContent>
-      </Card>
+        </div>
+      </Disclosure>
     </div>
   );
 }

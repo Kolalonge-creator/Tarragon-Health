@@ -1688,3 +1688,4 @@ screening_scheduler_skipped_profiles_alert.sql
 owner_run_views_allowlist.sql
 # OQ-580: approving a lab or pharmacy refund posts to the ledger and needs finance.gl.post; the ledger source check accepts the two refund sources. Care coordinator, clinician and no-grant finance user refused; grant holder and admin approve. Sabotage removes the check and the refusals flip.
 refund_approval_needs_finance_authority.sql
+feature_waitlist.sql

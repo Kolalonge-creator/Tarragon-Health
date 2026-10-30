@@ -521,6 +521,7 @@ export function AppShell({
   uiLanguage = DEFAULT_UI_LANGUAGE,
   signOutAction,
   adminSearch,
+  searchKind,
   hrefBadges,
   children,
 }: {
@@ -528,6 +529,8 @@ export function AppShell({
   hrefBadges?: Record<string, { count: number; failed: boolean }>;
   /** Pages the admin can reach, for the header search box. Passed for the admin role only; other roles get no box. */
   adminSearch?: AdminSearchEntry[];
+  /** "patient" gives the box patient wording and no staff people lookup. */
+  searchKind?: "admin" | "patient";
   userName: string;
   avatarUrl?: string | null;
   roleLabel: string;
@@ -780,7 +783,7 @@ export function AppShell({
             </div>
             <div className="flex items-center gap-3 text-sm">
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
-              {adminSearch && adminSearch.length > 0 && <AdminSearch entries={adminSearch} />}
+              {adminSearch && adminSearch.length > 0 && <AdminSearch entries={adminSearch} kind={searchKind} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
               <NotificationBell />

@@ -11,8 +11,9 @@ import {
 import { EnrollCta, EnrollmentCard, when } from "@/screens/sections/lifestyle-shared";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] = [
   {
@@ -115,7 +116,7 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
           <ScreenTitle>Lifestyle coaching</ScreenTitle>
           <MutedText>Small, steady changes, logged here, supported by your care team.</MutedText>
         </View>
-        <Text onPress={() => setPastGoalsOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, paddingTop: 4 }}>
+        <Text onPress={() => setPastGoalsOpen(true)} style={{ ...textStyles.label, color: colors.brandPressed, paddingTop: 4 }}>
           Past goals
         </Text>
       </View>
@@ -139,7 +140,7 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
       </View>
 
       <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>More ways to track</Text>
+        <AppText variant="bodyStrong">More ways to track</AppText>
         {NATIVE_TRACKERS.map((tracker) => (
           <CalloutCard
             key={tracker.section}
@@ -199,7 +200,7 @@ function PastGoalsList({ patientId }: { patientId: string }) {
 
   return (
     <ScrollView contentContainerStyle={{ padding: spacing.screen, paddingTop: 0, gap: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>Past goals</Text>
+      <AppText variant="title">Past goals</AppText>
       {error ? (
         <ErrorText>{error}</ErrorText>
       ) : !goals || goals.length === 0 ? (
@@ -208,7 +209,7 @@ function PastGoalsList({ patientId }: { patientId: string }) {
         goals.map((g) => (
           <Card key={g.id} style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{g.title}</Text>
+              <AppText variant="bodyStrong">{g.title}</AppText>
               <MutedText>
                 {g.conditionLabel} · {when(g.updatedAt)}
               </MutedText>

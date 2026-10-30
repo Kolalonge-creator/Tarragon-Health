@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { koboToNaira } from "@tarragon/shared";
 import { loadFinancialProfile, type FinancialProfile } from "@/lib/financial-profile";
@@ -7,6 +7,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
 
@@ -89,13 +90,13 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
       </View>
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Your services</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Your services</AppText>
         {profile.activeServices.length === 0 && <MutedText>No active services yet.</MutedText>}
         {profile.activeServices.map((s) => (
           <Card key={s.id} style={{ gap: 2, marginBottom: 8 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {s.service_product?.name ?? "Service"}
-            </Text>
+            </AppText>
             <MutedText>
               {naira(s.payable_kobo ?? 0)} {s.currency}
               {s.expires_at ? ` · runs until ${when(s.expires_at)}` : ""}
@@ -105,7 +106,7 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
       </View>
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Recent payment issues</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Recent payment issues</AppText>
         <MutedText>Your card details are not stored with us. A failed charge means Paystack declined it, not that anything on our side went wrong.</MutedText>
         {profile.recentFailures.length === 0 ? (
           <MutedText>No recent payment problems.</MutedText>
@@ -120,7 +121,7 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
 
       {profile.pendingShares.length > 0 && (
         <View>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Your share of a split bill</Text>
+          <AppText variant="label" style={{ marginBottom: 8 }}>Your share of a split bill</AppText>
           <MutedText>Someone supporting you paid part of one of your bills. This is the reduced amount left for you to pay yourself.</MutedText>
           {/*
            * "Pay my share" is a pure browser hand-off: share.amount_minor is a
@@ -130,10 +131,10 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
            */}
           {profile.pendingShares.map((share) => (
             <Card key={share.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
-              <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {ORDER_TYPE_LABEL[share.transaction_subsidy?.order_type ?? ""] ?? "bill"} ·{" "}
-                <Text style={{ fontWeight: "700" }}>{naira(share.amount_minor)}</Text>
-              </Text>
+                <AppText variant="bodyStrong">{naira(share.amount_minor)}</AppText>
+              </AppText>
               <SecondaryButton
                 title="Pay my share"
                 onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/financial-profile`)}
@@ -144,20 +145,20 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
       )}
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Care vouchers</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Care vouchers</AppText>
         {profile.vouchers.length === 0 ? (
           <MutedText>No vouchers yet.</MutedText>
         ) : (
           profile.vouchers.map((v) => (
             <Card key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-              <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {v.sku_name ?? (v.kind === "reward_discount" ? "Reward credit" : "Care voucher")}{" "}
-                <Text style={{ color: colors.subtle }}>{v.voucher_number}</Text>
+                <AppText variant="body" tone="textSubtle">{v.voucher_number}</AppText>
                 {"\n"}
-                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                <AppText variant="caption" tone="textMuted">
                   {naira(v.amount_paid_kobo)} of {naira(v.face_value_kobo)}
-                </Text>
-              </Text>
+                </AppText>
+              </AppText>
               <Badge tone={VOUCHER_TONE[v.status] ?? "neutral"}>{v.status}</Badge>
             </Card>
           ))
@@ -166,13 +167,13 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
 
       {profile.refunds.length > 0 && (
         <View>
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Refunds in progress</Text>
+          <AppText variant="label" style={{ marginBottom: 8 }}>Refunds in progress</AppText>
           <MutedText>Refunds go back to the original card and are processed daily.</MutedText>
           {profile.refunds.map((r) => (
             <Card key={r.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
-              <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>
+              <AppText variant="body" style={{ flex: 1 }}>
                 {naira(r.amount_minor)} {r.currency} via {r.provider}
-              </Text>
+              </AppText>
               <Badge tone={REFUND_TONE[r.status] ?? "neutral"}>{r.status}</Badge>
             </Card>
           ))}
@@ -180,23 +181,23 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
       )}
 
       <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Transaction history</Text>
+        <AppText variant="label" style={{ marginBottom: 8 }}>Transaction history</AppText>
         {profile.transactions.length === 0 ? (
           <MutedText>No transactions yet.</MutedText>
         ) : (
           profile.transactions.map((t) => (
             <Card key={t.entry_id} style={{ gap: 2, marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>{t.service_label}</Text>
+                <AppText variant="bodyStrong" style={{ flex: 1 }}>{t.service_label}</AppText>
                 <Badge tone={t.status === "completed" ? "brand" : "neutral"}>{t.status}</Badge>
               </View>
               <MutedText>
                 {when(t.posted_at)} · {t.direction === "money_in" ? t.recipient_label : t.payer_label}
               </MutedText>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+              <AppText variant="label">
                 {t.direction === "money_out" ? "−" : ""}
                 {naira(t.amount_minor)}
-              </Text>
+              </AppText>
             </Card>
           ))
         )}

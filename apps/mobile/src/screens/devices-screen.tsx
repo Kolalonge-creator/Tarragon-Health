@@ -18,7 +18,7 @@ import { asLocale } from "@tarragon/i18n";
 import { deviceSyncLine } from "@/lib/device-sync-line";
 import { useUiLanguage } from "@/lib/ui-language";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import {
   Card,
   ErrorText,
@@ -30,6 +30,7 @@ import {
   SectionLabel,
 } from "@/ui/legacy-kit";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
+import { AppText } from "@/ui/kit/AppText";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -224,7 +225,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Devices</Text>
+        <AppText variant="title">Devices</AppText>
         <MutedText>Everything syncing readings into your record automatically.</MutedText>
       </View>
 
@@ -241,14 +242,14 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           }}
         >
           {syncingNow ? <ActivityIndicator size="small" color={colors.muted} /> : null}
-          <Text style={{ fontSize: 12.5, color: colors.muted, flex: 1 }}>
+          <AppText variant="body" tone="textMuted" style={{ flex: 1 }}>
             {pendingSyncCount} {pendingSyncCount === 1 ? "reading is" : "readings are"} saved on this device,
             waiting to sync.
-          </Text>
+          </AppText>
           <Pressable accessibilityRole="button" onPress={() => void handleSyncNow()} disabled={syncingNow} hitSlop={8}>
-            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+            <AppText variant="label" tone="brandText">
               {syncingNow ? "Syncing…" : "Sync now"}
-            </Text>
+            </AppText>
           </Pressable>
         </View>
       ) : null}
@@ -273,16 +274,16 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           >
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="cloud-offline-outline" size={28} color={colors.faint} />
-              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+              <AppText variant="bodyLargeStrong">
                 We couldn&apos;t load this right now
-              </Text>
+              </AppText>
               <MutedText>Your paired devices are safe. Tap to retry.</MutedText>
             </Card>
           </Pressable>
         ) : devices.length === 0 ? (
           <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
             <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
-            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>No devices paired yet</Text>
+            <AppText variant="bodyLargeStrong">No devices paired yet</AppText>
             <MutedText>
               Pair your BP cuff, glucometer, scale, thermometer, or pulse oximeter to sync readings automatically.
             </MutedText>
@@ -336,7 +337,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
       <Card style={{ gap: 6, backgroundColor: colors.groupBg }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="flask-outline" size={16} color={colors.muted} />
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Bluetooth pairing is in early testing</Text>
+          <AppText variant="label">Bluetooth pairing is in early testing</AppText>
         </View>
         <MutedText>
           It works with devices that use the standard Bluetooth health profiles. If your device
@@ -381,16 +382,16 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator color={colors.brand} />
-            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="title">
               Scanning for devices…
-            </Text>
+            </AppText>
           </View>
           <MutedText>
             Turn on your device (BP cuff, glucometer, scale, thermometer, or pulse oximeter) and put it in pairing mode.
           </MutedText>
           {subjects.length > 1 ? (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>Whose device is this?</Text>
+              <AppText variant="bodyStrong">Whose device is this?</AppText>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {subjects.map((subject) => (
                   <Pressable
@@ -426,12 +427,12 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
               >
                 {({ pressed }) => (
                   <Card style={{ opacity: pressed ? 0.7 : 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+                    <AppText variant="bodyLargeStrong">
                       {item.device.name ?? item.device.localName ?? item.device.id}
-                    </Text>
-                    <Text style={{ color: colors.muted, fontSize: 13 }}>
+                    </AppText>
+                    <AppText variant="body" tone="textMuted">
                       {deviceLabel(item.deviceType)} · Tap to pair
-                    </Text>
+                    </AppText>
                   </Card>
                 )}
               </Pressable>
@@ -447,7 +448,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
       <Modal visible={faultTarget !== null} animationType="slide" onRequestClose={() => setFaultTarget(null)}>
         <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Report a problem</Text>
+          <AppText variant="title">Report a problem</AppText>
           {faultTarget ? (
             <MutedText>
               {faultTarget.nickname ?? faultTarget.model ?? deviceLabel(faultTarget.device_type)}
@@ -457,7 +458,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           {faultSuccess ? (
             <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
               <Ionicons name="checkmark-circle-outline" size={28} color={colors.brand} />
-              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Thanks — we've got it</Text>
+              <AppText variant="bodyLargeStrong">Thanks — we've got it</AppText>
               <MutedText>Your care team will follow up if this device needs troubleshooting or replacing.</MutedText>
               <PrimaryButton title="Done" onPress={() => setFaultTarget(null)} />
             </Card>
@@ -478,7 +479,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                   borderRadius: radius.control,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
-                  fontSize: 13.5,
+                  ...textStyles.body,
                   color: colors.ink,
                   backgroundColor: colors.card,
                   textAlignVertical: "top",

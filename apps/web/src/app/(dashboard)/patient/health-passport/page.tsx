@@ -1,3 +1,5 @@
+import { RECORDS_REQUEST_GUARD } from "@/lib/records-request/guard";
+import { showRecordsRequestsLink } from "@/lib/records-request/show-link";
 import { redirect } from "next/navigation";
 import { entryOriginLabelKey, formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
 import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
@@ -84,6 +86,8 @@ export default async function HealthPassportPage() {
   const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
   // A records request that was handed over and has had no reply by its date: shown here, in the app. Nothing sends it and a failure here shows nothing.
   const { data: requestRows } = await supabase.rpc("my_records_requests");
+  const { data: recordsGuardOpen } = await supabase.rpc("go_live_guard_is_open", { p_key: RECORDS_REQUEST_GUARD });
+  const showRecordsLink = showRecordsRequestsLink(recordsGuardOpen, requestRows?.length ?? 0);
   const hasOverdueRequest = (requestRows ?? []).some((r) => r.is_overdue);
 
   const periodLabel = `${formatPatientDate(data.periodStart)} – ${formatPatientDate(data.periodEnd)}`;
@@ -129,7 +133,9 @@ export default async function HealthPassportPage() {
             ["/patient/data-exchange", "passport.nav.exchange"],
             ["/patient/records-requests", "passport.nav.records_requests"],
           ] as const
-        ).map(([href, key]) => (
+        )
+          .filter(([href]) => href !== "/patient/records-requests" || showRecordsLink)
+          .map(([href, key]) => (
           <Link key={href} href={href} className="rounded-full border border-charcoal-ink/15 px-3 py-1 hover:bg-charcoal-ink/5 dark:border-night-ink/20">
             {t(key)}
           </Link>

@@ -7,18 +7,20 @@
  * Only switch a whole file at a time: mixing these with the static `colors` in one screen
  * gives dark text on a dark card.
  */
-import { MAX_FONT_SCALE, MIN_TARGET, useLegacyColors } from "./design";
+import { MIN_TARGET, useLegacyColors, useTheme } from "./design";
 import { Children, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Pressable,
-  Text,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { radius, spacing, typeScale } from "./theme";
+import { radius, spacing } from "./theme";
+import { AppText } from "./kit/AppText";
+import { Button } from "./kit/Button";
+import { Card as KitCard } from "./kit/Card";
 
 interface ButtonProps {
   title: string;
@@ -28,131 +30,105 @@ interface ButtonProps {
 }
 
 export function PrimaryButton({ title, onPress, disabled, loading }: ButtonProps) {
-  const colors = useLegacyColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading }}
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => ({
-        backgroundColor: disabled ? colors.faint : pressed ? colors.brandPressed : colors.brand,
-        borderRadius: radius.control,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        justifyContent: "center",
-      })}
-    >
-      {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
-      ) : (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{title}</Text>
-      )}
-    </Pressable>
-  );
+  return <Button title={title} onPress={onPress} disabled={disabled} loading={loading} />;
 }
 
 export function SecondaryButton({ title, onPress, disabled, loading }: ButtonProps) {
-  const colors = useLegacyColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled || loading }}
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => ({
-        backgroundColor: pressed ? colors.pressed : colors.card,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.control,
-        paddingVertical: 13,
-        // At least 44 points tall (WCAG 2.2 and Apple's minimum); the 13 point padding alone came to about 33.
-        minHeight: MIN_TARGET,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: disabled ? 0.5 : 1,
-      })}
-    >
-      {loading ? (
-        <ActivityIndicator color={colors.ink} />
-      ) : (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{title}</Text>
-      )}
-    </Pressable>
-  );
+  return <Button variant="secondary" title={title} onPress={onPress} disabled={disabled} loading={loading} />;
 }
 
-/** Compact pill used for inline choices (e.g. glucose context). */
-export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
-  const colors = useLegacyColors();
+export function ChoiceChip({ title, onPress, disabled, selected }: ButtonProps & { /** When given, an unchosen chip is drawn quiet and the chosen one filled, so the choice reads at a glance. */ selected?: boolean }) {
+  const { colors } = useTheme();
+  const quiet = selected === false;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, selected }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? colors.brandPressed : colors.brand,
+        backgroundColor: quiet ? colors.surfaceMuted : colors.brand,
+        borderWidth: quiet ? 1 : 0,
+        borderColor: colors.border,
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
         // At least 44 points tall; a chip is a tap target like any button.
         minHeight: MIN_TARGET,
         justifyContent: "center",
-        opacity: disabled ? 0.5 : 1,
+        opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
       })}
     >
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>{title}</Text>
+      <AppText variant="label" tone={quiet ? "text" : "textOnBrand"}>
+        {title}
+      </AppText>
     </Pressable>
   );
 }
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colors = useLegacyColors();
-  return (
-    <View
-      style={[
-        {
-          backgroundColor: colors.card,
-          borderRadius: radius.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          padding: spacing.card,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <KitCard style={style}>{children}</KitCard>;
 }
 
 export function ScreenTitle({ children }: { children: ReactNode }) {
-  const colors = useLegacyColors();
   return (
-    <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 24, fontWeight: "700", color: colors.ink }}>{children}</Text>
+    <AppText variant="headline" heading>
+      {children}
+    </AppText>
   );
 }
 
 export function MutedText({ children }: { children: ReactNode }) {
-  const colors = useLegacyColors();
-  return <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: colors.muted, fontSize: typeScale.body, lineHeight: 20 }}>{children}</Text>;
+  return (
+    <AppText variant="body" tone="textMuted">
+      {children}
+    </AppText>
+  );
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
-  const colors = useLegacyColors();
-  return <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: colors.danger, fontSize: typeScale.body }}>{children}</Text>;
+  return (
+    <AppText variant="body" tone="dangerText">
+      {children}
+    </AppText>
+  );
+}
+
+export type StatusTone = "green" | "amber" | "red" | "blue" | "grey";
+
+/**
+ * A clinical-status chip (green, amber, red, blue, grey: a separate system from brand colour). Draws with the kit colours
+ * Badge, so it follows Light and Dark and carries its meaning in words and an icon, not colour alone.
+ */
+export function StatusChip({ tone, label }: { tone: StatusTone; label: string }) {
+  const { colors } = useTheme();
+  const spec =
+    tone === "green"
+      ? { bg: colors.brandTint, text: "brandText" as const }
+      : tone === "amber"
+        ? { bg: colors.warnBg, text: "warnText" as const }
+        : tone === "red"
+          ? { bg: colors.dangerBg, text: "dangerText" as const }
+          : { bg: colors.surfaceMuted, text: "textMuted" as const };
+  return (
+    <View accessible accessibilityLabel={label} style={{ alignSelf: "flex-start", backgroundColor: spec.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
+      <AppText variant="caption" tone={spec.text}>
+        {label}
+      </AppText>
+    </View>
+  );
 }
 
 type BadgeTone = "brand" | "neutral";
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
-  const colors = useLegacyColors();
-  const c = tone === "brand" ? { bg: colors.brandTint, text: colors.brandPressed } : { bg: colors.pressed, text: colors.muted };
+  const { colors } = useTheme();
+  const c = tone === "brand" ? { bg: colors.brandTint, text: "brandText" as const } : { bg: colors.surfaceMuted, text: "textMuted" as const };
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{children}</Text>
+      <AppText variant="caption" tone={c.text}>
+        {children}
+      </AppText>
     </View>
   );
 }
@@ -169,24 +145,11 @@ export function SectionDivider() {
 /** Bold, uppercase, tracked-out label that introduces a block of content —
  * "A VIEW OF YOUR VEHICLE", "HELP & CONTACT" in the reference design. Reads
  * as a heading, not a muted caption, so keep the copy short. */
-export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colors = useLegacyColors();
+export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   return (
-    <Text
-      maxFontSizeMultiplier={MAX_FONT_SCALE}
-      style={[
-        {
-          fontSize: 12.5,
-          fontWeight: "800",
-          letterSpacing: 0.5,
-          textTransform: "uppercase",
-          color: colors.ink,
-        },
-        style,
-      ]}
-    >
+    <AppText variant="label" style={[{ textTransform: "uppercase", letterSpacing: 0.5 }, style]}>
       {children}
-    </Text>
+    </AppText>
   );
 }
 
@@ -254,9 +217,9 @@ export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron",
     >
       {leading}
       <View style={{ flex: 1 }}>
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "600", color: disabled ? colors.faint : colors.ink }}>
+        <AppText variant="bodyStrong" tone={disabled ? "textSubtle" : "text"}>
           {title}
-        </Text>
+        </AppText>
         {subtitle ? <MutedText>{subtitle}</MutedText> : null}
       </View>
       {trailingNode}
@@ -307,18 +270,9 @@ export function QuickActionButton({
       >
         <Ionicons name={icon} size={21} color={active ? colors.brandPressed : colors.ink} />
       </View>
-      <Text
-        maxFontSizeMultiplier={MAX_FONT_SCALE}
-        numberOfLines={2}
-        style={{
-          fontSize: 11,
-          fontWeight: active ? "700" : "500",
-          color: active ? colors.brandPressed : colors.ink,
-          textAlign: "center",
-        }}
-      >
+      <AppText variant="caption" tone={active ? "brandText" : "text"} align="center" numberOfLines={2}>
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -362,12 +316,14 @@ export function CalloutCard({
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Ionicons name={icon} size={18} color={colors.ink} />
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{title}</Text>
+        <AppText variant="bodyStrong">{title}</AppText>
       </View>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }}>{subtitle}</Text>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed, alignSelf: "flex-end", marginTop: 2 }}>
+      <AppText variant="caption" tone="textMuted">
+        {subtitle}
+      </AppText>
+      <AppText variant="label" tone="brandText" style={{ alignSelf: "flex-end", marginTop: 2 }}>
         {ctaLabel.toUpperCase()}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }

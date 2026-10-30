@@ -35,10 +35,10 @@ function sectionId(label: string) {
 }
 
 /** "up"/"configured" reads as healthy, "down" as a real problem, "unconfigured"
- * as neutral — a provider nobody's set up yet isn't a fault. */
+ * and "not_deployed" as neutral — a provider nobody's set up yet isn't a fault. */
 function statusBadgeVariant(status: string): "green" | "red" | "grey" {
   if (status === "down") return "red";
-  if (status === "unconfigured") return "grey";
+  if (status === "unconfigured" || status === "not_deployed") return "grey";
   return "green";
 }
 

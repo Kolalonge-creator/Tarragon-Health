@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import {
   loadPatientTimeline,
   humaniseSummary,
@@ -17,6 +17,7 @@ import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SecondaryButton, ScreenTitle } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const PAGE_SIZE = 20;
 
@@ -171,9 +172,9 @@ export function TimelineScreen({ patientId, acting = false, onNavigate }: Timeli
               }}
             />
           ) : (
-            <Text style={{ textAlign: "center", color: colors.subtle, fontSize: 13 }}>
+            <AppText variant="body" tone="textSubtle" style={{ textAlign: "center" }}>
               {t("mpass.timeline.end")}
-            </Text>
+            </AppText>
           )}
         </>
       )}
