@@ -11,7 +11,7 @@ import { OFFLINE_UNCONFIRMED_TITLE } from "@/lib/vitals/offline-emergency";
  */
 function renderBoundary() {
   jest.spyOn(console, "error").mockImplementation(() => {});
-  return render(<DashboardError error={Object.assign(new Error("Failed to fetch"), { digest: "d" })} unstable_retry={() => {}} />);
+  return render(<DashboardError error={Object.assign(new Error("Failed to fetch"), { digest: "d" })} retry={() => {}} />);
 }
 
 describe("the dashboard error screen after a failed emergency-graded submit", () => {
