@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { NAV_ICON } from "@/lib/icons";
 import type { EngagementOutcomeBucket } from "@/lib/outcomes/engagement-outcome-correlation";
 
@@ -28,11 +29,15 @@ const TIER_ORDER: EngagementOutcomeBucket["tier"][] = [
 export function EngagementOutcomesCard({
   buckets,
   entityLabel = "staff",
+  failed = false,
 }: {
   buckets: EngagementOutcomeBucket[] | null;
+  /** The read failed: say so, rather than render nothing. */
+  failed?: boolean;
   /** "staff" (default, corporate) or "member" (HMO) — copy only, same data. */
   entityLabel?: "staff" | "member";
 }) {
+  if (failed) return <SectionUnavailable title="Engagement and BP control" />;
   if (!buckets || buckets.length === 0) return null;
   const byTier = new Map(buckets.map((b) => [b.tier, b]));
   const visible = TIER_ORDER.map((tier) => byTier.get(tier)).filter(

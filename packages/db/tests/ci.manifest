@@ -1744,3 +1744,5 @@ screening_pacing_grouped_reminders_and_weekly_limit.sql
 controlled_medicine_list_one_governed_table.sql
 # AI-017 document drafts golden suite: one required-for-release safety suite at 100 percent with the seven cases the runner has fixtures for (four adversarial, each with a red-team category), no run seeded, AI-017 stays off and not runtime governed. Sabotage: one case removed; the count and the case-code checks must flip.
 ai017_document_drafts_eval_suite.sql
+# CMO-only approve_ai_guardrails: stamps approved_by and approved_at on one system's unapproved active guardrails, audited; doctor, non-CMO admin and anon refused; other systems and retired rules untouched; second call refused. Sabotage: CMO check removed, a doctor must get through.
+ai_guardrail_cmo_signoff.sql

@@ -25,11 +25,12 @@ export async function loadAgeBandDistribution(
   supabase: SupabaseClient<Database>,
   organisationId: string
 ): Promise<AgeBandDistribution> {
-  const { data: patients } = await supabase
+  const { data: patients, error } = await supabase
     .from("profiles")
     .select("date_of_birth")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
+  if (error) throw error;
   if (!patients || patients.length === 0) return null;
 
   const distribution: Record<AgeBand, number> = { "<30": 0, "30-45": 0, "45-60": 0, "60+": 0 };

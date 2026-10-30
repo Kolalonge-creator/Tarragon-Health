@@ -61,11 +61,14 @@ export async function requireInstitutionAggregateAccess(
   } = await rls.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await rls
+  const { data: profile, error: profileError } = await rls
     .from("profiles")
     .select("role, organisation_id")
     .eq("id", user.id)
     .single();
+  // No row is a refusal. A failed read is not: it would send an entitled admin
+  // to the "no access" screen as if their access had been taken away.
+  if (profileError && profileError.code !== "PGRST116") throw profileError;
   if (!profile) return null;
 
   const isSuperadmin = profile.role === "admin";
@@ -88,7 +91,7 @@ export async function requireInstitutionAggregateAccess(
 
   const client = createServiceRoleClient();
 
-  const [{ data: org }, { count }] = await Promise.all([
+  const [{ data: org }, { count, error: countError }] = await Promise.all([
     client.from("organisations").select("min_cohort_size").eq("id", organisationId).single(),
     client
       .from("profiles")
@@ -97,8 +100,15 @@ export async function requireInstitutionAggregateAccess(
       .eq("role", "patient"),
   ]);
 
+  // The cohort size is what every small-group decision is judged on. If it
+  // cannot be read, "0 people" would be shown as fact ("too few people to
+  // report"), so the read fails loudly instead. An unreadable threshold is
+  // different: it falls back to the cautious default (see suppression.ts).
+  if (countError || typeof count !== "number") {
+    throw new Error(`institution cohort size could not be read: ${countError?.message ?? "no count returned"}`);
+  }
   const minCohortSize = effectiveMinCohortSize(org?.min_cohort_size);
-  const cohortSize = count ?? 0;
+  const cohortSize = count;
 
   return {
     client,

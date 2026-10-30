@@ -77,12 +77,12 @@ async function computeAverageBpControlPercent(
   return Math.round(values.reduce((sum, v) => sum + v, 0) / values.length);
 }
 
-/** Returns null if the org has no contract on file. */
+/** Returns null if the org has no contract on file. Throws when a read fails. A threshold whose own figure cannot be worked out shows no actual, never a made-up one. */
 export async function getContractPerformance(
   supabase: SupabaseClient<Database>,
   organisationId: string
 ): Promise<ContractPerformance | null> {
-  const { data: contract } = await supabase
+  const { data: contract, error: contractError } = await supabase
     .from("outcomes_contracts")
     .select("contract_type, outcome_thresholds, payout_terms, effective_from")
     .eq("organisation_id", organisationId)
@@ -90,13 +90,16 @@ export async function getContractPerformance(
     .limit(1)
     .maybeSingle();
 
+  // A failed read is not "no contract on file".
+  if (contractError) throw contractError;
   if (!contract) return null;
 
-  const { data: patients } = await supabase
+  const { data: patients, error: patientsError } = await supabase
     .from("profiles")
     .select("id")
     .eq("organisation_id", organisationId)
     .eq("role", "patient");
+  if (patientsError) throw patientsError;
   const patientIds = (patients ?? []).map((p) => p.id);
 
   const rawThresholds = Array.isArray(contract.outcome_thresholds)

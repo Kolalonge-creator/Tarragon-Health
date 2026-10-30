@@ -19,12 +19,24 @@ import { TodayPriorities } from "./today-priorities";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
 import { HtnAttestationCard } from "./htn-attestation-card";
-import type { EscalationLevel } from "@tarragon/shared";
+import { NextActionHero } from "./next-action-hero";
+import { TodayStrip } from "./today-strip";
+import {
+  escalationsForDoctor,
+  figure,
+  lagosDayBounds,
+  nextActionView,
+  rankEscalations,
+  sumFigures,
+  type EscalationLevel,
+  type HomeEscalation,
+} from "@tarragon/shared";
 
 type OverviewEscalationRow = {
   id: string;
   reason: string;
   status: "open" | "under_review" | "resolved" | "referred";
+  assigned_doctor_id: string | null;
   patient: { full_name: string | null } | null;
   clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
 };
@@ -45,14 +57,6 @@ const ENCOUNTER_TYPE_LABEL: Record<string, string> = {
   phone: "Phone",
   escalation_review: "Escalation review",
   other: "Other",
-};
-
-const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
-  emergency: 0,
-  specialist_review: 1,
-  urgent_escalation: 2,
-  clinician_review: 3,
-  routine: 4,
 };
 
 const GREETING_LABEL: Record<GreetingWord, string> = {
@@ -132,12 +136,14 @@ export default async function ClinicianPage() {
   // open/under-review escalation — same filter as lib/queries/worklist-counts's
   // countOpenEscalations and lib/queries/escalations's fetchDoctorEscalations,
   // just run with the server client so this page stays a single request.
-  const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes] = await Promise.all([
+  const now = new Date();
+  const todayBounds = lagosDayBounds(now);
+  const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "patient"),
     supabase
       .from("escalations")
       .select(
-        "id, reason, status, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
+        "id, reason, status, assigned_doctor_id, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
       )
       .in("status", ["open", "under_review"])
       .order("created_at", { ascending: true })
@@ -147,6 +153,16 @@ export default async function ClinicianPage() {
       .from("care_plan_review_prompts")
       .select("id", { count: "exact", head: true })
       .eq("status", "open"),
+    // Today's visits for this doctor (Lagos calendar day); a cancelled, no-show or still-held (unconfirmed) slot is not work.
+    profile?.id
+      ? supabase
+          .from("appointments")
+          .select("id", { count: "exact", head: true })
+          .eq("clinician_id", profile.id)
+          .gte("scheduled_for", todayBounds.startIso)
+          .lt("scheduled_for", todayBounds.endIso)
+          .not("status", "in", "(cancelled,no_show,held)")
+      : Promise.resolve(null),
   ]);
 
   // Every one of these four is read for `.error` before its number is shown.
@@ -229,17 +245,35 @@ export default async function ClinicianPage() {
     }
   }
 
-  const urgentEscalations = openEscalations
-    .slice()
-    .sort((a, b) => {
-      const pa = LEVEL_PRIORITY[a.clinician_alert?.level ?? "routine"];
-      const pb = LEVEL_PRIORITY[b.clinician_alert?.level ?? "routine"];
-      if (pa !== pb) return pa - pb;
-      const slaA = a.clinician_alert?.sla_due_at ? new Date(a.clinician_alert.sla_due_at).getTime() : Infinity;
-      const slaB = b.clinician_alert?.sla_due_at ? new Date(b.clinician_alert.sla_due_at).getTime() : Infinity;
-      return slaA - slaB;
-    })
-    .slice(0, 5);
+  const homeEscalations: HomeEscalation[] = openEscalations.map((e) => ({
+    id: e.id,
+    reason: e.reason,
+    status: e.status,
+    patientName: e.patient?.full_name ?? null,
+    level: e.clinician_alert?.level ?? null,
+    dueAt: e.clinician_alert?.sla_due_at ?? null,
+    assignedDoctorId: e.assigned_doctor_id,
+  }));
+  const urgentIds = rankEscalations(homeEscalations)
+    .slice(0, 5)
+    .map((e) => e.id);
+  const urgentEscalations = urgentIds.flatMap((id) => openEscalations.filter((e) => e.id === id));
+  // "Your next case" is drawn only from cases routed to this doctor or still unassigned; a colleague's
+  // case is theirs to start (private.enforce_emergency_escalation_tier), so it must not be the hero.
+  const nextView = nextActionView(
+    escalationsForDoctor(homeEscalations, profile?.id ?? null),
+    escalationsFailed,
+    now,
+  );
+
+  const reviewsFigure = sumFigures([
+    figure(medReviewsRes.count, medReviewsRes.error !== null),
+    figure(carePlanReviewsRes.count, carePlanReviewsRes.error !== null),
+  ]);
+  const appointmentsFigure = appointmentsTodayRes
+    ? figure(appointmentsTodayRes.count, appointmentsTodayRes.error !== null)
+    : figure(null, true);
+  const notesFigure = staff ? figure(pendingAutoDraftedNotes.length, pendingNotesFailed) : figure(null, true);
 
   return (
     <div className="space-y-6">
@@ -253,91 +287,6 @@ export default async function ClinicianPage() {
         <p className="text-sm text-charcoal-ink/60">Here&apos;s what needs you today.</p>
       </div>
 
-      {/* A founder-commissioned launch-scope audit's core clinician-side ask:
-          the first thing on this page should be 3 priority buckets, not a
-          ~50-destination sidebar. Purely additive -- every worklist page
-          below stays exactly where it is, this just summarises them. */}
-      <TodayPriorities />
-
-      {/* Chief Medical Officer is the top tier, not an orthogonal flag —
-          reaching it carries every capability this dashboard grants any
-          other doctor, plus the protocol/config sign-off and case-assignment
-          authority gated separately (see docs/CLAUDE.md's Clinical Tier
-          Ladder). This badge is purely visible confirmation. */}
-      {staff?.doctor_tier === "chief_medical_officer" && (
-        <span className="inline-flex w-fit items-center rounded-full bg-sprout-gold/15 px-2.5 py-1 text-xs font-medium text-deep-forest">
-          Clinical Director
-        </span>
-      )}
-
-      {/* Additive to the shared worklist, not a separate landing page or
-          account role — see CLAUDE.md's "never re-split the account role"
-          rule. Links go to /clinician/* pages built alongside this panel
-          (2026-09-14), not /admin/*, which a CMO's `clinician` login can
-          never reach. */}
-      {isClinicalDirector && (
-        <Card variant="soft">
-          <CardHeader>
-            <CardTitle className="text-base">For the Clinical Director</CardTitle>
-            <CardDescription>Governance items only you can act on, at a glance.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {governancePanelFailed ? (
-              <LoadFailure>
-                Part of this panel could not be loaded. Open each governance page directly rather
-                than trusting a count below.
-              </LoadFailure>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Link
-                  href="/clinician/protocols"
-                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
-                >
-                  <p className="text-xs text-charcoal-ink/50">Protocol drafts in review</p>
-                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
-                    {formatNumber(protocolDraftsPending)}
-                  </p>
-                </Link>
-                <Link
-                  href="/clinician/triage-protocols"
-                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
-                >
-                  <p className="text-xs text-charcoal-ink/50">Triage protocol versions unsigned</p>
-                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
-                    {formatNumber(triageProtocolsUnsigned)}
-                  </p>
-                </Link>
-                <Link
-                  href="/clinician/provider-quality"
-                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
-                >
-                  <p className="text-xs text-charcoal-ink/50">Provider credentials needing attention</p>
-                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
-                    {formatNumber(credentialsNeedingAttention)}
-                  </p>
-                </Link>
-              </div>
-            )}
-            <Link
-              href="/clinician/team-caseload"
-              className="mt-3 inline-block text-sm font-medium text-brand-green hover:underline"
-            >
-              View the whole team&apos;s caseload →
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
-      {authorityBlurb && (
-        <Card variant="soft">
-          <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
-        </Card>
-      )}
-      {staff && <RedFlagAttestation />}
-      {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
-      {attestationStaff && <HtnAttestationCard expiresAt={htnAttestationExpiresAt} />}
-
       {anythingFailed && (
         <LoadFailure>
           Part of this overview could not be loaded, so any figure below marked &ldquo;could not be
@@ -346,74 +295,20 @@ export default async function ClinicianPage() {
         </LoadFailure>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {patientCountFailed ? (
-          <StatTile
-            icon={SEMANTIC_ICON.parentCare}
-            label="Active patients"
-            empty={{ hint: "Could not be loaded" }}
-          />
-        ) : (
-          <StatTile
-            icon={SEMANTIC_ICON.parentCare}
-            label="Active patients"
-            value={formatNumber(patientCount)}
-          />
-        )}
-        {escalationsFailed ? (
-          <StatTile
-            icon={SEMANTIC_ICON.escalation}
-            label="Escalations open"
-            empty={{ hint: "Could not be loaded" }}
-          />
-        ) : (
-          <StatTile
-            icon={SEMANTIC_ICON.escalation}
-            label="Escalations open"
-            value={String(escalationCount)}
-            delta={{
-              text: escalationCount > 0 ? "Awaiting review" : "Within target",
-              direction: escalationCount > 0 ? "down" : "up",
-            }}
-          />
-        )}
-        {reviewsFailed ? (
-          <StatTile
-            icon={SEMANTIC_ICON.carePlan}
-            label="Reviews due"
-            empty={{ hint: "Could not be loaded" }}
-          />
-        ) : (
-          <StatTile
-            icon={SEMANTIC_ICON.carePlan}
-            label="Reviews due"
-            value={String(reviewsDue)}
-            delta={{ text: "Across care plans & meds", direction: "flat" }}
-          />
-        )}
-        {/* SLA breaches are derived from the same escalation fetch, so a
-            failure there makes this figure unknown too — "None right now" off
-            a failed read is the most dangerous sentence on this page. */}
-        {escalationsFailed ? (
-          <StatTile
-            icon={SEMANTIC_ICON.escalation}
-            label="SLA breaches"
-            empty={{ hint: "Could not be loaded" }}
-          />
-        ) : (
-          <StatTile
-            icon={SEMANTIC_ICON.escalation}
-            tintClassName={slaBreaches > 0 ? "bg-red-100" : undefined}
-            iconClassName={slaBreaches > 0 ? "text-red-700" : undefined}
-            label="SLA breaches"
-            value={String(slaBreaches)}
-            delta={{
-              text: slaBreaches > 0 ? "Needs immediate attention" : "None right now",
-              direction: slaBreaches > 0 ? "down" : "up",
-            }}
-          />
-        )}
-      </div>
+      <NextActionHero view={nextView} />
+
+      <TodayStrip
+        tiles={[
+          { label: "Appointments today", figure: appointmentsFigure, href: "/clinician/appointments", note: "on your list" },
+          { label: "Notes to complete", figure: notesFigure, href: "#notes-to-complete", note: "to review and sign" },
+          { label: "Reviews due", figure: reviewsFigure, href: "/clinician/medication-reviews", note: "care plans and medicines" },
+        ]}
+      />
+
+      {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
+      {staff && <RedFlagAttestation />}
+      {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
+      {attestationStaff && <HtnAttestationCard expiresAt={htnAttestationExpiresAt} />}
 
       {/* Full width, not a half-page card beside a "Today's queue" panel —
           that panel used to repeat four counts (async consults, outreach,
@@ -486,7 +381,7 @@ export default async function ClinicianPage() {
           this list is the honest measure of what's left undocumented, not
           an aspirational reminder. */}
       {staff && (
-        <Card>
+        <Card id="notes-to-complete" className="scroll-mt-24">
           <CardHeader>
             <CardTitle>Notes to complete</CardTitle>
             <CardDescription>
@@ -533,7 +428,159 @@ export default async function ClinicianPage() {
         </Card>
       )}
 
+      {/* A founder-commissioned launch-scope audit's core clinician-side ask:
+          the first thing on this page should be 3 priority buckets, not a
+          ~50-destination sidebar. Purely additive -- every worklist page
+          below stays exactly where it is, this just summarises them. */}
+      <TodayPriorities />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {patientCountFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.parentCare}
+            label="Active patients"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.parentCare}
+            label="Active patients"
+            value={formatNumber(patientCount)}
+          />
+        )}
+        {escalationsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="Escalations open"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="Escalations open"
+            value={String(escalationCount)}
+            delta={{
+              text: escalationCount > 0 ? "Awaiting review" : "Within target",
+              direction: escalationCount > 0 ? "down" : "up",
+            }}
+          />
+        )}
+        {reviewsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.carePlan}
+            label="Reviews due"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.carePlan}
+            label="Reviews due"
+            value={String(reviewsDue)}
+            delta={{ text: "Across care plans & meds", direction: "flat" }}
+          />
+        )}
+        {/* SLA breaches are derived from the same escalation fetch, so a
+            failure there makes this figure unknown too — "None right now" off
+            a failed read is the most dangerous sentence on this page. */}
+        {escalationsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="SLA breaches"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            tintClassName={slaBreaches > 0 ? "bg-red-100" : undefined}
+            iconClassName={slaBreaches > 0 ? "text-red-700" : undefined}
+            label="SLA breaches"
+            value={String(slaBreaches)}
+            delta={{
+              text: slaBreaches > 0 ? "Needs immediate attention" : "None right now",
+              direction: slaBreaches > 0 ? "down" : "up",
+            }}
+          />
+        )}
+      </div>
+
       <Worklist />
+
+      {/* Governance and role information: below the work, not above it. The attestation cards stay
+          above because an expired attestation blocks acting on an alert. */}
+      {/* Chief Medical Officer is the top tier, not an orthogonal flag —
+          reaching it carries every capability this dashboard grants any
+          other doctor, plus the protocol/config sign-off and case-assignment
+          authority gated separately (see docs/CLAUDE.md's Clinical Tier
+          Ladder). This badge is purely visible confirmation. */}
+      {staff?.doctor_tier === "chief_medical_officer" && (
+        <span className="inline-flex w-fit items-center rounded-full bg-sprout-gold/15 px-2.5 py-1 text-xs font-medium text-deep-forest">
+          Clinical Director
+        </span>
+      )}
+
+      {/* Additive to the shared worklist, not a separate landing page or
+          account role — see CLAUDE.md's "never re-split the account role"
+          rule. Links go to /clinician/* pages built alongside this panel
+          (2026-09-14), not /admin/*, which a CMO's `clinician` login can
+          never reach. */}
+      {isClinicalDirector && (
+        <Card variant="soft">
+          <CardHeader>
+            <CardTitle className="text-base">For the Clinical Director</CardTitle>
+            <CardDescription>Governance items only you can act on, at a glance.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {governancePanelFailed ? (
+              <LoadFailure>
+                Part of this panel could not be loaded. Open each governance page directly rather
+                than trusting a count below.
+              </LoadFailure>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Link
+                  href="/clinician/protocols"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Protocol drafts in review</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(protocolDraftsPending)}
+                  </p>
+                </Link>
+                <Link
+                  href="/clinician/triage-protocols"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Triage protocol versions unsigned</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(triageProtocolsUnsigned)}
+                  </p>
+                </Link>
+                <Link
+                  href="/clinician/provider-quality"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Provider credentials needing attention</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(credentialsNeedingAttention)}
+                  </p>
+                </Link>
+              </div>
+            )}
+            <Link
+              href="/clinician/team-caseload"
+              className="mt-3 inline-block text-sm font-medium text-brand-green hover:underline"
+            >
+              View the whole team&apos;s caseload →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {authorityBlurb && (
+        <Card variant="soft">
+          <CardContent className="py-3 text-sm text-charcoal-ink/70">{authorityBlurb}</CardContent>
+        </Card>
+      )}
     </div>
   );
 }

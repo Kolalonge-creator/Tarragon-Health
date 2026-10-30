@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   MEDICATION_OUTCOMES_DISCLAIMER,
@@ -14,11 +15,15 @@ import {
 export function MedicationOutcomesCard({
   outcomes,
   entityLabel = "staff",
+  failed = false,
 }: {
   outcomes: MedicationOutcomesSummary | null;
+  /** The read failed: say so, rather than render nothing. */
+  failed?: boolean;
   /** "staff" (default, corporate) or "member" (HMO) — copy only, same data. */
   entityLabel?: "staff" | "member";
 }) {
+  if (failed) return <SectionUnavailable title="Medication and control outcomes" />;
   if (!outcomes) return null;
   const hasAnything =
     outcomes.medsStoppedLast180Days > 0 || outcomes.bpMonitoredCount > 0;

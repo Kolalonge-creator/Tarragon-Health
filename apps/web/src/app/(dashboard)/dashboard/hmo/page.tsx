@@ -20,12 +20,16 @@ export default async function HmoOverviewPage() {
   return (
     <div className="space-y-6">
       <InstitutionPrivacyNotice entityLabel="member" />
-      <ContractStatusCard performance={data.contractPerformance} />
+      <ContractStatusCard performance={data.contractPerformance} failed={data.unavailable.contract} />
       <ProposeContractCard organisationId={data.organisationId} />
       <RosterManager organisationId={data.organisationId} entityLabel="member" />
       <CohortSummary analytics={data.analytics} entityLabel="member" />
-      <CareGapPanel summary={data.careGaps} />
-      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} entityLabel="member" />
+      <CareGapPanel summary={data.careGaps} failed={data.unavailable.careGaps} />
+      <VaccinationCoveragePanel
+        coverage={data.vaccinationCoverage}
+        entityLabel="member"
+        failed={data.unavailable.vaccinationCoverage}
+      />
       <div className="flex justify-end">
         <Link href="/dashboard/hmo/reports" className="text-sm font-semibold text-brand-green hover:text-brand-green/80">
           Reports &amp; outcomes →

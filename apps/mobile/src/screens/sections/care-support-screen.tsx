@@ -57,7 +57,7 @@ import {
 } from "@/lib/vouchers";
 import { submitTestimonial } from "@/lib/testimonials";
 import { radius, spacing } from "@/ui/theme";
-import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import {
@@ -68,7 +68,6 @@ import {
   MutedText,
   PrimaryButton,
   SecondaryButton,
-  SectionLabel,
 } from "@/ui/legacy-kit";
 
 function when(iso: string): string {
@@ -951,8 +950,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionLabel>Your care vouchers</SectionLabel>
+    <Disclosure title="Your care vouchers" hint="Vouchers you hold, and referral codes">
       <MutedText>
         A voucher is for the service named on it and for you alone. It is not an account balance and it is never
         exchangeable for cash.
@@ -996,7 +994,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
         </View>
         {codeResult && (codeResult.ok ? <MutedText>Code applied.</MutedText> : <ErrorText>{codeResult.error}</ErrorText>)}
       </View>
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -1026,8 +1024,7 @@ function TestimonialSection() {
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionLabel>Share your experience</SectionLabel>
+    <Disclosure title="Share your experience" hint="A short quote about your care, with your permission">
       {result?.message ? (
         <MutedText>{result.message}</MutedText>
       ) : (
@@ -1069,6 +1066,6 @@ function TestimonialSection() {
           {result?.error ? <ErrorText>{result.error}</ErrorText> : null}
         </>
       )}
-    </Card>
+    </Disclosure>
   );
 }

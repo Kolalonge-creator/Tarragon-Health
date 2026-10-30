@@ -1,6 +1,7 @@
 import { careGapText } from "@tarragon/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { CareGapLedger, CareGapSummary, CareGapType, LedgerCell, LedgerReasonCell } from "@/lib/care-gaps/load-care-gaps";
 import { gapTypeLabel } from "@/lib/care-gaps/gap-model";
@@ -64,7 +65,8 @@ function LedgerBlock({ ledger }: { ledger: CareGapLedger | null }) {
  * S90: the "closed in the last 90 days" approximation is gone. Closed counts now come from the care gap ledger
  * (a closure is a recorded row with the outcome that closed it), through the single minimum-cell rule.
  */
-export function CareGapPanel({ summary }: { summary: CareGapSummary | null }) {
+export function CareGapPanel({ summary, failed = false }: { summary: CareGapSummary | null; failed?: boolean }) {
+  if (failed) return <SectionUnavailable title="Care gaps" />;
   if (!summary) return null;
 
   return (

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionUnavailable } from "@/components/institution/section-unavailable";
 import { Badge } from "@/components/ui/badge";
 import type { ActivationFunnel, DepartmentBreakdownRow } from "@/lib/corporate/load-activation-funnel";
 
@@ -15,7 +16,8 @@ function StatTile({ label, value }: { label: string; value: string }) {
  * / Health assessment % / Preventive completion %). Every figure here already
  * passed the org-wide small-cell floor in loadActivationFunnel — this
  * component only ever renders what it was handed, never re-derives a count. */
-export function ActivationFunnelCard({ funnel }: { funnel: ActivationFunnel | null }) {
+export function ActivationFunnelCard({ funnel, failed = false }: { funnel: ActivationFunnel | null; failed?: boolean }) {
+  if (failed) return <SectionUnavailable title="Workforce activation" />;
   if (!funnel) {
     return (
       <Card>
@@ -53,7 +55,8 @@ export function ActivationFunnelCard({ funnel }: { funnel: ActivationFunnel | nu
 /** §26.9 — a department below the org's suppression floor renders its row
  * with the figures withheld (never omitted; an omitted row would itself
  * leak "this one is small"). */
-export function DepartmentBreakdownTable({ rows }: { rows: DepartmentBreakdownRow[] }) {
+export function DepartmentBreakdownTable({ rows, failed = false }: { rows: DepartmentBreakdownRow[]; failed?: boolean }) {
+  if (failed) return <SectionUnavailable title="Activation by department" />;
   if (rows.length === 0) return null;
 
   return (
