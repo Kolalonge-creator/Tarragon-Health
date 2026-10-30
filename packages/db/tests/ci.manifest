@@ -1687,3 +1687,5 @@ screening_scheduler_skipped_profiles_alert.sql
 # Owner-run views are a reviewed list: the 18 advisor security_definer_view findings are deliberate. A new unlisted one, an anon grant, a forbidden directory column or an open admin view must fail. Four sabotage fixtures prove it can fail.
 owner_run_views_allowlist.sql
 feature_waitlist.sql
+# Events harness: critical screening result and red-flag symptom reach the clinician queue read as the clinician (RLS), paging per clinician, org boundary with control. Sabotage: clinician read policy narrowed, symptom red-flag trigger disabled.
+events_reach_clinician_queue_end_to_end.sql
