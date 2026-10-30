@@ -37,7 +37,7 @@ Each of these checks `isLoading` only. A failed read lands on the empty-state li
 | A9 | Employer billing | "No corporate or HMO organisations yet." | |
 | A10 | Settings | "No periods yet. The first posting opens one automatically."; the accounts, cost centres and approval threshold cards render blank with no message | The approval threshold is a control. Blank reads as "not set". |
 | A11 | Tax | While loading (not failed), all four tiles show ₦0.00, including Net VAT payable | The failed state is handled. The loading state falls through to `?? 0`. Brief, but it is the statutory figure. |
-| A12 | Transactions lookup | An error says "Check the ID is correct" | Blames the user for a system failure. A pending payment is also drawn red, like a failed one. |
+| A12 | Transactions lookup | An error says "Check the ID is correct" | Blames the user for a system failure. (The first draft of this audit also said a pending payment is drawn red. That was wrong: the status can only be completed or failed.) |
 | A13 | Reports hub | A failed company-profile read hides the "legal name, RC or TIN isn't on file" warning | The reports then print with blank letterheads and no warning. |
 
 ## B. The printed packs (highest stakes)

@@ -42,6 +42,8 @@ import { PartnerSettlementsClient } from "./partner-settlements-client";
  * that provider goes inactive; only the "which lab can I record a NEW
  * invoice for" picker should ever narrow to active-only.
  */
+const STATEMENT_LIMIT = 50;
+
 export default async function PartnerSettlementsPage() {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
@@ -54,7 +56,7 @@ export default async function PartnerSettlementsPage() {
         "id, provider_id, reference, period_start, period_end, invoiced_total_kobo, expected_total_kobo, status, currency",
       )
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(STATEMENT_LIMIT),
   ]);
 
   const providers = (providersResult.data ?? []).filter(
@@ -90,6 +92,11 @@ export default async function PartnerSettlementsPage() {
           actually agree to pay them.
         </p>
       </div>
+      {statementRows.length >= STATEMENT_LIMIT && (
+        <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Showing the newest {STATEMENT_LIMIT} statements. Older ones are not listed here.
+        </p>
+      )}
       <PartnerSettlementsClient
         providers={providers}
         statements={statements}

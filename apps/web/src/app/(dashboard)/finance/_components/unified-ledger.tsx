@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useUnifiedLedger } from "@/lib/finance/queries";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { Button } from "@/components/ui/button";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
+import { UNIFIED_LEDGER_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
 import { formatPatientDate } from "@/lib/format-date";
 
 /**
@@ -18,8 +20,9 @@ import { formatPatientDate } from "@/lib/format-date";
 export function UnifiedLedgerLookup() {
   const [profileId, setProfileId] = useState("");
   const [submitted, setSubmitted] = useState("");
+  const [limit, setLimit] = useState(UNIFIED_LEDGER_PAGE_LIMIT);
 
-  const ledger = useUnifiedLedger({ profileId: submitted || undefined });
+  const ledger = useUnifiedLedger({ profileId: submitted || undefined, limit });
 
   return (
     <SectionCard
@@ -31,6 +34,7 @@ export function UnifiedLedgerLookup() {
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitted(profileId.trim());
+          setLimit(UNIFIED_LEDGER_PAGE_LIMIT);
         }}
       >
         <div className="flex-1">
@@ -55,13 +59,23 @@ export function UnifiedLedgerLookup() {
 
       {submitted && ledger.isLoading && <CenterNote>Loading…</CenterNote>}
 
-      {submitted && ledger.isError && (
-        <CenterNote>
-          Could not load this profile&apos;s transactions. Check the ID is correct.
-        </CenterNote>
+      {submitted && ledger.isError && ledger.data !== undefined && <StaleNote what="This patient's transactions" />}
+
+      {submitted && ledger.isError && ledger.data === undefined && (
+        <>
+          <ReadFailure what="This patient's transactions" />
+          <p className="mt-2 text-xs text-charcoal-ink/60">If it keeps failing, check that the ID is a patient profile ID.</p>
+        </>
       )}
 
-      {submitted && ledger.data && ledger.data.length === 0 && (
+      {submitted && hitLimit(ledger.data?.length, limit) && (
+        <p role="status" className="mb-3 flex flex-wrap items-center gap-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Showing the newest {limit} transactions. There may be more.
+          <Button size="sm" variant="outline" onClick={() => setLimit((l) => l * 4)}>Show up to {limit * 4}</Button>
+        </p>
+      )}
+
+      {submitted && !ledger.isError && ledger.data && ledger.data.length === 0 && (
         <CenterNote>No transactions found for this patient.</CenterNote>
       )}
 

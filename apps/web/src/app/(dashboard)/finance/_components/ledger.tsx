@@ -16,8 +16,9 @@ import {
 } from "@/lib/finance/actions";
 import type { LedgerEntry } from "@/lib/finance/schemas";
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure, TruncationNote } from "./primitives";
 import { parseOptionalMoney } from "@/lib/finance/money-input";
+import { LEDGER_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
 
 const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
@@ -177,6 +178,7 @@ export function LedgerBrowser() {
           <p className="text-sm text-charcoal-ink/50">Use this for accruals, corrections and opening balances.</p>
         ) : (
           <div className="space-y-4">
+            {accounts.isError && accounts.data === undefined && <InlineReadFailure what="The chart of accounts" />}
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <Label htmlFor="je-date">Date</Label>
@@ -301,8 +303,12 @@ export function LedgerBrowser() {
             {ledgerMessage.text}
           </p>
         )}
+        {entries.isError && entries.data !== undefined && <StaleNote what="The general ledger" />}
+        {hitLimit(entries.data?.length, LEDGER_PAGE_LIMIT) && <TruncationNote shown={LEDGER_PAGE_LIMIT} what="entries" />}
         {entries.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : entries.isError && entries.data === undefined ? (
+          <ReadFailure what="The general ledger" />
         ) : (entries.data ?? []).length === 0 ? (
           <CenterNote>No entries in this range.</CenterNote>
         ) : (

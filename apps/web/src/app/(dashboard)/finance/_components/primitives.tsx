@@ -83,3 +83,21 @@ export function StaleNote({ what }: { what: string }) {
     </StaleDataNotice>
   );
 }
+
+/** A short inline line for a lookup that feeds a form (accounts, cost centres), where a whole failure block would be too much. */
+export function InlineReadFailure({ what }: { what: string }) {
+  return (
+    <p role="alert" className="text-xs text-red-700">
+      {what} could not be loaded just now, so the list is empty. Reload the page to try again.
+    </p>
+  );
+}
+
+/** A list that reached its row limit: it may be cut off, and says so. */
+export function TruncationNote({ shown, what }: { shown: number; what: string }) {
+  return (
+    <p role="status" className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      Showing the newest {shown} {what}. There may be more: narrow the date range to see the rest.
+    </p>
+  );
+}

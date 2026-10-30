@@ -10,7 +10,8 @@ import { useEmployerBillingSummary, financeKeys } from "@/lib/finance/queries";
 import { upsertEmployerBillingConfigAction, deleteEmployerBillingConfigAction } from "@/lib/finance/actions";
 import type { EmployerBillingSummaryRow } from "@/lib/finance/schemas";
 import { lagosToday } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { useConfirmAction } from "./confirm-action";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /**
@@ -26,6 +27,7 @@ export function EmployerBilling() {
   const qc = useQueryClient();
   const summary = useEmployerBillingSummary();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { ask, dialog } = useConfirmAction();
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
   const [f, setF] = useState({ price: "", currency: "NGN", effective_from: lagosToday(), notes: "" });
 
@@ -79,8 +81,11 @@ export function EmployerBilling() {
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
 
       <SectionCard title="Employer billing" description="One row per active corporate/HMO organisation.">
+        {summary.isError && summary.data !== undefined && <StaleNote what="Employer billing" />}
         {summary.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : summary.isError && summary.data === undefined ? (
+          <ReadFailure what="Employer billing" />
         ) : (summary.data ?? []).length === 0 ? (
           <CenterNote>No corporate or HMO organisations yet.</CenterNote>
         ) : (
@@ -130,7 +135,23 @@ export function EmployerBilling() {
                           <button
                             type="button"
                             className="text-xs text-charcoal-ink/50 hover:text-red-600"
-                            onClick={() => remove(row)}
+                            onClick={() =>
+                              ask({
+                                title: "Remove this billing rate?",
+                                description: "The organisation goes back to having no per-member rate, so no monthly estimate is shown for it. This cannot be undone.",
+                                facts: [
+                                  { label: "Organisation", value: row.organisation_name },
+                                  {
+                                    label: "Rate",
+                                    value: row.price_per_member_minor
+                                      ? `${formatMinor(row.price_per_member_minor, row.currency ?? "NGN")} per member`
+                                      : "No rate",
+                                  },
+                                ],
+                                confirmLabel: "Remove billing rate",
+                                run: () => remove(row),
+                              })
+                            }
                           >
                             Remove
                           </button>
@@ -191,6 +212,7 @@ export function EmployerBilling() {
           </TableShell>
         )}
       </SectionCard>
+      {dialog}
     </div>
   );
 }
