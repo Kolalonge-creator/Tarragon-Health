@@ -549,9 +549,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // flag_escalation_to_paid_plans.sql). Deterministic self-care copy, not a
     // doctor's assessment — the full text lives in payload.self_care_note so
     // it can be specific to what was actually flagged.
-    // INV-07: the preview never carries the reading or the note (OQ-94). The full self-care text is shown in the app.
+    // INV-07: the preview never carries the reading or the note (OQ-94), so it cannot say how serious the reading was: level_label is a
+    // forbidden payload key and is not read here. Rows of this template are written on the branch where no clinician alert was raised
+    // because the plan has no doctor review, so one line fits them all: it says plainly that no doctor has been alerted (the Terms of
+    // Service and the telehealth consent promise that statement) and what to do, worded to suit both a serious and a milder row.
+    // Known exception: the wearable-estimate branch added to the blood pressure trigger by 20261016200822_bp_cuffless_estimates_never_
+    // diagnostic.sql (module device_cuffless_bp_informational, born OFF) writes this same template for a Member on purpose, so
+    // "because you are on the Free plan" would be wrong for that row once the module is switched on. Telling the two apart needs a
+    // payload key or a separate template in the database, which this copy-only change does not add.
     return {
-      text: "Something needs your attention. Open the app to see what to do next",
+      text: t("freered.notice.self_care", "en"),
       href: "/patient/subscription",
     };
   }
