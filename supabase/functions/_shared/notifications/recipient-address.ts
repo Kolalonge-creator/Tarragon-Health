@@ -29,6 +29,10 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "clinician_alert_ack_timeout_admin",
   // The push and email copies of an emergency-keyword care message, queued with only the clinician's profile id.
   "care_message_safety_flag",
+  // Operations alerts to the on-call contact list. private.ops_alert_notify() queues them with only the contact's profile id,
+  // so without this every email resolved to "recipient has no email address" (1,018 failures, 13-30 Oct 2026).
+  "ops_alert",
+  "ops_all_clear",
 ]);
 
 /**

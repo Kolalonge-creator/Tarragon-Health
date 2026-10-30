@@ -16,6 +16,7 @@ import {
   lagosYearStart,
   lagosDateTimeInputValue,
   lagosDateTimeInputToIso,
+  lagosDayBounds,
 } from "./format-date";
 
 /** 00:30 in Lagos on 15 September 2026 — 23:30 UTC on the 14th. */
@@ -95,5 +96,25 @@ describe("datetime-local round trip", () => {
     expect(discoveredAt).not.toBeNull();
     const deadline = new Date(new Date(discoveredAt as string).getTime() + 72 * 60 * 60 * 1000);
     expect(lagosDateTimeInputValue(deadline)).toBe("2026-09-18T09:00");
+  });
+});
+
+describe("lagosDayBounds", () => {
+  it("runs from midnight to the last millisecond of the day in Lagos, which is UTC+1", () => {
+    expect(lagosDayBounds("2026-10-31")).toEqual({
+      start: "2026-10-30T23:00:00.000Z",
+      end: "2026-10-31T22:59:59.999Z",
+    });
+  });
+
+  it("puts 00:30 Lagos time inside the Lagos day it belongs to, which a UTC reading would not", () => {
+    const b = lagosDayBounds("2026-10-31");
+    const firstHalfHour = Date.parse("2026-10-30T23:30:00Z"); // 00:30 on the 31st in Lagos
+    expect(firstHalfHour).toBeGreaterThanOrEqual(Date.parse(b!.start));
+    expect(firstHalfHour).toBeLessThanOrEqual(Date.parse(b!.end));
+  });
+
+  it.each(["", "2026-10", "31/10/2026", "2026-13-40", "not a date", "2026-10-31T10:00"])("refuses %j", (value) => {
+    expect(lagosDayBounds(value)).toBeNull();
   });
 });

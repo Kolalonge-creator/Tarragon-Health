@@ -102,22 +102,51 @@ describe("payer outcomes reports page", () => {
 });
 
 describe("payer overview page", () => {
+  // The queue counts are head reads: a reply with a numeric `count` is a read that worked.
+  const count = (n: number): Reply & { count: number } => ({ data: null, error: null, count: n });
+  const emptyQueues = { insurance_preauthorizations: count(0), insurance_claims: count(0) };
+
   it("calls a failed read a failure, not 'not enough members yet'", async () => {
-    replies = { payer_dashboard_analytics: fails };
+    replies = { ...emptyQueues, payer_dashboard_analytics: fails };
     render(await OverviewPage(props));
     expect(screen.getByRole("alert").textContent).toContain("could not be loaded");
     expect(screen.queryByText("Not enough members yet")).toBeNull();
   });
   it("keeps the privacy message for a genuinely suppressed cohort", async () => {
-    replies = { payer_dashboard_analytics: ok({ suppressed: true, min_cohort_size: 10 }) };
+    replies = { ...emptyQueues, payer_dashboard_analytics: ok({ suppressed: true, min_cohort_size: 10 }) };
     render(await OverviewPage(props));
     expect(screen.getByText("Not enough members yet")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("shows the figures when the read works", async () => {
-    replies = { payer_dashboard_analytics: ok({ suppressed: false, min_cohort_size: 10, member_count: 40, programmes: [] }) };
+    replies = {
+      ...emptyQueues,
+      payer_dashboard_analytics: ok({ suppressed: false, min_cohort_size: 10, member_count: 40, programmes: [] }),
+    };
     render(await OverviewPage(props));
     expect(screen.getByText("40")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("leads with the work waiting, and still shows the figures", async () => {
+    replies = {
+      insurance_preauthorizations: count(3),
+      insurance_claims: count(0),
+      payer_dashboard_analytics: ok({ suppressed: false, min_cohort_size: 10, member_count: 40, programmes: [] }),
+    };
+    render(await OverviewPage(props));
+    expect(screen.getByRole("region", { name: "Needs you first" }).textContent).toContain(
+      "3 pre-authorisations are waiting for a decision",
+    );
+    expect(screen.getByText("40")).toBeTruthy();
+  });
+  it("does not say nothing is waiting when the queue counts failed, even if the figures loaded", async () => {
+    replies = {
+      insurance_preauthorizations: fails,
+      insurance_claims: count(0),
+      payer_dashboard_analytics: ok({ suppressed: false, min_cohort_size: 10, member_count: 40, programmes: [] }),
+    };
+    render(await OverviewPage(props));
+    expect(screen.getByRole("alert").textContent).toContain("cannot say whether anything is waiting");
+    expect(screen.queryByText(/No pre-authorisations to decide/)).toBeNull();
   });
 });

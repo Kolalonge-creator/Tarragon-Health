@@ -5,7 +5,7 @@ import { useCompanyProfile } from "@/lib/finance/queries";
 import { formatPatientDateTime } from "@/lib/format-date";
 
 export function ReportLetterhead({ title, subtitle }: { title: string; subtitle: string }) {
-  const { data: profile } = useCompanyProfile();
+  const { data: profile, isError: profileFailed } = useCompanyProfile();
 
   const generatedAt = formatPatientDateTime(new Date(), {
     day: "numeric",
@@ -33,6 +33,11 @@ export function ReportLetterhead({ title, subtitle }: { title: string; subtitle:
               {profile?.legal_name || profile?.trading_name || "TarragonHealth"}
             </p>
             {idLine && <p className="text-xs text-charcoal-ink/60">{idLine}</p>}
+            {profileFailed && !profile && (
+              <p className="text-xs font-semibold text-red-700">
+                Company details could not be loaded: the RC number, TIN and address are missing from this header.
+              </p>
+            )}
             {profile?.registered_address && (
               <p className="max-w-md text-xs text-charcoal-ink/50">{profile.registered_address}</p>
             )}

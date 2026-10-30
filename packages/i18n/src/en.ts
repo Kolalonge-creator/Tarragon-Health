@@ -5,6 +5,7 @@ import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
 import { outcomesDashboardCopy } from "./outcomes-dashboard-copy";
+import { childLog } from "./child-log";
 import { activeGlucoseWording } from "./glucose-wording";
 
 /**
@@ -29,6 +30,7 @@ export const en = {
   ...designPrinciplesCopy,
   ...pregnancyTools,
   ...outcomesDashboardCopy,
+  ...childLog,
   "console.login.title": "Staff sign-in",
   "console.login.subtitle": "Sign in to the TarragonHealth console.",
   "console.login.email": "Email",

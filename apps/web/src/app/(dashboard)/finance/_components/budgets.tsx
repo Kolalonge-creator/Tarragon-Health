@@ -15,7 +15,8 @@ import {
 } from "@/lib/finance/queries";
 import { upsertBudgetAction, deleteBudgetAction } from "@/lib/finance/actions";
 import { lagosToday, lagosMonth, lagosMonthStart } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 
 
 export function Budgets() {
@@ -37,12 +38,14 @@ export function Budgets() {
   async function save() {
     setMsg(null);
     if (!f.account_code || !f.amount) return setMsg({ ok: false, text: "Account and amount are required." });
+    const amount = parseMoneyInput(f.amount);
+    if (!amount.ok) return setMsg({ ok: false, text: amount.error });
     const res = await upsertBudgetAction({
       account_code: f.account_code,
       cost_center_code: f.cost_center_code || undefined,
       period_month: `${f.period_month}-01`,
       currency,
-      amount_minor: majorToMinor(f.amount),
+      amount_minor: amount.minor,
     });
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not save budget." });
     setMsg({ ok: true, text: "Budget saved." });

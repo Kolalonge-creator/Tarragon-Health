@@ -13,7 +13,9 @@ import {
 } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
-import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+import { PackBlocked, PackStaleBanner } from "./pack-notices";
+import { packSource, summarisePackSources } from "./pack-sources";
+import { formatPatientDate, formatPatientDateTime, lagosDayBounds } from "@/lib/format-date";
 import {
   PrintSection,
   PrintTable,
@@ -31,20 +33,56 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
   const apAging = useApAging();
   const variance = useBudgetVariance(from, to, currency);
   const approvals = useApprovalHistory();
-  const auditLog = useFinanceAuditLog({ from: `${from}T00:00:00.000Z`, to: `${to}T23:59:59.999Z` });
+  // The period is two Lagos dates. Reading them as UTC days put 00:00 to 01:00 Lagos time into the
+  // previous day, and comparing a timestamp to the text "YYYY-MM-DDT23:59:59" dropped the last second.
+  const range = useMemo(() => {
+    const a = lagosDayBounds(from);
+    const b = lagosDayBounds(to);
+    return { start: a?.start ?? `${from}T00:00:00+01:00`, end: b?.end ?? `${to}T23:59:59.999+01:00`, valid: Boolean(a && b) };
+  }, [from, to]);
+  const auditLog = useFinanceAuditLog({ from: range.start, to: range.end });
 
-  const approvalsInRange = useMemo(
-    () => (approvals.data ?? []).filter((a) => a.requested_at >= from && a.requested_at <= `${to}T23:59:59`),
-    [approvals.data, from, to],
-  );
+  const approvalsInRange = useMemo(() => {
+    if (!range.valid) return [];
+    const start = Date.parse(range.start);
+    const end = Date.parse(range.end);
+    return (approvals.data ?? []).filter((a) => {
+      const t = Date.parse(a.requested_at);
+      return Number.isFinite(t) && t >= start && t <= end;
+    });
+  }, [approvals.data, range]);
+
+  // A printed audit pack that says "No logged finance activity in this range" is evidence to the
+  // reader. If a source did not load, the pack is not built, and says why. See pack-sources.ts.
+  const { failed, stale, loading } = summarisePackSources([
+    packSource("trial balance", tb),
+    packSource("general ledger", gl),
+    packSource("settlement reconciliation", recon),
+    packSource("accounts payable aging", apAging),
+    packSource("budget variance", variance),
+    packSource("approval history", approvals),
+    packSource("finance audit trail", auditLog),
+  ]);
+
+  if (failed.length > 0) {
+    return (
+      <PackBlocked
+        title="Audit & management pack"
+        subtitle={`${from} to ${to} · ${currency}`}
+        failed={failed}
+      />
+    );
+  }
 
   return (
     <div>
-      <PrintToolbar />
+      <PrintToolbar loading={loading} />
       <ReportLetterhead
         title="Audit & management pack"
         subtitle={`${from} to ${to} · ${currency} · trial balance as of ${to}`}
       />
+
+      <PackStaleBanner stale={stale} />
 
       <Disclaimer>
         A working folder assembled from the live ledger and the finance system&apos;s own audit trail,

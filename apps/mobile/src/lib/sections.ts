@@ -32,6 +32,7 @@ export type SectionId =
   // S50b: the supported eating programme. NOT in the drawer: it is reached only by the link on the Medicines screen, shown only to someone who was offered it.
   | "lowCarb"
   | "womensHealth"
+  | "childLog"
   | "sexualHealth"
   | "wellbeing"
   | "healthCheck"
@@ -218,6 +219,12 @@ export const SECTIONS: SectionDef[] = [
     id: "womensHealth",
     label: "Women's Health",
     icon: "female-outline",
+    group: "Your health",
+  },
+  {
+    id: "childLog",
+    label: "Baby's daily log",
+    icon: "happy-outline",
     group: "Your health",
   },
   {

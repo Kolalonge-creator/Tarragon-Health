@@ -23,12 +23,14 @@ function fakeAuth(users: Record<string, AuthEmailUser>) {
 }
 
 const ACK_TIMEOUT_TEMPLATES = ["clinician_alert_ack_timeout_backup", "clinician_alert_ack_timeout_senior", "clinician_alert_ack_timeout_admin"];
+// Queued by private.ops_alert_notify() with only the contact's profile id (no address in the payload).
+const OPS_ALERT_TEMPLATES = ["ops_alert", "ops_all_clear"];
 const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired", "on_call_ops_desk", "on_call_ops_desk_uncovered", "on_call_ops_desk_roster", "on_call_ops_desk_dead_letter"];
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {
-    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
-    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 3 + ACK_TIMEOUT_TEMPLATES.length);
+    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...OPS_ALERT_TEMPLATES, ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
+    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 3 + OPS_ALERT_TEMPLATES.length + ACK_TIMEOUT_TEMPLATES.length);
   });
   it("security notices keep payload first, everything else the payload only", () => {
     expect(addressRuleFor("security.new_device_signin")).toBe("payload_then_own");
@@ -42,6 +44,23 @@ describe("which rule applies", () => {
       expect(render?.email?.subject).toBeTruthy();
       expect(isSafetyCritical(t)).toBe(true);
     }
+  });
+});
+
+describe("operations alert emails", () => {
+  it("reach the contact's own verified address although the payload carries none", async () => {
+    const auth = fakeAuth({ admin1: { email: "ops@example.com", email_confirmed_at: "2026-01-01T00:00:00Z" } });
+    const payload = { alert_id: "a", rule: "payment_webhooks_unprocessed", severity: "sev2" };
+    for (const t of OPS_ALERT_TEMPLATES) {
+      const r = await resolveEmailAddress(t, (payload as Record<string, unknown>).to_email, auth.lookupFor("admin1"));
+      expect(r).toEqual({ address: "ops@example.com", source: "auth" });
+    }
+  });
+  it("an unverified contact still fails visibly instead of going anywhere else", async () => {
+    const auth = fakeAuth({ admin1: { email: "ops@example.com", email_confirmed_at: null } });
+    const r = await resolveEmailAddress("ops_alert", "attacker@example.com", auth.lookupFor("admin1"));
+    expect(r.address).toBeUndefined();
+    expect(r.source).toBe("none");
   });
 });
 
