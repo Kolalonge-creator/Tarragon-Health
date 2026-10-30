@@ -33,6 +33,7 @@ import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { OWED_ITEM_PREFIX, readPendingOwedSignoffs } from "@/lib/queries/pending-owed-signoffs";
+import { SCREENING_RULE_SET_ITEM_KEY, readPendingScreeningRuleSet } from "@/lib/queries/pending-screening-rule-set-signoff";
 import { TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 
 export type CmoSigningHub = {
@@ -131,7 +132,7 @@ const CLINICAL_TABLES = new Set([
 const CLINICAL_ITEM_KEYS = new Set<string>([
   PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
   GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
-  RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies",
+  RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies", SCREENING_RULE_SET_ITEM_KEY,
 ]);
 export function isClinicalSignoff(key: string): boolean {
   if (key.startsWith(OWED_ITEM_PREFIX)) return true;
@@ -160,7 +161,7 @@ export function isClinicalSignoff(key: string): boolean {
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -195,6 +196,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingAiMonitoringSignoff(supabase),
     readPendingMskProgrammesSignoff(supabase),
     readPendingOwedSignoffs(supabase),
+    readPendingScreeningRuleSet(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -493,6 +495,20 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  // A drafted screening rule set (version newer than the signed one in force). Until the CMO signs it, the signed version applies unchanged.
+  if (screeningRules.draftId !== null) {
+    items.push({
+      key: SCREENING_RULE_SET_ITEM_KEY,
+      title: `Screening rules version ${screeningRules.version}: pace new patients`,
+      detail: screeningRules.signable
+        ? `Version ${screeningRules.version} is the signed version ${screeningRules.liveVersion} with one addition: a weekly limit on new printed test requests and the order they go in, so a new patient is not given every request on the first night. The rules themselves are unchanged. Until you sign, there is no limit.`
+        : `Version ${screeningRules.version} is a draft that cannot be signed from here: it changes the rules themselves or has no readable pacing block. Version ${screeningRules.liveVersion} stays in force.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (bpDevices.waiting > 0) {
     items.push({
       key: BP_DEVICE_REVIEW_ITEM_KEY,
@@ -647,6 +663,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(mentalWellbeing.failed ? ["the mental wellbeing sign-offs"] : []),
     ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
     ...(owed.failed ? ["the signatures you owe for things already running"] : []),
+    ...(screeningRules.failed ? ["the screening rule set drafts"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
