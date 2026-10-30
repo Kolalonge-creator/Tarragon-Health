@@ -170,6 +170,8 @@ const supabase = {} as SupabaseClient<Database>;
 const noAi: PendingAiGovernanceSignoff = {
   pendingVersionApprovalCount: 0,
   pendingClinicalAccuracyLabelCount: 0,
+  pendingGuardrailApprovalCount: 0,
+  pendingKnowledgeSourceApprovalCount: 0,
   attentionCount: 0,
   failed: false,
 };
@@ -624,6 +626,8 @@ describe("readCmoSigningHub", () => {
     readPendingAiGovernanceSignoff.mockResolvedValue({
       pendingVersionApprovalCount: 1,
       pendingClinicalAccuracyLabelCount: 4,
+      pendingGuardrailApprovalCount: 0,
+      pendingKnowledgeSourceApprovalCount: 0,
       attentionCount: 5,
       failed: false,
     });
@@ -632,6 +636,20 @@ describe("readCmoSigningHub", () => {
     expect(hub.items[0]).toMatchObject({ key: "ai_governance", href: "/clinician/ai-governance", count: 5 });
     expect(hub.items[0]?.detail).toContain("1 AI system version to approve");
     expect(hub.items[0]?.detail).toContain("4 clinical-accuracy scenarios");
+  });
+
+  it("names unapproved guardrails and knowledge sources on the AI governance line", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingAiGovernanceSignoff.mockResolvedValue({
+      ...noAi,
+      pendingGuardrailApprovalCount: 67,
+      pendingKnowledgeSourceApprovalCount: 1,
+      attentionCount: 68,
+    });
+    const hub = await hubAll(supabase);
+    expect(hub.items[0]).toMatchObject({ key: "ai_governance", count: 68 });
+    expect(hub.items[0]?.detail).toContain("67 guardrails to approve");
+    expect(hub.items[0]?.detail).toContain("1 knowledge source to approve");
   });
 
   it("lists what is live with no signature before what is merely waiting", async () => {
@@ -645,6 +663,8 @@ describe("readCmoSigningHub", () => {
     readPendingAiGovernanceSignoff.mockResolvedValue({
       pendingVersionApprovalCount: 1,
       pendingClinicalAccuracyLabelCount: 0,
+  pendingGuardrailApprovalCount: 0,
+  pendingKnowledgeSourceApprovalCount: 0,
       attentionCount: 1,
       failed: false,
     });

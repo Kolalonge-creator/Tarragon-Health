@@ -477,3 +477,82 @@ export async function runAiEvalSuitesAction(
   revalidatePath(PATH);
   return { results, recordError };
 }
+
+const guardrailApprovalSchema = z.object({
+  systemCode: z.string().trim().min(1),
+  expectedCount: z.coerce.number().int().min(1),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve every active, still-unapproved guardrail of one AI system
+ * (40.5). `public.approve_ai_guardrails` is the real gate: only an active
+ * Chief Medical Officer, and the count the person read must equal what is
+ * unapproved right now, so a rule added after the review is never signed
+ * unseen. This action forwards the system code and the count shown on the
+ * page; it never works the count out itself.
+ */
+export async function approveAiGuardrailsAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = guardrailApprovalSchema.safeParse({
+    systemCode: formData.get("systemCode"),
+    expectedCount: formData.get("expectedCount"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("approve_ai_guardrails", {
+    p_system_code: parsed.data.systemCode,
+    p_expected_count: parsed.data.expectedCount,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  return { success: `Approved ${data ?? parsed.data.expectedCount}. It is on the record under your name.` };
+}
+
+const sourceApprovalSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Tick at least one to approve.").max(200, "Approve at most 200 at a time."),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve the AI knowledge sources the person ticked (40.7). The database
+ * function is the real gate (active Chief Medical Officer only, audited);
+ * this forwards exactly the ids ticked and never selects any itself.
+ */
+export async function approveAiKnowledgeSourcesAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = sourceApprovalSchema.safeParse({
+    ids: formData.getAll("ids").map(String),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("approve_ai_knowledge_sources", {
+    p_ids: parsed.data.ids,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  const n = data ?? 0;
+  return { success: n === 0 ? "Nothing new to approve; those were already approved." : `Approved ${n}. It is on the record under your name.` };
+}
+
+function revalidateApprovalPaths() {
+  revalidatePath(PATH);
+  revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
+}

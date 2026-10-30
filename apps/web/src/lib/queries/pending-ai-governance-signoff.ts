@@ -6,7 +6,11 @@ import { anyQueryFailed } from "@/lib/queries/server-query-state";
 export type PendingAiGovernanceSignoff = {
   pendingVersionApprovalCount: number;
   pendingClinicalAccuracyLabelCount: number;
-  /** Total of the two counts above — what a banner/badge should show. */
+  /** Active guardrails the CMO has not approved yet (approve_ai_guardrails). */
+  pendingGuardrailApprovalCount: number;
+  /** Active knowledge sources the CMO has not approved yet (approve_ai_knowledge_sources). */
+  pendingKnowledgeSourceApprovalCount: number;
+  /** Total of the counts above — what a banner/badge should show. */
   attentionCount: number;
   /** A read failed, so `attentionCount` understates reality — never render it as an all-clear. */
   failed: boolean;
@@ -34,7 +38,7 @@ export type PendingAiGovernanceSignoff = {
 export async function readPendingAiGovernanceSignoff(
   supabase: SupabaseClient<Database>
 ): Promise<PendingAiGovernanceSignoff> {
-  const [versionsRes, casesRes] = await Promise.all([
+  const [versionsRes, casesRes, guardrailsRes, sourcesRes] = await Promise.all([
     supabase
       .from("ai_system_versions")
       .select("*", { count: "exact", head: true })
@@ -45,16 +49,27 @@ export async function readPendingAiGovernanceSignoff(
       .select("*, ai_evaluation_suites!inner(kind)", { count: "exact", head: true })
       .eq("ai_evaluation_suites.kind", "clinical")
       .is("expected_tier", null),
+    supabase.from("ai_guardrails").select("*", { count: "exact", head: true }).eq("is_active", true).is("approved_at", null),
+    supabase.from("ai_knowledge_sources").select("*", { count: "exact", head: true }).eq("is_active", true).is("approved_at", null),
   ]);
 
-  const failed = anyQueryFailed([versionsRes, casesRes]);
+  const failed = anyQueryFailed([versionsRes, casesRes, guardrailsRes, sourcesRes]);
   const pendingVersionApprovalCount = versionsRes.count ?? 0;
   const pendingClinicalAccuracyLabelCount = casesRes.count ?? 0;
+
+  const pendingGuardrailApprovalCount = guardrailsRes.count ?? 0;
+  const pendingKnowledgeSourceApprovalCount = sourcesRes.count ?? 0;
 
   return {
     pendingVersionApprovalCount,
     pendingClinicalAccuracyLabelCount,
-    attentionCount: pendingVersionApprovalCount + pendingClinicalAccuracyLabelCount,
+    pendingGuardrailApprovalCount,
+    pendingKnowledgeSourceApprovalCount,
+    attentionCount:
+      pendingVersionApprovalCount +
+      pendingClinicalAccuracyLabelCount +
+      pendingGuardrailApprovalCount +
+      pendingKnowledgeSourceApprovalCount,
     failed,
   };
 }

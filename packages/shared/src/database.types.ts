@@ -53723,6 +53723,14 @@ export type Database = {
         Args: { p_directive_id: string }
         Returns: Json
       }
+      approve_ai_guardrails: {
+        Args: { p_expected_count: number; p_note?: string; p_system_code: string }
+        Returns: number
+      }
+      approve_ai_knowledge_sources: {
+        Args: { p_ids: string[]; p_note?: string }
+        Returns: number
+      }
       approve_ai_system_version: {
         Args: { p_deploy?: boolean; p_note?: string; p_version_id: string }
         Returns: Json
