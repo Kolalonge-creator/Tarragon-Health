@@ -114,9 +114,9 @@ export function PreventiveProgrammes({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          We automatically enrol you in the prevention tracks that fit your
-          profile — each one bundles the right screenings and a periodic
-          review with your care team. You can leave any track at any time.
+          We automatically enrol you in the prevention programmes that suit your
+          profile. Each programme combines the relevant screenings with a regular
+          review with your care team. You can leave any programme at any time.
         </p>
         {nextReview.data && (
           <p className="text-xs text-brand-green dark:text-brand-green-bright">
@@ -150,7 +150,7 @@ export function PreventiveProgrammes({
                   )}
                   {enrolment && enrolment.source === "recommended" && (
                     <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                      Enrolled automatically based on your profile. Withdraw any time.
+                      Enrolled automatically based on your profile. You can withdraw at any time.
                     </p>
                   )}
                   {!enrolment && rationale && (

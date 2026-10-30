@@ -50,7 +50,7 @@ const TRACKERS = [
   {
     href: "/patient/exercise",
     label: "Exercise programmes",
-    description: "Structured plans, paced to what's safe for you",
+    description: "Structured plans, paced to what is safe for you",
     icon: SEMANTIC_ICON.exerciseProgramme,
   },
   {
@@ -202,7 +202,7 @@ export function LifestyleClient({
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Lifestyle coaching"
         icon={NAV_ICON.lifestyle}
-        description="Small, steady changes, logged here, supported by your care team."
+        description="Small, steady changes that you record here, with support from your care team."
         actions={<GoalsDialog enrollments={enrollments} pastGoals={pastGoals} />}
       />
 
@@ -295,8 +295,8 @@ function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
     <form action={submit} className="space-y-4">
       <input type="hidden" name="consent" value={consented ? "on" : "off"} />
       <p className="text-sm text-muted-foreground dark:text-night-ink/60">
-        Before we start on weight or eating goals, a few quick questions: this
-        is just so your care team can support you well from day one.
+        Before we set any weight or eating goals, we would like to ask a few short
+        questions. Your answers help your care team support you safely from the start.
       </p>
 
       <fieldset className="space-y-2">

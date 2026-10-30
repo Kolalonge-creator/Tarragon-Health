@@ -29,7 +29,7 @@ export default async function HealthyAgeingPage() {
       description={
         isOlderAdult
           ? "Independence, prevention, and coordinated care, not just a list of conditions."
-          : "Built with older adults and the people who care for them in mind, and still useful for anyone tracking mobility, falls risk, or support at home."
+          : "Designed for older adults and the people who care for them, and useful for anyone monitoring mobility, risk of falls or support at home."
       }
       icon={NAV_ICON.healthyAgeing}
     >

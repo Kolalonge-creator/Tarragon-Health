@@ -2,7 +2,7 @@ const CARE_ITEMS = [
   {
     label: "Blood pressure",
     value: "128 / 82",
-    helper: "Logged this morning",
+    helper: "Recorded this morning",
   },
   {
     label: "Glucose",
@@ -31,12 +31,13 @@ export function DashboardPreview() {
           Dashboard preview
         </p>
         <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-          One calm view for the care between visits
+          One clear view of your care between visits
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-          Tarragon brings readings, reminders, preventive checks, and doctor
-          review into one shared record, so the next step is clear. Once
-          named as next of kin, someone close to you can follow your care too.
+          Tarragon brings readings, reminders, preventive checks and doctor
+          review together in one shared record, so that the next step is clear.
+          Once you have named someone as your next of kin, that person can
+          follow your care too.
         </p>
       </div>
 
@@ -49,7 +50,7 @@ export function DashboardPreview() {
                 Mrs. Adebayo
               </h3>
               <p className="mt-1 text-sm text-charcoal-ink/70">
-                Hypertension + preventive checks
+                Hypertension and preventive checks
               </p>
             </div>
             <span className="rounded-full bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
@@ -82,12 +83,12 @@ export function DashboardPreview() {
                 </p>
               </div>
               <span className="rounded-full bg-sprout-gold/15 px-3 py-1 text-xs font-medium text-charcoal-ink">
-                You pay the lab
+                You pay the laboratory
               </span>
             </div>
             <p className="mt-2 text-sm text-charcoal-ink/65">
-              Suggested because blood pressure monitoring and medication review share the
-              same longitudinal record.
+              Suggested because blood pressure monitoring and medication review are
+              recorded together over time in the same record.
             </p>
           </div>
 

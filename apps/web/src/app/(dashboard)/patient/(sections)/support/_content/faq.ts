@@ -28,22 +28,22 @@ export const SUPPORT_FAQS: SupportFaqEntry[] = [
   {
     question: "How does Tarragon work?",
     answer:
-      "You log your vitals, symptoms, and medications in the app, and your care team reviews them against clinical protocols — escalating to a doctor whenever something needs one. Reminders and alerts come through the app, with push and email as a backup.",
+      "You log your vitals, symptoms, and medications in the app, and your care team reviews them against clinical protocols, and refers you to a doctor whenever something needs one. Reminders and alerts come through the app, with push and email as a backup.",
   },
   {
     question: "How do I get help with an appointment, pharmacy, lab, insurance, referral, or payment issue?",
     answer:
-      "Use the \"Need help\" card on your Care page — a navigator will pick it up and follow through with you. This Help & support page is for technical/app issues and formal complaints.",
+      "Use the \"Need help\" card on your Care page. A navigator will pick up your request and follow it through with you. This Help & support page is for technical problems with the app and for formal complaints.",
   },
   {
-    question: "The app is crashing, freezing, or not saving what I enter — what do I do?",
+    question: "The app is crashing, freezing or not saving what I enter. What should I do?",
     answer:
-      "File a ticket below with what you were doing when it happened, your device, and whether it happens every time. That gets it in front of our technical team, with a Tier 1 → Tier 2 → Engineering escalation path if it needs deeper investigation.",
+      "File a ticket below and tell us what you were doing when it happened, which device you use, and whether it happens every time. This sends it to our technical team, who will pass it to a senior engineer if it needs deeper investigation.",
   },
   {
     question: "How do I contact my doctor?",
     answer:
-      "Use Messages to reach your care team directly in the app — that's the on-the-record way to reach them. This Help & support page is for technical issues and complaints; Messages is for talking with your care team.",
+      "Use Messages to contact your care team directly in the app. This keeps a written record of the conversation. This Help & support page is for technical problems and complaints; Messages is for speaking with your care team.",
   },
   {
     question: t("datacost.web.faq_question"),
@@ -54,8 +54,8 @@ export const SUPPORT_FAQS: SupportFaqEntry[] = [
     answer: "Go to Profile in the sidebar to update your contact details, address, and emergency contact.",
   },
   {
-    question: "I'm not satisfied with how something was handled — what can I do?",
+    question: "I am not satisfied with how something was handled. What can I do?",
     answer:
-      "File a formal complaint below. It goes through an accountable review process (acknowledged → investigated → responded to → resolved), and anything indicating a real safety concern is escalated into a formal clinical incident review.",
+      "File a formal complaint below. It goes through a review process with four stages: acknowledged, investigated, responded to and resolved. If it points to a real safety concern, it is also sent for a formal clinical incident review.",
   },
 ];

@@ -71,7 +71,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Blood Sugar",
     description:
-      "Your three-month average, plus a same-day check when it's actually needed: the earliest reliable warning signs for diabetes, years before symptoms.",
+      "Your average blood sugar over three months, plus a same-day glucose test when it is needed. These give the earliest reliable warning signs of diabetes, often years before symptoms.",
     items: [
       {
         name: "HbA1c",
@@ -90,23 +90,23 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Blood Cell Health",
     description:
-      "A full count of your red cells, white cells, and platelets: anaemia, infection, and clotting problems all show up here first.",
+      "A full count of your red cells, white cells and platelets. Anaemia, infection and clotting problems often show up here first.",
     items: [
       {
         name: "Full Blood Count: Haemoglobin, Haematocrit, RBC & WBC Count, Platelets, MCV, MCH, MCHC",
-        explanation: "Anaemia, infection, and clotting problems all show up here first.",
+        explanation: "Anaemia, infection and clotting problems often show up here first.",
         frequency: "Every year",
         tier: "Core",
       },
       {
         name: "Ferritin",
-        explanation: "Your iron stores, the first thing checked when anaemia is suspected.",
+        explanation: "Shows how much iron your body has stored. It is the first test used when anaemia is suspected.",
         frequency: "Every year",
         tier: "Comprehensive",
       },
       {
         name: "Vitamin B12",
-        explanation: "Deficiency causes a distinct kind of anaemia and nerve problems, common with plant-based diets and some medicines.",
+        explanation: "A lack of vitamin B12 can cause a particular type of anaemia and nerve problems. It is more likely with plant-based diets and some medicines.",
         frequency: "Every year",
         tier: "Comprehensive",
       },
@@ -114,7 +114,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   },
   {
     title: "Kidney Health",
-    description: "How well your kidneys are filtering, long before you'd ever feel it slipping.",
+    description: "How well your kidneys are filtering your blood, measured long before any decline would cause symptoms.",
     items: [
       {
         name: "Kidney Function: Urea, Electrolytes, Creatinine, eGFR",
@@ -130,7 +130,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
       },
       {
         name: "Urine Albumin:Creatinine Ratio",
-        explanation: "Catches kidney damage years before it would show up on a standard kidney function test.",
+        explanation: "Detects kidney damage years before it would appear on a standard kidney function test.",
         frequency: "Every year",
         tier: "Advanced",
       },
@@ -138,11 +138,11 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   },
   {
     title: "Liver Health",
-    description: "How your liver is coping, long before any symptom would tell you.",
+    description: "How well your liver is working, checked long before any symptom would appear.",
     items: [
       {
         name: "Liver Function Test: ALT, AST, ALP, Bilirubin, Albumin",
-        explanation: "How your liver is coping, checked long before any symptom would tell you.",
+        explanation: "Shows how well your liver is working, checked long before symptoms would appear.",
         frequency: "Every year",
         tier: "Core",
       },
@@ -150,11 +150,11 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   },
   {
     title: "Thyroid Health",
-    description: "The gland that quietly sets your metabolism, energy, and mood.",
+    description: "The thyroid gland helps control your metabolism, energy and mood.",
     items: [
       {
         name: "Thyroid Function: TSH, Free T4",
-        explanation: "The gland that quietly sets your metabolism, energy, and mood.",
+        explanation: "The thyroid gland helps control your metabolism, energy and mood.",
         frequency: "Every year",
         tier: "Core",
       },
@@ -163,35 +163,35 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Cancer Screening",
     description:
-      "Matched to your age and sex, each on its own real-world calendar, not a generic annual clock.",
+      "Matched to your age and sex, with each test repeated at the interval recommended for it rather than every year.",
     items: [
       {
         name: "Cervical Smear (women 25–64)",
-        explanation: "Catches changes in the cervix years before they could become cancer.",
+        explanation: "Detects changes in the cervix years before they could become cancer.",
         frequency: "Every 3 years",
         tier: "Advanced",
       },
       {
         name: "Prostate-Specific Antigen: PSA (men 45+)",
-        explanation: "A blood marker your doctor discusses with you rather than orders blindly.",
+        explanation: "A blood test that your doctor discusses with you before it is ordered.",
         frequency: "Every 2 years",
         tier: "Advanced",
       },
       {
         name: "Faecal Immunochemical Test: FIT, colorectal (45–74)",
-        explanation: "A simple stool test that catches early signs of colorectal cancer.",
+        explanation: "A simple stool test that detects early signs of bowel (colorectal) cancer.",
         frequency: "Every 2 years",
         tier: "Advanced",
       },
       {
         name: "Breast Imaging: ultrasound under 40, mammography 40+",
-        explanation: "Catching breast cancer at the stage it's most treatable.",
+        explanation: "Finds breast cancer at the stage when it is most treatable.",
         frequency: "Every 2 years",
         tier: "Comprehensive",
       },
       {
         name: "Prostate Ultrasound (men 50+)",
-        explanation: "A closer look when PSA or symptoms suggest it's needed.",
+        explanation: "A closer examination when the PSA result or symptoms suggest it is needed.",
         frequency: "Every 2 years",
         tier: "Comprehensive",
       },
@@ -200,11 +200,11 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Infectious Disease Screening",
     description:
-      "The WHO-priority checks for Nigeria, run confidentially alongside everything else in the same visit.",
+      "The checks that the World Health Organization (WHO) prioritises for Nigeria, carried out confidentially during the same visit.",
     items: [
       {
         name: "HIV Screening",
-        explanation: "Confidential, and one of the most consequential tests you can have done regularly.",
+        explanation: "Confidential. Regular HIV testing is one of the most important checks you can have.",
         frequency: "Every year",
         tier: "Core",
       },
@@ -223,19 +223,19 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
     ],
   },
   {
-    title: "Know Your Basics",
+    title: "Basic Blood Facts",
     description:
-      "Facts about your own blood that few Nigerians are ever told plainly: useful for emergencies, marriage counselling, and pregnancy planning.",
+      "Facts about your own blood that few people in Nigeria are ever told clearly. They are useful in emergencies, for marriage counselling and when planning a pregnancy.",
     items: [
       {
         name: "Blood Group & Rhesus Factor",
-        explanation: "Something every Nigerian should know and rarely gets told plainly, vital in an emergency.",
+        explanation: "Information that everyone should know and that is rarely explained clearly. It is vital in an emergency.",
         frequency: "Once, for life",
         tier: "Core",
       },
       {
         name: "Sickle Cell Genotype (AA/AS/SS)",
-        explanation: "Essential knowledge before marriage or planning a pregnancy.",
+        explanation: "Essential to know before marriage or when planning a pregnancy.",
         frequency: "Once, for life",
         tier: "Core",
       },

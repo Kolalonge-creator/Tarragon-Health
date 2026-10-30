@@ -15,11 +15,11 @@ import { formatPatientDate } from "@/lib/format-date";
 const STATUS_COPY: Record<string, string> = {
   proposed: "Your care team has proposed a specialist assessment.",
   referred: "You've been referred for a specialist assessment.",
-  workup: "Your work-up for the specialist assessment is in progress.",
+  workup: "The tests and preparation for your specialist assessment are in progress.",
   scheduled: "Your specialist appointment is scheduled.",
   completed: "Your specialist assessment is complete.",
   declined: "This referral was declined.",
-  not_eligible: "This wasn't a fit right now, based on your current assessment.",
+  not_eligible: "A specialist assessment is not suitable for you at the moment, based on your current assessment.",
 };
 
 export async function BariatricReferralStatus({ patientId }: { patientId: string }) {

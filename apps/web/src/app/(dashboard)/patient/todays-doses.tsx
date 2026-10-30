@@ -27,9 +27,9 @@ type MissedReason = (typeof MISSED_REASONS)[number];
 const MISSED_REASON_LABEL: Record<MissedReason, string> = {
   forgot: "I forgot",
   device_unavailable: "Don't have it with me",
-  doesnt_understand: "Not sure how/why to take it",
+  doesnt_understand: "I am not sure how or why to take it",
   doesnt_want_to: "Chose not to take it",
-  feels_well: "Feeling fine, didn't think I needed it",
+  feels_well: "I felt well and did not think I needed it",
   technical_problem: "Something else went wrong",
 };
 
@@ -217,7 +217,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                   {askingReason && medication && (
                     <div className="mt-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
                       <p className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-                        What happened? (helps us support you better)
+                        What happened? This helps us support you.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {MISSED_REASONS.map((reason) => (

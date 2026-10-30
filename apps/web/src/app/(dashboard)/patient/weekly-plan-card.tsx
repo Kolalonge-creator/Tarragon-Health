@@ -163,7 +163,7 @@ export function WeeklyPlanCard({
             <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
               {LPE_MODULE_LABEL[priorityGoal.module]} · {priorityGoal.title}
               {priorityGoal.streak.shouldRaiseWorklistItem &&
-                ": a few days missed in a row, worth a fresh start today."}
+                ": a few days were missed in a row. Today is a good day to start again."}
             </p>
           </div>
         )}

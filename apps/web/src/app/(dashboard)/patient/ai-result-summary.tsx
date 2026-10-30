@@ -56,7 +56,7 @@ export function AiResultSummary({
               ? flaggedAnalytes.length > 0
                 ? `${flaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${flaggedAnalytes
                     .map((a) => (a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label))
-                    .join(", ")}. This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+                    .join(", ")}. This is not a diagnosis. You will need to follow up with a doctor about it.`
                 : "One or more values in this file fall outside the range printed on the report itself. This isn't a diagnosis. Only a doctor reviewing the full picture can tell you what it means."
               : "The values in this file look consistent with the ranges printed on the report. A doctor hasn't reviewed this yet. You'll see their interpretation here once they have."}
           </p>

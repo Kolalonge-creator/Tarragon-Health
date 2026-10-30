@@ -61,8 +61,8 @@ export function SymptomToTestCheck() {
       <div className="mx-auto max-w-2xl space-y-4">
         {matched.length === 0 ? (
           <ResultCard
-            title="Not sure what this points to"
-            body="What you've described doesn't clearly match one of the specific patterns we check for here. That doesn't mean it's nothing. A doctor is the right next step to look at it properly."
+            title="No clear match found"
+            body="What you have described does not clearly match one of the specific patterns this tool checks for. That does not mean it is nothing. The best next step is to have a doctor look at it properly."
           />
         ) : (
           matched.map((cluster) => (
@@ -85,8 +85,8 @@ export function SymptomToTestCheck() {
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-8">
       <p className="text-sm leading-relaxed text-charcoal-ink/70">
-        Tick anything you&apos;ve been noticing lately. This isn&apos;t a diagnosis, just a
-        starting point.
+        Tick any symptoms you have noticed recently. This is not a diagnosis. It is a
+        starting point for deciding what to do next.
       </p>
       <fieldset className="mt-6">
         <legend className="sr-only">Symptoms</legend>
@@ -158,7 +158,7 @@ function ClusterResultCard({ cluster }: { cluster: SymptomCluster }) {
         </Link>
       </div>
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
-        Sign up to actually request this or book a consultation. Nothing here is a diagnosis,
+        Sign up to request this test or book a consultation. Nothing here is a diagnosis,
         and nothing you answered was saved or sent anywhere.
       </p>
       <MembershipCtaCard className="mt-6 border-white/60 bg-white/60" />

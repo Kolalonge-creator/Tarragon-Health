@@ -612,7 +612,7 @@ function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstN
           {data.reviewOverdue
             ? "A doctor was due to review this by " +
               shortDate(data.nextReviewDue) +
-              ". We are chasing it."
+              ". We are following this up."
             : `A doctor reviews it by ${shortDate(data.nextReviewDue)}.`}
         </p>
       )}

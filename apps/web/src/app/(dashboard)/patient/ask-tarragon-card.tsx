@@ -85,8 +85,8 @@ export function AskTarragonCard({
         </CardTitle>
         <CardDescription>
           {coachAccess
-            ? "Describe what's worrying you or share a lab result, and get plain-language guidance plus a fast way to reach a Tarragon doctor."
-            : "Share a lab result and get plain-language guidance plus a fast way to reach a Tarragon doctor."}
+            ? "Describe what is worrying you or share a laboratory result. You will receive guidance in plain language and a quick way to reach a Tarragon doctor."
+            : "Share a laboratory result. You will receive guidance in plain language and a quick way to reach a Tarragon doctor."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -94,7 +94,7 @@ export function AskTarragonCard({
           {coachAccess && (
             <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
               <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                Got a symptom you&apos;re worried about?
+                Do you have a symptom that concerns you?
               </p>
               <form onSubmit={handleSubmit} className="flex gap-2">
                 <Input
@@ -144,12 +144,11 @@ export function AskTarragonCard({
 
           <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-              Got a lab result to share?
+              Do you have a laboratory result to share?
             </p>
             <PatientResultUpload label="Upload a result" patientId={patientId} />
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-              We&apos;ll read it and let you know right away if anything looks outside range, with
-              an option to discuss it with a doctor.{" "}
+              We will read it and tell you straight away if anything is outside the expected range. You can then choose to discuss it with a doctor.{" "}
               <Link href="/patient/labs" className="underline">
                 See your results →
               </Link>

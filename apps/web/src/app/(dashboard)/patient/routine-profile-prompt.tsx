@@ -48,7 +48,7 @@ export function RoutineProfilePrompt({ patientId }: { patientId: string }) {
   return (
     <div className="mt-4 space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Quick one: is your day usually more of a morning person or an evening person?
+        Are you usually more active in the morning or in the evening?
       </p>
       <div className="flex flex-wrap gap-2">
         {OPTIONS.map((option) => (

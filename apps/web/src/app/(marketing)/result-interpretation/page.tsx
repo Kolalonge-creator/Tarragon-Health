@@ -41,19 +41,19 @@ export const metadata: Metadata = pageMetadata({
 const STEPS = [
   {
     title: "Upload what you already have",
-    body: "A PDF, a photograph of a printed report, whatever the laboratory gave you. From any laboratory or hospital in Nigeria. You do not need to have ordered the test through us, and most people who use this did not.",
+    body: "A PDF, a photograph of a printed report, or whatever the laboratory gave you, from any laboratory or hospital in Nigeria. You do not need to have ordered the test through us, and most people who use this service did not.",
   },
   {
     title: "A doctor reads it properly",
-    body: "Not a template and not an automatic flag on anything outside the reference range. A doctor on our care team reads the actual figures against your age, sex and anything else on your record.",
+    body: "This is not a template, and it is not an automatic flag on anything outside the reference range. A doctor on our care team reads the actual figures against your age, sex and anything else on your record.",
   },
   {
     title: "You get it back in writing",
-    body: "Which figures are outside the normal range, what that does and does not indicate, what to do next, and what is worth rechecking and when. In plain language, on your record, where you can read it again in six months.",
+    body: "The reply explains which figures are outside the normal range, what that does and does not indicate, what to do next, and what is worth rechecking and when. It is written in plain language and kept on your record, where you can read it again in six months.",
   },
   {
-    title: "And it stops being a one-off",
-    body: "The result stays on your record. Next year's version of the same test is a trend rather than another isolated number, which is usually where the actual information is.",
+    title: "It becomes part of your history",
+    body: "The result stays on your record. Next year's version of the same test then shows a trend instead of another isolated number, and the trend is usually where the useful information is.",
   },
 ];
 
@@ -61,12 +61,12 @@ const FAQ = [
   {
     question: "Do I have to have used Tarragon before?",
     answer:
-      "No. Create a free account, upload the result, and pay for the reading. That is the whole thing. Nothing else has to be set up first.",
+      "No. Create a free account, upload the result, and pay for the reading. Nothing else has to be set up first.",
   },
   {
     question: "Which laboratories do you accept results from?",
     answer:
-      "All of them. Any registered laboratory or hospital in Nigeria, and results from abroad too. We have no commercial relationship with any laboratory and take no cut of what they charged you.",
+      "All of them. We accept results from any registered laboratory or hospital in Nigeria, and from abroad. We have no commercial relationship with any laboratory and take no commission on what they charged you.",
   },
   {
     question: "Can a doctor diagnose me from this?",
@@ -86,7 +86,7 @@ const FAQ = [
   {
     question: "Do you sell the tests too?",
     answer:
-      "No. We work out which tests you need and write the request, free, and you take it to whichever laboratory you choose and pay them directly at their price. We add nothing and take no cut. Reading the result with you is part of Membership.",
+      "No. We work out which tests you need and write the request, free of charge, and you take it to whichever laboratory you choose and pay the laboratory directly at its price. We add nothing and take no commission. Reading the result with you is part of Membership.",
   },
 ];
 
@@ -98,19 +98,20 @@ export default function ResultInterpretationPage() {
           as="h1"
           size="large"
           eyebrow="Written result interpretation"
-          title="You have the result. Now what does it mean?"
+          title="You have your result. What does it mean?"
           description="Upload a result from any laboratory in Nigeria and a doctor will read it and write back what it means, in plain language, on a record that keeps it."
         />
 
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            Nigerian laboratories are good at producing results and nobody is paid to explain them.
-            You get a page of figures, a reference range, and a couple of numbers printed in bold
+            Nigerian laboratories produce results well, but nobody is paid to explain them.
+            You receive a page of figures, a reference range, and a few numbers printed in bold
             that may or may not matter.
           </p>
           <p>
-            So people photograph it and send it to a relative who is a nurse, or search the worst
-            possible interpretation, or file it and hope. This is the missing step.
+            As a result, people photograph the report and send it to a relative who is a nurse, search
+            online and find the worst possible explanation, or file it away and hope for the best. This
+            service provides the missing step.
           </p>
         </div>
 
@@ -123,7 +124,7 @@ export default function ResultInterpretationPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="Four steps, and none of them involve us selling you a test" />
+        <SectionHeading eyebrow="How it works" title="Four steps, none of which involve selling you a test" />
         <ol className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2">
           {STEPS.map((step, index) => (
             <li
@@ -148,12 +149,12 @@ export default function ResultInterpretationPage() {
           <FaqAccordion items={FAQ} />
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Not sure which tests you should be having in the first place?{" "}
+          If you are not sure which tests you should have,{" "}
           <Link
             href={MARKETING_ROUTES.prevention}
             className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-4 hover:decoration-brand-green"
           >
-            Your screening calendar works that out for free
+            your screening calendar works that out for free
           </Link>
           .
         </p>

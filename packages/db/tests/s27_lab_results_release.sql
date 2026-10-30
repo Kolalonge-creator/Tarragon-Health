@@ -91,7 +91,7 @@ end $f$;
 create function pg_temp.items(p_creatinine numeric, p_extra text default '') returns text language sql as
 $$ select '[{"analyte_code":"fasting_glucose","value_numeric":88},{"analyte_code":"hba1c","value_numeric":5.2},{"analyte_code":"creatinine","value_numeric":'
   || p_creatinine || '},{"analyte_code":"potassium","value_numeric":4.1},{"analyte_code":"sodium","value_numeric":140},{"analyte_code":"total_cholesterol","value_numeric":170},{"analyte_code":"ldl_cholesterol","value_numeric":100},{"analyte_code":"hdl_cholesterol","value_numeric":55},{"analyte_code":"triglycerides","value_numeric":110},{"analyte_code":"alt","value_numeric":24}'
-  || ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2}'
+  || ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250}'
   -- HIV, HBsAg and anti-HCV are required every year (CMO C1/C6), so a complete panel carries all three; a caller that passes one in
   -- p_extra supplies its own value for it
   || case when p_extra like '%"hiv_screen"%' then '' else ',{"analyte_code":"hiv_screen","value_text":"negative"}' end
@@ -198,7 +198,7 @@ begin
   perform pg_temp.ck('...no clinician reviewed it', 'null', (select coalesce(reviewed_by::text, 'null') from public.lab_results where id = rid));
   perform pg_temp.ck('...no task was created', '0', (select count(*)::text from public.clinical_tasks where dedup_key = 'lab_result:' || rid));
   perform pg_temp.ck('...the patient can see it', '1', pg_temp.visible_to(v_pat, rid));
-  perform pg_temp.ck('...and its eighteen items (the three screening tests are required, CMO C1/C6)', '18', pg_temp.items_visible_to(v_pat, rid));
+  perform pg_temp.ck('...and its seventeen items (the three screening tests are required, CMO C1/C6)', '17', pg_temp.items_visible_to(v_pat, rid));
   perform pg_temp.ck('...the order is resulted', 'resulted', pg_temp.order_status(o));
   perform pg_temp.ck('...the patient got one neutral notice', '1', (select count(*)::text from public.notifications where recipient_id = v_pat and template = 'lab_result_ready'));
   perform pg_temp.ck('...whose payload names no value', 'true',

@@ -65,8 +65,7 @@ export function CkdRiskCard({
             </p>
             {ckdRisk.invisibleToEgfrAlone && (
               <p className="text-charcoal-ink/70 dark:text-night-ink/70">
-                Your kidney function alone looked reassuring — this risk only shows up when combined
-                with your urine protein result, which is why both tests matter together.
+                Your kidney function on its own looked reassuring. This risk only shows when it is combined with your urine protein result, which is why both tests are needed together.
               </p>
             )}
             {egfr?.stale && (
@@ -75,8 +74,7 @@ export function CkdRiskCard({
               </p>
             )}
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              Based on your most recent kidney function and urine protein results, not a diagnosis —
-              your care team reviews what this means for you.
+              Based on your most recent kidney function and urine protein results. This is not a diagnosis, and your care team reviews what it means for you.
             </p>
           </div>
         ) : (

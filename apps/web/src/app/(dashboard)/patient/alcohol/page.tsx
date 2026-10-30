@@ -19,7 +19,7 @@ export default async function AlcoholPage() {
         title="Alcohol"
         icon={SEMANTIC_ICON.alcohol}
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
-        description="Track how much you're drinking and set a goal to cut back, at your own pace."
+        description="Record how much alcohol you drink, and set a goal to reduce it at your own pace."
       />
       <AlcoholClient patientId={profile.id} />
     </div>

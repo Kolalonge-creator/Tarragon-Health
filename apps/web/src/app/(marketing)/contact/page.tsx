@@ -20,7 +20,7 @@ export default function ContactPage() {
           as="h1"
           eyebrow="Contact"
           title="Join TarragonHealth"
-          description="Tell us who you are and what you need: patient, family, employer, or HMO. We will follow up personally."
+          description="Tell us who you are and what you need: patient, family, employer or HMO. A member of our team will reply to you personally."
         />
         <div className="mx-auto max-w-xl">
           {/* The form reads `?source=` itself (client-side), so this page
@@ -31,7 +31,7 @@ export default function ContactPage() {
             <ContactForm />
           </Suspense>
           <p className="mt-6 text-center text-sm text-charcoal-ink/60">
-            Prefer email? Reach us at{" "}
+            To contact us by email, write to{" "}
             <a href="mailto:hello@tarragonhealth.ng" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               hello@tarragonhealth.ng
             </a>{" "}
@@ -39,7 +39,7 @@ export default function ContactPage() {
             <a href="mailto:support@tarragonhealth.ng" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               support@tarragonhealth.ng
             </a>{" "}
-            if you&apos;re already a patient, or call{" "}
+            if you are already a patient, or call{" "}
             <a href="tel:+2348061197940" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               +234 806 119 7940
             </a>

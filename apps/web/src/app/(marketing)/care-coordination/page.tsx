@@ -24,39 +24,39 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 
 const CONNECTS = [
   {
-    title: "Hassle-free lab tests",
-    body: "No more guessing what to check or when. Tarragon works out which tests are due, writes the request for whichever laboratory suits you, and makes sure a doctor reads every result.",
+    title: "Laboratory tests arranged for you",
+    body: "You do not have to guess which tests you need or when. Tarragon works out which tests are due, writes the request for whichever laboratory suits you, and makes sure a doctor reads every result.",
   },
   {
     title: "Refills tracked, wherever you buy",
-    body: "Buy your medication at whichever pharmacy suits you and pay them directly. Refill alerts land before you run out, you log what you collect, and your doctor follows up on missed doses.",
+    body: "You buy your medication at whichever pharmacy suits you and pay the pharmacy directly. Refill reminders arrive before you run out, you record what you collect, and your doctor follows up on missed doses.",
   },
   {
     title: "Specialist referrals that carry your record",
-    body: "When your care team refers you, the referral letter carries your readings, medications, and the result that prompted it, so the specialist doesn't start from zero. You choose the specialist and pay them directly, and their findings come back onto the same record.",
+    body: "When your care team refers you, the referral letter includes your readings, your medications and the result that prompted it, so the specialist does not have to start from the beginning. You choose the specialist and pay them directly, and their findings come back onto the same record.",
   },
   {
-    title: "A doctor, when you need one directly",
-    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a simple pay-per-service booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
+    title: "A doctor when you need one directly",
+    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a single paid booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
   },
 ];
 
 const JOURNEY = [
   {
-    title: "We tell you what's needed",
-    body: "A test is due, a refill is running low, or your doctor recommends a check. You see it in the app, with a reminder so it doesn't slip.",
+    title: "We tell you what is needed",
+    body: "A test may be due, a refill may be running low, or your doctor may recommend a check. You see this in the app, with a reminder so that it is not forgotten.",
   },
   {
     title: "You choose where to go",
-    body: "We write the request and you take it to whichever laboratory you trust. You pay them directly, at their price, and we take nothing on it.",
+    body: "We write the request and you take it to whichever laboratory you trust. You pay the laboratory directly at its price, and we take no commission.",
   },
   {
     title: "You get a request to take with you",
-    body: "A written request naming exactly which tests to run and why, so nothing is left to a conversation at the counter.",
+    body: "A written request names exactly which tests to run and why, so nothing depends on a conversation at the counter.",
   },
   {
     title: "The result comes back reviewed",
-    body: "Your result lands on your record, explained in plain language, and a doctor reviews it. If anything needs attention, your care team follows up directly, at no extra charge.",
+    body: "Your result is added to your record with an explanation in plain language, and a doctor reviews it. If anything needs attention, your care team follows up with you directly, at no extra charge.",
   },
 ];
 
@@ -68,7 +68,7 @@ export default function CareCoordinationPage() {
       <PhotoBannerHero
         eyebrow="Care coordination"
         title="The pieces of your care, kept connected"
-        description="In most of Nigeria, you're your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication. Tarragon takes that job off you, coordinating labs, pharmacies, and specialists from one shared record."
+        description="In most of Nigeria, people have to coordinate their own care: finding a reliable laboratory, chasing results and searching for genuine medication. Tarragon takes on that work, coordinating laboratories, pharmacies and specialists from one shared record."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref={MARKETING_ROUTES.pricing}
@@ -90,14 +90,14 @@ export default function CareCoordinationPage() {
         <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              One care team, everywhere you already go
+              One care team across the places you already use
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Labs, pharmacies, and specialists, coordinated from one record
+              Laboratories, pharmacies and specialists, coordinated from one record
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Tarragon doesn&apos;t own a lab, a pharmacy, or a specialist practice. It coordinates the
-              ones you already use, so nothing you need falls through the gap between providers.
+              Tarragon does not own a laboratory, a pharmacy or a specialist practice. It coordinates
+              the ones you already use, so that nothing you need is lost between providers.
             </p>
           </div>
           <MarketingMediaFrame
@@ -112,8 +112,8 @@ export default function CareCoordinationPage() {
       <Section>
         <SectionHeading
           eyebrow="What we connect"
-          title="One record, less chasing"
-          description="Coordination isn't an abstract promise. Here is exactly what it does for you."
+          title="One record, less chasing of results"
+          description="Coordination is a practical service. This is what it does for you."
         />
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {CONNECTS.map((item) => (
@@ -139,7 +139,7 @@ export default function CareCoordinationPage() {
       <Section>
         <SectionHeading
           eyebrow="How a coordinated booking works"
-          title="From “it's due” to “it's done”, in four steps"
+          title="From a test being due to a result being reviewed, in four steps"
         />
         <ol className="mx-auto grid max-w-3xl gap-6">
           {JOURNEY.map((step, index) => (
@@ -161,8 +161,8 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We do not set, quote or collect a naira for any test: the laboratory tells you its own
-          price, and you pay them directly.
+          We do not set, quote or collect payment for any test. The laboratory tells you its own
+          price, and you pay the laboratory directly.
         </p>
       </Section>
 
@@ -177,14 +177,14 @@ export default function CareCoordinationPage() {
           />
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Your care team, a message away
+              Contact your care team by message
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              A written question, a real reply, right in the app
+              Ask a written question and receive a reply in the app
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              No chat thread that disappears, no waiting for the next visit to ask something.
-              Message your care team in the app and hear back from the doctors reviewing your case.
+              Your messages are kept in the app, so you do not have to wait for your next visit to ask
+              a question. Message your care team and receive a reply from the doctors reviewing your case.
             </p>
           </div>
         </div>
@@ -193,19 +193,19 @@ export default function CareCoordinationPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Why it matters"
-          title="Care falls apart in the gaps between providers"
+          title="Care breaks down in the gaps between providers"
         />
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            A blood pressure reading at one clinic, a lab result from another, medication bought
-            wherever it was available that day: when no one holds the full picture, warning signs
-            get missed and money gets wasted repeating tests.
+            A blood pressure reading at one clinic, a laboratory result from another, and medication
+            bought wherever it was available that day: when no one holds the full picture, warning
+            signs are missed and money is wasted on repeated tests.
           </p>
           <p>
-            Tarragon holds the full picture. Every reading, result, refill, and referral lives on
-            one longitudinal record that your care team actually watches, so an abnormal result
+            Tarragon holds the full picture. Every reading, result, refill and referral is kept on
+            one record over time, and your care team monitors it. As a result, an abnormal result
             triggers follow-up within hours, a refill is arranged before you run out, and a
-            specialist sees your history instead of starting from zero.
+            specialist sees your history instead of starting from the beginning.
           </p>
         </div>
       </Section>
@@ -213,7 +213,7 @@ export default function CareCoordinationPage() {
       <Section className="pb-24">
         <CtaBand
           title="Keep your care coordinated"
-          description="Labs, medication, and referrals working from one record."
+          description="Laboratory tests, medication and referrals working from one record."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

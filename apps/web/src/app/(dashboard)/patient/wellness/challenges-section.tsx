@@ -67,7 +67,7 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
           <SEMANTIC_ICON.challenge className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Challenges
         </CardTitle>
-        <CardDescription>Time-boxed goals that pay a points bonus when you finish.</CardDescription>
+        <CardDescription>Goals with a time limit. You earn bonus points when you finish one.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
