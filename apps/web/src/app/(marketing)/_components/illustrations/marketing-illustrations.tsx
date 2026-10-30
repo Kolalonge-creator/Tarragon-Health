@@ -99,7 +99,7 @@ function FamilyCareIllustration({ className }: IllustrationProps) {
       {/* Confirmation chip */}
       <rect x="290" y="248" width="88" height="36" rx="10" className="fill-brand-green/15" />
       <text x="304" y="270" className="fill-deep-forest text-[11px] font-medium">
-        BP logged ✓
+        Logged ✓
       </text>
     </svg>
   );
@@ -222,8 +222,8 @@ function HypertensionIllustration({ className }: IllustrationProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <text x="168" y="280" className="fill-clinical-navy text-[14px] font-semibold">
-        Track BP trends between visits
+      <text x="240" y="280" textAnchor="middle" className="fill-clinical-navy text-[14px] font-semibold">
+        Track blood pressure trends between visits
       </text>
     </svg>
   );
@@ -395,7 +395,7 @@ function CareLoopIllustration({ className }: IllustrationProps) {
   return (
     <svg viewBox="0 0 480 360" className={className} fill="none" aria-hidden>
       <rect width="480" height="360" rx="24" className="fill-warm-ivory" />
-      {/* Monitor → review → escalate → back to monitor: a loop, not a queue. */}
+      {/* Monitor → review → referral → back to monitor: a loop, not a queue. */}
       <path d="M267 100 Q 356 132 366 214" className="stroke-brand-green/40" strokeWidth="2" strokeLinecap="round" />
       <path d="M330 268 Q 240 322 150 268" className="stroke-brand-green/40" strokeWidth="2" strokeLinecap="round" />
       <path d="M114 214 Q 122 132 213 100" className="stroke-brand-green/40" strokeWidth="2" strokeLinecap="round" />
@@ -436,7 +436,7 @@ function CareLoopIllustration({ className }: IllustrationProps) {
         strokeLinejoin="round"
       />
       <text x="124" y="296" textAnchor="middle" className="fill-charcoal-ink text-[12px] font-semibold">
-        Escalate
+        Referral
       </text>
     </svg>
   );
