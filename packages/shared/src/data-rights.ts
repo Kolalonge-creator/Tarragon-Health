@@ -186,17 +186,17 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
   }
 }
 
-/** What our team goes through removing when it closes an account (each request is reviewed by a person and the note says what was actually done). A person goes through each request and writes down what was done; see docs/design/S39d-class-review.md. */
+/** What closing an account removes (public.close_patient_account, OQ-S04b2-2). A person reviews each request first; the database step removes only what the S39d registry classes mark operational, plus sign-in, contact details, device connections and sharing. */
 export const DELETION_REMOVED: readonly string[] = [
   "Your sign-in and contact details",
   "Your preferences and reminders",
-  "Connected devices and the data they sent",
+  "Connected devices: each connection is ended and its access removed",
   "Anything you chose to share, such as with your Care Circle or for research",
 ];
 
 /** What the law and clinical safety require us to keep. These are never erased by this flow. */
 export const DELETION_KEPT: readonly string[] = [
-  "Posted clinical records: your results, prescriptions, referrals, consultation notes and care plans",
+  "Posted clinical records: your results, prescriptions, referrals, consultation notes, care plans and readings already in your record, including those from devices",
   "The audit log that records who opened your record and when",
   "Financial and payment ledger entries",
   "Your consent history, so we can show what you agreed to and when",
