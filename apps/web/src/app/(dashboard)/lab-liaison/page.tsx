@@ -122,6 +122,34 @@ export default async function LabLiaisonPage() {
         </LoadFailure>
       )}
 
+      {/* The job comes first: find the patient and upload the result a lab emailed.
+          Nothing here is queued for the liaison by the system (results arrive by
+          email, outside the app), so there is no "needs you first" list to rank;
+          the counts and the files already recorded follow the uploader. */}
+      {summary.patientListFailed ? (
+        <LoadFailure>
+          The list of patients could not be loaded, so you cannot upload a result right now. This
+          does not mean your organisation has no patients. Reload the page to try again.
+        </LoadFailure>
+      ) : patients.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>No patients yet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-ink/60">
+              There are no patients in your organisation to upload results for yet.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <LabLiaisonWorklist
+          patients={patients}
+          recent={recent}
+          recentFailed={summary.recentFeedFailed}
+        />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={SEMANTIC_ICON.parentCare}
@@ -151,30 +179,6 @@ export default async function LabLiaisonPage() {
       </div>
 
       <HeldUploads rows={held} failed={summary.heldFailed} />
-
-      {summary.patientListFailed ? (
-        <LoadFailure>
-          The list of patients could not be loaded, so you cannot upload a result right now. This
-          does not mean your organisation has no patients. Reload the page to try again.
-        </LoadFailure>
-      ) : patients.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No patients yet</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-charcoal-ink/60">
-              There are no patients in your organisation to upload results for yet.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <LabLiaisonWorklist
-          patients={patients}
-          recent={recent}
-          recentFailed={summary.recentFeedFailed}
-        />
-      )}
     </div>
   );
 }
