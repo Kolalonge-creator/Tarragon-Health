@@ -86,6 +86,33 @@ export type Database = {
         }
         Relationships: []
       }
+      care_thread_owners: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          handover_note: string | null
+          organisation_id: string
+          owner_id: string
+          thread_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          handover_note?: string | null
+          organisation_id: string
+          owner_id: string
+          thread_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          handover_note?: string | null
+          organisation_id?: string
+          owner_id?: string
+          thread_id?: string
+        }
+        Relationships: []
+      }
       fasting_safety_config: {
         Row: {
           approved_at: string | null
@@ -7391,6 +7418,33 @@ export type Database = {
           },
         ]
       }
+      care_message_actions: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message_id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          message_id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message_id?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
       care_message_attachments: {
         Row: {
           created_at: string
@@ -7611,6 +7665,8 @@ export type Database = {
           organisation_id: string
           patient_id: string
           patient_last_read_at: string | null
+          patient_last_reminded_at: string | null
+          patient_reminder_count: number
           status: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id: string | null
@@ -7632,6 +7688,8 @@ export type Database = {
           organisation_id: string
           patient_id: string
           patient_last_read_at?: string | null
+          patient_last_reminded_at?: string | null
+          patient_reminder_count?: number
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id?: string | null
@@ -7653,6 +7711,8 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           patient_last_read_at?: string | null
+          patient_last_reminded_at?: string | null
+          patient_reminder_count?: number
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject?: string
           unread_alert_id?: string | null

@@ -4,9 +4,12 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 let messages: unknown[] = [];
+let actionRows: { id: string; message_id: string; kind: string }[] = [];
 jest.mock("@/lib/queries/care-messages", () => ({
   useThreadMessages: () => ({ data: messages, isLoading: false }),
   usePostMessage: () => ({ mutate: jest.fn(), isPending: false }),
+  useMessageActions: () => ({ data: actionRows }),
+  useAddMessageActions: () => ({ mutate: jest.fn() }),
   useThreadStatus: () => ({ data: undefined }),
   useMarkThreadRead: () => ({ mutate: jest.fn() }),
   useCareMessageTemplates: () => ({ data: [] }),
@@ -52,5 +55,16 @@ describe("CareMessageThread layout", () => {
     expect(receiptText("2026-10-30T10:00:00Z", "2026-10-30T09:59:00Z", true)).toBe("Sent, not seen yet");
     expect(receiptText("2026-10-30T10:00:00Z", "2026-10-30T10:05:00Z", true)).toMatch(/^Seen by the patient/);
     expect(receiptText("2026-10-30T10:00:00Z", "2026-10-30T10:05:00Z", false)).toMatch(/^Seen by your care team/);
+  });
+
+  it("shows a care-team action as a link to the patient and as a plain note to staff", () => {
+    messages = [{ ...base, id: "1", body: "Please book", author_role: "care_team", author_display: null, actor: null, attachments: [] }];
+    actionRows = [{ id: "a1", message_id: "1", kind: "book_appointment" }];
+    const { rerender } = render(<CareMessageThread threadId="t1" patientId="p1" closed />, { wrapper: wrap });
+    expect(screen.getByRole("link", { name: "Book an appointment" }).getAttribute("href")).toBe("/patient/appointments");
+    rerender(<CareMessageThread threadId="t1" patientId="p1" closed isStaff />);
+    expect(screen.queryByRole("link", { name: "Book an appointment" })).toBeNull();
+    expect(screen.getByText("Button: Book an appointment")).toBeTruthy();
+    actionRows = [];
   });
 });

@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import {
   useOrgCareThreads,
   useCloseThread,
+  useThreadOwner,
+  useCareStaff,
+  useSetThreadOwner,
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
@@ -35,6 +40,80 @@ function when(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function useCurrentUserId() {
+  return useQuery({
+    queryKey: ["current-user-id"],
+    queryFn: async () => (await createClient().auth.getUser()).data.user?.id ?? null,
+    staleTime: Infinity,
+  });
+}
+
+/** Who has this conversation, and the note left for them. Staff only (the owner table is unreadable to a patient). */
+function ThreadOwnerBar({ threadId, organisationId }: { threadId: string; organisationId: string }) {
+  const { data: owner } = useThreadOwner(threadId);
+  const { data: me } = useCurrentUserId();
+  const { data: staff } = useCareStaff();
+  const setOwner = useSetThreadOwner();
+  const [handing, setHanding] = useState(false);
+  const [to, setTo] = useState("");
+  const [note, setNote] = useState("");
+
+  const mine = !!me && owner?.owner_id === me;
+  const assign = (ownerId: string, handoverNote?: string) =>
+    setOwner.mutate(
+      { threadId, organisationId, ownerId, note: handoverNote },
+      { onSuccess: () => { setHanding(false); setNote(""); setTo(""); } }
+    );
+
+  return (
+    <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-charcoal-ink/70">
+          {owner ? (mine ? "You own this conversation" : `Owned by ${owner.owner?.full_name ?? "a colleague"}`) : "Nobody owns this conversation yet"}
+        </span>
+        {!mine && me && (
+          <Button type="button" size="sm" variant="outline" disabled={setOwner.isPending} onClick={() => assign(me)}>
+            Take it
+          </Button>
+        )}
+        {owner && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setHanding((v) => !v)}>
+            {handing ? "Cancel" : "Hand over"}
+          </Button>
+        )}
+      </div>
+      {owner?.handover_note && <p className="text-charcoal-ink/70">Hand-over note: {owner.handover_note}</p>}
+      {handing && (
+        <div className="flex flex-wrap items-start gap-2">
+          <select
+            aria-label="Hand over to"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="h-8 rounded-md border border-charcoal-ink/15 bg-white px-2"
+          >
+            <option value="">Choose a colleague…</option>
+            {(staff ?? []).filter((p) => p.id !== me).map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name ?? "Colleague"}</option>
+            ))}
+          </select>
+          <input
+            aria-label="Hand-over note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="What they need to know (staff only)"
+            maxLength={2000}
+            className="h-8 min-w-48 flex-1 rounded-md border border-charcoal-ink/15 bg-white px-2"
+          />
+          <Button type="button" size="sm" disabled={!to || setOwner.isPending} onClick={() => assign(to, note)}>
+            Hand over
+          </Button>
+        </div>
+      )}
+      {setOwner.isError && <p role="alert" className="text-red-600">Could not change the owner.</p>}
+    </div>
+  );
 }
 
 function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatient; focusedId: string | null; onFocus: (id: string) => void }) {
@@ -86,6 +165,7 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
         <div className="mt-3 space-y-3" onFocusCapture={() => onFocus(thread.id)} onPointerDownCapture={() => onFocus(thread.id)}>
           {/* W-01: with several threads expanded, only the one in focus is timed */}
           <TimeCapture source="message" sourceRef={thread.id} patientId={thread.patient_id} showNotice={false} active={focusedId === thread.id} />
+          <ThreadOwnerBar threadId={thread.id} organisationId={thread.organisation_id} />
           <AgpDisclosure patientId={thread.patient_id} />
           <CareMessageThread
             threadId={thread.id}

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import {
   useThreadMessages,
   useThreadStatus,
+  useMessageActions,
+  useAddMessageActions,
   usePostMessage,
   useMarkThreadRead,
   useCareMessageTemplates,
@@ -12,6 +14,7 @@ import {
   type CareMessage,
   type CareMessageAttachment,
 } from "@/lib/queries/care-messages";
+import { CARE_MESSAGE_ACTIONS, CARE_MESSAGE_ACTION_KINDS, isCareMessageActionKind } from "@/lib/care-messages/action-kinds";
 import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -174,9 +177,8 @@ export function CareMessageThread({
    * unreadable to a patient session via RLS) -- the patient-facing call
    * sites (messages-flow.tsx, supported-people.tsx) leave this unset. */
   showDraftAssist?: boolean;
-  /** Renders the 77.7 template picker and skips the 77.10 attach control —
-   * only a patient's own session can upload into their own storage folder
-   * (see care-message-attachments.sql's storage policies). */
+  /** Renders the 77.7 template picker and the action-button choices. Staff can attach files too
+   * (storage policy added with the staff chat). */
   isStaff?: boolean;
   /** Messaging boundaries (17.11): this channel is read by the care team
    * during normal hours, not watched continuously — a patient composing
@@ -189,8 +191,11 @@ export function CareMessageThread({
   const post = usePostMessage();
   const markRead = useMarkThreadRead();
   const { data: status } = useThreadStatus(threadId);
-  const queryClient = useQueryClient();
-  const seenLastMessageAt = useRef<string | null>(null);
+  const addActions = useAddMessageActions();
+  const { data: actionRows } = useMessageActions((messages ?? []).map((m) => m.id));
+  const [pickedActions, setPickedActions] = useState<string[]>([]);
+  const actionsByMessage = new Map<string, string[]>();
+  for (const a of actionRows ?? []) actionsByMessage.set(a.message_id, [...(actionsByMessage.get(a.message_id) ?? []), a.kind]);
   const upload = useUploadCareMessageAttachment();
   const [body, setBody] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -207,16 +212,6 @@ export function CareMessageThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
 
-  // Live feel without a websocket: when the status poll sees a newer message, pull the messages once.
-  const lastMessageAt = status?.last_message_at ?? null;
-  useEffect(() => {
-    if (!lastMessageAt) return;
-    if (seenLastMessageAt.current && seenLastMessageAt.current !== lastMessageAt) {
-      queryClient.invalidateQueries({ queryKey: ["care-messages", threadId] });
-    }
-    seenLastMessageAt.current = lastMessageAt;
-  }, [lastMessageAt, threadId, queryClient]);
-
   const send = () => {
     setError(null);
     post.mutate(
@@ -224,6 +219,13 @@ export function CareMessageThread({
       {
         onSuccess: (messageId) => {
           setBody("");
+          if (isStaff && pickedActions.length > 0 && status?.organisation_id) {
+            addActions.mutate(
+              { messageId, patientId, organisationId: status.organisation_id, kinds: pickedActions },
+              { onError: () => setError("Your message was sent, but the buttons could not be added.") },
+            );
+            setPickedActions([]);
+          }
           if (pendingFile) {
             upload.mutate(
               { messageId, threadId, patientId, file: pendingFile },
@@ -286,6 +288,25 @@ export function CareMessageThread({
               <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{when(message.created_at)}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">{message.body}</p>
+            {(actionsByMessage.get(message.id) ?? []).filter(isCareMessageActionKind).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(actionsByMessage.get(message.id) ?? []).filter(isCareMessageActionKind).map((kind) =>
+                  isStaff ? (
+                    <span key={kind} className="rounded-full bg-charcoal-ink/5 px-2.5 py-1 text-xs text-charcoal-ink/70">
+                      Button: {CARE_MESSAGE_ACTIONS[kind].label}
+                    </span>
+                  ) : (
+                    <Link
+                      key={kind}
+                      href={CARE_MESSAGE_ACTIONS[kind].href}
+                      className="rounded-full bg-brand-green px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                      {CARE_MESSAGE_ACTIONS[kind].label}
+                    </Link>
+                  ),
+                )}
+              </div>
+            )}
             {message.id === lastOwnMessageId && (
               <p className="mt-1 text-right text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 {receiptText(message.created_at, isStaff ? status?.patient_last_read_at : status?.care_team_last_read_at, isStaff)}
@@ -310,6 +331,24 @@ export function CareMessageThread({
           {showDraftAssist && <DraftReplyCard threadId={threadId} />}
           {isStaff && (
             <TemplatePicker onPick={(templateBody) => setBody(templateBody)} />
+          )}
+          {isStaff && (
+            <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <legend className="sr-only">Add buttons to this message</legend>
+              <span className="text-xs text-charcoal-ink/60">Add a button:</span>
+              {CARE_MESSAGE_ACTION_KINDS.map((kind) => (
+                <label key={kind} className="flex items-center gap-1.5 text-xs text-charcoal-ink/80">
+                  <input
+                    type="checkbox"
+                    checked={pickedActions.includes(kind)}
+                    onChange={(e) =>
+                      setPickedActions((cur) => (e.target.checked ? [...cur, kind] : cur.filter((k) => k !== kind)))
+                    }
+                  />
+                  {CARE_MESSAGE_ACTIONS[kind].label}
+                </label>
+              ))}
+            </fieldset>
           )}
           {showEmergencyNotice && (
             <p className="rounded-lg bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-xs text-amber-900">
@@ -355,8 +394,7 @@ export function CareMessageThread({
             >
               {post.isPending || upload.isPending ? "Sending…" : "Send"}
             </Button>
-            {!isStaff && (
-              <>
+            <>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -373,8 +411,7 @@ export function CareMessageThread({
                   <NAV_ICON.attachment className="h-4 w-4" strokeWidth={2} aria-hidden />
                   Attach a file
                 </button>
-              </>
-            )}
+            </>
             <FormError id={replyErrorId} message={error} />
           </div>
         </div>
