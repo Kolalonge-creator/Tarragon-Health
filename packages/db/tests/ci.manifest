@@ -1695,3 +1695,5 @@ edge_function_rate_limit.sql
 anon_executable_functions_allowlist.sql
 # E7: every push or email row the event machinery queues is renderable by the sender. Drives an emergency-keyword care message and an unacknowledged critical alert up the ladder, then requires each non-in-app row to be on the E7_TS_RENDERED line (proven against TEMPLATE_MAP by packages/notifications events-delivery-renderable.test.ts) or to have an active locale row. Sabotage: take care_message_safety_flag off the line and the proof names its push and email rows.
 events_notification_delivery_renderable.sql
+# OQ-731: a clinician's critical notice whose delivery ladder is exhausted also opens a sev1 ops incident (the ops desk phone call); a patient's does not; text names no person; rerun changes nothing; a failing incident call is audited and does not stop the engine. Sabotage removes the block and the incident check flips.
+exhausted_critical_ladder_opens_ops_incident.sql
