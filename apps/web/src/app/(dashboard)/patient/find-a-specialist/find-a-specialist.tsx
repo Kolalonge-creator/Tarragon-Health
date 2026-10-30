@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useMatchedSpecialistProviders } from "@/lib/queries/specialist-referrals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -50,13 +53,16 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
     language: language || undefined,
   });
 
+  // How many of the optional filters are narrowing the results right now (the speciality is always on).
+  const activeFilters = [state, city, language, maxFeeNaira].filter((v) => v !== "").length + (requireTelemedicine ? 1 : 0);
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Find a specialist</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="fas-type">Speciality</Label>
             <Select
@@ -71,46 +77,60 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
               ))}
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fas-state">State</Label>
-            <Input id="fas-state" value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Lagos" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fas-city">City</Label>
-            <Input id="fas-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Ikeja" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fas-fee">Max consultation fee (₦, optional)</Label>
-            <Input
-              id="fas-fee"
-              type="number"
-              min="0"
-              value={maxFeeNaira}
-              onChange={(e) => setMaxFeeNaira(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fas-language">Language (optional)</Label>
-            <Input
-              id="fas-language"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              placeholder="e.g. Yoruba"
-            />
-          </div>
-          <label className="flex items-end gap-2 pb-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-            <input
-              type="checkbox"
-              checked={requireTelemedicine}
-              onChange={(e) => setRequireTelemedicine(e.target.checked)}
-            />
-            Telemedicine only
-          </label>
+          {/* The other filters are optional narrowing, so they are folded; the heading says how many are on. The results below
+              are shown straight away for the chosen speciality (and the patient's own state and city when known). */}
+          <Disclosure
+            title="More filters"
+            hint={activeFilters > 0 ? `${activeFilters} on` : "Location, fee, language, telemedicine"}
+          >
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="fas-state">State</Label>
+                <Input id="fas-state" value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Lagos" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fas-city">City</Label>
+                <Input id="fas-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Ikeja" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fas-fee">Max consultation fee (₦, optional)</Label>
+                <Input
+                  id="fas-fee"
+                  type="number"
+                  min="0"
+                  value={maxFeeNaira}
+                  onChange={(e) => setMaxFeeNaira(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="fas-language">Language (optional)</Label>
+                <Input
+                  id="fas-language"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  placeholder="e.g. Yoruba"
+                />
+              </div>
+              <label className="flex items-end gap-2 pb-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                <input
+                  type="checkbox"
+                  checked={requireTelemedicine}
+                  onChange={(e) => setRequireTelemedicine(e.target.checked)}
+                />
+                Telemedicine only
+              </label>
+            </div>
+          </Disclosure>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="space-y-3 pt-6">
+          {!isLoading && (providers ?? []).length > 0 && (
+            <p role="status" className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+              {(providers ?? []).length} {(providers ?? []).length === 1 ? "specialist" : "specialists"} in {specialistType.replace(/_/g, " ")}
+            </p>
+          )}
           {isLoading ? (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Searching…</p>
           ) : (providers ?? []).length === 0 ? (
@@ -146,10 +166,15 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
               </div>
             ))
           )}
-          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-            Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the
-            referral.
-          </p>
+          <div className="space-y-2 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the
+              referral.
+            </p>
+            <Button asChild size="sm">
+              <Link href="/patient/messages">Message your care team</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -18,9 +18,10 @@ import {
 } from "@/lib/ai-coach";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { EmergencyBlock, LimitsBlock, MemoryBlock, ReportBlock } from "./ai-coach-extras";
+import { AppText } from "@/ui/kit/AppText";
 
 interface AiCoachScreenProps {
   patientId: string;
@@ -195,7 +196,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
         <EmergencyBlock patientId={patientId} />
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
+        <AppText variant="title">AI Health Coach</AppText>
         <MutedText>The assistant is not open yet. If you need help now, send your care team a message in the app.</MutedText>
       </View>
     );
@@ -205,7 +206,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
     return (
       <View style={{ flex: 1, padding: spacing.screen, gap: 8 }}>
         <EmergencyBlock patientId={patientId} />
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
+        <AppText variant="title">AI Health Coach</AppText>
         <MutedText>
           The AI Coach isn&apos;t included on your current plan. Contact your care team if you think
           this is a mistake.
@@ -223,14 +224,14 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ padding: spacing.screen, paddingBottom: 8, gap: 6 }}>
         {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
         <EmergencyBlock patientId={patientId} />
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>AI Health Coach</Text>
+        <AppText variant="title">AI Health Coach</AppText>
         <MutedText>{AI_LABEL_TEXT.coach}</MutedText>
         <MutedText>Ask me anything about your health. I&apos;m here to help you understand what to do next.</MutedText>
       </View>
 
       {nudge ? (
         <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 8, gap: 2 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>{nudge.text}</Text>
+          <AppText variant="body">{nudge.text}</AppText>
           {nudge.week ? <MutedText>{nudge.week}</MutedText> : null}
         </View>
       ) : null}
@@ -264,7 +265,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                     : tierStyle(item.tier, colors)),
                 }}
               >
-                <Text style={{ fontSize: 13.5, color: fromMe ? "#fff" : colors.ink }}>{item.content}</Text>
+                <Text style={{ ...textStyles.body, color: fromMe ? "#fff" : colors.ink }}>{item.content}</Text>
                 {!fromMe && item.sources && item.sources.length > 0 ? (
                   <View style={{ marginTop: 4 }}>
                     <MutedText>{"Sources: " + item.sources.map((s: CoachSource) => describeCoachSource(s)).join("; ")}</MutedText>
@@ -272,7 +273,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                 ) : null}
                 <Text
                   style={{
-                    fontSize: 10,
+                    ...textStyles.caption,
                     marginTop: 2,
                     color: fromMe ? "rgba(255,255,255,0.7)" : colors.faint,
                   }}
@@ -281,9 +282,9 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
                 </Text>
                 {suggestion && (
                   <Pressable accessibilityRole="link" onPress={() => onNavigate(suggestion.section as SectionId)} style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
+                    <AppText variant="caption" tone="brandText" style={{ textDecorationLine: "underline" }}>
                       {suggestion.label} →
-                    </Text>
+                    </AppText>
                   </Pressable>
                 )}
               </View>
@@ -332,7 +333,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
               borderColor: colors.border,
               borderRadius: radius.control,
               padding: 10,
-              fontSize: 13.5,
+              ...textStyles.body,
               color: colors.ink,
               backgroundColor: colors.card,
               textAlignVertical: "top",
@@ -376,7 +377,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
             borderColor: colors.border,
             borderRadius: radius.control,
             paddingHorizontal: 12,
-            fontSize: 13.5,
+            ...textStyles.body,
             color: colors.ink,
             backgroundColor: colors.card,
           }}
@@ -409,18 +410,18 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: spacing.screen }}>
         {handoff === "idle" && (
           <Pressable accessibilityRole="button" onPress={() => void handleHandoff()}>
-            <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>
+            <AppText variant="caption" tone="brandText" style={{ textDecorationLine: "underline" }}>
               I want to speak to someone
-            </Text>
+            </AppText>
           </Pressable>
         )}
         {handoff === "pending" && <MutedText>Starting a conversation with your care team…</MutedText>}
         {handoff === "done" && (
           <Pressable accessibilityRole="link" onPress={() => onNavigate("messages")}>
-            <Text style={{ fontSize: 12, color: colors.ink }}>
+            <AppText variant="caption">
               Sent. Your care team has what you&apos;ve talked about here.{" "}
-              <Text style={{ color: colors.brandPressed, textDecorationLine: "underline" }}>Continue in Messages</Text>
-            </Text>
+              <AppText variant="body" tone="brandText" style={{ textDecorationLine: "underline" }}>Continue in Messages</AppText>
+            </AppText>
           </Pressable>
         )}
         {handoff === "error" && <ErrorText>{handoffError}</ErrorText>}

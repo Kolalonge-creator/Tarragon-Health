@@ -23,6 +23,7 @@ export type TextVariant =
   | "headline"
   | "title"
   | "bodyLarge"
+  | "bodyLargeStrong"
   | "body"
   | "bodyStrong"
   | "label"
@@ -41,6 +42,7 @@ export const textStyles: Record<TextVariant, TextStyleSpec> = {
   headline: { fontFamily: fontFamily.headingBold, fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
   title: { fontFamily: fontFamily.headingSemi, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
   bodyLarge: { fontFamily: fontFamily.body, fontSize: 16, lineHeight: 24, letterSpacing: 0 },
+  bodyLargeStrong: { fontFamily: fontFamily.bodySemi, fontSize: 16, lineHeight: 24, letterSpacing: 0 },
   body: { fontFamily: fontFamily.body, fontSize: 14, lineHeight: 21, letterSpacing: 0 },
   bodyStrong: { fontFamily: fontFamily.bodySemi, fontSize: 14, lineHeight: 21, letterSpacing: 0 },
   label: { fontFamily: fontFamily.bodySemi, fontSize: 13, lineHeight: 18, letterSpacing: 0.1 },

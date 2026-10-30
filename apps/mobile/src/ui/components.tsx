@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, inkAlpha, radius, spacing, typeScale } from "./theme";
+import { textStyles } from "@/ui/design";
 
 interface ButtonProps {
   title: string;
@@ -37,7 +38,7 @@ export function PrimaryButton({ title, onPress, disabled, loading }: ButtonProps
       {loading ? (
         <ActivityIndicator color="#FFFFFF" />
       ) : (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{title}</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", ...textStyles.bodyLargeStrong, }}>{title}</Text>
       )}
     </Pressable>
   );
@@ -64,7 +65,7 @@ export function SecondaryButton({ title, onPress, disabled, loading }: ButtonPro
       {loading ? (
         <ActivityIndicator color={colors.ink} />
       ) : (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{title}</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: colors.ink, ...textStyles.bodyLargeStrong, }}>{title}</Text>
       )}
     </Pressable>
   );
@@ -86,7 +87,7 @@ export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
         opacity: disabled ? 0.5 : 1,
       })}
     >
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>{title}</Text>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: "#FFFFFF", ...textStyles.label, }}>{title}</Text>
     </Pressable>
   );
 }
@@ -133,7 +134,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   const c = BADGE_TONES[tone];
   return (
     <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10 }}>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{children}</Text>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ ...textStyles.label, color: c.text }}>{children}</Text>
     </View>
   );
 }
@@ -155,8 +156,8 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
       maxFontSizeMultiplier={MAX_FONT_SCALE}
       style={[
         {
-          fontSize: 12.5,
-          fontWeight: "800",
+          ...textStyles.label,
+          
           letterSpacing: 0.5,
           textTransform: "uppercase",
           color: colors.ink,
@@ -231,7 +232,7 @@ export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron",
     >
       {leading}
       <View style={{ flex: 1 }}>
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "600", color: disabled ? colors.faint : colors.ink }}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ ...textStyles.bodyStrong, color: disabled ? colors.faint : colors.ink }}>
           {title}
         </Text>
         {subtitle ? <MutedText>{subtitle}</MutedText> : null}
@@ -337,10 +338,10 @@ export function CalloutCard({
       />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Ionicons name={icon} size={18} color={colors.ink} />
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{title}</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ ...textStyles.bodyStrong, color: colors.ink }}>{title}</Text>
       </View>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }}>{subtitle}</Text>
-      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand, alignSelf: "flex-end", marginTop: 2 }}>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ ...textStyles.body, color: colors.muted, lineHeight: 18 }}>{subtitle}</Text>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ ...textStyles.label, color: colors.brand, alignSelf: "flex-end", marginTop: 2 }}>
         {ctaLabel.toUpperCase()}
       </Text>
     </Pressable>

@@ -10,6 +10,7 @@ import { CalloutCard, GroupedList, GroupedListRow, MutedText, SectionDivider, Se
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { LegacySheet } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { ReminderReliabilityCard } from "@/screens/sections/reminder-reliability-card";
@@ -122,9 +123,9 @@ export function SettingsScreen({ patientName, initials, accountId, onNavigate }:
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View>
-          <Text style={{ fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase", color: colors.muted }}>
+          <AppText variant="label" tone="textMuted" style={{ letterSpacing: 0.4, textTransform: "uppercase" }}>
             Hello,
-          </Text>
+          </AppText>
           <Text style={{ fontSize: 27, fontWeight: "800", color: colors.ink }}>{firstName}</Text>
         </View>
         <View
@@ -142,7 +143,7 @@ export function SettingsScreen({ patientName, initials, accountId, onNavigate }:
             elevation: 4,
           }}
         >
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
+          <AppText variant="title" tone="brandText">{initials}</AppText>
         </View>
       </View>
 
@@ -288,7 +289,7 @@ export function SettingsScreen({ patientName, initials, accountId, onNavigate }:
         style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, opacity: pressed ? 0.6 : 1 })}
       >
         <Ionicons name="log-out-outline" size={18} color={colors.ink} />
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
+        <AppText variant="bodyStrong">Sign out</AppText>
       </Pressable>
 
       {/* Profile follows the scheme, so its sheet does too. */}
@@ -327,7 +328,7 @@ function ProfileTile({
       })}
     >
       <Ionicons name={icon} size={20} color={colors.ink} />
-      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>{label}</Text>
+      <AppText variant="bodyStrong">{label}</AppText>
     </Pressable>
   );
 }

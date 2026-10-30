@@ -7,6 +7,7 @@ jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 const assessBpControlBestEffort = jest.fn();
 jest.mock("@/lib/ml/assess-bp-control", () => ({ assessBpControlBestEffort: (...a: unknown[]) => assessBpControlBestEffort(...a) }));
 jest.mock("@/lib/vitals/assess-glucose", () => ({ assessGlucoseBestEffort: jest.fn() }));
+jest.mock("@/lib/health-score/assess-health-score", () => ({ assessHealthScoreBestEffort: jest.fn() }));
 
 interface World {
   holdOn: boolean;

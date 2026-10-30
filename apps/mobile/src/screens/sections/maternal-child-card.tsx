@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { availableLifecycleKinds, type LifecycleKind } from "@tarragon/shared";
 import { confirmLifecycleEvent, loadFeedLog, loadMyLifecycle, logFeed, requestTrackerDeletion, type FeedLogRow, type MyLifecycle } from "@/lib/maternal-child";
 import { radius } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STAGE_KEY = { tracking: "mch.life.stage_tracking", trying: "mch.life.stage_trying", pregnant: "mch.life.stage_pregnant", postnatal: "mch.life.stage_postnatal", parenting: "mch.life.stage_parenting" } as const;
 const KIND_KEY: Record<LifecycleKind, Parameters<typeof t>[0]> = {
@@ -26,9 +27,9 @@ export function LifecycleCardMobile() {
   if (!life) return null;
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("mch.life.title")}</Text>
+      <AppText variant="bodyStrong">{t("mch.life.title")}</AppText>
       <MutedText>{t("mch.life.intro")}</MutedText>
-      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{t(STAGE_KEY[life.stage])}</Text>
+      <AppText variant="bodyStrong">{t(STAGE_KEY[life.stage])}</AppText>
       {life.baby_content_hidden && <MutedText>{t("mch.life.loss_note")}</MutedText>}
       {pending === null ? (
         availableLifecycleKinds(life.stage).map((k) => <SecondaryButton key={k} title={t(KIND_KEY[k])} onPress={() => { setError(null); setPending(k); }} />)
@@ -58,7 +59,6 @@ const FEED_CHOICES: { value: FeedLogRow["feed_type"]; key: Parameters<typeof t>[
 
 /** A one-tap feed log and the delete request. The feed log is closed (a calm line) until the care team switches maternal care on. */
 export function FeedLogCardMobile({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
   const [rows, setRows] = useState<FeedLogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -66,7 +66,7 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
   useEffect(() => refresh(), [refresh]);
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("mch.feed.title")}</Text>
+      <AppText variant="bodyStrong">{t("mch.feed.title")}</AppText>
       <MutedText>{t("mch.feed.intro")}</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         {FEED_CHOICES.map((c) => (
@@ -84,7 +84,7 @@ export function FeedLogCardMobile({ patientId, organisationId }: { patientId: st
       </View>
       {error && <ErrorText>{error}</ErrorText>}
       {rows.length === 0 ? <MutedText>{t("mch.feed.empty")}</MutedText> : rows.slice(0, 5).map((r) => (
-        <Text key={r.id} style={{ fontSize: 13, color: colors.ink }}>{new Date(r.fed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Text>
+        <AppText variant="body" key={r.id}>{new Date(r.fed_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</AppText>
       ))}
       <MutedText>{t("mch.feed.support_pending")}</MutedText>
       {!deleted ? (

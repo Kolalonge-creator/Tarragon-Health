@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,7 +61,16 @@ export default async function PathwayHomePage() {
       {loadFailed || rows === null ? (
         <p role="alert">{t("pathway.error", uiLanguage)}</p>
       ) : rows.length === 0 ? (
-        <p>{t("pathway.none", uiLanguage)}</p>
+        <EmptyState
+          icon={SEMANTIC_ICON.carePlan}
+          title={t("pathway.none_title", uiLanguage)}
+          body={t("pathway.none", uiLanguage)}
+          action={
+            <Link href="/patient/messages" className="inline-flex min-h-11 items-center rounded-md border border-brand-green px-4 text-sm font-medium text-brand-green">
+              {t("pathway.none_action", uiLanguage)}
+            </Link>
+          }
+        />
       ) : (
         rows.map((e) => {
           const programme = Array.isArray(e.programme) ? e.programme[0] : e.programme;

@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useRef, useState } from "react";
 import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import Link from "next/link";
@@ -402,7 +403,12 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           </select>
         </fieldset>
       ) : null}
-      {catalogue.isSuccess && items.length === 0 ? <p>{t("shop.not_open", locale)}</p> : null}
+      {catalogue.isSuccess && items.length === 0 ? (
+        <div className="space-y-3">
+          <p>{t("shop.not_open", locale)}</p>
+          <JoinWaitlist feature="membership" />
+        </div>
+      ) : null}
       <div className={ladder && arranged.tierCards.length > 1 ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
         {visible.filter((item) => !chosenId || item.kind === "membership").map((item) => (
           <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={ladder} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} showMonthly={showMonthly} />

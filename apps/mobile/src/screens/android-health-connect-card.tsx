@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isHealthConnectAvailable } from "@/lib/health-connect";
 import {
@@ -10,6 +10,7 @@ import { syncHealthConnect, type HealthSyncResult } from "@/lib/health-sync";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { HealthConnectRationaleModal } from "@/screens/health-connect-rationale-modal";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Android Health Connect card — the Android peer of apple-health-card.tsx,
@@ -97,10 +98,10 @@ export function AndroidHealthConnectCard() {
           <Ionicons name="fitness-outline" size={20} color={colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Health Connect</Text>
-          <Text style={{ color: colors.muted, fontSize: 13 }}>
+          <AppText variant="bodyLargeStrong">Health Connect</AppText>
+          <AppText variant="body" tone="textMuted">
             Bring across readings you already track on your phone
-          </Text>
+          </AppText>
         </View>
       </View>
 
@@ -131,7 +132,6 @@ export function AndroidHealthConnectCard() {
 }
 
 function SyncMessage({ result }: { result: HealthSyncResult }) {
-  const colors = useLegacyColors();
   if (result.status === "error") return <ErrorText>{result.message}</ErrorText>;
 
   if (result.status === "no_new_data") {
@@ -154,11 +154,11 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
   const saved = result.vitals + result.wearable;
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
+      <AppText variant="bodyStrong" tone="brandText">
         {saved === 0
           ? "Already up to date. These readings were on your record."
           : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
-      </Text>
+      </AppText>
       {result.partial ? <PartialSyncNote /> : null}
       {result.recovered ? <RecoveredSyncNote count={result.recovered} /> : null}
       {result.queued ? <QueuedSyncNote count={result.queued} /> : null}

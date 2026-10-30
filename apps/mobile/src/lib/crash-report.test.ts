@@ -4,7 +4,7 @@ import { scrubMessage, scrubStack } from "./crash-scrub";
 const DSN = "https://abc123@o1.ingest.sentry.io/4567";
 const CTX: CrashContext = {
   appVersion: "0.1.0",
-  runtimeVersion: "0.1.0-native8",
+  runtimeVersion: "0.1.0-native9",
   platform: "android",
   osVersion: "13",
   deviceBrand: "TECNO",
@@ -74,7 +74,7 @@ describe("buildCrashEvent", () => {
     const json = JSON.stringify(event);
     for (const bad of ["Zainab", "Okoro", "150/95", "example.com"]) expect(json).not.toContain(bad);
     expect(event.level).toBe("fatal");
-    expect(event.tags.runtime_version).toBe("0.1.0-native8");
+    expect(event.tags.runtime_version).toBe("0.1.0-native9");
   });
 
   it("drops hostile context values rather than forwarding them", () => {

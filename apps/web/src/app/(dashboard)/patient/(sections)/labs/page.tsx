@@ -1,6 +1,7 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { Disclosure } from "@/components/ui/disclosure";
 import { AnnualBundleCard } from "@/app/(dashboard)/patient/annual-bundle-card";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
@@ -41,17 +42,22 @@ export default async function PatientLabsPage() {
           <ResultsTrendsCard patientId={subjectId} />
         </div>
         <div className="space-y-4">
-          <AnnualBundleCard patientId={subjectId} />
           <LabOrdersList patientId={subjectId} />
-          <LabCatalogue />
-          {/* Synlab Nigeria was contracted 2026-08-21 and this branch
-              directory shipped 2026-08-29 (list_lab_test_locations) — the
-              older "no facility directory" line here predated both and is
-              stale. Pharmacies/specialists remain unaffected by this. */}
-          <LabLocationDirectory />
           {/* BookingRequestsList stays because vaccination bookings still
               create real requests a patient needs to see. */}
           <BookingRequestsList patientId={subjectId} />
+          {/* Ordering material (the annual bundle, the full test catalogue and the branch directory) is long and
+              only needed when someone is about to request a test, so it is folded: results and order status stay
+              the first things on the page (design audit P3). */}
+          <Disclosure title="Request a lab test" hint="Annual bundle, the test catalogue and where to go">
+            <AnnualBundleCard patientId={subjectId} />
+            <LabCatalogue />
+            {/* Synlab Nigeria was contracted 2026-08-21 and this branch
+                directory shipped 2026-08-29 (list_lab_test_locations) — the
+                older "no facility directory" line here predated both and is
+                stale. Pharmacies/specialists remain unaffected by this. */}
+            <LabLocationDirectory />
+          </Disclosure>
         </div>
       </div>
     </DashboardSection>

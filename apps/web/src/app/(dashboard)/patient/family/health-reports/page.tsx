@@ -5,6 +5,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCaregiverReport, listCaregiverReports } from "@/lib/health-report/caregiver";
 import { buildRenderModel } from "@/lib/health-report/render-model";
 import { HealthReportView } from "@/components/health-report-view";
+import { PageHeader } from "@/components/ui/page-header";
 import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 
 export const metadata = { title: "Yearly health reports for people you support" };
@@ -24,7 +25,7 @@ export default async function CaregiverHealthReportsPage({ searchParams }: { sea
     const people = await listCaregiverReports(supabase);
     return (
       <div className="space-y-4">
-        <h1 className="font-heading text-2xl font-semibold">{t("report.caregiver.title", "en")}</h1>
+        <PageHeader title={t("report.caregiver.title", "en")} backTo={{ href: "/patient", label: "Overview" }} />
         {people.length === 0 ? <p className="text-sm">{t("report.caregiver.none", "en")}</p> : null}
         <ul className="space-y-2">
           {people.map((p) => (
@@ -44,7 +45,7 @@ export default async function CaregiverHealthReportsPage({ searchParams }: { sea
   if (!report) {
     return (
       <div className="space-y-4">
-        <h1 className="font-heading text-2xl font-semibold">{t("report.caregiver.title", "en")}</h1>
+        <PageHeader title={t("report.caregiver.title", "en")} backTo={{ href: "/patient", label: "Overview" }} />
         <p className="text-sm">{t("report.caregiver.none", "en")}</p>
         <Link className="text-sm underline" href="/patient/family/health-reports">Back</Link>
       </div>

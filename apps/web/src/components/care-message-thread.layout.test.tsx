@@ -1,0 +1,43 @@
+/** @jest-environment jsdom */
+/** Design audit P2 (Messages): avatars and chat alignment, with the attribution rules unchanged. */
+import { render, screen } from "@testing-library/react";
+
+let messages: unknown[] = [];
+jest.mock("@/lib/queries/care-messages", () => ({
+  useThreadMessages: () => ({ data: messages, isLoading: false }),
+  usePostMessage: () => ({ mutate: jest.fn(), isPending: false }),
+  useMarkThreadRead: () => ({ mutate: jest.fn() }),
+  useCareMessageTemplates: () => ({ data: [] }),
+  useUploadCareMessageAttachment: () => ({ mutate: jest.fn(), isPending: false }),
+}));
+jest.mock("@/components/doctor-name-link", () => ({ DoctorNameLink: ({ fullName }: { fullName: string }) => <span>{fullName}</span> }));
+jest.mock("@/components/licence-verified-client", () => ({ LicenceVerifiedForClient: () => null }));
+jest.mock("@/components/draft-reply-card", () => ({ DraftReplyCard: () => null }));
+
+import { CareMessageThread } from "./care-message-thread";
+
+const base = { attachments: [], created_at: "2026-10-29T10:00:00Z" };
+
+describe("CareMessageThread layout", () => {
+  it("shows initials avatars, and never names a coordinator as a doctor", () => {
+    messages = [
+      { ...base, id: "1", body: "My BP is high", author_role: "patient", author_display: "Amaka Okafor", actor: null },
+      { ...base, id: "2", body: "Thanks, reviewing", author_role: "care_team", author_display: null, actor: { id: "s1", full_name: "Tunde Bello", doctor_tier: "care_coordinator" } },
+      { ...base, id: "3", body: "Please recheck", author_role: "care_team", author_display: null, actor: { id: "s2", full_name: "Ngozi Eze", doctor_tier: "senior_medical_officer" } },
+    ];
+    render(<CareMessageThread threadId="t1" patientId="p1" closed />);
+    expect(screen.getByText("AO")).not.toBeNull(); // patient initials
+    expect(screen.getByText("CT")).not.toBeNull(); // coordinator is the generic care team
+    expect(screen.getByText("NE")).not.toBeNull(); // named doctor
+    expect(screen.queryByText("Tunde Bello")).toBeNull();
+    expect(screen.getByText("Ngozi Eze")).not.toBeNull();
+  });
+
+  it("puts the viewer's own messages on the right for a patient and on the left for staff", () => {
+    messages = [{ ...base, id: "1", body: "Hello", author_role: "patient", author_display: "Amaka Okafor", actor: null }];
+    const { container, rerender } = render(<CareMessageThread threadId="t1" patientId="p1" closed />);
+    expect(container.querySelector("li")?.className).toContain("flex-row-reverse");
+    rerender(<CareMessageThread threadId="t1" patientId="p1" closed isStaff />);
+    expect(container.querySelector("li")?.className).not.toContain("flex-row-reverse");
+  });
+});

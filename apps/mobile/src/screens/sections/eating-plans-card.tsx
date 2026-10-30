@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { REASON_KIND_LABEL, type EatingGuidance, type EatingPlan, type FoodCatalogueItem, type FoodSwap, type SwapReasonKind } from "@tarragon/shared";
 import { Card, MutedText, SectionLabel } from "@/ui/legacy-kit";
-import { typeScale } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
 import { isOwnAccount, loadEatingPlans, loadNutritionReferral, type ReferralStatus } from "@/lib/eating-plans";
 import { recordSyncError } from "@/lib/sync-diagnostics";
 import { referralStatusLabel, referralStatusText } from "@/lib/eating-plans-model";
 import { loadFoodList } from "@/lib/food-diary";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Eating plans, food swaps and the dietitian request status (S50a, read only). Renders NOTHING when the server says the plans are not for this
@@ -26,7 +25,6 @@ export function swapSentence(swap: FoodSwap, foods: readonly FoodCatalogueItem[]
 }
 
 function PlanBlock({ plan }: { plan: EatingPlan }) {
-  const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   return (
     <View style={{ gap: 6 }}>
@@ -37,13 +35,13 @@ function PlanBlock({ plan }: { plan: EatingPlan }) {
         onPress={() => setOpen((v) => !v)}
         style={{ minHeight: TOUCH, justifyContent: "center" }}
       >
-        <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{`${plan.title} (${open ? "hide" : "show"})`}</Text>
+        <AppText variant="bodyStrong">{`${plan.title} (${open ? "hide" : "show"})`}</AppText>
       </Pressable>
       {open ? (
         <View style={{ gap: 6 }}>
           <MutedText>{plan.intro}</MutedText>
           {plan.tips.map((t) => (
-            <Text key={t.heading} style={{ fontSize: typeScale.body, color: colors.ink }}>{`${t.heading}. ${t.body}`}</Text>
+            <AppText variant="body" key={t.heading}>{`${t.heading}. ${t.body}`}</AppText>
           ))}
           <MutedText>{plan.careTeamPrompt}</MutedText>
         </View>
@@ -53,7 +51,6 @@ function PlanBlock({ plan }: { plan: EatingPlan }) {
 }
 
 export function EatingPlansCard({ patientId }: { patientId: string }) {
-  const colors = useLegacyColors();
   const [guidance, setGuidance] = useState<EatingGuidance>({ state: "unavailable" });
   const [fromCache, setFromCache] = useState(false);
   const [foods, setFoods] = useState<FoodCatalogueItem[]>([]);
@@ -107,10 +104,10 @@ export function EatingPlansCard({ patientId }: { patientId: string }) {
           {guidance.plans.map((p) => (
             <PlanBlock key={p.code} plan={p} />
           ))}
-          {kinds.length > 0 ? <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>Ideas for swaps</Text> : null}
+          {kinds.length > 0 ? <AppText variant="bodyStrong">Ideas for swaps</AppText> : null}
           {kinds.map((kind) => (
             <View key={kind} style={{ gap: 4 }}>
-              <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{REASON_KIND_LABEL[kind]}</Text>
+              <AppText variant="bodyStrong">{REASON_KIND_LABEL[kind]}</AppText>
               {guidance.swaps
                 .filter((s) => s.reasonKind === kind)
                 .map((s) => (

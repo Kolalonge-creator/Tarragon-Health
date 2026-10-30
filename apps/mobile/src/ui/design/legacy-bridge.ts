@@ -18,6 +18,7 @@ export function useLegacyColors() {
     brand: p.brand,
     brandPressed: p.brandText,
     brandTint: p.brandTint,
+    onBrand: p.textOnBrand,
     brandTintAlt: p.brandTint,
     navy: p.navy,
     ink: p.text,

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { healthCheckView } from "./health-check-view";
 import { NAV_ICON } from "@/lib/icons";
 import { MentalHealthScreenForm } from "../mental-health-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
@@ -37,7 +38,12 @@ const VITAL_LABEL: Record<string, string> = {
   pulse: "pulse",
 };
 
-export default async function HealthCheckPage() {
+export default async function HealthCheckPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string | string[] }>;
+}) {
+  const view = healthCheckView((await searchParams).step);
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
@@ -162,7 +168,7 @@ export default async function HealthCheckPage() {
       title: "2. Mental wellbeing",
       state: wellbeingStage.kind,
       label: wellbeingStage.label,
-      href: null,
+      href: "/patient/health-check?step=wellbeing",
     },
     {
       title: "3. Your measurements",
@@ -186,7 +192,7 @@ export default async function HealthCheckPage() {
       title: "4. Screenings",
       state: screenings.kind,
       label: screenings.label,
-      href: "/patient/prevention#screenings",
+      href: "/patient/health-check?step=tests",
     },
     {
       title: "5. Immunisations",
@@ -196,13 +202,24 @@ export default async function HealthCheckPage() {
     },
   ];
 
+  // Progress counts the four steps that can be proved; Immunisations is always a review, never "done". Shown only when every
+  // counted step could be read, so a failed read never turns into a misleading number.
+  const counted = stages.slice(0, 4);
+  const progress = counted.every((st) => st.state !== "neutral")
+    ? { done: counted.filter((st) => st.state === "done").length, total: counted.length }
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <PageHeader
           title="Your Health Check"
           icon={NAV_ICON.review}
-          backTo={{ href: "/patient/prevention", label: "Prevention" }}
+          backTo={
+            view === "overview"
+              ? { href: "/patient/prevention", label: "Prevention" }
+              : { href: "/patient/health-check", label: "All steps" }
+          }
           description="A yearly, whole-body check: the right checks for you, and a plan to keep you well. Work through each step; your care team reviews everything at the end."
         />
         {tierName && (
@@ -212,50 +229,83 @@ export default async function HealthCheckPage() {
         )}
       </div>
 
+      {view === "wellbeing" ? (
+        // A clinical instrument shown exactly as signed, alone on its screen.
+        <div id="wellbeing">
+          <MentalHealthSummary patientId={profile.id} />
+          <MentalHealthScreenForm patientId={profile.id} />
+        </div>
+      ) : view === "tests" ? (
+        <>
+          <Link href="/patient/prevention#screenings" className="text-sm font-medium text-brand-green underline dark:text-brand-green-bright">
+            See all your screenings
+          </Link>
+          {/* The lab tests behind the screenings step. Self-arranged: we write the request, the patient uses any lab and uploads the result back here. */}
+          <AnnualHealthCheckBooking
+            patientId={profile.id}
+            organisationId={profile.organisation_id}
+            sex={profile.sex}
+            state={profile.state}
+            screensEnabled={screensEnabled}
+          />
+          {/* Lipid results and the CV-risk gloss they feed both self-hide until there is real data. */}
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <LipidProfileCard patientId={profile.id} />
+            <RiskSignalsCard patientId={profile.id} />
+          </div>
+        </>
+      ) : (
+      <>
       <Card>
         <CardHeader>
           <CardTitle as="h2" className="text-base">Your {year} check</CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {stages.map((stage) => (
-            <div key={stage.title} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-              <div>
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {stage.state !== "neutral" && (
-                  <Badge variant={stage.state === "done" ? "green" : "amber"}>
-                    {stage.state === "done" ? "Done" : "To do"}
-                  </Badge>
-                )}
-                {stage.href && (
-                  <Link href={stage.href} className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
-                    Open →
-                  </Link>
-                )}
+          {progress && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                {progress.done} of {progress.total} steps done
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Health Check progress"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.done}
+                className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15"
+              >
+                <div className="h-full rounded-full bg-brand-green" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
               </div>
             </div>
-          ))}
+          )}
+        </CardHeader>
+        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+          {stages.map((stage) => {
+            const body = (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {stage.state !== "neutral" && (
+                    <Badge variant={stage.state === "done" ? "green" : "amber"}>
+                      {stage.state === "done" ? "Done" : "To do"}
+                    </Badge>
+                  )}
+                  {stage.href && <span aria-hidden className="text-sm text-brand-green dark:text-brand-green-bright">→</span>}
+                </div>
+              </>
+            );
+            const rowClass = "flex min-h-11 items-center justify-between gap-3 py-3 first:pt-0 last:pb-0";
+            return stage.href ? (
+              <Link key={stage.title} href={stage.href} className={`${rowClass} hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green`}>
+                {body}
+              </Link>
+            ) : (
+              <div key={stage.title} className={rowClass}>{body}</div>
+            );
+          })}
         </CardContent>
       </Card>
-
-      {/* The lab tests that power stage 4. Self-arranged: we write the request,
-          the patient uses any lab, and uploads the result back here. */}
-      <AnnualHealthCheckBooking
-        patientId={profile.id}
-        organisationId={profile.organisation_id}
-        sex={profile.sex}
-        state={profile.state}
-        screensEnabled={screensEnabled}
-      />
-
-      {/* Lipid results + the CV-risk gloss they feed — both self-hide until
-          there's real data, so nothing renders until a lipid panel lands. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <LipidProfileCard patientId={profile.id} />
-        <RiskSignalsCard patientId={profile.id} />
-      </div>
 
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
@@ -306,13 +356,8 @@ export default async function HealthCheckPage() {
       </Card>
 
       <HealthCheckVideoConsultCard consult={check?.video_consult ?? null} />
-
-      <MentalHealthSummary patientId={profile.id} />
-
-      <div>
-        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Mental wellbeing check-in</h2>
-        <MentalHealthScreenForm patientId={profile.id} />
-      </div>
+      </>
+      )}
     </div>
   );
 }

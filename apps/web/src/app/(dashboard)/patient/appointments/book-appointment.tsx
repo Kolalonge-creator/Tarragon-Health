@@ -1,5 +1,6 @@
 "use client";
 
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -336,34 +337,6 @@ export function BookAppointment({
         <CardTitle>Book an appointment</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="space-y-1">
-            <label
-              className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
-              htmlFor="appointment-type"
-            >
-              Appointment type
-            </label>
-            <Select
-              id="appointment-type"
-              value={appointmentType}
-              onChange={(e) => {
-                setAppointmentType(e.target.value as AppointmentType);
-                setFilters(NO_SLOT_FILTERS);
-              }}
-            >
-              {pickerTypes.map((value) => (
-                <option key={value} value={value}>
-                  {APPOINTMENT_TYPE_LABELS[value]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <p className="self-end pb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Telemedicine, with a Tarragon doctor.
-          </p>
-        </div>
-
         {closed && guard.isError && (
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("golive.consultations.check_failed", locale)}</p>
@@ -373,6 +346,39 @@ export function BookAppointment({
           <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("golive.consultations.closed.title", locale)}</p>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("golive.consultations.closed.body", locale)}</p>
+            <JoinWaitlist feature="consultations" />
+          </div>
+        )}
+
+        {/* While consultations are closed the form would only offer choices that cannot be booked, so only the notice shows,
+            and nothing flashes while the guard is still being read (design audit P3). */}
+        {guard.data === true && (
+          <div className="flex flex-wrap gap-3">
+            <div className="space-y-1">
+              <label
+                className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+                htmlFor="appointment-type"
+              >
+                Appointment type
+              </label>
+              <Select
+                id="appointment-type"
+                value={appointmentType}
+                onChange={(e) => {
+                  setAppointmentType(e.target.value as AppointmentType);
+                  setFilters(NO_SLOT_FILTERS);
+                }}
+              >
+                {pickerTypes.map((value) => (
+                  <option key={value} value={value}>
+                    {APPOINTMENT_TYPE_LABELS[value]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <p className="self-end pb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Telemedicine, with a Tarragon doctor.
+            </p>
           </div>
         )}
 

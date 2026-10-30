@@ -10,6 +10,7 @@ import {
 } from "@/lib/notifications";
 import type { SectionId } from "@/lib/sections";
 import { MAX_FONT_SCALE, useLegacyColors } from "./design";
+import { textStyles } from "@/ui/design";
 
 interface TopBarProps {
   userId: string;
@@ -76,7 +77,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
         <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onOpenDrawer} hitSlop={8}>
           <Ionicons name="menu-outline" size={22} color={colors.ink} />
         </Pressable>
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} numberOfLines={1} style={{ fontWeight: "700", fontSize: 16, color: colors.navy, flexShrink: 1 }}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} numberOfLines={1} style={{ ...textStyles.bodyLargeStrong, color: colors.navy, flexShrink: 1 }}>
           TarragonHealth
         </Text>
       </View>
@@ -108,7 +109,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
                 justifyContent: "center",
               }}
             >
-              <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 9.5, fontWeight: "700", color: "#fff" }}>
+              <Text maxFontSizeMultiplier={1.2} style={{ ...textStyles.label, color: "#fff" }}>
                 {notifications.filter((n) => n.status !== "read").length > 9
                   ? "9+"
                   : notifications.filter((n) => n.status !== "read").length}
@@ -128,25 +129,25 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               justifyContent: "center",
             }}
           >
-            <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 12, fontWeight: "700", color: colors.brandPressed }}>{initials}</Text>
+            <Text maxFontSizeMultiplier={1.2} style={{ ...textStyles.label, color: colors.brandPressed }}>{initials}</Text>
           </View>
         </Pressable>
       </View>
 
       <DropdownModal visible={notifOpen} onClose={() => setNotifOpen(false)}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Notifications</Text>
+          <Text style={{ ...textStyles.bodyStrong, color: colors.ink }}>Notifications</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Mark all notifications read"
             hitSlop={10}
             onPress={handleMarkAllRead}
           >
-            <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.brandPressed }}>Mark all read</Text>
+            <Text style={{ ...textStyles.label, color: colors.brandPressed }}>Mark all read</Text>
           </Pressable>
         </View>
         {markError ? (
-          <Text style={{ paddingHorizontal: 14, paddingTop: 8, fontSize: 11.5, color: colors.danger }}>
+          <Text style={{ paddingHorizontal: 14, paddingTop: 8, ...textStyles.caption, color: colors.danger }}>
             Couldn&apos;t update those just now. Try again.
           </Text>
         ) : null}
@@ -160,20 +161,20 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               onPress={refreshNotifications}
               style={{ padding: 16, gap: 4 }}
             >
-              <Text style={{ fontSize: 12.5, color: colors.ink, fontWeight: "600" }}>
+              <Text style={{ ...textStyles.label, color: colors.ink, }}>
                 We couldn&apos;t load your notifications right now.
               </Text>
-              <Text style={{ fontSize: 12, color: colors.brandPressed, fontWeight: "600" }}>Tap to retry</Text>
+              <Text style={{ ...textStyles.label, color: colors.brandPressed, }}>Tap to retry</Text>
             </Pressable>
           ) : notifications.length === 0 ? (
-            <Text style={{ padding: 16, fontSize: 12.5, color: colors.muted }}>You&apos;re all caught up.</Text>
+            <Text style={{ padding: 16, ...textStyles.body, color: colors.muted }}>You&apos;re all caught up.</Text>
           ) : (
             notifications.map((n) => {
               const { text, section } = describeNotification(n);
               const body = (
                 <>
-                  <Text style={{ fontSize: 12.5, color: colors.ink }}>{text}</Text>
-                  <Text style={{ fontSize: 10.5, color: colors.subtle, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
+                  <Text style={{ ...textStyles.body, color: colors.ink }}>{text}</Text>
+                  <Text style={{ ...textStyles.caption, color: colors.subtle, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
                 </>
               );
               const itemStyle = {
@@ -209,7 +210,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
 
       <DropdownModal visible={profileOpen} onClose={() => setProfileOpen(false)}>
         <View style={{ padding: 12, gap: 4 }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{patientName}</Text>
+          <Text style={{ ...textStyles.label, color: colors.ink }}>{patientName}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -218,7 +219,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
             }}
             style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 8, marginTop: 6 }}
           >
-            <Text style={{ fontSize: 12.5, color: colors.ink }}>Profile &amp; settings</Text>
+            <Text style={{ ...textStyles.body, color: colors.ink }}>Profile &amp; settings</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -235,7 +236,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               marginTop: 4,
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "500", color: colors.ink }}>Sign out</Text>
+            <Text style={{ ...textStyles.caption, color: colors.ink }}>Sign out</Text>
           </Pressable>
         </View>
       </DropdownModal>

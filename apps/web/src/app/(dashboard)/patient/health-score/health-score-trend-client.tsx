@@ -10,11 +10,10 @@ import {
   type HealthScoreComponent,
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
-import { RISK_LEVEL_RING } from "@/lib/rules/risk-level-style";
 import { HEALTH_SCORE_COMPONENT_LABEL } from "@/lib/rules/health-score-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScoreRing } from "@/components/ui/score-ring";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { formatPatientDate } from "@/lib/format-date";
 import {
   ChartContainer,
   ChartTooltip,
@@ -63,7 +62,6 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
 
   const riskLevel = latest?.risk_level as HealthScoreRiskLevel | null;
   const badgeStyle = riskLevel ? RISK_LEVEL_BADGE[riskLevel] : null;
-  const ringColorVar = riskLevel ? RISK_LEVEL_RING[riskLevel] : RISK_LEVEL_RING.low;
 
   const components =
     (latest?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
@@ -72,32 +70,25 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-6">
-          {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
-          {isError && (
-            <p className="text-sm text-red-600 dark:text-red-300">Could not load your Health Score.</p>
-          )}
-          {!isLoading && !isError && !latest && (
-            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              Log a reading or finish your risk assessment to get your first Health Score.
-            </p>
-          )}
-          {!isLoading && !isError && latest && badgeStyle && (
-            <div className="flex flex-col items-center gap-3">
-              <ScoreRing value={latest.score ?? 0} colorVar={ringColorVar}>
-                <span className="font-heading text-[42px] font-semibold leading-none tracking-tight text-charcoal-ink dark:text-night-ink">
-                  {latest.score}
-                </span>
-                <span className="mt-0.5 text-[13px] font-medium text-charcoal-ink/55 dark:text-night-ink/55">
-                  out of 100
-                </span>
-              </ScoreRing>
-              <Badge variant={badgeStyle.variant}>{badgeStyle.label}</Badge>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {isLatestError ? (
+        <p className="rounded-2xl bg-white p-5 text-sm text-red-600 dark:bg-night-card dark:text-red-300">
+          We couldn&apos;t load your Health Score just now. Try again in a moment.
+        </p>
+      ) : (
+        <HeroMetric
+          label="Health Score"
+          value={isLoading ? "…" : latest ? latest.score : null}
+          unit={latest ? "out of 100" : undefined}
+          status={badgeStyle ?? undefined}
+          caption={
+            latest
+              ? (trendLine ?? "This is your first score. It moves as you log new readings.")
+              : undefined
+          }
+          meta={latest ? `Updated ${formatPatientDate(latest.computed_at)}` : undefined}
+          emptyText="Your score appears after your next blood pressure or weight reading. It builds from the everyday numbers you already track."
+        />
+      )}
 
       <Card>
         <CardHeader>

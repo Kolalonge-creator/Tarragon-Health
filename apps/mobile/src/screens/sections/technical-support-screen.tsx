@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, TextInput, View } from "react-native";
 import {
   createSupportTicket,
   loadMySupportTickets,
@@ -13,6 +13,7 @@ import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STATUS_TONE: Record<SupportTicketStatus, "brand" | "neutral"> = {
   new: "neutral",
@@ -104,7 +105,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
       </View>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Subject</Text>
+        <AppText variant="label">Subject</AppText>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={subject}
           onChangeText={setSubject}
@@ -112,7 +113,7 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
           maxLength={200}
           style={textInputStyle}
         />
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Tell us what&apos;s happening</Text>
+        <AppText variant="label">Tell us what&apos;s happening</AppText>
         <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
           value={description}
           onChangeText={setDescription}
@@ -131,15 +132,15 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
 
       <View>
         <SectionDivider />
-        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>
+        <AppText variant="label" style={{ marginBottom: 8 }}>
           Your tickets
-        </Text>
+        </AppText>
         {loading && <ActivityIndicator color={colors.brand} />}
         {!loading && tickets.length === 0 && <MutedText>No support tickets yet.</MutedText>}
         {tickets.map((t) => (
           <Card key={t.id} style={{ gap: 4, marginBottom: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>{t.subject}</Text>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>{t.subject}</AppText>
               <Badge tone={STATUS_TONE[t.status]}>{TICKET_STATUS_LABEL[t.status]}</Badge>
             </View>
             <MutedText>{when(t.created_at)}</MutedText>

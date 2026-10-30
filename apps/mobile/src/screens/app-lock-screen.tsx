@@ -39,7 +39,7 @@ export function AppLockScreen({ accountId, onUnlocked }: AppLockScreenProps) {
   // Light keeps the brand-green splash; Dark uses the dark canvas with the same layout.
   const { scheme, colors: palette } = useTheme();
   const dark = scheme === "dark";
-  const textColor = dark ? palette.text : "#FFFFFF";
+  const textColor = dark ? palette.text : colors.onBrand;
   const mutedColor = dark ? palette.textMuted : "rgba(255,255,255,0.85)";
 
   const tryUnlock = useCallback(async () => {
@@ -113,7 +113,7 @@ export function AppLockScreen({ accountId, onUnlocked }: AppLockScreenProps) {
               disabled={authenticating}
               onPress={() => void tryUnlock()}
               style={({ pressed }) => ({
-                backgroundColor: dark ? (pressed ? palette.brandPressed : palette.brand) : pressed ? "rgba(255,255,255,0.85)" : "#FFFFFF",
+                backgroundColor: dark ? (pressed ? palette.brandPressed : palette.brand) : pressed ? "rgba(255,255,255,0.85)" : colors.onBrand,
                 borderRadius: radius.control,
                 paddingVertical: 14,
                 paddingHorizontal: 48,

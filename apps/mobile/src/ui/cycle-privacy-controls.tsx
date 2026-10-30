@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { supabase } from "@/lib/supabase";
 import { parseAccessLog, parseDeletionStatus, type AccessRow, type DeletionStatus } from "@/lib/cycle-privacy";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -43,13 +43,13 @@ export function CyclePrivacyControls() {
   return (
     <View style={{ gap: 16 }}>
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("cycle.access.title")}</Text>
+        <Text style={{ ...textStyles.bodyStrong, color: colors.ink }}>{t("cycle.access.title")}</Text>
         <MutedText>{t("cycle.access.intro")}</MutedText>
         {access === "failed" && <ErrorText>{t("cycle.access.load_failed")}</ErrorText>}
         {Array.isArray(access) && access.length === 0 && <MutedText>{t("cycle.access.empty")}</MutedText>}
         {Array.isArray(access) &&
           access.map((row, i) => (
-            <Text key={`${row.at}-${i}`} style={{ fontSize: 13, color: colors.ink }}>
+            <Text key={`${row.at}-${i}`} style={{ ...textStyles.body, color: colors.ink }}>
               {t(row.result === "success" ? "cycle.access.row" : "cycle.access.refused", undefined, { when: when(row.at), reader: row.reader })}
             </Text>
           ))}
@@ -57,12 +57,12 @@ export function CyclePrivacyControls() {
       </Card>
 
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("cycle.delete.title")}</Text>
+        <Text style={{ ...textStyles.bodyStrong, color: colors.ink }}>{t("cycle.delete.title")}</Text>
         <MutedText>{t("cycle.delete.intro")}</MutedText>
         {status === "failed" && <ErrorText>{t("cycle.delete.failed")}</ErrorText>}
         {status && status !== "failed" && (
           <>
-            <Text style={{ fontSize: 13, color: colors.ink }}>
+            <Text style={{ ...textStyles.body, color: colors.ink }}>
               {t("cycle.delete.counts", undefined, {
                 cycles: status.counts.menstrual_cycles,
                 logs: status.counts.menstrual_daily_logs + status.counts.menopause_logs_deleted,
@@ -72,7 +72,7 @@ export function CyclePrivacyControls() {
             </Text>
             {status.pending ? (
               <>
-                <Text style={{ fontSize: 13, color: colors.ink }}>{t("cycle.delete.pending", undefined, { when: when(status.pending.execute_after) })}</Text>
+                <Text style={{ ...textStyles.body, color: colors.ink }}>{t("cycle.delete.pending", undefined, { when: when(status.pending.execute_after) })}</Text>
                 <SecondaryButton title={t("cycle.delete.cancel")} loading={busy} onPress={() => void act("cancel_reproductive_tracker_deletion")} />
               </>
             ) : (

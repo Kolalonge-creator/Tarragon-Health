@@ -33,6 +33,11 @@ jest.mock("@/lib/vitals/assess-glucose", () => ({
   assessGlucoseBestEffort: (...args: unknown[]) => assessGlucoseBestEffort(...args),
 }));
 
+const assessHealthScoreBestEffort = jest.fn();
+jest.mock("@/lib/health-score/assess-health-score", () => ({
+  assessHealthScoreBestEffort: (...args: unknown[]) => assessHealthScoreBestEffort(...args),
+}));
+
 const insert = jest.fn();
 const maybeSingle = jest.fn();
 const deviceUpdateEq = jest.fn();
@@ -75,6 +80,7 @@ describe("POST /api/mobile/device-readings — safety-assessment failure handlin
     captureException.mockReset();
     assessBpControlBestEffort.mockReset().mockResolvedValue(undefined);
     assessGlucoseBestEffort.mockReset().mockResolvedValue(undefined);
+    assessHealthScoreBestEffort.mockReset().mockResolvedValue(undefined);
     getUser.mockResolvedValue({ data: { user: { id: "patient-1" } }, error: null });
     maybeSingle.mockResolvedValue({ data: { id: "device-1" } });
     deviceUpdateEq.mockResolvedValue({ error: null });
@@ -144,5 +150,45 @@ describe("POST /api/mobile/device-readings — safety-assessment failure handlin
     expect(res.status).toBe(200);
     expect(body).toEqual({ success: true });
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  // Found while checking the Home score wording against a real reading: the score was only ever refreshed after a manual log, so a
+  // patient who logs through a paired device never got one. A device reading of blood pressure or weight now refreshes it too.
+  const bpBody = (id: string) => ({
+    vital_type: "blood_pressure",
+    device_id: "11111111-1111-4111-8111-111111111111",
+    external_reading_id: id,
+    taken_at: "2026-09-24T08:00:00.000Z",
+    systolic: 120,
+    diastolic: 80,
+  });
+
+  it("refreshes the Health Score after a device blood pressure reading", async () => {
+    const res = await POST(request(bpBody("r4")));
+    expect(res.status).toBe(200);
+    expect(assessHealthScoreBestEffort).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh the Health Score for a glucose reading", async () => {
+    await POST(
+      request({
+        vital_type: "glucose",
+        device_id: "11111111-1111-4111-8111-111111111111",
+        external_reading_id: "r5",
+        taken_at: "2026-09-24T08:00:00.000Z",
+        glucose_value: 5.5,
+        glucose_unit: "mmol_l",
+        glucose_context: "fasting",
+      })
+    );
+    expect(assessHealthScoreBestEffort).not.toHaveBeenCalled();
+  });
+
+  it("a failed Health Score refresh never fails or flags the saved reading", async () => {
+    assessHealthScoreBestEffort.mockRejectedValue(new TypeError("fetch failed"));
+    const res = await POST(request(bpBody("r6")));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ success: true });
   });
 });

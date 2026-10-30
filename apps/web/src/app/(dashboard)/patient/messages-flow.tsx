@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   FormError,
   fieldErrorId,
@@ -131,9 +132,23 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
             </p>
           )}
           {!isLoading && (!threads || threads.length === 0) && (
-            <p className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              No messages yet. Start a conversation with your care team.
-            </p>
+            <EmptyState
+              icon={NAV_ICON.messages}
+              title="Start a conversation"
+              body="Ask your care team a question about your medicines, a result or how you are doing."
+              action={
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setComposing(true);
+                    setOpenId(null);
+                  }}
+                >
+                  Message your care team
+                </Button>
+              }
+            />
           )}
           <ul>
             {(threads ?? []).map((thread) => (

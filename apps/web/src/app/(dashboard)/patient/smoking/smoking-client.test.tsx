@@ -70,4 +70,11 @@ describe("ProfileCard (smoking status)", () => {
     expect((screen.getByLabelText("Status") as HTMLSelectElement).value).toBe("current");
     expect(screen.getByLabelText("Cigarettes per day")).not.toBeNull();
   });
+
+  it("with no saved status shows a calm prompt, not an open form (design audit P4)", () => {
+    render(withQueryClient(<ProfileCard patientId="patient-1" profile={null as never} isLoading={false} />));
+    expect(screen.queryByLabelText("Status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Set your status" }));
+    expect(screen.getByLabelText("Status")).not.toBeNull();
+  });
 });

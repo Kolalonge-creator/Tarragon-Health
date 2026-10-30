@@ -1,4 +1,5 @@
 import { asLocale, t } from "@tarragon/i18n";
+import { JoinWaitlist } from "@/components/join-waitlist";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -31,7 +32,10 @@ export default async function CoursePage() {
       {error ? (
         <p>{t("course.error.load", locale)}</p>
       ) : lessons.length === 0 ? (
-        <p>{t("course.not_open", locale)}</p>
+        <div className="space-y-3">
+          <p>{t("course.not_open", locale)}</p>
+          <JoinWaitlist feature="course" />
+        </div>
       ) : (
         <BpCourse lessons={lessons} locale={locale} patientId={subjectId} organisationId={profile.organisation_id} />
       )}

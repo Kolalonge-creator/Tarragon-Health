@@ -10,6 +10,7 @@ import { loadReadingSubjects, type ReadingSubject } from "@/lib/reading-subject"
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Photo reading capture (S70a, 18.3). The person photographs ANY device screen, then checks every number against the device and ticks it. Only
@@ -202,7 +203,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
           <MutedText>Take a clear photo of the screen. The photo stays on this phone. You will check every number before anything is saved.</MutedText>
           {subjects.length > 1 && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>Whose reading is this?</Text>
+              <AppText variant="bodyStrong">Whose reading is this?</AppText>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {subjects.map((s) => (
                   <Option key={s.profileId} label={s.label} selected={subjectId === s.profileId} onPress={() => setSubjectId(s.profileId)} />
@@ -211,7 +212,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
             </View>
           )}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontWeight: "700", color: colors.ink }}>What does the device measure?</Text>
+            <AppText variant="bodyStrong">What does the device measure?</AppText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {KINDS.map((k) => (
                 <Option key={k.kind} label={k.label} selected={kind === k.kind} onPress={() => setKind(k.kind)} />
@@ -234,7 +235,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
               {cuffBusy ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <ActivityIndicator color={colors.brand} />
-                  <Text style={{ color: colors.ink }}>{CUFF_READER_COPY.working}</Text>
+                  <AppText variant="body">{CUFF_READER_COPY.working}</AppText>
                 </View>
               ) : (
                 <SecondaryButton title={CUFF_READER_COPY.button} onPress={() => void readForMe()} disabled={phase === "saving"} />
@@ -247,7 +248,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
           ))}
           {draft.fields.map((f) => (
             <Card key={f.field} style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "600", color: colors.ink }}>{FIELD_LABEL[f.field]}</Text>
+              <AppText variant="bodyStrong">{FIELD_LABEL[f.field]}</AppText>
               <TextInput
                 keyboardAppearance={scheme}
                 keyboardType="decimal-pad"
@@ -279,13 +280,13 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
                 style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
                 <Ionicons name={ticked.has(f.field) ? "checkbox" : "square-outline"} size={24} color={ticked.has(f.field) ? colors.brand : colors.muted} />
-                <Text style={{ color: colors.ink }}>I checked this number</Text>
+                <AppText variant="body">I checked this number</AppText>
               </Pressable>
             </Card>
           ))}
           {draft.needsUnit && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>Which unit does your device show?</Text>
+              <AppText variant="bodyStrong">Which unit does your device show?</AppText>
               <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 {(kind === "glucose" ? [["mmol_l", "mmol/L"], ["mg_dl", "mg/dL"]] : kind === "weight" ? [["kg", "kg"], ["lb", "lb"]] : [["c", "°C"], ["f", "°F"]]).map(([value, label]) => (
                   <Option key={value} label={label as string} selected={unit === value} onPress={() => setUnit(value as PhotoDraft["unit"])} />
@@ -295,7 +296,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
           )}
           {kind === "glucose" && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>When did you take it?</Text>
+              <AppText variant="bodyStrong">When did you take it?</AppText>
               <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 {([["fasting", "Fasting"], ["random", "Random"], ["post_meal", "After a meal"]] as const).map(([v, label]) => (
                   <Option key={v} label={label} selected={glucoseContext === v} onPress={() => setGlucoseContext(v)} />
@@ -305,7 +306,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
           )}
           {kind === "blood_pressure" && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>Which cuff?</Text>
+              <AppText variant="bodyStrong">Which cuff?</AppText>
               <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 {([["upper_arm", "Upper arm"], ["wrist", "Wrist"], ["not_sure", "Not sure"]] as const).map(([v, label]) => (
                   <Option key={v} label={label} selected={cuffType === v} onPress={() => setCuffType(v)} />
@@ -323,7 +324,7 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
       {phase === "saved" && (
         <Card style={{ gap: 8, alignItems: "center" }}>
           <Ionicons name="checkmark-circle" size={28} color={colors.success} />
-          <Text style={{ fontWeight: "700", color: colors.ink }}>Saved. Your care team sees it like any other reading.</Text>
+          <AppText variant="bodyStrong">Saved. Your care team sees it like any other reading.</AppText>
           {notes.map((n) => (
             <MutedText key={n}>{n}</MutedText>
           ))}
@@ -332,14 +333,14 @@ export function PhotoReadingScreen({ userId, onClose }: Props) {
       {phase === "queued" && (
         <Card style={{ gap: 8, alignItems: "center" }}>
           <Ionicons name="cloud-offline-outline" size={28} color={colors.muted} />
-          <Text style={{ fontWeight: "700", color: colors.ink }}>Saved on this phone. It will be sent when you are back online.</Text>
+          <AppText variant="bodyStrong">Saved on this phone. It will be sent when you are back online.</AppText>
         </Card>
       )}
       {phase === "held" && heldReasons && (
         <Card style={{ gap: 10 }}>
-          <Text style={{ fontWeight: "700", color: colors.ink }}>{HELD_READING_COPY.title}</Text>
+          <AppText variant="bodyStrong">{HELD_READING_COPY.title}</AppText>
           <MutedText>{HELD_READING_COPY.body}</MutedText>
-          <Text style={{ fontWeight: "600", color: colors.ink }}>If you feel unwell, do not wait for a new reading. Get care now.</Text>
+          <AppText variant="bodyStrong">If you feel unwell, do not wait for a new reading. Get care now.</AppText>
           <PrimaryButton title={HELD_READING_COPY.retry} onPress={() => { setHeldReasons(false); setPhase("draft"); }} />
         </Card>
       )}
