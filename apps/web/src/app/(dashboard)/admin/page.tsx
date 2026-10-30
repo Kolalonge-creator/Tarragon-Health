@@ -14,6 +14,8 @@ import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/ser
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
+import { attentionView, dependenciesDown, figure, type AttentionItem } from "@tarragon/shared";
+import { AttentionHero } from "./attention-hero";
 
 export const metadata = { title: "Dashboard" };
 
@@ -29,10 +31,6 @@ type AdminTileGroup = {
   label: string;
   tiles: AdminTile[];
 };
-
-function sectionId(label: string) {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
 
 /** "up"/"configured" reads as healthy, "down" as a real problem, "unconfigured"
  * and "not_deployed" as neutral — a provider nobody's set up yet isn't a fault. */
@@ -97,6 +95,7 @@ export default async function AdminPage() {
     pendingBookingsRes,
     dependencyReport,
     aiGovernanceSignoff,
+    incidentsRes,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -125,6 +124,15 @@ export default async function AdminPage() {
     // clinician-reachable mirror (/clinician/ai-governance) via
     // readPendingAiGovernanceSignoff so the two counts can never drift.
     readPendingAiGovernanceSignoff(supabase),
+    // Serious incidents still being worked (sev1 and sev2, not yet resolved). Only read for someone who may see the register; RLS
+    // would return nothing to anyone else, and "nothing" must not be drawn as "none".
+    canViewIncidents
+      ? supabase
+          .from("ops_incidents")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["open", "investigating"])
+          .in("severity", ["sev1", "sev2"])
+      : Promise.resolve(null),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -161,27 +169,53 @@ export default async function AdminPage() {
   // work, so there is nothing recurring to report (2026-09-02 cutover).
   const revenue90dDisplay = formatMinor(financial.revenue_90d_kobo, "NGN");
 
-  const attentionParts: string[] = [];
-  if (pendingVerificationCount > 0) {
-    attentionParts.push(
-      `${formatNumber(pendingVerificationCount)} clinician verification${pendingVerificationCount === 1 ? "" : "s"}`
-    );
+  // What needs this person, ranked by @tarragon/shared's attentionView. An item is only listed for someone who can act on it, and an
+  // item whose read failed is unknown, never zero: that is what stops a broken read becoming "caught up".
+  const aiGovernanceLabel = [
+    pendingAiVersionApprovalCount > 0 &&
+      `${formatNumber(pendingAiVersionApprovalCount)} AI system version${pendingAiVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
+    pendingClinicalAccuracyLabelCount > 0 &&
+      `${formatNumber(pendingClinicalAccuracyLabelCount)} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
+    pendingAiGuardrailCount > 0 &&
+      `${formatNumber(pendingAiGuardrailCount)} guardrail${pendingAiGuardrailCount === 1 ? "" : "s"} awaiting your approval`,
+    pendingAiKnowledgeSourceCount > 0 &&
+      `${formatNumber(pendingAiKnowledgeSourceCount)} knowledge source${pendingAiKnowledgeSourceCount === 1 ? "" : "s"} awaiting your approval`,
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  const attentionItems: AttentionItem[] = [];
+  if (canViewIncidents && incidentsRes) {
+    attentionItems.push({
+      key: "serious_incidents",
+      label: (n) => `${formatNumber(n)} serious incident${n === 1 ? "" : "s"} still open`,
+      href: "/admin/ops/incidents",
+      count: figure(incidentsRes.count, incidentsRes.error !== null),
+    });
   }
-  if (pendingBookingsCount > 0) {
-    attentionParts.push(
-      `${formatNumber(pendingBookingsCount)} pending booking request${pendingBookingsCount === 1 ? "" : "s"}`
-    );
+  if (canManageAiGovernance) {
+    attentionItems.push({
+      key: "ai_governance",
+      label: () => aiGovernanceLabel,
+      href: "/admin/settings/ai-governance",
+      count: figure(aiGovernanceAttentionCount, aiGovernanceFailed),
+    });
   }
-  // "You're caught up" is the one sentence on this page that must never be
-  // produced by a failed query. Both halves of it came from counts that
-  // defaulted to zero, so a broken read greeted an administrator with an
-  // explicit all-clear.
-  const attentionCopy =
-    cliniciansFailed || bookingsFailed
-      ? "Today's counts could not be loaded, so this is not an all-clear. Check the verification and booking queues directly."
-      : attentionParts.length > 0
-        ? `${attentionParts.join(" and ")} need attention today.`
-        : "Nothing needs attention right now. You're caught up.";
+  attentionItems.push(
+    {
+      key: "clinician_verification",
+      label: (n) => `${formatNumber(n)} clinician verification${n === 1 ? "" : "s"} to complete`,
+      href: "/admin/settings/clinical-staff",
+      count: figure(pendingVerificationRes.count, pendingVerificationRes.error !== null),
+    },
+    {
+      key: "booking_requests",
+      label: (n) => `${formatNumber(n)} pending booking request${n === 1 ? "" : "s"}`,
+      href: "/admin/bookings",
+      count: figure(pendingBookingsRes.count, pendingBookingsRes.error !== null),
+    },
+  );
+  const attention = attentionView(attentionItems);
+  const downDependencies = dependenciesDown(dependencyReport);
 
   const groups: AdminTileGroup[] = [
     {
@@ -512,7 +546,7 @@ export default async function AdminPage() {
           <h1 className="font-heading text-2xl font-semibold sm:text-3xl">
             Welcome back{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
           </h1>
-          <p className="mt-1 max-w-xl text-sm text-white/80">{attentionCopy}</p>
+          <p className="mt-1 max-w-xl text-sm text-white/80">Here is what needs you, most urgent first.</p>
         </div>
         {canViewAnalytics && (
           <Link
@@ -524,45 +558,14 @@ export default async function AdminPage() {
         )}
       </div>
 
-      {/* AI governance (Module 40) sits one tile among ~60 further down this
-          page — easy to land on this dashboard and never notice it, even
-          with real, time-sensitive work waiting there. Surfaced here,
-          top-of-page, whenever there is actually something to act on, and
-          silent otherwise so it never becomes ambient clutter once caught
-          up. Amber (needs-attention), not red (broken) — this is real work
-          waiting, not a failure, except in the aiGovernanceFailed branch. */}
-      {canManageAiGovernance && (aiGovernanceAttentionCount > 0 || aiGovernanceFailed) && (
-        <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          <p>
-            {aiGovernanceFailed ? (
-              "AI governance: pending-item counts could not be loaded, so this is not an all-clear — check the page directly."
-            ) : (
-              <>
-                <strong>AI governance needs you:</strong>{" "}
-                {[
-                  pendingAiVersionApprovalCount > 0 &&
-                    `${formatNumber(pendingAiVersionApprovalCount)} AI system version${pendingAiVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
-                  pendingClinicalAccuracyLabelCount > 0 &&
-                    `${formatNumber(pendingClinicalAccuracyLabelCount)} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
-                  pendingAiGuardrailCount > 0 &&
-                    `${formatNumber(pendingAiGuardrailCount)} guardrail${pendingAiGuardrailCount === 1 ? "" : "s"} awaiting your approval`,
-                  pendingAiKnowledgeSourceCount > 0 &&
-                    `${formatNumber(pendingAiKnowledgeSourceCount)} knowledge source${pendingAiKnowledgeSourceCount === 1 ? "" : "s"} awaiting your approval`,
-                ]
-                  .filter(Boolean)
-                  .join(" and ")}
-                .
-              </>
-            )}
-          </p>
-          <Link
-            href="/admin/settings/ai-governance"
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-800"
-          >
-            Review AI governance
-          </Link>
-        </div>
+      {downDependencies.length > 0 && (
+        <LoadFailure>
+          {downDependencies.map((k) => DEPENDENCY_LABELS[k as keyof typeof DEPENDENCY_LABELS] ?? k).join(", ")}{" "}
+          {downDependencies.length === 1 ? "is" : "are"} reporting down. See System status at the bottom of this page.
+        </LoadFailure>
       )}
+
+      <AttentionHero view={attention} />
 
       {/* Unlike the clinician worklist strip, this one degrades per tile
           rather than replacing the whole row: these four figures come from
@@ -639,33 +642,38 @@ export default async function AdminPage() {
         />
       </div>
 
-      {groups.map((group) => (
-        <section key={group.label} aria-labelledby={`${sectionId(group.label)}-heading`} className="space-y-3">
-          <h2
-            id={`${sectionId(group.label)}-heading`}
-            className="font-heading text-sm font-medium text-charcoal-ink/60"
-          >
-            {group.label}
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {group.tiles.map((tile) => (
-              <Link
-                key={tile.href}
-                href={tile.href}
-                title={tile.blurb}
-                className="group mx-auto flex aspect-square w-full max-w-[168px] flex-col items-center justify-center gap-2 rounded-2xl border border-charcoal-ink/10 bg-white p-4 text-center shadow-sm transition-all hover:border-brand-green/40 hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-soft-sage">
-                  <tile.icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-                </span>
-                <span className="line-clamp-2 text-xs font-medium leading-snug text-charcoal-ink group-hover:text-deep-forest sm:text-sm">
-                  {tile.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      {/* Every area is still here, grouped as before; each group opens on a tap so the page leads with the work, not ~60 squares.
+          Native details/summary: works without script and is keyboard-accessible. The search bar above reaches any page by name. */}
+      <section aria-label="All areas" className="space-y-3">
+        {groups.map((group) => (
+          <details key={group.label} className="group/section rounded-2xl border border-charcoal-ink/10 bg-white dark:border-night-ink/15 dark:bg-night-card">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-heading text-sm font-medium text-charcoal-ink dark:text-night-ink">
+              <span>{group.label}</span>
+              <span className="flex items-center gap-2 text-xs font-normal text-charcoal-ink/60 dark:text-night-ink/60">
+                {group.tiles.length}
+                <span aria-hidden>▾</span>
+              </span>
+            </summary>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-3 lg:grid-cols-4">
+              {group.tiles.map((tile) => (
+                <Link
+                  key={tile.href}
+                  href={tile.href}
+                  title={tile.blurb}
+                  className="group mx-auto flex aspect-square w-full max-w-[168px] flex-col items-center justify-center gap-2 rounded-2xl border border-charcoal-ink/10 bg-white p-4 text-center shadow-sm transition-all hover:border-brand-green/40 hover:shadow-md"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-soft-sage">
+                    <tile.icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+                  </span>
+                  <span className="line-clamp-2 text-xs font-medium leading-snug text-charcoal-ink group-hover:text-deep-forest sm:text-sm">
+                    {tile.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </details>
+        ))}
+      </section>
 
       <Card variant="soft">
         <CardHeader>
@@ -688,19 +696,6 @@ export default async function AdminPage() {
                 </li>
               )
             )}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card variant="soft">
-        <CardHeader>
-          <CardTitle>On the roadmap</CardTitle>
-          <CardDescription>Planned for an upcoming release.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
-            <li>ML model versioning + batch re-scoring trigger</li>
-            <li>Audit trail + NDPR export/erasure tools</li>
           </ul>
         </CardContent>
       </Card>
