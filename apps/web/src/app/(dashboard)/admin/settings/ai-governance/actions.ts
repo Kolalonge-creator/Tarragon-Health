@@ -403,7 +403,7 @@ export async function runAiEvalSuitesAction(
   if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
   const totalSuiteCount =
-    systemCode === "AI-001" ? 4 : systemCode === "AI-017" || systemCode === "AI-018" ? 2 : 1;
+    systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 4 : systemCode === "AI-018" ? 2 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 
@@ -424,6 +424,7 @@ export async function runAiEvalSuitesAction(
             ai_system_id: aiSystemId,
             ai_system_version_id: latestVersion?.id ?? null,
             suite_id: suite.suite_id,
+            prompt_version_id: suite.prompt_version_id ?? null,
             environment: "evaluation",
             model_identifier: latestVersion?.model_identifier ?? null,
             completed_at: new Date().toISOString(),

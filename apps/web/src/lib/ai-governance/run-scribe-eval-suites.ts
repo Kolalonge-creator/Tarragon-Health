@@ -17,6 +17,7 @@ import { generateScribeNote, type ScribeNoteResult } from "../scribe/note-draft"
 import { createServiceRoleClient } from "../supabase/service-role";
 import { SCRIBE_FIXTURES } from "./scribe-eval-fixtures";
 import { runScribeFactsSuite } from "./run-scribe-facts-eval";
+import { runScribeDocumentsSuite } from "./run-scribe-documents-eval";
 import type { EvalSuite, EvalSuiteCase, EvalSuiteResult, EvalCaseOutcome } from "./run-coach-eval-suites";
 
 const SUITE_NAME = "AI-017 scribe draft golden transcripts";
@@ -267,6 +268,13 @@ export async function runAiScribeEvalSuites(options?: {
   if (facts) {
     await options?.onSuiteComplete?.(facts.result, { aiSystemId: facts.aiSystemId });
     suites.push(facts.result);
+  }
+
+  // The document drafts (letter, prescription proposal, follow-up tasks). Absent until its migration is applied; needs an approved active prompt.
+  const documents = await runScribeDocumentsSuite();
+  if (documents) {
+    await options?.onSuiteComplete?.(documents.result, { aiSystemId: documents.aiSystemId });
+    suites.push(documents.result);
   }
   return { aiSystemId, suites };
 }
