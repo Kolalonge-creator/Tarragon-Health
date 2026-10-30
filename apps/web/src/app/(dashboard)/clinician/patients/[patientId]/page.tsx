@@ -58,6 +58,7 @@ import { BpControlRatePanel } from "./bp-control-rate-panel";
 import { ThresholdOverrideCard } from "./threshold-override-card";
 import { readPatientOverrides } from "@/lib/queries/threshold-overrides";
 import { CuffCheckPanel } from "./cuff-check-panel";
+import { HomeBpSummaryPanel } from "./home-bp-summary-panel";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -402,6 +403,7 @@ export default async function ClinicianPatientPage({
                 {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {canPrescribe && <ThresholdOverrideCard patientId={patient.id} rows={thresholdOverrides.rows} readFailed={thresholdOverrides.failed} />}
                 {isClinicalTier(callerStaff) && <CuffCheckPanel patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <HomeBpSummaryPanel patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

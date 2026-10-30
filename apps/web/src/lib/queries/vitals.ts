@@ -230,3 +230,30 @@ export function useHba1cTrend(patientId: string) {
     enabled: !!patientId,
   });
 }
+
+/**
+ * When the person last took a real cuff reading (any blood pressure that is not a wearable estimate), for the "last checked against a cuff" label
+ * under a wearable estimate (S70b). Resolves to `undefined` when it cannot be read (not the owner, a failed load), so the label then says nothing about
+ * the date instead of wrongly claiming "never". `null` means the person genuinely has no cuff reading.
+ */
+export function useLastCuffCheck(patientId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["vitals-last-cuff-check", patientId],
+    queryFn: async (): Promise<string | null | undefined> => {
+      const { data, error } = await createClient()
+        .from("vitals_readings")
+        .select("taken_at")
+        .eq("patient_id", patientId)
+        .eq("vital_type", "blood_pressure")
+        .neq("source", "wearable")
+        .order("taken_at", { ascending: false })
+        .limit(1);
+      if (error) return undefined;
+      return data?.[0]?.taken_at ?? null;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled: !!patientId && enabled,
+  });
+}

@@ -1534,6 +1534,12 @@ cuff_camera_and_result_passport_guards.sql
 # S62 follow-up: the review and scheduled-test sweeps are scheduled daily (06:08 and 06:18 UTC), call the right function, run cleanly as the job owner and add nothing while no real patient is enrolled, and still refuse a signed-in user. Sabotage: each job unscheduled and the matching check flips.
 s62_pathway_sweeps_scheduled.sql
 
+# S70b: a high wearable blood pressure estimate gives the person one calm cuff-check task when its module is on, and nothing else (no clinician alert, none for green, emergency or cuff readings, one open at a time). Sabotage: module check and estimate check each removed and a check flips.
+s70b_cuffless_cuff_check_task.sql
+
+# S70b: pharmacy counter reading. One-time patient code, wrong-code lockout, visit for one pharmacist and one person up to the reading limit, blood pressure and typed source only, triaged like a typed reading, ledger says pharmacy/counter consent. Sabotage: reading limit and person check removed from the seam and a check flips.
+s70b_pharmacy_reading_point.sql
+
 # S69b: Care Circle presets, the quiet waiting state, shared jobs, the weekly digest and the gentle nudge. Modules ship OFF; each tool refuses while off; viewers cannot claim; digest blocks follow permissions and carry counts not values; the nudge needs the patient's opt-in, the medicines permission, the grace period and window, the patient-first window holds it, a red event is untouched. The sweep follows the structured schedule (off day, end date, taper, not yet in effect, malformed time send nothing); a declined invite reads and counts as pending to the sender; a red_alerts-only member reads no job. Sabotage: six changes, all must flip.
 s69b_care_circle_presets_digest_tasks_nudge.sql
 
