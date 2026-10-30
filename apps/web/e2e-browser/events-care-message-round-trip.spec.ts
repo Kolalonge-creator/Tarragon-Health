@@ -76,7 +76,7 @@ test.describe("E5 and E7: a care message makes the round trip and each person is
 
     // 3. E5, doctor side: the inbox lists the thread as unread and the doctor answers inside it.
     await gotoRoute(doctorPage, "/clinician/messages");
-    await doctorPage.getByRole("button", { name: new RegExp(SUBJECT.replace(/[[\]]/g, "\\$&")) }).click();
+    await doctorPage.getByRole("button", { name: SUBJECT }).click();
     await expect(doctorPage.getByText(QUESTION)).toBeVisible({ timeout: 30_000 });
     await doctorPage.getByLabel("Your reply").fill(ANSWER);
     await doctorPage.getByRole("button", { name: "Send", exact: true }).last().click();

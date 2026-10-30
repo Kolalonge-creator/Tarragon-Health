@@ -21,7 +21,7 @@ test.describe("E6: a booking makes the round trip across patient and doctor scre
   test.setTimeout(240_000);
 
   let patient: TestPatient;
-  let doctor: Account;
+  let doctor: Account & { staffId: string };
 
   test.beforeAll(async () => {
     test.setTimeout(180_000);
