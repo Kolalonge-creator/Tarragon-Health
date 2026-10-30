@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useCompanyProfile, useIncomeStatement, useTaxSummary, useComplianceCalendarForYear } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
+import { PackBlocked, PackStaleBanner } from "./pack-notices";
+import { packSource, summarisePackSources } from "./pack-sources";
 import {
   PrintSection,
   PrintTable,
@@ -37,6 +39,14 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
     () => [...(calendar.data ?? [])].sort((a, b) => a.due_date.localeCompare(b.due_date)),
     [calendar.data],
   );
+  // These figures go to a tax adviser for a filing. A source that did not load must never print as
+  // ₦0.00 VAT, an empty calendar, or a TIN that is "not on file". See pack-sources.ts.
+  const { failed, stale, loading } = summarisePackSources([
+    packSource("company profile", profile),
+    packSource("income statement", pnl),
+    packSource("tax summary", tax),
+    packSource("compliance calendar", calendar),
+  ]);
   const netVat = (tax.data?.output_vat_minor ?? 0) - (tax.data?.input_vat_minor ?? 0);
 
   const particulars = [
@@ -57,13 +67,25 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
     particular("External auditor", profile.data?.auditor_name),
   ];
 
+  if (failed.length > 0) {
+    return (
+      <PackBlocked
+        title="Government filings pack"
+        subtitle={`Financial year ${year} · Nigeria: CAC, FIRS, PAYE, pension, NHF, NSITF and ITF`}
+        failed={failed}
+      />
+    );
+  }
+
   return (
     <div>
-      <PrintToolbar />
+      <PrintToolbar loading={loading} />
       <ReportLetterhead
         title="Government filings pack"
         subtitle={`Financial year ${year} · Nigeria: CAC, FIRS, PAYE, pension, NHF, NSITF and ITF`}
       />
+
+      <PackStaleBanner stale={stale} />
 
       <Disclaimer>
         This pack assembles what the ledger and the compliance calendar already know for {year}. It
@@ -73,11 +95,15 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
       </Disclaimer>
 
       <PrintSection title="Company particulars" description="Printed on every filing that asks for them.">
-        <div className="grid grid-cols-2 gap-x-8">
-          {particulars.map((p) => (
-            <PrintKeyValue key={p.label} label={p.label} value={p.value} />
-          ))}
-        </div>
+        {profile.isLoading ? (
+          <PrintEmpty>Loading…</PrintEmpty>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-8">
+            {particulars.map((p) => (
+              <PrintKeyValue key={p.label} label={p.label} value={p.value} />
+            ))}
+          </div>
+        )}
       </PrintSection>
 
       <PrintSection
