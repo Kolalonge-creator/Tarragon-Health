@@ -20,9 +20,9 @@ describe("free_tier_reading_self_care_suggestion in-app text", () => {
     expect(d.text).not.toMatch(/Free plan/);
   });
 
-  it("still says what to do: get care now, and go to the nearest hospital if very unwell", () => {
+  it("still says what to do: open the app, and go to the nearest hospital if very unwell", () => {
     const d = describeNotification({ template: "free_tier_reading_self_care_suggestion", payload: priority } as Input);
-    expect(d.text).toMatch(/get care now/i);
+    expect(d.text).toMatch(/open the app to see what to do next/i);
     expect(d.text).toMatch(/nearest hospital/i);
   });
 

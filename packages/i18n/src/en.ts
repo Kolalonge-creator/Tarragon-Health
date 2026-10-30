@@ -5545,7 +5545,7 @@ export const en = {
   "freered.notice.guidance": "A safety message is waiting for you in the app",
   "freered.notice.recheck": "It is time to check again. Open the app when you can",
   "freered.notice.checkin": "We are checking in. Open the app to tell us how you are",
-  "freered.notice.self_care": "No doctor has been alerted about this. Please get care now. If you feel very unwell, go to the nearest hospital.",
+  "freered.notice.self_care": "No doctor has been alerted about this. Open the app to see what to do next. If you feel very unwell, go to the nearest hospital.",
   // Two-tier model, items 3 and 4: the doctor offers several times, the Member picks one; the pre-call summary.
   "followups.title": "Monthly check-ins",
   "followups.subtitle": "Offer each Member several times for their monthly check-in. They pick the one that suits them.",

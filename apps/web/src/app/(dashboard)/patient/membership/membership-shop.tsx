@@ -327,9 +327,9 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
                       <Button type="button" variant="outline" size="sm" onClick={() => setRefundTarget(o)}>
                         {t("refund.request.button", locale)}
                       </Button>
-                    ) : (
+                    ) : o.paid_at !== null ? (
                       <span className={`text-sm ${MUTED}`}>{t("refund.request.window_passed", locale, { days: String(refundDays(o)) })}</span>
-                    )
+                    ) : null
                   )}
                   {o.refund_state !== null && <span className={`text-sm ${MUTED}`}>{t(refundStateKey(o.refund_state), locale)}</span>}
                   <div className="text-right">
