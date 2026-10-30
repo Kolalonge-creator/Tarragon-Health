@@ -19,7 +19,7 @@ The 13 October draft described one 120,000-naira Membership. The product is now 
 
 **New items for counsel, if you use counsel**
 
-**L. Withdrawal of a required consent by closing the account.** NDPA s.35 and s.26(4) to (5) say withdrawal must be possible at any time and as easy as giving consent. The platform treats the Terms, the Data Processing Consent and the Telehealth Consent as required, because the care cannot work without them, and offers account closure as the way out. Counsel to confirm that this is lawful for consents the service genuinely depends on, and that Schedules A, B and C say the same thing about it. Schedule A was not changed in v2.
+**L. Withdrawal of a required consent by closing the account.** NDPA s.35 and s.26(4) to (5) say withdrawal must be possible at any time and as easy as giving consent. The platform treats the Terms, the Data Processing Consent and the Telehealth Consent as required, because the care cannot work without them, and offers account closure as the way out. Counsel to confirm that this is lawful for consents the service genuinely depends on. Schedules A, B and C now say the same thing about it: Schedule A was rebuilt from its live text for v2 to match.
 
 **M. The valuation method for non-delivery.** Under the method above, the whole Membership price is attributed to the 12 calls, with no platform share kept back. A Member who had no call all year, for a reason on our side, could claim the full 84,000. Counsel to say whether that is the fair reading of s.130(2)(b), or whether a platform share may be kept (the owner can choose either; see sign-off decision 2).
 

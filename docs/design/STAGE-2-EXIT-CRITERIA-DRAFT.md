@@ -24,7 +24,7 @@ Status key: Met / Partly / Not met / Unknown (the repo cannot show it). Sources 
 | B2 | A real test page reaches a real on-call clinician by in-app, push and email, is acknowledged, and a deliberately unacknowledged one escalates at the signed times (5 and 10 minutes are PROPOSED in spec section 17) | Dated log of two live drills, one acknowledged, one not, with timestamps | CMO and Ops | Not met (proofs pass in the database; no live drill recorded) |
 | B3 | The escalation SLA in `escalation_slas` is the active signed version and matches what ops can actually staff | Query: the active row of `escalation_slas`, plus the CMO's signature | CMO | Met with a caveat (v9 active and signed; it still names `whatsapp` and `whatsapp_nudge`, which the code reads as email by D-12, tracked as OQ-29; the record is stale, behaviour is correct) |
 | B4 | No governed clinical config is live unsigned | The unsigned-config guard from #1432 reports zero rows; owed-signoffs ledger is empty | CMO | Met (checked 2026-10-29: all 4 owed sign-offs signed; the ledger has no unsigned row). Re-check on the day |
-| B5 | Doctor capacity for the first batch: patients per doctor stays below a limit the CMO accepts | [founder to set with CMO]. No ratio is proposed here. | CMO | Not met (no number set) |
+| B5 | Doctor capacity for the first batch: patients per doctor stays below a limit the CMO accepts | 60 patients per doctor, set by the founder in chat on 2026-10-30. | CMO | Number set; the rota still has 2 clinicians |
 
 ## C. Payments
 
@@ -97,7 +97,7 @@ Status key: Met / Partly / Not met / Unknown (the repo cannot show it). Sources 
 
 Timeline: with a 7-day hold and 3 clean batches, the final switch is at least about 3 weeks after batch 1. Batch 1 can open earlier, once sections A to C and G1 are Met. The first batch is sized to what two on-call clinicians can cover until the rota reaches the number the CMO confirms.
 
-1. **Batch 1.** Invite [founder to set; PROPOSED 25] people through `signup_invites`, with `signup_invites_required` on and `public_signup_enabled` off.
+1. **Batch 1.** Invite 50 people (set by the founder in chat on 2026-10-30) through `signup_invites`, with `signup_invites_required` on and `public_signup_enabled` off.
 2. **Hold-point 1.** Do not invite anyone else until the first nightly screening run after batch 1 has completed for every batch-1 member with no skipped patient, no unacknowledged red page, and no open incident. Minimum wait [founder to set; PROPOSED 7 days].
 3. **Batch 2.** Up to [PROPOSED double the previous batch], then the same hold-point.
 4. **Stop rule.** Any red page unanswered past its SLA, any wrong patient shown another person's data, or any payment taken twice halts invitations until the CMO and founder sign a written cause and fix.

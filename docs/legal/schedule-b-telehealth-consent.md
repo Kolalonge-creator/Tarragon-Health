@@ -31,7 +31,7 @@ A finding classified as an emergency cannot be closed on a written note alone. Y
 
 These are standards we hold ourselves to. They are not a guarantee of a particular outcome in every case. How quickly we can reach you also depends on you being reachable.
 
-On the Free plan, no doctor reviews a reading you log, so these times do not apply to readings. They do apply to two things on every plan: an abnormal screening result, and a critical laboratory result. Both are sent to a doctor whichever plan you are on.
+On the Free plan, no doctor reviews a reading you log, so these times do not apply to readings. They do apply to two things on every plan: an abnormal screening result, and a critical laboratory result. Both are sent to a doctor whichever plan you are on. For an abnormal screening result, we aim to contact you within 24 hours, and within 12 hours if the result is critical.
 
 ## How we communicate with you
 Different channels carry different kinds of information, on purpose.
@@ -49,7 +49,7 @@ Remote monitoring lets your care team review your readings and respond between v
 ## Emergency care
 TarragonHealth does not provide emergency care. If you think you or someone with you is having a medical emergency, do not wait for the app, a message or a call from us. Call the emergency number for your area or go to the nearest hospital straight away. Ask someone to go with you if you can. No part of this platform is designed to be used in an emergency.
 
-If you are on the Free plan, no doctor is alerted when you record a reading or symptom that looks dangerous. The app shows you what to do straight away, which is to seek emergency care or go to the nearest hospital. It tells you plainly that no doctor was alerted because you are on the Free plan. If you are a Member, a dangerous reading is seen by our care team as part of your care. That is still not an emergency service. In an emergency, go to the nearest hospital first.
+If you are on the Free plan, no doctor is alerted when you record a reading or symptom that looks dangerous. The app shows you what to do straight away, which is to seek emergency care or go to the nearest hospital. For the most serious readings it also tells you plainly that no doctor was alerted. Whatever the app shows you, no doctor is alerted about a reading or symptom logged on the Free plan. If you are a Member, a dangerous reading is seen by our care team as part of your care. That is still not an emergency service. In an emergency, go to the nearest hospital first.
 
 ## Confidentiality
 Your clinical information is kept confidential. It is shared with your care team on a need-to-know basis. Outside the care team it is shared only with your specific consent, including a family member or sponsor you have separately agreed to give view access to, where the law requires disclosure, or where there is a serious threat to your life, health or public health. If an organisation pays for your Membership, it sees only aggregate figures about its whole covered group and never your individual results. See our Data Processing Consent for how we handle your data more broadly.
