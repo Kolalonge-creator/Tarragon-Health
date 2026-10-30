@@ -1,3 +1,4 @@
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, ScrollView, TextInput, View } from "react-native";
 import {
@@ -192,7 +193,9 @@ export function HealthyAgeingScreen({ patientId, organisationId, onNavigate }: H
         </Card>
       )}
 
-      <AgeingAssessmentCard assessment={assessment} missing={missing} patientId={patientId} organisationId={organisationId} onChanged={refresh} />
+      <Disclosure title="Ageing check-in" hint="A short yearly set of questions about mobility, memory and daily life.">
+        <AgeingAssessmentCard assessment={assessment} missing={missing} patientId={patientId} organisationId={organisationId} onChanged={refresh} />
+      </Disclosure>
 
       <FallsRiskCard fallsRisk={fallsRisk} patientId={patientId} organisationId={organisationId} onChanged={refresh} />
 
