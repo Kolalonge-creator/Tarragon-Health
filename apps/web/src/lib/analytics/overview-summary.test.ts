@@ -208,6 +208,91 @@ describe("facilities and blood pressure tiles", () => {
   });
 });
 
+describe("revenue growth tile", () => {
+  const tile = (mom: number) =>
+    buildOverviewSummary(inputs({ investor: loaded(investorSummarySchema.parse({ mom_growth_pct: mom })) })).tiles
+      .revenue12m;
+
+  it("writes the sign out, so direction is not carried by colour alone", () => {
+    expect(tile(12.5).delta).toEqual({ text: "+12.5% MoM", direction: "up" });
+    expect(tile(-100).delta).toEqual({ text: "-100% MoM", direction: "down" });
+  });
+
+  it("shows 0 as neutral, not growth", () => {
+    // The RPC returns 0 when the prior 30 days had no revenue to compare with,
+    // so a green up arrow on 0 would read as healthy growth.
+    expect(tile(0).delta).toEqual({ text: "0% MoM", direction: "flat" });
+  });
+});
+
+describe("patients and revenue tiles", () => {
+  it("shows the count with how many are active", () => {
+    const { tiles } = buildOverviewSummary(inputs());
+    expect(tiles.patients.value).toBe("31");
+    expect(tiles.patients.delta?.text).toBe("31 active");
+  });
+
+  it("uses a currency's own symbol rather than calling it naira", () => {
+    const { tiles } = buildOverviewSummary(
+      inputs({
+        financial: loaded(
+          financialSummarySchema.parse({ revenue_by_currency: [{ currency: "GBP", total_minor: 250000 }] })
+        ),
+      })
+    );
+    expect(tiles.revenue.value).toBe("£2,500");
+  });
+
+  it("prefers naira when it is on file", () => {
+    const { tiles } = buildOverviewSummary(
+      inputs({
+        financial: loaded(
+          financialSummarySchema.parse({
+            revenue_by_currency: [
+              { currency: "GBP", total_minor: 250000 },
+              { currency: "NGN", total_minor: 1000000 },
+            ],
+          })
+        ),
+      })
+    );
+    expect(tiles.revenue.value).toBe("₦10,000");
+  });
+});
+
+describe("banner when there is nothing to report yet", () => {
+  const quiet = governance({ staff_total: 0 }, { open: 0, by_status: [{ status: "closed", count: 1 }] });
+
+  it("says loading only while something is still loading", () => {
+    const { banner } = buildOverviewSummary(inputs({ business: loading(), investor: loading(), governance: quiet }));
+    expect(banner).toBe("Your latest figures are loading.");
+  });
+
+  it("does not say loading once everything has settled and failed", () => {
+    const { banner } = buildOverviewSummary(inputs({ business: failed(), investor: failed(), governance: quiet }));
+    expect(banner).toBe("Some figures could not be loaded.");
+    expect(banner).not.toMatch(/loading/);
+  });
+});
+
+describe("verification tile colour", () => {
+  it("is green only when every licence on file is verified", () => {
+    // 8 of 10 verified with nobody ACTIVE unverified (the other two are
+    // inactive). The percentage still counts them, so it must not look clean.
+    const { tiles } = buildOverviewSummary(
+      inputs({
+        governance: governance({
+          staff_total: 10,
+          staff_verified: 8,
+          staff_unverified_active: 0,
+          verification_pct: 80,
+        }),
+      })
+    );
+    expect(tiles.verification.delta).toEqual({ text: "8 of 10 licences verified", direction: "down" });
+  });
+});
+
 describe("Overview component", () => {
   const source = readFileSync(
     join(process.cwd(), "src/app/(dashboard)/analytics/_components/overview-dashboard.tsx"),

@@ -76,7 +76,6 @@ function clinicalFigures(q: QuerySlice<GovernanceSummary>) {
     total: c.staff_total,
     verified: c.staff_verified ?? 0,
     pct: c.verification_pct ?? 0,
-    unverifiedActive: c.staff_unverified_active ?? 0,
   };
 }
 
@@ -96,7 +95,7 @@ function verificationTile(q: QuerySlice<GovernanceSummary>): OverviewTile {
     value: formatPercent(f.pct),
     delta: {
       text: `${formatNumber(f.verified)} of ${formatNumber(f.total)} licences verified`,
-      direction: f.unverifiedActive > 0 ? "down" : "up",
+      direction: f.verified >= f.total ? "up" : "down",
     },
   };
 }
@@ -125,9 +124,11 @@ function bpControlTile(q: QuerySlice<ClinicalOutcomes>): OverviewTile {
 function revenueTile(q: QuerySlice<FinancialSummary>): OverviewTile {
   if (!q.data) return unknownTile(q);
   const byCurrency = q.data.revenue_by_currency;
-  const ngn = byCurrency.find((r) => r.currency === "NGN")?.total_minor ?? byCurrency[0]?.total_minor ?? 0;
+  // Prefer naira, but if it is the only currency on file print it in its own
+  // symbol rather than passing pence or cents off as naira.
+  const row = byCurrency.find((r) => r.currency === "NGN") ?? byCurrency[0];
   return {
-    value: formatMinor(ngn, "NGN"),
+    value: formatMinor(row?.total_minor ?? 0, row?.currency ?? "NGN"),
     delta: { text: `${formatMinor(q.data.receivables_kobo, "NGN")} receivable`, direction: "flat" },
   };
 }
@@ -143,9 +144,15 @@ function patientsTile(q: QuerySlice<BusinessSummary>): OverviewTile {
 function revenue12mTile(q: QuerySlice<InvestorSummary>): OverviewTile {
   if (!q.data) return unknownTile(q);
   const mom = q.data.mom_growth_pct;
+  // The RPC reports 0 both for "no change" and for "the prior 30 days had no
+  // revenue to compare against", so 0 is shown as neutral, never as growth.
+  // The sign is written out because the direction must not rest on colour
+  // alone.
+  const sign = mom > 0 ? "+" : mom < 0 ? "-" : "";
+  const direction = mom > 0 ? "up" : mom < 0 ? "down" : "flat";
   return {
     value: formatMinor(q.data.revenue_12m_minor, "NGN"),
-    delta: { text: `${formatPercent(Math.abs(mom))} MoM`, direction: mom >= 0 ? "up" : "down" },
+    delta: { text: `${sign}${formatPercent(Math.abs(mom))} MoM`, direction },
   };
 }
 
@@ -180,7 +187,13 @@ function bannerCopy({ business, investor, governance }: OverviewInputs): string 
   }
 
   const risk = riskSentence(governance);
-  if (parts.length === 0) return risk || "Your latest figures are loading.";
+  if (parts.length === 0) {
+    if (risk) return risk;
+    // Nothing to say yet. Only call it loading if something still is.
+    return [business, investor, governance].some((q) => q.isPending)
+      ? "Your latest figures are loading."
+      : "Some figures could not be loaded.";
+  }
   return `${parts.join(", ")}.${risk ? ` ${risk}` : ""}`;
 }
 
