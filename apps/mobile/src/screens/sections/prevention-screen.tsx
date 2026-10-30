@@ -36,7 +36,7 @@ import * as WebBrowser from "expo-web-browser";
 import type { Tables } from "@tarragon/shared";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
-import { Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel, StatusChip, type StatusTone } from "@/ui/legacy-kit";
 
@@ -586,8 +586,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
       </View>
 
       {/* Vaccination history */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Vaccination history</SectionLabel>
+      <Disclosure title="Vaccination history" hint="Doses you have had, with dates">
         {vaccHistory.error ? (
           <Card>
             <ErrorText>Could not load your vaccination history.</ErrorText>
@@ -608,11 +607,10 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             ))}
           </GroupedList>
         )}
-      </View>
+      </Disclosure>
 
       {/* Results over time */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Your results over time</SectionLabel>
+      <Disclosure title="Your results over time" hint="Each result against your previous one">
         {trends.error ? (
           <Card>
             <ErrorText>Could not load your lab results.</ErrorText>
@@ -656,7 +654,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
           </GroupedList>
         )}
         <MutedText>Each result, compared with your previous one. This is for tracking, not diagnosis.</MutedText>
-      </View>
+      </Disclosure>
 
       <Modal visible={actionTarget !== null} animationType="slide" transparent onRequestClose={closeAction}>
         <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}>
