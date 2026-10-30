@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFraudSignals, financeKeys } from "@/lib/finance/queries";
 import type { FraudSignal } from "@/lib/finance/schemas";
 import { resolveFraudSignalAction } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { formatPatientDateTime } from "@/lib/format-date";
 
 const SEVERITY_VARIANT: Record<string, "red" | "amber" | "grey"> = {
@@ -61,7 +61,8 @@ function SignalRow({ signal, onResolve }: { signal: FraudSignal; onResolve: (id:
  */
 export function FraudSignals() {
   const qc = useQueryClient();
-  const { data: signals, isLoading } = useFraudSignals("open");
+  const fraud = useFraudSignals("open");
+  const signals = fraud.data;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function resolve(id: string, status: "resolved" | "ignored") {
@@ -79,8 +80,11 @@ export function FraudSignals() {
       title="Fraud signals"
       description="Duplicate charges, unusual payment velocity, refund concentration, and disputes/chargebacks: detection only, nothing here takes automated action on an account."
     >
-      {isLoading ? (
+      {fraud.isError && signals !== undefined && <StaleNote what="Fraud signals" />}
+      {fraud.isLoading ? (
         <CenterNote>Loading…</CenterNote>
+      ) : fraud.isError && signals === undefined ? (
+        <ReadFailure what="Fraud signals" />
       ) : (signals ?? []).length === 0 ? (
         <CenterNote>No open signals. ✓</CenterNote>
       ) : (

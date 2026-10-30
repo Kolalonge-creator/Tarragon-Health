@@ -16,7 +16,7 @@ import {
   resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
 import { lagosToday } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput, parseOptionalMoney } from "@/lib/finance/money-input";
 
 // Paystack (NGN) is the only live payment rail. The Stripe option and its
@@ -30,8 +30,12 @@ const PAYSTACK_BANK_ACCOUNT = "1000";
 
 export function Reconciliation() {
   const qc = useQueryClient();
-  const { data, isLoading } = useReconciliationSummary();
-  const { data: flags, isLoading: flagsLoading } = useReconciliationFlags("open");
+  const summary = useReconciliationSummary();
+  const data = summary.data;
+  const isLoading = summary.isLoading;
+  const flagsQuery = useReconciliationFlags("open");
+  const flags = flagsQuery.data;
+  const flagsLoading = flagsQuery.isLoading;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
@@ -126,8 +130,11 @@ export function Reconciliation() {
         title="Automated reconciliation flags"
         description="Daily sweep against Paystack's own transaction records; detection only, nothing here is fixed automatically."
       >
+        {flagsQuery.isError && flags !== undefined && <StaleNote what="Reconciliation flags" />}
         {flagsLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : flagsQuery.isError && flags === undefined ? (
+          <ReadFailure what="Reconciliation flags" />
         ) : (flags ?? []).length === 0 ? (
           <CenterNote>No open flags. Everything the sweep checked in the last window matched. ✓</CenterNote>
         ) : (
@@ -211,8 +218,11 @@ export function Reconciliation() {
       </SectionCard>
 
       <SectionCard title="Settlements" description="Imported payout batches. Post a draft to move clearing → bank and expense the fee.">
+        {summary.isError && data !== undefined && <StaleNote what="Settlements" />}
         {isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : summary.isError && data === undefined ? (
+          <ReadFailure what="Settlements" />
         ) : (data?.settlements ?? []).length === 0 ? (
           <CenterNote>No settlements imported yet.</CenterNote>
         ) : (
@@ -255,8 +265,11 @@ export function Reconciliation() {
       </SectionCard>
 
       <SectionCard title="Unmatched captured payments" description="Card charges captured but not yet tied to a settlement payout.">
+        {summary.isError && data !== undefined && <StaleNote what="Unmatched payments" />}
         {isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : summary.isError && data === undefined ? (
+          <ReadFailure what="Unmatched payments" />
         ) : (data?.unmatched ?? []).length === 0 ? (
           <CenterNote>Everything captured is matched. ✓</CenterNote>
         ) : (

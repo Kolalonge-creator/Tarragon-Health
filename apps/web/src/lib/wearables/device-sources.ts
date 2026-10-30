@@ -4,7 +4,7 @@ import type { Database, DeviceConnectContext, DeviceConnectResult, DeviceRevokeR
 import { DeviceSourceRegistry } from "@tarragon/shared";
 import { getValidAccessToken, type WearableConnectionCredentials } from "./connection-tokens";
 import type { NormalisedReading } from "./normalise";
-import { getWearableOAuthUrl, isWearableProviderConfigured, type CloudOAuthWearableProvider } from "./oauth-providers";
+import { getWearableOAuthUrl, isWearableProviderConfigured, isWearableProviderUnavailable, type CloudOAuthWearableProvider } from "./oauth-providers";
 import { PROVIDER_ADAPTERS } from "./providers";
 
 /**
@@ -39,6 +39,7 @@ export function cloudDeviceSource(provider: CloudOAuthWearableProvider, svc: Sup
     goLiveKey: null,
 
     async connect(ctx: DeviceConnectContext): Promise<DeviceConnectResult> {
+      if (isWearableProviderUnavailable(provider)) return { ok: false, reason: "not_supported", error: `${provider} is not available for new connections right now` };
       if (!isWearableProviderConfigured(provider)) return { ok: false, reason: "not_configured", error: `${provider} has no developer credentials yet` };
       if (!ctx.redirectUri || !ctx.state) return { ok: false, reason: "failed", error: "a return address and a state token are needed" };
       const url = getWearableOAuthUrl(provider, ctx.redirectUri, ctx.state);

@@ -75,6 +75,38 @@ const OAUTH_PROVIDER_CONFIG: Record<CloudOAuthWearableProvider, OAuthProviderCon
   },
 };
 
+/**
+ * Providers that must not be OFFERED for a new connection, by configuration and not by deleting code (S70b).
+ *
+ * Fitbit: Google is ending the legacy Fitbit Web API (support ends 30 Sep 2026, turned off 30 Oct 2026; existing tokens stop working). The
+ * replacement, the Google Health API, uses scopes Google marks "Restricted" that need a review before any production use (see
+ * packages/shared/src/google-health-device-source.ts). Until that exists a new Fitbit connection would work for days and then silently stop,
+ * which is worse than saying so. Existing rows and the readings already synced stay readable; only starting a NEW connection is refused.
+ *
+ * The list comes from env `WEARABLE_UNAVAILABLE_PROVIDERS` (comma separated provider names) when that is set, so it can be changed without a
+ * deploy of code; unset, it defaults to "fitbit". Set it to an empty string to offer every configured provider again. An unknown name is ignored.
+ */
+export const DEFAULT_UNAVAILABLE_WEARABLE_PROVIDERS: readonly CloudOAuthWearableProvider[] = ["fitbit"];
+
+export function unavailableWearableProviders(env: Record<string, string | undefined> = process.env): CloudOAuthWearableProvider[] {
+  const raw = env.WEARABLE_UNAVAILABLE_PROVIDERS;
+  const known = Object.keys(OAUTH_PROVIDER_CONFIG) as CloudOAuthWearableProvider[];
+  if (raw === undefined) return [...DEFAULT_UNAVAILABLE_WEARABLE_PROVIDERS];
+  return raw
+    .split(",")
+    .map((p) => p.trim().toLowerCase())
+    .filter((p): p is CloudOAuthWearableProvider => (known as string[]).includes(p));
+}
+
+export function isWearableProviderUnavailable(provider: CloudOAuthWearableProvider, env: Record<string, string | undefined> = process.env): boolean {
+  return unavailableWearableProviders(env).includes(provider);
+}
+
+/** True when a NEW connection may be started: credentials exist AND the provider is not switched off. */
+export function isWearableProviderConnectable(provider: CloudOAuthWearableProvider): boolean {
+  return isWearableProviderConfigured(provider) && !isWearableProviderUnavailable(provider);
+}
+
 export function isWearableProviderConfigured(provider: CloudOAuthWearableProvider): boolean {
   const config = OAUTH_PROVIDER_CONFIG[provider];
   return Boolean(process.env[config.clientIdEnvVar] && process.env[config.clientSecretEnvVar]);

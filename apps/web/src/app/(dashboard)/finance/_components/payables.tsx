@@ -24,7 +24,7 @@ import {
   payBillAction,
   voidBillAction,
 } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /** Approving posts the expense; paying books the cash out. Neither is
@@ -322,8 +322,11 @@ export function PayablesAndVendors() {
             </div>
           </div>
         )}
+        {vendors.isError && vendors.data !== undefined && <StaleNote what="Vendors" />}
         {vendors.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : vendors.isError && vendors.data === undefined ? (
+          <ReadFailure what="Vendors" />
         ) : (vendors.data ?? []).length === 0 ? (
           <CenterNote>No vendors yet.</CenterNote>
         ) : (
@@ -409,8 +412,11 @@ export function PayablesAndVendors() {
             </div>
           </div>
         )}
+        {bills.isError && bills.data !== undefined && <StaleNote what="Bills" />}
         {bills.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : bills.isError && bills.data === undefined ? (
+          <ReadFailure what="Bills" />
         ) : (bills.data ?? []).length === 0 ? (
           <CenterNote>No bills yet.</CenterNote>
         ) : (
@@ -450,8 +456,11 @@ export function PayablesAndVendors() {
       </SectionCard>
 
       <SectionCard title="AP aging" description="Approved, unpaid bills: days past due.">
+        {aging.isError && aging.data !== undefined && <StaleNote what="Accounts payable aging" />}
         {aging.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : aging.isError && aging.data === undefined ? (
+          <ReadFailure what="Accounts payable aging" />
         ) : (aging.data ?? []).length === 0 ? (
           <CenterNote>No outstanding payables. ✓</CenterNote>
         ) : (

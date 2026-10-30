@@ -4,11 +4,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useFinanceAuditLog, useFinanceAuditActions } from "@/lib/finance/queries";
-import { SectionCard, CenterNote, TableShell, Th } from "./primitives";
-import { formatPatientDateTime } from "@/lib/format-date";
-
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
-const now = () => new Date().toISOString();
+import { SectionCard, CenterNote, TableShell, Th, ReadFailure, StaleNote } from "./primitives";
+import { formatPatientDateTime, lagosDayBounds, lagosDaysAgo, lagosToday } from "@/lib/format-date";
 
 function summarizeEvent(event: Record<string, unknown>): string {
   const parts = Object.entries(event)
@@ -19,16 +16,19 @@ function summarizeEvent(event: Record<string, unknown>): string {
 }
 
 export function FinanceAuditLog() {
-  const [from, setFrom] = useState(daysAgo(30));
+  // The range is two Lagos dates, and the query runs from the start of the first to the end of
+  // today (Lagos). Both are stable text for the whole day, so the React Query key does not change on
+  // every render (a bare `new Date().toISOString()` as `to` once made the log refetch forever and sit
+  // on "Loading…"), and an action taken after the page opened still appears in the log.
+  const [fromDate, setFromDate] = useState(lagosDaysAgo(30));
   const [action, setAction] = useState("");
-  // Computed once on mount, not inline on every render: a bare `now()` call
-  // here made the query args (and therefore the React Query key) a new
-  // object with a new `to` timestamp on every re-render, so the audit log
-  // query never stopped refetching/superseding itself and the page was
-  // permanently stuck on "Loading…".
-  const [to] = useState(now);
+  const today = lagosToday();
+  const range = {
+    from: lagosDayBounds(fromDate)?.start ?? lagosDayBounds(lagosDaysAgo(30))!.start,
+    to: lagosDayBounds(today)!.end,
+  };
 
-  const log = useFinanceAuditLog({ from, to, action: action || undefined });
+  const log = useFinanceAuditLog({ ...range, action: action || undefined });
   const actions = useFinanceAuditActions();
 
   return (
@@ -48,8 +48,11 @@ export function FinanceAuditLog() {
           <div className="flex flex-wrap items-center gap-2">
             <Input
               type="date"
-              value={from.slice(0, 10)}
-              onChange={(e) => setFrom(new Date(e.target.value).toISOString())}
+              value={fromDate}
+              max={today}
+              // A cleared or half-typed date is not a date: keep the last good one rather than
+              // throw (new Date("").toISOString() raises a RangeError and took the page down).
+              onChange={(e) => lagosDayBounds(e.target.value) && setFromDate(e.target.value)}
               className="w-auto"
             />
             <Select value={action} onChange={(e) => setAction(e.target.value)} className="w-auto">
@@ -58,11 +61,17 @@ export function FinanceAuditLog() {
                 <option key={a} value={a}>{a}</option>
               ))}
             </Select>
+            {actions.isError && actions.data === undefined && (
+              <span className="text-xs text-red-700">The action list could not be loaded.</span>
+            )}
           </div>
         }
       >
+        {log.isError && log.data !== undefined && <StaleNote what="The activity log" />}
         {log.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : log.isError && log.data === undefined ? (
+          <ReadFailure what="The activity log" />
         ) : (log.data ?? []).length === 0 ? (
           <CenterNote>No finance activity in this range.</CenterNote>
         ) : (

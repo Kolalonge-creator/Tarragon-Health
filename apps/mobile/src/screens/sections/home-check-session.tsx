@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { planSession, type HomeBpConfig, type HomeBpReading, type SessionStep } from "@tarragon/clinical";
+import { planSession, preMeasureChecklist, type HomeBpConfig, type HomeBpReading, type SessionStep } from "@tarragon/clinical";
 import { sessionLine } from "@/lib/home-check-session-lines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { radii, space, useTheme } from "@/ui/design";
@@ -71,6 +71,18 @@ export function HomeCheckSession({
       </AppText>
       {label && !hold ? <Badge label={label} tone="neutral" /> : null}
       <AppText variant="body">{body}</AppText>
+      {/* S70b: before the first reading of a session, what to do before measuring. The numbers come from the signed configuration. */}
+      {!hold && step.kind === "rest" && step.number === 1 ? (
+        <View style={{ gap: space.xs }} accessibilityLabel={tr("hbp.prep.title")}>
+          <AppText variant="bodyStrong">{tr("hbp.prep.title")}</AppText>
+          {preMeasureChecklist(config).map((item) => (
+            <AppText key={item.id} variant="caption" tone="textMuted">
+              {"\u2022 "}
+              {tr(item.key as MessageKey, item.params as Record<string, number>)}
+            </AppText>
+          ))}
+        </View>
+      ) : null}
       <AppText variant="caption" tone="textMuted">
         {tr("hc.session.not_counted")}
       </AppText>
