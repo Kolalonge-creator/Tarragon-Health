@@ -4,16 +4,14 @@ import type { ReproductiveLifeStage } from "@/lib/rules/cycle-prediction";
 
 /**
  * Reads the clinician cycle pattern report through the audited database function (S66, INV-10 and INV-12) and turns the rows into the
- * report with the one shared engine. Each outcome is its own case: a refusal, a feature that is not open yet, and a failed read are never
+ * report with the one shared engine. OQ-558: the clinician types no reason; the database writes a fixed phrase to the audit row. Each outcome is its own case: a refusal, a feature that is not open yet, and a failed read are never
  * shown as "no cycle data", because a clinician who reads "nothing logged" for a read that failed makes a wrong decision.
  */
 
 /** The slice of the Supabase client this needs, so a test can pass a fake. */
 export interface RpcClient {
-  rpc(fn: "read_reproductive_pattern_report_audited", args: { p_patient: string; p_reason: string }): PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }>;
+  rpc(fn: "read_reproductive_pattern_report_audited", args: { p_patient: string }): PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }>;
 }
-
-export const PATTERN_REPORT_READ_REASON = "Clinician opened the cycle pattern report";
 
 const flow = z.enum(["none", "spotting", "light", "medium", "heavy", "flooding"]);
 const replySchema = z.object({
@@ -43,7 +41,7 @@ export type PatternReportOutcome =
 const LIFE_STAGES: readonly string[] = ["menstruating", "trying_to_conceive", "pregnant", "postpartum", "perimenopausal", "menopausal", "not_applicable"];
 
 export async function loadCyclePatternReport(client: RpcClient, patientId: string, today: string): Promise<PatternReportOutcome> {
-  const { data, error } = await client.rpc("read_reproductive_pattern_report_audited", { p_patient: patientId, p_reason: PATTERN_REPORT_READ_REASON });
+  const { data, error } = await client.rpc("read_reproductive_pattern_report_audited", { p_patient: patientId });
   if (error) {
     return error.message?.includes("reproductive_content_guard_off") ? { kind: "not_open" } : { kind: "error" };
   }
