@@ -8,8 +8,9 @@
 --   3. a finance-role user with the 'finance.gl.post' grant approves, the refund is approved by that user and carries a journal entry;
 --   4. an admin (who holds every permission) approves the pharmacy refund;
 --   5. raising a refund was NOT widened to finance-only (the request function is untouched), anon cannot execute either approve function;
---   6. SABOTAGE: with the new check switched off in the function text, the coordinator and the clinician approve, so the refusals above
---      fail. The proof cannot pass vacuously.
+--   6. a finance user with the grant in ANOTHER organisation is refused, and every ledger source a function posts with is allowed by the constraint;
+--   7. SABOTAGE: with the new check switched off in the function text, the coordinator and the clinician approve; with the constraint narrowed,
+--      the source scan finds the refund sources. Three checks must flip, so the proof cannot pass vacuously.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -38,7 +39,7 @@ begin
   values (v, 'oq580-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'OQ580 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name;
   return v;
 end $f$;
 -- a caller runs a statement as a user and comes back to the owner
@@ -72,6 +73,16 @@ begin
   set local session_replication_role = origin;
   return v;
 end $f$;
+create function pg_temp.unallowed_sources() returns integer language sql as
+$f$
+  select count(*)::integer from (
+    select distinct (regexp_matches(pg_get_functiondef(p.oid), 'finance_post_journal\(\s*[^,]+,\s*[^,]+,\s*''([a-z_]+)''', 'g'))[1] as src
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosrc like '%finance_post_journal(%'
+  ) s
+  where position('''' || s.src || '''' in (select pg_get_constraintdef(c.oid) from pg_constraint c
+          where c.conname = 'finance_journal_entries_source_check' and c.conrelid = 'public.finance_journal_entries'::regclass)) = 0
+$f$;
 create temp table fx(k text primary key, v uuid) on commit drop;
 grant all on fx to public;
 create function pg_temp.setf(p text, p_v uuid) returns void language sql as $$ insert into fx values (p, p_v) on conflict (k) do update set v = excluded.v $$;
@@ -80,7 +91,7 @@ create function pg_temp.f(p text) returns uuid language sql as $$ select v from 
 do $$
 declare
   v_org uuid; v_admin uuid; v_coord uuid; v_clin uuid; v_fin uuid; v_fing uuid;
-  v_pat uuid; v_lab1 uuid; v_ph1 uuid;
+  v_pat uuid; v_lab1 uuid; v_ph1 uuid; v_other_org uuid; v_fing_other uuid;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
@@ -118,6 +129,13 @@ begin
   perform pg_temp.rec('a finance user without the finance.gl.post grant is refused', 'true',
     (pg_temp.as_msg(v_fin, format('select public.approve_lab_order_refund(%L)', v_lab1)) like '42501:%')::text);
 
+  -- 2b. a finance user WITH the grant, but in ANOTHER organisation, is refused (the organisation check, not the permission, stops them)
+  insert into public.organisations (name, type) values ('OQ580 other organisation', 'hmo') returning id into v_other_org;
+  v_fing_other := pg_temp.mkuser(v_other_org, 'finance-grant-other-org', 'finance');
+  insert into public.user_permission_grants (profile_id, permission_key, granted_by) values (v_fing_other, 'finance.gl.post', v_admin);
+  perform pg_temp.rec('a finance user with the grant in ANOTHER organisation is refused', 'true',
+    (pg_temp.as_msg(v_fing_other, format('select public.approve_lab_order_refund(%L)', v_lab1)) like '42501:only people in this organisation%')::text);
+
   -- 3. a finance user with the grant approves
   perform pg_temp.rec('a finance user WITH the grant approves the lab refund', 'ok',
     pg_temp.as_msg(v_fing, format('select public.approve_lab_order_refund(%L)', v_lab1)));
@@ -131,6 +149,9 @@ begin
     (select status::text || ',' || (journal_entry_id is not null)::text from public.pharmacy_order_refunds where id = v_ph1));
   perform pg_temp.rec('an approved refund cannot be approved twice', 'true',
     (pg_temp.as_msg(v_admin, format('select public.approve_pharmacy_order_refund(%L)', v_ph1)) like '23514:%')::text);
+
+  -- 4b. every source a function posts to the ledger with is allowed by the ledger's source check (the drift that broke both approvals)
+  perform pg_temp.rec('every finance_post_journal source literal in a function body is allowed by the ledger constraint', '0', pg_temp.unallowed_sources()::text);
 
   -- 5. nothing else moved
   perform pg_temp.rec('raising a refund was not made finance-only', 'false',
@@ -149,6 +170,9 @@ begin
   v_def := pg_get_functiondef('public.approve_pharmacy_order_refund(uuid)'::regprocedure);
   v_def := replace(v_def, 'if not private.has_permission(''finance.gl.post'') then', 'if false then');
   execute v_def;
+  alter table public.finance_journal_entries drop constraint finance_journal_entries_source_check;
+  alter table public.finance_journal_entries add constraint finance_journal_entries_source_check check (source = any (array['payment', 'refund'])) not valid;
+  insert into results values ('sabotaged', 'every finance_post_journal source literal in a function body is allowed by the ledger constraint', '0', pg_temp.unallowed_sources()::text);
   v_l := pg_temp.lab_refund(v_org, pg_temp.f('pat'));
   v_p := pg_temp.pharm_refund(v_org, pg_temp.f('pat'));
   insert into results values ('sabotaged', 'a care coordinator is refused on the lab refund, by the finance check', 'true',
@@ -167,7 +191,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

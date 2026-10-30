@@ -19,11 +19,14 @@
 -- Third: a finance-role user is not 'care-team staff' under private.is_org_staff, so the grant alone was not enough. The organisation
 -- check now also admits a caller whose own organisation is the refund's (private.caller_org()); the permission is still the authority.
 --
+-- Also added while redefining from the live bodies: the refund row is read FOR UPDATE, so two simultaneous approvals cannot both pass the
+-- 'requested' check and post the same refund twice.
+--
 -- Counts before this change: 0 rows in lab_order_refunds, 0 in pharmacy_order_refunds, and no screen or server action calls either
 -- approve function, so no conversion step exists and nothing in flight changes. Both bodies below are the LIVE bodies
 -- (pg_get_functiondef, 2026-10-30) with one added check; CREATE OR REPLACE keeps the existing grants (anon has no EXECUTE).
 
-alter table public.finance_journal_entries drop constraint finance_journal_entries_source_check;
+alter table public.finance_journal_entries drop constraint if exists finance_journal_entries_source_check;
 alter table public.finance_journal_entries add constraint finance_journal_entries_source_check
   check (source = any (array['payment', 'commission', 'refund', 'wallet', 'voucher', 'platform_credit', 'revenue_recognition', 'fx', 'manual',
                              'adjustment', 'opening', 'payout', 'payout_reversal', 'lab_refund', 'pharmacy_refund']));
@@ -44,7 +47,7 @@ begin
   if not private.has_permission('finance.gl.post') then
     raise exception 'approving a refund posts to the ledger and needs finance authority' using errcode = '42501';
   end if;
-  select * into v_r from public.lab_order_refunds where id = p_refund_id;
+  select * into v_r from public.lab_order_refunds where id = p_refund_id for update;
   if v_r.id is null then
     raise exception 'no such refund' using errcode = '42501';
   end if;
@@ -125,7 +128,7 @@ begin
   if not private.has_permission('finance.gl.post') then
     raise exception 'approving a refund posts to the ledger and needs finance authority' using errcode = '42501';
   end if;
-  select * into v_r from public.pharmacy_order_refunds where id = p_refund_id;
+  select * into v_r from public.pharmacy_order_refunds where id = p_refund_id for update;
   if v_r.id is null then
     raise exception 'no such refund' using errcode = '42501';
   end if;
@@ -180,10 +183,11 @@ grant execute on function public.approve_pharmacy_order_refund(uuid) to authenti
 -- Self-check: both bodies carry the check, and anon cannot execute either.
 -- ---------------------------------------------------------------------------
 do $$
-declare f text;
+declare f text; v_def text;
 begin
-  if pg_get_constraintdef((select oid from pg_constraint where conname = 'finance_journal_entries_source_check' and conrelid = 'public.finance_journal_entries'::regclass))
-       not like '%lab_refund%' or pg_get_constraintdef((select oid from pg_constraint where conname = 'finance_journal_entries_source_check' and conrelid = 'public.finance_journal_entries'::regclass)) not like '%pharmacy_refund%' then
+  select pg_get_constraintdef(c.oid) into v_def from pg_constraint c
+   where c.conname = 'finance_journal_entries_source_check' and c.conrelid = 'public.finance_journal_entries'::regclass;
+  if v_def is null or v_def not like '%lab_refund%' or v_def not like '%pharmacy_refund%' then
     raise exception 'refund approval self-check: the ledger source constraint does not allow the refund sources';
   end if;
   foreach f in array array['public.approve_lab_order_refund(uuid)', 'public.approve_pharmacy_order_refund(uuid)'] loop
