@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { PIN_PROBLEM_TEXT, getPrivateLockConfig } from "@tarragon/shared";
 import { usePrivateLock } from "@/lib/private-lock";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { PinInput } from "@/ui/private-section";
+import { AppText } from "@/ui/kit";
 
 const COPY = {
   title: "App PIN",
@@ -34,7 +34,6 @@ const COPY = {
  */
 export function AppPinSetting({ accountId, appLockEnabled, onPinSet }: { accountId: string; appLockEnabled: boolean; onPinSet: () => void }) {
   const cfg = getPrivateLockConfig();
-  const colors = useLegacyColors();
   const lock = usePrivateLock(accountId, "app");
   const [mode, setMode] = useState<"idle" | "setup" | "turnoff">("idle");
   const [pin, setPin] = useState("");
@@ -77,7 +76,7 @@ export function AppPinSetting({ accountId, appLockEnabled, onPinSet }: { account
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>{COPY.title}</Text>
+      <AppText variant="bodyLargeStrong">{COPY.title}</AppText>
       {hasPin ? (
         <>
           <MutedText>{COPY.on}</MutedText>

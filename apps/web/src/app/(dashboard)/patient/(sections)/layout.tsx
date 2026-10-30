@@ -98,7 +98,8 @@ export default async function PatientSectionsLayout({
           is a card silently back on mmol/L. */}
       <GlucoseUnitProvider unit={glucoseUnit}>
         <MeasurementUnitsProvider units={measurementUnits}>
-          <div className="space-y-6">{children}</div>
+          {/* Bottom room so the floating emergency button never covers the last controls. */}
+          <div className="space-y-6 pb-20">{children}</div>
         </MeasurementUnitsProvider>
       </GlucoseUnitProvider>
     </DashboardPlaceholder>

@@ -16,8 +16,9 @@ import {
   type ReportCategory,
 } from "@/lib/ai-coach-safety";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * S52 on the phone: the emergency button (spec 7.8), the limits panel and report-an-answer (7.9) and the patient's own memory (7.12).
@@ -52,23 +53,23 @@ export function EmergencyBlock({ patientId }: { patientId: string }) {
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.screen, paddingTop: 48 }}>
           <ScrollView contentContainerStyle={{ gap: 10 }}>
-            <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>
+            <AppText variant="title" accessibilityRole="header">
               {guidance.title}
-            </Text>
+            </AppText>
             {guidance.lines.map((line) => (
-              <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
+              <AppText key={line} variant="bodyLarge">
                 {line}
-              </Text>
+              </AppText>
             ))}
-            <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink, marginTop: 8 }}>
+            <AppText variant="bodyLargeStrong" accessibilityRole="header" style={{ marginTop: 8 }}>
               {SELF_HARM_GUIDANCE.title}
-            </Text>
+            </AppText>
             {SELF_HARM_GUIDANCE.lines.map((line) => (
-              <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
+              <AppText key={line} variant="bodyLarge">
                 {line}
-              </Text>
+              </AppText>
             ))}
-            {extra ? <Text style={{ fontSize: 14, color: colors.ink }}>{extra}</Text> : null}
+            {extra ? <AppText variant="body">{extra}</AppText> : null}
           </ScrollView>
           <SecondaryButton title="Close" onPress={() => setOpen(false)} />
         </View>
@@ -104,7 +105,7 @@ export function ReportBlock({ interactionId }: { interactionId: string | null })
   if (!open) {
     return (
       <Pressable accessibilityRole="button" onPress={() => setOpen(true)}>
-        <Text style={{ fontSize: 12, color: colors.brandPressed, textDecorationLine: "underline" }}>Something not right about that answer?</Text>
+        <AppText variant="caption" tone="brandText" style={{ textDecorationLine: "underline" }}>Something not right about that answer?</AppText>
       </Pressable>
     );
   }
@@ -126,7 +127,7 @@ export function ReportBlock({ interactionId }: { interactionId: string | null })
         value={text}
         onChangeText={setText}
         accessibilityLabel="What was wrong with the answer"
-        style={{ minHeight: 70, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card, textAlignVertical: "top" }}
+        style={{ minHeight: 70, borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, ...textStyles.body, color: colors.ink, backgroundColor: colors.card, textAlignVertical: "top" }}
       />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
@@ -214,7 +215,7 @@ export function MemoryBlock() {
                     maxLength={state.maxChars}
                     onChangeText={(t) => setEditing({ id: item.id, text: t })}
                     accessibilityLabel="Change this item"
-                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card }}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, backgroundColor: colors.card }}
                   />
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <SecondaryButton title="Save" onPress={() => void run(() => updateMemoryItem(item.id, editing.text)).then((ok) => ok && setEditing(null))} />
@@ -223,10 +224,10 @@ export function MemoryBlock() {
                 </>
               ) : (
                 <>
-                  <Text style={{ fontSize: 13.5, color: colors.ink }}>
+                  <AppText variant="body">
                     {item.kind === "goal" ? "Goal: " : "Preference: "}
                     {item.text}
-                  </Text>
+                  </AppText>
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <SecondaryButton title="Change" onPress={() => setEditing({ id: item.id, text: item.text })} />
                     <SecondaryButton title="Remove" onPress={() => void run(() => deleteMemoryItem(item.id))} />
@@ -246,7 +247,7 @@ export function MemoryBlock() {
             maxLength={state.maxChars}
             onChangeText={setDraft}
             accessibilityLabel="What to remember"
-            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, fontSize: 13.5, color: colors.ink, backgroundColor: colors.card }}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 8, ...textStyles.body, color: colors.ink, backgroundColor: colors.card }}
           />
           <SecondaryButton
             title="Remember"
@@ -278,7 +279,7 @@ export function MemoryBlock() {
               }
             />
           </View>
-          {exported ? <Text selectable style={{ fontSize: 12, color: colors.ink }}>{exported}</Text> : null}
+          {exported ? <AppText variant="caption" selectable>{exported}</AppText> : null}
         </View>
       ) : null}
       {error ? <ErrorText>{error}</ErrorText> : null}

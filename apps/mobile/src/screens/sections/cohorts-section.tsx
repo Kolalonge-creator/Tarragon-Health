@@ -13,6 +13,7 @@ import {
 } from "@/lib/cohorts/parse";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /** A goal bar: the cohort's percentage only. Nothing here can carry a person's figure. */
 function GoalBar({ percent, label }: { percent: number; label: string }) {
@@ -22,7 +23,7 @@ function GoalBar({ percent, label }: { percent: number; label: string }) {
       <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.border, overflow: "hidden" }}>
         <View style={{ height: 10, width: `${percent}%`, backgroundColor: colors.brand }} />
       </View>
-      <Text style={{ color: colors.ink, marginTop: 4 }}>{label}</Text>
+      <AppText variant="body" style={{ marginTop: 4 }}>{label}</AppText>
     </View>
   );
 }
@@ -37,9 +38,9 @@ function BoardView({ challengeId }: { challengeId: string }) {
   if (board.state === "hidden") return null;
   return (
     <View style={{ gap: 4 }}>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("community.board.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("community.board.title", locale)}</AppText>
       <MutedText>{t("community.board.note", locale)}</MutedText>
-      {board.state === "not_ready" ? <Text style={{ color: colors.ink }}>{t("community.board.not_ready", locale)}</Text> : board.rows.map((r) => (
+      {board.state === "not_ready" ? <AppText variant="body">{t("community.board.not_ready", locale)}</AppText> : board.rows.map((r) => (
         <Text key={`${r.rank}-${r.label}`} style={{ color: colors.ink, fontWeight: r.isYours ? "700" : "400" }}>
           {t("community.board.row", locale, { label: r.isYours ? t("community.board.yours", locale) : r.label, percent: String(r.progressPct) })}
         </Text>
@@ -49,7 +50,6 @@ function BoardView({ challengeId }: { challengeId: string }) {
 }
 
 function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contributing: boolean; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const { scheme } = useTheme();
   const inputStyle = useTextInputStyle();
@@ -68,18 +68,18 @@ function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contribut
   const phaseKey: MessageKey = c.phase === "scheduled" ? "community.challenge.phase.scheduled" : c.phase === "active" ? "community.challenge.phase.active" : "community.challenge.phase.ended";
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{c.label}</Text>
+      <AppText variant="bodyStrong">{c.label}</AppText>
       <MutedText>{t(phaseKey, locale, { date: c.phase === "scheduled" ? c.startsOn : c.endsOn })}</MutedText>
       {c.total.state === "shown" ? (
         <View style={{ gap: 6 }}>
           <GoalBar percent={c.total.progressPct} label={t("community.challenge.progress", locale, { percent: String(c.total.progressPct) })} />
-          <Text style={{ color: colors.ink }}>{t("community.challenge.total", locale, { total: String(c.total.total), unit: t(UNIT_KEYS[c.unit], locale) })}</Text>
-          {c.total.goalReached ? <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.challenge.goal", locale)}</Text> : null}
+          <AppText variant="body">{t("community.challenge.total", locale, { total: String(c.total.total), unit: t(UNIT_KEYS[c.unit], locale) })}</AppText>
+          {c.total.goalReached ? <AppText variant="bodyStrong">{t("community.challenge.goal", locale)}</AppText> : null}
           <MutedText>{`${t("community.challenge.group_size", locale, { band: c.total.groupSize })} · ${t("community.challenge.as_of", locale, { date: c.total.asOf })}`}</MutedText>
         </View>
       ) : <MutedText>{t(c.total.state === "hidden" ? "community.challenge.hidden" : "community.challenge.pending", locale)}</MutedText>}
-      {!c.available ? <Text style={{ color: colors.ink }}>{t("community.challenge.unavailable", locale)}</Text> : c.phase === "active" ? (
-        !contributing ? <Text style={{ color: colors.ink }}>{t("community.challenge.needs_consent", locale)}</Text> : (
+      {!c.available ? <AppText variant="body">{t("community.challenge.unavailable", locale)}</AppText> : c.phase === "active" ? (
+        !contributing ? <AppText variant="body">{t("community.challenge.needs_consent", locale)}</AppText> : (
           <View style={{ gap: 8 }}>
             {c.unit === "minutes" ? (
               <TextInput accessibilityLabel={t("community.challenge.minutes", locale)} keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} placeholder={t("community.challenge.minutes", locale)}
@@ -96,7 +96,6 @@ function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contribut
 }
 
 function ModeratorTools({ cohort, onChanged }: { cohort: Cohort; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [templates, setTemplates] = useState<Template[]>([]);
   const [busy, setBusy] = useState(false);
@@ -129,11 +128,11 @@ function ModeratorTools({ cohort, onChanged }: { cohort: Cohort; onChanged: () =
   }
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.mod.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("community.mod.title", locale)}</AppText>
       <MutedText>{t("community.mod.no_health", locale)}</MutedText>
       <PrimaryButton title={t("community.mod.invite", locale)} onPress={() => void invite()} loading={busy} disabled={busy} />
       <MutedText>{t("community.mod.invite_note", locale)}</MutedText>
-      <Text style={{ fontWeight: "600", color: colors.ink }}>{t("community.mod.start", locale)}</Text>
+      <AppText variant="bodyStrong">{t("community.mod.start", locale)}</AppText>
       {templates.length === 0 ? <MutedText>{t("community.mod.no_templates", locale)}</MutedText> : templates.map((tp) => (
         <SecondaryButton key={tp.code} title={tp.label} onPress={() => void start(tp)} disabled={busy} />
       ))}
@@ -144,7 +143,6 @@ function ModeratorTools({ cohort, onChanged }: { cohort: Cohort; onChanged: () =
 }
 
 function CohortDetail({ cohort, onBack, onChanged }: { cohort: Cohort; onBack: () => void; onChanged: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [challenges, setChallenges] = useState<Challenge[] | null>(null);
   const [roster, setRoster] = useState<RosterRow[]>([]);
@@ -182,23 +180,23 @@ function CohortDetail({ cohort, onBack, onChanged }: { cohort: Cohort; onBack: (
   return (
     <View style={{ gap: 12 }}>
       <SecondaryButton title={t("community.group.back", locale)} onPress={onBack} />
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{cohort.name}</Text>
+      <AppText variant="title">{cohort.name}</AppText>
       <Card style={{ gap: 8 }}>
-        <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.totals.title", locale)}</Text>
+        <AppText variant="bodyStrong">{t("community.totals.title", locale)}</AppText>
         <MutedText>{t("community.totals.consent_body", locale)}</MutedText>
-        <Text style={{ color: colors.ink }}>{t(cohort.contributing ? "community.totals.on" : "community.totals.off", locale)}</Text>
+        <AppText variant="body">{t(cohort.contributing ? "community.totals.on" : "community.totals.off", locale)}</AppText>
         <SecondaryButton title={t(cohort.contributing ? "community.totals.withdraw" : "community.totals.agree", locale)}
           onPress={() => void run(setTotalsConsent(cohort.cohortId, !cohort.contributing), onChanged)} />
       </Card>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.challenges.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("community.challenges.title", locale)}</AppText>
       {challenges === null ? <ActivityIndicator /> : challenges.length === 0 ? <MutedText>{t("community.challenges.none", locale)}</MutedText>
         : challenges.map((c) => <ChallengeCard key={c.challengeId} c={c} contributing={cohort.contributing} onChanged={() => void refresh()} />)}
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.group.members", locale)}</Text>
+        <AppText variant="bodyStrong">{t("community.group.members", locale)}</AppText>
         <MutedText>{t("community.group.members_note", locale)}</MutedText>
         {roster.map((m) => (
           <View key={m.memberId} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: colors.ink, flexShrink: 1 }}>{`${m.firstName}${m.isYou ? ` (${t("community.group.you", locale)})` : ""} · ${t(m.role === "moderator" ? "community.group.role.moderator" : "community.group.role.member", locale)}`}</Text>
+            <AppText variant="body" style={{ flexShrink: 1 }}>{`${m.firstName}${m.isYou ? ` (${t("community.group.you", locale)})` : ""} · ${t(m.role === "moderator" ? "community.group.role.moderator" : "community.group.role.member", locale)}`}</AppText>
             {!m.isYou ? <SecondaryButton title={t("community.report.member", locale)} onPress={() => report(m)} /> : null}
           </View>
         ))}
@@ -212,7 +210,6 @@ function CohortDetail({ cohort, onBack, onChanged }: { cohort: Cohort; onBack: (
 }
 
 function JoinCard({ onJoined }: { onJoined: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const { scheme } = useTheme();
   const inputStyle = useTextInputStyle();
@@ -234,13 +231,13 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
   }
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("cohorts.join.title", locale)}</Text>
+      <AppText variant="bodyStrong">{t("cohorts.join.title", locale)}</AppText>
       <TextInput accessibilityLabel={t("cohorts.join.title", locale)} keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} placeholder="https://..."
         value={raw} onChangeText={(v) => { setRaw(v); setPreview(null); }} autoCapitalize="none" autoCorrect={false} style={inputStyle} />
       <SecondaryButton title={t("community.open", locale)} onPress={() => void check()} disabled={raw.trim() === ""} />
       {preview === "bad" ? <ErrorText>{t("community.join.invalid", locale)}</ErrorText> : preview ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.ink }}>{t("community.join.body", locale, { name: preview.name, kind: t(KIND_KEYS[preview.kind], locale).toLowerCase() })}</Text>
+          <AppText variant="body">{t("community.join.body", locale, { name: preview.name, kind: t(KIND_KEYS[preview.kind], locale).toLowerCase() })}</AppText>
           <MutedText>{t("community.join.consent_note", locale)}</MutedText>
           <SecondaryButton title={`${agree ? "● " : "○ "}${t("cohorts.join.consent", locale)}`} onPress={() => setAgree(!agree)} />
           <PrimaryButton title={t("community.join.accept", locale)} onPress={() => void join()} loading={busy} disabled={!agree || busy} />
@@ -251,7 +248,6 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
 }
 
 function CreateCard({ onCreated }: { onCreated: () => void }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const { scheme } = useTheme();
   const inputStyle = useTextInputStyle();
@@ -270,11 +266,11 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   }
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.create.title", locale)}</Text>
-      <Text style={{ color: colors.ink }}>{t("community.create.name", locale)}</Text>
+      <AppText variant="bodyStrong">{t("community.create.title", locale)}</AppText>
+      <AppText variant="body">{t("community.create.name", locale)}</AppText>
       <TextInput accessibilityLabel={t("community.create.name", locale)} keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={name} onChangeText={setName} maxLength={60} style={inputStyle} />
       <MutedText>{t("community.create.name_hint", locale)}</MutedText>
-      <Text style={{ color: colors.ink }}>{t("community.create.kind", locale)}</Text>
+      <AppText variant="body">{t("community.create.kind", locale)}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {COHORT_KINDS.map((k) => <SecondaryButton key={k} title={`${kind === k ? "● " : ""}${t(KIND_KEYS[k], locale)}`} onPress={() => setKind(k)} />)}
       </View>
@@ -290,7 +286,6 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
  * people". Renders nothing until community is open for this person (module and go-live guard, or a test account).
  */
 export function CohortsSection() {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const [mine, setMine] = useState<MyCohorts | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -305,10 +300,10 @@ export function CohortsSection() {
   if (cohort) return <CohortDetail cohort={cohort} onBack={() => setOpenId(null)} onChanged={() => void refresh()} />;
   return (
     <View style={{ gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("community.title", locale)}</Text>
+      <AppText variant="title">{t("community.title", locale)}</AppText>
       <MutedText>{t("community.intro", locale)}</MutedText>
       <Card style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "700", color: colors.ink }}>{t("community.off.title", locale)}</Text>
+        <AppText variant="bodyStrong">{t("community.off.title", locale)}</AppText>
         <MutedText>{t("community.off.body", locale)}</MutedText>
         <SecondaryButton title={t(mine.off ? "community.off.turn_on" : "community.off.turn_off", locale)} onPress={() => { void setCommunityOff(!mine.off).then(refresh); }} />
       </Card>
@@ -316,7 +311,7 @@ export function CohortsSection() {
         <>
           {mine.cohorts.length === 0 ? <MutedText>{t("community.empty", locale)}</MutedText> : mine.cohorts.map((c) => (
             <Card key={c.cohortId} style={{ gap: 6 }}>
-              <Text style={{ fontWeight: "700", color: colors.ink }}>{c.name}</Text>
+              <AppText variant="bodyStrong">{c.name}</AppText>
               <MutedText>{`${t(KIND_KEYS[c.kind], locale)}${c.isModerator ? ` · ${t("community.moderator_badge", locale)}` : ""}`}</MutedText>
               <SecondaryButton title={t("community.open", locale)} onPress={() => setOpenId(c.cohortId)} />
             </Card>

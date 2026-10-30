@@ -9,8 +9,9 @@ import {
 import { uploadEcgReport, uploadLabResult } from "@/lib/labs";
 import { testCodeLabel } from "@/lib/lab-catalogue-content";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const STATUS_OPTIONS: { value: LabOrderTestStatusValue; label: string }[] = [
   { value: "not_yet_done", label: "Not yet done" },
@@ -143,7 +144,7 @@ export function LabOrderTestChecklist({
               gap: 8,
             }}
           >
-            <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{testCodeLabel(code)}</Text>
+            <AppText variant="bodyStrong">{testCodeLabel(code)}</AppText>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STATUS_OPTIONS.map((opt) => {
                 const active = status === opt.value;
@@ -160,7 +161,7 @@ export function LabOrderTestChecklist({
                       backgroundColor: active ? colors.brand : pressed ? colors.pressed : "transparent",
                     })}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: active ? "#FFFFFF" : colors.ink }}>
+                    <Text style={{ ...textStyles.label, color: active ? colors.onBrand : colors.ink }}>
                       {opt.label}
                     </Text>
                   </Pressable>

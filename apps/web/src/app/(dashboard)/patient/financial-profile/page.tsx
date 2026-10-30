@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { HubLinks } from "@/components/ui/hub-links";
 import { NAV_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +172,14 @@ export default async function FinancialProfilePage() {
         title="Your finances"
         icon={NAV_ICON.finance}
         description="Your services, vouchers, transactions, and anything still being refunded, all in one place."
+      />
+      <HubLinks
+        label="Related to your finances"
+        links={[
+          { href: "/patient/receipts", label: "Receipts" },
+          { href: "/patient/payment-requests", label: "Ask someone to pay" },
+          { href: "/patient/insurance", label: "Insurance" },
+        ]}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

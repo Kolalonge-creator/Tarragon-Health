@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -37,7 +37,11 @@ import {
   PrimaryButton,
   SecondaryButton,
   SectionLabel,
+  StatusChip,
+  type StatusTone,
 } from "@/ui/legacy-kit";
+import { InlineAlert } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 
 interface CapturedPhoto {
   uri: string;
@@ -110,12 +114,9 @@ function ReplaceDocumentControl({ documentId, onReplaced }: { documentId: string
 
   if (!open) {
     return (
-      <Text
-        onPress={() => setOpen(true)}
-        style={{ fontSize: 12.5, fontWeight: "600", color: colors.subtle }}
-      >
+      <AppText variant="label" tone="textSubtle" onPress={() => setOpen(true)}>
         Uploaded the wrong file? Replace it
-      </Text>
+      </AppText>
     );
   }
 
@@ -164,23 +165,12 @@ function groupDocumentsByTestType(documents: ResultDocumentItem[]): { label: str
     .map((label) => ({ label, documents: byLabel.get(label)! }));
 }
 
-/** Clinical-status tones (green/amber/red/blue/grey — a separate system from
- * brand colour, per CLAUDE.md) — same literal palette as
- * prevention-screen.tsx's TONE, colocated rather than shared since each
- * screen owns a small, different set of statuses. */
-const TONE = {
-  green: { bg: "#DCFCE7", text: "#15803D" },
-  amber: { bg: "#FEF3C7", text: "#B45309" },
-  red: { bg: "#FEE2E2", text: "#B91C1C" },
-  blue: { bg: "#DBEAFE", text: "#1D4ED8" },
-  grey: { bg: "#EEEEEC", text: "#57534E" },
-} as const;
 
 /** Mirrors lab-orders-list.tsx's LAB_ORDER_STATUS_BADGE. Self-arranged: the
  * states that matter to a patient are "we've written it, go when you can"
  * and "the result is in". Payment states are retained because the enum
  * still carries them for the dormant partner path. */
-const ORDER_STATUS: Record<LabOrderStatus, { tone: keyof typeof TONE; label: string }> = {
+const ORDER_STATUS: Record<LabOrderStatus, { tone: StatusTone; label: string }> = {
   pending_payment: { tone: "amber", label: "Awaiting payment" },
   payment_confirmed: { tone: "blue", label: "Ready to take to a lab" },
   ordered: { tone: "blue", label: "Ready to take to a lab" },
@@ -192,7 +182,7 @@ const ORDER_STATUS: Record<LabOrderStatus, { tone: keyof typeof TONE; label: str
 };
 
 /** Mirrors result-status-badge.ts's RESULT_STATUS_BADGE. */
-const RESULT_STATUS: Record<ResultStatus, { tone: keyof typeof TONE; label: string }> = {
+const RESULT_STATUS: Record<ResultStatus, { tone: StatusTone; label: string }> = {
   normal: { tone: "green", label: "Normal" },
   borderline: { tone: "amber", label: "Borderline" },
   indeterminate: { tone: "amber", label: "Needs repeat testing" },
@@ -200,13 +190,8 @@ const RESULT_STATUS: Record<ResultStatus, { tone: keyof typeof TONE; label: stri
   critical: { tone: "red", label: "Needs urgent follow-up" },
 };
 
-function StatusPill({ tone, label }: { tone: keyof typeof TONE; label: string }) {
-  const c = TONE[tone];
-  return (
-    <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 10, alignSelf: "flex-start" }}>
-      <Text style={{ fontSize: 11, fontWeight: "600", color: c.text }}>{label}</Text>
-    </View>
-  );
+function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+  return <StatusChip tone={tone} label={label} />;
 }
 
 function formatDate(value: string): string {
@@ -300,7 +285,7 @@ function LabCatalogueRow({
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+          <AppText variant="bodyStrong">{bundle.name}</AppText>
           {bundle.description ? <MutedText>{bundle.description}</MutedText> : null}
         </View>
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={17} color={colors.faint} style={{ marginTop: 2 }} />
@@ -444,7 +429,7 @@ export function LabOrdersScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
     >
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Labs & results</Text>
+        <AppText variant="title">Labs & results</AppText>
         <MutedText>Your test requests, results, and how your numbers are trending.</MutedText>
       </View>
 
@@ -470,25 +455,17 @@ export function LabOrdersScreen() {
                     <StatusPill tone={badge.tone} label={badge.label} />
                     {order.urgency === "urgent" && <StatusPill tone="red" label="Urgent" />}
                     {order.orderNumber ? (
-                      <Text style={{ fontSize: 11, color: colors.subtle }}>{order.orderNumber}</Text>
+                      <AppText variant="caption" tone="textSubtle">{order.orderNumber}</AppText>
                     ) : null}
                   </View>
-                  <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{order.panelBundleName}</Text>
+                  <AppText variant="bodyStrong">{order.panelBundleName}</AppText>
                   <MutedText>
                     {order.testCount} test{order.testCount === 1 ? "" : "s"} · requested {formatDate(order.orderedAt)}
                   </MutedText>
                   {order.orderedByName ? <MutedText>Ordered by Dr. {order.orderedByName}</MutedText> : null}
                   {order.clinicalIndication ? <MutedText>Reason: {order.clinicalIndication}</MutedText> : null}
                   {order.preparationInstructions ? (
-                    <View
-                      style={{
-                        backgroundColor: "#DBEAFE",
-                        borderRadius: 10,
-                        padding: 10,
-                      }}
-                    >
-                      <Text style={{ fontSize: 12.5, color: "#1D4ED8" }}>{order.preparationInstructions}</Text>
-                    </View>
+                    <InlineAlert tone="info" message={order.preparationInstructions} />
                   ) : null}
                   {awaiting ? (
                     <>
@@ -527,24 +504,16 @@ export function LabOrdersScreen() {
             {resultDocumentGroups.map((group) => (
               <View key={group.label} style={{ gap: 10 }}>
                 {resultDocumentGroups.length > 1 && (
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: colors.subtle,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.4,
-                    }}
-                  >
+                  <AppText variant="label" tone="textSubtle" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
                     {group.label}
-                  </Text>
+                  </AppText>
                 )}
                 {group.documents.map((doc) => (
                   <Card key={doc.id} style={{ gap: 6 }}>
                     <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                      <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                      <AppText variant="bodyStrong" style={{ flex: 1 }}>
                         {doc.originalFilename ?? "Result"}
-                      </Text>
+                      </AppText>
                       <StatusPill
                         tone={doc.interpretationSentAt ? "green" : "amber"}
                         label={doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
@@ -555,23 +524,20 @@ export function LabOrdersScreen() {
                       {doc.note ? ` · ${doc.note}` : ""}
                     </MutedText>
                     {doc.signedUrl ? (
-                      <Text
-                        onPress={() => openDocument(doc.signedUrl)}
-                        style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}
-                      >
+                      <AppText variant="label" tone="brandText" onPress={() => openDocument(doc.signedUrl)}>
                         {doc.isPdf ? "Open original (PDF) →" : "View original →"}
-                      </Text>
+                      </AppText>
                     ) : (
                       <MutedText>File unavailable.</MutedText>
                     )}
                     {doc.interpretationSentAt && doc.patientInterpretation ? (
                       <View style={{ backgroundColor: colors.brandTint, borderRadius: 10, padding: 10, gap: 6 }}>
-                        <Text style={{ fontSize: 13.5, color: colors.ink }}>{doc.patientInterpretation}</Text>
+                        <AppText variant="body">{doc.patientInterpretation}</AppText>
                         {doc.nextSteps ? (
-                          <Text style={{ fontSize: 13.5, color: colors.ink }}>
-                            <Text style={{ fontWeight: "600" }}>Next steps: </Text>
+                          <AppText variant="body">
+                            <AppText variant="bodyStrong">Next steps: </AppText>
                             {doc.nextSteps}
-                          </Text>
+                          </AppText>
                         ) : null}
                         <MutedText>
                           {doc.reviewedByName ? `Reviewed by Dr. ${doc.reviewedByName}` : "Reviewed by your care team"}
@@ -586,9 +552,9 @@ export function LabOrdersScreen() {
                         {doc.aiSummaryStatus === "pending" ? (
                           <MutedText>Preparing an automatic summary…</MutedText>
                         ) : doc.aiSummaryStatus === "flagged" ? (
-                          <View style={{ backgroundColor: TONE.amber.bg, borderRadius: 10, padding: 10 }}>
+                          <View style={{ backgroundColor: colors.status.warnBg, borderRadius: 10, padding: 10 }}>
                             <OutputKindLabel kind="automated_information" note="Automated summary. Not a medical opinion." />
-                            <Text style={{ fontSize: 12.5, color: colors.ink, marginTop: 2 }}>
+                            <AppText variant="body" style={{ marginTop: 2 }}>
                               {doc.aiFlaggedAnalytes.length > 0
                                 ? `${doc.aiFlaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${doc.aiFlaggedAnalytes
                                     .map((a) =>
@@ -596,7 +562,7 @@ export function LabOrdersScreen() {
                                     )
                                     .join(", ")}. This isn't a diagnosis — you'll need to follow up with a doctor about it.`
                                 : "One or more values in this file fall outside the range printed on the report itself. Only a doctor reviewing the full picture can tell you what it means."}
-                            </Text>
+                            </AppText>
                           </View>
                         ) : doc.aiSummaryStatus === "ready" ? (
                           <MutedText>
@@ -673,11 +639,11 @@ export function LabOrdersScreen() {
                   subtitle={formatDate(trend.latestTakenAt)}
                   trailing={
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                      <AppText variant="bodyStrong">
                         {trend.latestValue}
                         {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
-                      </Text>
-                      {deltaLabel ? <Text style={{ fontSize: 11.5, color: colors.subtle }}>{deltaLabel}</Text> : null}
+                      </AppText>
+                      {deltaLabel ? <AppText variant="caption" tone="textSubtle">{deltaLabel}</AppText> : null}
                     </View>
                   }
                 />
@@ -703,18 +669,9 @@ export function LabOrdersScreen() {
           <View style={{ gap: 14 }}>
             {groupBundlesByCategory(catalogue.data).map(({ category, bundles }) => (
               <View key={category.key} style={{ gap: 6 }}>
-                <Text
-                  style={{
-                    fontSize: 11.5,
-                    fontWeight: "700",
-                    letterSpacing: 0.3,
-                    textTransform: "uppercase",
-                    color: colors.subtle,
-                    paddingHorizontal: spacing.card,
-                  }}
-                >
+                <AppText variant="label" tone="textSubtle" style={{ letterSpacing: 0.3, textTransform: "uppercase", paddingHorizontal: spacing.card }}>
                   {category.label}
-                </Text>
+                </AppText>
                 <GroupedList>
                   {bundles.map((bundle) => (
                     <LabCatalogueRow

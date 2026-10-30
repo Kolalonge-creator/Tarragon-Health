@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The native twin of web's GetStartedCard -- see that file for the full
@@ -104,9 +105,9 @@ export function GetStartedCard({
           {doneCount} {copy.of} {steps.length} done
         </Text>
       </View>
-      <Text style={{ fontSize: typeScale.body, lineHeight: 20, color: colors.muted }}>
+      <AppText variant="body" tone="textMuted">
         {copy.intro}
-      </Text>
+      </AppText>
 
       {steps.map((step, index) => (
         <View
@@ -132,9 +133,9 @@ export function GetStartedCard({
             }}
           >
             {step.done ? (
-              <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={15} color={colors.onBrand} />
             ) : (
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{index + 1}</Text>
+              <AppText variant="label">{index + 1}</AppText>
             )}
           </View>
           <View style={{ flex: 1, gap: step.done ? 0 : 8 }}>
@@ -169,10 +170,10 @@ export function GetStartedCard({
                     paddingHorizontal: 16,
                   }}
                 >
-                  <Text style={{ fontSize: typeScale.body, fontWeight: "700", color: "#FFFFFF" }}>
+                  <AppText variant="bodyStrong" tone="textOnBrand">
                     {step.cta}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={15} color="#FFFFFF" />
+                  </AppText>
+                  <Ionicons name="chevron-forward" size={15} color={colors.onBrand} />
                 </Pressable>
               </>
             )}

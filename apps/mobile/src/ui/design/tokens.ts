@@ -54,7 +54,7 @@ export interface Palette {
 }
 
 export const lightPalette: Palette = {
-  canvas: "#FAF7F2",
+  canvas: "#FAF7F0",
   surface: "#FFFFFF",
   surfaceMuted: "#F1ECE3",
   border: "#E7E5E4",

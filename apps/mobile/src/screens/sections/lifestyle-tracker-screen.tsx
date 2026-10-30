@@ -21,6 +21,7 @@ import {
 import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * One shell for all the daily lifestyle trackers (sleep, alcohol, smoking,
@@ -176,9 +177,9 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
       <Card style={{ gap: 12 }}>
         {config.fields.map((field) => (
           <View key={field.key} style={{ gap: 6 }}>
-            <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
+            <AppText variant="bodyStrong">
               {field.label}
-            </Text>
+            </AppText>
             {field.choices ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {field.choices.map((choice) => {
@@ -200,7 +201,7 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
                         style={{
                           fontSize: typeScale.body,
                           fontWeight: "600",
-                          color: selected ? "#FFFFFF" : colors.ink,
+                          color: selected ? colors.onBrand : colors.ink,
                         }}
                       >
                         {choice.label}

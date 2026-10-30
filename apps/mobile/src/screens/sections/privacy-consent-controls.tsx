@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Switch, Text, View } from "react-native";
+import { Switch, View } from "react-native";
 import { receiptSentence, type ConsentReceiptRow } from "@tarragon/shared";
 import { recordConsent, type ConsentRow } from "@/lib/privacy";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Give or withdraw one OPTIONAL consent (S04b-2). Nothing starts ticked: the person reads the words, ticks one switch for this
@@ -20,7 +21,6 @@ export function OptionalConsentControls({
   patientId: string;
   onChanged: () => void;
 }) {
-  const colors = useLegacyColors();
   const [reading, setReading] = useState(false);
   // The tick belongs to the version that was on screen when it was made; a replaced version starts unticked.
   const [tickedFor, setTickedFor] = useState<string | null>(null);
@@ -64,11 +64,11 @@ export function OptionalConsentControls({
         ))}
       {!canRead ? null : reading ? (
         <>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{row.title}</Text>
-          <Text style={{ fontSize: 12.5, color: colors.ink }}>{row.body}</Text>
+          <AppText variant="label">{row.title}</AppText>
+          <AppText variant="body">{row.body}</AppText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Switch value={ticked} onValueChange={(on) => setTickedFor(on ? row.versionId : null)} accessibilityLabel="I have read this and I choose to agree" />
-            <Text style={{ flex: 1, fontSize: 12.5, color: colors.ink }}>I have read this and I choose to agree. I can stop at any time.</Text>
+            <AppText variant="body" style={{ flex: 1 }}>I have read this and I choose to agree. I can stop at any time.</AppText>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <PrimaryButton title="Agree" onPress={() => void run("accepted")} disabled={!ticked} loading={busy} />
@@ -88,7 +88,7 @@ export function ConsentReceiptsCard({ receipts, error }: { receipts: ConsentRece
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your consent receipts</Text>
+      <AppText variant="bodyStrong">Your consent receipts</AppText>
       <MutedText>Every time you agreed to something or stopped it: the exact words you saw, when, and where. Nothing here is ever removed.</MutedText>
       {error ? (
         <ErrorText>{error}</ErrorText>
@@ -97,10 +97,10 @@ export function ConsentReceiptsCard({ receipts, error }: { receipts: ConsentRece
       ) : (
         receipts.map((r) => (
           <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
-            <Text style={{ fontSize: 13, color: colors.ink }}>{receiptSentence(r)}</Text>
+            <AppText variant="body">{receiptSentence(r)}</AppText>
             {openId === r.id ? (
               <>
-                <Text style={{ fontSize: 12.5, color: colors.ink }}>{r.body}</Text>
+                <AppText variant="body">{r.body}</AppText>
                 <MutedText>
                   {r.text_sha256
                     ? `Fingerprint of these words: ${r.text_sha256}`

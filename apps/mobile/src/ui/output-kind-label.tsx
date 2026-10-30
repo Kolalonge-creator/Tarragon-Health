@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import { asLocale, OUTPUT_KIND_KEYS, outputKindHintKey, t, type OutputAudience, type OutputKind } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 
 /**
  * The phone's copy of the one label for what kind of output this is (automated information, reviewed by the care team, or a clinician
@@ -16,8 +16,8 @@ export function OutputKindLabel({ kind, note, audience = "patient" }: { kind: Ou
   const hint = t(outputKindHintKey(kind, audience), locale);
   return (
     <View accessible accessibilityLabel={`${label}. ${note ? `${note}. ` : ""}${hint}`} style={{ gap: 2 }}>
-      <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>{label}</Text>
-      {note ? <Text style={{ fontSize: 12, color: colors.ink }}>{note}</Text> : null}
+      <Text style={{ ...textStyles.label, color: colors.ink }}>{label}</Text>
+      {note ? <Text style={{ ...textStyles.caption, color: colors.ink }}>{note}</Text> : null}
     </View>
   );
 }

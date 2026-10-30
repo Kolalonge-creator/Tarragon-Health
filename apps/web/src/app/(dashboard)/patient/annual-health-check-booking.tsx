@@ -8,6 +8,7 @@ import {
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
@@ -135,7 +136,9 @@ export function AnnualHealthCheckBooking({
   const selected =
     selfBookable.find((b) => b.id === selectedBundleId) ??
     packages.find((b) => b.code === "screen_core") ??
-    selfBookable[0] ??
+    // Never preselect a confidential or "other" test: those lists are folded, and a "Get & print" button for a test the patient
+    // has not chosen or even seen would be wrong. Falls back to the first package only.
+    packages[0] ??
     null;
 
   // §56.4/§56.6: prep/specimen detail for the first test in the selected
@@ -309,30 +312,25 @@ export function AnnualHealthCheckBooking({
               {packages.map(bundleRow)}
             </div>
 
+            {/* Folded: the packages above are the main choice; these two lists are long and optional. A selected row inside a
+                folded list is still shown by the "Get & print" block below. */}
             {confidential.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
-                  Confidential screenings
-                </p>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                  Recommended by the World Health Organization for everyone, and requested without
-                  having to explain yourself to anybody.
-                </p>
+              <Disclosure
+                title="Confidential screenings"
+                hint="Recommended by the World Health Organization for everyone, requested without having to explain yourself"
+              >
                 <ConfidentialResultNotice />
-                {confidential.map(bundleRow)}
-              </div>
+                <div className="space-y-2">{confidential.map(bundleRow)}</div>
+              </Disclosure>
             )}
 
             {otherTests.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
-                  Other self-service tests
-                </p>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                  Request these directly: no due screening or doctor referral needed.
-                </p>
-                {otherTests.map(bundleRow)}
-              </div>
+              <Disclosure
+                title="Other self-service tests"
+                hint="Request these directly: no due screening or doctor referral needed"
+              >
+                <div className="space-y-2">{otherTests.map(bundleRow)}</div>
+              </Disclosure>
             )}
 
             {selected && !openBundleIds.has(selected.id) && (

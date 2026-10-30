@@ -14,7 +14,10 @@ type PersonResult = { label: string; href: string; group: string; hint: string }
  * applicants are looked up through /api/admin/search once two letters are typed. Everything is a plain link target,
  * so the keyboard (arrows, Enter, Escape) and a mouse do the same thing.
  */
-export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
+export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchEntry[]; kind?: "admin" | "patient" }) {
+  // Patients search pages only: the people lookup is a staff tool and is never called for them.
+  const isPatient = kind === "patient";
+  const scope = isPatient ? "Tarragon" : "the admin console";
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -65,7 +68,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
   // is typed, so a slow or stale answer can never appear under a newer query.
   const trimmed = query.trim();
   React.useEffect(() => {
-    if (!open || trimmed.length < 2) return;
+    if (isPatient || !open || trimmed.length < 2) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -82,7 +85,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [trimmed, open]);
+  }, [trimmed, open, isPatient]);
 
   const current = open && trimmed.length >= 2 && lookup?.q === trimmed ? lookup : null;
   const people = current?.results ?? [];
@@ -124,7 +127,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
           opener.current = e.currentTarget;
           setOpen(true);
         }}
-        aria-label="Search the admin console"
+        aria-label={`Search ${scope}`}
         className="inline-flex h-9 items-center gap-2 rounded-md border border-charcoal-ink/15 px-2.5 text-sm text-charcoal-ink/70 hover:bg-charcoal-ink/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green dark:border-night-ink/20 dark:text-night-ink/70 dark:hover:bg-night-ink/10"
       >
         <Search className="h-4 w-4" aria-hidden="true" />
@@ -134,7 +137,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[10vh]" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-          <div role="dialog" aria-modal="true" aria-label="Search the admin console" className="w-full max-w-xl overflow-hidden rounded-lg border border-charcoal-ink/10 bg-white shadow-xl dark:border-night-ink/20 dark:bg-night-card">
+          <div role="dialog" aria-modal="true" aria-label={`Search ${scope}`} className="w-full max-w-xl overflow-hidden rounded-lg border border-charcoal-ink/10 bg-white shadow-xl dark:border-night-ink/20 dark:bg-night-card">
             <div className="flex items-center gap-2 border-b border-charcoal-ink/10 px-3 dark:border-night-ink/15">
               <Search className="h-4 w-4 shrink-0 text-charcoal-ink/50" aria-hidden="true" />
               <input
@@ -149,7 +152,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
                 aria-expanded="true"
                 aria-controls="admin-search-results"
                 aria-activedescendant={rows[activeIndex] ? `admin-search-row-${activeIndex}` : undefined}
-                placeholder="Search pages, settings, clinicians, applicants"
+                placeholder={isPatient ? "Search, for example blood pressure, tablets or results" : "Search pages, settings, clinicians, applicants"}
                 className="h-12 w-full bg-transparent text-sm text-charcoal-ink outline-none placeholder:text-charcoal-ink/45 dark:text-night-ink"
                 autoComplete="off"
               />
@@ -157,7 +160,7 @@ export function AdminSearch({ entries }: { entries: AdminSearchEntry[] }) {
             <ul id="admin-search-results" role="listbox" className="max-h-[60vh] overflow-y-auto py-1">
               {rows.length === 0 ? (
                 <li className="px-4 py-6 text-center text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                  {query.trim() ? "Nothing matches that. Try another word, like a page name or a doctor's name." : "Start typing to search."}
+                  {query.trim() ? isPatient ? "Nothing matches that. Try another word, like a page name or a health topic." : "Nothing matches that. Try another word, like a page name or a doctor's name." : "Start typing to search."}
                 </li>
               ) : null}
               {rows.map((row, i) => {

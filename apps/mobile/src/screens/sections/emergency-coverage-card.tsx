@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import { saveEmergencyCoverage, type EmergencyFacts } from "@/lib/emergency";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ChoiceChip, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit";
 
 /**
  * Optional HMO / NHIA cover for the emergency card (S09y). Typed by the person, shown on the card only once filled in, patient entered and unchecked,
@@ -18,7 +19,7 @@ export function EmergencyCoverageCard({ initial, onChanged }: { initial: Emergen
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const inputStyle = { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.ink, fontSize: 15 } as const;
+  const inputStyle = { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, color: colors.ink, ...textStyles.bodyLarge } as const;
 
   async function save(clear: boolean) {
     setSaving(true);
@@ -40,11 +41,11 @@ export function EmergencyCoverageCard({ initial, onChanged }: { initial: Emergen
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>{t("ecf.coverage.title")}</Text>
+      <AppText variant="bodyLargeStrong">{t("ecf.coverage.title")}</AppText>
       <MutedText>{t("ecf.coverage.description")}</MutedText>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <ChoiceChip title={`${scheme === "hmo" ? "✓ " : ""}${t("ecf.coverage.scheme_hmo")}`} onPress={() => setScheme("hmo")} />
-        <ChoiceChip title={`${scheme === "nhia" ? "✓ " : ""}${t("ecf.coverage.scheme_nhia")}`} onPress={() => setScheme("nhia")} />
+        <ChoiceChip selected={scheme === "hmo"} title={`${scheme === "hmo" ? "✓ " : ""}${t("ecf.coverage.scheme_hmo")}`} onPress={() => setScheme("hmo")} />
+        <ChoiceChip selected={scheme === "nhia"} title={`${scheme === "nhia" ? "✓ " : ""}${t("ecf.coverage.scheme_nhia")}`} onPress={() => setScheme("nhia")} />
       </View>
       <TextInput
         accessibilityLabel={t("ecf.coverage.member_label")}

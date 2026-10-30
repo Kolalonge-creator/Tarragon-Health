@@ -31,11 +31,11 @@ import { RecordLessonCardNative } from "@/screens/sections/learning-quality-sect
 import { WeeklyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer, useMembersOnly } from "@/screens/sections/learning-sections";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { AppText } from "@/ui/kit";
+import { AppText } from "@/ui/kit/AppText";
 import { BreathingScreen } from "@/screens/sections/breathing-screen";
 import { CourseCard, CourseScreen } from "@/screens/sections/course-screen";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -188,7 +188,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
 
       {recommendedItems.length > 0 && (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Recommended for you</Text>
+          <AppText variant="bodyStrong">Recommended for you</AppText>
           {recommendedItems.map((item) => (
             <EducationItemRow key={item.content_id} item={item} userId={userId} organisationId={organisationId} onChanged={refreshTop} />
           ))}
@@ -203,12 +203,12 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
 
       {activeCategory ? (
         <Card style={{ gap: 10 }}>
-          <Text onPress={() => setActiveCategory(null)} style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed }}>
+          <AppText variant="label" tone="brandText" onPress={() => setActiveCategory(null)}>
             ← All topics
-          </Text>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
+          </AppText>
+          <AppText variant="bodyStrong">
             {HEALTH_EDUCATION_CATEGORIES.find((c) => c.value === activeCategory)?.label ?? activeCategory}
-          </Text>
+          </AppText>
           <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={query} onChangeText={setQuery} placeholder="Search this topic…" style={textInputStyle} />
           {hasMultipleLevels && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -230,7 +230,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
         </Card>
       ) : (
         <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Browse by topic</Text>
+          <AppText variant="bodyStrong">Browse by topic</AppText>
           {HEALTH_EDUCATION_CATEGORIES.map((c) => {
             const count = countByCategory.get(c.value) ?? 0;
             return (
@@ -238,14 +238,14 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
                 key={c.value}
                 onPress={() => (count > 0 ? setActiveCategory(c.value) : null)}
                 style={{
-                  fontSize: 13.5,
+                  ...textStyles.body,
                   color: count > 0 ? colors.ink : colors.faint,
                   paddingVertical: 8,
                   borderTopWidth: 1,
                   borderTopColor: colors.border,
                 }}
               >
-                {c.label} <Text style={{ color: colors.muted, fontSize: 12 }}>· {count} topic{count === 1 ? "" : "s"}</Text>
+                {c.label} <AppText variant="caption" tone="textMuted">· {count} topic{count === 1 ? "" : "s"}</AppText>
               </Text>
             );
           })}
@@ -261,13 +261,13 @@ function LevelChip({ label, active, onPress }: { label: string; active: boolean;
     <Text
       onPress={onPress}
       style={{
-        fontSize: 12,
-        fontWeight: "600",
+        ...textStyles.label,
+        
         paddingVertical: 5,
         paddingHorizontal: 10,
         borderRadius: 999,
         backgroundColor: active ? colors.brand : colors.groupBg,
-        color: active ? "#FFFFFF" : colors.ink,
+        color: active ? colors.onBrand : colors.ink,
       }}
     >
       {label}
@@ -290,8 +290,8 @@ function RecommendationRow({ rec, onChanged }: { rec: EducationRecommendation; o
     <Card style={{ borderColor: colors.brand, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase" }}>{rec.trigger_reason}</Text>
-          <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{rec.content?.title}</Text>
+          <AppText variant="label" tone="brandText" style={{ textTransform: "uppercase" }}>{rec.trigger_reason}</AppText>
+          <AppText variant="bodyStrong">{rec.content?.title}</AppText>
           {rec.content?.summary && <MutedText>{rec.content.summary}</MutedText>}
         </View>
         <SecondaryButton title="Dismiss" onPress={dismiss} />
@@ -328,7 +328,7 @@ function HealthLiteracyPrompt({
 
   return (
     <Card style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13.5, color: colors.ink }}>How confident do you feel managing your {label}?</Text>
+      <AppText variant="body">How confident do you feel managing your {label}?</AppText>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         {([1, 2, 3, 4, 5] as const).map((n) => (
           <Text
@@ -338,12 +338,12 @@ function HealthLiteracyPrompt({
               width: 32,
               height: 32,
               textAlign: "center",
+              ...textStyles.label,
               lineHeight: 32,
               borderRadius: 16,
               borderWidth: 1,
               borderColor: colors.border,
-              fontSize: 13,
-              fontWeight: "600",
+              
               color: colors.ink,
             }}
           >
@@ -419,9 +419,9 @@ function EducationItemRow({
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 6 }}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-        <Text onPress={toggle} style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>
+        <AppText variant="bodyStrong" onPress={toggle}>
           {item.title}
-        </Text>
+        </AppText>
         {item.content_type !== "article" && <Badge>{CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type}</Badge>}
         {item.status === "needs_review" && <Badge tone="brand">Revisit</Badge>}
         {item.status === "understood" && <Badge tone="brand">Understood</Badge>}
@@ -436,7 +436,7 @@ function EducationItemRow({
       )}
       {open && !membersOnly && (
         <View style={{ gap: 10, paddingTop: 4 }}>
-          <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 19 }}>{item.body}</Text>
+          <AppText variant="body">{item.body}</AppText>
 
           {questions ? (
             <KnowledgeCheck questions={questions} pending={marking} onComplete={completeCheck} />
@@ -475,10 +475,10 @@ function KnowledgeCheck({
 
   return (
     <View style={{ gap: 10, backgroundColor: colors.groupBg, borderRadius: radius.card, padding: 10 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase" }}>Quick check</Text>
+      <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase" }}>Quick check</AppText>
       {questions.map((q, qi) => (
         <View key={qi} style={{ gap: 4 }}>
-          <Text style={{ fontSize: 13, color: colors.ink }}>{q.question}</Text>
+          <AppText variant="body">{q.question}</AppText>
           {q.options.map((opt, oi) => {
             const chosen = answers[qi] === oi;
             const showCorrect = result !== null && oi === q.answer_index;
@@ -488,7 +488,7 @@ function KnowledgeCheck({
                 key={oi}
                 onPress={() => (result === null ? setAnswers((prev) => prev.map((a, i) => (i === qi ? oi : a))) : null)}
                 style={{
-                  fontSize: 13,
+                  ...textStyles.body,
                   paddingVertical: 4,
                   paddingHorizontal: 8,
                   borderRadius: radius.control,
@@ -505,10 +505,10 @@ function KnowledgeCheck({
       {result === null ? (
         <PrimaryButton title="Check my answers" onPress={submit} disabled={!answeredAll || pending} loading={pending} />
       ) : (
-        <Text style={{ fontSize: 13, color: colors.ink }}>
+        <AppText variant="body">
           You got {result.score} of {result.total}.{" "}
           {result.allCorrect ? "Nicely done, marked as understood." : "Worth another read, we'll keep this handy for you."}
-        </Text>
+        </AppText>
       )}
     </View>
   );
@@ -539,7 +539,7 @@ function ContentFeedbackRow({ contentId, userId, organisationId }: { contentId: 
           key={opt.value}
           onPress={() => send(opt.value)}
           style={{
-            fontSize: 12,
+            ...textStyles.caption,
             paddingVertical: 4,
             paddingHorizontal: 9,
             borderRadius: 999,

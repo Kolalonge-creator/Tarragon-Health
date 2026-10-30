@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { createClient } from "@/lib/supabase/client";
 
 const TOUCH = "min-h-11";
@@ -74,16 +75,7 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
       <CardHeader><CardTitle>{t("circle.help.title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <p>{t("circle.help.intro", locale)}</p>
-        <section aria-label={t("circle.help.consent.title", locale)} className="space-y-2 rounded-lg border p-3">
-          <h4 className="font-medium">{t("circle.help.consent.title", locale)}</h4>
-          <p className="text-sm">{t("circle.help.consent.text", locale)}</p>
-          <p className="text-sm font-medium">{on ? t("circle.help.consent.on", locale) : t("circle.help.consent.off", locale)}</p>
-          <Button variant="outline" className={TOUCH} disabled={setConsent.isPending || consent.isLoading} onClick={() => setConsent.mutate(!on)}>
-            {on ? t("circle.help.consent.turn_off", locale) : t("circle.help.consent.turn_on", locale)}
-          </Button>
-          {setConsent.isError && !notOpen ? <p role="alert" className="text-sm">{t("circle.help.consent.error", locale)}</p> : null}
-        </section>
-        <Button className={TOUCH} disabled={send.isPending} onClick={() => send.mutate()}>{t("circle.help.button", locale)}</Button>
+        <Button className={`${TOUCH} w-full sm:w-auto`} disabled={send.isPending} onClick={() => send.mutate()}>{t("circle.help.button", locale)}</Button>
         {notOpen ? <p role="status">{t("circle.help.not_open", locale)}</p> : null}
         {send.isError && !notOpen ? <p role="alert">{t("circle.help.error", locale)}</p> : null}
         {result ? (
@@ -98,6 +90,22 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
             <p className="text-sm">{result.location_shared ? t("circle.help.location_on", locale) : t("circle.help.location_off", locale)}</p>
           </div>
         ) : null}
+        {/* The help button comes first; the location choice sits right under it, with its current state in the heading so it is
+            never hidden (design audit P3). The choice itself is unchanged. */}
+        <Disclosure
+          title={t("circle.help.consent.title", locale)}
+          hint={consent.isLoading ? undefined : on ? t("circle.help.consent.on", locale) : t("circle.help.consent.off", locale)}
+        >
+          <section aria-label={t("circle.help.consent.title", locale)} className="space-y-2 rounded-lg border p-3">
+            <h4 className="font-medium">{t("circle.help.consent.title", locale)}</h4>
+            <p className="text-sm">{t("circle.help.consent.text", locale)}</p>
+            <p className="text-sm font-medium">{on ? t("circle.help.consent.on", locale) : t("circle.help.consent.off", locale)}</p>
+            <Button variant="outline" className={TOUCH} disabled={setConsent.isPending || consent.isLoading} onClick={() => setConsent.mutate(!on)}>
+              {on ? t("circle.help.consent.turn_off", locale) : t("circle.help.consent.turn_on", locale)}
+            </Button>
+            {setConsent.isError && !notOpen ? <p role="alert" className="text-sm">{t("circle.help.consent.error", locale)}</p> : null}
+          </section>
+        </Disclosure>
       </CardContent>
     </Card>
   );

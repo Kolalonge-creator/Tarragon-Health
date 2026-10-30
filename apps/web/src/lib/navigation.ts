@@ -194,7 +194,6 @@ export function getNavSections(
               primary: true,
               shortLabel: "Messages",
             },
-            { label: "Your month", href: "/patient/progress", icon: "analytics" },
             { label: "Programmes", href: "/patient/programmes", icon: "members" },
             { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
@@ -257,8 +256,6 @@ export function getNavSections(
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
             { label: "Membership", href: "/patient/membership", icon: "billing" },
-            // Send a link to someone who offered to help pay for the yearly Membership (S72).
-            { label: "Ask someone to pay", href: "/patient/payment-requests", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             ...(options?.communityOpen ? [{ label: t("community.nav.title"), href: "/patient/community", icon: "family" as const }] : []),
             // Real feature a single-persona mock doesn't happen to show (that
@@ -274,10 +271,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Yearly health report", href: "/patient/health-report", icon: "passport" },
-            { label: "Doses marked taken", href: "/patient/medicine-report", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
-            { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
               label: "Notification settings",
               href: "/patient/notification-settings",

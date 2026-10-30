@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   DELETION_KEPT,
@@ -19,6 +19,7 @@ import {
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { placeholderColorFor, useLegacyColors, useTextInputStyle, useTheme } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const OPEN_EXPORT = new Set(["pending", "under_review"]);
 const OPEN_DELETION = new Set(["pending", "under_review", "approved_partial", "approved_full"]);
@@ -68,7 +69,7 @@ export function ExportRequestCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Get a copy of your data</Text>
+      <AppText variant="bodyStrong">Get a copy of your data</AppText>
       <MutedText>
         Ask for everything we hold about you. A person on our team checks every request before anything is released, so it is not an
         instant download. We aim to have it ready within 30 days, and often sooner.
@@ -99,7 +100,7 @@ export function ExportRequestCard({
         return (
           <View key={r.id} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: colors.ink }}>{view.headline}</Text>
+              <AppText variant="label" style={{ flex: 1 }}>{view.headline}</AppText>
               <Badge tone={POSITIVE.has(r.status) ? "brand" : "neutral"}>{r.status.replace(/_/g, " ")}</Badge>
             </View>
             <MutedText>{`Asked ${formatLagosDate(r.requestedAt)}. ${view.detail}`}</MutedText>
@@ -173,15 +174,15 @@ export function DeletionRequestCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
+      <AppText variant="bodyStrong">Request deletion of your data</AppText>
       <MutedText>
         {`You can ask us to close your account and erase what the law allows. We wait ${deletionGraceDays()} days first so you can change your mind, then our team reviews the request and writes down exactly what was done.`}
       </MutedText>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What our team removes</Text>
+      <AppText variant="label">What our team removes</AppText>
       {DELETION_REMOVED.map((t) => (
         <MutedText key={t}>{`• ${t}`}</MutedText>
       ))}
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What we have to keep</Text>
+      <AppText variant="label">What we have to keep</AppText>
       {DELETION_KEPT.map((t) => (
         <MutedText key={t}>{`• ${t}`}</MutedText>
       ))}
@@ -212,7 +213,7 @@ export function DeletionRequestCard({
         return (
           <View key={r.id} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: colors.ink }}>{view.headline}</Text>
+              <AppText variant="label" style={{ flex: 1 }}>{view.headline}</AppText>
               <Badge tone={POSITIVE.has(r.status) ? "brand" : "neutral"}>{r.status.replace(/_/g, " ")}</Badge>
             </View>
             <MutedText>{`Asked ${formatLagosDate(r.requestedAt)}. ${view.detail}`}</MutedText>

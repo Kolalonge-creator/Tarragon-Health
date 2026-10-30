@@ -5,7 +5,7 @@ import { asLocale, t } from "@tarragon/i18n";
 import type { SectionId } from "@/lib/sections";
 import { TOUR_BODY_KEYS, TOURS_SEEN_KEY, helpTextFor, isTourTab, parseSeen, serializeSeen, tourToOffer, type TourTab } from "@/lib/screen-help";
 import { useUiLanguage } from "@/lib/ui-language";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
@@ -61,7 +61,7 @@ export function ScreenHelp({ section }: { section: SectionId }) {
     <View style={{ paddingHorizontal: 16, paddingTop: 6, gap: 8 }}>
       {offer && !touring ? (
         <Card style={{ gap: 8 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+          <Text accessibilityRole="header" style={{ ...textStyles.bodyStrong, color: colors.ink }}>
             {t("tour.offer_title", locale)}
           </Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -86,7 +86,7 @@ export function ScreenHelp({ section }: { section: SectionId }) {
             onPress={() => setOpen((v) => !v)}
             style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.brand, textDecorationLine: "underline" }}>
+            <Text style={{ ...textStyles.bodyStrong, color: colors.brand, textDecorationLine: "underline" }}>
               {t("help.what_is_this", locale)}
             </Text>
           </Pressable>

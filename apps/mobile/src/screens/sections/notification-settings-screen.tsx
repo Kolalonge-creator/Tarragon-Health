@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { DEFAULT_SETTINGS, normaliseTime, validateSettings, type NotificationSettingsValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -17,6 +17,7 @@ import {
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SectionDivider } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   appointments: "Appointment reminders",
@@ -125,7 +126,7 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
       contentContainerStyle={{ padding: spacing.screen, gap: 16 }}
     >
       <View>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Notification settings</Text>
+        <AppText variant="title">Notification settings</AppText>
         <MutedText>
           Choose how you&apos;d like to hear from us for each kind of update. Critical health alerts
           always reach you in the app.
@@ -148,10 +149,10 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.quiet_title")}</Text>
+        <AppText variant="bodyStrong">{tr("notif.settings.quiet_title")}</AppText>
         <MutedText>{tr("notif.settings.quiet_body")}</MutedText>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.quiet_on")}</Text>
+          <AppText variant="body" style={{ flex: 1 }}>{tr("notif.settings.quiet_on")}</AppText>
           <Switch
             value={delivery.quietEnabled}
             disabled={!deliveryReady}
@@ -183,10 +184,10 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
           </View>
         </View>
         <SectionDivider />
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{tr("notif.settings.discreet_title")}</Text>
+        <AppText variant="bodyStrong">{tr("notif.settings.discreet_title")}</AppText>
         <MutedText>{tr("notif.settings.discreet_body")}</MutedText>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>{tr("notif.settings.discreet_on")}</Text>
+          <AppText variant="body" style={{ flex: 1 }}>{tr("notif.settings.discreet_on")}</AppText>
           <Switch
             value={delivery.discreet}
             disabled={!deliveryReady}
@@ -210,9 +211,9 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
           return (
             <Card key={category} style={{ gap: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>
+                <AppText variant="bodyStrong">
                   {CATEGORY_LABEL[category]}
-                </Text>
+                </AppText>
                 {isSaving && <MutedText>Saving…</MutedText>}
               </View>
               <SectionDivider />
@@ -221,7 +222,7 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
                   key={key}
                   style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
                 >
-                  <Text style={{ fontSize: 13.5, color: colors.ink }}>{label}</Text>
+                  <AppText variant="body">{label}</AppText>
                   <Switch
                     value={toggles[key]}
                     onValueChange={(value) => void handleToggle(category, key, value)}
