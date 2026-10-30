@@ -4,6 +4,8 @@ Status 2026-10-29: **v1.0 was signed by the CMO, Dr Kola Longe, in a Claude Code
 
 Version: **v1.0, signed 2026-10-29 by the Chief Medical Officer.** Drafted by the assistant from the live function bodies and the signed rule set; not reviewed by an independent clinical safety officer. Nothing here claims compliance with a standard. Severity and likelihood are residual levels after the controls listed.
 
+**A v1.1 DRAFT section follows the signed v1.0 text below. It is unsigned and is not covered by the v1.0 signature.** Everything above it is v1.0 exactly as signed.
+
 Guards this document supports: `screening_scheduler_enabled` and `screening_request_automation_enabled` (both read the attested condition `clinical_safety_case_current`; the second one also needs the first).
 
 ## What the two jobs do (read from the live definitions on 2026-10-29)
@@ -45,3 +47,42 @@ Severity and likelihood above are **proposed by the assistant on 2026-10-29 at t
 Reviewed and signed by: Dr Kola Longe  Role: Chief Medical Officer  Date: 2026-10-29  Version: v1.0
 
 Signed in a Claude Code chat session and recorded in the owed sign-offs ledger (`owed_signoffs`, subject `screening_safety_case_v1`); the ledger row carries the CMO's note and the audit entry `owed_signoff.signed`. The alert code this version relies on (HZ-SCR-03, HZ-SCR-06) went live with PR #1435 (migration `20261029215729`).
+
+---
+
+# v1.1 DRAFT: additions to the signed v1.0 (UNSIGNED)
+
+**Status: draft for the Chief Medical Officer to read. Nothing in this section is covered by the v1.0 signature above. It becomes v1.1 only when the CMO reads it, corrects it and signs it.** It adds what v1.0 does not say. It changes no signed text and no rating. Prepared by the assistant on 2026-10-29. The CMO, who is also the DPO and the founder, is the only reviewer of this platform; no second reader is required (decision recorded 2026-10-29), and the residual risk of having no independent check is stated here once and gates nothing.
+
+## A. Scope v1.0 does not cover
+
+v1.0 supports the scheduler and the request automation. Three further switches are on and have **no safety case of their own**: `reproductive_content_enabled` (reproductive education and the clinician cycle report), `sleep_apnoea_screen_enabled` (snoring and daytime sleepiness questionnaire; the STOP-Bang licence from University Health Network is not verified, risk accepted in chat), and `mental_health_follow_up_enabled` (wellbeing follow-up tasks). Each was attested in chat. Decision for the CMO: write a short safety case for each, or keep them on knowingly. Until then they are outside every hazard above.
+
+## B. State on the day of switch-on (checked in the live database, 2026-10-29)
+
+- Real active patients 5; real active Members 1; 1 real patient missing sex or date of birth.
+- Screening schedules created 0; automatic requests issued 0. **No real traffic had gone through the pipeline.** The first nightly run (02:15 UTC for the scheduler, 02:45 for requests) is the first test on real data.
+- Sensitive screen types today (the opt-in applies to all of them): abdominal ultrasound, breast imaging, cervical smear, chlamydia and gonorrhoea, clinical breast exam, colonoscopy, echo, FIT, hepatitis B, hepatitis C, HIV, mammography, prostate ultrasound, PSA, syphilis. Reminders show "a screening test" instead of the name for these (verified in the live function body). Not checked: the wording of the printed request itself, the lab-order screens, and push or email subjects other than the reminder template.
+
+## C. Additional hazards
+
+| ID | Hazard | Cause | Possible harm | Control today | Check | Gap | Severity / likelihood | Owner |
+|---|---|---|---|---|---|---|---|---|
+| HZ-SCR-09 | A patient confirms a wrong number on their own chart | The patient edits a value extracted from their report and mistypes it, or confirms a number they did not read | A wrong value shown to a doctor or used to reassure the patient | The value is shown labelled as reported by the patient; it carries no flag and no reference range; it never enters the clinical record or any alert; HIV and hepatitis marker results are excluded and left to the care team; the code must be one present on the uploaded report | `patient_reported_lab_values.sql` | The only value check is that it is a number between 0 and 1,000,000. No per-test plausibility range, so a plainly impossible value is accepted. Nothing compares it with the uploaded file | Low / Possible (s) | Engineering |
+| HZ-SCR-10 | A clinical switch is on without the responsible person having signed | Switches were pressed from a chat session on instruction, not from the hub | A control believed to be signed is not | A database guard refuses a governed configuration going live unsigned (#1432). Four owed-signature lines were kept on the hub until signed; all four are now signed in chat | `governed_config_never_live_without_signature.sql`, `owed_signoffs_ledger.sql` | A signature entered in a chat session records the CMO's instruction, not the CMO pressing Sign on the hub; the notes say so. The hub does not raise a line automatically when a go-live switch is pressed. 67 AI guardrails and 5 AI knowledge sources are live with no approval and are outside the guard | Moderate / Unlikely (s) | CMO, engineering |
+
+Ratings marked `(s)` are the assistant's suggestion.
+
+## D. First-run check (suggested)
+
+After 02:45 UTC on the first night, read: schedules created and for whom (only patients with sex and date of birth on file, and only for rules actually due); `lab_orders` with `fulfilment = self_arranged`; screening `ops_incidents` (expect one sev3 for the patient with no sex or date of birth, owned by the CMO); and that no notification names a sensitive test. If anything is unexpected, switch `screening_request_automation_enabled` off first, then the scheduler.
+
+## E. v1.1 sign-off
+
+Reviewed and signed by: ____________________  Role: Chief Medical Officer  Date: __________  Version: v1.1
+
+## Change log
+
+- v0.1, 2026-10-29: first draft, accepted in chat, never signed.
+- v1.0, 2026-10-29: signed by the CMO (see above).
+- v1.1 draft, 2026-10-29: scope gap, state on switch-on, HZ-SCR-09, HZ-SCR-10 and first-run check added; unsigned.
