@@ -153,7 +153,7 @@ export function ResultReleasePoliciesManager({
             <p className="text-sm text-charcoal-ink/70">
               {activeVersion.approved_at
                 ? `In force since ${new Date(activeVersion.approved_at).toLocaleString("en-GB")}.`
-                : "This version is live and driving every patient's read access to their own results today. That isn't gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
+                : "This version is live and driving every patient's read access to their own results today. That is not gated on a signature. A Director's signature is a formal record of review, not a switch."}{" "}
               {activeVersion.notes}
             </p>
             {/* The live version can be signed in place: the RPC takes any version id, and v1 went

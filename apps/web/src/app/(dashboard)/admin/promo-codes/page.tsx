@@ -8,7 +8,7 @@ export default function AdminPromoCodesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Promo codes"
-        description="Percentage or fixed-amount discounts a patient can apply to a lab, pharmacy, or referral order at checkout."
+        description="Percentage or fixed-amount discounts a patient can apply to a laboratory, pharmacy, or referral order at checkout."
       />
       <PromoCodeManager />
     </div>
