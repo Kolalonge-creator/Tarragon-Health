@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { renewalCopy } from "@/lib/marketing/membership";
+import { PanelTests } from "./panel-tests";
 import { LADDER_SAME_CARE_STATEMENT, type LadderCard } from "../_content/pricing-ladder";
 
 /**
@@ -28,6 +29,7 @@ export function HomeLadderCompare({ cards, refundDays, autoRenews }: { cards: re
                 <li key={line}>{line}</li>
               ))}
             </ul>
+            {card.panelTests ? <PanelTests groups={card.panelTests} /> : null}
             <div className="mt-auto pt-6">
               <Button asChild size="lg" variant={card.id === "free" ? "outline" : "default"} className="w-full">
                 <Link href="/signup">{card.id === "free" ? "Create your free account" : "Get started"}</Link>

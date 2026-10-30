@@ -19,7 +19,29 @@ export interface LadderCard {
   priceLine: string;
   summary: string;
   includes: readonly string[];
+  /** The tests in the yearly blood panel, grouped for reading. Only the card that includes the panel sets it. */
+  panelTests?: readonly PanelTestGroup[];
 }
+
+export interface PanelTestGroup {
+  heading: string;
+  tests: readonly string[];
+}
+
+/**
+ * The tests in the yearly blood panel (lab panel membership_annual, active version 3). Mirrors the analyte labels in
+ * lab_panel_versions; a test in pricing-ladder.test.ts fails if a label drifts from the registry. Two analytes are left out on purpose:
+ * anti-HBs (a clinician adds it for some people, a patient never chooses it) and TSH (founder decision 2026-10-30: not part of the yearly
+ * panel; a doctor orders it only when a patient needs it, on a request the patient takes to any lab or partner lab).
+ */
+export const YEARLY_PANEL_TESTS: readonly PanelTestGroup[] = [
+  { heading: "Blood sugar", tests: ["Fasting glucose", "HbA1c"] },
+  { heading: "Cholesterol and fats", tests: ["Total cholesterol", "LDL cholesterol", "HDL cholesterol", "Triglycerides"] },
+  { heading: "Kidneys and salts", tests: ["Creatinine", "Potassium", "Sodium"] },
+  { heading: "Liver", tests: ["ALT", "AST"] },
+  { heading: "Blood count", tests: ["Haemoglobin", "White cell count", "Platelets"] },
+  { heading: "Infection screening", tests: ["HIV screen", "Hepatitis B surface antigen", "Hepatitis C antibody"] },
+];
 
 export interface LadderPriceLabels {
   evergreen: string;
@@ -71,6 +93,7 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
         t("catalog.membership_annual.incl.3", "en"),
         t("catalog.membership_annual.incl.4", "en"),
       ],
+      panelTests: YEARLY_PANEL_TESTS,
     },
   ];
 }
