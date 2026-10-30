@@ -1,4 +1,5 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { Disclosure } from "@/components/ui/disclosure";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
@@ -67,11 +68,6 @@ export default async function DocumentsPage() {
         icon={NAV_ICON.upload}
         description={t("passport.documents.description", uiLanguage)}
       />
-      {isOwn && profile.organisation_id ? (
-        <DocumentCapture patientId={subjectId} organisationId={profile.organisation_id} readingOpen={open === true} locale={uiLanguage} />
-      ) : (
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("passport.documents.own_only", uiLanguage)}</p>
-      )}
       {docsError ? (
         // A failed read is not "no documents": that would read as every upload having been lost.
         <p role="alert" className="text-sm text-red-700">
@@ -79,6 +75,13 @@ export default async function DocumentsPage() {
         </p>
       ) : (
         <DocumentList rows={rows} canConfirm={isOwn} locale={uiLanguage} />
+      )}
+      {isOwn && profile.organisation_id ? (
+        <Disclosure title="Add a document" hint="Take or upload a photo of a paper record." defaultOpen={rows.length === 0 && !docsError}>
+          <DocumentCapture patientId={subjectId} organisationId={profile.organisation_id} readingOpen={open === true} locale={uiLanguage} />
+        </Disclosure>
+      ) : (
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("passport.documents.own_only", uiLanguage)}</p>
       )}
     </div>
   );
