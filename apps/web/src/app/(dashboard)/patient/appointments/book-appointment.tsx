@@ -19,6 +19,8 @@ import {
   PAID_APPOINTMENT_PRODUCT_CODE,
   PER_ITEM_APPOINTMENT_TYPES,
 } from "./appointment-labels";
+import { daysAwayLabel, nextAvailable } from "@tarragon/shared";
+import { formatNairaForPatient } from "@/lib/format-money";
 import { filterConsultSlots, NO_SLOT_FILTERS, slotFilterOptions, type ConsultSlot, type SlotFilters } from "@/lib/consultations/slots";
 import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
@@ -151,6 +153,10 @@ export function BookAppointment({
   });
   const filteredDeclared = (filteredSlots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
   const shownSlots = declaredTimeSlots.length > 0 ? filterConsultSlots(hasFilters ? filteredDeclared : declaredTimeSlots, filters) : (slots ?? []);
+  // The earliest time a clinician has actually offered, with the price from the booking terms. Shown only when both are real.
+  const [mountedAt] = useState(() => Date.now());
+  const nextSlot = declaredTimeSlots.length > 0 ? nextAvailable(declaredTimeSlots, mountedAt) : null;
+  const termsForPicker = useMyBookingTerms(appointmentType).data;
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
@@ -478,6 +484,20 @@ export function BookAppointment({
             >
               {joinWaitingList.isPending ? "Joining…" : "Join the waiting list"}
             </Button>
+          </div>
+        )}
+
+        {!closed && !isLoading && nextSlot && (
+          <div className="rounded-xl bg-soft-sage/50 p-4 dark:bg-brand-green/10" aria-label="Next available visit">
+            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">Next available</p>
+            <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
+              {daysAwayLabel(nextSlot.daysAway)}, {formatSlot(nextSlot.slot.slot_start)}
+            </p>
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              With {nextSlot.slot.clinician_name}
+              {nextSlot.slot.specialty ? `, ${nextSlot.slot.specialty}` : ""}
+              {termsForPicker?.price_kobo != null ? `. ${formatNairaForPatient(termsForPicker.price_kobo)}` : ""}
+            </p>
           </div>
         )}
 

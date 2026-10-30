@@ -46,7 +46,7 @@ export default async function LabResultConsultPricingPage() {
     <div className="space-y-6">
       <PageHeader
         title="Lab-result consultation fee"
-        description="The one-off fee a patient pays to unlock uploading a self-arranged lab result, which also books a 15-minute doctor walkthrough. One platform-default price, with optional per-organisation overrides."
+        description="The one-off fee a patient pays to unlock uploading a self-arranged laboratory result, which also books a 15-minute doctor walkthrough. One platform-default price, with optional per-organisation overrides."
       />
       <LabResultConsultPricingManager
         rows={rows}

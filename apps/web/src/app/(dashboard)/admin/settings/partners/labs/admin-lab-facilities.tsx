@@ -100,7 +100,7 @@ export function AdminLabFacilities({ labProviderId }: { labProviderId: string })
       {isLoading ? (
         <p className="text-xs text-charcoal-ink/60">Loading…</p>
       ) : (facilities ?? []).length === 0 ? (
-        <p className="text-xs text-charcoal-ink/60">No branches on file for this lab yet.</p>
+        <p className="text-xs text-charcoal-ink/60">No branches are on file for this laboratory yet.</p>
       ) : (
         <ul className="space-y-1">
           {(facilities ?? []).map((f) => (
