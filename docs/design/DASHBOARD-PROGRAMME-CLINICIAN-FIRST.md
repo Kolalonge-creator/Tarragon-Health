@@ -81,3 +81,14 @@ One worktree per PR, none merged without required CI.
 Findings:
 - A critical screening result is paged only by the `abnormal-result-handler` Edge Function. The database trigger raises the alert but pages nobody; it just nudges the function and swallows any error. The harness asserts the nudge is still wired. Whether the function pages in production is covered only by its Deno test and the deployed-version drift job, not by this proof.
 - A patient can read their own `clinician_alerts` rows (policy `clinician_alerts_select`, `patient_id = auth.uid()`), including `responsible_clinician_id`. No patient page reads this table. Open question for the CMO/DPO: remove the patient branch? This is an RLS change, so it needs `/code-review ultra` and is not made here.
+
+## 8. Events harness 2: E3 routing and E4 ladder (PR 1, continued)
+
+`packages/db/tests/events_escalation_routing_and_page_ladder.sql`, registered in `ci.manifest`. Passes locally; each of four sabotages (leave check, escalation triggers, ladder sweep, acknowledgement) flips it to a named FAIL.
+
+Proved: an escalation goes to the alert's owner; the assigned doctor sees it with a level and due time to rank by; an owner on leave is skipped; with every doctor on leave the case stays open, unassigned and visible to org staff; the sweep is scheduled; an unacknowledged alert climbs backup at 1x, every senior doctor at 2x, admins at 3x, each once only; an acknowledged alert never climbs.
+
+Findings (none changed here):
+- The active `alert_rules` row still lists `whatsapp` in the abnormal-result `channel_sequence`. It is harmless in paging: `notify_clinician_alert` reads it through `normalize_escalation_channels`, which maps a retired token to email. But it still shows in the admin alert-rules screen. Cosmetic cleanup for the next alert-rules version, which needs CMO sign-off.
+- `private.auto_assign_escalation` has two identical tier branches (both require senior or CMO), though its comment says "any clinical tier otherwise". Correct after F-05, which left one doctor tier. Dead code, not a defect.
+- The ladder's timeout is 30 minutes for abnormal results but the sweep runs every 10 minutes, so a hop can fire up to 10 minutes late. Within tolerance, noted for the SLA review.

@@ -1689,3 +1689,5 @@ owner_run_views_allowlist.sql
 feature_waitlist.sql
 # Events harness: critical screening result and red-flag symptom reach the clinician queue read as the clinician (RLS), paging per clinician, org boundary with control. Sabotage: clinician read policy narrowed, symptom red-flag trigger disabled.
 events_reach_clinician_queue_end_to_end.sql
+# Events harness 2: escalation routing (owner continuity, leave skipped, nobody-free stays visible) and the unacknowledged-alert ladder (1x backup, 2x seniors, 3x admins, once only, acknowledged never climbs, sweep scheduled). Sabotage: leave check, escalation triggers, ladder sweep, acknowledgement each removed.
+events_escalation_routing_and_page_ladder.sql
