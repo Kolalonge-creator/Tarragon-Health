@@ -161,9 +161,12 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
-              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)}>
-                {start.isPending ? t("sponsor.getting", locale) : t("sponsor.get", locale)}
-              </Button>
+              <>
+                <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)} aria-describedby={needsState && !collectionState ? `plus-state-hint-${item.code}` : undefined}>
+                  {start.isPending ? t("sponsor.getting", locale) : t("sponsor.get", locale)}
+                </Button>
+                {needsState && !collectionState ? <p id={`plus-state-hint-${item.code}`} className={`text-sm ${MUTED}`}>{t("shop.pay.choose_state_hint", locale)}</p> : null}
+              </>
             )}
           </section>
         ) : (
@@ -266,9 +269,13 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             {blocked ? (
               <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p>
             ) : (
-              <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)}>
-                {start.isPending ? t("shop.paying", locale) : item.code === UPGRADE_CODE ? t("shop.tier.upgrade.pay", locale) : t("shop.pay", locale)}
-              </Button>
+              <>
+                <Button type="button" className={TOUCH} onClick={pay} disabled={start.isPending || (needsState && !collectionState)} aria-describedby={needsState && !collectionState ? `plus-state-hint-${item.code}` : undefined}>
+                  {start.isPending ? t("shop.paying", locale) : item.code === UPGRADE_CODE ? t("shop.tier.upgrade.pay", locale) : t("shop.pay", locale)}
+                </Button>
+                {/* Without this the button is simply greyed out and the patient is left guessing why. */}
+                {needsState && !collectionState ? <p id={`plus-state-hint-${item.code}`} className={`text-sm ${MUTED}`}>{t("shop.pay.choose_state_hint", locale)}</p> : null}
+              </>
             )}
           </>
         )}

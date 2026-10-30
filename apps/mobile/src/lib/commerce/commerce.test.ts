@@ -242,7 +242,7 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
   });
 
   it("Plus: the new refusals have copy, never a raw code", () => {
-    for (const code of ["plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "upgrade_already_open", "upgrade_not_available"]) {
+    for (const code of ["plus_state_required", "plus_state_not_available", "plus_state_changed", "plus_needs_direct_checkout", "checkout_updating", "upgrade_already_open", "upgrade_not_available", "rate_limited"]) {
       const key = checkoutErrorKey(code);
       expect(Object.hasOwn(en, key)).toBe(true);
       expect(key).not.toBe("shop.error.unknown");

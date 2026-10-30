@@ -159,6 +159,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   plus_state_required: "shop.error.plus_state_required", plus_state_not_available: "shop.error.plus_state_not_available",
   plus_state_changed: "shop.error.plus_state_changed", plus_needs_direct_checkout: "shop.error.plus_needs_direct_checkout", checkout_updating: "shop.error.checkout_updating", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered", discount_code_invalid: "shop.error.discount_code_invalid", discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  rate_limited: "shop.error.rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted", sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
   // S72: paying from a supporter's link
   request_not_found: "request.error.unknown", request_expired: "request.error.expired", request_cancelled: "request.error.cancelled", request_used: "request.error.used",
