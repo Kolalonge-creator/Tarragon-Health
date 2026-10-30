@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
 import { MaskedCallButton } from "@/components/masked-call-button";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -543,6 +544,14 @@ export default async function ClinicianPatientPage({
           </div>
         )}
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Message in the app</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StaffPatientChat patientId={patient.id} patientName={patient.full_name ?? "this patient"} />
+        </CardContent>
+      </Card>
       <PatientRecordTabs tabs={tabs} />
     </div>
   );

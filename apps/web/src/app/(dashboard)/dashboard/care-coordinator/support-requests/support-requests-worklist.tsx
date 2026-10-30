@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 
 /** Inline resolve affordance -- a request needs a resolution note before it
  * can move to resolved (private.enforce_navigation_request_update requires
@@ -189,6 +190,7 @@ function SupportRequestRow({
   const statusBadge = NAVIGATION_REQUEST_STATUS_BADGE[r.status];
   const classBadge = NAVIGATION_REQUEST_CLASSIFICATION_BADGE[r.classification];
   const needsHandOff = r.classification === "clinical" && !r.care_message_thread_id;
+  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <li className="space-y-2 py-3">
@@ -247,8 +249,19 @@ function SupportRequestRow({
               {handOffPending ? "Handing off…" : "Hand off to care team"}
             </Button>
           )}
+          <Button type="button" size="sm" variant="outline" aria-expanded={chatOpen} onClick={() => setChatOpen((v) => !v)}>
+            {chatOpen ? "Hide chat" : "Message patient"}
+          </Button>
           <ResolveRow requestId={r.id} />
         </div>
+      )}
+
+      {chatOpen && (
+        <StaffPatientChat
+          patientId={r.patient_id}
+          patientName={r.patient?.full_name ?? "this patient"}
+          defaultSubject="About your request"
+        />
       )}
 
       {r.status === "resolved" && r.resolution_note && (
