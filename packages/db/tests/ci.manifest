@@ -17,6 +17,8 @@ exercise_session_logs.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql
 force_safe_patient_order_insert_defaults.sql
 refund_ledger_reversal.sql
+# OQ-483: confirm_care_plan_change acts as the signer for the length of the apply (accepted by the founder, proofs added). Claims, apply flag and role are the patient's again after success, after a mid-apply error caught with a savepoint, after a lost-authority return, after a stale stop or change, for target and schedule kinds and for a claims-JSON-only session; a second statement still runs as the patient; only the recorded signer is ever acted as; another patient and anon are refused; a signer who lost authority fails closed. Sabotage: seven patched copies of the live body (restore removed on success, on the lost-authority return and on the stale-stop return; only the claims-JSON restore removed; authority check removed; patient check removed; apply error swallowed) must each flip a check.
+confirm_care_plan_change_signer_claims.sql
 service_purchases_insert_only_via_intent_rpc.sql
 # OQ-555 / OQ-558: the clinician Women's Health record (pregnancy, antenatal, postnatal, breast, fertility) is read through one audited, tied function with no reason typed; every opening and every refusal is audited (break-glass and an emergency grant are refused); a direct select of the four reproductive tables returns nothing to an untied clinician, coordinator, caregiver or break-glass holder; the cycle report still accepts a reason but needs none. Sabotage: audit writer no-op, tie check opened, audit writer raising (read must fail closed).
 womens_health_record_audited_tied_staff_reads.sql
