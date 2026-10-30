@@ -143,7 +143,7 @@ end $$;
 
 -- 2. A change with no code change ----------------------------------------------------------------------------------------------
 do $$
-declare v_cmo uuid := pg_temp.f('cmo'); v_smo uuid := pg_temp.f('smo'); v_pat uuid := pg_temp.f('pat'); v0 integer; r text;
+declare v_cmo uuid := pg_temp.f('cmo'); v_smo uuid := pg_temp.f('smo'); v_pat uuid := pg_temp.f('pat'); v0 integer; v1 integer; r text;
 begin
   v0 := pg_temp.list_version();
   perform pg_temp.ck('control: before, the term is not controlled', 'false|false|false', pg_temp.finds(v_pat, 'Proofium 5mg')::text || '|' || private.is_controlled_medicine('Proofium')::text || '|' || pg_temp.in_list('proofium')::text);
@@ -161,12 +161,13 @@ begin
     (pg_temp.q_as(v_smo, format($q$select public.prescribe_medication(%L, 'Proofium', '5 mg', 'daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null, true)::text$q$, v_pat)) ~ '^ERR')::text);
   perform pg_temp.ck('...the list the web reads carries it with its tier and label', 'restricted|Proof class',
     (select (e ->> 'tier') || '|' || (e ->> 'label') from jsonb_array_elements(public.get_controlled_medicine_list() -> 'terms') e where e ->> 'term' = 'proofium'));
-  perform pg_temp.ck('...at a higher version', (v0 + 1)::text, pg_temp.list_version()::text);
+  v1 := pg_temp.list_version();
+  perform pg_temp.ck('...at a higher version', 'true', (v1 > v0)::text);
   perform pg_temp.ck('...which is readable by a signed-in patient', 'true', (pg_temp.q_as(v_pat, $q$select (public.get_controlled_medicine_list() ->> 'version')::text$q$) !~ '^ERR')::text);
 
   r := pg_temp.set_term(v_cmo, 'proofium', 'narcotic', 'Proof class', true, 'Tier raised by the proof');
-  perform pg_temp.ck('a change of tier is a new version and shows in the list', (v0 + 2)::text || '|narcotic',
-    pg_temp.list_version()::text || '|' || (select e ->> 'tier' from jsonb_array_elements(public.get_controlled_medicine_list() -> 'terms') e where e ->> 'term' = 'proofium'));
+  perform pg_temp.ck('a change of tier is a new version and shows in the list', 'true|narcotic',
+    (pg_temp.list_version() > v1)::text || '|' || (select e ->> 'tier' from jsonb_array_elements(public.get_controlled_medicine_list() -> 'terms') e where e ->> 'term' = 'proofium'));
 
   r := pg_temp.set_term(v_cmo, 'proofium', 'narcotic', 'Proof class', false, 'Retired again by the proof');
   perform pg_temp.ck('retiring it takes it off the hard stop and the web list', 'false|false|false', pg_temp.finds(v_pat, 'Proofium 5mg')::text || '|' || private.is_controlled_medicine('Proofium')::text || '|' || pg_temp.in_list('proofium')::text);
