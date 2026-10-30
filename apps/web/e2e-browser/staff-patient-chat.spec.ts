@@ -143,7 +143,8 @@ test.describe("staff to patient chat", () => {
     await staffPage.getByRole("button", { name: "Start a new conversation" }).click();
     await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
     await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
-    await staffPage.getByLabel("Book an appointment").check();
+    // The open thread above also offers this button on its reply box; the new-conversation form is the last one on the page.
+    await staffPage.getByLabel("Book an appointment").last().check();
     await staffPage.locator('input[type="file"]').setInputFiles({
       name: "letter.pdf",
       mimeType: "application/pdf",
