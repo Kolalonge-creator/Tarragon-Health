@@ -87,7 +87,9 @@ describe("Health Points at checkout (S72, 19.9)", () => {
 });
 
 describe("refunds on the order history (S72, 19.8)", () => {
-  const paid = { order_id: "o1", state: "paid", amount_kobo: 500_000, fee_kobo: 7_500, total_kobo: 507_500, code: "proof_consult", name_key: "catalog.consultation_single.name", created_at: "2026-10-01T10:00:00Z", paid_at: "2026-10-01T10:05:00Z", sponsor_share_kobo: 0, sponsor_name: null };
+  // Paid a day ago: the refund button is offered only inside the refund window, so a fixed calendar date here would stop the buyer test passing once it aged out.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const paid = { order_id: "o1", state: "paid", amount_kobo: 500_000, fee_kobo: 7_500, total_kobo: 507_500, code: "proof_consult", name_key: "catalog.consultation_single.name", created_at: dayAgo, paid_at: dayAgo, sponsor_share_kobo: 0, sponsor_name: null };
 
   it("the buyer of a paid order can ask for a refund", () => {
     orders = [{ ...paid, is_buyer: true, refund_state: null }];
