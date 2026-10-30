@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useThreadMessages,
+  useThreadStatus,
   usePostMessage,
   useMarkThreadRead,
   useCareMessageTemplates,
@@ -20,6 +22,15 @@ import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+
+/** "Seen" only when the other side opened the thread after this message was sent. */
+export function receiptText(sentAt: string, otherSideReadAt: string | null | undefined, isStaff: boolean): string {
+  const who = isStaff ? "the patient" : "your care team";
+  if (otherSideReadAt && new Date(otherSideReadAt) >= new Date(sentAt)) {
+    return `Seen by ${who} · ${when(otherSideReadAt)}`;
+  }
+  return "Sent, not seen yet";
+}
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -177,6 +188,9 @@ export function CareMessageThread({
   const { data: messages, isLoading } = useThreadMessages(threadId);
   const post = usePostMessage();
   const markRead = useMarkThreadRead();
+  const { data: status } = useThreadStatus(threadId);
+  const queryClient = useQueryClient();
+  const seenLastMessageAt = useRef<string | null>(null);
   const upload = useUploadCareMessageAttachment();
   const [body, setBody] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -192,6 +206,16 @@ export function CareMessageThread({
     markRead.mutate(threadId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId]);
+
+  // Live feel without a websocket: when the status poll sees a newer message, pull the messages once.
+  const lastMessageAt = status?.last_message_at ?? null;
+  useEffect(() => {
+    if (!lastMessageAt) return;
+    if (seenLastMessageAt.current && seenLastMessageAt.current !== lastMessageAt) {
+      queryClient.invalidateQueries({ queryKey: ["care-messages", threadId] });
+    }
+    seenLastMessageAt.current = lastMessageAt;
+  }, [lastMessageAt, threadId, queryClient]);
 
   const send = () => {
     setError(null);
@@ -230,6 +254,9 @@ export function CareMessageThread({
     setPendingFile(file);
   };
 
+  const ownRole = isStaff ? "care_team" : "patient";
+  const lastOwnMessageId = [...(messages ?? [])].reverse().find((m) => m.author_role === ownRole)?.id;
+
   return (
     <div className="space-y-3">
       {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
@@ -259,6 +286,11 @@ export function CareMessageThread({
               <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{when(message.created_at)}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">{message.body}</p>
+            {message.id === lastOwnMessageId && (
+              <p className="mt-1 text-right text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                {receiptText(message.created_at, isStaff ? status?.patient_last_read_at : status?.care_team_last_read_at, isStaff)}
+              </p>
+            )}
             {message.attachments.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {message.attachments.map((a) => (

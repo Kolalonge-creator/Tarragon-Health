@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
+import { MaskedCallButton } from "@/components/masked-call-button";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { Button } from "@/components/ui/button";
@@ -52,6 +55,11 @@ function StaffPatientChatBody({
 }) {
   const { data: threads, isLoading, isError } = useCareThreads(patientId);
   const start = useStartThread();
+  const { data: staffId } = useQuery({
+    queryKey: ["current-user-id"],
+    queryFn: async () => (await createClient().auth.getUser()).data.user?.id ?? null,
+    staleTime: Infinity,
+  });
   const [composing, setComposing] = useState(false);
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState("");
@@ -64,6 +72,15 @@ function StaffPatientChatBody({
 
   return (
     <div className="space-y-3">
+      {staffId && (
+        // One tap to move a stuck conversation to a call (the number stays masked).
+        <MaskedCallButton
+          patientId={patientId}
+          staffProfileId={staffId}
+          otherPartyLabel={patientName}
+          context="care_coordination"
+        />
+      )}
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading messages…</p>}
       {isError && <p className="text-sm text-red-600">Could not load this patient&apos;s messages.</p>}
 

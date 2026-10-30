@@ -211,6 +211,28 @@ export async function loadCareMessageScope(
 }
 
 /** Messages in a thread, oldest first (reading order). */
+/** Cheap thread-level state, polled while a thread is open: when the last message arrived and when each
+ * side last opened it. Polling this (not the messages) keeps the audited open from writing an audit
+ * row on every tick; callers refetch the messages only when `last_message_at` moves. */
+export function useThreadStatus(threadId: string | null) {
+  return useQuery({
+    queryKey: ["care-thread-status", threadId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_message_threads")
+        .select("last_message_at, patient_last_read_at, care_team_last_read_at")
+        .eq("id", threadId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!threadId,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  });
+}
+
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
     queryKey: ["care-messages", threadId],
