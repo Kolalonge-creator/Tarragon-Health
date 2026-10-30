@@ -1120,7 +1120,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Why it is worth raising with your doctor",
+        heading: "Why it is worth raising with a doctor",
         paragraphs: [
           "Many people quietly live with this for years rather than mention it, often out of embarrassment. Your care team has heard it many times before, and raising it usually leads somewhere useful, because it's frequently connected to the same sugar, blood pressure and circulation numbers already being tracked.",
         ],
