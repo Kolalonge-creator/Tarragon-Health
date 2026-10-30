@@ -13,11 +13,15 @@ import { arrangeItems, isTier, ladderActive, monthlyFramingKobo, panelIncluded, 
 import { checkoutErrorKey, isCoveredReply, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
 import { CheckoutError, useAutoRenewEnabled, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
+import { fallbackRefundPolicy } from "@/lib/commerce/refund-rule";
+import { refundWindowDaysFor, refundWindowOpen } from "@/lib/commerce/refund-window";
+import { useRefundPolicy } from "@/lib/queries/order-refunds";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
 import { PlusStatePicker } from "./plus-state-picker";
 import { PlusStateSetup } from "./plus-state-setup";
 import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
+import { YearlyPanelTests } from "./yearly-panel-tests";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -145,6 +149,8 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             ))}
           </ul>
         </IncludedBox>
+        {/* Membership Plus, and the upgrade that adds the panel to a Membership year, say which tests the yearly blood panel holds. */}
+        {panelIncluded(item.code) === true || item.code === UPGRADE_CODE ? <YearlyPanelTests locale={locale} id={item.code} /> : null}
         <NotIncludedList entries={notIncluded} locale={locale} id={item.code} grouped={ladder} />
         <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
         {needsState && !blocked ? <PlusStatePicker id={`plus-state-${item.code}`} value={collectionState} locale={locale} {...(beneficiary !== undefined ? { forName: beneficiaryName ?? t("circle.pay.someone", locale) } : {})} onChange={(v) => { clientKey.current = null; setCollectionState(v); }} /> : null}
@@ -288,6 +294,11 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
 function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Locale; kindByCode: ReadonlyMap<string, string> }) {
   const [refundTarget, setRefundTarget] = useState<OrderRow | null>(null);
   const paidRow = rows.find((o) => o.state === "paid") ?? null;
+  // The refund button is offered only while the database would accept the request: the window is the active policy's (a Membership has its
+  // own, every other order the cooling-off one), counted from the payment on the database's own boundary. The database still decides.
+  const { data: policyData } = useRefundPolicy();
+  const policy = policyData ?? fallbackRefundPolicy();
+  const refundDays = (o: OrderRow): number => refundWindowDaysFor(policy, kindByCode.get(o.code));
   // A sponsor part-covered this order (A4): say plainly what the person pays and what the sponsor pays. Nothing is said when they paid it all or the sponsor did.
   const split = (o: OrderRow): string | null => {
     const s = sponsorSplit({ youKobo: o.total_kobo ?? o.amount_kobo, sponsorShareKobo: o.sponsor_share_kobo, sponsorName: o.sponsor_name });
@@ -312,9 +323,13 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
                 </div>
                 <div className="flex items-center gap-3">
                   {o.state === "paid" && o.amount_kobo > 0 && o.is_buyer && o.refund_state === null && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setRefundTarget(o)}>
-                      {t("refund.request.button", locale)}
-                    </Button>
+                    refundWindowOpen(o.paid_at, refundDays(o)) ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setRefundTarget(o)}>
+                        {t("refund.request.button", locale)}
+                      </Button>
+                    ) : o.paid_at !== null ? (
+                      <span className={`text-sm ${MUTED}`}>{t("refund.request.window_passed", locale, { days: String(refundDays(o)) })}</span>
+                    ) : null
                   )}
                   {o.refund_state !== null && <span className={`text-sm ${MUTED}`}>{t(refundStateKey(o.refund_state), locale)}</span>}
                   <div className="text-right">

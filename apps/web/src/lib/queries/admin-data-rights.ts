@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, TablesUpdate } from "@tarragon/shared";
+import { closeAccountSummarySchema, type CloseAccountSummary } from "./close-account-summary";
 
 type PatientSummary = { full_name: string | null; patient_number: string | null } | null;
 
@@ -173,6 +174,28 @@ export function useReviewCorrectionRequest() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CORRECTION_KEY });
+    },
+  });
+}
+
+/**
+ * The reviewed "close account" step (OQ-S04b2-2): public.close_patient_account(request). Admin only, approved request past its
+ * waiting period; removes operational data, ends device connections and sharing, removes contact details, deactivates (never
+ * deletes) the profile, and is all-or-nothing and idempotent in the database. The reply is validated before it is shown.
+ */
+export function useCloseAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string): Promise<CloseAccountSummary> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("close_patient_account", { p_request: requestId });
+      if (error) throw error;
+      const parsed = closeAccountSummarySchema.safeParse(data);
+      if (!parsed.success) throw new Error("The account was processed but the reply could not be read. Reload the page and check the request.");
+      return parsed.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: DELETION_KEY });
     },
   });
 }
