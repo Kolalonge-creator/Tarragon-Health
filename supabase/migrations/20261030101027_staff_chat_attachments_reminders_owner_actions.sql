@@ -248,6 +248,16 @@ create policy care_message_actions_insert on public.care_message_actions
   with check (private.is_own_care_message(message_id));
 grant select, insert on public.care_message_actions to authenticated;
 
+-- Every patient-data table is registered for retention/export (data_registry) and for how staff may read it (staff_read_scope).
+-- care_message_actions is the same kind of record as its message siblings; reviewed stays false until the CMO and DPO classify it.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('care_message_actions', 'patient_id', 'clinical_record', 'review', true, false,
+        'Buttons a care-team member attached to a message. Class copied from care_messages; not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('care_message_actions', 'org', 'patient_id', 'medical_history', 'a fixed button kind with no clinical content; read with the thread headers')
+on conflict (table_name) do nothing;
+
 -- 5. Assertions ------------------------------------------------------------------------------------
 do $$
 begin
@@ -256,6 +266,10 @@ begin
   end if;
   if has_table_privilege('anon', 'public.care_thread_owners', 'SELECT') or has_table_privilege('anon', 'public.care_message_actions', 'SELECT') then
     raise exception 'FAIL: anon can read the new tables';
+  end if;
+  if not exists (select 1 from public.data_registry where table_name = 'care_message_actions')
+     or not exists (select 1 from public.staff_read_scope where table_name = 'care_message_actions') then
+    raise exception 'FAIL: care_message_actions is not registered';
   end if;
   if not exists (select 1 from cron.job where jobname = 'remind-patients-unread-care-messages') then
     raise exception 'FAIL: reminder job not scheduled';
