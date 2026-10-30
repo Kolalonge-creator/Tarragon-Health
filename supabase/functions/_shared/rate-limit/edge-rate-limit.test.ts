@@ -18,6 +18,11 @@ Deno.test("asks the database for the named bucket", async () => {
   if (!s || s.fn !== "edge_rate_limit_hit" || s.args["p_bucket"] !== "queue-next") throw new Error("wrong rpc call");
 });
 
+Deno.test("a limiter that hangs fails open after the timeout", async () => {
+  const hang: EdgeRpc = () => new Promise(() => {});
+  if ((await edgeRateLimited(hang, "order-checkout", 20)) !== null) throw new Error("a hung limiter must not block");
+});
+
 Deno.test("fails open on an rpc error, a throw, and an unexpected answer", async () => {
   if ((await edgeRateLimited(rpcReturning(null, { message: "boom" }), "order-verify")) !== null) throw new Error("error must fail open");
   if ((await edgeRateLimited(() => { throw new Error("down"); }, "order-verify")) !== null) throw new Error("throw must fail open");

@@ -8,9 +8,14 @@ export type EdgeBucket = "order-checkout" | "order-verify" | "queue-next" | "que
 export type EdgeRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 
 /** Returns a 429 response when the caller is over the limit, otherwise null. */
-export async function edgeRateLimited(rpc: EdgeRpc, bucket: EdgeBucket): Promise<Response | null> {
+export async function edgeRateLimited(rpc: EdgeRpc, bucket: EdgeBucket, timeoutMs = 1500): Promise<Response | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { data, error } = await rpc("edge_rate_limit_hit", { p_bucket: bucket });
+    // a hung limiter must not hold up a payment: past the timeout the request goes ahead
+    const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
+    const answer = await Promise.race([Promise.resolve(rpc("edge_rate_limit_hit", { p_bucket: bucket })), timeout]);
+    if (answer === null) return null;
+    const { data, error } = answer;
     if (error) return null;
     const d = data as { allowed?: unknown; retry_after_seconds?: unknown } | null;
     if (!d || d.allowed !== false) return null;
@@ -19,5 +24,7 @@ export async function edgeRateLimited(rpc: EdgeRpc, bucket: EdgeBucket): Promise
     return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(d.retry_after_seconds) } });
   } catch {
     return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }

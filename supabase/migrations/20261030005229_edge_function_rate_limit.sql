@@ -20,6 +20,8 @@ create table if not exists private.edge_rate_limits (
   hits integer not null default 0,
   primary key (bucket, subject, window_start)
 );
+-- the cleanup below deletes by age, which the primary key cannot serve
+create index if not exists edge_rate_limits_window_idx on private.edge_rate_limits (window_start);
 alter table private.edge_rate_limits enable row level security;
 revoke all on private.edge_rate_limits from public, anon, authenticated;
 
