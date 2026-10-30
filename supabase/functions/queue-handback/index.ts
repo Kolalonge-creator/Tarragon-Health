@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mapQueueError, validateHandback } from "../_shared/queue/claims.ts";
 
 import { withSentry } from "../_shared/observability/sentry.ts";
+import { edgeRateLimited } from "../_shared/rate-limit/edge-rate-limit.ts";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(withSentry("queue-handback", async (req) => {
@@ -27,6 +28,9 @@ Deno.serve(withSentry("queue-handback", async (req) => {
     global: { headers: { Authorization: auth } },
     auth: { persistSession: false },
   });
+  // OQ-267: this function bypasses the web proxy, so the per-user limit is counted in the database (fails open)
+  const limited = await edgeRateLimited((fn, args) => client.rpc(fn, args), "queue-handback");
+  if (limited) return limited;
   const { error } = await client.rpc("queue_handback", { p_task: taskId, p_reason: reason, p_note: note });
   if (error) {
     const { status, code } = mapQueueError(error.message);
