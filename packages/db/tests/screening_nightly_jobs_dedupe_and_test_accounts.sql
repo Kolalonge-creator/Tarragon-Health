@@ -118,17 +118,17 @@ begin
     raise exception 'FAIL 6: a per-patient automation run no longer issues a request to a test patient';
   end if;
 
-  -- SABOTAGE 1: revert the reminder patch; an in-app patient must then get two rows
-  v_def := pg_get_functiondef('private.queue_screening_reminders()'::regprocedure);
-  v_pat := E'    where private.patient_reminder_channel(patient_id) <> ''in_app''\n';
-  if position(v_pat in v_def) = 0 then raise exception 'VACUOUS: the reminder patch text is not in the live function'; end if;
-  execute replace(v_def, v_pat, '');
+  -- SABOTAGE 1: revert the dedupe (the in-app copy is also queued through the channel row); an in-app patient must then get two rows
+  v_def := pg_get_functiondef('private.queue_screening_notification(uuid,uuid,text,boolean,jsonb)'::regprocedure);
+  v_pat := 'if private.patient_reminder_channel(p_patient) <> ''in_app'' then';
+  if position(v_pat in v_def) = 0 then raise exception 'VACUOUS: the dedupe text is not in the live function'; end if;
+  execute replace(v_def, v_pat, 'if true then');
   declare v_r2 uuid := pg_temp.mkuser(v_org, 'real2', 'patient', false, date '1981-01-01', 'male'); v_s2 uuid;
   begin
     v_s2 := pg_temp.due_schedule(v_org, v_r2, v_set);
     perform private.queue_screening_reminders();
     if pg_temp.in_app_count(v_s2) <> 2 then
-      raise exception 'VACUOUS: with the reminder patch reverted the in-app patient got % rows, expected 2', pg_temp.in_app_count(v_s2);
+      raise exception 'VACUOUS: with the dedupe reverted the in-app patient got % rows, expected 2', pg_temp.in_app_count(v_s2);
     end if;
   end;
 

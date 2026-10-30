@@ -77,6 +77,8 @@ import { VitalsTriageRulesPanel } from "../_signoff-panels/vitals-triage-rules-p
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
 import { OwedSignoffPanel } from "../_signoff-panels/owed-signoff-panel";
+import { ScreeningRuleSetPanel } from "../_signoff-panels/screening-rule-set-panel";
+import { SCREENING_RULE_SET_ITEM_KEY, readPendingScreeningRuleSet } from "@/lib/queries/pending-screening-rule-set-signoff";
 import { OWED_ITEM_PREFIX } from "@/lib/queries/pending-owed-signoffs";
 import { ThresholdPolicyPanel } from "../_signoff-panels/threshold-policy-panel";
 import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
@@ -339,6 +341,10 @@ export default async function ClinicianClinicalSignoffPage({
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
+  if (keys.has(SCREENING_RULE_SET_ITEM_KEY)) {
+    const pendingRules = await readPendingScreeningRuleSet(supabase);
+    inlinePanels[SCREENING_RULE_SET_ITEM_KEY] = <ScreeningRuleSetPanel pending={pendingRules} />;
+  }
   // Owed signatures (a safety case, switches pressed from chat, a licence, drafts): one signing form per line.
   for (const item of hub.items) {
     if (item.key.startsWith(OWED_ITEM_PREFIX)) inlinePanels[item.key] = <OwedSignoffPanel subjectKey={item.key.slice(OWED_ITEM_PREFIX.length)} running={item.severity === "live_unsigned"} />;
