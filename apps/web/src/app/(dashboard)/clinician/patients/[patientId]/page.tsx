@@ -13,6 +13,7 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { pregnancyForPrescribing, readPregnancySafety } from "@/lib/clinical/pregnancy-status";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { AgpCard } from "@/components/agp-card";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
@@ -76,14 +77,21 @@ import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 import { WomensHealthPanel } from "./womens-health-panel";
+import { PregnancyUnknownNotice } from "./pregnancy-unknown-notice";
+import { WomensHealthOpenPrompt, WOMENS_HEALTH_TAB } from "./womens-health-open-prompt";
 import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ patientId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { patientId } = await params;
+  // OQ-555: the audited Women's Health record is read only when the clinician opens it (?tab=womens-health), not on every chart load.
+  const { tab: requestedTab } = await searchParams;
+  const openWomensHealth = requestedTab === WOMENS_HEALTH_TAB;
   const supabase = await createClient();
 
   // RLS (private.is_org_staff) is the real gate here: a patient outside the
@@ -165,13 +173,10 @@ export default async function ClinicianPatientPage({
   const canPrescribe = hasPrescribingAuthority(callerStaff);
   const thresholdOverrides = canPrescribe ? await readPatientOverrides(supabase, patient.id) : { rows: [], failed: false };
   const currentUser = await getCurrentUser();
-  // Pregnancy context for the drug-safety advisory (§20.2).
-  const { data: pregnancy } = await supabase
-    .from("patient_pregnancy")
-    .select("is_pregnant")
-    .eq("patient_id", patientId)
-    .maybeSingle();
-  const isPregnant = pregnancy?.is_pregnant ?? false;
+  // Pregnancy context for the drug-safety advisory (§20.2). Three states from the database (pregnant, not_pregnant, unknown): a status that could not be
+  // read is NEVER taken for "not pregnant". Unknown takes the cautious branch (possibly pregnant) and is shown to the prescriber below.
+  const pregnancySafety = await readPregnancySafety(supabase, patientId);
+  const { pregnant: isPregnant, unknown: pregnancyUnknown } = pregnancyForPrescribing(pregnancySafety.status);
 
   // Diabetes type: patient's own self-report, shown to the confirming
   // clinician as context (never trusted as the authoritative record — see
@@ -333,7 +338,10 @@ export default async function ClinicianPatientPage({
                     (private.has_prescribing_authority), this just explains it
                     instead of surfacing a raw RLS error. */}
                 {canPrescribe ? (
-                  <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
+                  <div className="space-y-3">
+                    {pregnancyUnknown && <PregnancyUnknownNotice />}
+                    <AddMedicationForm patientId={patient.id} source="clinician" pregnant={isPregnant} />
+                  </div>
                 ) : (
                   <Card>
                     <CardHeader>
@@ -481,7 +489,7 @@ export default async function ClinicianPatientPage({
                 {
                   id: "womens-health",
                   label: "Women's Health",
-                  content: <WomensHealthPanel patientId={patient.id} />,
+                  content: openWomensHealth ? <WomensHealthPanel patientId={patient.id} /> : <WomensHealthOpenPrompt patientId={patient.id} />,
                 },
               ]
             : []),

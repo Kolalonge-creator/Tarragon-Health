@@ -1511,7 +1511,7 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
       <SectionLabel>Check a medicine pack</SectionLabel>
       <Card style={{ gap: 10 }}>
         <MutedText>
-          Photograph a pack you have just bought for your own reference, then type the name and strength printed on it — we&apos;ll compare it
+          Photograph a pack you have just bought for your own reference, then type the name and strength printed on it. We will compare it
           with what you were prescribed.
         </MutedText>
         {photo ? (

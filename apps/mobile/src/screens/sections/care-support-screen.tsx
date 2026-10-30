@@ -474,7 +474,7 @@ function ReferralsSection({ patientId }: { patientId: string }) {
               <AppText variant="caption">What changed: {referral.carePlanUpdateNote}</AppText>
             ) : (
               <AppText variant="caption" tone="textSubtle">
-                Take this to any {referral.specialistType.replace(/_/g, " ")} you like — you pay that clinic
+                Take this to any {referral.specialistType.replace(/_/g, " ")} you like. You pay that clinic
                 directly. Download your referral letter and upload what they give you back on web.
               </AppText>
             )}
@@ -804,7 +804,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
         {!open && <SecondaryButton title="I need help" onPress={() => setOpen(true)} />}
       </View>
       <MutedText>
-        Appointments, pharmacy, labs, insurance, referrals, or payments — a navigator helps sort it
+        Appointments, pharmacy, labs, insurance, referrals, or payments: a navigator helps sort it
         out.
       </MutedText>
 
@@ -849,7 +849,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
 
       {loading && <LoadingRows />}
       {!loading && requests.length === 0 && !open && (
-        <MutedText>No requests yet — if something's getting in the way, let us know above.</MutedText>
+        <MutedText>No requests yet. If something is getting in the way, let us know above.</MutedText>
       )}
       {requests.length > 0 && (
         <View style={{ gap: 10 }}>
@@ -972,7 +972,7 @@ function VouchersSection({ patientId }: { patientId: string }) {
       <CalloutCard
         icon="pricetag-outline"
         title="Buy or pay toward a voucher"
-        subtitle="Gift a service, buy a health check, or pay an instalment — opened in your browser."
+        subtitle="Gift a service, buy a health check, or pay an instalment. It opens in your browser."
         ctaLabel="Open"
         onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
       />

@@ -30,10 +30,16 @@ export async function updateFertilityRequestStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in" };
 
-  const { error } = await supabase
+  // OQ-555: row security now lets only a clinician tied to the patient see (and so update) the request. An update that matches no visible row returns
+  // no error, so ask for the updated row back and say plainly when nothing changed, rather than reporting a save that did not happen.
+  const { data: updated, error } = await supabase
     .from("fertility_assessment_requests")
     .update({ status: parsed.data.status })
-    .eq("id", requestId);
+    .eq("id", requestId)
+    .select("id");
   if (error) return { error: error.message };
+  if (!updated || updated.length === 0) {
+    return { error: "This request was not changed. It can only be updated by the clinician looking after the patient." };
+  }
   return { success: true };
 }

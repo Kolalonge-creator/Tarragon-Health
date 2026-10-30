@@ -507,7 +507,7 @@ function KnowledgeCheck({
       ) : (
         <AppText variant="body">
           You got {result.score} of {result.total}.{" "}
-          {result.allCorrect ? "Nicely done, marked as understood." : "Worth another read, we'll keep this handy for you."}
+          {result.allCorrect ? "Nicely done, marked as understood." : "Worth another read. We will keep this handy for you."}
         </AppText>
       )}
     </View>

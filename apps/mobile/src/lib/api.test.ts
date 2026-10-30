@@ -134,7 +134,7 @@ describe("401 handling", () => {
 
     await expect(postDeviceReading({ systolic: 120 })).resolves.toEqual({
       success: false,
-      error: "Your session expired — please sign in again.",
+      error: "Your session expired. Please sign in again.",
     });
 
     expect(signOut).toHaveBeenCalledTimes(1);

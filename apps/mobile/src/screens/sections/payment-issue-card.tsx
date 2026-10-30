@@ -73,7 +73,7 @@ export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
     if (result.ok) {
       onResolved();
     } else {
-      setError("Could not close this — try again");
+      setError("Could not close this. Please try again.");
       setDismissing(false);
     }
   }

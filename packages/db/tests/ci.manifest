@@ -10,13 +10,25 @@
 # runs nowhere is the exact problem this manifest was added to fix.
 care_access_request_identity_and_pending_read_window.sql
 care_access_request_phone_proof.sql
+# OQ-82/OQ-83: a symptom ticked on the phone's blood pressure form pages the care team on a paid plan and only gives self-care guidance on Free. Each red-flag tick (severe headache, chest pain, trouble breathing, vision change, confusion, weakness or numbness, trouble speaking) stored at the form severity (6) is a red flag with one urgent alert and the same notifications as chest pain; Free opens no alert and still gets the in-app self-care suggestion; control: trouble breathing stored at 3 pages nobody. Sabotage: trouble breathing and the two neuro types taken out of the trigger list, patched from the live body; each must flip.
+bp_form_ticks_page_clinician.sql
 # P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
 exercise_session_logs.sql
+# OQ-666 follow-up: the admin / CMO people search finds a clinician by MDCN folio through search_clinical_staff_by_folio (admin and CMO only, ids only, zero rows for a colleague, a patient, a coordinator, a foreign-organisation CMO; anon refused; short terms and wildcards match nothing) while the base-table column and directory view stay folio-free. Sabotage: no entitlement check, no organisation clause, table grant restored must each flip.
+search_clinical_staff_by_folio.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql
 force_safe_patient_order_insert_defaults.sql
 refund_ledger_reversal.sql
+# OQ-483: confirm_care_plan_change acts as the signer for the length of the apply (accepted by the founder, proofs added). Claims, apply flag and role are the patient's again after success, after a mid-apply error caught with a savepoint, after a lost-authority return, after a stale stop or change, for target and schedule kinds and for a claims-JSON-only session; a second statement still runs as the patient; only the recorded signer is ever acted as; another patient and anon are refused; a signer who lost authority fails closed. Sabotage: seven patched copies of the live body (restore removed on success, on the lost-authority return and on the stale-stop return; only the claims-JSON restore removed; authority check removed; patient check removed; apply error swallowed) must each flip a check.
+confirm_care_plan_change_signer_claims.sql
 service_purchases_insert_only_via_intent_rpc.sql
+# OQ-555 / OQ-558: the clinician Women's Health record (pregnancy, antenatal, postnatal, breast, fertility) is read through one audited, tied function with no reason typed; every opening and every refusal is audited (break-glass and an emergency grant are refused); a direct select of the four reproductive tables returns nothing to an untied clinician, coordinator, caregiver or break-glass holder; the cycle report still accepts a reason but needs none. Sabotage: audit writer no-op, tie check opened, audit writer raising (read must fail closed).
+womens_health_record_audited_tied_staff_reads.sql
+# OQ-555 follow-up: public.pregnancy_safety_status gives a three-state answer for safety checks. The patient and a tied clinician get the real answer; an untied clinician, a break-glass holder, a coordinator, an admin, a sponsor, a caregiver with a reproductive grant, another organisation's clinician and another patient all get 'unknown', never 'not_pregnant'; no session refused; anon cannot execute. Sabotage: tie check opened, refusal answering not_pregnant.
+pregnancy_safety_status.sql
 symptom_red_flag_handler_pages_a_clinician.sql
+# OQ-S98-7: a caregiver or guardian cannot read the order of a sensitive bundle or the rows that carry it (lab_orders, lab_specimens, patient_timeline, care_vouchers, screening_results, facility_ratings, lab_location_reviews, patient_care_gaps); patient, staff and emergency reader unchanged; reproductive_health voucher rule kept. Sabotage restores the seven old policies and 12 checks flip.
+sensitive_bundle_orders_hidden_from_caregivers.sql
 critical_notification_dead_letter_without_pathway.sql
 finance_posting_failures_queue.sql
 payment_activation_amount_and_reference.sql
@@ -1728,3 +1740,5 @@ staff_chat_attachments_reminders_owner_actions.sql
 close_patient_account_executor.sql
 # New patient pacing: one grouped reminder per stage (up to 2 still sent one by one, no tests named), a weekly limit on new printed requests that reads the signed rule set pacing block (none means no limit), priority order, and schedules of an earlier signed rule set keep being issued after a newer one is signed. Sabotage: grouping off, cap lookup null, active-only rule-set condition restored.
 screening_pacing_grouped_reminders_and_weekly_limit.sql
+# OQ-484: ONE governed controlled-medicine list (public.controlled_medicine_terms; CMO-only write function; versioned history; new change note on every edit). Seed equals the old regex on a 380-name battery; adding or retiring a term changes the database hard stop, the signing refusal and get_controlled_medicine_list with no code change; guards (CMO only, anon, closed tables, no delete or rename, regex-looking terms). Sabotage: four patched copies (function ignores the table, CMO check removed, history trigger disabled, new-note guard disabled) must each flip a check.
+controlled_medicine_list_one_governed_table.sql

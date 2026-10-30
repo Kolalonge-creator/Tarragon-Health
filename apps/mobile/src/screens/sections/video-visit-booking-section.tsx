@@ -45,7 +45,7 @@ const REQUEST_STATUS: Record<string, { label: string; tone: "brand" | "neutral";
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "brand",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you are refunded in full.",
   },
   alternate_proposed: {
     label: "A doctor offered different times",
@@ -56,7 +56,7 @@ const REQUEST_STATUS: Record<string, { label: string; tone: "brand" | "neutral";
   declined: {
     label: "Not available",
     tone: "neutral",
-    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically.",
+    note: "A doctor could not take this visit. Your payment is being refunded in full automatically.",
   },
   expired: {
     label: "Not accepted in time",

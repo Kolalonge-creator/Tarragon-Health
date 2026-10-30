@@ -541,7 +541,7 @@ export function MealsScreen({ patientId, acting = false }: { patientId: string; 
               </MutedText>
             ) : null}
             {lastEstimate.confidence === "low" ? (
-              <MutedText>Low confidence — check this against what you actually ate.</MutedText>
+              <MutedText>Low confidence. Check this against what you actually ate.</MutedText>
             ) : null}
           </Card>
         ) : null}

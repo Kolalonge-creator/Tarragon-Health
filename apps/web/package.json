@@ -13,6 +13,7 @@
     "test:e2e": "jest --config jest.e2e.config.mjs",
     "e2e": "playwright test --config=playwright.smoke.config.ts",
     "test:e2e-browser": "playwright test",
+    "controlled-medicine-fallback": "tsx --tsconfig tsconfig.scripts.json scripts/generate-controlled-medicine-fallback.ts",
     "scribe-wer": "tsx --tsconfig tsconfig.scripts.json scripts/scribe-wer.ts",
     "audio-fallback-table": "tsx --tsconfig tsconfig.scripts.json scripts/audio-fallback-table.ts",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",

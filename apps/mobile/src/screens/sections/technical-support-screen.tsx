@@ -143,7 +143,7 @@ export function TechnicalSupportScreen({ patientId, organisationId, onNavigate }
         />
         {error && <ErrorText>{error}</ErrorText>}
         {sent && (
-          <MutedText>Sent — our support team will get back to you soon.</MutedText>
+          <MutedText>Sent. Our support team will get back to you soon.</MutedText>
         )}
         <PrimaryButton title="Send" onPress={submit} loading={submitting} />
       </View>

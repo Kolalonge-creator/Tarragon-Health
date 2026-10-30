@@ -51738,6 +51738,7 @@ export type Database = {
       }
       // CMO OQ-358 (folio base-table lock): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinical_staff_folio: { Args: { p_staff_ids: string[] }; Returns: { clinical_staff_id: string; credential_number: string }[] }
+      search_clinical_staff_by_folio: { Args: { p_term: string }; Returns: { clinical_staff_id: string }[] }
       cancel_reproductive_tracker_deletion: { Args: never; Returns: Json }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       clinical_response_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
@@ -51883,9 +51884,13 @@ export type Database = {
       request_reproductive_tracker_deletion: { Args: never; Returns: Json }
       reproductive_tracker_deletion_status: { Args: never; Returns: Json }
       read_reproductive_pattern_report_audited: {
-        Args: { p_patient: string; p_reason: string }
+        Args: { p_patient: string; p_reason?: string }
         Returns: Json
       }
+      // OQ-555: the audited, tied staff read of the Women's Health record (no reason argument), spliced by hand.
+      read_womens_health_record_audited: { Args: { p_patient: string }; Returns: Json }
+      // OQ-555 follow-up: three-state pregnancy answer for safety checks, spliced by hand.
+      pregnancy_safety_status: { Args: { p_patient: string }; Returns: Json }
       process_due_reproductive_tracker_deletions: { Args: never; Returns: number }
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       // Two-tier review decisions (renewals at the monthly review): spliced by hand.
@@ -58210,6 +58215,8 @@ export type Database = {
       cohort_set_muted: { Args: { p_cohort: string; p_muted: boolean }; Returns: Json };
       cohort_set_totals_consent: { Args: { p_cohort: string; p_on: boolean }; Returns: Json };
       set_community_off: { Args: { p_off: boolean }; Returns: Json };
+      get_controlled_medicine_list: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_controlled_medicine_term: { Args: { p_active: boolean; p_label: string; p_note: string; p_term: string; p_tier: string }; Returns: string };
       cohort_report: { Args: { p_cohort: string; p_member?: string; p_reason: string }; Returns: Json };
       cohort_moderator_reports: { Args: { p_cohort: string }; Returns: Json };
       cohort_remove_member: { Args: { p_cohort: string; p_member: string }; Returns: Json };

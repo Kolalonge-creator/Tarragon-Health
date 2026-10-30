@@ -65,8 +65,8 @@ export function TechniqueGuide({ tr, protocol }: { tr: Tr; protocol: HomeProtoco
  * Optional symptom ticks. Checked state is shown by a tick icon and by the
  * accessibility state, never by colour alone. Ticking does not rate anything:
  * the planner records a tick at the configured severity with a note saying so.
- * The weakness, numbness and speech line is static guidance, because that
- * symptom has no symptom type to log against.
+ * The weakness, numbness and speech line below the list stays as static guidance
+ * for someone who has not ticked those two boxes (OQ-83).
  */
 export function SymptomChecklist({
   tr,

@@ -372,7 +372,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
       {careTeam ? (
         /* care_team_assignment.clinician_id is internal routing only: deliberately never rendered
-           as a named "your doctor" ahead of a review actually happening. A doctor is named only
+           as a named doctor ahead of a review actually happening. A doctor is named only
            once they have reviewed something specific (ReviewedByDoctor's job, not this card's). */
         <Card style={{ gap: space.md }}>
           <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>

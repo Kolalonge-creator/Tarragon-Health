@@ -194,7 +194,7 @@ export function VideoVisitScreen({ consultationId, onBack }: VideoVisitScreenPro
             <TextInput keyboardAppearance={scheme}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Reason for the visit, symptoms, anything you want a doctor to know beforehand…"
+              placeholder="Reason for the visit, symptoms, anything you want the doctor to know beforehand…"
               placeholderTextColor={colors.subtle}
               multiline
               numberOfLines={3}

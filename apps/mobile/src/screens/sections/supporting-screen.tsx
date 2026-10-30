@@ -144,7 +144,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
       {error ? <ErrorText>{error}</ErrorText> : null}
 
       {/* The other half of the same relationship, on the same screen on
-          purpose — mirrors web's /patient/supporting page, which renders
+          purpose; mirrors web's /patient/supporting page, which renders
           SupportedPeople and SponsorSharingControl together. Someone who
           both supports a person and is supported by one should be able to
           see and change what they share without hunting through settings.

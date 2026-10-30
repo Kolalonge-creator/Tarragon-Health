@@ -1,4 +1,5 @@
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import type { ControlledMedicineList } from "@/lib/rules/controlled-medicine-list";
 import { stripDoctorTitle } from "./doctor-name";
 
 /**
@@ -144,6 +145,8 @@ export function buildPrescriptionPdfData(input: {
   patient: PrescriptionPatient;
   prescriber: PrescriptionPrescriber | null;
   now?: Date;
+  /** The controlled-medicine list read from the database (OQ-484). Without one, the generated fallback is used. */
+  controlledList?: ControlledMedicineList;
 }): PrescriptionPdfResult {
   const { medication, patient, prescriber } = input;
   const now = input.now ?? new Date();
@@ -155,7 +158,7 @@ export function buildPrescriptionPdfData(input: {
   if (!medication.is_active) return refuse("stopped");
   if (medication.expires_at && new Date(medication.expires_at).getTime() < now.getTime()) return refuse("expired");
   if (!medication.rx_number || !medication.verification_code) return refuse("missing_identifiers");
-  if (controlledSubstanceInfo(medication.drug_name)) return refuse("controlled_medicine");
+  if (controlledSubstanceInfo(medication.drug_name, input.controlledList)) return refuse("controlled_medicine");
   if (
     !prescriber ||
     !prescriber.name ||
