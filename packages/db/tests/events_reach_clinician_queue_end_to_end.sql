@@ -32,8 +32,6 @@
 
 begin;
 
--- Under-18 and dependant guards are not involved: both patients are adults.
-
 create temp table fx (k text primary key, v uuid) on commit drop;
 grant all on fx to public;
 create function pg_temp.f(p text) returns uuid language sql as $$ select v from fx where k = p $$;
@@ -126,7 +124,9 @@ declare v_src text;
 begin
   select p.prosrc into v_src from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'private' and p.proname = 'handle_abnormal_screening_result';
-  if v_src is null or v_src !~ 'abnormal-result-handler' then
+  -- Match the call itself (http_post followed by the handler path), not the bare name:
+  -- prosrc includes comments, and a comment naming the function must not satisfy this.
+  if v_src is null or v_src !~ 'http_post[^;]*abnormal-result-handler' then
     raise exception 'FAIL E1: the screening trigger no longer calls the abnormal-result-handler Edge Function, so nobody is paged for a critical result';
   end if;
 end $$;
@@ -167,7 +167,7 @@ declare v_ok boolean;
 begin
   select exists (
     select 1 from public.clinician_alerts a
-    join public.clinical_staff cs on cs.id = a.responsible_clinician_id or cs.profile_id = a.responsible_clinician_id
+    join public.clinical_staff cs on cs.id = a.responsible_clinician_id
     where a.screening_result_id = pg_temp.f('e1_result')
       and cs.active and cs.organisation_id = pg_temp.f('org')) into v_ok;
   if not v_ok then raise exception 'FAIL E1: the responsible clinician is not an active clinician in the patient''s organisation'; end if;

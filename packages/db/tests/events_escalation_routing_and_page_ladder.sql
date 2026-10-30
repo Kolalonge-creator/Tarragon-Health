@@ -37,6 +37,7 @@ declare
   v_doc2 uuid := gen_random_uuid();
   v_pat uuid := gen_random_uuid();
   v_pat2 uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'no organisation exists, the core migrations did not run'; end if;
@@ -62,7 +63,14 @@ begin
     (v_org, v_doc, 'EV3 Doctor One', 'senior_medical_officer', true, 'employed', now()),
     (v_org, v_doc2, 'EV3 Doctor Two', 'senior_medical_officer', true, 'employed', now());
 
-  insert into fx values ('org', v_org), ('doc', v_doc), ('doc2', v_doc2), ('pat', v_pat), ('pat2', v_pat2);
+  -- An admin of our own, so the 3x hop has a recipient and cannot pass for lack of one.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_admin, 'ev3-admin@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_admin, v_org, 'admin', 'EV3 Admin')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+
+  insert into fx values ('org', v_org), ('doc', v_doc), ('doc2', v_doc2), ('pat', v_pat), ('pat2', v_pat2), ('admin', v_admin);
 end $$;
 
 -- the ladder sweep must be scheduled, or hops 1 to 3 never happen on their own
@@ -153,7 +161,7 @@ begin
   select cs.organisation_id, cs.profile_id, 'leave', now() - interval '1 hour', now() + interval '1 day', 'EV all out'
     from public.clinical_staff cs
    where cs.organisation_id = pg_temp.f('org') and cs.active and cs.profile_id is not null
-     and not exists (select 1 from public.provider_time_off t where t.clinician_id = cs.profile_id and t.reason = 'EV leave');
+     and cs.profile_id <> pg_temp.f('owner_profile');
   insert into public.escalations (organisation_id, patient_id, clinician_alert_id, reason)
   values (pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('alert'), 'EV nobody free')
   returning id, assigned_doctor_id into v_esc, v_assigned;
@@ -234,7 +242,12 @@ begin
   perform private.escalate_unacknowledged_clinician_alerts();
   select count(distinct recipient_id) into v_n from public.notifications
    where source_id = v_alert and template = 'clinician_alert_ack_timeout_admin';
+  if v_admins < 1 then raise exception 'FAIL E4 setup: no admin exists, the 3x hop would pass vacuously'; end if;
   if v_n <> v_admins then raise exception 'FAIL E4: % of % admins were told at 3x', v_n, v_admins; end if;
+  if not exists (select 1 from public.clinician_alert_ack_escalations
+                  where clinician_alert_id = v_alert and hop = 3 and notified_role = 'admin') then
+    raise exception 'FAIL E4: no admin hop row at 3x the timeout';
+  end if;
 end $$;
 
 -- an acknowledged alert never climbs (control: the unacknowledged one above did)
