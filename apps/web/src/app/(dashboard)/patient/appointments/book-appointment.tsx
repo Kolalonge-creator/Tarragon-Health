@@ -19,7 +19,7 @@ import {
   PAID_APPOINTMENT_PRODUCT_CODE,
   PER_ITEM_APPOINTMENT_TYPES,
 } from "./appointment-labels";
-import { daysAwayLabel, nextAvailable } from "@/lib/consultations/next-available";
+import { daysAwayLabel, nextAvailable } from "@tarragon/shared";
 import { formatNairaForPatient } from "@/lib/format-money";
 import { filterConsultSlots, NO_SLOT_FILTERS, slotFilterOptions, type ConsultSlot, type SlotFilters } from "@/lib/consultations/slots";
 import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";

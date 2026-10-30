@@ -1,7 +1,5 @@
-import type { ConsultSlot } from "@/lib/consultations/slots";
-
-export interface NextAvailable {
-  slot: ConsultSlot;
+export interface NextAvailable<T extends { slot_start: string }> {
+  slot: T;
   /** Whole days from now to the slot, on the Lagos calendar: 0 is today. */
   daysAway: number;
 }
@@ -13,8 +11,8 @@ const LAGOS_DAY = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { tim
  * offered, so there is no "typical wait" figure. A slot already in the past is ignored; an empty or all-past list gives null, and the
  * screen shows nothing rather than a guess.
  */
-export function nextAvailable(slots: readonly ConsultSlot[], nowMs: number): NextAvailable | null {
-  let best: ConsultSlot | null = null;
+export function nextAvailable<T extends { slot_start: string }>(slots: readonly T[], nowMs: number): NextAvailable<T> | null {
+  let best: T | null = null;
   for (const s of slots) {
     const start = Date.parse(s.slot_start);
     if (!Number.isFinite(start) || start < nowMs) continue;
