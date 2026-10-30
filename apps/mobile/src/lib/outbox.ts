@@ -103,6 +103,21 @@ export interface ActivityPayload {
 }
 
 /**
+ * P4: an exercise session saved on the phone first. Idempotent by the outbox client id (exercise_session_logs.client_id), so a resend after a lost
+ * reply is a duplicate, not a second session. The database triggers still decide the date window and raise the Member symptom alert when it lands.
+ */
+export interface ExerciseSessionPayload {
+  /** The Lagos calendar day it happened. */
+  performed_on: string;
+  duration_minutes: number;
+  kind: "walking" | "mobility" | "strength" | "cardio" | "other";
+  effort: "easy" | "moderate" | "hard" | null;
+  symptom_during: boolean;
+  enrollment_id: string | null;
+  note: string | null;
+}
+
+/**
  * D.1: a wellbeing check-in saved on the phone first. The table has no client id column, so the check-in time (the outbox row's recorded
  * time) is the idempotency key: a retry after a lost reply finds the row it already wrote and sends nothing. Scores are the same 1 to 5
  * the database CHECKs; tags are the fixed list. This is the check-in only. The mental health screening questionnaires stay online, because
@@ -124,6 +139,7 @@ export type OutboxPayload =
   | DayShiftPayload
   | DayShiftEndPayload
   | ActivityPayload
+  | ExerciseSessionPayload
   | VitalReadingPayload
   | MealPayload
   | SymptomPayload
@@ -651,6 +667,30 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         duration_minutes: p.duration_minutes,
         distance_m: p.distance_m,
         logged_on: p.logged_on,
+        client_id: item.clientId,
+      });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "exercise_session") {
+      const p = item.payload as ExerciseSessionPayload;
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", item.subjectId)
+        .single();
+      if (profileError) return asFailure(profileError);
+      if (!profile?.organisation_id) return { ok: false, status: 400, message: "No organisation on file" };
+      const { error } = await supabase.from("exercise_session_logs").insert({
+        organisation_id: profile.organisation_id,
+        patient_id: item.subjectId,
+        enrollment_id: p.enrollment_id,
+        performed_on: p.performed_on,
+        duration_minutes: p.duration_minutes,
+        kind: p.kind,
+        effort: p.effort,
+        symptom_during: p.symptom_during,
+        note: p.note,
         client_id: item.clientId,
       });
       return error ? asFailure(error) : { ok: true };

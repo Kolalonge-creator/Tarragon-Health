@@ -18572,6 +18572,7 @@ export type Database = {
       }
       exercise_session_logs: {
         Row: {
+          client_id: string | null
           created_at: string
           duration_minutes: number
           effort: string | null
@@ -18586,6 +18587,7 @@ export type Database = {
           symptom_during: boolean
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           duration_minutes: number
           effort?: string | null
@@ -18600,6 +18602,7 @@ export type Database = {
           symptom_during?: boolean
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           duration_minutes?: number
           effort?: string | null

@@ -326,3 +326,4 @@ export * from "./document-suggestions";
 
 // S71 A3: the refund and cancellation rule numbers and lines, shared by web and phone.
 export * from "./refund-rule";
+export * from "./default-meal-type";

@@ -5,7 +5,8 @@
 --  * staff read only through a care tie (tied clinician sees it, untied clinician and coordinator without a tie do not); anon is denied
 --  * both registries carry the table (data_registry unreviewed, staff_read_scope tied)
 -- Symptom escalation: a Member's reported symptom opens one clinician_review alert; a non-member's and a no-symptom session open none.
--- SABOTAGE: guard trigger dropped, immutable trigger dropped, symptom trigger dropped, SELECT policy opened to organisation staff; each must flip checks.
+-- Idempotency: a repeated client id is rejected once, never stored twice, never alerts twice; other patients and null ids unaffected.
+-- SABOTAGE: unique index dropped, guard trigger dropped, immutable trigger dropped, symptom trigger dropped, SELECT policy opened to organisation staff; each must flip checks.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -193,6 +194,24 @@ begin
     has_function_privilege('anon', 'private.exercise_symptom_escalation()', 'EXECUTE')::text || '|' || has_function_privilege('authenticated', 'private.exercise_symptom_escalation()', 'EXECUTE')::text);
 end $$;
 
+-- Idempotency (client_id): a resend from the phone's outbox is rejected, not stored twice, and never raises a second clinician alert
+do $$
+declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2'); v_cid uuid := gen_random_uuid(); v_alerts_before integer; v_ins text;
+begin
+  v_ins := format('insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during, client_id) values (%L, %%L, %L, 20, ''walking'', %%L, %L)',
+                  v_org, pg_temp.lagos_today() - 5, v_cid);
+  perform pg_temp.ck('a first send with a client id is accepted', 'ok', pg_temp.try_as(v_pat, format(v_ins, v_pat, true)));
+  select count(*) into v_alerts_before from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise';
+  perform pg_temp.ck('the same client id again is rejected as a duplicate', 'true',
+    (pg_temp.try_as(v_pat, format(v_ins, v_pat, true)) like '%exercise_session_logs_client_id_uidx%')::text);
+  perform pg_temp.ck('only one row was stored', '1', (select count(*)::text from public.exercise_session_logs where patient_id = v_pat and client_id = v_cid));
+  perform pg_temp.ck('the rejected resend raised no second alert', '0',
+    ((select count(*) from public.clinician_alerts where patient_id = v_pat and title = 'Symptom during exercise') - v_alerts_before)::text);
+  perform pg_temp.ck('another patient may use the same client id', 'ok', pg_temp.try_as(v_pat2, format(v_ins, v_pat2, false)));
+  perform pg_temp.ck('rows without a client id are never treated as duplicates', 'ok|ok',
+    pg_temp.ins(v_pat2, v_pat2, 7, 10) || '|' || pg_temp.ins(v_pat2, v_pat2, 7, 10));
+end $$;
+
 -- SABOTAGE: each break must make a check above come out differently
 do $$
 declare v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2'); v_id uuid;
@@ -205,6 +224,10 @@ begin
   drop trigger exercise_session_logs_immutable on public.exercise_session_logs;
   perform pg_temp.sab('the date cannot be changed', 'Owner, date and programme of a logged session cannot be changed.',
     pg_temp.try_as(v_pat, format('update public.exercise_session_logs set performed_on = performed_on - 1 where id = %L', v_id)));
+
+  drop index public.exercise_session_logs_client_id_uidx;
+  perform pg_temp.sab('the same client id again is rejected as a duplicate', 'true',
+    (pg_temp.try_as(v_pat, format('insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, client_id) values (%L, %L, %L, 20, ''walking'', (select client_id from public.exercise_session_logs where patient_id = %L and client_id is not null limit 1))', pg_temp.f('org'), v_pat, pg_temp.lagos_today() - 5, v_pat)) like '%exercise_session_logs_client_id_uidx%')::text);
 
   drop trigger exercise_session_logs_symptom_escalation on public.exercise_session_logs;
   insert into public.exercise_session_logs (organisation_id, patient_id, performed_on, duration_minutes, kind, symptom_during)
@@ -227,7 +250,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

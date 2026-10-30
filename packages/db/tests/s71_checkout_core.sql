@@ -572,7 +572,9 @@ begin
   perform pg_temp.setf('prog_real', v_prog);
   perform pg_temp.ck('sponsor guard OFF: a real member is quoted the full price', '500000,0', (pg_temp.qb(v_realm, 'proof_consult') ->> 'amount_due_kobo') || ',' || (pg_temp.qb(v_realm, 'proof_consult') ->> 'sponsor_share_kobo'));
   perform pg_temp.ck('sponsor guard OFF: an HMO request by a real patient is refused', 'true', (pg_temp.q_as(v_realm, format($q$select public.request_hmo_eligibility(%L, 'REL/12345/67')$q$, pg_temp.f('hmo'))) like '%sponsor_payment_not_open%')::text);
-  perform pg_temp.ck('the sponsor guard cannot be switched on with its attestations missing', 'true', (pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('sponsor_payment_enabled', true, 'Proof run, too early')$q$) like '%not yet met%')::text);
+  -- G-01: sponsor_payment_enabled is a feature. Its attestations are still reported, but they no longer block the switch.
+  perform pg_temp.ck('the sponsor guard conditions read unmet with the attestations missing (reported, not enforced)', 'true',
+    exists (select 1 from jsonb_array_elements(private.go_live_conditions('sponsor_payment_enabled', null)) c where not (c ->> 'met')::boolean)::text);
   perform pg_temp.ck('counsel opinion recorded', 'ok', pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('sponsor_payment_enabled', 'counsel_opinion_recorded', true, 'Proof run: counsel opinion received on order-linked sponsor payment')$q$));
   perform pg_temp.ck('finance confirmation recorded', 'ok', pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('sponsor_payment_enabled', 'sponsor_receivable_confirmed', true, 'Proof run: finance confirmed account 1210 for the sponsor receivable')$q$));
   perform pg_temp.ck('admin switches the sponsor guard on', 'ok', pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('sponsor_payment_enabled', true, 'Proof run: conditions met')$q$));

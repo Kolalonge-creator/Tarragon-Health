@@ -8,6 +8,13 @@ clinician model, console split (S01d). See `docs/DECISIONS.md`.
 
 Format: id, blocks (which sessions), options, recommendation, decision.
 
+**Triage rule from 2026-10-29 (founder decision G-04, `docs/DECISIONS.md`; design `docs/design/GATE-MODEL.md`).** A question stays
+open only while it blocks one of the nine master switches (sign-up, checkout, clinical operations, prescribing, payouts, laboratory
+booking, research export, the assistant, on-call cover). Any other question closes with one line, "Decision (default taken, G-04): X",
+where X is what the build did. Do not open a question for a feature guard, an operational setting, or a `proposed` registry value
+under a signed protocol (G-01 to G-03). The bulk pass over the ids below under this rule is a deferred chore; until it is done, read
+an old open id here as "answered by the build unless it blocks a master", not as outstanding work.
+
 ## A. Safety and invariant conflicts (highest priority)
 
 ### OQ-01 Pull queue versus push assignment

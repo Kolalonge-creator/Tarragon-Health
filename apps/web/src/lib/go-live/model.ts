@@ -38,6 +38,13 @@ export const guardSchema = z.object({
   change_note: z.string().nullable(),
   conditions: z.array(conditionSchema),
   all_met: z.boolean(),
+  // G-01 (2026-10-29): kind, parent, hold and the effective answer. Optional so the page still parses a status read from a database that
+  // has not applied the G-01 migration yet (then every guard is treated as a master, exactly the pre-G-01 behaviour).
+  kind: z.enum(["master", "feature"]).optional(),
+  parent_key: z.string().nullable().optional(),
+  held_reason: z.string().nullable().optional(),
+  open: z.boolean().optional(),
+  parent_on: z.boolean().nullable().optional(),
   recent: z.array(
     z.object({
       action: z.enum(["switched_on", "switched_off"]),
@@ -66,14 +73,47 @@ export const signoffListSchema = z.array(signoffSchema);
 
 export type Viewer = "admin" | "cmo";
 
-/** Who may switch a guard ON. Switching OFF is open to both viewers, by design: the stop button is never held up. */
-export function viewerMaySwitchOn(guard: Pick<GuardStatus, "switch_role">, viewer: Viewer): boolean {
-  return guard.switch_role === viewer;
+/** G-01: a feature guard. A status read from a database without the G-01 columns has no kind and is treated as a master. */
+export function isFeature(guard: Pick<GuardStatus, "kind">): boolean {
+  return guard.kind === "feature";
 }
 
-/** A guard that is on while one of its conditions is not met: shown loudly, never switched off automatically. */
-export function guardHasDrifted(guard: Pick<GuardStatus, "is_on" | "all_met">): boolean {
-  return guard.is_on && !guard.all_met;
+/**
+ * Who may switch a guard ON. A master: only the role it names. A feature (G-01): an admin or the CMO alike, with no condition to meet.
+ * Switching OFF is open to both viewers for both kinds, by design: the stop button is never held up.
+ */
+export function viewerMaySwitchOn(guard: Pick<GuardStatus, "switch_role" | "kind">, viewer: Viewer): boolean {
+  return isFeature(guard) || guard.switch_role === viewer;
+}
+
+/** A MASTER that is on while one of its conditions is not met: shown loudly, never switched off automatically. A feature's conditions are advisory. */
+export function guardHasDrifted(guard: Pick<GuardStatus, "is_on" | "all_met" | "kind">): boolean {
+  return !isFeature(guard) && guard.is_on && !guard.all_met;
+}
+
+/** The effective answer for a guard: the database's `open` when present (G-01), else the row's own switch. */
+export function guardIsOpen(guard: Pick<GuardStatus, "is_on" | "open">): boolean {
+  return guard.open ?? guard.is_on;
+}
+
+export type GuardGroup = { master: GuardStatus; features: GuardStatus[] };
+
+/**
+ * G-01 layout for the go-live page: each master with the features that stand under it, then the features that stand on their own.
+ * Order within a group follows the database (masters first, then by creation). A feature naming a master that is not in the list
+ * (should not happen; the database refuses a non-master parent) is shown as standalone rather than dropped.
+ */
+export function groupGuards(guards: GuardStatus[]): { groups: GuardGroup[]; standalone: GuardStatus[] } {
+  const masters = guards.filter((g) => !isFeature(g));
+  const byMaster = new Map<string, GuardStatus[]>(masters.map((m) => [m.key, []]));
+  const standalone: GuardStatus[] = [];
+  for (const g of guards) {
+    if (!isFeature(g)) continue;
+    const bucket = g.parent_key ? byMaster.get(g.parent_key) : undefined;
+    if (bucket) bucket.push(g);
+    else standalone.push(g);
+  }
+  return { groups: masters.map((master) => ({ master, features: byMaster.get(master.key) ?? [] })), standalone };
 }
 
 /** Which owner a viewer confirms for. The founder is the admin account. */

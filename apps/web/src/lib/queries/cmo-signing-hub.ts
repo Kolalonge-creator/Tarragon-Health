@@ -33,6 +33,7 @@ import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
 import { MSK_PROGRAMMES_ITEM_KEY, readPendingMskProgrammesSignoff } from "@/lib/queries/pending-msk-programmes-signoff";
 import { OWED_ITEM_PREFIX, readPendingOwedSignoffs } from "@/lib/queries/pending-owed-signoffs";
+import { TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -55,7 +56,14 @@ export type CmoSigningHub = {
    * out of `items` and the "areas that need your signature" count, and shown in a collapsed list instead.
    */
   live: SignoffQueueItem[];
+  /**
+   * G-01 (founder decision 2026-10-29): operational settings. Versioned and audited, but not clinical protocols, so no signature is owed
+   * on them and they never count in the banner. Capacity, quality, the ops desk, paging delivery, task-layer rules, cascade and care-gap
+   * definitions, wording and UX attestations, the registry values, device lists and the like. Same panels, a separate, collapsed list.
+   */
+  operational: SignoffQueueItem[];
 };
+
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
 export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
@@ -107,6 +115,30 @@ export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 /** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
+
+/**
+ * G-01: the clinical protocols the Chief Medical Officer signs (the "patient-harm list", DECISIONS G-01): triage rules, glucose, vitals
+ * and blood pressure thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules, mental-health
+ * follow-up, fasting and low-carbohydrate protocol wording, AI system approvals, and anything a person explicitly raised as owed.
+ * Everything else the hub reads is an operational setting (see `CmoSigningHub.operational`). A new hub line must be placed in one of
+ * the two lists on purpose: cmo-signing-hub.test.ts checks the known keys land where they should.
+ */
+const CLINICAL_TABLES = new Set([
+  "alert_rules", "escalation_slas", "triage_protocols", "mental_health_screening_cadences", "cv_risk_config", "risk_questionnaire_configs",
+  "vaccination_schedule_signoffs", "lab_panel_signoffs", "prn_limit_rules", "medicine_interaction_rule_sets", "home_bp_programme_signoffs",
+  "cuff_check_rules", "lowcarb_protocol_config", "activity_safety_config", "fasting_safety_config", "serology_rule_versions", "result_release_policies",
+]);
+const CLINICAL_ITEM_KEYS = new Set<string>([
+  PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
+  GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
+  RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies",
+]);
+export function isClinicalSignoff(key: string): boolean {
+  if (key.startsWith(OWED_ITEM_PREFIX)) return true;
+  const table = key.startsWith("versioned:") ? key.slice("versioned:".length) : key.startsWith("versioned_draft:") ? key.slice("versioned_draft:".length) : null;
+  if (table !== null) return CLINICAL_TABLES.has(table);
+  return CLINICAL_ITEM_KEYS.has(key);
+}
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -618,9 +650,12 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  // G-01: only clinical protocols are owed a signature. The rest are operational settings: same panels, a separate list, never counted.
+  const clinical = items.filter((i) => isClinicalSignoff(i.key));
+  const operational = items.filter((i) => !isClinicalSignoff(i.key));
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
   const lineKeys = new Set([...items, ...live].map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live };
+  return { items: clinical, operational, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live };
 }

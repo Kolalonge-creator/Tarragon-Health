@@ -152,7 +152,7 @@ export function ExerciseScreen({ patientId, organisationId }: ExerciseScreenProp
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <ExerciseProgressHero sessions={sessions} />
       <ActivityGateCard gate={gate} />
-      <LogSessionCard patientId={patientId} organisationId={organisationId} enrollments={enrollments} onLogged={load} />
+      <LogSessionCard patientId={patientId} enrollments={enrollments} onLogged={load} />
       <RecentSessions patientId={patientId} sessions={sessions} onChanged={load} />
       <View>
         <ScreenTitle>Exercise programmes</ScreenTitle>

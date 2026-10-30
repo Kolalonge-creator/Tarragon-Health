@@ -145,9 +145,14 @@ begin
   perform pg_temp.ck('the pass guard is born off', 'false', (select is_on::text from public.go_live_guards where key = 'wallet_pass'));
   perform pg_temp.ck('the pass guard can never be satisfied until a conditions branch exists', 'true',
     (not exists (select 1 from jsonb_array_elements(private.go_live_conditions('wallet_pass', null)) c where (c ->> 'met')::boolean))::text);
-  r := pg_temp.q_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('wallet_pass', true, 'S09x proof tries to switch it on')::text$q$);
-  perform pg_temp.ck('...and an admin cannot switch it on', 'true', (r like 'ERR:%')::text);
-  perform pg_temp.ck('...it is still off afterwards', 'false', (select is_on::text from public.go_live_guards where key = 'wallet_pass'));
+  -- G-01: the pass is a HELD feature (no certificate or issuer account is configured). An admin may open it without a condition, which clears the
+  -- hold; it is held again at once so the later checks keep their meaning.
+  perform pg_temp.ck('...it is held, with the reason on the row', 'true', (select (held_reason is not null)::text from public.go_live_guards where key = 'wallet_pass'));
+  r := pg_temp.q_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('wallet_pass', true, 'S09x proof opens it (G-01: a feature needs no condition)')::text$q$);
+  perform pg_temp.ck('...and an admin can open it without a condition (G-01)', 'false', (r like 'ERR:%')::text);
+  perform pg_temp.ck('...opening clears the hold', 'true|null', (select is_on::text || '|' || coalesce(held_reason, 'null') from public.go_live_guards where key = 'wallet_pass'));
+  r := pg_temp.q_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('wallet_pass', false, 'S09x proof: held again, no pass certificate is configured')::text$q$);
+  perform pg_temp.ck('...it is held again afterwards', 'false', (select is_on::text from public.go_live_guards where key = 'wallet_pass'));
 end $$;
 
 -- 2. Creating a share ---------------------------------------------------------------------------------------------------------------

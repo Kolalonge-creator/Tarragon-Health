@@ -13,7 +13,6 @@ import {
   type AlcoholState,
   type SleepState,
   type SmokingState,
-  defaultMealType,
   loadMealsState,
   logMealWithPhoto,
   type MealsState,
@@ -45,6 +44,7 @@ import { radius, spacing, typeScale } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
 import { AppText } from "@/ui/kit/AppText";
+import { defaultMealType } from "@tarragon/shared";
 
 /**
  * The five daily lifestyle trackers as native screens, each a thin
