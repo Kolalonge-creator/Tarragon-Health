@@ -647,11 +647,11 @@ export const TEMPLATE_MAP: Record<
       medication: "your medication check-ins",
       lifestyle: "your lifestyle log",
       prevention: "your screenings and vaccinations",
-      app_usage: "checking in on the app",
-      messages: "replying to your care team",
+      app_usage: "your visits to the app",
+      messages: "your care team's messages",
       care_plan: "your care plan",
     };
-    const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
+    const area = (dimension && DIMENSION_COPY[dimension]) || "your care plan";
     const message = `We have noticed that keeping up with ${area} may have been difficult. Would a simpler routine help? Your care team will gladly talk it through.`;
     return {
       smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
