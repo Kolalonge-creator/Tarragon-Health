@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCurrentUserId } from "@/lib/queries/current-user";
 import { MaskedCallButton } from "@/components/masked-call-button";
-import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
+import { createClient } from "@/lib/supabase/client";
+import {
+  firstMessageIdOfThread,
+  loadCareMessageScope,
+  useAddMessageActions,
+  useCareThreads,
+  useStartThread,
+  useUploadCareMessageAttachment,
+} from "@/lib/queries/care-messages";
+import { CARE_MESSAGE_ACTIONS, CARE_MESSAGE_ACTION_KINDS } from "@/lib/care-messages/action-kinds";
+import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +64,12 @@ function StaffPatientChatBody({
 }) {
   const { data: threads, isLoading, isError } = useCareThreads(patientId);
   const start = useStartThread();
+  const addActions = useAddMessageActions();
+  const upload = useUploadCareMessageAttachment();
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [extrasError, setExtrasError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: staffId } = useCurrentUserId();
   const [composing, setComposing] = useState(false);
   const [subject, setSubject] = useState(defaultSubject);
@@ -91,6 +107,8 @@ function StaffPatientChatBody({
         )
       )}
 
+      {extrasError && <p role="alert" className="text-xs text-red-600">{extrasError}</p>}
+
       {showForm ? (
         <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
           <p className="text-xs font-medium text-charcoal-ink/70">
@@ -111,6 +129,47 @@ function StaffPatientChatBody({
             className="text-xs"
             aria-label="Message"
           />
+          <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <legend className="sr-only">Add buttons to this message</legend>
+            <span className="text-xs text-charcoal-ink/60">Add a button:</span>
+            {CARE_MESSAGE_ACTION_KINDS.map((kind) => (
+              <label key={kind} className="flex items-center gap-1.5 text-xs text-charcoal-ink/80">
+                <input
+                  type="checkbox"
+                  checked={kinds.includes(kind)}
+                  onChange={(e) => setKinds((cur) => (e.target.checked ? [...cur, kind] : cur.filter((k) => k !== kind)))}
+                />
+                {CARE_MESSAGE_ACTIONS[kind].label}
+              </label>
+            ))}
+          </fieldset>
+          <div className="flex items-center gap-2 text-xs text-charcoal-ink/70">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+              aria-label="Attach a file"
+              className="hidden"
+              onChange={(e) => {
+                const picked = e.target.files?.[0] ?? null;
+                const problem = picked ? validateCareMessageAttachment(picked) : null;
+                setExtrasError(problem);
+                setFile(problem ? null : picked);
+                if (problem && fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              Attach a file
+            </Button>
+            {file && (
+              <span>
+                {file.name}{" "}
+                <button type="button" className="underline" onClick={() => setFile(null)}>
+                  Remove
+                </button>
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -119,9 +178,25 @@ function StaffPatientChatBody({
                 start.mutate(
                   { patientId, subject: subject.trim(), body: body.trim() },
                   {
-                    onSuccess: () => {
+                    onSuccess: async (threadId) => {
                       setBody("");
                       setComposing(false);
+                      if (kinds.length === 0 && !file) return;
+                      // The thread exists now; attach the buttons and the file to its first message.
+                      try {
+                        const supabase = createClient();
+                        const messageId = await firstMessageIdOfThread(supabase, threadId);
+                        if (!messageId) throw new Error("first message not found");
+                        const scope = await loadCareMessageScope(supabase, messageId);
+                        if (kinds.length > 0) {
+                          await addActions.mutateAsync({ messageId, patientId, organisationId: scope.organisation_id, kinds });
+                        }
+                        if (file) await upload.mutateAsync({ messageId, threadId, patientId, file });
+                        setKinds([]);
+                        setFile(null);
+                      } catch {
+                        setExtrasError("Your message was sent, but the buttons or file could not be added. Add them in a reply.");
+                      }
                     },
                   }
                 )

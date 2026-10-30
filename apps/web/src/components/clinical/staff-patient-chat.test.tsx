@@ -1,15 +1,21 @@
 /** @jest-environment jsdom */
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StaffPatientChat } from "./staff-patient-chat";
 
 const mutate = jest.fn();
+const addActionsMock = jest.fn();
 let threads: { id: string; subject: string; status: string; confidential?: boolean }[] = [];
 
 jest.mock("@/lib/queries/care-messages", () => ({
   useCareThreads: () => ({ data: threads, isLoading: false, isError: false }),
   useStartThread: () => ({ mutate, isPending: false, isError: false }),
+  useAddMessageActions: () => ({ mutateAsync: addActionsMock }),
+  useUploadCareMessageAttachment: () => ({ mutateAsync: jest.fn() }),
+  firstMessageIdOfThread: async () => "m1",
+  loadCareMessageScope: async () => ({ organisation_id: "org1", patient_id: "p1", thread_id: "t9" }),
 }));
+jest.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }));
 jest.mock("@/lib/queries/current-user", () => ({ useCurrentUserId: () => ({ data: "staff1" }) }));
 jest.mock("@/components/masked-call-button", () => ({ MaskedCallButton: () => <button>Call</button> }));
 jest.mock("@/components/care-message-thread", () => ({
@@ -71,5 +77,19 @@ describe("StaffPatientChat", () => {
     threads = [];
     renderChat(<StaffPatientChat patientId="p1" patientName="Ada" />);
     expect(await screen.findByText("Call")).toBeTruthy();
+  });
+
+  it("attaches ticked buttons to the first message once the conversation exists", async () => {
+    threads = [];
+    addActionsMock.mockClear();
+    mutate.mockImplementation((_vars: unknown, opts: { onSuccess: (id: string) => Promise<void> }) => opts.onSuccess("t9"));
+    renderChat(<StaffPatientChat patientId="p1" patientName="Ada" />);
+    fireEvent.click(screen.getByLabelText("Book an appointment"));
+    fireEvent.change(screen.getByLabelText("Message", { exact: true }), { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(addActionsMock).toHaveBeenCalledWith({ messageId: "m1", patientId: "p1", organisationId: "org1", kinds: ["book_appointment"] }),
+    );
+    mutate.mockReset();
   });
 });
