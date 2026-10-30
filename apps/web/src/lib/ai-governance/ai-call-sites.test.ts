@@ -77,6 +77,10 @@ const CALL_SITES: Record<string, Site> = {
     systems: ["AI-001"],
     offline: "runs the coach evaluation suites for the CMO; calls the model to grade, never on a patient's behalf",
   },
+  [`${W}/ai-governance/run-scribe-documents-eval.ts`]: {
+    systems: ["AI-017"],
+    offline: "runs the scribe document-draft evaluation suite for the CMO on synthetic facts; never on a patient's behalf",
+  },
   "apps/web/scripts/ai-coach-safety-eval.ts": { systems: ["AI-001"], offline: "developer-run safety evaluation script" },
   "apps/web/scripts/lib/scope-guardrail-judge.ts": { systems: [], offline: "developer-run judge for the scope-guardrail evaluations" },
 };
