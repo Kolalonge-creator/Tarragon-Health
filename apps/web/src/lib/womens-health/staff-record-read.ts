@@ -68,7 +68,8 @@ export function womensHealthRecordIsEmpty(r: WomensHealthRecord): boolean {
 
 export async function loadWomensHealthRecord(client: WomensHealthRpcClient, patientId: string): Promise<WomensHealthRecordOutcome> {
   const { data, error } = await client.rpc("read_womens_health_record_audited", { p_patient: patientId });
-  if (error) return { kind: "error" };
+  // 42501: the database refused the caller outright (a patient-role session on the staff path). That is a refusal, not an outage to retry.
+  if (error) return error.code === "42501" ? { kind: "denied" } : { kind: "error" };
   const parsed = replySchema.safeParse(data);
   if (!parsed.success) return { kind: "error" };
   if (parsed.data.status === "denied") return { kind: "denied" };

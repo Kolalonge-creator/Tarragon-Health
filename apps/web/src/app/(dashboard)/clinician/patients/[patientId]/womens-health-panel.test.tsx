@@ -65,6 +65,20 @@ describe("WomensHealthPanel (OQ-555)", () => {
     expect(out).toContain("could not be loaded");
     expect(out).toContain("not the same as there being nothing recorded");
     expect(out).not.toMatch(/No other Women/i);
+    // the cycle report is its own audited read with its own states, so a failure of the record read does not hide it
+    expect(out).toContain("CYCLE-REPORT-PANEL");
+  });
+
+  it("a refusal does not also open the cycle report (one refusal, one audit row)", async () => {
+    rpc.mockResolvedValue({ data: { status: "denied", pregnancy: null, ...emptyArrays }, error: null });
+    expect(await html()).not.toContain("CYCLE-REPORT-PANEL");
+  });
+
+  it("the database refusing the caller outright (42501) is a refusal, not a retry-later outage", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "not authorised", code: "42501" } });
+    const out = await html();
+    expect(out).toContain("You cannot open this patient");
+    expect(out).not.toContain("could not be loaded");
   });
 
   it("a malformed reply is a failed read, not an empty record", async () => {

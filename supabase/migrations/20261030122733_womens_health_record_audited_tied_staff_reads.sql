@@ -36,6 +36,15 @@
 --    suggestion, medicine review, triage context) is unchanged: it needs a boolean for a safety decision, runs for a tied clinician, and is listed
 --    in the report as a follow-up, not silently left.
 --
+-- KNOWN LIMITS, decided on purpose
+--  * A patient-role caller (a patient or a caregiver) is refused with 42501 and NO audit row: they are not staff and have no staff read to record
+--    (same as the S66 cycle report). A target id that is not a patient is refused with no row: there is no patient to attach it to.
+--  * The success row is written before the reads, in the same transaction. If a later read inside the function raised, the whole call (row included)
+--    rolls back and the caller gets an error and no data. A committed "attempted and failed" row would need a separate transaction, which a SECURITY
+--    DEFINER function does not have; the page shows a failed read as a failed read, never as an empty record.
+--  * The app only calls this when the clinician opens the Women's Health record (?tab=womens-health), not on every chart load, so the audit trail and
+--    the patient's "who opened my record" list show real openings.
+--
 -- Live counts 2026-10-30: patient_pregnancy 0 rows, so no existing reader's data changes. No data is rewritten and there is no conversion step.
 -- New function name, no overload of any existing function (the one existing function gains a default on its LAST parameter, same signature).
 
@@ -179,11 +188,16 @@ begin
     raise exception 'OQ-555: the audited read names a break-glass, view-as or plain staff check';
   end if;
   foreach v_t in array array['patient_pregnancy', 'antenatal_visits', 'postnatal_profiles', 'fertility_assessment_requests'] loop
-    select qual into v_q from pg_policies where schemaname = 'public' and tablename = v_t and cmd = 'SELECT';
-    if v_q is null or v_q !~ 'reproductive_staff_tied' or v_q ~ 'staff_may_read|is_org_staff|can_support_view|caregiver|can_read_clinical' then
-      raise exception 'OQ-555: the SELECT policy on % is not the care tie only: %', v_t, v_q;
+    -- permissive policies OR together, so EVERY policy that can grant a read (SELECT or ALL) must be the care tie only, and there must be one
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = v_t and cmd = 'SELECT') then
+      raise exception 'OQ-555: no SELECT policy on %', v_t;
     end if;
-    if v_q !~ 'auth\.uid\(\)' then raise exception 'OQ-555: the patient arm is missing on %', v_t; end if;
+    for v_q in select coalesce(qual, '') from pg_policies where schemaname = 'public' and tablename = v_t and permissive = 'PERMISSIVE' and cmd in ('SELECT', 'ALL') loop
+      if v_q !~ 'reproductive_staff_tied' or v_q ~ 'staff_may_read|is_org_staff|can_support_view|caregiver|can_read_clinical|has_emergency_access' then
+        raise exception 'OQ-555: a read policy on % is not the care tie only: %', v_t, v_q;
+      end if;
+      if v_q !~ 'auth\.uid\(\)' then raise exception 'OQ-555: the patient arm is missing on %', v_t; end if;
+    end loop;
   end loop;
   raise notice 'PASS: OQ-555/OQ-558 audited tied Women''s Health read installed';
 end $$;

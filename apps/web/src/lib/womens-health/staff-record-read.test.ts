@@ -9,7 +9,7 @@ const ok = {
   fertility_requests: [],
 };
 
-function client(result: { data: unknown; error: { message?: string } | null }): WomensHealthRpcClient & { calls: unknown[] } {
+function client(result: { data: unknown; error: { message?: string; code?: string } | null }): WomensHealthRpcClient & { calls: unknown[] } {
   const calls: unknown[] = [];
   return { calls, rpc: (fn, args) => (calls.push([fn, args]), Promise.resolve(result)) };
 }
@@ -33,6 +33,9 @@ describe("loadWomensHealthRecord", () => {
     expect((await loadWomensHealthRecord(client({ data: null, error: { message: "boom" } }), "p1")).kind).toBe("error");
     expect((await loadWomensHealthRecord(client({ data: { status: "ok" }, error: null }), "p1")).kind).toBe("error");
     expect((await loadWomensHealthRecord(client({ data: null, error: null }), "p1")).kind).toBe("error");
+  });
+  it("an outright refusal by the database (42501) is 'denied', not a retryable outage", async () => {
+    expect((await loadWomensHealthRecord(client({ data: null, error: { message: "not authorised", code: "42501" } }), "p1")).kind).toBe("denied");
   });
   it("an ok record with nothing in it is empty; a pregnancy flag or any row is not", () => {
     const empty = { pregnancy: null, antenatal_visits: [], postnatal_profiles: [], breast_reports: [], fertility_requests: [] };

@@ -36,11 +36,15 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
   }
   if (outcome.kind === "error") {
     return (
-      <Card variant="soft">
-        <CardContent role="alert" className="py-4 text-sm text-red-700 dark:text-red-300">
-          The Women&apos;s Health record could not be loaded just now. This is not the same as there being nothing recorded. Please refresh and try again.
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card variant="soft">
+          <CardContent role="alert" className="py-4 text-sm text-red-700 dark:text-red-300">
+            The Women&apos;s Health record could not be loaded just now. This is not the same as there being nothing recorded. Please refresh and try again.
+          </CardContent>
+        </Card>
+        {/* The cycle and menopause report is its own audited read with its own states, so a failure of the record read does not hide it. */}
+        <CyclePatternReportPanel patientId={patientId} />
+      </div>
     );
   }
 

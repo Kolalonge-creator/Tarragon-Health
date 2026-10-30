@@ -76,14 +76,20 @@ import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 import { WomensHealthPanel } from "./womens-health-panel";
+import { WomensHealthOpenPrompt, WOMENS_HEALTH_TAB } from "./womens-health-open-prompt";
 import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ patientId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { patientId } = await params;
+  // OQ-555: the audited Women's Health record is read only when the clinician opens it (?tab=womens-health), not on every chart load.
+  const { tab: requestedTab } = await searchParams;
+  const openWomensHealth = requestedTab === WOMENS_HEALTH_TAB;
   const supabase = await createClient();
 
   // RLS (private.is_org_staff) is the real gate here: a patient outside the
@@ -481,7 +487,7 @@ export default async function ClinicianPatientPage({
                 {
                   id: "womens-health",
                   label: "Women's Health",
-                  content: <WomensHealthPanel patientId={patient.id} />,
+                  content: openWomensHealth ? <WomensHealthPanel patientId={patient.id} /> : <WomensHealthOpenPrompt patientId={patient.id} />,
                 },
               ]
             : []),
