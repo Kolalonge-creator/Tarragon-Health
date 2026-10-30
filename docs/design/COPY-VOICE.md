@@ -30,3 +30,5 @@ The site was first written in a chatty, simple register that the founder had to 
 ## Status
 
 First pass covers `apps/web/src/app/(marketing)/_content/` (`products`, `services`, `pillars`, `channel-heroes`). Not yet reviewed: `pricing*.ts`, `resources.ts`, `b2b.ts`, `devices.ts`, the page files under `(marketing)/`, and the patient and clinician dashboards.
+
+Update 2026-10-30: `_content/resources.ts` contractions removed (126 expanded to full forms, no wording or fact changed). Still open in marketing files: 39 uses of "your doctor" (17 in `resources.ts`, 11 in `screening-journey.tsx`), contractions in headlines and page text elsewhere (about 40 in 26 other files), "lab" in four headlines, "escalation" in two patient-facing descriptions, "Mum or Dad" and "Uncontrolled BP".
