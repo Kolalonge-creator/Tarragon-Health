@@ -100,7 +100,7 @@ export function ReleasedLabResultsWithdraw({ patientId }: { patientId: string })
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Released lab results</CardTitle>
+        <CardTitle className="text-base">Released laboratory results</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {rows === null ? (
@@ -124,7 +124,7 @@ export function ReleasedLabResultsWithdraw({ patientId }: { patientId: string })
             {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
           </>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">No lab results have been released for this patient.</p>
+          <p className="text-sm text-charcoal-ink/70">No laboratory results have been released for this patient.</p>
         ) : (
           <ul className="space-y-2">
             {rows.map((r) => (

@@ -30,7 +30,7 @@ export default async function ClinicianTriageProtocolsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Symptom Triage Protocols"
-        description="The red-flag screening rules and dynamic question trees behind the patient-facing symptom checker (platform brief §37): what counts as an emergency, what needs a prompt clinical look, and what's safe to self-manage, for each presenting complaint. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file and turns the patient-facing checker on."
+        description="The red-flag screening rules and dynamic question trees behind the patient-facing symptom checker (platform brief §37): what counts as an emergency, what needs a prompt clinical look, and what is safe to self-manage, for each presenting complaint. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file and turns the patient-facing checker on."
       />
       <TriageProtocolsPanel />
     </div>

@@ -21,9 +21,9 @@ export const SUPPORT_KNOWLEDGE_BASE: KnowledgeBaseArticle[] = [
     topic: "technical",
   },
   {
-    title: "A reading or entry didn't save",
+    title: "A reading or entry did not save",
     body:
-      "Ask what screen they were on and whether they saw a confirmation. If the data genuinely didn't save, check whether it's a sync/connectivity issue (common on a poor connection) before treating it as a bug — but log it either way so a pattern across patients is visible.",
+      "Ask what screen they were on and whether they saw a confirmation. If the data genuinely did not save, check whether it is a sync or connectivity problem (common on a poor connection) before treating it as a bug. Log it either way, so that a pattern across patients is visible.",
     topic: "technical",
   },
   {
@@ -35,7 +35,7 @@ export const SUPPORT_KNOWLEDGE_BASE: KnowledgeBaseArticle[] = [
   {
     title: "Wrong entry point — appointment, pharmacy, lab, insurance, referral, or payment",
     body:
-      "Those aren't handled here. Point the patient to \"Need help\" on their Care page (navigation_requests) — it goes to the navigator worklist, not this queue. Reassign or close out anything that lands here by mistake rather than working it as a technical ticket.",
+      "Those are not handled here. Point the patient to \"Need help\" on their Care page (navigation_requests), which goes to the navigator worklist, not this queue. Reassign or close anything that lands here by mistake, rather than working it as a technical ticket.",
     topic: "technical",
   },
 ];

@@ -111,7 +111,7 @@ export function MyPerformanceView() {
           <CardTitle>Referrals</CardTitle>
           <CardDescription>
             {data.referrals_partial_attribution
-              ? "Referrals you personally set the urgency/summary on. A referral the system raised automatically (e.g. from an abnormal result) isn't attributed to any one doctor here, so this is a floor, not a full count."
+              ? "Referrals you personally set the urgency/summary on. A referral raised automatically by the system (for example, from an abnormal result) is not attributed to any one doctor here, so this is a floor, not a full count."
               : undefined}
           </CardDescription>
         </CardHeader>
