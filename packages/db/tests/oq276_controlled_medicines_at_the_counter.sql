@@ -155,8 +155,8 @@ do $$ declare v text; begin
   exception when others then get stacked diagnostics v = pg_exception_detail; end;
   perform pg_temp.ck('real', 'A5 signing: check_prescription_safety hard-stops tramadol even with an override reason', 'SAFETY_BLOCKED', v);
 end $$;
-select pg_temp.ck('real', 'A6 only one function body carries the list (word-boundary scan with \y)', 'private.is_controlled_medicine(text)',
-  (select string_agg(p.oid::regprocedure::text, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public', 'private') and p.prosrc ~* '\ytramadol\y'));
+select pg_temp.ck('real', 'A6 no function body carries the list (word-boundary scan with \y); OQ-484 moved the one list into public.controlled_medicine_terms', 'none',
+  coalesce((select string_agg(p.oid::regprocedure::text, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public', 'private') and p.prosrc ~* '\ytramadol\y'), 'none'));
 
 -- A2b. the real signed-item key (drug_name) and the older keys are all seen
 select pg_temp.ck('real', 'A7 items with drug_name, drug, name or medication are all seen; ordinary items are not', 'true|true|true|true|false',
@@ -264,9 +264,8 @@ do $$
 declare v_def text; v_out text;
 begin
   -- (2) the single list emptied: signing must stop blocking, so the hard stop truly depends on the one list
-  select pg_get_functiondef('private.is_controlled_medicine(text)'::regprocedure) into v_def;
-  v_def := replace(v_def, E'~* ''\\m(', E'~* ''\\mXX(');
-  execute v_def;
+  -- (OQ-484: the list is the table, so "emptied" means every term retired)
+  update public.controlled_medicine_terms set active = false, change_note = 'Sabotage: list emptied';
   v_out := (private.prescription_safety_findings(pg_temp.f('pat'), 'Tramadol 50mg', null) @> '[{"code":"controlled_medicine"}]'::jsonb)::text;
   insert into results values ('sabotaged', 'SABOTAGE list emptied: signing still blocks tramadol', 'true', v_out);
 end $$;

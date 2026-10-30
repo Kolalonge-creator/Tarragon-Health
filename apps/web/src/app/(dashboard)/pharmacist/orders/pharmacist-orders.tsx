@@ -12,6 +12,7 @@ import {
 } from "@/lib/queries/pharmacist";
 import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { useControlledMedicineList } from "@/lib/queries/controlled-medicine-list";
 import { CONTROLLED_AT_COUNTER_TEXT } from "@/lib/pharmacy-collection/model";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -212,7 +213,8 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
   const [unavailableOpen, setUnavailableOpen] = useState(false);
   const [unavailableReason, setUnavailableReason] = useState("");
 
-  const controlledInfo = useMemo(() => controlledSubstanceInfo(drugName), [drugName]);
+  const controlledList = useControlledMedicineList();
+  const controlledInfo = useMemo(() => controlledSubstanceInfo(drugName, controlledList), [drugName, controlledList]);
 
   const meta = statusMeta(order.status);
 
