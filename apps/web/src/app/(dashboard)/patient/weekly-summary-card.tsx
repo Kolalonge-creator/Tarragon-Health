@@ -30,7 +30,7 @@ export function WeeklySummaryBody({
   if (nothing) {
     return (
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        There are no readings from the last 7 days. When you record one, your weekly summary will appear here.
+        No readings in the last 7 days. When you record one, your weekly summary will appear here.
       </p>
     );
   }

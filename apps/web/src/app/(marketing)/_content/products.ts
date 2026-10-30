@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You can pay for their care, if you wish",
-        body: "Buy a named health check or a doctor's time for their account whenever it suits you, in one payment or in instalments. It can be used only for their care and cannot be exchanged for cash. Laboratory tests are paid directly to the laboratory at its own price, so send them the cost of a test if you would like to help with that as well.",
+        body: "Buy a named health check or a doctor's time whenever suits you, in one go or in instalments. It can be used only for their care and cannot be exchanged for cash. Laboratory tests are paid directly to the laboratory at its own price, so send them the cost of a test if you would like to help with that as well.",
       },
     ],
     metadata: {
@@ -177,7 +177,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Preventive Health",
       description:
-        "Preventive care for people who feel well: a personal screening and vaccination calendar, yearly health checks, and doctor follow-up when a result needs attention.",
+        "Preventive care for people who feel well: a screening and vaccination calendar, yearly health checks and doctor follow-up when a result needs attention.",
     },
   },
   medication: {
