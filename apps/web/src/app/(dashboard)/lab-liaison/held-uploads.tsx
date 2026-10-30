@@ -1,16 +1,22 @@
 import type { LiaisonUploadRow } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 /** What the liaison can see about a file they recorded: when, for which patient and order, and one of two neutral words. */
-export function HeldUploads({ rows }: { rows: LiaisonUploadRow[] }) {
+export function HeldUploads({ rows, failed = false }: { rows: LiaisonUploadRow[]; failed?: boolean }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Files you recorded (last 30 days)</CardTitle>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
+        {failed ? (
+          <LoadFailure>
+            Your recorded files could not be loaded. They have not been lost, so please do not upload
+            them again. Reload the page to try again.
+          </LoadFailure>
+        ) : rows.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">Nothing recorded yet. After you upload a result it appears here, and the patient sees it only once a clinician has reviewed it.</p>
         ) : (
           <ul className="space-y-2">
