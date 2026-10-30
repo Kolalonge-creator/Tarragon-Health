@@ -577,6 +577,23 @@ export function useSetThreadOwner() {
       );
       if (error) throw error;
     },
-    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: ["care-thread-owner", v.threadId] }),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ queryKey: ["care-thread-owner", v.threadId] });
+      queryClient.invalidateQueries({ queryKey: ["my-owned-threads"] });
+    },
+  });
+}
+
+/** Ids of the conversations this staff member owns. */
+export function useMyOwnedThreadIds(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["my-owned-threads", userId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("care_thread_owners").select("thread_id").eq("owner_id", userId as string);
+      if (error) throw error;
+      return new Set((data ?? []).map((r) => r.thread_id));
+    },
+    enabled: !!userId,
   });
 }

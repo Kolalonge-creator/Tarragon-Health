@@ -8,6 +8,7 @@ import {
   useThreadOwner,
   useCareStaff,
   useSetThreadOwner,
+  useMyOwnedThreadIds,
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
@@ -186,13 +187,17 @@ export function ClinicianMessagesWorklist() {
   const { data: threads, isLoading, isError } = useOrgCareThreads();
   const [showTemplates, setShowTemplates] = useState(false);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
+  const { data: me } = useCurrentUserId();
+  const { data: myThreadIds } = useMyOwnedThreadIds(me);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // useOrgCareThreads already returns threads ranked longest-waiting first;
   // splitting open from closed preserves that order inside each group.
-  const allOpen = (threads ?? []).filter((t) => t.status === "open");
+  const visible = (threads ?? []).filter((t) => !mineOnly || (myThreadIds?.has(t.id) ?? false));
+  const allOpen = visible.filter((t) => t.status === "open");
   const awaitingCount = allOpen.filter(isAwaitingCareTeam).length;
   const open = awaitingOnly ? allOpen.filter(isAwaitingCareTeam) : allOpen;
-  const closed = (threads ?? []).filter((t) => t.status === "closed");
+  const closed = visible.filter((t) => t.status === "closed");
 
   return (
     <Card>
@@ -206,6 +211,15 @@ export function ClinicianMessagesWorklist() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={mineOnly}
+            onClick={() => setMineOnly((v) => !v)}
+          >
+            {mineOnly ? "Show all conversations" : "My conversations"}
+          </Button>
           {awaitingCount > 0 && (
             <Button
               type="button"
