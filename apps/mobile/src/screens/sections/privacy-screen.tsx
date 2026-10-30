@@ -26,6 +26,7 @@ import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -166,10 +167,11 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
         )}
       </Card>
 
-      <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
       <ConsentMatrixCard />
       <SensitiveRequestOptinCard />
 
+      <Disclosure title="Receipts, access reviews and connected devices" hint="The details behind the choices above.">
+      <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
       <ProxyReviewCard />
       <ProxyArrangementsCard />
 
@@ -191,6 +193,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/vitals#connect-devices`)}
         />
       </Card>
+      </Disclosure>
 
       <CalloutCard
         icon="eye-outline"

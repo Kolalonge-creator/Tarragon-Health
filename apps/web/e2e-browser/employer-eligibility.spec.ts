@@ -68,7 +68,7 @@ test.describe("employer eligibility checker (/corporate)", () => {
     await page.getByRole("button", { name: "Check my coverage" }).click();
 
     await expect(
-      page.getByText(`${companyName} works with Tarragon, but this number isn't on their list yet`),
+      page.getByText(`${companyName} works with Tarragon, but this number is not on their list yet`),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -79,7 +79,7 @@ test.describe("employer eligibility checker (/corporate)", () => {
     await page.locator("#elig-phone").fill("08088888888");
     await page.getByRole("button", { name: "Check my coverage" }).click();
 
-    await expect(page.getByText("We don't work with them yet")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("We do not work with them yet")).toBeVisible({ timeout: 10_000 });
 
     const { data: lead } = await adminClient
       .from("leads")

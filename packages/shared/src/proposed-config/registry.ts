@@ -10296,4 +10296,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-27",
     source: "supabase/migrations/20261027192319_w25_measurement_context_target_config_stratified_view.sql; plan FD5 (home 135/85, clinic 140/90). The grade thresholds are engineering proposals. Unsigned.",
   },
+  {
+    key: "care_messages.reply_target",
+    // How long a patient message may wait for a reply from the care team before the inbox marks it as past the target. Read by the staff inbox
+    // (apps/web/src/app/(dashboard)/clinician/messages/worklist.tsx) and shown per conversation and as a count for the person who owns them.
+    value: { "hours": 24 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-30",
+    source: "Founder decision in chat, 2026-10-30: reply within 24 hours.",
+  },
+  {
+    key: "care_messages.unread_reminder",
+    // When a patient who has not opened a care-team message is nudged. Mirrored by private.remind_patients_of_unread_care_messages in
+    // supabase/migrations/20261030101027_staff_chat_attachments_reminders_owner_actions.sql (care-messages-mirror.test.ts fails if they drift).
+    // The nudge says only that a message is waiting. Test accounts are skipped. Unsigned.
+    value: { "firstAfterHours": 24, "gapHours": 48, "maxReminders": 2, "sendWindowLagos": { "fromHour": 8, "toHour": 20 } },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-30",
+    source: "Engineering proposal when the staff chat shipped (PR 1479): 24 hours, again after 48 more, at most two, 08:00 to 20:00 Lagos.",
+  },
 ];

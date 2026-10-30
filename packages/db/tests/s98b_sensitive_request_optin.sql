@@ -133,11 +133,19 @@ begin
     (select (event ? 'screen_type')::text from public.audit_log where action = 'screening_request.auto_issued' and entity_id = o_hiv));
   -- reminder payloads
   delete from public.notifications where recipient_id = t;
-  perform private.queue_screening_reminders();
+  -- two schedules in one stage are still sent one by one (more than two become one grouped reminder, checked below)
+  perform private.queue_screening_stage('screening_due', 'due', array[hiv, lip], false);
   perform pg_temp.ck('the reminder payload for the sensitive screening does not name it', 'a screening test',
     (select payload ->> 'screen_type_name' from public.notifications where recipient_id = t and template = 'screening_due' and payload ->> 'schedule_id' = hiv::text limit 1));
   perform pg_temp.ck('...the non-sensitive one still does', 'true',
     (select (payload ->> 'screen_type_name' <> 'a screening test')::text from public.notifications where recipient_id = t and template = 'screening_due' and payload ->> 'schedule_id' = lip::text limit 1));
+  -- a grouped reminder (more than two due in one stage) carries a count and names none of the tests, sensitive or not
+  delete from public.notifications where recipient_id = t;
+  update public.screening_schedules set reminder_stage = null where patient_id = t;
+  perform private.queue_screening_stage('screening_due', 'due', array(select id from public.screening_schedules where patient_id = t and status in ('pending', 'booked', 'overdue')), false);
+  perform pg_temp.ck('a grouped reminder names no test (sensitive or not) and carries the count', 'true',
+    (select (count(*) > 0 and bool_and(payload ->> 'screen_type_name' = 'your screening checks' and (payload ->> 'count')::integer > 2) and bool_and(payload::text !~* 'hiv|hepatitis|fit')) ::text
+       from public.notifications where recipient_id = t and template = 'screening_due' and channel = 'in_app'));
   -- withdraw
   perform pg_temp.ck('the patient can withdraw', 'false', pg_temp.q_as(t, 'select public.set_my_sensitive_request_optin(false)::text'));
   perform pg_temp.ck('...it is audited', '1', (select count(*)::text from public.audit_log where action = 'screening_sensitive_optin.withdrawn' and entity_id = t));
