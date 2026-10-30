@@ -28,6 +28,7 @@ type Client = SupabaseClient<Database>;
 
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
 import { loadPrescriberSignature } from "./signature";
+import { loadControlledMedicineList } from "@/lib/rules/controlled-medicine-list";
 import { fetchDocumentFolios, type DocumentFolio } from "@/lib/clinical/document-folio";
 
 function text(value: unknown): string | null {
@@ -160,13 +161,14 @@ export async function loadSinglePrescription(
 
   const { folios, error: folioError } = await loadFolios(supabase, [medication]);
   if (folioError) return { status: "error", message: folioError };
-  const [patient, prescriber] = await Promise.all([
+  const [patient, prescriber, controlledList] = await Promise.all([
     loadPatient(supabase, medication.patient_id),
     loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
+    loadControlledMedicineList(supabase),
   ]);
   if (!patient) return { status: "not_found" };
 
-  const built = buildPrescriptionPdfData({ medication, patient, prescriber });
+  const built = buildPrescriptionPdfData({ medication, patient, prescriber, controlledList });
   if (built.status === "refused") return { status: "refused", reason: built.reason, message: built.message };
 
   const auditError = await recordDownloads(
@@ -205,6 +207,7 @@ export async function loadPrescriptionBundle(
 
   const { folios, error: folioError } = await loadFolios(supabase, rows);
   if (folioError) return { status: "error", message: folioError };
+  const controlledList = await loadControlledMedicineList(supabase);
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
   const names: string[] = [];
@@ -213,7 +216,7 @@ export async function loadPrescriptionBundle(
     // One folio per prescriber is the same for every row they wrote; cache per prescriber, fed by this row's folio.
     const key = row.added_by ?? "";
     if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by, folios.get(row.id)));
-    results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null }));
+    results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null, controlledList }));
   }
 
   const { included, refused } = buildPrescriptionBundle(results);
@@ -277,13 +280,14 @@ export async function loadPrescriptionForClinician(
 
   const { folios, error: folioError } = await loadFolios(supabase, [medication]);
   if (folioError) return { status: "error", message: folioError };
-  const [patient, prescriber] = await Promise.all([
+  const [patient, prescriber, controlledList] = await Promise.all([
     loadPatient(supabase, patientId),
     loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
+    loadControlledMedicineList(supabase),
   ]);
   if (!patient) return { status: "not_found" };
 
-  const built = buildPrescriptionPdfData({ medication, patient, prescriber });
+  const built = buildPrescriptionPdfData({ medication, patient, prescriber, controlledList });
   if (built.status === "refused") return { status: "refused", reason: built.reason, message: built.message };
 
   const auditError = await recordDownloads(

@@ -10,17 +10,26 @@
  * controlled-substance concept existed anywhere (confirmed by a repo-wide
  * grep before writing this).
  *
- * ADVISORY ONLY, same discipline as drug-safety.ts: a curated illustrative
- * list of substances commonly subject to extra control (opioids,
- * benzodiazepines, stimulants, barbiturates), not a verified NDLEA schedule
- * lookup and not a dispensing gate — the platform never blocks a
- * prescription, it asks the prescriber to explicitly confirm the extra
- * safeguard before signing. Per CLAUDE.md: MDCN/regulatory confirmation of
+ * ADVISORY ONLY, same discipline as drug-safety.ts: an illustrative list of
+ * substances commonly subject to extra control (opioids, benzodiazepines,
+ * stimulants, barbiturates), not a verified NDLEA schedule lookup. This
+ * file holds NO drug names (OQ-484): the list is the database table
+ * public.controlled_medicine_terms, owned by the Chief Medical Officer and
+ * read through ./controlled-medicine-list (with a generated offline
+ * fallback). The database is the hard stop at signing and at the counter;
+ * this file only supplies the advice shown beside it. Per CLAUDE.md: MDCN/regulatory confirmation of
  * any authority/schedule model is an open founder item, never represent
  * this as regulator-approved.
  */
 
-export type ControlledSubstanceTier = "narcotic" | "restricted";
+import {
+  fallbackControlledMedicineList,
+  matchControlledMedicineTerm,
+  type ControlledMedicineList,
+  type ControlledSubstanceTier,
+} from "./controlled-medicine-list";
+
+export type { ControlledSubstanceTier };
 
 export interface ControlledSubstanceInfo {
   tier: ControlledSubstanceTier;
@@ -35,24 +44,11 @@ const TIER_COPY: Record<ControlledSubstanceTier, string> = {
     "Commonly subject to additional prescribing control (benzodiazepines, lower-schedule opioids, barbiturates, dissociatives). Confirm the indication and duration are documented and dependence/misuse risk has been considered.",
 };
 
-const CONTROLLED_PATTERNS: { pattern: RegExp; tier: ControlledSubstanceTier; label: string }[] = [
-  { pattern: /\b(morphine|pethidine|meperidine|fentanyl|oxycodone|hydrocodone|methadone|diamorphine|oxycontin|oxynorm|percocet|duragesic|sublimaze|demerol)\b/i, tier: "narcotic", label: "Opioid analgesic" },
-  { pattern: /\b(codeine|tramadol|dihydrocodeine|tramal|ultram|ultracet|tramacet|zydol|phensedyl|solpadeine|panadeine|co-?codamol|co-?dydramol)\b/i, tier: "restricted", label: "Opioid analgesic (lower schedule)" },
-  { pattern: /\b(diazepam|lorazepam|alprazolam|midazolam|clonazepam|chlordiazepoxide|bromazepam|valium|diazemuls|ativan|xanax|rivotril|klonopin|lexotan|dormicum|librium)\b/i, tier: "restricted", label: "Benzodiazepine" },
-  { pattern: /\b(methylphenidate|amphetamine|dexamfetamine|dextroamphetamine|lisdexamfetamine|ritalin|concerta|adderall|dexedrine|vyvanse)\b/i, tier: "narcotic", label: "Stimulant" },
-  { pattern: /\b(phenobarbital|phenobarbitone|luminal)\b/i, tier: "restricted", label: "Barbiturate" },
-  { pattern: /\b(ketamine|ketalar)\b/i, tier: "restricted", label: "Dissociative anaesthetic" },
-];
-
-/** Null when the drug name matches none of the curated patterns — this is
- * "no rule fired", never "confirmed not controlled". */
-export function controlledSubstanceInfo(drugName: string): ControlledSubstanceInfo | null {
-  const trimmed = drugName.trim();
-  if (!trimmed) return null;
-  for (const entry of CONTROLLED_PATTERNS) {
-    if (entry.pattern.test(trimmed)) {
-      return { tier: entry.tier, label: entry.label, note: TIER_COPY[entry.tier] };
-    }
-  }
-  return null;
+/**
+ * Null when the drug name matches no term on the list: this is "no rule fired", never "confirmed not controlled".
+ * Pass the list read from the database (loadControlledMedicineList / useControlledMedicineList); without one, the generated fallback is used.
+ */
+export function controlledSubstanceInfo(drugName: string, list: ControlledMedicineList = fallbackControlledMedicineList()): ControlledSubstanceInfo | null {
+  const hit = matchControlledMedicineTerm(list, drugName);
+  return hit ? { tier: hit.tier, label: hit.label, note: TIER_COPY[hit.tier] } : null;
 }

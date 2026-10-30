@@ -141,9 +141,11 @@ do $$
 declare v_def text; v_out text;
 begin
   -- the list put back to generic names only: a brand must then pass, which is what the checks above would catch
-  select pg_get_functiondef('private.is_controlled_medicine(text)'::regprocedure) into v_def;
-  v_def := regexp_replace(v_def, '\|bromazepam\|.*\)\\M', ')\\M');
-  execute v_def;
+  -- (OQ-484: the list is the table, so the generic-only list is every term outside the original generic names retired)
+  update public.controlled_medicine_terms set active = false, change_note = 'Sabotage: generic names only'
+   where term not in ('morphine', 'pethidine', 'meperidine', 'fentanyl', 'oxycodone', 'hydrocodone', 'methadone', 'diamorphine', 'codeine', 'tramadol', 'dihydrocodeine', 'diazepam',
+                      'lorazepam', 'alprazolam', 'midazolam', 'clonazepam', 'chlordiazepoxide', 'methylphenidate', 'amphetamine', 'dexamfetamine', 'dextroamphetamine',
+                      'lisdexamfetamine', 'phenobarbital', 'phenobarbitone', 'ketamine');
   v_out := pg_temp.names(array['Valium 5mg tablets', 'Tramal 50mg']);
   insert into results values ('sabotaged', 'SABOTAGE generic-only list: brands are still controlled', 'true,true', v_out);
   v_out := (private.prescription_safety_findings(pg_temp.f('pat'), 'Valium 5mg', null) @> '[{"code":"controlled_medicine"}]'::jsonb)::text;

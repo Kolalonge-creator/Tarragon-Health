@@ -58209,6 +58209,8 @@ export type Database = {
       cohort_set_muted: { Args: { p_cohort: string; p_muted: boolean }; Returns: Json };
       cohort_set_totals_consent: { Args: { p_cohort: string; p_on: boolean }; Returns: Json };
       set_community_off: { Args: { p_off: boolean }; Returns: Json };
+      get_controlled_medicine_list: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_controlled_medicine_term: { Args: { p_active: boolean; p_label: string; p_note: string; p_term: string; p_tier: string }; Returns: string };
       cohort_report: { Args: { p_cohort: string; p_member?: string; p_reason: string }; Returns: Json };
       cohort_moderator_reports: { Args: { p_cohort: string }; Returns: Json };
       cohort_remove_member: { Args: { p_cohort: string; p_member: string }; Returns: Json };
