@@ -55,7 +55,7 @@ export function BaselineLabsRulePanel({ version, rule }: { version: number | nul
             </div>
           )}
           <p><span className="font-medium">How recent (proposed): {rule.windowDays} days.</span> {rule.windowNote}</p>
-          <p><span className="font-medium">If a lab is missing.</span> {rule.whenMissing}</p>
+          <p><span className="font-medium">If a laboratory result is missing.</span> {rule.whenMissing}</p>
           <div>
             <p className="font-medium">The documented override (emergencies and pending results)</p>
             <p className="text-charcoal-ink/80">{rule.bypassNote}</p>
