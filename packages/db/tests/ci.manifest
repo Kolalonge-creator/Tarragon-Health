@@ -1686,3 +1686,4 @@ gate_model_masters_and_features.sql
 screening_scheduler_skipped_profiles_alert.sql
 # Owner-run views are a reviewed list: the 18 advisor security_definer_view findings are deliberate. A new unlisted one, an anon grant, a forbidden directory column or an open admin view must fail. Four sabotage fixtures prove it can fail.
 owner_run_views_allowlist.sql
+feature_waitlist.sql

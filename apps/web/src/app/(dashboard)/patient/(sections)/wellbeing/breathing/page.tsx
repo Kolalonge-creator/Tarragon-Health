@@ -4,6 +4,8 @@ import { t } from "@tarragon/i18n";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { listLibrary } from "@/lib/wellbeing-library/queries";
 import { WellbeingShell } from "@/components/wellbeing/wellbeing-shell";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 
@@ -21,7 +23,16 @@ export default async function BreathingPage() {
       {all === null ? (
         <LoadFailure>{t("library.error")}</LoadFailure>
       ) : items.length === 0 ? (
-        <p className="text-sm">{t("library.empty")}</p>
+        <EmptyState
+          icon={SEMANTIC_ICON.mood}
+          title={t("library.empty_title")}
+          body={t("library.empty")}
+          action={
+            <Link href="/patient/wellbeing" className="text-sm font-medium text-brand-green underline">
+              {t("library.empty_back")}
+            </Link>
+          }
+        />
       ) : (
         <>
           <p className="text-sm font-medium">{t("breathing.choose")}</p>

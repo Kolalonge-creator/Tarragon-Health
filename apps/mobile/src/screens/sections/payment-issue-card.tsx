@@ -6,7 +6,8 @@ import { startThread } from "@/lib/messages";
 import { cancelPendingServicePurchase, formatPrice, type PendingPaymentIssue } from "@/lib/services";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors } from "@/ui/design";
+import { useLegacyColors, textStyles } from "@/ui/design";
+import { AppText } from "@/ui/kit/AppText";
 
 interface PaymentIssueCardProps {
   issue: PendingPaymentIssue;
@@ -91,28 +92,28 @@ export function PaymentIssueCard({ issue, onResolved }: PaymentIssueCardProps) {
       <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
         <Ionicons name="warning-outline" size={20} color={colors.status.warn} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>
+          <AppText variant="bodyStrong">
             {`You started buying ${issue.serviceProductName} but didn't finish`}
-          </Text>
-          <Text style={{ fontSize: 12.5, color: colors.muted, marginTop: 2 }}>
+          </AppText>
+          <AppText variant="body" tone="textMuted" style={{ marginTop: 2 }}>
             {`${formatPrice(issue.payableKobo, issue.currency)} is still unpaid. Pick up where you left off with the same or a different card.`}
-          </Text>
+          </AppText>
         </View>
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <ActionPill title="Retry payment" tone="brand" loading={retrying} onPress={handleRetry} />
         {messageSent ? (
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brandPressed, paddingVertical: 9 }}>
+          <AppText variant="label" tone="brandText" style={{ paddingVertical: 9 }}>
             Sent. The care team will follow up.
-          </Text>
+          </AppText>
         ) : (
           <ActionPill title="Message the care team" tone="outline" loading={messaging} onPress={handleMessage} />
         )}
         <ActionPill title="Not right now" tone="plain" loading={dismissing} onPress={handleDismiss} />
       </View>
 
-      {error ? <Text style={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
+      {error ? <AppText variant="caption" tone="dangerText">{error}</AppText> : null}
     </View>
   );
 }
@@ -135,7 +136,7 @@ function ActionPill({
       : tone === "outline"
         ? { borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" }
         : { backgroundColor: "transparent" };
-  const textColor = tone === "brand" ? "#FFFFFF" : colors.ink;
+  const textColor = tone === "brand" ? colors.onBrand : colors.ink;
 
   return (
     <Pressable
@@ -157,9 +158,9 @@ function ActionPill({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={tone === "brand" ? "#FFFFFF" : colors.ink} />
+        <ActivityIndicator size="small" color={tone === "brand" ? colors.onBrand : colors.ink} />
       ) : (
-        <Text style={{ fontSize: 13, fontWeight: "600", color: textColor }}>{title}</Text>
+        <Text style={{ ...textStyles.label, color: textColor }}>{title}</Text>
       )}
     </Pressable>
   );

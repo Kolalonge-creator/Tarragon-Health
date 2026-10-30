@@ -21,6 +21,7 @@ let orders: { data: unknown[] };
 let quote: { data: unknown };
 const useQuoteSpy = jest.fn();
 const mutateAsync = jest.fn();
+jest.mock("@/components/join-waitlist", () => ({ JoinWaitlist: () => null }));
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
   return {

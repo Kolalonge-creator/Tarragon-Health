@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import type { ActingFor } from "@/lib/acting";
 import { radius, spacing } from "./theme";
 import { useLegacyColors } from "./design";
+import { textStyles } from "@/ui/design";
 
 interface ActingForBannerProps {
   acting: ActingFor | null;
@@ -39,10 +40,10 @@ export function ActingForBanner({ acting, onStop }: ActingForBannerProps) {
       }}
     >
       <View style={{ flex: 1, minWidth: 180 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+        <Text style={{ ...textStyles.label, color: colors.ink }}>
           You are in {name}&apos;s account, not your own.
         </Text>
-        <Text style={{ fontSize: 11.5, color: colors.muted, marginTop: 2 }}>
+        <Text style={{ ...textStyles.caption, color: colors.muted, marginTop: 2 }}>
           Anything you record here is saved in their name with yours next to it.
         </Text>
       </View>
@@ -58,7 +59,7 @@ export function ActingForBanner({ acting, onStop }: ActingForBannerProps) {
           paddingHorizontal: 12,
         })}
       >
-        <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Back to my account</Text>
+        <Text style={{ ...textStyles.label, color: colors.ink }}>Back to my account</Text>
       </Pressable>
     </View>
   );

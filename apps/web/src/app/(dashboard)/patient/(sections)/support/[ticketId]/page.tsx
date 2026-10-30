@@ -1,3 +1,5 @@
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { TicketDetail } from "./ticket-detail";
 
 export default async function PatientTicketDetailPage({ params }: { params: Promise<{ ticketId: string }> }) {
@@ -5,7 +7,7 @@ export default async function PatientTicketDetailPage({ params }: { params: Prom
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Support ticket</h1>
+      <PageHeader title="Support ticket" icon={NAV_ICON.review} backTo={{ href: "/patient/support", label: "Support" }} />
       <TicketDetail ticketId={ticketId} />
     </div>
   );

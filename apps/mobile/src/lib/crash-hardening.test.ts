@@ -17,7 +17,7 @@ import { scrubFreeText, scrubMessage, scrubStack, stripUrls } from "./crash-scru
 const DSN = "https://abc123@o1.ingest.sentry.io/4567";
 const CTX: CrashContext = {
   appVersion: "0.1.0",
-  runtimeVersion: "0.1.0-native8",
+  runtimeVersion: "0.1.0-native9",
   platform: "android",
   osVersion: "13",
   deviceBrand: "TECNO",

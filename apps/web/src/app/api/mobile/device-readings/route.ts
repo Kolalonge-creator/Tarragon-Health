@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
+import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { deviceReadingHoldSchema, deviceReadingSchema } from "@/lib/validation/device-reading";
@@ -208,6 +209,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     safetyAssessmentFailed = await runBestEffort(
       () => assessGlucoseBestEffort(supabase, patientId, organisationId),
       safetyExtra
+    );
+  }
+
+  // The Health Score's inputs are blood pressure and weight (BMI). A reading from a paired device is a real log, so the score is refreshed
+  // here exactly as it is after a manual log; without this, a patient who only logs through a device never got a score. Inert bookkeeping:
+  // a lost refresh has no clinical-safety consequence, so a failure stays Sentry-only and never fails the saved reading.
+  if (vital_type === "blood_pressure" || vital_type === "weight") {
+    await runBestEffort(
+      () => assessHealthScoreBestEffort(supabase, patientId, organisationId),
+      { route: "api/mobile/device-readings", stage: "health_score_refresh" }
     );
   }
 

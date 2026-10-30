@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSleepGoal, useSleepLogEntries } from "@/lib/queries/sleep";
 import { setSleepGoalAction, logSleepEntryAction, type SleepActionState } from "./actions";
 import { DAYTIME_SLEEPINESS_LABELS } from "@/lib/validation/sleep";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroMetric } from "@/components/ui/hero-metric";
+import { SheetButton } from "@/components/ui/sheet-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +16,7 @@ import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 import { useT } from "@/components/ui-language-provider";
 import { t as tx } from "@tarragon/i18n";
 import { SleepExtras } from "./sleep-extras";
+import { SleepWeek } from "./sleep-week";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "sleep-goal";
@@ -24,10 +27,56 @@ export function SleepClient({ patientId }: { patientId: string }) {
   const goal = useSleepGoal(patientId);
   const entries = useSleepLogEntries(patientId);
 
+  const last = entries.data?.[0] ?? null;
+  const g = goal.data;
+  const goalLine = g
+    ? [
+        g.target_duration_hours != null ? `${g.target_duration_hours}h target` : null,
+        g.target_bedtime ? `bedtime ${g.target_bedtime.slice(0, 5)}` : null,
+        g.target_waketime ? `wake ${g.target_waketime.slice(0, 5)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
   return (
     <div className="space-y-6">
-      <GoalCard patientId={patientId} goal={goal.data} isLoading={goal.isLoading} />
-      <LogCard patientId={patientId} />
+      {/* The page opens on last night; logging and the goal are one tap away in sheets instead of forms on the page (design audit P4). */}
+      <HeroMetric
+        label="Last night"
+        value={entries.isLoading || entries.isError ? null : last ? String(last.duration_hours) : null}
+        unit="hours"
+        meta={
+          last
+            ? [
+                formatPatientDate(last.logged_on, { month: "long", day: "numeric" }),
+                last.quality_rating != null ? `quality ${last.quality_rating}/5` : null,
+                goalLine || null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        emptyText={entries.isError ? t("We couldn't load this just now. Try again in a moment.") : entries.isLoading ? t("Loading…") : t("Nothing logged yet.")}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <SheetButton variant="default" label={t("Log last night")}>
+          {(close) => <LogForm patientId={patientId} onDone={close} />}
+        </SheetButton>
+        {!goal.isLoading && (
+          <SheetButton label={g ? t("Update") + " " + t("Your sleep goal").toLowerCase() : t("Set a goal")} title={t("Your sleep goal")}>
+            {(close) => <GoalForm patientId={patientId} goal={g} onDone={close} />}
+          </SheetButton>
+        )}
+        {goalLine && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{goalLine}</p>}
+      </div>
+
+      {/* Seven real nights; a night not logged stays an empty slot. */}
+      <SleepWeek
+        entries={entries.data ?? []}
+        today={new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" })}
+        goalHours={g?.target_duration_hours ?? null}
+      />
 
       <SleepExtras patientId={patientId} bedtimeGoal={goal.data?.target_bedtime ?? null} />
 
@@ -64,31 +113,23 @@ export function SleepClient({ patientId }: { patientId: string }) {
   );
 }
 
-function GoalCard({
+function GoalForm({
   patientId,
   goal,
-  isLoading,
+  onDone,
 }: {
   patientId: string;
   goal: ReturnType<typeof useSleepGoal>["data"];
-  isLoading: boolean;
+  onDone: () => void;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  // Not seeded from `!goal` directly: `goal` is undefined before the query
-  // resolves (async), and useState's initializer only runs once -- seeding
-  // from it here would permanently show the edit form on every fresh load,
-  // even for a patient who already has a saved goal. Wait for the query to
-  // settle before deciding there's nothing to edit (same fix as
-  // weight-client.tsx's WeightGoalSection).
-  const [editingOverride, setEditingOverride] = useState<boolean | null>(null);
-  const editing = editingOverride ?? (!isLoading && !goal);
   const [state, formAction, pending] = useActionState<SleepActionState, FormData>(
     async (prev, formData) => {
       const result = await setSleepGoalAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [GOAL_KEY, patientId] });
-        setEditingOverride(false);
+        onDone();
       }
       return result;
     },
@@ -96,55 +137,38 @@ function GoalCard({
   );
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>{t("Your sleep goal")}</CardTitle>
-        <Button size="sm" variant="outline" onClick={() => setEditingOverride(!editing)}>
-          {editing ? t("Close") : goal ? t("Update") : t("Set a goal")}
+    <>
+      <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
+        <div className="grid gap-1">
+          <Label htmlFor="target_duration_hours">{t("Target hours")}</Label>
+          <Input
+            id="target_duration_hours"
+            name="target_duration_hours"
+            type="number"
+            min={0}
+            max={24}
+            step={0.5}
+            defaultValue={goal?.target_duration_hours ?? undefined}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="target_bedtime">{t("Bedtime")}</Label>
+          <Input id="target_bedtime" name="target_bedtime" type="time" defaultValue={goal?.target_bedtime?.slice(0, 5) ?? undefined} />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="target_waketime">{t("Wake time")}</Label>
+          <Input id="target_waketime" name="target_waketime" type="time" defaultValue={goal?.target_waketime?.slice(0, 5) ?? undefined} />
+        </div>
+        <Button type="submit" disabled={pending} className="sm:col-span-3">
+          {pending ? t("Saving…") : t("Save goal")}
         </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {goal && !editing && (
-          <p className="text-sm text-charcoal-ink dark:text-night-ink">
-            {goal.target_duration_hours != null && `${goal.target_duration_hours}h target`}
-            {goal.target_bedtime && ` · bedtime ${goal.target_bedtime.slice(0, 5)}`}
-            {goal.target_waketime && ` · wake ${goal.target_waketime.slice(0, 5)}`}
-          </p>
-        )}
-        {editing && (
-          <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
-            <div className="grid gap-1">
-              <Label htmlFor="target_duration_hours">{t("Target hours")}</Label>
-              <Input
-                id="target_duration_hours"
-                name="target_duration_hours"
-                type="number"
-                min={0}
-                max={24}
-                step={0.5}
-                defaultValue={goal?.target_duration_hours ?? undefined}
-              />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="target_bedtime">{t("Bedtime")}</Label>
-              <Input id="target_bedtime" name="target_bedtime" type="time" defaultValue={goal?.target_bedtime?.slice(0, 5) ?? undefined} />
-            </div>
-            <div className="grid gap-1">
-              <Label htmlFor="target_waketime">{t("Wake time")}</Label>
-              <Input id="target_waketime" name="target_waketime" type="time" defaultValue={goal?.target_waketime?.slice(0, 5) ?? undefined} />
-            </div>
-            <Button type="submit" disabled={pending} className="sm:col-span-3">
-              {pending ? t("Saving…") : t("Save goal")}
-            </Button>
-          </form>
-        )}
-        {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
-      </CardContent>
-    </Card>
+      </form>
+      {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
+    </>
   );
 }
 
-function LogCard({ patientId }: { patientId: string }) {
+function LogForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<SleepActionState, FormData>(
@@ -152,6 +176,7 @@ function LogCard({ patientId }: { patientId: string }) {
       const result = await logSleepEntryAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
+        onDone();
       }
       return result;
     },
@@ -159,11 +184,7 @@ function LogCard({ patientId }: { patientId: string }) {
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("Log last night")}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <>
         <form action={formAction} className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1">
             <Label htmlFor="duration_hours">{t("Hours slept")}</Label>
@@ -205,8 +226,6 @@ function LogCard({ patientId }: { patientId: string }) {
           </Button>
         </form>
         {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">{t("Logged.")}</p>}
-      </CardContent>
-    </Card>
+    </>
   );
 }

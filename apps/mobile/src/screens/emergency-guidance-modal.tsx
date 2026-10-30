@@ -59,7 +59,7 @@ export function EmergencyGuidanceModal({
           padding: spacing.screen,
         }}
       >
-        <View style={{ backgroundColor: "#FFFFFF", borderRadius: radius.card, maxHeight: "85%" }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: radius.card, maxHeight: "85%" }}>
           <View
             style={{
               backgroundColor: colors.status.emergency,
@@ -72,8 +72,8 @@ export function EmergencyGuidanceModal({
               gap: 10,
             }}
           >
-            <Ionicons name="warning" size={26} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700", flexShrink: 1 }}>
+            <Ionicons name="warning" size={26} color={colors.onBrand} />
+            <Text style={{ color: colors.onBrand, fontSize: 18, fontWeight: "700", flexShrink: 1 }}>
               This may be a medical emergency
             </Text>
           </View>
@@ -150,7 +150,7 @@ export function EmergencyGuidanceModal({
                   onPress={() => Linking.openURL(`${PLATFORM_URL}/patient/membership`)}
                   style={{ minHeight: 44, borderRadius: radius.control, backgroundColor: colors.brand, paddingVertical: 11, paddingHorizontal: 14, justifyContent: "center" }}
                 >
-                  <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 14 }}>{t("freered.join", "en")}</Text>
+                  <Text style={{ color: colors.onBrand, fontWeight: "700", fontSize: 14 }}>{t("freered.join", "en")}</Text>
                 </Pressable>
                 <Text style={{ fontSize: 12, color: colors.subtle }}>{t("freered.join_hint", "en")}</Text>
                 <Pressable

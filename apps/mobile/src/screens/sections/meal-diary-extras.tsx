@@ -15,6 +15,7 @@ import {
   type Guidance,
   type MealType,
 } from "@/lib/food-diary-model";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * The S49a additions to the Meals screen: daily targets, pick-from-list, barcode number, and one-tap repeat with favourites.
@@ -32,7 +33,7 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
       onPress={onPress}
       style={{ minHeight: TOUCH, justifyContent: "center", paddingHorizontal: 14, borderRadius: radius.control, backgroundColor: selected ? colors.brand : colors.groupBg }}
     >
-      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>{label}</Text>
+      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: selected ? colors.onBrand : colors.ink }}>{label}</Text>
     </Pressable>
   );
 }
@@ -67,9 +68,9 @@ export function TargetsCard({ guidance }: { guidance: Guidance }) {
         const pct = r.target > 0 ? Math.min(100, Math.round((r.done / r.target) * 100)) : 0;
         return (
           <View key={r.label} style={{ gap: 4 }} accessible accessibilityLabel={`${r.label}: ${Math.round(r.done)} of ${Math.round(r.target * 10) / 10} ${r.unit}${r.limit ? ", keep under" : ""}${over ? ", over" : ""}`}>
-            <Text style={{ fontSize: typeScale.body, color: colors.ink }}>
+            <AppText variant="body">
               {`${r.label}: ${Math.round(r.done)} of ${Math.round(r.target * 10) / 10} ${r.unit}${r.limit ? " (keep under)" : ""}${over ? (r.limit ? " - over the limit" : " - over the target") : ""}`}
-            </Text>
+            </AppText>
             <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border }}>
               <View style={{ height: 6, borderRadius: 3, width: `${pct}%`, backgroundColor: colors.brand }} />
             </View>
@@ -115,7 +116,7 @@ export function FoodPickerBlock({ onAdd }: { onAdd: (phrase: string) => void }) 
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>Or pick from the list</Text>
+      <AppText variant="bodyStrong">Or pick from the list</AppText>
       <TextInput
         keyboardAppearance={scheme}
         accessibilityLabel="Search foods"
@@ -138,12 +139,12 @@ export function FoodPickerBlock({ onAdd }: { onAdd: (phrase: string) => void }) 
           }}
           style={{ minHeight: TOUCH, justifyContent: "center", paddingHorizontal: 12, borderRadius: radius.control, backgroundColor: colors.groupBg }}
         >
-          <Text style={{ fontSize: typeScale.body, color: colors.ink }}>{`${f.name}${f.highSalt ? " (high salt)" : ""}${f.highSugar ? " (high sugar)" : ""}`}</Text>
+          <AppText variant="body">{`${f.name}${f.highSalt ? " (high salt)" : ""}${f.highSugar ? " (high sugar)" : ""}`}</AppText>
         </Pressable>
       ))}
       {picked ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{picked.name}</Text>
+          <AppText variant="bodyStrong">{picked.name}</AppText>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {picked.portions.map((p) => (
               <Chip key={p.unit} label={portionUnitLabel(p.unit, qty)} selected={unit === p.unit} onPress={() => setUnit(p.unit)} />
@@ -151,7 +152,7 @@ export function FoodPickerBlock({ onAdd }: { onAdd: (phrase: string) => void }) 
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <SecondaryButton title="One fewer" onPress={() => setQty((q) => Math.max(1, q - 1))} />
-            <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{qty}</Text>
+            <AppText variant="bodyStrong">{qty}</AppText>
             <SecondaryButton title="One more" onPress={() => setQty((q) => Math.min(20, q + 1))} />
           </View>
           {/* The size photos for each measure are not supplied yet (the slots exist); until then the size is said in words. */}
@@ -194,7 +195,7 @@ export function BarcodeBlock({ onAdd }: { onAdd: (phrase: string) => void }) {
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>Packaged food? Enter the barcode number</Text>
+      <AppText variant="bodyStrong">Packaged food? Enter the barcode number</AppText>
       <TextInput
         keyboardAppearance={scheme}
         accessibilityLabel="Barcode number"
@@ -255,7 +256,7 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
       <SectionLabel>Log again in one tap</SectionLabel>
       {favourites.map((f) => (
         <View key={f.id} style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>{f.name}</Text>
+          <AppText variant="bodyStrong">{f.name}</AppText>
           <MutedText>{f.description}</MutedText>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
@@ -278,7 +279,7 @@ export function RepeatAndFavouritesCard({ patientId, entries, onLogged }: { pati
       {recent.length > 0 ? <SectionLabel>Recent meals</SectionLabel> : null}
       {recent.map((e) => (
         <View key={e.id} style={{ gap: 6 }}>
-          <Text style={{ fontSize: typeScale.body, color: colors.ink }}>{e.description}</Text>
+          <AppText variant="body">{e.description}</AppText>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
               <PrimaryButton title="Log again" disabled={busy} onPress={() => void logAgain(e.description ?? "", e.mealType)} />

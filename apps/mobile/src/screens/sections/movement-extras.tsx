@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { readinessMessageKeys, type ReadinessResult } from "@tarragon/clinical/activity-readiness";
 import { activityGateMessageKey, type ActivityGateResult } from "@tarragon/clinical/activity-gate";
@@ -10,8 +10,9 @@ import { getLocationSource } from "@/lib/routes/location-source";
 import { startRouteSession, type RouteSession } from "@/lib/routes/route-session";
 import { summarise, type RouteState } from "@/lib/routes/route-recorder";
 import { radius } from "@/ui/theme";
-import { useLegacyColors, useTheme } from "@/ui/design";
+import { useLegacyColors, useTheme, textStyles } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit";
 
 /**
  * What the activity safety gate says right now, in care-team words ("Rest" / "Gentle only"; colour is always paired with the word). The database
@@ -80,7 +81,7 @@ export function WeeklyGoalEditor({ patientId, current, onSaved }: { patientId: s
             keyboardType="number-pad"
             placeholder="Minutes a week, like 150"
             placeholderTextColor={colors.subtle}
-            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12, fontSize: 16, color: colors.ink }}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 12, ...textStyles.bodyLarge, color: colors.ink }}
           />
           {error ? <ErrorText>{error}</ErrorText> : null}
           <PrimaryButton title="Save goal" loading={saving} onPress={() => void save()} />
@@ -92,7 +93,6 @@ export function WeeklyGoalEditor({ patientId, current, onSaved }: { patientId: s
 
 /** Device bands (5.6). Says nothing at all when there is no device data: dormant until a provider is connected. Always labelled an estimate. */
 export function ReadinessCard({ patientId }: { patientId: string }) {
-  const colors = useLegacyColors();
   const [result, setResult] = useState<ReadinessResult | null>(null);
   useEffect(() => {
     let alive = true;
@@ -108,9 +108,9 @@ export function ReadinessCard({ patientId }: { patientId: string }) {
     <Card style={{ gap: 6 }}>
       <SectionLabel>{t("activity.readiness.title")}</SectionLabel>
       {lines.map((k) => (
-        <Text key={k} style={{ fontSize: 14, color: colors.ink }}>
+        <AppText variant="body" key={k}>
           {t(k as MessageKey)}
-        </Text>
+        </AppText>
       ))}
       <MutedText>{t("activity.readiness.estimate")}</MutedText>
     </Card>

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { formatNaira } from "@tarragon/commerce";
 import { useUiLanguage } from "@/lib/ui-language";
 import { cancelRenewal, loadMyRenewal } from "@/lib/commerce/api";
 import type { RenewalState } from "@/lib/commerce/parse";
-import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 const lagos = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 
@@ -16,7 +16,6 @@ const lagos = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZ
  * cancel: it keeps the year already paid for, stops the next charge and deletes the saved card.
  */
 export function RenewalSection({ refreshKey }: { refreshKey: number }) {
-  const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const tr = useCallback((key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params), [locale]);
   const [state, setState] = useState<RenewalState | null>(null);
@@ -48,19 +47,19 @@ export function RenewalSection({ refreshKey }: { refreshKey: number }) {
 
   return (
     <Card>
-      <Text accessibilityRole="header" style={{ fontWeight: "700", color: colors.ink }}>{tr("renewal.title")}</Text>
+      <AppText variant="bodyStrong" accessibilityRole="header">{tr("renewal.title")}</AppText>
       {done || !state.autoRenew ? (
         <>
-          <Text accessibilityLiveRegion="polite" style={{ color: colors.ink }}>{done ? tr("renewal.cancelled", { date }) : tr("renewal.off", { date })}</Text>
+          <AppText variant="body" accessibilityLiveRegion="polite">{done ? tr("renewal.cancelled", { date }) : tr("renewal.off", { date })}</AppText>
           {done ? null : <MutedText>{tr("renewal.off_how")}</MutedText>}
         </>
       ) : (
         <>
-          <Text style={{ color: colors.ink }}>
+          <AppText variant="body">
             {state.amountKobo !== null
               ? tr("renewal.on", { date, last4: state.cardLast4 ?? "", amount: `₦${formatNaira(state.amountKobo)}` })
               : tr("renewal.on_no_amount", { date, last4: state.cardLast4 ?? "" })}
-          </Text>
+          </AppText>
           <MutedText>{tr("renewal.cancel_keeps", { date })}</MutedText>
           <View style={{ marginTop: 8 }}>
             <SecondaryButton title={busy ? tr("renewal.cancelling") : tr("renewal.cancel")} onPress={() => void stop()} disabled={busy} loading={busy} />

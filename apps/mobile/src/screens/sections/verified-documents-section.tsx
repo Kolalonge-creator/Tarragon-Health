@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   loadMyVerifiedDocuments,
@@ -11,6 +11,7 @@ import {
 import { formatCareDate } from "@/lib/care";
 import { useLegacyColors } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { AppText } from "@/ui/kit/AppText";
 
 /**
  * Native "Verified documents" — retired from patient purchase 2026-09-24
@@ -58,16 +59,16 @@ export function VerifiedDocumentsSection({ patientId }: { patientId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Verified documents</Text>
+      <AppText variant="bodyLargeStrong">Verified documents</AppText>
       {error && <ErrorText>{error}</ErrorText>}
       <View style={{ gap: 10 }}>
         {documents.map((d) => (
           <Card key={d.id} style={{ gap: 6 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
+              <AppText variant="bodyStrong" style={{ flex: 1 }}>
                 {DOCUMENT_TYPE_LABEL[d.document_type as VerifiedDocumentType] ??
                   d.document_type.replace(/_/g, " ")}
-              </Text>
+              </AppText>
               <Badge tone={d.status === "issued" ? "brand" : "neutral"}>
                 {d.status === "issued" ? "Issued" : d.status === "declined" ? "Declined" : "Requested"}
               </Badge>
