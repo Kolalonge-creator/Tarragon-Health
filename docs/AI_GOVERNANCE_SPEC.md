@@ -248,9 +248,10 @@ different claim from one measured on twelve thousand.
   `ai_runtime_config()`.
 - **Never seed a passing evaluation run, a prompt approval, or a knowledge-source approval.** They
   represent a human's judgement; inventing one is the failure this whole module exists to prevent.
-- **Guardrails and knowledge sources are approved one way only (2026-10-30).** The Chief Medical Officer ticks them
-  on the sign-off hub (`/clinician/clinical-signoff`, AI governance), which calls `approve_ai_guardrails` /
-  `approve_ai_knowledge_sources`: stamped with their own `clinical_staff` row, one `audit_log` row each. A trigger
+- **Guardrails and knowledge sources are approved one way only (2026-10-30).** The Chief Medical Officer approves them
+  on the sign-off hub (`/clinician/clinical-signoff`, AI governance): a system's guardrail list in one go with the count
+  they read (`approve_ai_guardrails`), knowledge sources by tick box (`approve_ai_knowledge_sources`). Both are stamped
+  with their own `clinical_staff` row and audited. A trigger
   refuses a pre-approved insert and any other write to `approved_by`/`approved_at`, and drops an approval when the
   approved text is edited. An agent never calls these.
 - **Never pass raw patient input as `input_category`.**

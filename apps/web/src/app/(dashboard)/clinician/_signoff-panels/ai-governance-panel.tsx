@@ -6,7 +6,7 @@ import {
   type AiClinicalAccuracyCaseRow,
   type AiSystemVersionRow,
 } from "@/app/(dashboard)/admin/settings/ai-governance/ai-governance-console";
-import { AiApprovalList, type AiApprovalItem } from "@/app/(dashboard)/admin/settings/ai-governance/ai-approval-list";
+import { AiGuardrailApproval, AiKnowledgeSourceApproval, type AiApprovalItem } from "@/app/(dashboard)/admin/settings/ai-governance/ai-approval-list";
 import {
   AI_SYSTEM_VERSION_COLUMNS,
   AI_EVALUATION_CASE_COLUMNS,
@@ -62,19 +62,24 @@ export async function AiGovernancePanel() {
   })[];
   const cases = (casesRes.data ?? []) as unknown as AiClinicalAccuracyCaseRow[];
 
-  const guardrailItems: AiApprovalItem[] = (guardrailsRes.data ?? []).map((g) => ({
-    id: g.id,
-    systemName: g.ai_systems?.name ?? null,
-    headline: g.rule_code,
-    detail: g.description,
-    meta: `${g.kind.replace(/_/g, " ")} · ${g.enforcement}${
-      g.config && Object.keys(g.config as Record<string, unknown>).length > 0 ? ` · ${JSON.stringify(g.config)}` : ""
-    }`,
-  }));
+  const guardrailsBySystem = new Map<string, { name: string; items: AiApprovalItem[] }>();
+  for (const g of guardrailsRes.data ?? []) {
+    const code = g.ai_systems?.system_code;
+    if (!code) continue;
+    const group = guardrailsBySystem.get(code) ?? { name: g.ai_systems?.name ?? code, items: [] };
+    group.items.push({
+      id: g.id,
+      headline: g.rule_code,
+      detail: g.description,
+      meta: `${g.kind.replace(/_/g, " ")} · ${g.enforcement}${
+        g.config && Object.keys(g.config as Record<string, unknown>).length > 0 ? ` · ${JSON.stringify(g.config)}` : ""
+      }`,
+    });
+    guardrailsBySystem.set(code, group);
+  }
   const sourceItems: AiApprovalItem[] = (sourcesRes.data ?? []).map((k) => ({
     id: k.id,
-    systemName: k.ai_systems?.name ?? null,
-    headline: k.title,
+    headline: `${k.title} · ${k.ai_systems?.name ?? "all AI systems"}`,
     detail: `Patients are shown: "${k.citation_label}"`,
     meta: `${k.source_type.replace(/_/g, " ")}${k.external_url ? ` · ${k.external_url}` : k.reference_table ? ` · ${k.reference_table}` : ""}`,
   }));
@@ -107,13 +112,17 @@ export async function AiGovernancePanel() {
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">AI guardrails awaiting your approval</h2>
         <p className="max-w-3xl text-sm text-charcoal-ink/70">
-          These rules already apply to the AI systems. Approving records that you have read each one and stand behind
-          it, under your name. If a rule is edited later, your approval on it is removed and it comes back here.
+          These rules already apply to the AI systems. Approving the list for a system records that you have read every rule shown
+          and stand behind it, under your name. If a rule is edited later, your approval on it is removed and it comes back here.
         </p>
-        {guardrailItems.length === 0 ? (
+        {guardrailsBySystem.size === 0 ? (
           <p className="text-sm text-charcoal-ink/60">Nothing waiting. Every active guardrail is approved.</p>
         ) : (
-          <AiApprovalList kind="guardrails" items={guardrailItems} />
+          <div className="space-y-6">
+            {[...guardrailsBySystem.entries()].map(([code, g]) => (
+              <AiGuardrailApproval key={code} systemCode={code} systemName={g.name} items={g.items} />
+            ))}
+          </div>
         )}
       </section>
 
@@ -125,7 +134,7 @@ export async function AiGovernancePanel() {
         {sourceItems.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">Nothing waiting. Every active knowledge source is approved.</p>
         ) : (
-          <AiApprovalList kind="knowledge_sources" items={sourceItems} />
+          <AiKnowledgeSourceApproval items={sourceItems} />
         )}
       </section>
 

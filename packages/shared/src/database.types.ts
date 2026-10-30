@@ -53724,7 +53724,7 @@ export type Database = {
         Returns: Json
       }
       approve_ai_guardrails: {
-        Args: { p_ids: string[]; p_note?: string }
+        Args: { p_expected_count: number; p_note?: string; p_system_code: string }
         Returns: number
       }
       approve_ai_knowledge_sources: {
