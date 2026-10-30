@@ -27,6 +27,8 @@ womens_health_record_audited_tied_staff_reads.sql
 # OQ-555 follow-up: public.pregnancy_safety_status gives a three-state answer for safety checks. The patient and a tied clinician get the real answer; an untied clinician, a break-glass holder, a coordinator, an admin, a sponsor, a caregiver with a reproductive grant, another organisation's clinician and another patient all get 'unknown', never 'not_pregnant'; no session refused; anon cannot execute. Sabotage: tie check opened, refusal answering not_pregnant.
 pregnancy_safety_status.sql
 symptom_red_flag_handler_pages_a_clinician.sql
+# OQ-S98-7: a caregiver or guardian cannot read the order of a sensitive bundle or the rows that carry it (lab_orders, lab_specimens, patient_timeline, care_vouchers, screening_results, facility_ratings, lab_location_reviews, patient_care_gaps); patient, staff and emergency reader unchanged; reproductive_health voucher rule kept. Sabotage restores the seven old policies and 12 checks flip.
+sensitive_bundle_orders_hidden_from_caregivers.sql
 critical_notification_dead_letter_without_pathway.sql
 finance_posting_failures_queue.sql
 payment_activation_amount_and_reference.sql

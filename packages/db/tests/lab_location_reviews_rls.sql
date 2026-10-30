@@ -96,7 +96,7 @@ begin
     raise exception 'no organisation available — cannot run this test';
   end if;
 
-  select id into v_bundle from public.panel_bundles where self_bookable limit 1;
+  select id into v_bundle from public.panel_bundles where self_bookable and not private.lab_bundle_is_sensitive(id) limit 1;
   if v_bundle is null then
     raise exception 'no self_bookable panel_bundle available — cannot run this test';
   end if;
