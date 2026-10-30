@@ -5194,6 +5194,8 @@ export const en = {
   "shop.error.order_fully_covered": "Nothing is left to pay for this. Your care team will confirm it in the app.",
   "shop.error.discount_code_invalid": "This code cannot be used.",
   "shop.error.discount_code_rate_limited": "Too many tries. Please wait an hour before trying a code again.",
+  "shop.error.rate_limited": "You are going a little fast. Please wait a minute, then try again.",
+  "shop.pay.choose_state_hint": "Choose the state where your blood tests will be collected, above, to continue.",
   "included.title": "What is included",
   "included.back": "Back to Membership",
   "included.price_heading": "What it costs",

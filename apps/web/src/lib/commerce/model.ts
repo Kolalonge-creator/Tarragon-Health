@@ -159,6 +159,7 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_fully_covered: "shop.error.order_fully_covered",
   discount_code_invalid: "shop.error.discount_code_invalid",
   discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  rate_limited: "shop.error.rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted",
   sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
   // S72: paying from a supporter's link
