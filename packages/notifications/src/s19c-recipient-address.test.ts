@@ -27,8 +27,8 @@ const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {
-    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
-    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 2 + ACK_TIMEOUT_TEMPLATES.length);
+    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
+    expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 3 + ACK_TIMEOUT_TEMPLATES.length);
   });
   it("security notices keep payload first, everything else the payload only", () => {
     expect(addressRuleFor("security.new_device_signin")).toBe("payload_then_own");

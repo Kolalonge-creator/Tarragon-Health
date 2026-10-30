@@ -1693,3 +1693,7 @@ feature_waitlist.sql
 edge_function_rate_limit.sql
 # Stage 2 E4: functions in public that anon can run are a reviewed list of 17 (docs/security/ANON-EXECUTABLE-FUNCTIONS.md). A new unlisted one must fail; sabotage fixture and a removed list entry both prove it can.
 anon_executable_functions_allowlist.sql
+# E7: every push or email row the event machinery queues is renderable by the sender. Drives an emergency-keyword care message and an unacknowledged critical alert up the ladder, then requires each non-in-app row to be on the E7_TS_RENDERED line (proven against TEMPLATE_MAP by packages/notifications events-delivery-renderable.test.ts) or to have an active locale row. Sabotage: take care_message_safety_flag off the line and the proof names its push and email rows.
+events_notification_delivery_renderable.sql
+# First-run fixes: in-app reminders queued once (an email patient still gets email plus in-app), and the full nightly scheduler and request automation skip test accounts while the per-patient mode still serves them. Sabotage reverts each patch from the live body.
+screening_nightly_jobs_dedupe_and_test_accounts.sql

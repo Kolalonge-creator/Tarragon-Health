@@ -22,6 +22,8 @@ export async function loadNotifications(userId: string): Promise<InAppNotificati
     .select("id, status, template, payload, created_at")
     .eq("recipient_id", userId)
     .eq("channel", "in_app")
+    // same as the web inbox: failed and suppressed rows are never shown to the person
+    .not("status", "in", "(failed,suppressed)")
     .order("created_at", { ascending: false })
     .limit(LIMIT);
   if (error) throw error;

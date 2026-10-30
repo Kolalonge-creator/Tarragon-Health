@@ -18,7 +18,7 @@ const CARD_WORDS: Record<string, string> = {
   readings: "Today's reading",
   goal: "One small goal",
   lesson: "One short lesson",
-  assistant_nudge: "A nudge to ask the assistant",
+  assistant_nudge: "A prompt to ask the assistant",
   streak: "Days logged (gentle streak)",
   weekly_summary: "Weekly summary",
   readiness: "Wearable readiness line",
@@ -53,7 +53,7 @@ export function HomeCardConfigView({ row, canSign }: { row: HomeCardConfigRow | 
       ) : (
         <>
           <Card>
-            <CardHeader><CardTitle className="text-base">Today screen: at most {cfg.cards.maxPrimaryActions} things to do</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Today screen: at most {cfg.cards.maxPrimaryActions} actions to complete</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>The Today screen shows at most two main actions, whatever is signed. Everything else is tucked under &quot;More for today&quot;. An overdue task always comes first.</p>
               <ul className="list-disc space-y-1 pl-5">
