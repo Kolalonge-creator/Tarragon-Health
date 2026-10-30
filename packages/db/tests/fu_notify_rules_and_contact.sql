@@ -233,7 +233,6 @@ declare
   pat uuid; contact uuid; contact2 uuid; ev uuid; ev2 uuid; v_phone text := '+2348055501234'; v_n integer; v_def text; v_out text;
 begin
   -- E. the emergency contact: push, in-app, email only (OQ-333) ----------------------------------------------------
-  -- (E2 matches the reading value 182 only as a whole number: the payload carries random uuids, whose hex digits can contain 182 by chance)
   pat := pg_temp.mkuser(v_org, 'ec-patient', 'patient');
   contact := pg_temp.mkuser(v_org, 'ec-contact', 'patient');
   update public.profiles set phone = v_phone where id = contact;
