@@ -1686,6 +1686,8 @@ gate_model_masters_and_features.sql
 screening_scheduler_skipped_profiles_alert.sql
 # Owner-run views are a reviewed list: the 18 advisor security_definer_view findings are deliberate. A new unlisted one, an anon grant, a forbidden directory column or an open admin view must fail. Four sabotage fixtures prove it can fail.
 owner_run_views_allowlist.sql
+# OQ-580: approving a lab or pharmacy refund posts to the ledger and needs finance.gl.post; the ledger source check accepts the two refund sources. Care coordinator, clinician and no-grant finance user refused; grant holder and admin approve. Sabotage removes the check and the refusals flip.
+refund_approval_needs_finance_authority.sql
 feature_waitlist.sql
 # OQ-267: per-user limit for order-checkout, order-verify, queue-next, queue-handback. 20th call allowed, 21st refused with a retry time; per-user and per-bucket; unknown bucket and no user refused without a retry time; anon cannot execute; signed-in user cannot read the counter table. Sabotage: raise the refusal threshold and step 1 must fail.
 edge_function_rate_limit.sql
