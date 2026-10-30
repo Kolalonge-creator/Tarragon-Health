@@ -76,7 +76,7 @@ export default function DashboardError({
     icon = <NAV_ICON.offline className="h-12 w-12 text-amber-600 dark:text-amber-300" aria-hidden />;
     title = "Connection lost";
     message =
-      "We couldn’t reach the server. Nothing has been changed or lost: check your connection, then try again.";
+      "We couldn’t reach the server. Check your connection, then try again. If you were saving something, look first to see whether it went through, so it is not done twice.";
   } else {
     icon = <p className="font-heading text-5xl font-bold text-brand-green">Oops</p>;
     title = "Something didn’t load properly";
