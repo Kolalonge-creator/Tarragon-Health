@@ -86,6 +86,39 @@ export type Database = {
         }
         Relationships: []
       }
+      care_thread_owner_events: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_owner_id: string | null
+          handover_note: string | null
+          id: string
+          organisation_id: string
+          thread_id: string
+          to_owner_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_owner_id?: string | null
+          handover_note?: string | null
+          id?: string
+          organisation_id: string
+          thread_id: string
+          to_owner_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_owner_id?: string | null
+          handover_note?: string | null
+          id?: string
+          organisation_id?: string
+          thread_id?: string
+          to_owner_id?: string | null
+        }
+        Relationships: []
+      }
       care_thread_owners: {
         Row: {
           assigned_at: string

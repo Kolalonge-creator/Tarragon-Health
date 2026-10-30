@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { useCurrentUserId } from "@/lib/queries/current-user";
 import {
   useOrgCareThreads,
   useCloseThread,
@@ -39,14 +38,6 @@ function when(iso: string): string {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  });
-}
-
-function useCurrentUserId() {
-  return useQuery({
-    queryKey: ["current-user-id"],
-    queryFn: async () => (await createClient().auth.getUser()).data.user?.id ?? null,
-    staleTime: Infinity,
   });
 }
 

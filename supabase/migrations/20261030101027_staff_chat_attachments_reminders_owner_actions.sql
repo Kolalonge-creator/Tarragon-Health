@@ -65,7 +65,8 @@ create or replace function private.remind_patients_of_unread_care_messages(
   p_first interval default interval '24 hours',
   p_gap interval default interval '48 hours',
   p_max smallint default 2,
-  p_now timestamptz default now()
+  p_now timestamptz default now(),
+  p_include_test boolean default false
 ) returns integer
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -77,7 +78,9 @@ begin
   for r in
     select t.id, t.organisation_id, t.patient_id, t.patient_reminder_count
       from public.care_message_threads t
+      join public.profiles pr on pr.id = t.patient_id
      where t.status = 'open'
+       and (p_include_test or not pr.is_test)
        and t.last_message_author_role = 'care_team'
        and (t.patient_last_read_at is null or t.patient_last_read_at < t.last_message_at)
        and t.patient_reminder_count < p_max
@@ -98,7 +101,7 @@ begin
   end loop;
   return v_sent;
 end $$;
-revoke all on function private.remind_patients_of_unread_care_messages(interval, interval, smallint, timestamptz) from public, anon, authenticated;
+revoke all on function private.remind_patients_of_unread_care_messages(interval, interval, smallint, timestamptz, boolean) from public, anon, authenticated;
 
 do $$ begin
   if exists (select 1 from cron.job where jobname = 'remind-patients-unread-care-messages') then
@@ -141,6 +144,40 @@ begin
   return new;
 end $$;
 revoke all on function private.enforce_care_thread_owner() from public, anon;
+
+-- Every change of owner is kept (append-only; written by the trigger below, never by a client).
+create table if not exists public.care_thread_owner_events (
+  id              uuid primary key default gen_random_uuid(),
+  thread_id       uuid not null references public.care_message_threads (id) on delete cascade,
+  organisation_id uuid not null references public.organisations (id) on delete restrict,
+  from_owner_id   uuid references public.profiles (id) on delete set null,
+  to_owner_id     uuid references public.profiles (id) on delete set null,
+  changed_by      uuid references public.profiles (id) on delete set null,
+  handover_note   text,
+  created_at      timestamptz not null default now()
+);
+create index if not exists care_thread_owner_events_thread_idx on public.care_thread_owner_events (thread_id, created_at);
+alter table public.care_thread_owner_events enable row level security;
+drop policy if exists care_thread_owner_events_staff_select on public.care_thread_owner_events;
+create policy care_thread_owner_events_staff_select on public.care_thread_owner_events
+  for select to authenticated using (private.is_org_staff(organisation_id));
+grant select on public.care_thread_owner_events to authenticated;
+
+create or replace function private.log_care_thread_owner_change()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' or new.owner_id is distinct from old.owner_id then
+    insert into public.care_thread_owner_events (thread_id, organisation_id, from_owner_id, to_owner_id, changed_by, handover_note)
+    values (new.thread_id, new.organisation_id, case when tg_op = 'UPDATE' then old.owner_id end, new.owner_id, new.assigned_by, new.handover_note);
+  end if;
+  return new;
+end $$;
+revoke all on function private.log_care_thread_owner_change() from public, anon;
+
+drop trigger if exists care_thread_owners_log on public.care_thread_owners;
+create trigger care_thread_owners_log
+  after insert or update on public.care_thread_owners
+  for each row execute function private.log_care_thread_owner_change();
 
 drop trigger if exists care_thread_owners_enforce on public.care_thread_owners;
 create trigger care_thread_owners_enforce
@@ -214,7 +251,7 @@ grant select, insert on public.care_message_actions to authenticated;
 -- 5. Assertions ------------------------------------------------------------------------------------
 do $$
 begin
-  if has_function_privilege('anon', 'private.remind_patients_of_unread_care_messages(interval, interval, smallint, timestamptz)', 'EXECUTE') then
+  if has_function_privilege('anon', 'private.remind_patients_of_unread_care_messages(interval, interval, smallint, timestamptz, boolean)', 'EXECUTE') then
     raise exception 'FAIL: anon can run the reminder sweep';
   end if;
   if has_table_privilege('anon', 'public.care_thread_owners', 'SELECT') or has_table_privilege('anon', 'public.care_message_actions', 'SELECT') then

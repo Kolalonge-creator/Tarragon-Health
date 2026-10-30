@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { useCurrentUserId } from "@/lib/queries/current-user";
 import { MaskedCallButton } from "@/components/masked-call-button";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
@@ -55,11 +54,7 @@ function StaffPatientChatBody({
 }) {
   const { data: threads, isLoading, isError } = useCareThreads(patientId);
   const start = useStartThread();
-  const { data: staffId } = useQuery({
-    queryKey: ["current-user-id"],
-    queryFn: async () => (await createClient().auth.getUser()).data.user?.id ?? null,
-    staleTime: Infinity,
-  });
+  const { data: staffId } = useCurrentUserId();
   const [composing, setComposing] = useState(false);
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState("");

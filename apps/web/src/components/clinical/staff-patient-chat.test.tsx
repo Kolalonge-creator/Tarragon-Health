@@ -10,9 +10,7 @@ jest.mock("@/lib/queries/care-messages", () => ({
   useCareThreads: () => ({ data: threads, isLoading: false, isError: false }),
   useStartThread: () => ({ mutate, isPending: false, isError: false }),
 }));
-jest.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({ auth: { getUser: async () => ({ data: { user: { id: "staff1" } } }) } }),
-}));
+jest.mock("@/lib/queries/current-user", () => ({ useCurrentUserId: () => ({ data: "staff1" }) }));
 jest.mock("@/components/masked-call-button", () => ({ MaskedCallButton: () => <button>Call</button> }));
 jest.mock("@/components/care-message-thread", () => ({
   CareMessageThread: ({ threadId }: { threadId: string }) => <div>thread {threadId}</div>,

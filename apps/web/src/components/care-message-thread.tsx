@@ -207,10 +207,12 @@ export function CareMessageThread({
   // 77.13 — stamp this side's read clock whenever the thread is open, so an
   // unread clinical message doesn't stay "unread" once someone has actually
   // looked at it.
+  // Re-stamped when a newer message arrives while the thread stays open, so someone looking at it is not "unread".
+  const lastMessageAt = status?.last_message_at ?? null;
   useEffect(() => {
     markRead.mutate(threadId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId]);
+  }, [threadId, lastMessageAt]);
 
   const send = () => {
     setError(null);

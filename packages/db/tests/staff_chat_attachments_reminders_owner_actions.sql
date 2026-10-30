@@ -43,20 +43,20 @@ update public.care_message_threads set last_message_at = '2026-11-01 08:00+00', 
  where id = (select v from ids where k='thread');
 
 insert into results select 'nothing is sent at 03:00 Lagos', '0',
-  private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 02:00+00')::text;
-select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 11:00+00');
+  private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 02:00+00', true)::text;
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 11:00+00', true);
 insert into results select 'first reminder after 24 hours unread', '1',
   (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
 insert into results select 'the reminder is non-clinical and carries only the thread id', 'non_clinical,care_message_reminder',
   (select n.content_class::text || ',' || n.template from public.notifications n
     where n.template = 'care_message_reminder' and n.payload ->> 'thread_id' = (select v::text from ids where k='thread') order by n.created_at desc limit 1);
-select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 11:30+00');
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-02 11:30+00', true);
 insert into results select 'a second sweep straight away sends nothing for this thread', '1',
   (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
-select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-04 11:00+00');
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-04 11:00+00', true);
 insert into results select 'second reminder after the 48 hour gap', '2',
   (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
-select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-09 11:00+00');
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-09 11:00+00', true);
 insert into results select 'never a third', '2',
   (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
 
@@ -72,7 +72,7 @@ insert into results select 'a new message resets the reminder count', '0',
 -- A read thread is never reminded.
 update public.care_message_threads set last_message_at = '2026-11-01 08:00+00', patient_last_read_at = '2026-11-01 09:00+00'
  where id = (select v from ids where k='thread');
-select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-12 11:00+00');
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-12 11:00+00', true);
 insert into results select 'a thread the patient has opened is not reminded', '0',
   (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
 
@@ -95,6 +95,16 @@ grant all on owner_seen to authenticated;
 insert into owner_seen select count(*) from public.care_thread_owners;
 reset role;
 select set_config('request.jwt.claims', null, true);
+insert into results select 'a change of owner is logged with who made it', '1,true',
+  (select count(*) || ',' || bool_and(changed_by = to_owner_id) from public.care_thread_owner_events where thread_id = (select v from ids where k='thread'));
+
+-- A test account is never reminded unless the proof asks for it.
+update public.care_message_threads set last_message_at = '2026-11-01 08:00+00', patient_last_read_at = null, patient_reminder_count = 0, patient_last_reminded_at = null
+ where id = (select v from ids where k='thread');
+select private.remind_patients_of_unread_care_messages(interval '24 hours', interval '48 hours', 2::smallint, '2026-11-20 11:00+00');
+insert into results select 'a test account is not reminded by default', '0',
+  (select patient_reminder_count::text from public.care_message_threads where id = (select v from ids where k='thread'));
+
 insert into results select 'a patient sees no owner rows', '0', (select n::text from owner_seen);
 
 do $$

@@ -3,6 +3,8 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+const markRead = jest.fn();
+let statusData: { last_message_at: string } | undefined;
 let messages: unknown[] = [];
 let actionRows: { id: string; message_id: string; kind: string }[] = [];
 jest.mock("@/lib/queries/care-messages", () => ({
@@ -10,8 +12,8 @@ jest.mock("@/lib/queries/care-messages", () => ({
   usePostMessage: () => ({ mutate: jest.fn(), isPending: false }),
   useMessageActions: () => ({ data: actionRows }),
   useAddMessageActions: () => ({ mutate: jest.fn() }),
-  useThreadStatus: () => ({ data: undefined }),
-  useMarkThreadRead: () => ({ mutate: jest.fn() }),
+  useThreadStatus: () => ({ data: statusData }),
+  useMarkThreadRead: () => ({ mutate: markRead }),
   useCareMessageTemplates: () => ({ data: [] }),
   useUploadCareMessageAttachment: () => ({ mutate: jest.fn(), isPending: false }),
 }));
@@ -66,5 +68,17 @@ describe("CareMessageThread layout", () => {
     expect(screen.queryByRole("link", { name: "Book an appointment" })).toBeNull();
     expect(screen.getByText("Button: Book an appointment")).toBeTruthy();
     actionRows = [];
+  });
+
+  it("marks the thread read again when a newer message arrives while it is open", () => {
+    messages = [];
+    markRead.mockClear();
+    statusData = { last_message_at: "2026-10-30T10:00:00Z" };
+    const { rerender } = render(<CareMessageThread threadId="t1" patientId="p1" closed />, { wrapper: wrap });
+    const first = markRead.mock.calls.length;
+    statusData = { last_message_at: "2026-10-30T10:05:00Z" };
+    rerender(<CareMessageThread threadId="t1" patientId="p1" closed />);
+    expect(markRead.mock.calls.length).toBe(first + 1);
+    statusData = undefined;
   });
 });
