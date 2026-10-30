@@ -12,7 +12,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Who it's for",
+  title: "Who it is for",
   description:
     "Pick your starting point: managing your own health, staying well, looking after a parent, running a workforce, or covering an HMO membership.",
   path: MARKETING_ROUTES.whoItsFor,
@@ -28,7 +28,7 @@ export default function WhoItsForPage() {
       <Section className="pt-20">
         <MarketingHero media={MARKETING_MEDIA.pageHero.whoItsFor}>
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Who it&apos;s for
+            Who it is for
           </p>
           <h1 className="mt-2 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
             Find your starting point

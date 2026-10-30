@@ -29,7 +29,7 @@ const CONNECTS = [
   },
   {
     title: "Refills tracked, wherever you buy",
-    body: "You buy your medication at whichever pharmacy suits you and pay the pharmacy directly. Refill reminders arrive before you run out, you record what you collect, and your doctor follows up on missed doses.",
+    body: "You buy your medication at whichever pharmacy suits you and pay the pharmacy directly. Refill reminders arrive before you run out, you record what you collect, and your care team follows up on missed doses.",
   },
   {
     title: "Specialist referrals that carry your record",
@@ -44,7 +44,7 @@ const CONNECTS = [
 const JOURNEY = [
   {
     title: "We tell you what is needed",
-    body: "A test may be due, a refill may be running low, or your doctor may recommend a check. You see this in the app, with a reminder so that it is not forgotten.",
+    body: "A test may be due, a refill may be running low, or a doctor may recommend a check. You see this in the app, with a reminder so that it is not forgotten.",
   },
   {
     title: "You choose where to go",

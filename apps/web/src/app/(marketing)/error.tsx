@@ -27,10 +27,10 @@ export default function MarketingError({
     <div className="flex min-h-[60vh] flex-col items-center justify-center bg-white px-4 py-16 text-center text-charcoal-ink">
       <p className="font-heading text-5xl font-bold text-brand-green">Oops</p>
       <h1 className="mt-4 font-heading text-2xl font-semibold sm:text-3xl">
-        Something didn&rsquo;t load properly
+        Something did not load properly
       </h1>
       <p className="mt-3 max-w-md text-charcoal-ink/70">
-        That&rsquo;s on us, not you. Trying again usually sorts it out, or head back to the home
+        That is on us, not you. Trying again usually sorts it out, or head back to the home
         page and start from there.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">

@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Symptom Checker",
   description:
-    "A free, anonymous starting point: tell us what you're noticing, and get a suggested test or a doctor conversation. Not a diagnosis, nothing saved.",
+    "A free, anonymous starting point: tell us what you are noticing, and get a suggested test or a doctor conversation. Not a diagnosis, nothing saved.",
   path: MARKETING_ROUTES.symptomChecker,
 });
 

@@ -9,7 +9,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Advanced Diagnostics",
   description:
-    "Whole-body and targeted imaging referrals for people who want to look further than routine screening goes, coordinated by us and read by your doctor.",
+    "Whole-body and targeted imaging referrals for people who want to look further than routine screening goes, coordinated by us and read by a doctor.",
   path: MARKETING_ROUTES.advancedDiagnostics,
 });
 
@@ -24,7 +24,7 @@ const WHAT_THIS_IS = [
   },
   {
     title: "For a broader look, not for reassurance",
-    body: "This sits alongside your Annual Health Check and screening calendar. It gives a broader look and does not replace either. If you are worried about a symptom, talk to your doctor first rather than ordering a scan.",
+    body: "This sits alongside your Annual Health Check and screening calendar. It gives a broader look and does not replace either. If you are worried about a symptom, talk to a doctor first rather than ordering a scan.",
   },
 ];
 
@@ -57,7 +57,7 @@ export default function AdvancedDiagnosticsPage() {
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             For people who want to look further than routine blood tests and screening: a
             whole-body or targeted imaging referral, coordinated through Tarragon and reviewed by
-            your doctor against the record you already have with us.
+            a doctor against the record you already have with us.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">

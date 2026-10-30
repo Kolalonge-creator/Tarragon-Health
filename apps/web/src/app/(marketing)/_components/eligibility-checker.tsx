@@ -77,7 +77,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "partner_no_match" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          {state.orgName} works with Tarragon, but this number isn&apos;t on their list yet.
+          {state.orgName} works with Tarragon, but this number is not on their list yet.
           Ask your HR department or plan administrator to add you, or{" "}
           <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             contact us
@@ -87,7 +87,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "no_partner" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          We don&apos;t work with them yet, but we have noted your interest. If you would like this sooner, you can{" "}
+          We do not work with them yet, but we have noted your interest. If you would like this sooner, you can{" "}
           <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             introduce us to your {noun}
           </Link>

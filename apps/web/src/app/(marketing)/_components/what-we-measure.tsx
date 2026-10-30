@@ -173,7 +173,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
       },
       {
         name: "Prostate-Specific Antigen: PSA (men 45+)",
-        explanation: "A blood test that your doctor discusses with you before it is ordered.",
+        explanation: "A blood test that a doctor discusses with you before it is ordered.",
         frequency: "Every 2 years",
         tier: "Advanced",
       },
@@ -210,13 +210,13 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
       },
       {
         name: "Hepatitis B Surface Antigen",
-        explanation: "Checks whether you're currently infected with Hepatitis B.",
+        explanation: "Checks whether you are currently infected with Hepatitis B.",
         frequency: "Once",
         tier: "Core",
       },
       {
         name: "Hepatitis C Test",
-        explanation: "Checks whether you're currently infected with Hepatitis C.",
+        explanation: "Checks whether you are currently infected with Hepatitis C.",
         frequency: "Once",
         tier: "Core",
       },

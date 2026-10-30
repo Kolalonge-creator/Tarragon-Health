@@ -92,13 +92,13 @@ export default function PartnersPage() {
             PARTNER_LOGOS is ever empty (a partner roster has changed more
             than once in this project's history — see CLAUDE.md's laboratory
             fulfilment section), this page says so honestly instead of
-            rendering a "here's who we work with" heading over nothing. */}
+            rendering a "here is who we work with" heading over nothing. */}
         {PARTNER_LOGOS.length > 0 ? (
           <>
             {/* flex-wrap, not a fixed-column grid: a lone confirmed partner
                 (the current, real count) should sit centered, not stranded
                 in the first cell of a two-column grid built for a count this
-                page doesn't have yet. */}
+                page does not have yet. */}
             <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-6">
               {PARTNER_LOGOS.map((partner) => (
                 <Card key={partner.name} className="w-full max-w-sm">
@@ -145,7 +145,7 @@ export default function PartnersPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="How we're paid"
+          eyebrow="How we are paid"
           title="Why we do not take capitation"
           description="Some healthcare businesses are paid a fixed fee per member, whether or not that member is seen. We have chosen not to work this way."
         />

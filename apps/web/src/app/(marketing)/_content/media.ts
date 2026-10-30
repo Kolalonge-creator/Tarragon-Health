@@ -298,8 +298,8 @@ export const PRODUCT_VIDEOS: Record<string, ProductVideo> = {
   },
   labs: {
     youtubeId: "",
-    title: "See how lab coordination works",
+    title: "See how laboratory coordination works",
     caption:
-      "Knowing what's due, taking your request to any lab you choose, and getting every result reviewed.",
+      "Knowing what is due, taking your request to any lab you choose, and getting every result reviewed.",
   },
 };

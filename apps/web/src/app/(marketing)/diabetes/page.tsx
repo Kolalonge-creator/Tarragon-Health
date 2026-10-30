@@ -39,7 +39,7 @@ export default async function DiabetesPage() {
         <SectionHeading
           eyebrow="What we monitor"
           title="Every check, and how often"
-          description="Once your doctor places you on a diabetes care plan, this is what is tracked and how often."
+          description="Once a doctor places you on a diabetes care plan, this is what is tracked and how often."
         />
         <ConditionMonitoringGrid categories={DIABETES_MONITORING} />
       </Section>

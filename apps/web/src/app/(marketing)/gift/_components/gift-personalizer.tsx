@@ -99,7 +99,7 @@ export function GiftPersonalizer() {
             />
           </div>
           <div>
-            <Label htmlFor="gift-recipient-relationship">They&apos;re your...</Label>
+            <Label htmlFor="gift-recipient-relationship">They are your...</Label>
             <Select
               id="gift-recipient-relationship"
               className="mt-1.5"
