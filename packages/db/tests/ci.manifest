@@ -14,6 +14,8 @@ care_access_request_phone_proof.sql
 bp_form_ticks_page_clinician.sql
 # P4: exercise_session_logs (the only record behind exercise progress): own-row writes, 30-day date guard, tied staff reads, both registries. Sabotage: guard trigger, immutable trigger and tie gate each removed.
 exercise_session_logs.sql
+# OQ-666 follow-up: the admin / CMO people search finds a clinician by MDCN folio through search_clinical_staff_by_folio (admin and CMO only, ids only, zero rows for a colleague, a patient, a coordinator, a foreign-organisation CMO; anon refused; short terms and wildcards match nothing) while the base-table column and directory view stay folio-free. Sabotage: no entitlement check, no organisation clause, table grant restored must each flip.
+search_clinical_staff_by_folio.sql
 doctor_time_entitlement_grantable_by_purchasable_product.sql
 force_safe_patient_order_insert_defaults.sql
 refund_ledger_reversal.sql
