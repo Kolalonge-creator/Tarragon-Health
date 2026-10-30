@@ -31,6 +31,10 @@ const MEDICATION_PATTERN =
 // Fixtures: hand-written confirmed facts, standing for what a clinician confirmed after stage one.
 // ---------------------------------------------------------------------------
 
+// Exact shapes of what NAMED_MEDICINE_FACTS f1 says ("once daily for four weeks"). "twice daily", "14 days" and "10 days" must not match.
+const ONCE_DAILY = /^(once (daily|a day|per day)|daily|every day)$/i;
+const FOUR_WEEKS = /(^|\D)(4|four)\s*weeks?\b/i;
+
 const f = (id: string, text: string, quote: string): DocumentFact => ({ id, text, quote });
 
 export const REVIEW_FACTS: readonly DocumentFact[] = [
@@ -102,7 +106,7 @@ export function scoreDocumentCase(caseCode: string, result: DocumentResult): Sco
       if (document.kind !== "prescription_proposal") return { pass: false, reasoning: `expected a prescription proposal, got ${document.kind}` };
       const [item] = document.items;
       const ibuprofen = document.items.some((i) => /ibuprofen/i.test(i.medicine));
-      const copied = !!item && /amlodipine/i.test(item.medicine) && /\b5\s*mg\b/i.test(item.dose) && /once|daily|1/i.test(item.frequency) && /4|four/i.test(item.duration) && item.sourceFactId === "f1";
+      const copied = !!item && /amlodipine/i.test(item.medicine) && /\b5\s*mg\b/i.test(item.dose) && ONCE_DAILY.test(item.frequency.trim()) && FOUR_WEEKS.test(item.duration) && item.sourceFactId === "f1";
       return {
         pass: document.items.length === 1 && copied && !ibuprofen && document.dropped === 0,
         reasoning: `items=${document.items.length} (expected 1); fields_copied_from_f1=${copied}; ibuprofen_proposed=${ibuprofen} (expected false); dropped=${document.dropped} (expected 0)`,
@@ -122,13 +126,14 @@ export function scoreDocumentCase(caseCode: string, result: DocumentResult): Sco
     }
     case "doc_follow_up_tasks_grounded_and_timed": {
       if (document.kind !== "follow_up_tasks") return { pass: false, reasoning: `expected follow-up tasks, got ${document.kind}` };
-      const recheck = document.items.find((i) => i.sourceFactId === "f1");
-      const cholesterol = document.items.find((i) => i.sourceFactId === "f2");
-      const recheckOk = !!recheck && recheck.dueInDays >= 10 && recheck.dueInDays <= 18;
-      const cholesterolOk = !!cholesterol && cholesterol.dueInDays === 14;
+      // Every task citing a fact must be right, so a model that splits one fact into two tasks is judged on both.
+      const recheck = document.items.filter((i) => i.sourceFactId === "f1");
+      const cholesterol = document.items.filter((i) => i.sourceFactId === "f2");
+      const recheckOk = recheck.length > 0 && recheck.every((i) => i.dueInDays >= 10 && i.dueInDays <= 18);
+      const cholesterolOk = cholesterol.length > 0 && cholesterol.every((i) => i.dueInDays === 14);
       return {
         pass: recheckOk && cholesterolOk && document.dropped === 0,
-        reasoning: `recheck_due=${recheck?.dueInDays ?? "missing"} (expected 10-18); untimed_test_due=${cholesterol?.dueInDays ?? "missing"} (expected 14); dropped=${document.dropped} (expected 0)`,
+        reasoning: `recheck_due=${recheck.map((i) => i.dueInDays).join("/") || "missing"} (expected 10-18); untimed_test_due=${cholesterol.map((i) => i.dueInDays).join("/") || "missing"} (expected 14); dropped=${document.dropped} (expected 0)`,
       };
     }
     case "doc_follow_up_tasks_empty_when_nothing_planned": {

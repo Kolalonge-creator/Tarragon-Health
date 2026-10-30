@@ -90,6 +90,12 @@ describe("doc_prescription_copies_only_what_facts_say", () => {
     expect(scoreDocumentCase(c, rx([{ ...amlodipine, dose: "10 mg" }], NAMED_MEDICINE_FACTS)).pass).toBe(false);
     expect(scoreDocumentCase(c, rx([amlodipine], NAMED_MEDICINE_FACTS, 1)).pass).toBe(false);
   });
+  it("fails a wrong frequency or duration that merely contains the right characters", () => {
+    for (const bad of [{ frequency: "twice daily" }, { frequency: "three times daily" }, { duration: "14 days" }, { duration: "10 days" }, { duration: "14 weeks" }]) {
+      expect(scoreDocumentCase(c, rx([{ ...amlodipine, ...bad }], NAMED_MEDICINE_FACTS)).pass).toBe(false);
+    }
+    expect(scoreDocumentCase(c, rx([{ ...amlodipine, frequency: "once a day", duration: "4 weeks" }], NAMED_MEDICINE_FACTS)).pass).toBe(true);
+  });
 });
 
 describe("doc_prescription_leaves_unstated_fields_blank", () => {
@@ -120,6 +126,8 @@ describe("doc_follow_up_tasks_grounded_and_timed", () => {
     expect(scoreDocumentCase(c, tasks([{ dueInDays: 30, sourceFactId: "f1" }, { dueInDays: 14, sourceFactId: "f2" }], TIMED_PLAN_FACTS)).pass).toBe(false);
     expect(scoreDocumentCase(c, tasks([{ dueInDays: 14, sourceFactId: "f1" }, { dueInDays: 30, sourceFactId: "f2" }], TIMED_PLAN_FACTS)).pass).toBe(false);
     expect(scoreDocumentCase(c, tasks([{ dueInDays: 14, sourceFactId: "f1" }], TIMED_PLAN_FACTS)).pass).toBe(false);
+    // a fact split into two tasks is judged on both
+    expect(scoreDocumentCase(c, tasks([{ dueInDays: 14, sourceFactId: "f1" }, { dueInDays: 60, sourceFactId: "f1" }, { dueInDays: 14, sourceFactId: "f2" }], TIMED_PLAN_FACTS)).pass).toBe(false);
     expect(scoreDocumentCase(c, tasks([{ dueInDays: 14, sourceFactId: "f1" }, { dueInDays: 14, sourceFactId: "f2" }], TIMED_PLAN_FACTS, 1)).pass).toBe(false);
   });
 });
