@@ -118,6 +118,16 @@ describe("provider organisation overview page", () => {
     render(await OverviewPage(props));
     expect(screen.getByRole("alert").textContent).toContain("could not be loaded");
     expect(screen.queryByText("Open referrals")).toBeNull();
+    // One failure notice, and no "Needs you first" block that could read as good news.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "Needs you first" })).toBeNull();
+  });
+  it("leads with referrals paid and waiting to be booked", async () => {
+    replies = { provider_org_analytics: ok({ ...analytics, referrals_by_status: { payment_confirmed: 3, booked: 1 } }) };
+    render(await OverviewPage(props));
+    expect(screen.getByRole("region", { name: "Needs you first" }).textContent).toContain(
+      "3 referrals are paid and waiting to be booked",
+    );
   });
   it("counts only open referrals and shows the response time when a booking exists", async () => {
     replies = { provider_org_analytics: ok(analytics) };
