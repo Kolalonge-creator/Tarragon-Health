@@ -329,3 +329,4 @@ export * from "./document-suggestions";
 export * from "./refund-rule";
 export * from "./default-meal-type";
 export * from "./consultations/next-available";
+export * from "./group-ledger";

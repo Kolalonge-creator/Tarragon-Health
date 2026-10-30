@@ -46,7 +46,7 @@ Membership and Membership Plus are the same care. You get the same care team, th
 
 **How the monthly call works.** Each month your doctor offers you times and you choose one. The call is by video. If video does not work for you, it can be by audio only or by phone. "Every month" is the pace we plan for. It is not a promise that a call can never move by a few days. If we miss a month for a reason on our side, "Refunds, and if we do not deliver" below applies.
 
-**The yearly blood test.** The yearly blood panel is a fixed set of tests. The list is shown on our pricing page and on the screen where you pay. Membership Plus blood tests are collected in the state you choose when you buy, and that state stays fixed. If you later move somewhere we do not collect, you will need to come back to that state for your yearly tests. On any plan, including Free, you can ask for the yearly test request, take it to a laboratory and pay the laboratory directly. We do not collect blood on that route.
+**The yearly blood test.** The yearly blood panel is a fixed set of tests. The list is shown on our pricing page. Membership Plus blood tests are collected in the state you choose when you buy, and that state stays fixed. If you later move somewhere we do not collect, you will need to come back to that state for your yearly tests. On any plan, including Free, you can ask for the yearly test request, take it to a laboratory and pay the laboratory directly. We do not collect blood on that route.
 
 **Not included.**
 
@@ -58,7 +58,7 @@ Membership and Membership Plus are the same care. You get the same care team, th
 ## Extras for Members
 Members can buy two extras. One is a second opinion from a doctor. The other is an extra online meeting with a doctor. Both are for Members only, so a person on the Free plan cannot buy them. The price of each is shown in the app before you confirm, and nothing is charged until you confirm.
 
-When you ask for an extra online meeting, your payment is held by us. It only goes through when a doctor accepts the request, so a meeting is never automatic and depends on doctor availability. If no doctor accepts within the time shown, or a doctor declines, your payment is refunded.
+You pay when you ask for an extra online meeting. A meeting is never automatic and depends on doctor availability. If no doctor accepts within 48 hours, or a doctor declines, or you do not choose one of the times offered within 24 hours, your payment is refunded in full.
 
 ## Price and payment
 The price of each plan is shown on the screen where you pay, before you pay, together with what is included and the refund rule. It is also on your receipt. All prices are in naira. The same price applies whether you pay with a Nigerian payment method or an international card, and we do not run a separate foreign-currency price list. Payment is handled by Paystack. We do not see or store your full card details.
@@ -68,7 +68,7 @@ Your plan starts when we receive confirmation of payment from Paystack and runs 
 **Moving up to Membership Plus.** You can move from Membership to Membership Plus at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way can only happen when your year ends.
 
 ## No automatic renewal
-Your plan does not renew by itself. Nothing is charged to your card again unless you choose to buy again. We remind you 30, 14 and 7 days before your year ends, so that you can buy another year if you want to. If you do nothing, your plan ends on its end date. If we ever offer automatic renewal, it will be something you choose when you pay, and we will change these terms first.
+Your plan does not renew by itself. Nothing is charged to your card again unless you choose to buy again. We aim to remind you 30, 14 and 7 days before your year ends, so that you can buy another year if you want to. If you do nothing, your plan ends on its end date. If we ever offer automatic renewal, it will be something you choose when you pay, and we will change these terms first.
 
 ## When your year ends
 When your year ends naturally, you keep your Member access for 14 more days. During those 14 days you can still use your Member services, and you can buy a new year without a gap. After the 14 days your account returns to the Free plan. Your health record is kept and stays yours. You can always read and download it at no charge. Buying a plan again restores your Member access.
@@ -91,13 +91,13 @@ When you pay for a health check or screening ahead of time, you receive a Care V
 **Rewards are vouchers too.** Credit earned through referrals, prevention activities, or wellness points is issued as a discount voucher on these same terms. It has no cash value, was not bought with your money, and cannot be exchanged for money.
 
 ## Refunds, and if we do not deliver
-**The 21-day refund.** You can ask for a refund of your Membership or Membership Plus within 21 days of buying it. The 21 days start on the day we receive confirmation of your payment, and a request made on the 21st day is in time. If you ask in time, we refund the full price you paid. If you moved up from Membership to Membership Plus, the 21 days for that extra payment start on the day you paid it.
+**The 21-day refund.** You can ask for a refund of your Membership or Membership Plus within 21 days of buying it. The 21 days start at the time we receive confirmation of your payment and end at the same time of day, 21 days later. A request made before then is in time. If you ask in time, we refund the full price you paid. If you moved up from Membership to Membership Plus, the 21 days for that extra payment start on the day you paid it.
 
 **After 21 days.** After 21 days, a plan is not refundable, except as set out under "If we do not deliver" below and except where the law requires a refund.
 
 **What happens to your access.** When we approve a refund, your Member access ends straight away. You move to the Free plan, with no 14-day grace period. Your health record is kept and stays yours. The one exception is a refund of only the extra payment for moving up to Membership Plus. In that case you go back to Membership for the rest of your year, and you keep your Member access.
 
-**How to ask.** Use the Request a refund option on your Membership page in the app, or write to legal@tarragonhealth.ng from the email address on your account. Tell us your name and the date you bought. You do not need to give a reason. If an organisation paid for your Membership, only the organisation can ask, and we will not accept a refund request from the Member.
+**How to ask.** Use the Request a refund option on your Membership page in the app, or write to legal@tarragonhealth.ng from the email address on your account. Tell us your name and the date you bought. Please add a few words on why you are asking. If an organisation paid for your Membership, only the organisation can ask, and we will not accept a refund request from the Member.
 
 **How long it takes.** We reply within 5 working days. If we approve, we send the money back, through Paystack, to the card or bank account that paid, within 5 working days. Your bank then usually shows it within 3 to 10 working days after that. We do not charge you for a refund.
 
@@ -133,7 +133,7 @@ TarragonHealth is not an emergency service. If you think you or someone with you
 ## If you are on the Free plan
 The Free plan does not include time with a doctor. This is what that means in practice.
 
-If you record a reading or a symptom that looks dangerous, the app shows you straight away what to do: seek emergency care or go to the nearest hospital. It tells you plainly that no doctor has been alerted, because you are on the Free plan. If you have named an emergency contact, we let them know. The app also asks you to check the reading again shortly afterwards, and checks in later to ask whether you were able to get care. Your answers stay in your own record and are not sent to a doctor.
+If you record a reading or a symptom that looks dangerous, the app shows you straight away what to do: seek emergency care or go to the nearest hospital. For the most serious readings it also tells you plainly that no doctor has been alerted. Whatever the app shows you, no doctor is alerted about a reading or symptom logged on the Free plan. If you have named an emergency contact, we let them know. The app also asks you to check the reading again shortly afterwards, and checks in later to ask whether you were able to get care. Your answers stay in your own record and are not sent to a doctor.
 
 An abnormal screening result, or a critical laboratory result, that reaches us is sent to a doctor on every plan.
 

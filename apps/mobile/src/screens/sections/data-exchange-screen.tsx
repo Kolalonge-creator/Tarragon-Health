@@ -5,7 +5,7 @@ import { forgetExchangeCopy, grantConsent, loadExchange, saveExchangeCopy, withd
 import { formatPassportDate } from "@/lib/passport-format";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { space, useTheme } from "@/ui/design";
-import { AppText, Button, Card, Chip, Field, InlineAlert, Screen } from "@/ui/kit";
+import { AppText, Button, Card, Chip, Field, InlineAlert, Screen, Disclosure } from "@/ui/kit";
 import { LoadFailed, PassportHeader, StaleNotice } from "@/screens/sections/passport-parts";
 
 interface Props {
@@ -176,10 +176,7 @@ export function DataExchangeScreen({ userId, acting }: Props) {
             <Button title={t("exchange.grant")} loading={busy} disabled={!live || source.trim().length < 2} onPress={() => void grant()} />
           </Card>
 
-          <Card style={{ gap: space.sm }}>
-            <AppText variant="title" heading>
-              {t("exchange.received_title")}
-            </AppText>
+          <Disclosure title={`${t("exchange.received_title")} (${state.data.received.length})`}>
             {state.data.received.length === 0 ? (
               <AppText tone="textMuted">{t("exchange.received_none")}</AppText>
             ) : (
@@ -194,12 +191,9 @@ export function DataExchangeScreen({ userId, acting }: Props) {
                 </AppText>
               ))
             )}
-          </Card>
+          </Disclosure>
 
-          <Card style={{ gap: space.sm }}>
-            <AppText variant="title" heading>
-              {t("exchange.copies_title")}
-            </AppText>
+          <Disclosure title={`${t("exchange.copies_title")} (${state.data.copies.length})`}>
             {state.data.copies.length === 0 ? (
               <AppText tone="textMuted">{t("exchange.copies_none")}</AppText>
             ) : (
@@ -209,7 +203,7 @@ export function DataExchangeScreen({ userId, acting }: Props) {
                 </AppText>
               ))
             )}
-          </Card>
+          </Disclosure>
         </>
       ) : null}
     </Screen>
