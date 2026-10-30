@@ -12,8 +12,9 @@ import { TASK_TYPE_LABEL, taskTypeSearchWords } from "@/lib/queue/task-types";
 
 /**
  * The people half of the search box (the pages half runs in the browser). For the admin and the Chief Medical
- * Officer. Clinicians and clinician applicants are searched by name, staff number or MDCN folio through the caller's
- * own session, so the database still decides what they may see. The admin alone can also look up patients (name,
+ * Officer. Clinicians are searched by name or staff number through the caller's own session, and by MDCN folio through
+ * public.search_clinical_staff_by_folio(), a definer-rights function whose own check (admin or CMO only) is the only gate on
+ * the folio match. Clinician applicants are matched on the credentialing queue the caller may already read. The admin alone can also look up patients (name,
  * phone or patient number) for support and investigations; the result is only an identity line that opens the
  * admin Patients page with the search filled in, and the Patients page keeps its own admin-only gate.
  */
@@ -55,12 +56,15 @@ export async function GET(request: Request): Promise<Response> {
     searchStaffIdsByFolio(supabase, term),
     rpcParsed(supabase, "credentialing_queue", {}, queueSchema).catch(() => null),
   ]);
-  const extraIds = folioIds.filter((id) => !(byName.data ?? []).some((s) => s.id === id));
+  // a folio search that did not run is reported, never shown as a complete (shorter) list
+  if (folioIds === null) failed = true;
+  const extraIds = (folioIds ?? []).filter((id) => !(byName.data ?? []).some((s) => s.id === id));
   const byFolio =
     extraIds.length > 0
       ? await supabase.from("clinical_staff").select("id, full_name, staff_number, active").in("id", extraIds)
       : { data: [], error: null };
-  const staff = { data: [...(byName.data ?? []), ...(byFolio.data ?? [])], error: byName.error ?? byFolio.error };
+  // the group keeps the same size as every other group (6), name matches first
+  const staff = { data: [...(byName.data ?? []), ...(byFolio.data ?? [])].slice(0, 6), error: byName.error ?? byFolio.error };
 
   if (staff.error) failed = true;
   // This route is admin / Chief Medical Officer only, both entitled to the folio; it comes from the folio function.

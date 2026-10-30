@@ -100,12 +100,12 @@ describe("searchStaffIdsByFolio (OQ-666: the admin / CMO search matches a folio 
     expect(rpc).toHaveBeenCalledWith("search_clinical_staff_by_folio", { p_term: "MDCN/12" });
   });
 
-  it("returns no ids (and logs) when the call fails or the function is not deployed yet, and never reads the table", async () => {
+  it("returns null (and logs) when the call fails or the function is not deployed yet, and never reads the table", async () => {
     const errSpy = jest.spyOn(console, "error").mockImplementation(noop);
     for (const error of [{ code: "PGRST202" }, { code: "42501" }]) {
       const rpc = jest.fn().mockResolvedValue({ data: null, error });
       const from = jest.fn();
-      expect(await searchStaffIdsByFolio({ rpc, from } as never, "MDCN/12")).toEqual([]);
+      expect(await searchStaffIdsByFolio({ rpc, from } as never, "MDCN/12")).toBeNull();
       expect(from).not.toHaveBeenCalled();
     }
     expect(errSpy).toHaveBeenCalledTimes(2);

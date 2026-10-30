@@ -75,8 +75,10 @@ describe("GET /api/admin/search clinicians (OQ-666)", () => {
       fn === "search_clinical_staff_by_folio" ? { data: null, error: { code: "PGRST202" } } : { data: [], error: null },
     );
     const res = await GET(req("Ada"));
-    const body = (await res.json()) as { results: { label: string }[] };
+    const body = (await res.json()) as { results: { label: string }[]; failed: boolean };
     expect(body.results.map((r) => r.label)).toContain("Ada Name");
+    // the box is told a source was unavailable, not shown a shorter list as complete
+    expect(body.failed).toBe(true);
     expect(mockIn).not.toHaveBeenCalled();
   });
 
