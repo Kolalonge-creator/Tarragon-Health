@@ -18,10 +18,10 @@ Checked against the live database on 2026-10-30:
 
 ## What stays, and why
 
-- Instant, automatic safety path: a flagged self-harm or emergency post shows the member the safety card and their own emergency-contact button straight away, and the post is held for a safety reviewer. No person has to be awake for the member to be safe.
+- Instant, automatic safety path: a flagged self-harm or emergency post shows the member the safety card and their own emergency-contact button straight away, and the post is held for a safety reviewer. The member is shown help immediately without anyone being awake; the held post itself waits for a safety reviewer, so turn the overdue-work check on (step 5) before relying on out-of-hours cover.
 - First three posts per member are held for a moderator; contact details, links, selling and cure claims are filtered; no direct messages, no voice notes, no leaderboards (COM-1, COM-10).
 - Pictures only through the pre-moderated path.
-- Anyone can switch Community off at any time, without a note.
+- An admin or the CMO can switch Community off at any time; holding it needs a one-line reason of at least 20 characters (the go-live page shows it).
 
 ## How it compares
 
@@ -29,7 +29,7 @@ Comparison drawn from general knowledge of these products and their published no
 
 | | Public condition forums (Patient.info, Mayo Clinic Connect, Inspire, HealthUnlocked) | Reddit and Facebook groups | WhatsApp and Telegram groups, the usual local choice | Tarragon Community |
 |---|---|---|---|---|
-| Identity | Username, some real names | Username or real name | Phone number visible to every member | Generated handle and avatar; only the CMO can unmask, for a safety reason, and is told when it happens |
+| Identity | Username, some real names | Username or real name | Phone number visible to every member | Generated handle and avatar; unmasking is a staff action tied to a safety concern, logged, with a notice to the CMO (as the spec describes; not re-tested here) |
 | Moderation | Staff or trained volunteers, post-hoc and pre-moderation for new members | Volunteers, uneven | The group admin, no tools | New members held; every flagged post waits for a named person; clear queue and appeal path |
 | Self-harm and emergencies | Signposting to a helpline, manual | Mostly none | None | Automatic safety card plus the member's own emergency-contact button, CMO-signed rules |
 | Selling, cure claims, medicine advice | Rules and removal after the fact | After the fact | Rampant; direct messages carry the selling | Filtered before it appears; no direct messages |
