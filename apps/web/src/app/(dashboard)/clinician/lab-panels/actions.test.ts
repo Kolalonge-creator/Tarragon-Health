@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
-const rpc = jest.fn(async (..._args: unknown[]) => ({ data: "id", error: null as { message: string; code?: string } | null }));
+const rpc = jest.fn(async (..._args: unknown[]): Promise<{ data: string | null; error: { message: string; code?: string } | null }> => ({ data: "id", error: null }));
 const refuse = jest.fn(async (..._args: unknown[]) => null as string | null);
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 jest.mock("@/lib/clinical/refuse-superseded-draft", () => ({ refuseSupersededDraft: (...a: unknown[]) => refuse(...a) }));
@@ -46,7 +46,7 @@ describe("signLabPanels error messages", () => {
   it("signs when the database accepts, and never calls it unconfirmed", async () => {
     expect(await signLabPanels(undefined, form())).toEqual({ success: true });
     rpc.mockClear();
-    expect((await signLabPanels(undefined, form(false))).error).toMatch(/reviewed/i);
+    expect((await signLabPanels(undefined, form(false)))?.error).toMatch(/reviewed/i);
     expect(rpc).not.toHaveBeenCalled();
   });
 });
