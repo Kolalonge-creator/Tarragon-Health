@@ -189,7 +189,7 @@ export const DIABETES_MONITORING: MonitoringCategory[] = [
       {
         name: "Foot assessment",
         explanation: "Checks circulation and nerve sensation in your feet.",
-        cadence: "Annually if your risk is low or increased; sooner if it's high",
+        cadence: "Annually if your risk is low or increased; sooner if it is high",
         tracked: "reminder",
       },
       {
@@ -213,7 +213,7 @@ export const DIABETES_MONITORING: MonitoringCategory[] = [
     items: [
       {
         name: "Metformin → kidney function",
-        explanation: "Kidney function, checked periodically for as long as you're on it.",
+        explanation: "Kidney function, checked periodically for as long as you are on it.",
         cadence: "Every 12 months",
         tracked: "reminder",
       },
@@ -289,7 +289,7 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
       <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/60">
         <strong className="text-charcoal-ink/75">Reminded automatically</strong> means the app itself
         schedules the check and sends you reminders. <strong className="text-charcoal-ink/75">Followed by your care team</strong>{" "}
-        means the check is part of your care protocol and your doctor keeps track of it, even where the app does not yet
+        means the check is part of your care protocol and your care team keeps track of it, even where the app does not yet
         send a separate reminder.
       </p>
     </div>

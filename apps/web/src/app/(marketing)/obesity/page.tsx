@@ -63,7 +63,7 @@ export default async function ObesityPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             This programme is lifestyle-led and doctor-reviewed. It does not currently include
             weight-loss medication (such as GLP-1 injections) or any other prescribing specific
-            to weight. If you are looking for that, say so at your first review, and your doctor can
+            to weight. If you are looking for that, say so at your first review, and a doctor can
             explain the options available elsewhere.
           </p>
         </div>
