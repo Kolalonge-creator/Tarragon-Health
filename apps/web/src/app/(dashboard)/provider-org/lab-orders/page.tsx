@@ -3,6 +3,7 @@ import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 type OrderRow = {
   order_id: string;
@@ -33,7 +34,7 @@ export default async function ProviderOrgLabOrdersPage({
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("provider_org_lab_order_queue", { p_organisation_id: selected.id });
+  const { data, error } = await supabase.rpc("provider_org_lab_order_queue", { p_organisation_id: selected.id });
   const orders = (data ?? []) as OrderRow[];
 
   return (
@@ -53,7 +54,11 @@ export default async function ProviderOrgLabOrdersPage({
           <CardTitle>Orders routed to this organisation&apos;s claimed lab</CardTitle>
         </CardHeader>
         <CardContent>
-          {orders.length === 0 ? (
+          {error ? (
+            <LoadFailure>
+              Lab orders could not be loaded just now. Nothing has been removed. Refresh the page to try again.
+            </LoadFailure>
+          ) : orders.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
               No orders yet, or this organisation hasn&apos;t claimed a lab directory row (Admin → Partners).
             </p>

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedInsurer } from "@/lib/payer/scope";
 import { InsurerPicker } from "../insurer-picker";
 import { PreauthorizationsManager } from "./preauthorizations-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function PayerPreauthorizationsPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function PayerPreauthorizationsPage({
   // insurance_preauthorizations_payer_select scopes this to the caller's
   // own insurer's requests via the policy → insurer join — no separate
   // insurer_id filter needed here beyond what the query already asks for.
-  const { data: rows } = await supabase
+  const { data: rows, error } = await supabase
     .from("insurance_preauthorizations")
     .select(
       "id, service_category, estimated_amount_kobo, clinical_justification, status, authorization_number, denial_reason, requested_at, insurance_policies(insurer_id, plan_name)"
@@ -40,7 +41,7 @@ export default async function PayerPreauthorizationsPage({
         </h1>
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
-      <PreauthorizationsManager rows={rows ?? []} />
+      {error ? <ListUnavailable title="Pre-authorisations" /> : <PreauthorizationsManager rows={rows ?? []} />}
     </div>
   );
 }

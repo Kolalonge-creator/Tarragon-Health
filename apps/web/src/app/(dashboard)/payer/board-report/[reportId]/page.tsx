@@ -30,7 +30,7 @@ export default async function BoardReportPage({
   const { reportId } = await params;
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("payer_board_reports")
     .select(
       "id, report_number, period_start, period_end, status, content_hash, generated_at, attested_at, attestation_statement, attester_role_title, withdrawal_reason, snapshot"
@@ -38,6 +38,8 @@ export default async function BoardReportPage({
     .eq("id", reportId)
     .maybeSingle();
 
+  // A failed read is not a missing report: do not tell the reader it does not exist.
+  if (error) throw error;
   if (!data) notFound();
   const report = data as unknown as BoardReportRow;
 

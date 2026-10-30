@@ -3,21 +3,9 @@ import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "./org-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { NAV_ICON } from "@/lib/icons";
-
-type Analytics = {
-  staff_by_role: Record<string, number>;
-  structure: { locations: number; departments: number; services: number; resources: number };
-  referrals_by_status: Record<string, number>;
-  referral_avg_response_hours: number;
-  lab_orders_by_status: Record<string, number>;
-  pharmacy_orders_by_status: Record<string, number>;
-  settlements_by_status: Record<string, { count: number; invoiced_total_kobo: number }>;
-};
-
-function sum(record: Record<string, number> | undefined) {
-  return Object.values(record ?? {}).reduce((a, b) => a + b, 0);
-}
+import { providerOverview } from "@/lib/provider-org/overview-summary";
 
 export default async function ProviderOrgOverviewPage({
   searchParams,
@@ -42,8 +30,7 @@ export default async function ProviderOrgOverviewPage({
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("provider_org_analytics", { p_organisation_id: selected.id });
-  const analytics = data as Analytics | null;
+  const overview = providerOverview(await supabase.rpc("provider_org_analytics", { p_organisation_id: selected.id }));
 
   return (
     <div className="space-y-6">
@@ -52,17 +39,24 @@ export default async function ProviderOrgOverviewPage({
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
 
-      {analytics && (
+      {overview.kind === "failed" && (
+        <LoadFailure>
+          This organisation&apos;s figures could not be loaded just now. They are unknown, not zero. Refresh the page to
+          try again.
+        </LoadFailure>
+      )}
+
+      {overview.kind === "ready" && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile icon={NAV_ICON.members} label="Staff" value={String(sum(analytics.staff_by_role))} />
-            <StatTile icon={NAV_ICON.region} label="Locations" value={String(analytics.structure.locations)} />
-            <StatTile icon={NAV_ICON.referral} label="Open referrals" value={String(sum(analytics.referrals_by_status))} />
+            <StatTile icon={NAV_ICON.members} label="Staff" value={String(overview.staff)} />
+            <StatTile icon={NAV_ICON.region} label="Locations" value={String(overview.analytics.structure.locations)} />
+            <StatTile icon={NAV_ICON.referral} label="Open referrals" value={String(overview.openReferrals)} />
             <StatTile
               icon={NAV_ICON.statements}
               label="Avg. referral response"
-              value={String(analytics.referral_avg_response_hours)}
-              unit="hrs"
+              value={overview.avgResponseHours === null ? "None yet" : String(overview.avgResponseHours)}
+              unit={overview.avgResponseHours === null ? undefined : "hrs"}
             />
           </div>
 
@@ -74,13 +68,13 @@ export default async function ProviderOrgOverviewPage({
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1 text-sm">
-                  {Object.entries(analytics.referrals_by_status).map(([status, n]) => (
+                  {Object.entries(overview.analytics.referrals_by_status).map(([status, n]) => (
                     <li key={status} className="flex justify-between">
                       <span className="capitalize text-charcoal-ink/70">{status.replace(/_/g, " ")}</span>
                       <span className="font-medium">{n}</span>
                     </li>
                   ))}
-                  {Object.keys(analytics.referrals_by_status).length === 0 && (
+                  {Object.keys(overview.analytics.referrals_by_status).length === 0 && (
                     <li className="text-charcoal-ink/60">Nothing routed here yet.</li>
                   )}
                 </ul>
@@ -95,15 +89,15 @@ export default async function ProviderOrgOverviewPage({
                 <ul className="space-y-1 text-sm">
                   <li className="flex justify-between">
                     <span className="text-charcoal-ink/70">Departments</span>
-                    <span className="font-medium">{analytics.structure.departments}</span>
+                    <span className="font-medium">{overview.analytics.structure.departments}</span>
                   </li>
                   <li className="flex justify-between">
                     <span className="text-charcoal-ink/70">Services</span>
-                    <span className="font-medium">{analytics.structure.services}</span>
+                    <span className="font-medium">{overview.analytics.structure.services}</span>
                   </li>
                   <li className="flex justify-between">
                     <span className="text-charcoal-ink/70">Resources</span>
-                    <span className="font-medium">{analytics.structure.resources}</span>
+                    <span className="font-medium">{overview.analytics.structure.resources}</span>
                   </li>
                 </ul>
               </CardContent>

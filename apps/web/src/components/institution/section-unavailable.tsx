@@ -22,3 +22,24 @@ export function SectionUnavailable({ title }: { title: string }) {
     </Card>
   );
 }
+
+/**
+ * A list a partner console could not read. Shown in place of the manager, so no
+ * "No claims yet" or "No staff yet" is left on screen for a failed read. Nothing
+ * has been removed; the person is told to refresh, not to re-enter anything.
+ */
+export function ListUnavailable({ title }: { title: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LoadFailure>
+          {title} could not be loaded just now. Nothing has been removed. Refresh the page to try again before adding
+          or changing anything.
+        </LoadFailure>
+      </CardContent>
+    </Card>
+  );
+}
