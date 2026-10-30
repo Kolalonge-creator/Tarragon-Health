@@ -8,6 +8,7 @@ import {
   useReviewExportRequest,
   useReviewDeletionRequest,
   useReviewCorrectionRequest,
+  useCloseAccount,
   type AdminDataExportRequest,
   type AdminDataDeletionRequest,
   type AdminDataCorrectionRequest,
@@ -19,6 +20,8 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { CLOSE_ACCOUNT_KEPT, closeAccountSummaryLines, type CloseAccountSummary } from "@/lib/queries/close-account-summary";
+import { DELETION_REMOVED } from "@tarragon/shared";
 
 const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
   pending: "amber",
@@ -208,13 +211,19 @@ function ExportRequestsSection() {
  * A patient's request to delete data we hold. Deliberately staged, per the
  * migration's own warning that clinical records under mandatory retention
  * cannot simply be deleted on request: a reviewer decides full/partial
- * approval (a partial approval must say what's blocked and why) or denial,
- * then — once the actual deletion/anonymisation work is carried out
- * out-of-band against whichever tables apply — marks the request completed.
- * This control tracks the decision; it never executes a deletion itself.
+ * approval (a partial approval must say what's blocked and why) or denial.
+ * Once approved and past the patient's waiting period, "Close account and
+ * remove data" runs public.close_patient_account (OQ-S04b2-2): one reviewed
+ * database step that removes only operational data, ends device connections
+ * and sharing, removes contact details and deactivates (never deletes) the
+ * profile, then completes the request. It never touches clinical records,
+ * audit logs or ledger entries. It is idempotent and all-or-nothing.
  */
 function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) {
   const review = useReviewDeletionRequest();
+  const closeAccount = useCloseAccount();
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [closeResult, setCloseResult] = useState<CloseAccountSummary | null>(null);
   const [action, setAction] = useState<"deny" | "partial" | null>(null);
   const [note, setNote] = useState("");
   const [blockedReason, setBlockedReason] = useState("");
@@ -307,26 +316,87 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
         </div>
       )}
 
-      {isApproved && (
-        <Button
-          size="sm"
-          disabled={review.isPending || inGrace}
-          onClick={() => {
-            if (
-              !window.confirm(
-                "Marking this completed CLOSES THE PATIENT'S ACCOUNT now (the profile is deactivated, never deleted) and withdraws every consent still in force. Only do this once the approved removal has actually been carried out. Continue?"
-              )
-            ) {
-              return;
-            }
-            // The patient sees this note: it must say what was removed and what was kept.
-            const completionNote = window.prompt("What was removed, and what was kept? (shown to the patient)");
-            if (!completionNote || completionNote.trim().length === 0) return;
-            review.mutate({ requestId: request.id, status: "completed", decisionNote: [request.decision_note, completionNote.trim()].filter(Boolean).join(" ") });
-          }}
-        >
-          Mark completed
-        </Button>
+      {(isApproved || (request.status === "completed" && !request.anonymisation_summary)) && !closeResult && (
+        <div className="space-y-2">
+          {!confirmingClose && (
+            <>
+              <Button size="sm" disabled={closeAccount.isPending || inGrace} onClick={() => setConfirmingClose(true)}>
+                {isApproved ? "Close account and remove data" : "Finish removal (already marked completed)"}
+              </Button>
+              {request.status === "completed" && (
+                <p className="text-xs text-charcoal-ink/60">
+                  This request was marked completed by hand. Running the removal is safe to repeat and does not change the request.
+                </p>
+              )}
+            </>
+          )}
+          {confirmingClose && (
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-charcoal-ink dark:bg-transparent">
+              <p className="font-medium">
+                This closes {request.patient?.full_name ?? "this patient"}&apos;s account now. It cannot be undone.
+              </p>
+              <p>Removed:</p>
+              <ul className="list-disc pl-5">
+                {DELETION_REMOVED.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+              <p>Kept:</p>
+              <ul className="list-disc pl-5">
+                {CLOSE_ACCOUNT_KEPT.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+              <p>It runs as one step. If anything fails, nothing is changed and you can run it again.</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={closeAccount.isPending}
+                  onClick={() =>
+                    closeAccount.mutate(request.id, {
+                      onSuccess: (summary) => {
+                        setCloseResult(summary);
+                        setConfirmingClose(false);
+                      },
+                    })
+                  }
+                >
+                  {closeAccount.isPending ? "Closing…" : "Yes, close the account"}
+                </Button>
+                <Button size="sm" variant="ghost" disabled={closeAccount.isPending} onClick={() => setConfirmingClose(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {closeAccount.isError && (
+            <p className="text-xs text-red-600">
+              {closeAccount.error instanceof Error
+                ? closeAccount.error.message
+                : typeof closeAccount.error === "object" && closeAccount.error !== null && "message" in closeAccount.error
+                  ? String((closeAccount.error as { message: unknown }).message)
+                  : "Couldn't close this account. Nothing was changed."}
+            </p>
+          )}
+        </div>
+      )}
+
+      {closeResult && (
+        <div className="space-y-1 rounded-lg border border-green-300 p-3 text-xs text-charcoal-ink">
+          <p className="font-medium">
+            {closeResult.already_closed ? "This account was already closed. Nothing was changed." : "Account closed."}
+          </p>
+          {closeAccountSummaryLines(closeResult).length > 0 ? (
+            <ul className="list-disc pl-5">
+              {closeAccountSummaryLines(closeResult).map((l) => (
+                <li key={l}>{l}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No operational data was left to remove.</p>
+          )}
+          <p>Kept: {CLOSE_ACCOUNT_KEPT.join("; ")}.</p>
+        </div>
       )}
 
       {reviewError && <p className="text-xs text-red-600">{reviewError}</p>}
