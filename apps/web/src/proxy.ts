@@ -9,6 +9,8 @@ import {
 import { isAppHost } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
+import { rateLimit } from "@/lib/rate-limit";
+import { isMobileApiPath, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -28,6 +30,13 @@ export async function proxy(request: NextRequest) {
   );
   if (consoleTarget) {
     return NextResponse.redirect(consoleTarget, 307);
+  }
+
+  // OQ-267: one request-rate limit for every /api/mobile/* route, before any session work. Generous and fail-open; see
+  // lib/mobile-api-rate-limit.ts for why it is keyed on the session, not the IP.
+  if (isMobileApiPath(request.nextUrl.pathname)) {
+    const limited = await mobileApiRateLimitResponse(request.headers, rateLimit, request.nextUrl.pathname);
+    if (limited) return limited;
   }
 
   const { response, supabase, user } = await updateSession(request, { verify: "claims" });
