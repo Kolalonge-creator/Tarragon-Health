@@ -14,7 +14,8 @@ booking, research export, the assistant, on-call cover). Any other question clos
 where X is what the build did. Do not open a question for a feature guard, an operational setting, or a `proposed` registry value
 under a signed protocol (G-01 to G-03). The bulk pass over the ids below under this rule is under way: stage one, 2026-10-30, is in
 `docs/design/OQ-TRIAGE-2026-10-30.md` (the entries that really stand in front of a master, and the ones that need a named person).
-Until the entries are closed, read an old open id here as "answered by the build unless it blocks a master", not as outstanding work.
+Stage two closed the 48 entries that were already resolved (each carries a "closed 2026-10-30, G-04 stage two" line). The default-taken
+entries are still to do; until they are closed, read an old open id here as "answered by the build unless it blocks a master", not as outstanding work.
 
 ## A. Safety and invariant conflicts (highest priority)
 
