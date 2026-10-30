@@ -91,6 +91,34 @@ describe("AnalyticsLoadNotice", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("shows a retry in progress and refuses a second click until it finishes", async () => {
+    // The last good figures are still on screen (stale), so the notice stays
+    // up while the retry runs: that is when feedback matters.
+    let finishRetry: (value: unknown) => void = () => {};
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true })
+      .mockRejectedValueOnce(new Error("refresh failed"))
+      .mockImplementationOnce(() => new Promise((resolve) => (finishRetry = resolve)));
+    const client = mount(<Figure queryKey={KEY} queryFn={fn} />);
+
+    await waitFor(() => expect(fn).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: KEY });
+    });
+    await screen.findByRole("status");
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    const busy = await screen.findByRole("button", { name: "Trying again…" });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(busy);
+    expect(fn).toHaveBeenCalledTimes(3); // initial, the failed refresh, ONE retry
+
+    await act(async () => finishRetry({ ok: true }));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  });
+
   it("steps aside on pages that already report their own failures", async () => {
     mockPath = "/analytics/investor";
     const fn = jest.fn().mockRejectedValue(new Error("down"));

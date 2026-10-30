@@ -37,8 +37,15 @@ describe("isRefusedAnswer", () => {
     ["undefined", undefined],
     ["an empty string", ""],
     ["zero", 0],
+    // Neither has an own key, and neither is an answer an RPC can give.
+    ["a Date", new Date(0)],
+    ["a Map", new Map()],
   ])("is false for %s", (_label, value) => {
     expect(isRefusedAnswer(value)).toBe(false);
+  });
+
+  it("still counts an object with no prototype as a plain empty object", () => {
+    expect(isRefusedAnswer(Object.create(null))).toBe(true);
   });
 });
 

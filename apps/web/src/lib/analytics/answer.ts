@@ -35,14 +35,20 @@ export class AnalyticsRefusedError extends Error {
   }
 }
 
+/**
+ * An object literal as JSON produces it. A Date or a Map also has no own keys
+ * but is not an answer a refused RPC can give, so it must not be mistaken for
+ * one.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 /** A plain object with no keys: the answer a refused caller receives. */
 export function isRefusedAnswer(data: unknown): boolean {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    !Array.isArray(data) &&
-    Object.keys(data).length === 0
-  );
+  return isPlainObject(data) && Object.keys(data).length === 0;
 }
 
 /**

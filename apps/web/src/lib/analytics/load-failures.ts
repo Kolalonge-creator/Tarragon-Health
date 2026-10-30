@@ -30,7 +30,9 @@ export type AnalyticsLoadState = "failed" | "stale" | "none";
  * something did not load: the Overview (lib/analytics/overview-summary.ts, a
  * hint in each tile) and the Investor page (refreshQueryState with its own
  * LoadFailure and StaleDataNotice). A second, generic alert above them would
- * only say the same thing twice.
+ * only say the same thing twice. That holds only while each page mounts just
+ * the queries it reports on; self-reporting-pages.test.ts pins that, so a third
+ * query added to either page fails a test instead of going unreported.
  */
 export const SELF_REPORTING_PATHS: readonly string[] = ["/analytics", "/analytics/investor"];
 

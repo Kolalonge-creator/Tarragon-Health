@@ -1,8 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import {
@@ -25,13 +25,24 @@ export function AnalyticsLoadNotice() {
   const queryClient = useQueryClient();
   const cache = queryClient.getQueryCache();
 
+  // A stable function, so React subscribes once per cache instead of tearing
+  // the listener down and re-adding it on every render.
+  const subscribe = useCallback((notify: () => void) => cache.subscribe(notify), [cache]);
+
   // Re-read whenever any query changes; the snapshot is a plain string, so
   // React only re-renders when the worst state actually changes.
   const state = useSyncExternalStore(
-    (notify) => cache.subscribe(notify),
+    subscribe,
     () => worstAnalyticsLoadState(cache.getAll()),
     () => "none" as const
   );
+
+  // While a retry is running, say so and refuse a second click: refetchQueries
+  // cancels an in-flight request by default, so repeated clicks would keep
+  // restarting the one that is trying to finish. (A figure with nothing to show
+  // goes back to "pending" the moment it is retried, which hides this notice;
+  // this covers the other case, where the last good figures are still showing.)
+  const retrying = useIsFetching({ queryKey: ["analytics"] }) > 0;
 
   if (state === "none" || pageReportsItsOwnFailures(pathname)) return null;
 
@@ -41,9 +52,10 @@ export function AnalyticsLoadNotice() {
       variant="outline"
       size="sm"
       className="ml-3"
+      disabled={retrying}
       onClick={() => void queryClient.refetchQueries({ predicate: isFailedAnalyticsQuery })}
     >
-      Try again
+      {retrying ? "Trying again…" : "Try again"}
     </Button>
   );
 

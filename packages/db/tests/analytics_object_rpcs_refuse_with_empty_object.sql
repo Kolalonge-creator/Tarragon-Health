@@ -21,11 +21,24 @@
 --
 -- Discovery is live from pg_proc rather than a hardcoded list, so a new
 -- analytics RPC is covered the day it is added. The filter is: in public,
--- returns jsonb, is a function, is STABLE or IMMUTABLE (a writer is VOLATILE,
--- which keeps analytics_upsert_* and analytics_log_patient_access out),
--- and takes no required arguments. A canary fails if discovery goes stale.
--- The three diagnostic_* RPCs are named explicitly because they are consumed
--- by the same hooks but do not share the prefix.
+-- returns jsonb, is a function, and takes no required arguments. It
+-- deliberately does NOT filter on volatility. An earlier draft kept only
+-- STABLE/IMMUTABLE functions to keep writers out, and silently skipped 8 of the
+-- 51 RPCs (analytics_alert_burden, analytics_alert_quality,
+-- analytics_complaints_summary, analytics_safety_dashboard_summary,
+-- analytics_support_ticket_summary and the three diagnostic_* ones), because
+-- plpgsql functions are VOLATILE unless someone remembers to say otherwise.
+-- Writers are already excluded, since they take required arguments
+-- (analytics_upsert_*, analytics_log_patient_access), and anything a zero-
+-- argument call did would be undone by the rollback below. A canary fails if
+-- discovery goes stale. The three diagnostic_* RPCs are named explicitly
+-- because they are consumed by the same hooks but do not share the prefix.
+--
+-- Limit: each RPC is called with its DEFAULT arguments only. The hooks that
+-- pass a period, range or filter are not exercised with those values here, so
+-- an RPC whose answer shape depended on a non-default argument would not be
+-- seen. Every object RPC is built with jsonb_build_object, which makes that
+-- unlikely, but it is not proven.
 --
 -- Only RPCs whose AUTHORISED answer is an object are checked. About
 -- seventeen return an array, and for those a refusal (`[]`) is identical to a
@@ -39,9 +52,10 @@
 --   list is itself checked: if the RPC is ever changed to refuse with `{}`,
 --   this fails and says to take it off the list.
 --
--- Sabotage (the test must be able to fail): two misbehaving RPCs are created
+-- Sabotage (the test must be able to fail): three misbehaving RPCs are created
 -- inside the transaction and must each be named by the check. One refuses
--- with a non-empty shell; one answers an authorised caller with `{}`.
+-- with a non-empty shell; one answers an authorised caller with `{}`; one is a
+-- VOLATILE reader refusing with a non-empty shell.
 --
 -- Wrapped in BEGIN/ROLLBACK; leaves the database exactly as found.
 -- ===========================================================================
@@ -112,7 +126,6 @@ begin
     where p.pronamespace = 'public'::regnamespace
       and p.prokind = 'f'
       and p.prorettype = 'jsonb'::regtype
-      and p.provolatile in ('s', 'i')
       and p.pronargs = p.pronargdefaults
       and (p.proname like 'analytics\_%'
            or p.proname in ('diagnostic_governance_analytics',
@@ -162,7 +175,6 @@ begin
   where p.pronamespace = 'public'::regnamespace
     and p.prokind = 'f'
     and p.prorettype = 'jsonb'::regtype
-    and p.provolatile in ('s', 'i')
     and p.pronargs = p.pronargdefaults
     and (p.proname like 'analytics\_%'
          or p.proname in ('diagnostic_governance_analytics',
@@ -218,7 +230,26 @@ begin
   end if;
   drop function public.analytics_zz_contract_blank();
 
-  -- 5. And with both gone, the contract holds again (the sabotage cleaned up).
+  -- 5. Sabotage C: a VOLATILE reader that refuses with a non-empty shell must be
+  --    named too. This is the kind the first draft of the discovery filter
+  --    silently skipped (8 real RPCs), so it is pinned explicitly.
+  create function public.analytics_zz_contract_volatile() returns jsonb
+  language plpgsql volatile security definer set search_path = '' as $f$
+  begin
+    if not private.is_analyst() then
+      return jsonb_build_object('total', 0);
+    end if;
+    return jsonb_build_object('total', 1);
+  end $f$;
+  grant execute on function public.analytics_zz_contract_volatile() to authenticated;
+
+  v_breaks := pg_temp.contract_breaks(v_exceptions);
+  if not ('analytics_zz_contract_volatile: refused answer is not {}' = any (v_breaks)) then
+    raise exception 'SABOTAGE FAILED (C): a VOLATILE reader refusing with a non-empty shell was not caught; got %', v_breaks;
+  end if;
+  drop function public.analytics_zz_contract_volatile();
+
+  -- 6. And with all three gone, the contract holds again (the sabotage cleaned up).
   v_breaks := pg_temp.contract_breaks(v_exceptions);
   if cardinality(v_breaks) > 0 then
     raise exception 'FAIL: contract broken after the sabotage was removed: %', array_to_string(v_breaks, '; ');

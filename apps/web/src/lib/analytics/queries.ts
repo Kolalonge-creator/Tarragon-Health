@@ -63,6 +63,12 @@ import {
  * is an analyst (private.is_analyst()) — see
  * supabase/migrations/20260717180931_analytics_console_rpcs.sql. Responses are
  * parsed with Zod at the boundary since the RPCs are typed as `Json`.
+ *
+ * Parse through `parseAnalyticsAnswer(schema, data)` (./answer), never a bare
+ * `schema.parse(data)`. A caller who is not an analyst is answered with an
+ * empty `{}` rather than an error, and every schema here turns `{}` into a
+ * full set of zeros, so a bare parse shows a refusal as a quiet month. A scan
+ * test (queries-guard.test.ts) fails if a hook skips the guard.
  */
 
 export type GrowthPeriod = "day" | "week" | "month";
