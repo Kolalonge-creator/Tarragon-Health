@@ -1697,3 +1697,4 @@ anon_executable_functions_allowlist.sql
 events_notification_delivery_renderable.sql
 # First-run fixes: in-app reminders queued once (an email patient still gets email plus in-app), and the full nightly scheduler and request automation skip test accounts while the per-patient mode still serves them. Sabotage reverts each patch from the live body.
 screening_nightly_jobs_dedupe_and_test_accounts.sql
+care_team_reply_time.sql

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, FlatList, KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
+import { loadReplyTimeSentence, loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
 import { clearDraft, loadDraft, saveDraft } from "@/lib/drafts";
 import { MAX_FONT_SCALE, MIN_TARGET, radii, space, textStyles, useTheme } from "@/ui/design";
 import { AppText, Button, EmptyState, Icon, InlineAlert, PressableScale, Skeleton, SkeletonGroup } from "@/ui/kit";
@@ -36,6 +36,8 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
   // conversation" empty state over a thread that exists — loadError replaces
   // the list with an explicit retry state instead.
   const [loadError, setLoadError] = useState(false);
+  // The care team's recent reply time, or null (a failed read or a thin sample shows nothing). Loaded apart from the thread so it never delays it.
+  const [replyLine, setReplyLine] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sendFailed, setSendFailed] = useState(false);
   const listRef = useRef<FlatList<CareMessage>>(null);
@@ -55,6 +57,18 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadReplyTimeSentence()
+      .then((line) => {
+        if (!cancelled) setReplyLine(line);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // A half-written message survives the app being closed (power cuts, calls).
   useEffect(() => {
@@ -150,6 +164,11 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       <AppText variant="body" tone="textMuted">
         {tr("messages.subtitle")}
       </AppText>
+      {replyLine ? (
+        <AppText variant="caption" tone="textMuted">
+          {replyLine}
+        </AppText>
+      ) : null}
     </View>
   );
 

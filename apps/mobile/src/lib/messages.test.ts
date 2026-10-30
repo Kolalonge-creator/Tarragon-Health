@@ -1,4 +1,4 @@
-import { loadThreadMessages } from "./messages";
+import { loadReplyTimeSentence, loadThreadMessages } from "./messages";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
@@ -71,5 +71,23 @@ describe("loadThreadMessages", () => {
     const result = await loadThreadMessages("t1");
 
     expect(result[0].actor).toBeNull();
+  });
+});
+
+describe("loadReplyTimeSentence", () => {
+  const rpc = supabase.rpc as unknown as jest.Mock;
+  it("gives one plain sentence for an available figure", async () => {
+    rpc.mockResolvedValueOnce({ data: { available: true, median_minutes: 180, replies: 14, window_days: 30 }, error: null });
+    const s = await loadReplyTimeSentence();
+    expect(s).toContain("about 3 hours");
+    expect(s).toContain("not a promise");
+  });
+  it("gives nothing for an error, not available, or a malformed answer", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await loadReplyTimeSentence()).toBeNull();
+    rpc.mockResolvedValueOnce({ data: { available: false }, error: null });
+    expect(await loadReplyTimeSentence()).toBeNull();
+    rpc.mockResolvedValueOnce({ data: { available: true, median_minutes: "x" }, error: null });
+    expect(await loadReplyTimeSentence()).toBeNull();
   });
 });
