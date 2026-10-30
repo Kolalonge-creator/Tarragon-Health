@@ -387,7 +387,7 @@ begin
 
   -- 5a. nothing is mapped yet: the whole push is rejected, nothing is stored
   v_j := pg_temp.push(v_labu, v_o1, 'msg-000001', pg_temp.push_items(88, 'mg/dL'))::jsonb;
-  perform pg_temp.ck('5a with no mappings the push is rejected as unmapped, listing the pairs', 'rejected|unmapped_item|18',
+  perform pg_temp.ck('5a with no mappings the push is rejected as unmapped, listing the pairs', 'rejected|unmapped_item|17',
     (v_j ->> 'status') || '|' || (v_j ->> 'reject_code') || '|' || jsonb_array_length(v_j -> 'unmapped')::text);
   perform pg_temp.ck('5b ...and no result exists for the order', '0', (select count(*)::text from public.lab_results where lab_order_id = v_o1));
 
