@@ -30,6 +30,8 @@ export type PreventionTab = {
 export function PreventionTabs({ tabs, ariaLabel = "Prevention sections" }: { tabs: PreventionTab[]; ariaLabel?: string }) {
   const [activeId, setActiveId] = useState(tabs[0]?.id);
   const activeTabRef = useRef<HTMLButtonElement>(null);
+  // A person who has picked a tab themselves is never moved by a late hash check.
+  const pickedByUser = useRef(false);
 
   // The row scrolls sideways at phone width. Keep the chosen tab fully in view so it never sits clipped at the edge. Only the row
   // scrolls: block "nearest" leaves the page where it is.
@@ -49,8 +51,17 @@ export function PreventionTabs({ tabs, ariaLabel = "Prevention sections" }: { ta
       });
     }
     resolveHash();
+    // On a cold load from another page the hash is not always readable the first time this runs (a link to /patient/labs#locations
+    // opened on the first tab on production while the same hash changed after load worked). Check once more shortly after, unless
+    // the person has already chosen a tab.
+    const late = window.setTimeout(() => {
+      if (!pickedByUser.current) resolveHash();
+    }, 400);
     window.addEventListener("hashchange", resolveHash);
-    return () => window.removeEventListener("hashchange", resolveHash);
+    return () => {
+      window.clearTimeout(late);
+      window.removeEventListener("hashchange", resolveHash);
+    };
     // Deliberately mount-only: `tabs` is a fresh array/JSX literal every
     // render, so depending on it would re-run this every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,7 +83,10 @@ export function PreventionTabs({ tabs, ariaLabel = "Prevention sections" }: { ta
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveId(tab.id)}
+              onClick={() => {
+                pickedByUser.current = true;
+                setActiveId(tab.id);
+              }}
               className={cn(
                 "shrink-0 whitespace-nowrap rounded-t-lg border-b-2 min-h-11 px-3.5 py-2.5 text-sm font-medium transition-colors",
                 isActive
