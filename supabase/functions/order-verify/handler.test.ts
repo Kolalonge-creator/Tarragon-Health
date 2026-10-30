@@ -72,3 +72,20 @@ Deno.test("a Paystack outage asks the app to try again", async () => {
   payments.failNextCall();
   assertEquals((await handleVerify(req({ reference: REF }), deps)).status, 503);
 });
+
+Deno.test("OQ-267: a caller over the limit gets 429 with Retry-After before anything is read or verified", async () => {
+  const { deps, db } = await setup({ settle: true });
+  let reads = 0;
+  const limited: VerifyDeps = {
+    ...deps,
+    rpcAsUser: (_a, fn) => {
+      if (fn === "edge_rate_limit_hit") return Promise.resolve({ data: { allowed: false, retry_after_seconds: 9 }, error: null });
+      reads++;
+      return Promise.resolve({ data: { state: "created" }, error: null });
+    },
+  };
+  const res = await handleVerify(req({ reference: REF }), limited);
+  assertEquals(res.status, 429);
+  assertEquals(res.headers.get("Retry-After"), "9");
+  assertEquals([reads, db.recorded], [0, 0]);
+});

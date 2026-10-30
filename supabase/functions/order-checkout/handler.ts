@@ -6,6 +6,7 @@
 // cannot send a patient to another site after payment). The reply carries ids and the hosted checkout link only.
 import { mapOrderError, startCheckout, type CreatedOrder, type OrderCreator, type OrderStore } from "../_shared/commerce/index.ts";
 import type { PaymentProvider } from "../_shared/integrations/index.ts";
+import { edgeRateLimited } from "../_shared/rate-limit/edge-rate-limit.ts";
 
 export interface CheckoutDeps {
   readonly payments: PaymentProvider | null;
@@ -38,6 +39,9 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
   const me = await deps.whoami(auth);
   if (!me) return Response.json({ error: "unauthorised" }, { status: 401 });
+  // OQ-267: this function bypasses the web proxy, so the per-user limit is counted in the database (fails open)
+  const limited = await edgeRateLimited((fn, args) => deps.rpcAsUser(auth, fn, args), "order-checkout");
+  if (limited) return limited;
   if (!deps.payments || !deps.returnUrl) return Response.json({ error: "payment_unavailable" }, { status: 503 });
 
   let body: unknown;

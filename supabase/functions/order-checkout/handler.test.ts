@@ -17,6 +17,8 @@ function deps(over: Partial<CheckoutDeps> & { rpc?: (fn: string, args: Record<st
     returnUrl: "https://app.example/patient/membership/paid",
     whoami: () => Promise.resolve({ id: "u1", email: "a@example.com" }),
     rpcAsUser: (_a, fn, args) => {
+      // the rate-limit check (OQ-267) is not an order call: answer it here so call lists and seen.args stay about the order
+      if (fn === "edge_rate_limit_hit") return Promise.resolve({ data: { allowed: true }, error: null });
       seen.args = args;
       return Promise.resolve(over.rpc ? over.rpc(fn, args) : { data: { order_id: "o1", reference: REF, amount_kobo: 12_000_000, state: "created", checkout_url: null }, error: null });
     },
@@ -320,4 +322,28 @@ Deno.test("Plus: a database that does not have the new argument yet is a plain 5
   const { d } = deps({ rpc: () => ({ data: null, error: { message: "Could not find the function public.create_order(p_code, p_client_key, p_collection_state) in the schema cache" } }) });
   const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, collection_state: "Lagos" }), d);
   assertEquals([res.status, (await res.json()).error], [503, "checkout_updating"]);
+});
+
+Deno.test("OQ-267: a caller over the limit gets 429 with Retry-After and nothing is created", async () => {
+  const { d, payments, seen } = deps();
+  const limited: CheckoutDeps = {
+    ...d,
+    rpcAsUser: (_a, fn, args) => fn === "edge_rate_limit_hit"
+      ? Promise.resolve({ data: { allowed: false, limit: 20, retry_after_seconds: 12 }, error: null })
+      : d.rpcAsUser(_a, fn, args),
+  };
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), limited);
+  assertEquals(res.status, 429);
+  assertEquals(res.headers.get("Retry-After"), "12");
+  assertEquals(seen.args, undefined);
+  void payments;
+});
+
+Deno.test("OQ-267: a limiter error fails open and the order is created", async () => {
+  const { d } = deps();
+  const open: CheckoutDeps = {
+    ...d,
+    rpcAsUser: (_a, fn, args) => fn === "edge_rate_limit_hit" ? Promise.resolve({ data: null, error: { message: "down" } }) : d.rpcAsUser(_a, fn, args),
+  };
+  assertEquals((await handleCheckout(req({ code: "membership_annual", client_key: KEY }), open)).status, 200);
 });
