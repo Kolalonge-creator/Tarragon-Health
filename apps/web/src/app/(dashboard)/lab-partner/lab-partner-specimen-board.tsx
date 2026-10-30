@@ -10,6 +10,7 @@ import {
   type LabSpecimen,
   type LabSpecimenRejectionReason,
 } from "@/lib/queries/lab-specimens";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,7 +142,8 @@ export function LabPartnerSpecimenBoard() {
         </CardHeader>
         <CardContent>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-          {isError && <p className="text-sm text-red-600">Could not load your samples.</p>}
+          {isError && !data && <LoadFailure>Your samples could not be loaded just now. None have been removed. Refresh the page to try again.</LoadFailure>}
+          {isError && data && <StaleDataNotice>This list may be out of date: the last refresh failed. Refresh the page to try again.</StaleDataNotice>}
           {data && open.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">No samples in progress right now.</p>
           )}

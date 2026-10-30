@@ -7,6 +7,7 @@ import {
   useLabPartnerUploadResult,
 } from "@/lib/queries/lab-partner";
 import { LAB_RESULT_FILE_ACCEPT, validateLabResultFile } from "@/lib/lab-results/structured";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -227,7 +228,8 @@ export function LabPartnerWorklist() {
         </CardHeader>
         <CardContent>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-          {isError && <p className="text-sm text-red-600">Could not load your orders.</p>}
+          {isError && !data && <LoadFailure>Your orders could not be loaded just now. None have been removed. Refresh the page to try again.</LoadFailure>}
+          {isError && data && <StaleDataNotice>This list may be out of date: the last refresh failed. Refresh the page to try again.</StaleDataNotice>}
           {data && data.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">No orders routed to your lab yet.</p>
           )}

@@ -3,7 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
-import { formatNumber } from "@/lib/analytics/format";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { buildLabPartnerOverview } from "@/lib/lab-partner/overview-summary";
 import { startOfLagosDayUtc } from "@/lib/ai-coach/lagos-day";
 import { LabPartnerWorklist } from "./lab-partner-worklist";
 import { LabPartnerTurnaroundCard } from "./lab-partner-turnaround-card";
@@ -12,8 +13,6 @@ import { LabPartnerServices } from "./lab-partner-services";
 import { LabPartnerSpecimenBoard } from "./lab-partner-specimen-board";
 import { LabPartnerDashboardStatsRow } from "./lab-partner-dashboard-stats-row";
 import { PartnerStaffInviteForm } from "@/components/partner-admin/partner-staff-invite-form";
-
-type OrderRow = { status: string; resulted_at: string | null };
 
 export default async function LabPartnerPage() {
   const profile = await getCurrentProfile();
@@ -34,25 +33,14 @@ export default async function LabPartnerPage() {
 
   const supabase = await createClient();
   const now = new Date();
-  const todayStartIso = startOfLagosDayUtc(now).toISOString();
-  const weekStartIso = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const todayStart = startOfLagosDayUtc(now);
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Same RPC LabPartnerWorklist re-fetches client-side for its own live
   // query — lab_partner_orders is a SECURITY DEFINER RPC scoped to this lab
   // (20260729234509_lab_partner_surface.sql); there's no direct table grant
   // to compute these counts from instead.
-  const { data: orderRows } = await supabase.rpc("lab_partner_orders");
-  const orders = (orderRows ?? []) as OrderRow[];
-
-  const awaitingActionCount = orders.filter(
-    (o) => o.status !== "resulted" && o.status !== "cancelled",
-  ).length;
-  const resultedTodayCount = orders.filter(
-    (o) => o.resulted_at != null && o.resulted_at >= todayStartIso,
-  ).length;
-  const resultedThisWeekCount = orders.filter(
-    (o) => o.resulted_at != null && o.resulted_at >= weekStartIso,
-  ).length;
+  const overview = buildLabPartnerOverview(await supabase.rpc("lab_partner_orders"), todayStart, weekStart);
 
   return (
     <div className="space-y-6">
@@ -63,33 +51,33 @@ export default async function LabPartnerPage() {
         </p>
       </div>
 
+      {overview.failed && (
+        <LoadFailure>
+          Your order counts could not be loaded just now. They are unknown, not zero, so do not read this as nothing
+          waiting. The orders list below may still load. Refresh the page to try again.
+        </LoadFailure>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          icon={SEMANTIC_ICON.logistics}
-          label="Orders routed to you"
-          value={formatNumber(orders.length)}
-        />
+        <StatTile icon={SEMANTIC_ICON.logistics} label="Orders routed to you" {...overview.tiles.routed} />
         <StatTile
           icon={NAV_ICON.review}
-          tintClassName={awaitingActionCount > 0 ? "bg-amber-100" : undefined}
-          iconClassName={awaitingActionCount > 0 ? "text-amber-700" : undefined}
+          tintClassName={overview.tiles.awaiting.needsAttention ? "bg-amber-100" : undefined}
+          iconClassName={overview.tiles.awaiting.needsAttention ? "text-amber-700" : undefined}
           label="Awaiting your action"
-          value={formatNumber(awaitingActionCount)}
-          delta={{
-            text: awaitingActionCount > 0 ? "Needs a result uploaded" : "All caught up",
-            direction: awaitingActionCount > 0 ? "down" : "up",
-          }}
+          {...overview.tiles.awaiting.tile}
+          delta={overview.tiles.awaiting.delta}
         />
         <StatTile
           icon={SEMANTIC_ICON.labs}
           label="Resulted today"
-          value={formatNumber(resultedTodayCount)}
+          {...overview.tiles.resultedToday}
           delta={{ text: "Since midnight, Lagos time", direction: "flat" }}
         />
         <StatTile
           icon={NAV_ICON.upload}
           label="Resulted this week"
-          value={formatNumber(resultedThisWeekCount)}
+          {...overview.tiles.resultedThisWeek}
           delta={{ text: "Last 7 days", direction: "flat" }}
         />
       </div>

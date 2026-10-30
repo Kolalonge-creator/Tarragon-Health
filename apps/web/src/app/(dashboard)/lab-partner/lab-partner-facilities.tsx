@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadFailure } from "@/components/ui/load-failure";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,12 @@ import {
  * 20260827203240) scopes every write to this lab's own rows.
  */
 export function LabPartnerFacilities() {
-  const { data: providerId } = useLabPartnerOwnProviderId();
-  const { data: facilities, isLoading } = useLabPartnerFacilities(providerId);
+  const provider = useLabPartnerOwnProviderId();
+  const providerId = provider.data;
+  const facilitiesQuery = useLabPartnerFacilities(providerId);
+  const facilities = facilitiesQuery.data;
+  const isLoading = facilitiesQuery.isLoading;
+  const listFailed = facilitiesQuery.isError && !facilities;
   const create = useCreateLabPartnerFacility();
   const toggle = useSetLabPartnerFacilityActive();
 
@@ -33,6 +38,22 @@ export function LabPartnerFacilities() {
   const [contactPhone, setContactPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Not linked to a directory row: nothing to show. But a failed read of the
+  // link is not the same thing, and must not make the card vanish.
+  if (provider.isError && !providerId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your branches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoadFailure>
+            Your branches could not be loaded just now. None have been removed. Refresh the page to try again.
+          </LoadFailure>
+        </CardContent>
+      </Card>
+    );
+  }
   if (!providerId) {
     return null;
   }
@@ -109,6 +130,11 @@ export function LabPartnerFacilities() {
         <div className="space-y-2 border-t border-charcoal-ink/10 pt-4">
           {isLoading ? (
             <p className="text-sm text-charcoal-ink/60">Loading…</p>
+          ) : listFailed ? (
+            <LoadFailure>
+              Your branches could not be loaded just now. None have been removed. Refresh the page to try again
+              before adding one, in case it is already there.
+            </LoadFailure>
           ) : (facilities ?? []).length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No branches added yet.</p>
           ) : (
