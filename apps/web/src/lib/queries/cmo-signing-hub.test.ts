@@ -172,6 +172,7 @@ const noAi: PendingAiGovernanceSignoff = {
   pendingClinicalAccuracyLabelCount: 0,
   pendingGuardrailApprovalCount: 0,
   pendingKnowledgeSourceApprovalCount: 0,
+  pendingEvaluationRunReviewCount: 0,
   attentionCount: 0,
   failed: false,
 };
@@ -628,6 +629,7 @@ describe("readCmoSigningHub", () => {
       pendingClinicalAccuracyLabelCount: 4,
       pendingGuardrailApprovalCount: 0,
       pendingKnowledgeSourceApprovalCount: 0,
+      pendingEvaluationRunReviewCount: 0,
       attentionCount: 5,
       failed: false,
     });
@@ -644,12 +646,21 @@ describe("readCmoSigningHub", () => {
       ...noAi,
       pendingGuardrailApprovalCount: 67,
       pendingKnowledgeSourceApprovalCount: 1,
+      pendingEvaluationRunReviewCount: 0,
       attentionCount: 68,
     });
     const hub = await hubAll(supabase);
     expect(hub.items[0]).toMatchObject({ key: "ai_governance", count: 68 });
     expect(hub.items[0]?.detail).toContain("67 guardrails to approve");
     expect(hub.items[0]?.detail).toContain("1 knowledge source to approve");
+  });
+
+  it("names the test results waiting to be read on the AI governance line", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingAiGovernanceSignoff.mockResolvedValue({ ...noAi, pendingEvaluationRunReviewCount: 31, attentionCount: 31 });
+    const hub = await hubAll(supabase);
+    expect(hub.items[0]).toMatchObject({ key: "ai_governance", count: 31 });
+    expect(hub.items[0]?.detail).toContain("31 test results to read");
   });
 
   it("lists what is live with no signature before what is merely waiting", async () => {
@@ -665,6 +676,7 @@ describe("readCmoSigningHub", () => {
       pendingClinicalAccuracyLabelCount: 0,
   pendingGuardrailApprovalCount: 0,
   pendingKnowledgeSourceApprovalCount: 0,
+  pendingEvaluationRunReviewCount: 0,
       attentionCount: 1,
       failed: false,
     });

@@ -248,6 +248,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
         `${ai.pendingGuardrailApprovalCount} guardrail${ai.pendingGuardrailApprovalCount === 1 ? "" : "s"} to approve`,
       ai.pendingKnowledgeSourceApprovalCount > 0 &&
         `${ai.pendingKnowledgeSourceApprovalCount} knowledge source${ai.pendingKnowledgeSourceApprovalCount === 1 ? "" : "s"} to approve`,
+      ai.pendingEvaluationRunReviewCount > 0 &&
+        `${ai.pendingEvaluationRunReviewCount} test result${ai.pendingEvaluationRunReviewCount === 1 ? "" : "s"} to read`,
     ].filter(Boolean);
     items.push({
       key: "ai_governance",

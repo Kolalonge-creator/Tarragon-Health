@@ -53731,6 +53731,10 @@ export type Database = {
         Args: { p_ids: string[]; p_note?: string }
         Returns: number
       }
+      review_ai_evaluation_run: {
+        Args: { p_expected_outcome: string; p_note?: string; p_run_id: string }
+        Returns: undefined
+      }
       approve_ai_system_version: {
         Args: { p_deploy?: boolean; p_note?: string; p_version_id: string }
         Returns: Json

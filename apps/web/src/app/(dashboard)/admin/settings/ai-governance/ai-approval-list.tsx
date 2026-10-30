@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   approveAiGuardrailsAction,
   approveAiKnowledgeSourcesAction,
+  reviewAiEvaluationRunAction,
   type AiGovernanceActionState,
 } from "./actions";
 
@@ -116,6 +117,31 @@ export function AiKnowledgeSourceApproval({ items }: { items: AiApprovalItem[] }
       <Textarea name="note" rows={2} placeholder="What you reviewed, and any conditions (optional)" />
       <Button type="submit" size="sm" disabled={pending || picked.size === 0}>
         {pending ? "Approving…" : `Approve ${picked.size} knowledge source${picked.size === 1 ? "" : "s"}`}
+      </Button>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+export interface AiRunReviewItem extends AiApprovalItem {
+  /** The outcome shown on the page (pass, fail or needs_review). The database refuses if the run was rescored since. */
+  outcome: "pass" | "fail" | "needs_review";
+}
+
+/**
+ * One finished evaluation result. Reading it is the person's own judgement, so nothing is pre-filled; the outcome shown is sent back
+ * with the run so the database refuses if the result changed after the page loaded. A fail stays a fail: this records that it was read.
+ */
+export function AiRunReview({ item }: { item: AiRunReviewItem }) {
+  const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(reviewAiEvaluationRunAction, undefined);
+  return (
+    <form action={action} className="space-y-2 p-3">
+      <input type="hidden" name="runId" value={item.id} />
+      <input type="hidden" name="expectedOutcome" value={item.outcome} />
+      <ItemText i={item} />
+      <Textarea name="note" rows={1} placeholder="What you checked (optional)" />
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Recording…" : "I have read this result"}
       </Button>
       <Feedback state={state} />
     </form>

@@ -552,6 +552,42 @@ export async function approveAiKnowledgeSourcesAction(
   return { success: n === 0 ? "Nothing new to approve; those were already approved." : `Approved ${n}. It is on the record under your name.` };
 }
 
+const runReviewSchema = z.object({
+  runId: z.string().uuid(),
+  expectedOutcome: z.enum(["pass", "fail", "needs_review"]),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Record that the Chief Medical Officer read the result of a finished evaluation run. The database function is the real gate (active CMO
+ * only, finished runs only, once, audited, never changes the outcome). This forwards the run and the outcome the person saw on the
+ * page; it never works the outcome out itself, so the database refuses if the run was rescored after the page loaded.
+ */
+export async function reviewAiEvaluationRunAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = runReviewSchema.safeParse({
+    runId: formData.get("runId"),
+    expectedOutcome: formData.get("expectedOutcome"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("review_ai_evaluation_run", {
+    p_run_id: parsed.data.runId,
+    p_expected_outcome: parsed.data.expectedOutcome,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidateApprovalPaths();
+  return { success: "Recorded that you read this result. It is on the record under your name." };
+}
+
 function revalidateApprovalPaths() {
   revalidatePath(PATH);
   revalidatePath(CLINICIAN_PATH);
