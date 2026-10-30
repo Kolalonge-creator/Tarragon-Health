@@ -30,11 +30,11 @@ Status key: Met / Partly / Not met / Unknown (the repo cannot show it). Sources 
 
 | # | Must be true | Proof | Owner | Status |
 |---|---|---|---|---|
-| C1 | One real Paystack payment with a live key succeeds end to end, and the webhook creates exactly one entitlement; a replayed webhook creates no second one | Live-key payment record, entitlement row, replay test result | Founder (key) and Engineering | Not met (test mode only; live webhook never run) |
-| C2 | A refund of that payment works and reverses the entitlement | Refund record and ledger entries | Engineering | Not met on live key |
+| C1 | One real Paystack payment with a live key succeeds end to end, and the webhook creates exactly one entitlement; a replayed webhook creates no second one | Live-key payment record, entitlement row, replay test result | Founder (key) and Engineering | Partly (2026-10-30 test-mode run on a test patient: Membership and Membership Plus each paid once, one payment row, one entitlement, one active membership, Plus collection state saved. Still open: a real live-key payment, and proof the Paystack webhook arrives and a replay adds nothing; the order was confirmed by the browser return check and the webhook log is switched off). The run also found the live Paystack key in the Supabase secrets, and web checkout blocked by CORS (fixed in #1477, deployed, merge pending) |
+| C2 | A refund of that payment works and reverses the entitlement | Refund record and ledger entries | Engineering | Partly (2026-10-30 test run: request, administrator approval, order marked refunded, entitlement revoked, Membership ended at once. Not proven: the Paystack refund call and its ledger reversal; the web refund job skips test refunds on purpose and still holds the live key. Needs one small real refund with the live key) |
 | C3 | Paystack settlements reconcile to the ledger with no unexplained difference over a full week | Reconciliation report, difference = 0 kobo (PROPOSED) | Founder and Finance | Not met |
 | C4 | Open money questions are answered: the 250,000 kobo test leftover in account 2100 (OQ-28), and the CBN licence opinion | Written finance decision; counsel opinion | Founder and counsel | Not met |
-| C5 | Rate limits on the payment and mobile routes (OQ-267) | Test showing refusals above the limit [founder to set limit] | Engineering | Partly (the 37 `/api/mobile/*` routes are covered by one proxy rule in #1449, per session with a per-IP flood cap, and safety routes are never session-limited. It is per server instance until Upstash is provisioned (runbook section 3). `order-checkout`, `order-verify`, `queue-next` and `queue-handback` are Supabase edge functions that bypass the proxy and are still unlimited) |
+| C5 | Rate limits on the payment and mobile routes (OQ-267) | Test showing refusals above the limit [founder to set limit] | Engineering | Met, with the limits still PROPOSED for the founder to confirm (checked 2026-10-30: the 37 `/api/mobile/*` routes are limited in the proxy (#1449) and counters are live in Upstash; `order-checkout` 20 a minute and `order-verify`, `queue-next`, `queue-handback` 60 a minute per signed-in user in the database (#1460, deployed); database proof and tests pass. The limiter fails open if it errors or hangs). The edge functions' own 429 reply is not yet understood by the web checkout screen, which shows a generic error |
 
 ## D. Data protection
 
@@ -55,7 +55,7 @@ Status key: Met / Partly / Not met / Unknown (the repo cannot show it). Sources 
 | E1 | Supabase security advisor shows no error-level finding that is not justified, and any warning left is listed with a reason | Advisor run output saved on the day | Engineering | Met with reasons (run 2026-10-29: 7 findings; the one ERROR is 18 deliberate owner-run views, see E2; warnings: 17 anon-executable and 1,824 signed-in-executable security-definer functions, mostly public-by-design token lookups and checked RPCs; leaked-password protection is off and needs the Supabase Pro plan; 1 extension in public; 7 functions without a fixed search path) |
 | E2 | Every view that runs with its owner's permissions is on a reviewed list, is unreadable by anon, and (for directories) never carries a commission, contact, cost or credential-number column | `packages/db/tests/owner_run_views_allowlist.sql` passes in CI | Engineering | Met once #1448 merges (checked 2026-10-29: 18 owner-run views, all deliberate with a documented reason; converting them to `security_invoker` would break the patient-facing directories) |
 | E3 | An independent security review of patient-scoped tables and staff access, with no open high finding | Review note and closed finding list | Engineering | Partly (S39 hardening merged; outside review not recorded) |
-| E4 | Every function anonymous users can call is intended to be public | The list of anon-executable functions, each with a reason | Engineering | Partly (2026-10-29: 17 functions, all token lookups, public price and coverage lists and audit event triggers; each needs a one-line reason recorded) |
+| E4 | Every function anonymous users can call is intended to be public | The list of anon-executable functions, each with a reason | Engineering | Met (2026-10-30: all 17 listed with a reason in `docs/security/ANON-EXECUTABLE-FUNCTIONS.md` and enforced by a CI proof, #1463 merged). Four review points left open in that document, including the one anonymous write (prescription supply) and about 50 `private` helper functions not reviewed one by one) |
 
 ## F. AI governance
 
@@ -83,6 +83,15 @@ Status key: Met / Partly / Not met / Unknown (the repo cannot show it). Sources 
 | H2 | MDCN position on the doctor-authority split, and on fee sharing (OQ-178) | Counsel or regulator letter | CMO and counsel | Not met |
 | H3 | Terms and consent schedules are the signed versions the app shows | Signature record (membership terms sign-off exists as a file) | Founder | Partly |
 | H4 | NDPC registration and DPO appointment | Already approved and accepted (2026-09-15) | DPO | Met |
+
+## Findings from the 2026-10-30 payment test (to fix before launch)
+
+1. The live Paystack key sat in the Supabase secrets (and the Vercel copy still does). Swap in the test key for testing and the live key back for launch.
+2. Web checkout was blocked by CORS on `order-checkout` and `order-verify` (#1477, deployed from the branch, merge pending).
+3. A 100 percent discount code leaves the minimum payable amount of 100 naira, because of `min_payable_kobo`; a free Membership needs a voucher, a sponsor or an administrator grant.
+4. The web refund job sends only non-test refunds and uses the Vercel key, so the money-back leg cannot be tested on a test account.
+5. Onboarding: no Skip on the risk profile, raw validation messages, a male patient asked about the HPV vaccine, no explanation under two consent switches, no None option for diagnoses (see the project memory note).
+6. The Membership page lists the old unpaid order as "Not paid", and the Receipts page showed no receipts for a paid order.
 
 ## I. Staged rollout (how the guard is finally turned on)
 
