@@ -20,7 +20,8 @@ import {
   upsertCostCenterAction,
   upsertApprovalThresholdAction,
 } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FinanceAccount } from "@/lib/finance/schemas";
 
@@ -104,9 +105,11 @@ export function FinanceSettings() {
 
   async function updateThreshold(currency: string, value: string) {
     setThresholdMsg(null);
-    const minor = majorToMinor(value);
-    if (minor <= 0) return;
-    const res = await upsertApprovalThresholdAction(currency, minor);
+    // An unreadable or zero value used to be dropped without a word, leaving the person to believe the
+    // threshold had been changed.
+    const amount = parseMoneyInput(value, { allowZero: false });
+    if (!amount.ok) return setThresholdMsg({ ok: false, text: `${currency} threshold not saved. ${amount.error}` });
+    const res = await upsertApprovalThresholdAction(currency, amount.minor);
     if (!res.ok) return setThresholdMsg({ ok: false, text: res.error ?? "Could not save threshold." });
     setThresholdMsg({ ok: true, text: `${currency} threshold updated.` });
     invalidate();

@@ -1,5 +1,6 @@
 "use server";
 
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,10 +52,10 @@ export async function createPartnerStatement(
   if (!providerId) return { error: "Choose which laboratory this statement is from." };
   if (!reference) return { error: "Enter the invoice/reference number from the laboratory." };
   if (!periodStart || !periodEnd) return { error: "Enter the period this statement covers." };
-  const invoicedTotalKobo = Math.round(parseFloat(invoicedTotalNaira) * 100);
-  if (!Number.isFinite(invoicedTotalKobo) || invoicedTotalKobo <= 0) {
-    return { error: "Enter the total amount invoiced, in naira." };
-  }
+  // parseFloat read "1,500,000" as 1, so a laboratory total typed with commas was recorded as one naira.
+  const invoicedTotal = parseMoneyInput(invoicedTotalNaira ?? "", { allowZero: false });
+  if (!invoicedTotal.ok) return { error: `Total invoiced: ${invoicedTotal.error}` };
+  const invoicedTotalKobo = invoicedTotal.minor;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -63,22 +64,28 @@ export async function createPartnerStatement(
     .single();
   if (!profile?.organisation_id) return { error: "Your account has no organisation on file." };
 
-  const lines = linesRaw
+  const rawLines = linesRaw
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [screenTypeCode, invoicedNaira, labOrderId, partnerReference] = line.split(",").map((v) => v?.trim());
-      return {
-        screen_type_code: screenTypeCode || null,
-        invoiced_kobo: Math.round(parseFloat(invoicedNaira ?? "") * 100),
-        lab_order_id: labOrderId || null,
-        partner_reference: partnerReference || null,
-      };
-    });
+    .filter(Boolean);
 
-  if (lines.some((l) => !Number.isFinite(l.invoiced_kobo) || l.invoiced_kobo < 0)) {
-    return { error: "Every line needs a valid invoiced amount in naira as its second value." };
+  const lines: { screen_type_code: string | null; invoiced_kobo: number; lab_order_id: string | null; partner_reference: string | null }[] = [];
+  for (const [index, line] of rawLines.entries()) {
+    const parts = line.split(",").map((v) => v.trim());
+    // The box is comma separated, so an amount typed as 1,500 would shift every value after it
+    // (the lab order id would become "500"). Refuse it rather than save the wrong columns.
+    if (parts.length > 4) {
+      return { error: `Line ${index + 1} has more than four values. Amounts in this box cannot contain commas: write 1500, not 1,500.` };
+    }
+    const [screenTypeCode, invoicedNaira, labOrderId, partnerReference] = parts;
+    const invoiced = parseMoneyInput(invoicedNaira ?? "");
+    if (!invoiced.ok) return { error: `Line ${index + 1}, invoiced amount: ${invoiced.error}` };
+    lines.push({
+      screen_type_code: screenTypeCode || null,
+      invoiced_kobo: invoiced.minor,
+      lab_order_id: labOrderId || null,
+      partner_reference: partnerReference || null,
+    });
   }
 
   const { data: statement, error: statementError } = await supabase

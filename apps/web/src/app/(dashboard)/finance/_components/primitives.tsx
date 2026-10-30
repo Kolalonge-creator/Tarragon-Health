@@ -5,12 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export { formatMinor, formatNumber, formatPercent, currencySymbol } from "@/lib/analytics/format";
 
-/** Money input helpers: forms collect major units, the ledger stores minor. */
-export function majorToMinor(value: string | number): number {
-  const n = typeof value === "number" ? value : parseFloat(value);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
-}
+// Forms collect major units and the ledger stores minor. Reading what was typed is
+// parseMoneyInput in lib/finance/money-input.ts, which refuses what it cannot read
+// instead of guessing (the old majorToMinor read "1,500,000" as one naira).
 
 export function SectionCard({
   title,

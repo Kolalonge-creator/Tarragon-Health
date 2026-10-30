@@ -10,7 +10,8 @@ import { useEmployerBillingSummary, financeKeys } from "@/lib/finance/queries";
 import { upsertEmployerBillingConfigAction, deleteEmployerBillingConfigAction } from "@/lib/finance/actions";
 import type { EmployerBillingSummaryRow } from "@/lib/finance/schemas";
 import { lagosToday } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /**
  * docs/FULL_SPECIFICATION_V4.md §94.12 — "Eligible employees x Price per
@@ -43,11 +44,12 @@ export function EmployerBilling() {
 
   async function save(row: EmployerBillingSummaryRow) {
     setMsg(null);
-    if (!f.price) return setMsg({ ok: false, text: "Price per member is required." });
+    const price = parseMoneyInput(f.price);
+    if (!price.ok) return setMsg({ ok: false, text: price.error });
     const res = await upsertEmployerBillingConfigAction({
       id: row.billing_config_id ?? undefined,
       organisation_id: row.organisation_id,
-      price_per_member_minor: majorToMinor(f.price),
+      price_per_member_minor: price.minor,
       currency: f.currency,
       effective_from: f.effective_from,
       is_active: true,
