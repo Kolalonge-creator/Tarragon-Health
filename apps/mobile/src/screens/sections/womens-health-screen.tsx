@@ -1097,7 +1097,7 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
         ))}
       </View>
 
-      <AppText variant="label">Overall severity (0–10)</AppText>
+      <AppText variant="label">Overall severity (0 to 10)</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={severity} onChangeText={setSeverity} keyboardType="numeric" style={[textInputStyle, { maxWidth: 90 }]} />
 
       <AppText variant="body" onPress={() => setBleeding((v) => !v)}>

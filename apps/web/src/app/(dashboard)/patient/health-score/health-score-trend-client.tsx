@@ -77,7 +77,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
       ) : (
         <HeroMetric
           label="Health Score"
-          value={isLoading ? "–" : latest ? latest.score : null}
+          value={isLoading ? "…" : latest ? latest.score : null}
           unit={latest ? "out of 100" : undefined}
           status={badgeStyle ?? undefined}
           caption={
