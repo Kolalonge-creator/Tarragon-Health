@@ -20,6 +20,14 @@ function groupedCount(payload: Record<string, unknown>): number | null {
   return typeof payload.count === "number" && Number.isInteger(payload.count) && payload.count > 1 ? payload.count : null;
 }
 
+/** "Mon 3 Nov, 10:00" in Africa/Lagos for an appointment notice's scheduled_for, or null when it is missing or not a date. */
+function appointmentWhen(payload: Record<string, unknown>): string | null {
+  if (typeof payload.scheduled_for !== "string") return null;
+  const at = new Date(payload.scheduled_for);
+  if (Number.isNaN(at.getTime())) return null;
+  return at.toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 export function describe(n: InAppNotificationInput): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
   if (n.template === "ai_restriction_notice") {
@@ -217,6 +225,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : "Your appointment is booked",
       href: "/patient/labs",
     };
+  }
+  // Booking engine notices (E6 of the events harness). They reached the bell as "You have an update" linking to the dashboard.
+  if (n.template === "appointment_booking_confirmation") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Your appointment is booked for ${when}` : "Your appointment is booked", href: "/patient/appointments" };
+  }
+  if (n.template === "appointment_cancelled") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Your appointment on ${when} was cancelled` : "Your appointment was cancelled", href: "/patient/appointments" };
+  }
+  if (n.template === "appointment_reminder") {
+    const when = appointmentWhen(payload);
+    return { text: when ? `Reminder: you have an appointment on ${when}` : "Reminder: you have an appointment coming up", href: "/patient/appointments" };
   }
   if (n.template === "lab_result_consult_needs_rescheduling") {
     return {
