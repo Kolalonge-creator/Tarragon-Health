@@ -64,9 +64,9 @@ const REQUEST_STATUS: Record<
     note: "Your payment is held by Tarragon and is only taken once a time is confirmed. A doctor will accept your requested time, or offer a different one, within 48 hours. If no doctor can, you will be refunded in full.",
   },
   alternate_proposed: {
-    label: "Your doctor offered different times",
+    label: "A doctor offered different times",
     tone: "amber",
-    note: "Your original time was not available, so your doctor has offered these instead. Please choose one below within 24 hours, or you will be refunded in full.",
+    note: "Your original time was not available, so a doctor has offered these instead. Please choose one below within 24 hours, or you will be refunded in full.",
   },
   accepted: { label: "Booked", tone: "green" },
   declined: {
@@ -249,7 +249,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
           A paid, self-serve 15-minute online consultation with a Tarragon doctor, over
           video. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through once a
-          time is confirmed: either your doctor accepts the time you picked, or offers a
+          time is confirmed: either a doctor accepts the time you picked, or offers a
           different time that works better for them, within 48 hours. If nobody can take it,
           you get a full refund.
         </p>

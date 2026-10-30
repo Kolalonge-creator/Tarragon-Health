@@ -48,9 +48,9 @@ const REQUEST_STATUS: Record<string, { label: string; tone: "brand" | "neutral";
     note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
   },
   alternate_proposed: {
-    label: "Your doctor offered different times",
+    label: "A doctor offered different times",
     tone: "brand",
-    note: "Your original time didn't work, so your doctor offered these instead. Pick one below within 24 hours or you're refunded in full.",
+    note: "Your original time did not work, so a doctor offered these instead. Pick one below within 24 hours or you are refunded in full.",
   },
   accepted: { label: "Booked", tone: "brand" },
   declined: {

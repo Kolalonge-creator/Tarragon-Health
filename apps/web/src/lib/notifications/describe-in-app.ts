@@ -195,7 +195,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "video_visit_alternate_proposed") {
     return {
-      text: "Your doctor offered a different time for your video visit: pick one",
+      text: "A doctor offered a different time for your video visit: pick one",
       href: "/patient/care",
     };
   }

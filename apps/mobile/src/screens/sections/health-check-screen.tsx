@@ -320,7 +320,7 @@ function VideoConsultCard({ consult, onChanged }: { consult: HealthCheckVideoCon
   return (
     <Card style={{ gap: 8 }}>
       <AppText variant="bodyStrong">Pick a time for your video consult</AppText>
-      <MutedText>Your doctor is ready to walk you through your results. Pick whichever works for you.</MutedText>
+      <MutedText>A doctor is ready to walk you through your results. Pick whichever works for you.</MutedText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {consult.proposedSlots.map((slot) => (
           <Text

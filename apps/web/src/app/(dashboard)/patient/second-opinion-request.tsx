@@ -43,7 +43,7 @@ function RecommendedReferral({ request, patientId }: { request: SecondOpinionReq
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 p-3">
       <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-        Your doctor suggests seeing a specialist: {specialty}
+        A doctor suggests seeing a specialist: {specialty}
       </p>
       {referral.referral_reason && (
         <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{referral.referral_reason}</p>
