@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ...pageMetadata({
       title: "Our impact",
       description:
-        "Platform-wide numbers on what our monitoring and doctor review actually catches, updated daily, with small counts held back to protect patient privacy.",
+        "Platform-wide numbers on what our monitoring and doctor review detect, updated daily, with small counts held back to protect patient privacy.",
       path: MARKETING_ROUTES.impact,
     }),
     ...(anyVisible ? {} : { robots: { index: false, follow: true } }),
@@ -46,8 +46,8 @@ export default async function ImpactPage() {
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">Our impact</h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Real, platform-wide counts of what monitoring and doctor review actually catch: not a
-            claims feed, not a sales pitch. Refreshed daily.
+            Real, platform-wide counts of what monitoring and doctor review detect. These figures are
+            not claims data or sales projections. They are refreshed daily.
           </p>
         </div>
       </Section>
@@ -55,11 +55,11 @@ export default async function ImpactPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="Platform-wide"
-          title={anyVisible ? "What the numbers show" : "We're just getting started"}
+          title={anyVisible ? "What the numbers show" : "We are at an early stage"}
           description={
             anyVisible
               ? "Every figure below is a real count, aggregated across every patient, institution and city, and not broken down by organisation or individual."
-              : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join. That's a privacy choice, not a bug."
+              : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will appear as more patients join. This is a deliberate privacy measure."
           }
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -112,8 +112,8 @@ export default async function ImpactPage() {
       <Section variant="sage">
         <CtaBand
           variant="gradient"
-          title="Be part of the next number"
-          description="Every figure above started with one person choosing to get monitored properly."
+          title="Add to these figures"
+          description="Every figure above began with one person choosing to have their health monitored."
           primaryHref="/signup"
           primaryLabel="Start free"
           secondaryHref="/services"

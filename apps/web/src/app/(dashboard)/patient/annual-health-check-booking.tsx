@@ -316,7 +316,7 @@ export function AnnualHealthCheckBooking({
                 </p>
                 <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Recommended by the World Health Organization for everyone, and requested without
-                  having to explain yourself to anybody.
+                  needing to explain your reasons to anyone.
                 </p>
                 <ConfidentialResultNotice />
                 {confidential.map(bundleRow)}
@@ -360,7 +360,7 @@ export function AnnualHealthCheckBooking({
                           const win = window.open(`/api/patient/lab-order/${order.id}/request`, "_blank");
                           if (!win) {
                             setPrintError(
-                              "Your request is ready below under “Waiting on your result” — your browser blocked the automatic print, so use the link there instead."
+                              "Your request is ready below under “Waiting on your result”. Your browser blocked the automatic print, so please use the link there instead."
                             );
                           }
                         },

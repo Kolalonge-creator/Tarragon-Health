@@ -40,7 +40,7 @@ export default async function NutritionPage() {
         title="Meals & nutrition"
         icon={SEMANTIC_ICON.nutrition}
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
-        description="Log what you eat, with a photo if you like. We'll estimate the portions and carbs to help you and your care team spot patterns. It's a coaching guide, not a medical measurement."
+        description="Record what you eat, with a photo if you wish. We estimate the portion sizes and carbohydrate content so that you and your care team can see patterns in your eating. The estimates are a coaching guide, not a medical measurement."
       />
       {waterLogOn ? <LifestyleLogCard types={["water_ml"]} title="Log water" /> : null}
       <NutritionFlow

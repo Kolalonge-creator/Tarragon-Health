@@ -21,7 +21,7 @@ export default async function PatientLabsPage() {
     <DashboardSection
       id="labs"
       title="Labs & bookings"
-      description="Request lab tests, and upload and track your lab, ECG, and imaging results."
+      description="Request laboratory tests, and upload and track your laboratory, ECG and imaging results."
       icon={SEMANTIC_ICON.labs}
     >
       {/* Lab-request coordination and the screening calendar are free to every

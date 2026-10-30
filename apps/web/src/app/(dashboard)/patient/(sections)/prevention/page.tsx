@@ -241,7 +241,7 @@ export default async function PreventionHubPage() {
     <DashboardSection
       id="prevention"
       title="Prevention"
-      description="You don't need to be unwell to be here. Screenings, vaccinations, and the yearly checks that keep healthy people healthy, all built around your age, sex, and history."
+      description="You do not need to be unwell to use this section. It covers screenings, vaccinations and yearly health checks, chosen according to your age, sex and medical history."
       icon={SEMANTIC_ICON.preventive}
     >
       <Card className="border-brand-green/25">

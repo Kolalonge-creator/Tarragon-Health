@@ -54,13 +54,13 @@ export function PreventiveScreeningCalendar({
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600 dark:text-red-300">Could not load your screening calendar.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">We could not load your screening calendar. Please try again shortly.</p>
         )}
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No screenings scheduled yet. Complete your health profile (the two-minute risk
-            assessment on this page) and your personal calendar builds itself from your age,
-            sex, and history; your care team can add to it from there.
+            assessment on this page). Your personal calendar is then created from your age,
+            sex and history, and your care team can add to it.
           </p>
         )}
         {data && data.length > 0 && (
@@ -166,13 +166,13 @@ export function PreventiveScreeningCalendar({
                         {createOrder.isPending ? "Getting your form ready…" : "Get & print this test"}
                       </Button>
                       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                        We&apos;ll open a printable request listing exactly what&apos;s needed. Take it
+                        We will open a printable request that lists exactly which tests are needed. Take it
                         to any laboratory you like and pay them directly, then upload the result here
                         for your care team to read.
                       </p>
                       {createOrder.isError && (
                         <p className="text-xs text-red-600 dark:text-red-300">
-                          Could not set that up just now. Please try again.
+                          We could not set that up just now. Please try again.
                         </p>
                       )}
                       {printError && <p className="text-xs text-amber-700 dark:text-amber-300">{printError}</p>}

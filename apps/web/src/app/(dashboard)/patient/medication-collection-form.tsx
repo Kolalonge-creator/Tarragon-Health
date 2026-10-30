@@ -82,8 +82,7 @@ export function MedicationCollectionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-        Buy this wherever suits you. Telling us when you collected it keeps your refill reminders
-        accurate.
+        You may buy this medicine wherever is convenient for you. Telling us when you collected it keeps your refill reminders accurate.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">

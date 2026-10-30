@@ -207,7 +207,7 @@ function PriorityLegend() {
               Routine
             </Badge>
             <span>
-              Health education and wellness content. The easiest ones to turn down if you&apos;d
+              Health education and wellness content. These are the easiest to turn off if you would
               like fewer notifications.
             </span>
           </li>

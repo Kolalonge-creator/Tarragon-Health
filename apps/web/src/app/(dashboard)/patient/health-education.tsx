@@ -213,8 +213,8 @@ function KnowledgeCheck({
         <p className="text-sm text-charcoal-ink dark:text-night-ink">
           You got <strong>{result.score}</strong> of {result.total}.{" "}
           {result.allCorrect
-            ? "Nicely done, marked as understood."
-            : "Worth another read, we'll keep this handy for you."}
+            ? "Marked as understood."
+            : "This topic is worth reading again. We will keep it available for you."}
         </p>
       )}
     </div>
@@ -979,7 +979,7 @@ export function TopicDetailView({
     return (
       <Card>
         <CardContent className="py-6 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          We couldn&apos;t find that topic. It may have been updated or retired — head back to{" "}
+          We couldn&apos;t find that topic. It may have been updated or removed. Go back to{" "}
           <Link href="/patient/learn" className="font-medium text-brand-green dark:text-brand-green-bright underline">
             Learn
           </Link>{" "}

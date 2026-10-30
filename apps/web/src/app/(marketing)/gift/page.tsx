@@ -41,10 +41,10 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "They choose to accept it",
-    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, we will refund you. Nothing about a gift ever bills them, then or later.",
+    body: "The gift waits for them to say yes. If they decline, or do not answer within 14 days, we will refund you. A gift never results in a charge to them, now or later.",
   },
   {
-    title: "Invite them, and we will say thank you",
+    title: "Invite them to join Tarragon",
     body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. If they become a Member, we will say thank you.",
   },
 ];
@@ -85,8 +85,8 @@ function giftFaq(price: string): FaqItem[] {
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Tell us who it's for",
-    body: "Their name, their phone number and how you know them. They don't need to sign up or do anything before you pay.",
+    title: "Tell us who the gift is for",
+    body: "Their name, their phone number and how you know them. They do not need to sign up or do anything before you pay.",
   },
   {
     step: 2,
@@ -116,8 +116,8 @@ export default function GiftPage() {
         eyebrow="Care that stays with them"
         title="Give the Gift of Health"
         description={ladderIsPublic()
-          ? `${givingSummary(price)}. A video call with their care team every month. Theirs to accept, nothing to renew.`
-          : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
+          ? `${givingSummary(price)}. A video call with their care team every month. They choose whether to accept it, and it does not renew.`
+          : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. They choose whether to accept it, and it does not renew.`}
         primaryHref="/signup?intent=support"
         primaryLabel="Give a year of Membership"
         secondaryHref="/login"
@@ -143,7 +143,7 @@ export default function GiftPage() {
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Ways to give</p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">A year of care, not a balance</h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You are giving a Membership, not topping up an account, and that difference is what makes the gift worth something.
+              You are giving a Membership, not adding money to an account. The gift is a year of care, and it cannot be exchanged for cash.
             </p>
           </div>
           <MarketingMediaFrame
@@ -164,7 +164,7 @@ export default function GiftPage() {
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="No gift cards, no codes to lose" />
+        <SectionHeading eyebrow="How it works" title="There are no gift cards or codes to lose" />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {HOW_IT_WORKS.map((item) => (
             <div key={item.step} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
@@ -177,10 +177,10 @@ export default function GiftPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="Before you give" title="Honest expectations" />
+        <SectionHeading eyebrow="Before you give" title="What to expect" />
         <FaqAccordion items={faq} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Looking after a parent day to day?{" "}
+          Do you help look after a parent day to day?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
@@ -191,8 +191,8 @@ export default function GiftPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Give someone the gift of being looked after."
-          description="Give a year of Membership, or send them your referral link. Either way it is care, not a card that expires."
+          title="Give someone a year of care."
+          description="Give a year of Membership, or send them your referral link. Either way, the gift is care and not a gift card that expires."
           primaryHref="/signup?intent=support"
           primaryLabel="Give a year of Membership"
           secondaryHref="/login"

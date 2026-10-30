@@ -179,7 +179,7 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
             {priorityTip && (
               <div className="space-y-1 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
                 <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-                  Start here for the biggest lift
+                  Start here for the largest improvement
                 </p>
                 <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
                   {priorityTip.tip}

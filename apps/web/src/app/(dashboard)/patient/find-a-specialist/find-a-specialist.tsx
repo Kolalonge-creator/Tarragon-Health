@@ -132,7 +132,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
                   {provider.consultation_fee_kobo != null
                     ? `, ₦${koboToNaira(provider.consultation_fee_kobo).toLocaleString()}`
                     : ""}
-                  {provider.years_of_experience != null && ` · ${provider.years_of_experience} yrs experience`}
+                  {provider.years_of_experience != null && ` · ${provider.years_of_experience} years of experience`}
                 </p>
                 {!!provider.qualifications?.length && (
                   <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{provider.qualifications.join(", ")}</p>

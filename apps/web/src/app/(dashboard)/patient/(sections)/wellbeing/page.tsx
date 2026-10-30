@@ -39,7 +39,7 @@ export default async function PatientWellbeingPage() {
     <DashboardSection
       id="wellbeing"
       title="Wellbeing"
-      description="Track how you're doing, take a mental health check-in, and learn ways to support yourself."
+      description="Record how you are feeling, complete a mental health check-in, and learn ways to look after your wellbeing."
       icon={SEMANTIC_ICON.mood}
     >
       {/* The calm tool and the crisis card are outside the shared-phone gate on purpose: help is never hidden. */}

@@ -40,7 +40,7 @@ export default function WhoItsForPage() {
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
             <Button asChild size="lg">
-              <Link href={MARKETING_ROUTES.forYou}>I&apos;m here for myself</Link>
+              <Link href={MARKETING_ROUTES.forYou}>I am here for myself</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.pricing}>View pricing</Link>
@@ -60,12 +60,12 @@ export default function WhoItsForPage() {
               One record, everyone with a reason to see it
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Not four different products
+              One system, not separate products
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               You, your family, the sponsoring employer, or the backing HMO all read from the
-              same longitudinal record, scoped to what each actually needs to see, so nobody
-              re-explains their history to a new system.
+              same long-term record, limited to what each of them needs to see, so that nobody
+              has to repeat their history to a new system.
             </p>
           </div>
           <MarketingMediaFrame
@@ -80,7 +80,7 @@ export default function WhoItsForPage() {
       <Section className="pb-24">
         <CtaBand
           title="See exactly what costs money"
-          description="The app is free. A doctor's time is priced per piece of work, for individuals, families, and organisations."
+          description="The app is free. A doctor's time is priced for each piece of work, for individuals, families and organisations."
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"

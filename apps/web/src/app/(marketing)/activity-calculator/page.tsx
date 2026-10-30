@@ -17,7 +17,7 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "What counts as \"moderate\" or \"vigorous\" activity?",
-    a: "It's based on MET (Metabolic Equivalent of Task) values: how many times more energy an activity takes compared to sitting still. Light activity is under 3 METs, moderate is 3-6 METs (you can talk but not sing), and vigorous is above 6 METs (hard to hold a conversation).",
+    a: "It is based on MET (metabolic equivalent of task) values, which show how many times more energy an activity uses than sitting still. Light activity is under 3 METs, moderate activity is 3 to 6 METs (you can talk but not sing), and vigorous activity is above 6 METs (it is hard to hold a conversation).",
   },
   {
     q: "Why does vigorous activity count double towards the weekly target?",
@@ -25,11 +25,11 @@ const FAQS = [
   },
   {
     q: "Is this exact?",
-    a: "No, it's a general estimate from average energy-expenditure tables. Your actual calorie burn depends on fitness level, terrain, technique, and effort, so treat the number as a useful guide, not a precise measurement.",
+    a: "No. It is a general estimate from average energy-expenditure tables. The calories you actually burn depend on your fitness level, the terrain, your technique and your effort, so treat the number as a useful guide and not a precise measurement.",
   },
   {
     q: "I have a health condition. Is this still useful for me?",
-    a: "The estimate itself is fine to use, but if you're starting a new routine and live with a heart condition, high blood pressure, diabetes, or another chronic condition, it's worth checking with a doctor first about what's safe for you specifically.",
+    a: "You can use the estimate, but if you are starting a new routine and have a heart condition, high blood pressure, diabetes or another long-term condition, check with a doctor first about what is safe for you.",
   },
 ];
 
@@ -41,7 +41,7 @@ export default function ActivityCalculatorPage() {
           as="h1"
           eyebrow="Free tool"
           title="Physical Activity Intensity Calculator"
-          description="Estimate the calories burned and intensity of what you just did, and see how it stacks up against WHO's weekly activity guideline. No account, no email required."
+          description="Estimate the calories burned and the intensity of an activity you have done, and see how it compares with the World Health Organization's weekly activity guideline. No account or email address is required."
         />
         <ActivityIntensityCalculator />
       </Section>
@@ -61,8 +61,8 @@ export default function ActivityCalculatorPage() {
       <Section>
         <SectionHeading
           eyebrow="Beyond one session"
-          title="Building activity into real, ongoing care"
-          description="One calculation is a snapshot. Real support looks like a plan built around you, and someone actually checking in."
+          title="Building activity into ongoing care"
+          description="One calculation is a snapshot. Lasting support is a plan built around you, with someone who checks on your progress."
         />
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
@@ -74,26 +74,26 @@ export default function ActivityCalculatorPage() {
               <Link href={MARKETING_ROUTES.obesity} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Weight Health programme
               </Link>{" "}
-              pairs doctor-reviewed guidance with lifestyle coaching, so activity is part of a real
-              plan, not a guess.
+              combines doctor-reviewed guidance with lifestyle coaching, so that activity is part of a
+              clear plan and not a guess.
             </p>
           </div>
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
             <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
-              Living with a chronic condition
+              Living with a long-term condition
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
               <Link href={MARKETING_ROUTES.chronicCare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Chronic Care programmes
               </Link>{" "}
-              for hypertension and diabetes factor activity into your care plan alongside
+              for hypertension and diabetes include activity in your care plan alongside
               medication and monitoring.
             </p>
           </div>
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Want to check your weight range too? Try the{" "}
+          If you would also like to check your weight range, try the{" "}
           <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             BMI & calorie calculator
           </Link>
@@ -109,7 +109,7 @@ export default function ActivityCalculatorPage() {
         <CtaBand
           variant="gradient"
           title="Care that stays with you."
-          description="Get started today; it takes minutes to set up."
+          description="Get started today. Setting up takes only a few minutes."
           primaryHref="/signup"
           primaryLabel="Get started"
           secondaryHref={MARKETING_ROUTES.pricing}

@@ -58,8 +58,8 @@ export function ProductPageTemplate({
   // something's wrong" is the actual pitch, not just a closing nudge.
   const ctaDescription =
     content.slug === "prevention"
-      ? "Good health tomorrow starts with looking after it today. Join TarragonHealth and keep it that way."
-      : "Join TarragonHealth and bring continuity to your care.";
+      ? "Good health in the future depends on looking after it today. Join TarragonHealth to protect your health."
+      : "Join TarragonHealth to keep your care connected over time.";
   // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
   // is the site's primary hero now, same as the homepage — but only once a
   // real photo is sourced for this slug (media.ts's productHero map). Every
@@ -115,7 +115,7 @@ export function ProductPageTemplate({
       ) : null}
 
       <Section>
-        <SectionHeading title="What's included" />
+        <SectionHeading title="What is included" />
         <ul className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
           {content.included.map((item, index) => (
             <Card

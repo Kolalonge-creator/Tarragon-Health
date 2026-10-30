@@ -39,12 +39,12 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
       name: "Free",
       difference: "Annual blood panel: no",
       priceLine: "No cost, no card, no time limit",
-      summary: "The app: tracking, reminders, education and guidance.",
+      summary: "The app, including health tracking, reminders, education and guidance.",
       includes: [
-        "Log your readings and see your trends",
+        "Record your readings and see your trends",
         "Reminders and the screening calendar",
         "The full education library",
-        "Urgent-care guidance if something looks wrong",
+        "Urgent-care guidance if a reading or symptom looks serious",
       ],
     },
     {
@@ -85,7 +85,7 @@ export function ladderFaq(refundDays: number, autoRenews = false): { question: s
     {
       question: "Can I move from Membership to Membership Plus later?",
       answer:
-        "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way happens when your year ends, at renewal.",
+        "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way can only happen when your year ends, at renewal.",
     },
     {
       question: "Does it renew by itself?",

@@ -60,7 +60,7 @@ export default async function PatientVitalsPage() {
     <DashboardSection
       id="vitals"
       title="Vitals & symptoms"
-      description="Log readings and symptoms, and see how they trend over time."
+      description="Record your readings and symptoms, and see how they change over time."
       icon={SEMANTIC_ICON.bp}
     >
       {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}

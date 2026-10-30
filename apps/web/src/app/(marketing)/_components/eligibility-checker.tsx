@@ -25,8 +25,8 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
         Is your {noun} already covered?
       </h3>
       <p className="mt-2 text-charcoal-ink/70">
-        Enter your {noun}&apos;s name and the phone number they have on file for you;
-        we&apos;ll tell you instantly.
+        Enter the name of your {noun} and the phone number they hold for you, and we
+        will tell you straight away.
       </p>
       <form action={formAction} className="mt-6 space-y-4">
         <input type="hidden" name="source" value={source} />
@@ -77,8 +77,8 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "partner_no_match" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          {state.orgName} works with Tarragon, but this number isn&apos;t on their list yet;
-          ask your HR or plan administrator to add you, or{" "}
+          {state.orgName} works with Tarragon, but this number is not yet on their list.
+          Ask your HR department or plan administrator to add you, or{" "}
           <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             contact us
           </Link>
@@ -87,11 +87,11 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       )}
       {state && "status" in state && state.status === "no_partner" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
-          We don&apos;t work with them yet; we&apos;ve noted the interest. Want it sooner?{" "}
+          We do not work with them yet, but we have noted your interest. If you would like this sooner, you can{" "}
           <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-            Introduce us to your {noun}
+            introduce us to your {noun}
           </Link>
-          . Most partnerships start exactly this way.
+          . Most partnerships begin this way.
         </p>
       )}
     </div>
