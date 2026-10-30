@@ -42,7 +42,7 @@ export default async function CorporateOverviewPage() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <ContractStatusCard performance={data.contractPerformance} />
+        <ContractStatusCard performance={data.contractPerformance} failed={data.unavailable.contract} />
         <RosterManager organisationId={data.organisationId} />
       </div>
     );
@@ -51,13 +51,13 @@ export default async function CorporateOverviewPage() {
   return (
     <div className="space-y-6">
       <InstitutionPrivacyNotice />
-      <ContractStatusCard performance={data.contractPerformance} />
-      <ActivationFunnelCard funnel={data.activationFunnel} />
-      <DepartmentBreakdownTable rows={data.departmentBreakdown} />
+      <ContractStatusCard performance={data.contractPerformance} failed={data.unavailable.contract} />
+      <ActivationFunnelCard funnel={data.activationFunnel} failed={data.unavailable.activationFunnel} />
+      <DepartmentBreakdownTable rows={data.departmentBreakdown} failed={data.unavailable.departmentBreakdown} />
       <ProposeContractCard organisationId={data.organisationId} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
-      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} />
+      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} failed={data.unavailable.vaccinationCoverage} />
     </div>
   );
 }

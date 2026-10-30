@@ -29,7 +29,7 @@ export async function loadEngagementOutcomeCorrelation(
   supabase: SupabaseClient<Database>,
   organisationId: string,
   minCohortSize: number
-): Promise<EngagementOutcomeBucket[] | null> {
+): Promise<EngagementOutcomeBucket[]> {
   const [scores, bpScores] = await Promise.all([
     supabase
       .from("patient_engagement_scores")
@@ -44,7 +44,8 @@ export async function loadEngagementOutcomeCorrelation(
       .order("computed_at", { ascending: false }),
   ]);
 
-  if (scores.error || bpScores.error) return null;
+  if (scores.error) throw scores.error;
+  if (bpScores.error) throw bpScores.error;
 
   const latestTierByPatient = new Map<string, Database["public"]["Enums"]["patient_engagement_tier"]>();
   for (const row of scores.data ?? []) {

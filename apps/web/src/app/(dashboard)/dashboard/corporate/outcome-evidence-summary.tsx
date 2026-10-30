@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { useOutcomeReports } from "@/lib/queries/outcome-reports";
 
 type ReportSnapshot = {
@@ -44,7 +45,11 @@ export function OutcomeEvidenceSummary({
         <CardDescription>For renewal conversations: quotable, frozen-per-report figures.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {hasTrend ? (
+        {reports.isError ? (
+          <LoadFailure>
+            Your report history could not be loaded just now, so no trend is shown. Refresh the page to try again.
+          </LoadFailure>
+        ) : hasTrend ? (
           <StatTile
             icon={SEMANTIC_ICON.booking}
             label="Screening compliance trend"

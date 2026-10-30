@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 /**
  * Published, shareable outcome reports (docs/FULL_SPECIFICATION_V4.md
@@ -87,6 +88,11 @@ export function OutcomeReportsPanel({ organisationId }: { organisationId: string
         {state?.message && <p className="text-sm text-deep-forest">{state.message}</p>}
 
         {reports.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {reports.isError && (
+          <LoadFailure>
+            Your saved reports could not be loaded just now. They have not been deleted. Refresh the page to try again.
+          </LoadFailure>
+        )}
         {reports.data && reports.data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No reports generated yet.</p>
         )}
