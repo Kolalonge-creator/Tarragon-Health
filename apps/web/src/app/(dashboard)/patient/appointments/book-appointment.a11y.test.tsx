@@ -250,3 +250,37 @@ describe("BookAppointment while consultations are closed (design audit P3)", () 
     expect(screen.queryByLabelText("Appointment type")).toBeNull();
   });
 });
+
+describe("BookAppointment next available summary", () => {
+  const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+  const slot = (start: string, name: string, specialty: string | null) => ({
+    clinician_id: `c-${name}`, clinician_name: name, slot_start: start, slot_end: start, consultation_method: "telemedicine",
+    location: null, specialty, languages: ["English"], sex: null, licence_checked_on: null,
+  });
+  beforeEach(() => {
+    isLoading = false;
+    guardOpen = true;
+    terms = (type) => pricedTerms(type);
+  });
+
+  it("shows the earliest offered time, who it is with and the price", () => {
+    slots = [slot(future(6), "Dr. Later", null), slot(future(3), "Dr. Sooner", "Family medicine")];
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    const card = screen.getByLabelText("Next available visit");
+    expect(card.textContent).toContain("In 3 days");
+    expect(card.textContent).toContain("With Dr. Sooner, Family medicine");
+    expect(card.textContent).toContain("₦10,000");
+    expect(card.textContent).not.toContain("Dr. Later");
+  });
+
+  it("leaves out the price when the type is unpriced, and shows nothing when there are no slots", () => {
+    terms = (type) => pricedTerms(type, null);
+    slots = [slot(future(2), "Dr. Sooner", null)];
+    const { unmount } = render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.getByLabelText("Next available visit").textContent).not.toContain("₦");
+    unmount();
+    slots = [];
+    render(<BookAppointment organisationId="org-1" patientId="patient-1" />);
+    expect(screen.queryByLabelText("Next available visit")).toBeNull();
+  });
+});
