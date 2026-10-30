@@ -66,7 +66,7 @@ export function BloodProfileForm({
       return;
     }
     if (!documentId) {
-      setError("Choose the lab report this came from.");
+      setError("Choose the laboratory report this came from.");
       return;
     }
     startTransition(async () => {
@@ -88,7 +88,7 @@ export function BloodProfileForm({
         <CardTitle>Blood group and genotype</CardTitle>
         <CardDescription>
           Two facts that change what a receiving team does immediately, and the first thing on this
-          patient&rsquo;s emergency card. Record them only from an uploaded lab report.
+          patient&rsquo;s emergency card. Record them only from an uploaded laboratory report.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -113,7 +113,7 @@ export function BloodProfileForm({
 
         {reports.length === 0 ? (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
-            No lab report has been uploaded for this patient, so there is nothing to record a blood
+            No laboratory report has been uploaded for this patient, so there is nothing to record a blood
             group or genotype against. Ask them to upload the result first.
           </p>
         ) : (

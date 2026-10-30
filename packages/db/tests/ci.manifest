@@ -1697,3 +1697,5 @@ anon_executable_functions_allowlist.sql
 events_notification_delivery_renderable.sql
 # OQ-BPW-5: a normal blood pressure reading is accepted while a severity-2 'Missing expected blood-pressure readings' alert is open, and resolves it with a documented action and the outcome no_action_needed; other alerts untouched. Sabotage puts the old bare statement back and the insert is refused (23514).
 bp_handler_resolves_missing_readings_alert.sql
+# First-run fixes: in-app reminders queued once (an email patient still gets email plus in-app), and the full nightly scheduler and request automation skip test accounts while the per-patient mode still serves them. Sabotage reverts each patch from the live body.
+screening_nightly_jobs_dedupe_and_test_accounts.sql

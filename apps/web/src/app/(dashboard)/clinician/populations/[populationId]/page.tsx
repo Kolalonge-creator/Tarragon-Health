@@ -104,7 +104,7 @@ export default async function PopulationDetailPage({
             : null}
         </SummaryCard>
 
-        <SummaryCard title="Open care gaps" description="What should have happened but hasn't.">
+        <SummaryCard title="Open care gaps" description="Care that was due but has not yet happened.">
           {summary.success
             ? summary.data.care_gaps.map((b) => (
                 <li key={String(b.gap_type)} className="flex items-center justify-between text-sm">

@@ -5,7 +5,7 @@
  * the number here. Do not raise a number to make a PR pass: fix the copy.
  */
 export const COPY_LINT_BASELINE: Readonly<Record<string, number>> = {
-  "em-dash": 715, // lowered 16 for the copy rewrite (#1453); previously: measured 2026-10-30 after the patient design pass (P0-P7) removed 11 net (was 742 on 2026-10-27, 818 before the templates root was added)
+  "em-dash": 712, // lowered 16 for the copy rewrite (#1453) and 3 for the clinician copy pass (#1455); previously: measured 2026-10-30 after the patient design pass (P0-P7) removed 11 net (was 742 on 2026-10-27, 818 before the templates root was added)
   "your-doctor": 67,
   "en-dash": 57, // measured 2026-10-30 (was 58; the design pass fixed one):  en dashes inside string literals or JSX text only; legitimate ranges use the allow marker
   cure: 3, // all "miracle cures" anti-claims; false positives kept until an allowlist exists
