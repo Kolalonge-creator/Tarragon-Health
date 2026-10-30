@@ -2692,6 +2692,7 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 
 ### OQ-555 Other reproductive tables are still read directly by staff, unaudited
 - The clinician Women's Health tab still reads `patient_pregnancy`, `antenatal_visits`, `postnatal_profiles`, `breast_symptom_reports` and `fertility_assessment_requests` straight from the tables (INV-10 gap). S66 moved only cycle and menopause rows to the audited function. Pregnancy and postnatal belong to S67 and S68. Recommend: those sessions extend `read_reproductive_pattern_report_audited` or add siblings that call `private.reproductive_staff_tied`.
+- Resolved (founder decision, defaults taken, 2026-10-30; migration `20261030122733_womens_health_record_audited_tied_staff_reads.sql`): the tab now reads all five through `public.read_womens_health_record_audited(patient)`, which needs the care tie (`private.reproductive_staff_tied`), refuses break-glass, an emergency grant and a support session, and writes an audit row for every opening and every refusal. The staff SELECT arm on `patient_pregnancy`, `antenatal_visits`, `postnatal_profiles` and `fertility_assessment_requests` is now the care tie only (it also admitted a support view-as session before). `breast_symptom_reports` keeps its registered `medical_history` policy. Still read directly, unaudited, by a tied clinician for a drug-safety or pathway gate: the prescribing form (`clinician/patients/[patientId]/page.tsx`), `patient-clinical-context.ts`, `care-changes/suggest-titration.ts`, `lowcarb/medicine-review.ts`, `queries/vitals.ts`. Proof: `packages/db/tests/womens_health_record_audited_tied_staff_reads.sql`.
 
 ### OQ-556 PIN lock limits (founder to confirm the threat model)
 - The PIN guards a VIEW on the device. Server data is not behind it: someone holding an unlocked, signed-in session can still call the API. Web has PIN only (no WebAuthn biometric). A person with browser developer tools can clear the local record. Mobile lock not run on a real device. Confirm this is the intended protection (shared phone and over-the-shoulder), not protection against a device thief.
@@ -2702,6 +2703,7 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 
 ### OQ-558 Clinician report reason is a fixed phrase
 - `read_reproductive_pattern_report_audited` requires a reason of 10 or more characters (the S05f pattern). The Women's Health tab sends a fixed phrase because S39c's direction is "no reason to type". Confirm the function should drop the reason argument.
+- Resolved (default taken, 2026-10-30): the reader types no reason. The new Women's Health read has no reason argument; `read_reproductive_pattern_report_audited` keeps its two-argument signature (so no caller breaks) but `p_reason` is now optional: none sent means a fixed phrase is written to the audit row, a reason of fewer than 10 characters is still refused. The tab sends none.
 - Decision (default taken, G-04, 2026-10-30): no master switch depends on this, and the recommendation or behaviour recorded above stands.
 
 ### OQ-559 Danger-sign, contraception and menopause wording are proposed copy

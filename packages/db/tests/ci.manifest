@@ -1708,3 +1708,5 @@ screening_nightly_jobs_dedupe_and_test_accounts.sql
 care_team_reply_time.sql
 # Staff chat: staff attachment folder, unread-message reminders (non-clinical, capped, never at night, restart on a new message), staff-only thread owners, action buttons. Sabotage: the reset trigger disabled and the 24 hour gate removed both flip checks.
 staff_chat_attachments_reminders_owner_actions.sql
+# OQ-555 / OQ-558: the clinician Women's Health record (pregnancy, antenatal, postnatal, breast, fertility) is read through one audited, tied function with no reason typed; every opening and every refusal is audited (break-glass and an emergency grant are refused); a direct select of the four reproductive tables returns nothing to an untied clinician, coordinator, caregiver or break-glass holder; the cycle report still accepts a reason but needs none. Sabotage: audit writer no-op, tie check opened, audit writer raising (read must fail closed).
+womens_health_record_audited_tied_staff_reads.sql

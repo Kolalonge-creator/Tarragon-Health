@@ -51883,9 +51883,11 @@ export type Database = {
       request_reproductive_tracker_deletion: { Args: never; Returns: Json }
       reproductive_tracker_deletion_status: { Args: never; Returns: Json }
       read_reproductive_pattern_report_audited: {
-        Args: { p_patient: string; p_reason: string }
+        Args: { p_patient: string; p_reason?: string }
         Returns: Json
       }
+      // OQ-555: the audited, tied staff read of the Women's Health record (no reason argument), spliced by hand.
+      read_womens_health_record_audited: { Args: { p_patient: string }; Returns: Json }
       process_due_reproductive_tracker_deletions: { Args: never; Returns: number }
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       // Two-tier review decisions (renewals at the monthly review): spliced by hand.

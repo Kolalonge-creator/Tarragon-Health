@@ -1,4 +1,4 @@
-import { loadCyclePatternReport, PATTERN_REPORT_READ_REASON, type RpcClient } from "./pattern-report-read";
+import { loadCyclePatternReport, type RpcClient } from "./pattern-report-read";
 
 const ok = {
   status: "ok",
@@ -18,10 +18,10 @@ function client(result: { data: unknown; error: { message?: string } | null }): 
 }
 
 describe("loadCyclePatternReport", () => {
-  it("builds the report from the audited rows, asking with a fixed reason", async () => {
+  it("builds the report from the audited rows, sending no reason (OQ-558)", async () => {
     const c = client({ data: ok, error: null });
     const r = await loadCyclePatternReport(c, "p1", "2026-09-01");
-    expect(c.calls).toEqual([["read_reproductive_pattern_report_audited", { p_patient: "p1", p_reason: PATTERN_REPORT_READ_REASON }]]);
+    expect(c.calls).toEqual([["read_reproductive_pattern_report_audited", { p_patient: "p1" }]]);
     expect(r.kind).toBe("ok");
     if (r.kind === "ok") {
       expect(r.report.cycles).toHaveLength(2);
