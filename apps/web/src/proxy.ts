@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
   // OQ-267: one request-rate limit for every /api/mobile/* route, before any session work. Generous and fail-open; see
   // lib/mobile-api-rate-limit.ts for why it is keyed on the session, not the IP.
   if (isMobileApiPath(request.nextUrl.pathname)) {
-    const limited = await mobileApiRateLimitResponse(request.headers, rateLimit);
+    const limited = await mobileApiRateLimitResponse(request.headers, rateLimit, request.nextUrl.pathname);
     if (limited) return limited;
   }
 
