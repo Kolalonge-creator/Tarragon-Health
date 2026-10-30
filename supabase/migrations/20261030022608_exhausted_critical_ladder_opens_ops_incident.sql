@@ -10,6 +10,7 @@
 -- CMO decision Q10, and a patient's missed notice is not a reason to phone a clinician. The reference is unique per notice, so the cron running
 -- again changes nothing (page_incident updates the open incident, and the loop skips a notice that already has a failure row).
 --
+-- A test account is skipped as well (test clinicians receive about 1,350 critical notices a week in QA traffic, and none of them is a person to phone).
 -- The summary carries no patient name and no clinical label (INV-07), only the notice id. If opening the incident itself fails, an audit row and
 -- a database warning say so, never silence, and the loop carries on: one failing incident must not stop the escalation of every other notice.
 --
@@ -27,14 +28,20 @@ declare
       where p.role = 'admin';
 
       -- OQ-731: a clinician's notice that nothing could deliver also reaches the ops desk's phone call. A patient's ladder ends in the inbox.
-      if not private.recipient_is_patient(r.recipient_id) then
+      if not private.recipient_is_patient(r.recipient_id)
+         and not coalesce((select pr.is_test from public.profiles pr where pr.id = r.recipient_id), false) then
         begin
           perform private.page_incident(r.organisation_id, 'critical_notice_exhausted:' || r.id::text,
             'A critical notice to a clinician reached nobody: phone the on-call clinician now',
             'Every delivery step for a critical notice to a clinician (push, then email) failed or went unopened. Phone the on-call clinician and the chief medical officer now, and record who you reached. Notice ' || r.id::text || '.');
         exception when others then
-          insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-            values (r.organisation_id, 'critical_notification.exhausted_incident_error', 'notification', r.id, jsonb_build_object('error', sqlerrm));
+          -- the audit row is guarded too: if it also fails the engine must carry on, never stop escalating every other notice
+          begin
+            insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+              values (r.organisation_id, 'critical_notification.exhausted_incident_error', 'notification', r.id, jsonb_build_object('error', sqlerrm));
+          exception when others then
+            null;
+          end;
           raise warning 'critical notice %: opening the ops incident for an exhausted ladder failed: %', r.id, sqlerrm;
         end;
       end if;

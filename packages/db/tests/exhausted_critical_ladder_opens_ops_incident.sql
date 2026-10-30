@@ -3,7 +3,7 @@
 -- Proved in one rolled-back transaction, against the real engine:
 --   1. an exhausted critical notice to a clinician writes its failure row, alerts the admins AND opens a sev1 ops incident with a reference unique to the notice;
 --   2. the incident text names no person and no clinical label (INV-07), only the notice id;
---   3. CONTROL: an exhausted critical notice to a PATIENT writes its failure row but opens no incident (a patient's ladder ends in the inbox);
+--   3. CONTROL: an exhausted critical notice to a PATIENT, or to a TEST clinician, writes its failure row but opens no incident (a patient's ladder ends in the inbox);
 --   4. running the engine again changes nothing (one incident, one failure row);
 --   5. if opening the incident itself fails, an audit row says so, the failure row and the admin alarm are still written, and the engine does not raise;
 --   6. SABOTAGE: with the new block removed from the function text, check 1's incident is missing, so it flips.
@@ -35,24 +35,28 @@ $$ select count(*)::integer from public.notification_escalation_failures where n
 do $$
 declare
   v_org uuid; v_staff uuid := gen_random_uuid(); v_patient uuid := gen_random_uuid(); v_admin uuid := gen_random_uuid();
-  v_n_staff uuid; v_n_patient uuid; v_summary text; v_name text;
+  v_n_staff uuid; v_n_patient uuid; v_n_test uuid; v_test uuid := gen_random_uuid(); v_summary text; v_name text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'no organisation exists at all -- the core migrations did not run'; end if;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data) values
     (v_staff, 'oq731-staff@example.invalid', 'x', now(), '{}', '{}'),
     (v_patient, 'oq731-patient@example.invalid', 'x', now(), '{}', '{}'),
-    (v_admin, 'oq731-admin@example.invalid', 'x', now(), '{}', '{}')
+    (v_admin, 'oq731-admin@example.invalid', 'x', now(), '{}', '{}'),
+    (v_test, 'oq731-test@example.invalid', 'x', now(), '{}', '{}')
   on conflict (id) do nothing;
   insert into public.profiles (id, organisation_id, role, full_name) values
     (v_staff, v_org, 'clinician', 'Oqseven Clinician Zebra'),
     (v_patient, v_org, 'patient', 'Oqseven Patient Quokka'),
-    (v_admin, v_org, 'admin', 'Oqseven Admin')
+    (v_admin, v_org, 'admin', 'Oqseven Admin'),
+    (v_test, v_org, 'clinician', 'Oqseven Test Clinician')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  update public.profiles set is_test = true where id = v_test;
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('staff', v_staff); perform pg_temp.setf('patient', v_patient);
 
   v_n_staff := pg_temp.exhausted(v_org, v_staff, 3);
   v_n_patient := pg_temp.exhausted(v_org, v_patient, 3);
+  v_n_test := pg_temp.exhausted(v_org, v_test, 3);
   perform pg_temp.setf('n_staff', v_n_staff); perform pg_temp.setf('n_patient', v_n_patient);
 
   perform private.escalate_unconfirmed_critical_notifications();
@@ -70,6 +74,8 @@ begin
     (v_summary like '%' || v_name || '%' or v_summary like '%Zebra%' or v_summary like '%oq731_baseline_notice%')::text);
   perform pg_temp.rec('...and it tells the ops person to phone', 'true', (v_summary like '%Phone the on-call clinician%')::text);
 
+  perform pg_temp.rec('CONTROL: a test clinician''s exhausted notice writes its failure row', '1', pg_temp.failures(v_n_test)::text);
+  perform pg_temp.rec('CONTROL: ...but a test clinician opens no ops incident', '0', pg_temp.incidents(v_n_test)::text);
   perform pg_temp.rec('CONTROL: a patient''s exhausted notice writes its failure row', '1', pg_temp.failures(v_n_patient)::text);
   perform pg_temp.rec('CONTROL: ...but opens no ops incident', '0', pg_temp.incidents(v_n_patient)::text);
 
