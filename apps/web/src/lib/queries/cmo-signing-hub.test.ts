@@ -136,6 +136,12 @@ jest.mock("@/lib/queries/pending-owed-signoffs", () => ({
   OWED_ITEM_PREFIX: "owed:",
   readPendingOwedSignoffs: (...args: unknown[]) => readPendingOwedSignoffs(...args),
 }));
+type RulesPending = { draftId: string | null; version: number | null; liveVersion: number | null; pacing: unknown; signable: boolean; failed: boolean };
+const readPendingScreeningRuleSet = jest.fn<(...args: unknown[]) => Promise<RulesPending>>();
+jest.mock("@/lib/queries/pending-screening-rule-set-signoff", () => ({
+  SCREENING_RULE_SET_ITEM_KEY: "screening_rule_set",
+  readPendingScreeningRuleSet: (...args: unknown[]) => readPendingScreeningRuleSet(...args),
+}));
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
@@ -176,6 +182,7 @@ beforeEach(() => {
   readPendingMskProgrammesSignoff.mockReset();
   readPendingMskProgrammesSignoff.mockResolvedValue({ programmes: [], waitingCount: 0, failed: false });
   readPendingOwedSignoffs.mockResolvedValue({ rows: [], failed: false });
+  readPendingScreeningRuleSet.mockResolvedValue({ draftId: null, version: null, liveVersion: null, pacing: null, signable: false, failed: false });
   readPendingBpDeviceReview.mockReset();
   readPendingBpDeviceReview.mockResolvedValue({ waiting: 0, failed: false });
   readSignoffQueue.mockReset();
@@ -883,6 +890,33 @@ describe("readCmoSigningHub: back, neck, knee and hip pain programmes (S96)", ()
     const hub = await hubAll(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the back, neck, knee and hip pain programmes");
+  });
+});
+
+describe("readCmoSigningHub: screening rule set draft", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line when a signable draft waits, saying the rules are unchanged and there is no limit until it is signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingScreeningRuleSet.mockResolvedValue({ draftId: "d4", version: 4, liveVersion: 3, pacing: {}, signable: true, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "screening_rule_set");
+    expect(line?.severity).toBe("draft_pending");
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/rules themselves are unchanged/);
+    expect(line?.detail).toMatch(/Until you sign, there is no limit/);
+  });
+  it("says a draft that changes the rules cannot be signed from the hub", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingScreeningRuleSet.mockResolvedValue({ draftId: "d4", version: 4, liveVersion: 3, pacing: null, signable: false, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === "screening_rule_set");
+    expect(line?.detail).toMatch(/cannot be signed from here/);
+  });
+  it("adds no line when nothing waits, and names a failed read instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.some((i) => i.key === "screening_rule_set")).toBe(false);
+    readPendingScreeningRuleSet.mockResolvedValue({ draftId: null, version: null, liveVersion: null, pacing: null, signable: false, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the screening rule set drafts");
   });
 });
 

@@ -1710,3 +1710,5 @@ screening_nightly_jobs_dedupe_and_test_accounts.sql
 care_team_reply_time.sql
 # Staff chat: staff attachment folder, unread-message reminders (non-clinical, capped, never at night, restart on a new message), staff-only thread owners, action buttons. Sabotage: the reset trigger disabled and the 24 hour gate removed both flip checks.
 staff_chat_attachments_reminders_owner_actions.sql
+# New patient pacing: one grouped reminder per stage (up to 2 still sent one by one, no tests named), a weekly limit on new printed requests that reads the signed rule set pacing block (none means no limit), priority order, and schedules of an earlier signed rule set keep being issued after a newer one is signed. Sabotage: grouping off, cap lookup null, active-only rule-set condition restored.
+screening_pacing_grouped_reminders_and_weekly_limit.sql
