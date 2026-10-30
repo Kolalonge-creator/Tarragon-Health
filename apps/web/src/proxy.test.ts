@@ -318,3 +318,27 @@ describe("staff areas extracted to apps/console", () => {
     expect(res.headers.get("location")).not.toContain("console");
   });
 });
+
+describe("mobile API rate limit (OQ-267)", () => {
+  it("answers 429 with Retry-After once one session passes its allowance, and never reaches the session logic for that request", async () => {
+    stubSession({ user: null, profile: null });
+    const headers = { authorization: "Bearer proxy-test-session-a", "x-forwarded-for": "10.20.30.1" };
+    for (let i = 0; i < 240; i++) {
+      const res = await proxy(request("/api/mobile/vitals", headers));
+      expect(res.status).not.toBe(429);
+    }
+    updateSession.mockClear();
+    const blocked = await proxy(request("/api/mobile/vitals", headers));
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThan(0);
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it("does not limit the other sessions on the same shared address, nor non-mobile paths", async () => {
+    stubSession({ user: null, profile: null });
+    const other = await proxy(request("/api/mobile/vitals", { authorization: "Bearer proxy-test-session-b", "x-forwarded-for": "10.20.30.1" }));
+    expect(other.status).not.toBe(429);
+    const web = await proxy(request("/login", { authorization: "Bearer proxy-test-session-a", "x-forwarded-for": "10.20.30.1" }));
+    expect(web.status).not.toBe(429);
+  });
+});
