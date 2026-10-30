@@ -571,6 +571,8 @@ export async function reportMedicationAccessBarrier(
 export type SubmitRiskAssessmentState =
   | {
       error?: string;
+      /** The form field the error is about, so the wizard can open the step that holds it. */
+      field?: string;
       success?: boolean;
       /**
        * The raw (pre-Zod, FormData-shaped) submitted values, echoed back so
@@ -606,7 +608,12 @@ export async function submitRiskAssessment(
 
   const parsed = riskAssessmentSchema.safeParse(raw);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input", values: raw };
+    const first = parsed.error.issues[0];
+    return {
+      error: first?.message ?? "Some answers are missing. Please check each step.",
+      ...(typeof first?.path[0] === "string" ? { field: first.path[0] } : {}),
+      values: raw,
+    };
   }
   const responses = parsed.data;
 

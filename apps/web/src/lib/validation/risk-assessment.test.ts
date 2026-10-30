@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { parseRiskAssessmentFormData, riskAssessmentSchema } from "./risk-assessment";
+import { FIELD_STEP, parseRiskAssessmentFormData, riskAssessmentSchema } from "./risk-assessment";
 
 /** A fully valid submission's FormData, used as the base for each test so
  *  only the field under test deviates. */
@@ -61,6 +61,41 @@ describe("parseRiskAssessmentFormData + riskAssessmentSchema", () => {
       throw new Error(
         `expected validation to fail, but exercise_days_per_week was silently accepted as ${parsed.data.exercise_days_per_week}`
       );
+    }
+  });
+
+  /**
+   * 2026-10-30, first live sign-up: a patient pressed Next with the smoking and height boxes empty and was shown
+   * `Invalid option: expected one of "never"|"former"|"current"` and `Invalid input: expected number, received NaN`.
+   * Every message a patient can see here must say what to do, and none may be the raw checker wording.
+   */
+  it("says in plain words what to do when an answer is missing", () => {
+    const fd = validFormData();
+    for (const key of ["smoking_status", "alcohol_use", "sleep_hours", "stress_level", "height_cm", "exercise_days_per_week", "exercise_minutes_per_session"]) fd.delete(key);
+    const parsed = riskAssessmentSchema.safeParse(parseRiskAssessmentFormData(fd));
+    if (parsed.success) throw new Error("expected validation to fail");
+    const messages = parsed.error.issues.map((i) => i.message);
+    expect(messages.length).toBeGreaterThanOrEqual(7);
+    for (const m of messages) {
+      expect(m).not.toMatch(/Invalid (option|input)|expected (one of|number)|received/i);
+      expect(m.length).toBeGreaterThan(15);
+    }
+  });
+
+  it("names the field and the step of the first missing answer", () => {
+    const fd = validFormData();
+    fd.delete("smoking_status");
+    const parsed = riskAssessmentSchema.safeParse(parseRiskAssessmentFormData(fd));
+    if (parsed.success) throw new Error("expected validation to fail");
+    const field = String(parsed.error.issues[0]?.path[0]);
+    expect(field).toBe("smoking_status");
+    expect(FIELD_STEP[field]).toBe(2);
+  });
+
+  it("knows the step of every field the form asks for", () => {
+    for (const key of Object.keys(parseRiskAssessmentFormData(validFormData()))) {
+      if (key.startsWith("family_") && !key.startsWith("family_cancer")) continue; // plain ticks, never an error
+      expect(FIELD_STEP[key]).toBeDefined();
     }
   });
 });

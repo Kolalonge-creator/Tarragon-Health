@@ -91,7 +91,7 @@ describe("RiskAssessmentForm", () => {
     fireEvent.change(screen.getByLabelText("Any other vaccines? (optional)"), {
       target: { value: "Yellow fever" },
     });
-    fireEvent.click(screen.getByLabelText("I've had an abnormal screening result before"));
+    fireEvent.click(screen.getByLabelText("I've had an abnormal result from a screening test before"));
 
     fireEvent.click(screen.getByText("Save assessment"));
 
@@ -215,5 +215,47 @@ describe("RiskAssessmentForm", () => {
     // Go back to step 2 to check the field survived the round trip.
     fireEvent.click(screen.getByText("Previous"));
     expect((screen.getByLabelText("Alcohol") as HTMLSelectElement).value).toBe("moderate");
+  });
+
+  it("asks about the HPV vaccine unless the recorded sex is male", () => {
+    const { unmount } = render(<RiskAssessmentForm patientId="patient-1" sex="male" />);
+    expect(screen.queryByLabelText("I've had the HPV vaccine")).toBeNull();
+    unmount();
+    const female = render(<RiskAssessmentForm patientId="patient-1" sex="female" />);
+    expect(screen.getByLabelText("I've had the HPV vaccine")).toBeTruthy();
+    female.unmount();
+    render(<RiskAssessmentForm patientId="patient-1" />);
+    expect(screen.getByLabelText("I've had the HPV vaccine")).toBeTruthy(); // sex not known: ask, as before
+  });
+
+  it("words the screening question so it fits anyone", () => {
+    render(<RiskAssessmentForm patientId="patient-1" sex="male" />);
+    expect(screen.getByLabelText("I've had an abnormal result from a screening test before")).toBeTruthy();
+  });
+
+  it("offers None of these on the diagnoses, which clears the ticks and is cleared by a new tick", () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+    const none = screen.getByLabelText("None of these") as HTMLInputElement;
+    const hypertension = screen.getByLabelText("hypertension") as HTMLInputElement;
+    fireEvent.click(hypertension);
+    expect(hypertension.checked).toBe(true);
+    fireEvent.click(none);
+    expect(none.checked).toBe(true);
+    expect(hypertension.checked).toBe(false);
+    fireEvent.click(hypertension);
+    expect(none.checked).toBe(false);
+  });
+
+  it("opens the step that holds a missing answer when the server reports it", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText("Next")); // to step 4, where the buttons are
+    (submitRiskAssessment as jest.Mock).mockImplementationOnce(async () => ({
+      error: "Choose one for smoking: never smoked, used to smoke, or currently smoke.",
+      field: "smoking_status",
+      values: {},
+    }));
+    fireEvent.click(screen.getByText("Save assessment"));
+    await screen.findByText(/Choose one for smoking/);
+    expect(screen.getByText(/Step 2 of 4/)).toBeTruthy();
   });
 });

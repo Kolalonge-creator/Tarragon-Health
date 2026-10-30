@@ -8,6 +8,7 @@ import {
   CIGARETTES_PER_DAY,
   DIET_TAGS,
   EXISTING_DIAGNOSES,
+  FIELD_STEP,
   SLEEP_HOURS,
 } from "@/lib/validation/risk-assessment";
 import { useVitalsReadings } from "@/lib/queries/vitals";
@@ -89,7 +90,7 @@ function Checkbox({ name, label }: { name: string; label: string }) {
 
 const stepClass = "space-y-3";
 
-export function RiskAssessmentForm({ patientId }: { patientId: string }) {
+export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** Recorded sex, when known: the HPV vaccine question is only asked when it is not male. */ sex?: "male" | "female" | null }) {
   const [state, formAction, pending] = useActionState(submitRiskAssessment, undefined);
   const queryClient = useQueryClient();
   const { data: vitalsReadings } = useVitalsReadings(patientId);
@@ -103,6 +104,9 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [existingDiagnoses, setExistingDiagnoses] = useState<string[]>([]);
+  // "None of these" is an answer in its own right (an empty list means the same thing to the server, but a blank list reads as
+  // "I have not answered"). It is never submitted: it only clears the ticks and shows that the question was answered.
+  const [noDiagnoses, setNoDiagnoses] = useState(false);
   // Adjust state during render (React's endorsed pattern for "prefill once
   // a query result arrives") rather than in an effect, so it can't cascade
   // an extra render — see https://react.dev/learn/you-might-not-need-an-effect.
@@ -200,6 +204,9 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
   const [restoredFrom, setRestoredFrom] = useState<typeof state>(undefined);
   if (state !== restoredFrom) {
     setRestoredFrom(state);
+    // An answer that is missing on another step is reported where the buttons are, so open the step that holds it.
+    const errorStep = state?.error && state.field ? FIELD_STEP[state.field] : undefined;
+    if (errorStep) setStep(errorStep);
     const values = state?.values as Record<string, unknown> | undefined;
     if (typeof values?.smoking_status === "string") setSmokingStatus(values.smoking_status);
     if (Array.isArray(values?.family_cancer_types)) {
@@ -433,7 +440,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </p>
             )}
             <CheckboxGroup
-              legend="Existing diagnoses (select any)"
+              legend="Existing diagnoses (select any, or choose None of these)"
               name="existing_diagnoses"
               options={EXISTING_DIAGNOSES.map((value) => ({
                 value,
@@ -444,9 +451,25 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                 setExistingDiagnoses((prev) =>
                   checked ? [...new Set([...prev, value])] : prev.filter((v) => v !== value)
                 );
+                if (checked) setNoDiagnoses(false);
                 if (value === "other") setShowDiagnosesOther(checked);
               }}
             />
+            <label className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={noDiagnoses && existingDiagnoses.length === 0}
+                onChange={(e) => {
+                  setNoDiagnoses(e.target.checked);
+                  if (e.target.checked) {
+                    setExistingDiagnoses([]);
+                    setShowDiagnosesOther(false);
+                  }
+                }}
+              />
+              None of these
+            </label>
             {showDiagnosesOther && (
               <div className="space-y-1.5">
                 <Label htmlFor="existing_diagnoses_other_detail">Which diagnosis?</Label>
@@ -468,12 +491,12 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
-            <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />
+            {sex !== "male" && <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />}
             <div className="space-y-1.5">
               <Label htmlFor="other_vaccines_detail">Any other vaccines? (optional)</Label>
               <Input id="other_vaccines_detail" name="other_vaccines_detail" type="text" maxLength={300} />
             </div>
-            <Checkbox name="prior_abnormal_result" label="I've had an abnormal screening result before" />
+            <Checkbox name="prior_abnormal_result" label="I've had an abnormal result from a screening test before" />
           </div>
 
           {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
