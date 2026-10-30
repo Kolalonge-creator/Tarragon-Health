@@ -13,6 +13,8 @@ import {
   useInvestorSummary,
 } from "@/lib/analytics/queries";
 import { buildOverviewSummary } from "@/lib/analytics/overview-summary";
+import { standoutView } from "@/lib/analytics/standout";
+import { StandoutHero } from "./standout-hero";
 import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
 
 /**
@@ -37,23 +39,18 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
     facilities,
     outcomes,
   });
+  const standout = standoutView({ governance, investor, facilities });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div>
-          <h2 className="font-heading text-2xl font-semibold sm:text-3xl">
-            Welcome back{firstName ? `, ${firstName}` : ""}
-          </h2>
-          <p className="mt-1 max-w-xl text-sm text-white/80">{banner}</p>
-        </div>
-        <Link
-          href="/analytics/governance"
-          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-clinical-navy transition-colors hover:bg-white/90"
-        >
-          View governance
-        </Link>
+      <div>
+        <h2 className="font-heading text-2xl font-semibold text-charcoal-ink">
+          Welcome back{firstName ? `, ${firstName}` : ""}
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/70">{banner}</p>
       </div>
+
+      <StandoutHero view={standout} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile icon={CreditCard} label="Total revenue" {...tiles.revenue} />

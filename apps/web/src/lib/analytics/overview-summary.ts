@@ -69,7 +69,7 @@ function unknownTile(q: { isPending: boolean }): OverviewTile {
  * answered", whatever the zeros say. Stale data from an earlier successful
  * fetch still counts: a failed refresh should not blank a real number.
  */
-function clinicalFigures(q: QuerySlice<GovernanceSummary>) {
+export function clinicalFigures(q: QuerySlice<GovernanceSummary>) {
   const c = q.data?.clinical;
   if (typeof c?.staff_total !== "number") return null;
   return {
@@ -80,7 +80,7 @@ function clinicalFigures(q: QuerySlice<GovernanceSummary>) {
 }
 
 /** Open and total risk-register rows, or null when governance was not answered. */
-function riskFigures(q: QuerySlice<GovernanceSummary>) {
+export function riskFigures(q: QuerySlice<GovernanceSummary>) {
   if (clinicalFigures(q) === null) return null;
   const r = q.data?.risk;
   const total = (r?.by_status ?? []).reduce((sum, s) => sum + s.count, 0);
