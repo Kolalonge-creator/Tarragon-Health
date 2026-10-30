@@ -6,6 +6,9 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { NAV_ICON } from "@/lib/icons";
 import { payerOverviewState } from "@/lib/payer/overview-state";
+import { readPayerQueueCounts } from "@/lib/payer/queue-counts";
+import { payerFirstView } from "@/lib/payer/first-view";
+import { PayerFirst } from "./payer-first";
 
 export default async function PayerOverviewPage({
   searchParams,
@@ -30,9 +33,12 @@ export default async function PayerOverviewPage({
   }
 
   const supabase = await createClient();
-  const state = payerOverviewState(
-    await supabase.rpc("payer_dashboard_analytics", { p_insurer_id: selected.id }),
-  );
+  const [analytics, queues] = await Promise.all([
+    supabase.rpc("payer_dashboard_analytics", { p_insurer_id: selected.id }),
+    readPayerQueueCounts(supabase, selected.id),
+  ]);
+  const state = payerOverviewState(analytics);
+  const first = payerFirstView(queues, selected.id);
 
   return (
     <div className="space-y-6">
@@ -40,6 +46,8 @@ export default async function PayerOverviewPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}</h1>
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
+
+      <PayerFirst view={first} />
 
       {state.kind === "failed" ? (
         <LoadFailure>
