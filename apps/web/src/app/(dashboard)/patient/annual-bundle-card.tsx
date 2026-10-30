@@ -75,7 +75,7 @@ export function AnnualBundleCard({ patientId }: { patientId: string }) {
         <CardTitle>Annual test bundle</CardTitle>
         <CardDescription>
           One set of blood tests, once a year, for everyone. Choose where you will do it. You pay the laboratory
-          directly, then upload your result in \u201cYour test requests\u201d below so it is kept with your health record.
+          directly, then upload your result under “Your test requests” on the Results &amp; orders tab, so it is kept with your health record.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
