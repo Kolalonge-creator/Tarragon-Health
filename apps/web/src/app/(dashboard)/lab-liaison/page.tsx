@@ -2,9 +2,10 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
-import { formatNumber } from "@/lib/analytics/format";
 import { startOfLagosDayUtc } from "@/lib/ai-coach/lagos-day";
 import { liaisonUploadsSchema } from "@/lib/lab-results/structured";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { buildLiaisonSummary } from "@/lib/lab-liaison/overview-summary";
 import { HeldUploads } from "./held-uploads";
 import {
   LabLiaisonWorklist,
@@ -31,12 +32,13 @@ export default async function LabLiaisonPage() {
   const weekStartIso = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
-    { data: patientRows },
-    { data: recentRows },
-    { count: patientCount },
-    { count: awaitingReviewCount },
-    { count: uploadedTodayCount },
-    { count: uploadedThisWeekCount },
+    patientList,
+    recentFeed,
+    patientCount,
+    awaitingReview,
+    uploadedToday,
+    uploadedThisWeek,
+    heldResult,
   ] = await Promise.all([
     // Org patients the liaison can upload for (RLS-scoped). Capped at 200 for
     // the client-side search; large orgs would move this to server-side search.
@@ -68,21 +70,34 @@ export default async function LabLiaisonPage() {
       .from("lab_result_documents")
       .select("id", { count: "exact", head: true })
       .gte("created_at", weekStartIso),
+    // Files this liaison recorded, as a neutral list: "waiting for review" or "reviewed", never values or reasons (S27f).
+    supabase.rpc("liaison_recent_uploads"),
   ]);
 
-  // Files this liaison recorded, as a neutral list: "waiting for review" or "reviewed", never values or reasons (S27f).
-  const { data: heldRows } = await supabase.rpc("liaison_recent_uploads");
+  const { data: heldRows, error: heldError } = heldResult;
   const heldParsed = liaisonUploadsSchema.safeParse(heldRows ?? []);
   const held = heldParsed.success ? heldParsed.data : [];
 
-  const patients: LiaisonPatient[] = (patientRows ?? []).map((p) => ({
+  // A figure or list that did not load is reported as such, never as zero or
+  // as an empty list (see lib/lab-liaison/overview-summary.ts).
+  const summary = buildLiaisonSummary({
+    patientCount,
+    uploadedToday,
+    uploadedThisWeek,
+    awaitingReview,
+    patientList,
+    recentFeed,
+    heldFailed: Boolean(heldError) || !heldParsed.success,
+  });
+
+  const patients: LiaisonPatient[] = (patientList.data ?? []).map((p) => ({
     id: p.id,
     fullName: p.full_name,
     patientNumber: p.patient_number,
     phone: p.phone,
   }));
 
-  const recent: RecentUpload[] = (recentRows ?? []).map((row) => ({
+  const recent: RecentUpload[] = (recentFeed.data ?? []).map((row) => ({
     id: row.id,
     patientName: row.profiles?.full_name ?? null,
     source: row.source,
@@ -101,40 +116,48 @@ export default async function LabLiaisonPage() {
         </p>
       </div>
 
+      {summary.anyCountFailed && (
+        <LoadFailure>
+          Some figures could not be loaded and are marked below. Reload the page to try again.
+        </LoadFailure>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={SEMANTIC_ICON.parentCare}
           label="Patients in your org"
-          value={formatNumber(patientCount ?? 0)}
+          {...summary.tiles.patients}
         />
         <StatTile
           icon={SEMANTIC_ICON.labs}
           label="Uploaded today"
-          value={formatNumber(uploadedTodayCount ?? 0)}
+          {...summary.tiles.today}
           delta={{ text: "Since midnight, Lagos time", direction: "flat" }}
         />
         <StatTile
           icon={NAV_ICON.upload}
           label="Uploaded this week"
-          value={formatNumber(uploadedThisWeekCount ?? 0)}
+          {...summary.tiles.thisWeek}
           delta={{ text: "Last 7 days", direction: "flat" }}
         />
         <StatTile
           icon={NAV_ICON.review}
-          tintClassName={(awaitingReviewCount ?? 0) > 0 ? "bg-amber-100" : undefined}
-          iconClassName={(awaitingReviewCount ?? 0) > 0 ? "text-amber-700" : undefined}
+          tintClassName={summary.tiles.awaiting.needsAttention ? "bg-amber-100" : undefined}
+          iconClassName={summary.tiles.awaiting.needsAttention ? "text-amber-700" : undefined}
           label="Awaiting clinician review"
-          value={formatNumber(awaitingReviewCount ?? 0)}
-          delta={{
-            text: (awaitingReviewCount ?? 0) > 0 ? "Across your organisation" : "All caught up",
-            direction: (awaitingReviewCount ?? 0) > 0 ? "down" : "up",
-          }}
+          {...summary.tiles.awaiting.tile}
+          delta={summary.tiles.awaiting.delta}
         />
       </div>
 
-      <HeldUploads rows={held} />
+      <HeldUploads rows={held} failed={summary.heldFailed} />
 
-      {patients.length === 0 ? (
+      {summary.patientListFailed ? (
+        <LoadFailure>
+          The list of patients could not be loaded, so you cannot upload a result right now. This
+          does not mean your organisation has no patients. Reload the page to try again.
+        </LoadFailure>
+      ) : patients.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No patients yet</CardTitle>
@@ -146,7 +169,11 @@ export default async function LabLiaisonPage() {
           </CardContent>
         </Card>
       ) : (
-        <LabLiaisonWorklist patients={patients} recent={recent} />
+        <LabLiaisonWorklist
+          patients={patients}
+          recent={recent}
+          recentFailed={summary.recentFeedFailed}
+        />
       )}
     </div>
   );

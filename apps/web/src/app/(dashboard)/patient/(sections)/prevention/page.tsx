@@ -154,7 +154,7 @@ export default async function PreventionHubPage() {
           className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2"
         >
           <div className="space-y-4">
-            <RiskAssessmentForm patientId={subjectId} />
+            <RiskAssessmentForm patientId={subjectId} sex={subjectSex} />
             <RiskAssessmentDisplay patientId={subjectId} />
             <FindriscCheck />
             <CvdRiskCheck />

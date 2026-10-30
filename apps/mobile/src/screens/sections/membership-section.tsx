@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { JoinWaitlist } from "./join-waitlist";
 import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
@@ -266,7 +267,12 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
           <MutedText>{tr("pricechange.renew")}</MutedText>
         </Card>
       ) : null}
-      {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
+      {items.length === 0 ? (
+        <View style={{ gap: 12 }}>
+          <MutedText>{tr("shop.not_open")}</MutedText>
+          <JoinWaitlist feature="membership" />
+        </View>
+      ) : null}
       {visible.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const q = quotes[item.code];
         const pointsLine = q?.points?.lines.find((l) => l.rule === "points" && l.applied) ?? null;

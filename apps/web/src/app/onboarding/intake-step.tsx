@@ -36,9 +36,12 @@ export function IntakeStep({
   patientId,
   onSkip,
   intent,
+  sex,
 }: {
   patientId: string;
   onSkip: () => void;
+  /** Recorded sex from the step before, so the questionnaire can leave out questions that do not apply. */
+  sex?: "male" | "female" | null;
   /** From answers-step.tsx — only changes which intro line is shown below. */
   intent: OnboardingIntent;
 }) {
@@ -59,9 +62,16 @@ export function IntakeStep({
           {INTRO_COPY[intent]} You can stop part-way, or do the whole thing later from your
           dashboard.
         </p>
+        {/* The way out is at the top, where someone who does not want to answer will look, not only below the whole form. */}
+        <Button type="button" variant="outline" className="mt-3" onClick={onSkip}>
+          Skip this for now
+        </Button>
+        <p className="mt-1 text-xs text-charcoal-ink/50">
+          You can fill this in later from your dashboard. Until you do, your screening calendar stays empty.
+        </p>
       </div>
 
-      <RiskAssessmentForm patientId={patientId} />
+      <RiskAssessmentForm patientId={patientId} sex={sex} />
 
       <div className="border-t border-charcoal-ink/10 pt-4">
         <h3 className="text-sm font-semibold text-charcoal-ink">Medicines you take now</h3>
@@ -88,7 +98,7 @@ export function IntakeStep({
         {/* There is no plan step to continue to: plans were retired, and this
             button has always gone straight to the confirmation screen. */}
         <Button type="button" variant="ghost" onClick={onSkip}>
-          Continue to the last step
+          Skip for now and go to the last step
         </Button>
         <p className="mt-1 text-xs text-charcoal-ink/50">
           Skipping is fine. Your screening calendar stays empty until this is done, and you can

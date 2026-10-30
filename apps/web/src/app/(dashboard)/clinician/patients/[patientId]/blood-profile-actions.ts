@@ -14,7 +14,7 @@ const staffSchema = z.object({
   genotype: genotype.nullable(),
   genotype_note: z.string().max(200).nullable(),
   /** The uploaded report this was read off. Required — see the migration. */
-  document_id: z.string().uuid({ message: "Choose the lab report this came from" }),
+  document_id: z.string().uuid({ message: "Choose the laboratory report this came from" }),
 });
 
 const patientSchema = z.object({
@@ -57,7 +57,7 @@ export async function saveBloodProfileFromReport(input: unknown): Promise<BloodP
     .eq("role", "patient")
     .maybeSingle();
   if (!patient?.organisation_id) {
-    return { error: "That patient isn't in your organisation." };
+    return { error: "That patient is not in your organisation." };
   }
 
   const { error } = await supabase.from("patient_blood_profile").upsert(
@@ -130,7 +130,7 @@ export async function attestBloodProfile(input: unknown): Promise<BloodProfileRe
   revalidatePath("/patient");
   return {
     message:
-      "Recorded as your own confirmation. Upload the lab report when you can and your care team will confirm it.",
+      "Recorded as your own confirmation. Upload the laboratory report when you can and your care team will confirm it.",
   };
 }
 
@@ -140,10 +140,10 @@ function friendly(message: string): string {
     return "That report is not on this patient's record.";
   }
   if (/must link the report/i.test(message)) {
-    return "Choose the lab report this came from.";
+    return "Choose the laboratory report this came from.";
   }
   if (/provenance_complete/i.test(message)) {
-    return "A blood group or genotype needs either a linked lab report or the patient's own confirmation.";
+    return "A blood group or genotype needs either a linked laboratory report or the patient's own confirmation.";
   }
   return message;
 }

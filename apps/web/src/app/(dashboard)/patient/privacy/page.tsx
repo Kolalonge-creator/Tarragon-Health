@@ -1,3 +1,4 @@
+import { Disclosure } from "@/components/ui/disclosure";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
@@ -79,14 +80,16 @@ export default async function PrivacyCentrePage() {
         <a href="/patient/research" className="font-semibold text-brand-green underline">{t("res.ledger.link")}</a>
       </p>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <ConsentStatusPanel patientId={profile.id} />
-        <ConnectedDevicesSummary patientId={profile.id} />
-      </div>
+      <Disclosure title="Consents, connected devices and who can see your care" hint="The details behind the choices above.">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          <ConsentStatusPanel patientId={profile.id} />
+          <ConnectedDevicesSummary patientId={profile.id} />
+        </div>
 
-      <ConsentReceiptsPanel patientId={profile.id} />
+        <ConsentReceiptsPanel patientId={profile.id} />
 
-      <CareVisibilityList />
+        <CareVisibilityList />
+      </Disclosure>
 
       <div>
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Your data rights</h2>

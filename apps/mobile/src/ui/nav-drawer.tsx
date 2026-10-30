@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { useT, useUiLanguage } from "@/lib/ui-language";
 import { SECTIONS, SECTION_GROUP_ORDER, type SectionId } from "@/lib/sections";
+import { searchSections } from "@/lib/section-search";
 import { SECTION_ICONS } from "./section-icons";
-import { radii, space, useTheme } from "./design";
+import { radii, space, textStyles, useTheme } from "./design";
 import { AppText, Icon, PressableScale } from "./kit";
 
 interface NavDrawerProps {
@@ -47,6 +48,10 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
   const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && shown.some((s) => s.group === group));
   const activeGroup = SECTIONS.find((s) => s.id === activeSection)?.group;
   const [manualOpen, setManualOpen] = useState<Record<string, boolean>>({});
+  // What the person typed. Only sections this account can see are searched (hiddenSections is already applied to `shown`).
+  const [query, setQuery] = useState("");
+  const matches = searchSections(shown.map((s) => s.id), query, (l) => tr(l));
+  const searching = query.trim().length > 0;
   const isOpen = (group: string) => manualOpen[group] ?? group === activeGroup;
 
   const grid = (items: typeof SECTIONS) => (
@@ -94,7 +99,41 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
             </PressableScale>
           </View>
 
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: space.xl, gap: space.xl }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: space.xl, gap: space.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search, for example tablets or results"
+              placeholderTextColor={colors.textSubtle}
+              accessibilityLabel="Search the app"
+              returnKeyType="search"
+              autoCorrect={false}
+              style={{ ...textStyles.body, color: colors.text, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, paddingHorizontal: space.md, minHeight: 44 }}
+            />
+            {searching ? (
+              <View style={{ gap: space.xs }}>
+                {matches.length === 0 ? (
+                  <AppText variant="body" tone="textMuted">Nothing matches that. Try another word, like a screen name or a health topic.</AppText>
+                ) : (
+                  matches.map((m) => (
+                    <PressableScale
+                      key={m.id}
+                      onPress={() => {
+                        setQuery("");
+                        onSelect(m.id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={m.label}
+                      style={{ minHeight: 44, justifyContent: "center", paddingVertical: space.xs }}
+                    >
+                      <AppText variant="bodyStrong">{m.label}</AppText>
+                      <AppText variant="caption" tone="textMuted">{tr(m.group)}</AppText>
+                    </PressableScale>
+                  ))
+                )}
+              </View>
+            ) : null}
+            {!searching ? (<>
             <View style={{ gap: space.md }}>
               <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {tr("Everyday")}
@@ -125,6 +164,7 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
                 </View>
               );
             })}
+            </>) : null}
           </ScrollView>
 
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>

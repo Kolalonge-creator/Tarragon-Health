@@ -163,6 +163,18 @@ describe("MembershipShop with the Membership ladder", () => {
     expect(arg.collectionState).toBe("Lagos");
   });
 
+  it("Plus says why its Pay button is greyed out, and the hint goes once a state is chosen; Membership never shows it", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    const [membershipPay, plusPay] = screen.getAllByRole("button", { name: "Pay with Paystack" }) as HTMLButtonElement[];
+    const hint = screen.getByText(/Choose the state where your blood tests will be collected, above, to continue/);
+    expect(screen.getAllByText(/to continue\./).length).toBe(1);
+    expect(plusPay!.getAttribute("aria-describedby")).toBe(hint.id);
+    expect(membershipPay!.getAttribute("aria-describedby")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Where will your blood tests be collected?"), { target: { value: "Lagos" } });
+    expect(screen.queryByText(/Choose the state where your blood tests will be collected, above, to continue/)).toBeNull();
+    expect(plusPay!.getAttribute("aria-describedby")).toBeNull();
+  });
+
   it("Membership (no Plus) is not limited by state: no picker on its card and no state sent", async () => {
     mutateAsync.mockResolvedValue({ order_id: "o4", reference: "tho_w", amount_kobo: 8_400_000, checkout_url: "https://checkout.paystack.com/eg" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);

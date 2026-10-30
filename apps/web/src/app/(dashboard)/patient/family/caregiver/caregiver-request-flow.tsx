@@ -17,6 +17,7 @@ import {
   type CaregiverPermission,
   type CaregiverAccessDuration,
 } from "@/lib/validation/care-access";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,19 +155,20 @@ export function CaregiverRequestFlow() {
         <Card>
           <CardHeader>
             <CardTitle>Who is this for?</CardTitle>
-            <CardDescription>
-              &quot;Manage&quot; access lets someone book video visits, message the care team to
-              request labs and prescriptions, log doses and vitals, and see everything on the
-              record, not just follow it. It only ever starts once the other person accepts, and either side can
-              withdraw it at any time. For someone who should only be able to follow your care, not
-              act on it, use{" "}
-              <Link href="/patient/family" className="text-brand-green dark:text-brand-green-bright underline">
-                next of kin
-              </Link>{" "}
-              instead.
-            </CardDescription>
+            <CardDescription>Choose who is helping whom. It only starts once the other person accepts.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <Disclosure title="What manage access allows">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                &quot;Manage&quot; access lets someone book video visits, message the care team to request labs and prescriptions, log
+                doses and vitals, and see everything on the record, not just follow it. Either side can withdraw it at any time. For
+                someone who should only be able to follow your care, not act on it, use{" "}
+                <Link href="/patient/family" className="text-brand-green underline dark:text-brand-green-bright">
+                  next of kin
+                </Link>{" "}
+                instead.
+              </p>
+            </Disclosure>
             <button
               type="button"
               onClick={() => {

@@ -116,6 +116,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   referral_patient_confirmation: "referrals",
 
   new_care_message: "care_messages",
+  care_message_reminder: "care_messages",
   // S22 written questions and note release (patient-addressed only; the clinician-addressed ones stay ungated).
   // Two-tier monthly follow-up (patient-addressed only)
   followup_times_offered: "appointments",

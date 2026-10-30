@@ -56,7 +56,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
   {
     key: "labs",
     href: MARKETING_ROUTES.labs,
-    title: "Labs",
+    title: "Laboratory tests",
     description: "Know which tests are due, use any laboratory, and have every result followed up.",
     built: true,
   },
@@ -275,7 +275,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     ],
     stats: [
       { label: "Pre-diabetic (workforce)", value: "", pill: { text: "12%", tone: "amber" } },
-      { label: "Uncontrolled BP", value: "", pill: { text: "8%", tone: "red" } },
+      { label: "Uncontrolled blood pressure", value: "", pill: { text: "8%", tone: "red" } },
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
@@ -388,7 +388,7 @@ export const HOMEPAGE_FAQS = [
   },
   {
     category: "clinical",
-    question: "What's the difference between my Health Score and my Annual Health Check?",
+    question: "What is the difference between my Health Score and my Annual Health Check?",
     answer:
       "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your Annual Health Check (or Comprehensive Screen) is a fuller yearly panel that covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within a day, or within 12 hours if the result is critical.",
   },

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { Disclosure } from "@/components/ui/disclosure";
 import { PageHeader } from "@/components/ui/page-header";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
@@ -81,7 +82,9 @@ export default async function WeightManagementPage() {
 
       <BariatricReferralStatus patientId={user.id} />
 
-      <WeightEducationFeed patientId={user.id} organisationId={profile?.organisation_id ?? null} />
+      <Disclosure title="Reading about weight" hint="Plain-language articles chosen for weight and eating.">
+        <WeightEducationFeed patientId={user.id} organisationId={profile?.organisation_id ?? null} />
+      </Disclosure>
     </div>
   );
 }

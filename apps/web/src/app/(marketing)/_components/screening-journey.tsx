@@ -62,7 +62,7 @@ export const SCREENINGS: ScreeningItem[] = [
         body: "One visit: a blood sample, plus your blood pressure, weight and height. Fasting is not required for every version, and the app tells you how to prepare beforehand.",
       },
       {
-        title: "Results & what's next",
+        title: "Results & what is next",
         body: "A doctor reviews every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear, and a clear result is still valuable because it gives you a baseline. If something needs attention, a doctor follows up within a day, and within 12 hours if the result is critical.",
       },
     ],
@@ -78,7 +78,7 @@ export const SCREENINGS: ScreeningItem[] = [
     steps: [
       {
         title: "Is this for you?",
-        body: "Recommended for women from age 25, repeated on a schedule your doctor sets based on your results and history.",
+        body: "Recommended for women from age 25, repeated on a schedule a doctor sets based on your results and history.",
       },
       {
         title: "Book it",
@@ -89,7 +89,7 @@ export const SCREENINGS: ScreeningItem[] = [
         body: "A clinician collects a sample in a few minutes. It may be uncomfortable for some people but is not usually painful.",
       },
       {
-        title: "Results & what's next",
+        title: "Results & what is next",
         body: "Results go only to you and the reviewing doctor. A normal result means you are on track for your next scheduled screening. If a result is abnormal, a doctor follows up immediately to explain what happens next.",
       },
     ],
@@ -105,19 +105,19 @@ export const SCREENINGS: ScreeningItem[] = [
     steps: [
       {
         title: "Is this for you?",
-        body: "Formal screening is recommended from age 40. Before that, it matters more to know what is normal for your breasts and to tell your doctor about any change than to have a scheduled test.",
+        body: "Formal screening is recommended from age 40. Before that, it matters more to know what is normal for your breasts and to tell a doctor about any change than to have a scheduled test.",
       },
       {
         title: "Book it",
-        body: "It is included in Comprehensive Screen, or arranged directly by your doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
+        body: "It is included in Comprehensive Screen, or arranged directly by a doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
       },
       {
         title: "Test day",
         body: "You receive an imaging request (ultrasound if you are under 40, mammography from 40), which you take to any imaging facility near you. You pay the facility directly at its own price and upload the result yourself, as with the rest of Comprehensive Screen.",
       },
       {
-        title: "Results & what's next",
-        body: "Your doctor explains the result to you directly. Most results are clear. If not, you move straight into follow-up on the same record, without starting again.",
+        title: "Results & what is next",
+        body: "A doctor explains the result to you directly. Most results are clear. If not, you move straight into follow-up on the same record, without starting again.",
       },
     ],
   },
@@ -127,7 +127,7 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "male",
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
-    summary: "A blood test that helps your doctor assess prostate health, and that is discussed with you before it is ordered.",
+    summary: "A blood test that helps a doctor assess prostate health, and that is discussed with you before it is ordered.",
     price: "Included in Advanced Screen",
     steps: [
       {
@@ -136,15 +136,15 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Ordered by your doctor as part of Advanced Screen, not sold as a stand-alone test. PSA is not offered as a self-service booking because it needs that conversation first.",
+        body: "Ordered by a doctor as part of Advanced Screen, not sold as a stand-alone test. PSA is not offered as a self-service booking because it needs that conversation first.",
       },
       {
         title: "Test day",
         body: "A simple blood sample, taken with your other Advanced Screen samples during the same visit.",
       },
       {
-        title: "Results & what's next",
-        body: "Your doctor explains the result in context, including your age, your family history and how the figure is changing over time, rather than as a simple pass or fail.",
+        title: "Results & what is next",
+        body: "A doctor explains the result in context, including your age, your family history and how the figure is changing over time, rather than as a simple pass or fail.",
       },
     ],
   },
@@ -155,7 +155,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
     summary: "Finding changes in the colon early, when treatment is simplest.",
-    price: "Ordered by your doctor",
+    price: "Ordered by a doctor",
     steps: [
       {
         title: "Is this for you?",
@@ -163,15 +163,15 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Your doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
+        body: "A doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
       },
       {
         title: "Test day",
-        body: "This depends on what your doctor orders. Your doctor explains what to expect and how to prepare before anything is booked.",
+        body: "This depends on what a doctor orders. Your care team explains what to expect and how to prepare before anything is booked.",
       },
       {
-        title: "Results & what's next",
-        body: "Reviewed by your doctor, with a clear explanation either way, and coordinated follow-up on the same record if anything needs a closer look.",
+        title: "Results & what is next",
+        body: "Reviewed by a doctor, with a clear explanation either way, and coordinated follow-up on the same record if anything needs a closer look.",
       },
     ],
   },
@@ -197,7 +197,7 @@ export const SCREENINGS: ScreeningItem[] = [
         body: "A simple blood sample at the laboratory of your choice, usually taken within minutes.",
       },
       {
-        title: "Results & what's next",
+        title: "Results & what is next",
         body: "Results go only to you and the reviewing doctor, and are shared elsewhere on the platform only with your consent. Support and next steps are arranged privately if a result needs it.",
       },
     ],
@@ -224,7 +224,7 @@ export const SCREENINGS: ScreeningItem[] = [
         body: "One blood sample is taken. No preparation is needed.",
       },
       {
-        title: "Results & what's next",
+        title: "Results & what is next",
         body: "Saved permanently to your Health Passport, so you and any partner planning a family with you can always confirm your genotype.",
       },
     ],

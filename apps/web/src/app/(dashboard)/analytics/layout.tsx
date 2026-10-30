@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AnalyticsNav } from "./_components/analytics-nav";
+import { AnalyticsLoadNotice } from "./_components/load-notice";
 import { AnalyticsPageHeader } from "./_components/page-header";
 
 /**
@@ -40,6 +41,10 @@ export default async function AnalyticsLayout({ children }: { children: React.Re
        * console alongside everything else, so their sidebar keeps a single
        * "Analytics" link and still needs this bar to move between categories. */}
       {profile.role === "admin" && <AnalyticsNav />}
+      {/* Says once, for every page below, when a figure failed to load, so a
+       * dashboard that shows a missing figure as zero is not read as a quiet
+       * month. Silent when everything loaded. */}
+      <AnalyticsLoadNotice />
       {children}
     </div>
   );

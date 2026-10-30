@@ -239,7 +239,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
     ],
     metadata: {
-      title: "Lab Coordination",
+      title: "Laboratory Coordination",
       description:
         "Know which laboratory tests are due, take the request to any laboratory you choose, and receive doctor follow-up on every result.",
     },

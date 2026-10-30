@@ -363,7 +363,7 @@ function RuleVersionCard({ rule, signedVersions }: { rule: ClinicalRuleVersionRo
           {canPromoteToShadow && <PromoteButton id={rule.id} />}
           {canSign && isSignable && <SignButton id={rule.id} />}
           {canSign && isSignable && (
-            <SignButton id={rule.id} activate={false} label="Sign only (don't activate)" />
+            <SignButton id={rule.id} activate={false} label="Sign only (do not activate)" />
           )}
           {canRetire && <RetireForm id={rule.id} />}
           <RollbackForm ruleKey={rule.rule_key} signedVersions={signedVersions.filter((v) => v !== rule.version)} />

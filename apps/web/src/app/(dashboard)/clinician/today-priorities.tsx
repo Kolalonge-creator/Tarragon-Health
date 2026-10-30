@@ -16,7 +16,7 @@ import {
 const BUCKET_DESCRIPTION: Record<LaunchWorklistBucket, string> = {
   urgent: "Time-critical: escalations, safety, safeguarding, abnormal results.",
   paidWorkDue: "A patient or sponsor has paid for a specific piece of your time.",
-  followUp: "Everything else that's real work, but not urgent or unpaid-for.",
+  followUp: "All other work that needs doing, but is neither urgent nor paid for by a patient or sponsor.",
 };
 
 const BUCKET_ORDER: LaunchWorklistBucket[] = ["urgent", "paidWorkDue", "followUp"];

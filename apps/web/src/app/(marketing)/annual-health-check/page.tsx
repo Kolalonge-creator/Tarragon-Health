@@ -101,7 +101,7 @@ const HOW_IT_WORKS = [
   },
   {
     step: 3,
-    title: "A video consult with your doctor",
+    title: "A video consult with a doctor",
     body: "A doctor reads every result, then you have a 15-minute video call to go through it together. For most people the outcome is that everything is normal and the next check is due in a year.",
   },
   {
@@ -152,7 +152,7 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              What&apos;s included
+              What is included
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
               Six checks in one visit
@@ -280,7 +280,7 @@ export default function AnnualHealthCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             In most years your check will simply confirm that you are well, and that is its purpose.
             If something does show up, finding it early usually means simpler and cheaper
-            treatment, and your doctor will tell you clearly if it needs further investigation.
+            treatment, and a doctor will tell you clearly if it needs further investigation.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             If you want year-round support, <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps

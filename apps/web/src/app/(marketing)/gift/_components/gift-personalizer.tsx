@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
  * sync by hand since the underlying list rarely changes.
  */
 const RELATIONSHIPS = [
-  { value: "parent", label: "Mum or Dad" },
+  { value: "parent", label: "Mother or father" },
   { value: "spouse", label: "Spouse or partner" },
   { value: "sibling", label: "Sibling" },
   { value: "child", label: "Child" },
@@ -99,7 +99,7 @@ export function GiftPersonalizer() {
             />
           </div>
           <div>
-            <Label htmlFor="gift-recipient-relationship">They&apos;re your...</Label>
+            <Label htmlFor="gift-recipient-relationship">They are your...</Label>
             <Select
               id="gift-recipient-relationship"
               className="mt-1.5"

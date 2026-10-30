@@ -28,8 +28,8 @@ const FAQS = [
     a: "Whatever your result, the choice is yours. If you would like to talk to someone, a Tarragon doctor is available through the app, and patients who have signed up can also use a more thorough mental health screen that a clinician reviews, as part of their care.",
   },
   {
-    q: "What if I'm in crisis right now?",
-    a: "Please don't wait for a quiz result. Call one of the support lines below, reach out to someone you trust, or go to the nearest emergency department. Tarragon does not provide emergency or crisis response.",
+    q: "What if I am in crisis right now?",
+    a: "Please do not wait for a quiz result. Call one of the support lines below, reach out to someone you trust, or go to the nearest emergency department. Tarragon does not provide emergency or crisis response.",
   },
 ];
 

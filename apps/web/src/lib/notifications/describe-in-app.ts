@@ -46,6 +46,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "care_message_reminder") {
+    return { text: "You have an unread message from your care team", href: "/patient/messages" };
+  }
   if (n.template === "clinician_new_care_message") {
     // Provider-facing counterpart to new_care_message — a patient or their
     // sponsor posted and the assigned clinician hadn't been told (see
@@ -568,6 +571,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_order_patient_confirmation") {
     const lab = String(payload.lab_name ?? "the partner");
     return { text: `Your order at ${lab} is confirmed`, href: "/patient/labs" };
+  }
+  // E8: a rejected lab sample. The patient copy comes from the specimen path (recollection needed) or the older order-status path; the
+  // staff copy goes to the Chief Medical Officer. Fixed wording, nothing from the payload (reason, specimen number) is shown.
+  if (n.template === "lab_specimen_rejected_recollection_needed" || n.template === "lab_sample_rejected") {
+    return { text: "Your sample could not be used and a new one is needed. Open the app to see what to do next", href: "/patient/labs" };
+  }
+  if (n.template === "lab_specimen_rejected_recollection_needed_staff") {
+    return { text: "A sample was rejected and a new one has been requested. Open your dashboard to see it", href: "/clinician" };
   }
   if (n.template === "lab_order_requested_patient") {
     const selfBooked = payload.self_booked === true;

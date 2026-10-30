@@ -42,7 +42,7 @@ const CARE_COMPARISON: {
   },
   {
     theOldWay: {
-      label: "Whatever panel your doctor happens to order",
+      label: "Whatever panel a doctor happens to order",
       body: "Testing usually means one standard panel of tests, ordered on the day, with no easy way to arrange it yourself.",
     },
     withTarragon: {
@@ -187,7 +187,7 @@ export default function ForYouPage() {
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="What it's like"
+          eyebrow="What it is like"
           title="A month on Tarragon"
           description="This is what happens after you join, step by step."
         />
