@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Accessibility Statement",
   description:
-    "TarragonHealth's commitment to an accessible website and platform, what we've done, known limitations, and how to report a problem.",
+    "TarragonHealth's commitment to an accessible website and platform, what we have done, known limitations, and how to report a problem.",
   path: MARKETING_ROUTES.accessibility,
 });
 

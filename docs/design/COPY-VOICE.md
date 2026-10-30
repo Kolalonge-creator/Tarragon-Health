@@ -41,11 +41,11 @@ Patient-facing code means the marketing site, the patient dashboard and the pati
 
 The rest of this guide needs a reader: complete sentences, saying why, and keeping every number and claim unchanged. A person still checks those before a PR. The test does not replace that.
 
-To fix a failure, reword the string. Do not raise the number in `baseline.ts`. One `colloquial` hit is kept on purpose: `panic.title` sits in a reviewed-strings namespace, and changing it needs a recorded reviewer.
+To fix a failure, reword the string. Do not raise the number in `baseline.ts`. One `colloquial` hit is kept on purpose: `panic.title` belongs to the calm-tool wording, which the CMO attested and which a fingerprint test pins (`s56b-wording-pin.test.ts`). Changing it closes the feature until the CMO attests the new text.
 
 ## Status
 
-The marketing site, the patient dashboard, the clinician dashboard, the admin screens, the notification templates, the English string catalogue and the mobile app have all had a pass (2026-10-30). The database-stored notification templates and the legal pages have not.
+The marketing site, the patient dashboard, the clinician dashboard, the admin screens, the notification templates, the English string catalogue and the mobile app have all had a pass (2026-10-30). The database-stored message templates have had a pass too (migration `20261030122425`). The legal documents have not: their text is stored as signed, versioned documents in the database, so rewording them is a consent-version change for the owner to make with the consent v2 release, not a copy pass.
 
 Mobile pass (2026-10-30): 37 em dashes and 7 "your doctor" strings were reworded, a developer phrase ("already native") was removed from a patient subtitle, and contractions were expanded in the longer paragraphs. Four hits were left on purpose because they need a human reviewer: the AUDIT-C answer options in `lib/mental-health.ts` (a clinical instrument that mirrors the web copy), `emergency-guidance-modal.tsx`, and the emergency contraception text in `lib/contraception.ts`. The web copies of the video-visit, second-opinion, healthy-ageing and similar strings still carry the old wording.
 

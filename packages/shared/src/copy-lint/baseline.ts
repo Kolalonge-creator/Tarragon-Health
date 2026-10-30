@@ -13,5 +13,5 @@ export const COPY_LINT_BASELINE: Readonly<Record<string, number>> = {
   "free-healthcare": 0,
   "abbreviation-bp": 0, // patient-facing text only (see PATIENT_FACING); added with the voice rules 2026-10-30
   "internal-term": 0, // "escalate" and "care gap" in patient-facing text
-  colloquial: 1, // "panic.title" in packages/i18n, inside the reviewed-strings ledger; changing it needs a recorded reviewer
+  colloquial: 1, // "panic.title" in packages/i18n: the calm-tool wording is pinned to the CMO's attestation by a fingerprint (s56b-wording-pin.test.ts), so changing it closes the feature until the CMO attests again
 };
