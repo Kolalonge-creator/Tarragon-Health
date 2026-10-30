@@ -35,4 +35,5 @@ export * from "./ai-label";
 export * from "./points";
 export * from "./portion-copy";
 export * from "./anchor-phrase";
+export * from "./privacy-circle-copy";
 export { outcomesDashboardCopy, outcomesDashText } from "./outcomes-dashboard-copy";

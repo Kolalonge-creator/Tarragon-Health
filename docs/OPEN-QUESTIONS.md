@@ -5680,6 +5680,39 @@ Numbered with the `OQ-S30b-` prefix because the plain numbers are being renumber
 ### OQ-726 S67-screens: nothing was rendered in a browser or simulator; the screens are checked by tests and type checks only (raised by the S67 screens build)
 - Web: React Testing Library plus axe, 23 tests. Phone: pure logic and outbox tests only (the mobile jest config renders no components), so `pregnancy-tools.tsx` has not been run on a device. Needs a look on web, an Android phone and an iPhone once `maternal_enabled` is on for a test account.
 - Decision: open (needs a test session).
+
+### OQ-727 UI-B-1: all new privacy, hide and check-in wording needs CMO and DPO review (raised by UI-B)
+- `packages/i18n/src/privacy-circle-copy.ts` (`uib.*`) is proposed copy, marked `pending_cmo_dpo_review`. Facts to confirm: that the care team summary cannot be switched off from the app, and that a carer given access under Family does NOT see the reproductive section unless it is ticked for them (reproductive_health is excluded by default in the category model; the UI at /patient/family was not re-read for this).
+- Corrected after review: the first draft said a Care Circle member given "access to this section" could see period days. That was untrue (Care Circle permissions are adherence_summary, weekly_bp_trend, appointments, red_alerts, pay_for_care). The copy now says nothing from this section is shared through the Care Circle. The older line `cycle.access.not_shared` in `cycle-copy.ts` ("...anyone in your Care Circle unless you give them access to this section") has the same problem and was NOT changed (CMO-review copy, outside this workstream): please correct it.
+- Decision: open.
+
+### OQ-728 UI-B-2: "Who can see this" rows are statements, not toggles (raised by UI-B)
+- The research asks for three toggles. The Care Circle cannot be given this section at all, the separate carer access lives under Family, and nothing exists to pause the care team's summary view. The screen therefore says so ("You cannot switch this off here yet") instead of showing a switch that does nothing.
+- Options: (a) as built; (b) build "Pause sharing with my care team" for cycle data on the category-scoped access model (needs a migration and a clinical-safety review); (c) hide the row.
+- Decision: open.
+
+### OQ-729 UI-B-3: the Care Circle invite step does not yet link to "Who can see this" (raised by UI-B)
+- `care-circle-manager.tsx`, `join-card.tsx` and the mobile `care-circle-section.tsx` are changed by open PR #1297 (presets and preview), so they were not edited. `WhoCanSeeThis` is ready to be linked from the invite step once #1297 merges.
+- Decision: open (follow-up after #1297).
+
+### OQ-730 UI-B-4: "Hide on this phone" is a convenience, not a lock (raised by UI-B)
+- It stores a flag per account and card on the device (SecureStore on the phone, localStorage on the web; the web says "this browser") and "Show again" asks for no PIN. The web growth card keys it by account and child. Nothing is drawn until the account and the flag are read. It is wired on the web growth card and the phone contraception page only. The cycle and pregnancy screens belong to another workstream; the component takes `card="cycle"` / `"pregnancy"` and can be wrapped there.
+- Options: (a) as built; (b) make "Show again" ask for the PrivateSection PIN when one is set.
+- Decision: open.
+
+### OQ-731 UI-B-5: the check-in snooze cannot extend the server-side window; the mobile check-in was not changed (raised by UI-B)
+- Web `check-in-card.tsx` now offers one "Not right now", then asks again with "No problem. Want to answer now?". The live window (`care_circle_config`, 1 to 60 minutes) cannot be read by the client: `circle_check_in_pending` returns only a boolean, with no window, start time or id. The snooze is therefore sized against the shortest allowed window (15 seconds), its deadline is kept in sessionStorage so a reload cannot give a second snooze, and the card says plainly that the circle may be told if the question runs out. Whether a relative is told at all is decided on the server (supporters who receive check-in requests); changing that rule or letting the patient delay the timer needs a migration and a decision.
+- The phone `CheckInCard` lives in `care-circle-section.tsx`, which open PR #1297 changes, so it was not touched. `help-alert-card.tsx` is the patient's own "ask for help" tap and was left alone (red-event path untouched).
+- Ask: let `circle_check_in_pending` return the check-in id and its end time so the snooze can be exact (needs a migration).
+- Decision: open.
+
+### OQ-732 UI-B-6: cohorts empty and could-not-load states are web only (raised by UI-B)
+- The phone `cohorts-section.tsx` is changed by open PR #1298, so it was not edited. On the web, a load error is now a generic "could not load your groups" with Try again; the earlier per-code error message for a failed list read is no longer shown there.
+- Decision: open (phone follow-up after #1298).
+
+### OQ-733 UI-B-7: the reproductive-topic notification lint is code only (raised by UI-B)
+- `packages/notifications/src/reproductive-topics.ts` adds words (trimester, baby, birth control, IUD, growth, and others) on top of the INV-07 list. They are NOT enforced at send time: they are not in the database `notification_forbidden_terms` list because the existing test requires the code and database lists to match and no migration was written. The new test covers sender templates, the in-app inbox, notification catalogue keys, and the lock-screen text scheduled in `apps/mobile`.
+- Decision: open (add the words to the database list in a later migration if wanted).
 ### OQ-S59c-01 The follow-up after a symptom check needs a signed timing before it can run (raised by S59c)
 - Built and born closed: a self-care or routine result is followed up "better, same or worse?" and "did you get care?" 24 hours (routine) or 48 hours (self-care) later, with one reminder 12 hours after it opens, open for 48 hours, notices only between 07:00 and 21:00 Lagos. All of it is `symptom.checkback`, an UNSIGNED DRAFT; the delays are product choices, not clinical thresholds. Nothing is scheduled until the CMO signs `checkback` through `sign_symptom_ux_config` AND the symptom checker guard is open for that patient.
 - The CMO is asked to confirm or change: which results are followed up (self-care and routine only; urgent and emergency already put a human in the loop), the two delays, the "same after N hours points to a booking" times (24 and 72 hours), the reminder and the window.

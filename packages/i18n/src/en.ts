@@ -4,6 +4,7 @@ import { circleToolsCopy } from "./care-circle-tools-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
+import { privacyCircleCopy } from "./privacy-circle-copy";
 import { outcomesDashboardCopy } from "./outcomes-dashboard-copy";
 import { activeGlucoseWording } from "./glucose-wording";
 
@@ -28,6 +29,7 @@ export const en = {
   ...maternalChild,
   ...designPrinciplesCopy,
   ...pregnancyTools,
+  ...privacyCircleCopy,
   ...outcomesDashboardCopy,
   "console.login.title": "Staff sign-in",
   "console.login.subtitle": "Sign in to the TarragonHealth console.",

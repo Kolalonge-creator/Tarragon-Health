@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { parseAccessLog, parseDeletionStatus, type AccessRow, type DeletionStatus } from "@/lib/cycle-privacy";
 import { useLegacyColors, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
+import { WhoCanSeeThis } from "@/ui/who-can-see-this";
 
 /**
  * Who has looked at the cycle summary, and deleting what the person entered (S66, decision C). Same RPCs and same rules as the web card:
@@ -42,6 +43,7 @@ export function CyclePrivacyControls() {
 
   return (
     <View style={{ gap: 16 }}>
+      <WhoCanSeeThis />
       <Card style={{ gap: 8 }}>
         <Text style={{ ...textStyles.bodyStrong, color: colors.ink }}>{t("cycle.access.title")}</Text>
         <MutedText>{t("cycle.access.intro")}</MutedText>
