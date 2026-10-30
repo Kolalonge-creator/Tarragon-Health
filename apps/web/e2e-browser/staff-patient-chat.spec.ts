@@ -39,6 +39,9 @@ test.describe("staff to patient chat", () => {
 
   let patient: TestPatient;
   let coordinator: { userId: string; email: string; password: string };
+  // The coordinator's signed-in browser state, saved by the first test so the later tests do not sign in again (repeated sign-ins of one
+  // account on the dev server have timed out in CI).
+  let staffState: Awaited<ReturnType<import("@playwright/test").BrowserContext["storageState"]>> | undefined;
 
   test.beforeAll(async () => {
     test.setTimeout(180_000);
@@ -86,6 +89,7 @@ test.describe("staff to patient chat", () => {
     const staffContext = await browser.newContext();
     const staffPage = await staffContext.newPage();
     await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    staffState = await staffContext.storageState();
 
     // 1. The chat is closed until asked for, then offers a form because there is no conversation yet.
     await gotoRoute(staffPage, `/clinician/patients/${patient.userId}`);
@@ -133,9 +137,9 @@ test.describe("staff to patient chat", () => {
     const second = await createJourneyPatient(`${runId}-attach`);
     try {
       psql(`update public.profiles set full_name = '[e2e-test] Attach Patient' where id = '${second.userId}'`);
-      const staffContext = await browser.newContext();
+      const staffContext = await browser.newContext({ storageState: staffState });
       const staffPage = await staffContext.newPage();
-      await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+      if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
       await gotoRoute(staffPage, `/clinician/patients/${second.userId}`);
       await staffPage.getByRole("button", { name: /Open chat with/ }).click();
       await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
@@ -176,9 +180,9 @@ test.describe("staff to patient chat", () => {
     asPatient("[e2e-test] Badge recent", 25);
     asPatient("[e2e-test] Badge old", 24 * 20);
 
-    const staffContext = await browser.newContext();
+    const staffContext = await browser.newContext({ storageState: staffState });
     const staffPage = await staffContext.newPage();
-    await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
     await gotoRoute(staffPage, "/clinician/messages");
 
     const recent = staffPage.locator("li", { hasText: "[e2e-test] Badge recent" });
