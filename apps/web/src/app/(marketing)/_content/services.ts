@@ -275,7 +275,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     ],
     stats: [
       { label: "Pre-diabetic (workforce)", value: "", pill: { text: "12%", tone: "amber" } },
-      { label: "Uncontrolled BP", value: "", pill: { text: "8%", tone: "red" } },
+      { label: "Uncontrolled blood pressure", value: "", pill: { text: "8%", tone: "red" } },
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
