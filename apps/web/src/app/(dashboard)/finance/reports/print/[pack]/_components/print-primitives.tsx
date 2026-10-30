@@ -72,3 +72,13 @@ export function Disclaimer({ children }: { children: ReactNode }) {
     </p>
   );
 }
+
+/** A printed section that reached its row limit: say it may be incomplete, on the paper. */
+export function PrintTruncation({ shown, what }: { shown: number; what: string }) {
+  return (
+    <p className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800 print-avoid-break">
+      Incomplete: this section holds only the newest {shown} {what}. There are more in the system. Narrow the date range
+      and print again, or do not rely on this section as the full record.
+    </p>
+  );
+}

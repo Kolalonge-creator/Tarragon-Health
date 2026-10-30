@@ -10,7 +10,7 @@ import { useEmployerBillingSummary, financeKeys } from "@/lib/finance/queries";
 import { upsertEmployerBillingConfigAction, deleteEmployerBillingConfigAction } from "@/lib/finance/actions";
 import type { EmployerBillingSummaryRow } from "@/lib/finance/schemas";
 import { lagosToday } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /**
@@ -79,8 +79,11 @@ export function EmployerBilling() {
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
 
       <SectionCard title="Employer billing" description="One row per active corporate/HMO organisation.">
+        {summary.isError && summary.data !== undefined && <StaleNote what="Employer billing" />}
         {summary.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : summary.isError && summary.data === undefined ? (
+          <ReadFailure what="Employer billing" />
         ) : (summary.data ?? []).length === 0 ? (
           <CenterNote>No corporate or HMO organisations yet.</CenterNote>
         ) : (

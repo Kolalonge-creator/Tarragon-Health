@@ -14,6 +14,7 @@ import { Receipt, Landmark, Scale } from "lucide-react";
 import { useTaxSummary, useTaxRates, financeKeys } from "@/lib/finance/queries";
 import { upsertTaxRateAction } from "@/lib/finance/actions";
 import { lagosToday, lagosYearStart } from "@/lib/format-date";
+import { statTileValue } from "@/components/ui/stat-tile-value";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, formatPercent } from "./primitives";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
@@ -103,10 +104,12 @@ export function TaxConsole() {
         </LoadFailure>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile icon={Receipt} label="Output VAT" value={formatMinor(summary.data?.output_vat_minor ?? 0, currency)} />
-          <StatTile icon={Scale} label="Input VAT recoverable" value={formatMinor(summary.data?.input_vat_minor ?? 0, currency)} />
-          <StatTile icon={Receipt} label="Net VAT payable" value={formatMinor(netVat, currency)} />
-          <StatTile icon={Landmark} label="WHT payable" value={formatMinor(summary.data?.wht_payable_minor ?? 0, currency)} />
+          {/* While the summary is on its way these are unknown, not ₦0.00: a statutory figure must not
+              flash as zero. */}
+          <StatTile icon={Receipt} label="Output VAT" {...statTileValue(summary.data ? formatMinor(summary.data.output_vat_minor, currency) : null, "Loading…")} />
+          <StatTile icon={Scale} label="Input VAT recoverable" {...statTileValue(summary.data ? formatMinor(summary.data.input_vat_minor, currency) : null, "Loading…")} />
+          <StatTile icon={Receipt} label="Net VAT payable" {...statTileValue(summary.data ? formatMinor(netVat, currency) : null, "Loading…")} />
+          <StatTile icon={Landmark} label="WHT payable" {...statTileValue(summary.data ? formatMinor(summary.data.wht_payable_minor, currency) : null, "Loading…")} />
         </div>
       )}
 

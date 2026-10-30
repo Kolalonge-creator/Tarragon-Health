@@ -117,7 +117,7 @@ describe("audit pack", () => {
   it("queries the audit trail for the Lagos days, not UTC days", () => {
     setAuditHealthy();
     render(<AuditPack {...props} />);
-    expect(auditLogArgs[0]).toEqual({ from: "2026-09-30T23:00:00.000Z", to: "2026-10-31T22:59:59.999Z" });
+    expect(auditLogArgs[0]).toEqual({ from: "2026-09-30T23:00:00.000Z", to: "2026-10-31T22:59:59.999Z", limit: 5000 });
   });
 
   it("counts an approval at 00:30 Lagos on the first day, and one at the last millisecond of the last day, and not one before", () => {
@@ -131,6 +131,26 @@ describe("audit pack", () => {
     ]);
     render(<AuditPack {...props} />);
     expect(screen.getAllByText("manual journal")).toHaveLength(2);
+  });
+
+  it("prints a warning in each section that reached its row limit, because the pack calls itself the full record", () => {
+    setAuditHealthy();
+    const many = (n: number, make: (i: number) => unknown) => Array.from({ length: n }, (_, i) => make(i));
+    hooks.gl = ok(many(5000, (i) => ({ id: `g${i}`, entry_no: i, entry_date: "2026-10-01", source: "manual", memo: null, is_reversed: false, currency: "NGN", lines: [] })));
+    hooks.auditLog = ok(many(5000, (i) => ({ id: `l${i}`, created_at: "2026-10-01T10:00:00Z", actor_name: "Ada", action: "finance.post" })));
+    hooks.approvals = ok(many(1000, (i) => ({ id: `a${i}`, requested_at: "2026-10-05T10:00:00Z", request_type: "manual_journal", requested_by_name: "Ada", status: "approved", reviewed_by_name: "Bola" })));
+    render(<AuditPack {...props} />);
+    const warnings = screen.getAllByText(/Incomplete: this section holds only the newest/).map((w) => w.textContent);
+    expect(warnings).toHaveLength(3);
+    expect(warnings.join(" ")).toContain("5000 entries");
+    expect(warnings.join(" ")).toContain("5000 log rows");
+    expect(warnings.join(" ")).toContain("1000 reviewed approvals");
+  });
+
+  it("prints no truncation warning for a short list", () => {
+    setAuditHealthy();
+    render(<AuditPack {...props} />);
+    expect(screen.queryByText(/Incomplete: this section/)).toBeNull();
   });
 
   it("says the company details could not be loaded when only the letterhead profile failed", () => {

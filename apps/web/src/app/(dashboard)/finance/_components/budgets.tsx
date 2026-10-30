@@ -15,7 +15,7 @@ import {
 } from "@/lib/finance/queries";
 import { upsertBudgetAction, deleteBudgetAction } from "@/lib/finance/actions";
 import { lagosToday, lagosMonth, lagosMonthStart } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
 
@@ -80,8 +80,11 @@ export function Budgets() {
       </div>
 
       <SectionCard title="Budget vs actual" description={`${from} to ${to} · ${currency}`}>
+        {variance.isError && variance.data !== undefined && <StaleNote what="Budget vs actual" />}
         {variance.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : variance.isError && variance.data === undefined ? (
+          <ReadFailure what="Budget vs actual" />
         ) : (variance.data ?? []).length === 0 ? (
           <CenterNote>No budgets or activity in this range.</CenterNote>
         ) : (
@@ -124,6 +127,16 @@ export function Budgets() {
       >
         {showForm && (
           <div className="mb-4 grid gap-3 rounded-lg border border-charcoal-ink/10 p-3 sm:grid-cols-4">
+            {/* The line is saved in the currency chosen in the selector above, and says so. */}
+            <p className="text-xs text-charcoal-ink/60 sm:col-span-4">
+              This budget line will be saved in <b>{currency}</b>, the currency selected above.
+            </p>
+            {accounts.isError && accounts.data === undefined && (
+              <div className="sm:col-span-4"><InlineReadFailure what="The chart of accounts" /></div>
+            )}
+            {costCenters.isError && costCenters.data === undefined && (
+              <div className="sm:col-span-4"><InlineReadFailure what="The cost centres" /></div>
+            )}
             <div>
               <Label>Account</Label>
               <Select value={f.account_code} onChange={(e) => setF((p) => ({ ...p, account_code: e.target.value }))}>
@@ -151,8 +164,11 @@ export function Budgets() {
             </div>
           </div>
         )}
+        {budgets.isError && budgets.data !== undefined && <StaleNote what="Budget lines" />}
         {budgets.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : budgets.isError && budgets.data === undefined ? (
+          <ReadFailure what="Budget lines" />
         ) : (budgets.data ?? []).length === 0 ? (
           <CenterNote>No budget lines configured yet.</CenterNote>
         ) : (

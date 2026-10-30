@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useFinanceAuditLog, useFinanceAuditActions } from "@/lib/finance/queries";
-import { SectionCard, CenterNote, TableShell, Th, ReadFailure, StaleNote } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, ReadFailure, StaleNote, TruncationNote } from "./primitives";
+import { AUDIT_LOG_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
 import { formatPatientDateTime, lagosDayBounds, lagosDaysAgo, lagosToday } from "@/lib/format-date";
 
 function summarizeEvent(event: Record<string, unknown>): string {
@@ -68,6 +69,7 @@ export function FinanceAuditLog() {
         }
       >
         {log.isError && log.data !== undefined && <StaleNote what="The activity log" />}
+        {hitLimit(log.data?.length, AUDIT_LOG_PAGE_LIMIT) && <TruncationNote shown={AUDIT_LOG_PAGE_LIMIT} what="log rows" />}
         {log.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : log.isError && log.data === undefined ? (
