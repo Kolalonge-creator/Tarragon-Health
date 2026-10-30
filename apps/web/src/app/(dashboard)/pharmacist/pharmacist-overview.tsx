@@ -13,6 +13,8 @@ import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { itemsSummary, type PharmacistOrderRow } from "./_lib/items";
 import { formatRequestedAt } from "./_lib/format";
 import { buildPharmacistOverview } from "./_lib/overview-summary";
+import { pharmacistFirstView } from "./_lib/first-view";
+import { PharmacistFirst } from "./pharmacist-first";
 
 const LICENCE_TONE_CLASS = {
   ok: "text-charcoal-ink",
@@ -37,9 +39,12 @@ export function PharmacistOverview() {
     profile: { data: profile.data, isLoading: profile.isLoading, isError: profile.isError },
   });
   const { tiles } = view.orders;
+  const first = pharmacistFirstView(view);
 
   return (
     <div className="flex flex-col gap-5">
+      <PharmacistFirst view={first} />
+
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={Clock4}
