@@ -15,6 +15,7 @@ import { VITALS_TRIAGE_ITEM_KEY, readPendingVitalsTriageSignoff } from "@/lib/qu
 import { readPendingVitalsTaskTypeSignoff } from "@/lib/queries/pending-vitals-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { STAGE2_ITEM_KEY, readPendingStage2Attestation } from "@/lib/queries/pending-stage2-attestation";
 import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
 import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
@@ -161,7 +162,7 @@ export function isClinicalSignoff(key: string): boolean {
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -197,6 +198,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingMskProgrammesSignoff(supabase),
     readPendingOwedSignoffs(supabase),
     readPendingScreeningRuleSet(supabase),
+    readPendingStage2Attestation(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -274,6 +276,18 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
       href: "/clinician/community/signoff",
       severity: "draft_pending",
       count: community.attentionCount,
+    });
+  }
+
+  if (stage2.waiting) {
+    // An attestation, not a clinical protocol (G-01): it sits in `operational`, never in the banner's count of signatures.
+    items.push({
+      key: STAGE2_ITEM_KEY,
+      title: "Stage 2 launch attestation",
+      detail: "Attest that the Stage 2 exit criteria are met. It is the one condition left before public sign-up can be switched on.",
+      href: "/clinician/go-live",
+      severity: "draft_pending",
+      count: 1,
     });
   }
 
@@ -670,6 +684,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(mskProgrammes.failed ? ["the back, neck, knee and hip pain programmes"] : []),
     ...(owed.failed ? ["the signatures you owe for things already running"] : []),
     ...(screeningRules.failed ? ["the screening rule set drafts"] : []),
+    ...(stage2.failed ? ["the Stage 2 launch attestation"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
