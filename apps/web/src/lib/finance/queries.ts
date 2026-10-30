@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { APPROVAL_HISTORY_LIMIT, AUDIT_LOG_PAGE_LIMIT, LEDGER_PAGE_LIMIT } from "./row-limits";
 import { createClient } from "@/lib/supabase/client";
 import {
   accountsListSchema,
@@ -103,6 +104,8 @@ export function useLedgerEntries(args: {
   to: string;
   account?: string;
   source?: string;
+  /** Newest-first row cap. Defaults to LEDGER_PAGE_LIMIT, which the page says when it is reached. */
+  limit?: number;
 }) {
   return useQuery({
     queryKey: ["finance", "ledger", args],
@@ -112,6 +115,7 @@ export function useLedgerEntries(args: {
         p_to: args.to,
         p_account: args.account ?? undefined,
         p_source: args.source ?? undefined,
+        p_limit: args.limit ?? LEDGER_PAGE_LIMIT,
       });
       if (error) throw error;
       return ledgerEntriesSchema.parse(data);
@@ -244,11 +248,11 @@ export function usePendingApprovals() {
   });
 }
 
-export function useApprovalHistory() {
+export function useApprovalHistory(limit: number = APPROVAL_HISTORY_LIMIT) {
   return useQuery({
-    queryKey: ["finance", "approvals", "history"],
+    queryKey: ["finance", "approvals", "history", limit],
     queryFn: async () => {
-      const { data, error } = await createClient().rpc("finance_approval_history", { p_limit: 100 });
+      const { data, error } = await createClient().rpc("finance_approval_history", { p_limit: limit });
       if (error) throw error;
       return approvalHistorySchema.parse(data);
     },
@@ -480,7 +484,7 @@ export function useRiskFlags() {
   });
 }
 
-export function useFinanceAuditLog(args: { from: string; to: string; action?: string }) {
+export function useFinanceAuditLog(args: { from: string; to: string; action?: string; limit?: number }) {
   return useQuery({
     queryKey: ["finance", "audit-log", args],
     queryFn: async () => {
@@ -488,6 +492,7 @@ export function useFinanceAuditLog(args: { from: string; to: string; action?: st
         p_from: args.from,
         p_to: args.to,
         p_action: args.action ?? undefined,
+        p_limit: args.limit ?? AUDIT_LOG_PAGE_LIMIT,
       });
       if (error) throw error;
       return financeAuditLogSchema.parse(data);

@@ -20,7 +20,7 @@ import {
   upsertCostCenterAction,
   upsertApprovalThresholdAction,
 } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FinanceAccount } from "@/lib/finance/schemas";
@@ -103,12 +103,15 @@ export function FinanceSettings() {
     else setCcMsg({ ok: false, text: res.error ?? "Could not update." });
   }
 
-  async function updateThreshold(currency: string, value: string) {
+  async function updateThreshold(currency: string, value: string, currentMinor: number) {
     setThresholdMsg(null);
     // An unreadable or zero value used to be dropped without a word, leaving the person to believe the
     // threshold had been changed.
     const amount = parseMoneyInput(value, { allowZero: false });
     if (!amount.ok) return setThresholdMsg({ ok: false, text: `${currency} threshold not saved. ${amount.error}` });
+    // Tabbing through the field without changing it is not an edit: it must not write the same value and
+    // add an audit entry each time, on a four-eyes control.
+    if (amount.minor === currentMinor) return;
     const res = await upsertApprovalThresholdAction(currency, amount.minor);
     if (!res.ok) return setThresholdMsg({ ok: false, text: res.error ?? "Could not save threshold." });
     setThresholdMsg({ ok: true, text: `${currency} threshold updated.` });
@@ -139,8 +142,11 @@ export function FinanceSettings() {
         {periodMsg && (
           <p className={`mb-3 text-sm ${periodMsg.ok ? "text-brand-green" : "text-red-600"}`}>{periodMsg.text}</p>
         )}
+        {periods.isError && periods.data !== undefined && <StaleNote what="Accounting periods" />}
         {periods.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : periods.isError && periods.data === undefined ? (
+          <ReadFailure what="Accounting periods" />
         ) : (periods.data ?? []).length === 0 ? (
           <CenterNote>No periods yet. The first posting opens one automatically.</CenterNote>
         ) : (
@@ -175,8 +181,11 @@ export function FinanceSettings() {
         title="Chart of accounts"
         description="The ledger's accounts. Set a revenue account's VAT treatment to 'standard' only when its sales are genuinely VATable."
       >
+        {accounts.isError && accounts.data !== undefined && <StaleNote what="The chart of accounts" />}
         {accounts.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : accounts.isError && accounts.data === undefined ? (
+          <ReadFailure what="The chart of accounts" />
         ) : (
           <TableShell>
             <thead>
@@ -217,8 +226,11 @@ export function FinanceSettings() {
         title="Cost centres"
         description="Tag journal lines so P&L can be sliced by department (clinical, marketing, partner network, etc.)."
       >
+        {costCenters.isError && costCenters.data !== undefined && <StaleNote what="The cost centres" />}
         {costCenters.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : costCenters.isError && costCenters.data === undefined ? (
+          <ReadFailure what="The cost centres" />
         ) : (
           <TableShell>
             <thead>
@@ -258,8 +270,11 @@ export function FinanceSettings() {
         title="Approval threshold"
         description="A manual journal entry with any line at or above this amount goes to a second finance officer for approval instead of posting immediately."
       >
+        {approvalSettings.isError && approvalSettings.data !== undefined && <StaleNote what="The approval threshold" />}
         {approvalSettings.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : approvalSettings.isError && approvalSettings.data === undefined ? (
+          <ReadFailure what="The approval threshold" />
         ) : (
           <div className="grid gap-3 sm:grid-cols-3">
             {(approvalSettings.data ?? []).map((s) => (
@@ -268,7 +283,7 @@ export function FinanceSettings() {
                 <Input
                   inputMode="decimal"
                   defaultValue={(s.threshold_minor / 100).toString()}
-                  onBlur={(e) => updateThreshold(s.currency, e.target.value)}
+                  onBlur={(e) => updateThreshold(s.currency, e.target.value, s.threshold_minor)}
                 />
                 <p className="mt-1 text-xs text-charcoal-ink/40">Currently {formatMinor(s.threshold_minor, s.currency)}</p>
               </div>

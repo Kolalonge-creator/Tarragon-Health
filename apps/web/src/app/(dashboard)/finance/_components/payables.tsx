@@ -24,7 +24,7 @@ import {
   payBillAction,
   voidBillAction,
 } from "@/lib/finance/actions";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure } from "./primitives";
 import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /** Approving posts the expense; paying books the cash out. Neither is
@@ -377,6 +377,9 @@ export function PayablesAndVendors() {
       >
         {showBillForm && (
           <div className="mb-4 grid gap-3 rounded-lg border border-charcoal-ink/10 p-3 sm:grid-cols-3">
+            {accounts.isError && accounts.data === undefined && (
+              <div className="sm:col-span-3"><InlineReadFailure what="The chart of accounts" /></div>
+            )}
             <div>
               <Label>Vendor</Label>
               <Select value={bf.vendor_id} onChange={(e) => setBf((p) => ({ ...p, vendor_id: e.target.value }))}>

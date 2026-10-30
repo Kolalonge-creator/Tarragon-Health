@@ -63,6 +63,12 @@ export function ReportsHub() {
 
   return (
     <div className="space-y-6">
+      {profile.isError && profile.data === undefined && (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+          The company profile could not be loaded just now, so this page cannot tell whether the legal name, RC number
+          and TIN are on file. Reports opened now may print with blanks on the letterhead. Reload to check.
+        </p>
+      )}
       {!profile.isLoading && profileIncomplete && (
         <p className="rounded-md bg-sprout-gold/10 px-3 py-2 text-xs text-charcoal-ink/70">
           The company&apos;s legal name, RC number or TIN isn&apos;t on file yet, so every report below

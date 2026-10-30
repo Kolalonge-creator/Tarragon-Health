@@ -22,17 +22,21 @@ import {
   PrintTh,
   PrintTd,
   PrintEmpty,
+  PrintTruncation,
   Disclaimer,
   formatMinor,
 } from "./print-primitives";
+import { PACK_APPROVAL_LIMIT, PACK_AUDIT_LOG_LIMIT, PACK_LEDGER_LIMIT, hitLimit } from "@/lib/finance/row-limits";
 
 export function AuditPack({ from, to, currency }: { from: string; to: string; currency: string }) {
   const tb = useTrialBalance(to, currency);
-  const gl = useLedgerEntries({ from, to });
+  // The reporting RPCs cut off at a default number of rows. The pack asks for far more, and prints a
+  // warning in the section if even that was reached, because it calls itself the full record.
+  const gl = useLedgerEntries({ from, to, limit: PACK_LEDGER_LIMIT });
   const recon = useReconciliationSummary();
   const apAging = useApAging();
   const variance = useBudgetVariance(from, to, currency);
-  const approvals = useApprovalHistory();
+  const approvals = useApprovalHistory(PACK_APPROVAL_LIMIT);
   // The period is two Lagos dates. Reading them as UTC days put 00:00 to 01:00 Lagos time into the
   // previous day, and comparing a timestamp to the text "YYYY-MM-DDT23:59:59" dropped the last second.
   const range = useMemo(() => {
@@ -40,7 +44,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
     const b = lagosDayBounds(to);
     return { start: a?.start ?? `${from}T00:00:00+01:00`, end: b?.end ?? `${to}T23:59:59.999+01:00`, valid: Boolean(a && b) };
   }, [from, to]);
-  const auditLog = useFinanceAuditLog({ from: range.start, to: range.end });
+  const auditLog = useFinanceAuditLog({ from: range.start, to: range.end, limit: PACK_AUDIT_LOG_LIMIT });
 
   const approvalsInRange = useMemo(() => {
     if (!range.valid) return [];
@@ -208,6 +212,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
       </PrintSection>
 
       <PrintSection title="Approval history" description={`Maker-checker decisions requested ${from} to ${to}.`} breakBefore>
+        {hitLimit(approvals.data?.length, PACK_APPROVAL_LIMIT) && <PrintTruncation shown={PACK_APPROVAL_LIMIT} what="reviewed approvals" />}
         {approvals.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : approvalsInRange.length === 0 ? (
@@ -233,6 +238,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
       </PrintSection>
 
       <PrintSection title="Finance system audit trail" description="Every human-triggered finance action logged in this range (posting, period locks, edits, approvals, settlement matching).">
+        {hitLimit(auditLog.data?.length, PACK_AUDIT_LOG_LIMIT) && <PrintTruncation shown={PACK_AUDIT_LOG_LIMIT} what="log rows" />}
         {auditLog.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (auditLog.data ?? []).length === 0 ? (
@@ -256,6 +262,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
       </PrintSection>
 
       <PrintSection title="General ledger detail" description={`Every posted entry, ${from} to ${to}.`} breakBefore>
+        {hitLimit(gl.data?.length, PACK_LEDGER_LIMIT) && <PrintTruncation shown={PACK_LEDGER_LIMIT} what="entries" />}
         {gl.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (gl.data ?? []).length === 0 ? (
