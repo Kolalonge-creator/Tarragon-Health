@@ -249,14 +249,16 @@ function SupportRequestRow({
               {handOffPending ? "Handing off…" : "Hand off to care team"}
             </Button>
           )}
-          <Button type="button" size="sm" variant="outline" aria-expanded={chatOpen} onClick={() => setChatOpen((v) => !v)}>
-            {chatOpen ? "Hide chat" : "Message patient"}
-          </Button>
+          {!needsHandOff && (
+            <Button type="button" size="sm" variant="outline" aria-expanded={chatOpen} onClick={() => setChatOpen((v) => !v)}>
+              {chatOpen ? "Hide chat" : "Message patient"}
+            </Button>
+          )}
           <ResolveRow requestId={r.id} />
         </div>
       )}
 
-      {chatOpen && (
+      {chatOpen && !needsHandOff && (
         <StaffPatientChat
           patientId={r.patient_id}
           patientName={r.patient?.full_name ?? "this patient"}

@@ -549,7 +549,7 @@ export default async function ClinicianPatientPage({
           <CardTitle>Message in the app</CardTitle>
         </CardHeader>
         <CardContent>
-          <StaffPatientChat patientId={patient.id} patientName={patient.full_name ?? "this patient"} />
+          <StaffPatientChat patientId={patient.id} patientName={patient.full_name ?? "this patient"} startClosed />
         </CardContent>
       </Card>
       <PatientRecordTabs tabs={tabs} />

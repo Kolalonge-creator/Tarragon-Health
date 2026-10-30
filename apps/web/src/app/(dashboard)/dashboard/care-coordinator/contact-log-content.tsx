@@ -125,7 +125,7 @@ function ContactThread({ patient }: { patient: PatientRef }) {
   const logContact = useLogOutreachContact();
   const [channel, setChannel] = useState<OutreachContactChannel>("call");
   const [note, setNote] = useState("");
-  const [mode, setMode] = useState<"chat" | "calls">("chat");
+  const [mode, setMode] = useState<"chat" | "calls">("calls");
 
   const submit = () => {
     const trimmed = note.trim();

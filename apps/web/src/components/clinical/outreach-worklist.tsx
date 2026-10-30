@@ -8,7 +8,7 @@ import {
   type OutreachTaskWithPatient,
   type OutreachTriggerType,
 } from "@/lib/queries/care-outreach";
-import { useStartThread } from "@/lib/queries/care-messages";
+import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { useRaiseEscalation } from "@/lib/queries/escalations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,83 +108,6 @@ const DEFAULT_COPY: TaskRowCopy = {
   resolveLabel: "Resolve",
   notePlaceholder: "Outcome note (e.g. booked review, no answer ×2)",
 };
-
-/** Inline "message the patient" composer — an in-app care_messages thread.
- * Any org staff account, including a Care Coordinator, may open
- * one via start_care_thread; nothing here needs clinical authority. */
-function MessagePatientPanel({
-  patientId,
-  patientName,
-  defaultSubject,
-  onClose,
-}: {
-  patientId: string;
-  patientName: string;
-  defaultSubject: string;
-  onClose: () => void;
-}) {
-  const start = useStartThread();
-  const [subject, setSubject] = useState(defaultSubject);
-  const [body, setBody] = useState("");
-  const [sent, setSent] = useState(false);
-
-  if (sent) {
-    return (
-      <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
-        <p className="text-xs text-charcoal-ink/80">
-          Message sent to {patientName}. They&apos;ll see it in the app, and any reply shows up in
-          Patient messages.
-        </p>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Close
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
-      <p className="text-xs font-medium text-charcoal-ink/70">
-        New in-app message to {patientName}
-      </p>
-      <Input
-        value={subject}
-        onChange={(event) => setSubject(event.target.value)}
-        placeholder="Subject"
-        className="h-8 text-xs"
-      />
-      <Textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        placeholder="Message"
-        rows={3}
-        className="text-xs"
-      />
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={start.isPending || subject.trim().length < 3 || body.trim().length === 0}
-          onClick={() =>
-            start.mutate(
-              { patientId, subject: subject.trim(), body: body.trim() },
-              { onSuccess: () => setSent(true) }
-            )
-          }
-        >
-          {start.isPending ? "Sending…" : "Send"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Cancel
-        </Button>
-        {start.isError && (
-          <span className="text-xs text-red-600">
-            {(start.error as Error).message || "Could not send."}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /** Inline "hand this to a doctor" composer. Raises an escalation with no
  * pre-existing clinician_alert (useRaiseEscalation) — the manual path for a
@@ -359,12 +282,7 @@ function TaskRow({ task, copy }: { task: OutreachTaskWithPatient; copy: TaskRowC
         </Button>
       </div>
       {messaging && (
-        <MessagePatientPanel
-          patientId={task.patient_id}
-          patientName={patientName}
-          defaultSubject={triggerLabel}
-          onClose={() => setMessaging(false)}
-        />
+        <StaffPatientChat patientId={task.patient_id} patientName={patientName} defaultSubject={triggerLabel} />
       )}
       {escalating && (
         <EscalateToDoctorPanel

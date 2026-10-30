@@ -12,7 +12,7 @@ const TABS = [
   { href: "/dashboard/care-coordinator/follow-ups", label: "Follow-ups", exact: false },
   { href: "/dashboard/care-coordinator/programme-tasks", label: "Programme tasks", exact: false },
   { href: "/dashboard/care-coordinator/contact-log", label: "Contact log", exact: false },
-  { href: "/clinician/messages", label: "Patient messages", exact: false },
+  { href: "/dashboard/care-coordinator/messages", label: "Patient messages", exact: false },
 ] as const;
 
 /** Same tab-bar pattern as dashboard/hmo/hmo-nav.tsx and

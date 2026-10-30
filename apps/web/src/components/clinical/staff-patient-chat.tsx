@@ -21,10 +21,34 @@ export function StaffPatientChat({
   patientId,
   patientName,
   defaultSubject = "A message from your care team",
+  startClosed = false,
 }: {
   patientId: string;
   patientName: string;
   defaultSubject?: string;
+  /** Show only an "Open chat" button until clicked. Opening a thread is an audited read and
+   * marks it read, so a page that merely hosts the chat must not open it on load. */
+  startClosed?: boolean;
+}) {
+  const [revealed, setRevealed] = useState(!startClosed);
+  if (!revealed) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setRevealed(true)}>
+        Open chat with {patientName}
+      </Button>
+    );
+  }
+  return <StaffPatientChatBody patientId={patientId} patientName={patientName} defaultSubject={defaultSubject} />;
+}
+
+function StaffPatientChatBody({
+  patientId,
+  patientName,
+  defaultSubject,
+}: {
+  patientId: string;
+  patientName: string;
+  defaultSubject: string;
 }) {
   const { data: threads, isLoading, isError } = useCareThreads(patientId);
   const start = useStartThread();
@@ -32,7 +56,10 @@ export function StaffPatientChat({
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState("");
 
-  const openThreads = (threads ?? []).filter((t) => t.status === "open");
+  // Confidential threads (e.g. sexual health) are unreadable to staff by design, so they are never listed.
+  const openThreads = (threads ?? []).filter((t) => t.status === "open" && !t.confidential);
+  const [latest, ...earlier] = openThreads;
+  const [shown, setShown] = useState<string[]>([]);
   const showForm = composing || (!isLoading && !isError && openThreads.length === 0);
 
   return (
@@ -40,12 +67,17 @@ export function StaffPatientChat({
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading messages…</p>}
       {isError && <p className="text-sm text-red-600">Could not load this patient&apos;s messages.</p>}
 
-      {openThreads.map((thread) => (
-        <div key={thread.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-          <p className="text-sm font-medium text-charcoal-ink">{thread.subject}</p>
-          <CareMessageThread threadId={thread.id} patientId={patientId} closed={false} isStaff />
-        </div>
-      ))}
+      {/* Only the newest open thread is loaded; each earlier one loads when asked for. */}
+      {latest && <ThreadCard thread={latest} patientId={patientId} />}
+      {earlier.map((thread) =>
+        shown.includes(thread.id) ? (
+          <ThreadCard key={thread.id} thread={thread} patientId={patientId} />
+        ) : (
+          <Button key={thread.id} size="sm" variant="ghost" onClick={() => setShown((ids) => [...ids, thread.id])}>
+            Earlier conversation: {thread.subject}
+          </Button>
+        )
+      )}
 
       {showForm ? (
         <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
@@ -102,6 +134,15 @@ export function StaffPatientChat({
           Start a new conversation
         </Button>
       )}
+    </div>
+  );
+}
+
+function ThreadCard({ thread, patientId }: { thread: { id: string; subject: string }; patientId: string }) {
+  return (
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+      <p className="text-sm font-medium text-charcoal-ink">{thread.subject}</p>
+      <CareMessageThread threadId={thread.id} patientId={patientId} closed={false} isStaff />
     </div>
   );
 }
