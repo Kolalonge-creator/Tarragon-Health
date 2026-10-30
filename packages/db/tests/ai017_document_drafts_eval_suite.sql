@@ -2,7 +2,7 @@
 --
 --   1. The suite exists once, is a required-for-release safety suite with a 100% threshold and seven cases; its case codes are exactly the
 --      ones the runner (run-scribe-documents-eval.ts) has fixtures for; the three adversarial categories are set.
---   2. A migration seeds no evaluation run, approves nothing, and leaves AI-017 off and not runtime-governed.
+--   2. A migration seeds no evaluation run, approves nothing, and leaves AI-017 off.
 --   3. SABOTAGE: one case removed in this transaction must flip the case-count and case-code checks (a proof that cannot fail is not a proof).
 begin;
 
@@ -39,7 +39,7 @@ select 'real', 'no run was seeded for the suite', '0', count(*)::text
  where e.name = 'AI-017 document drafts golden facts';
 
 insert into results
-select 'real', 'AI-017 stays off and not runtime governed', 'false:false', (is_enabled::text || ':' || runtime_governed::text)
+select 'real', 'AI-017 stays off (the flag is earned by the call site, see ai017_runtime_governed)', 'false:true', (is_enabled::text || ':' || runtime_governed::text)
   from public.ai_systems where system_code = 'AI-017';
 
 -- Sabotage: drop one case, then repeat the two structural checks.

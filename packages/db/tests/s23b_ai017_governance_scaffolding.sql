@@ -13,7 +13,7 @@ begin
   if v_id is null then raise exception 'FAIL 1: AI-017 not registered'; end if;
 
   if (select is_enabled from public.ai_systems where id = v_id) then raise exception 'FAIL 2: AI-017 is enabled'; end if;
-  if (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-017 is runtime_governed'; end if;
+  if not (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-017 is not runtime_governed (its call site consults ai_runtime_config; see ai017_runtime_governed)'; end if;
 
   -- Structural criteria are met; exactly the two human judgements remain.
   v_out := private.ai_acceptance_criteria(v_id)->'outstanding';

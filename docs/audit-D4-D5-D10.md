@@ -152,7 +152,7 @@ The gap list above was written on 2026-10-07. Re-checking each item against curr
 | G-07 coach handoff leaves no log row | **Closed here** | `handoff-summary.ts` now records a completed or fallback interaction (category only, no patient words); three tests |
 | G-08 embedding crons ignore the AI-009 switch | **Closed here** | `embedding-cron-gate.ts` in both crons; tests include the switch-on control |
 | G-09 coach keyword floor negation / phrasing | Not re-checked | |
-| G-10 AI-017 `runtime_governed` flag | Open, a registry write by the CMO or an admin | |
+| G-10 AI-017 `runtime_governed` flag | Proposed 2026-10-30 in the `ai017_runtime_governed` migration (edge function checked against the deployed v22; the flag flips on merge, a CMO decision). AI-017 stays off | |
 | G-11 who may switch a system on | Open, a decision | An admin can switch one on only after the signed acceptance criteria (40.20) are satisfied; whether high-risk systems should need the CMO personally is the founder's call |
 | G-12 incident to change record | **Closed here (migration NOT applied)** | `20261027095217_clinical_change_requests.sql`: CMO-only decisions, never on their own proposal, forward-only states, audited. Logic proved on a scratch Postgres (27 checks incl. sabotage); structural proof registered in `ci.manifest`. No screen yet |
 | G-13 cost and cache capture | Mostly closed (S80c cost in kobo) | Cache-token capture and model routing not checked |

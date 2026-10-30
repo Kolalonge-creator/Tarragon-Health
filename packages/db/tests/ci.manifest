@@ -1750,3 +1750,5 @@ ai_guardrail_cmo_signoff.sql
 ai_knowledge_source_cmo_signoff.sql
 # CMO-only review_ai_evaluation_run: stamps reviewed_by and reviewed_at on a finished run, never changes its outcome (a fail stays a fail), audited with suite and counts; doctor, non-CMO admin and anon refused; direct writes of the review columns refused even for an admin; wrong stated outcome, unfinished run and second review refused; a change to the reviewed result clears the review; a reviewed passing AI-001 safety run counts toward the assistant go-live condition. Sabotage: CMO check removed, then the guard trigger dropped; each must flip a result.
 ai_evaluation_run_cmo_review.sql
+# AI-017 runtime governance: the flag is true (scribe-draft consults ai_runtime_config before any model call), the system is still off, ai_runtime_config reports exactly that, an unauthenticated switch-on is refused, and the transcript and note consent triggers exist. Sabotage: the flag put back to false must flip both governed checks.
+ai017_runtime_governed.sql
