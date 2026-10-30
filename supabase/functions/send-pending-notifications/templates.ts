@@ -107,7 +107,7 @@ export function escapeHtmlForBroadcast(s: string): string {
 // INV-08). Until this existed the email rung failed with "template has no email rendering", so an admin with no push
 // subscription was never reached by email. The message is the generic non-clinical line the enqueuing function writes for
 // push and email rows ("You have a new urgent alert ... check your dashboard"); the alert's title lives only on the in-app row.
-function ackTimeoutEmail(message: string): { subject: string; html: string; text: string } {
+function urgentAlertEmail(message: string): { subject: string; html: string; text: string } {
   return {
     subject: "Urgent alert waiting on Tarragon Health",
     html:
@@ -1459,7 +1459,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
-      email: ackTimeoutEmail(message),
+      email: urgentAlertEmail(message),
     };
   },
   clinician_alert_ack_timeout_senior: (payload) => {
@@ -1467,7 +1467,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
-      email: ackTimeoutEmail(message),
+      email: urgentAlertEmail(message),
     };
   },
   clinician_alert_ack_timeout_admin: (payload) => {
@@ -1475,7 +1475,18 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText: message,
       pushUrl: "/clinician/escalations",
-      email: ackTimeoutEmail(message),
+      email: urgentAlertEmail(message),
+    };
+  },
+  // E7: the push and email copies of a patient's emergency-keyword care message. private.notify_clinician_alert queues them for
+  // severity 4 with the same generic line as the ladder; the real message lives only on the in-app row. Until this entry existed
+  // both fell to "unknown template", so the clinician was told in the app and nowhere else.
+  care_message_safety_flag: (payload) => {
+    const message = String(payload.message ?? "You have a new urgent alert on Tarragon Health.");
+    return {
+      smsText: message,
+      pushUrl: "/clinician/messages",
+      email: urgentAlertEmail(message),
     };
   },
   // S15: licence and indemnity reminders (3 months, 1 month, the day), grace and suspension notices, and application
