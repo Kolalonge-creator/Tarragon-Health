@@ -1742,3 +1742,5 @@ close_patient_account_executor.sql
 screening_pacing_grouped_reminders_and_weekly_limit.sql
 # OQ-484: ONE governed controlled-medicine list (public.controlled_medicine_terms; CMO-only write function; versioned history; new change note on every edit). Seed equals the old regex on a 380-name battery; adding or retiring a term changes the database hard stop, the signing refusal and get_controlled_medicine_list with no code change; guards (CMO only, anon, closed tables, no delete or rename, regex-looking terms). Sabotage: four patched copies (function ignores the table, CMO check removed, history trigger disabled, new-note guard disabled) must each flip a check.
 controlled_medicine_list_one_governed_table.sql
+# CMO-only approve_ai_guardrails: stamps approved_by and approved_at on one system's unapproved active guardrails, audited; doctor, non-CMO admin and anon refused; other systems and retired rules untouched; second call refused. Sabotage: CMO check removed, a doctor must get through.
+ai_guardrail_cmo_signoff.sql
