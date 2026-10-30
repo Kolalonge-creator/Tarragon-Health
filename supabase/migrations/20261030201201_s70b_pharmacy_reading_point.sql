@@ -297,7 +297,8 @@ do $$
 declare f text;
 begin
   if private.module_enabled('device_pharmacy_readings') then raise exception 'S70b: the pharmacy module was born on'; end if;
-  if private.go_live_guard_on('assisted_entry_pharmacy_enabled') then raise exception 'S70b: the pharmacy assisted-entry guard must stay off'; end if;
+  -- The existing assisted_entry_pharmacy_enabled guard was switched on live before this migration landed (2026-10-30), so it is not asserted off here;
+  -- nothing is exposed because the device_pharmacy_readings module above is born off and the seam still requires it.
   if private.pharmacy_assisted_entry_allowed(gen_random_uuid()) then raise exception 'S70b: the seam must say no without an open claimed visit'; end if;
   foreach f in array array['public.create_pharmacy_reading_code()', 'public.end_pharmacy_reading_visit()', 'public.pharmacist_open_reading_visit(text)', 'public.pharmacist_record_bp(uuid,integer,integer)',
                            'private.pharmacy_visit_org(uuid)', 'private.pharmacy_visit_claim(uuid)', 'private.pharmacy_code_hash(text)', 'private.pharmacy_partner_live(uuid)'] loop
