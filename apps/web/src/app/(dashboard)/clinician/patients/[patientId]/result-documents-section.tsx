@@ -113,7 +113,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
       <CardHeader>
         <CardTitle>Result documents</CardTitle>
         <CardDescription>
-          Lab result files uploaded by the patient, a lab liaison, or a clinician. Review each, then
+          Laboratory result files uploaded by the patient, a laboratory liaison, or a clinician. Review each, then
           record any finding via the screening result form.
         </CardDescription>
       </CardHeader>

@@ -84,8 +84,8 @@ export function OrderLabTestForm({
         </div>
         {bundle && (
           <p className="text-xs text-charcoal-ink/60">
-            Roughly ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at a typical Nigerian lab, as
-            a guide only. The patient pays the lab directly and Tarragon takes nothing on it.
+            Roughly ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at a typical Nigerian laboratory, as
+            a guide only. The patient pays the laboratory directly, and Tarragon takes no part of the fee.
           </p>
         )}
         {bundle?.preparation_instructions && (
@@ -136,7 +136,7 @@ export function OrderLabTestForm({
         {orderLabTest.isSuccess && (
           <p className="text-sm text-brand-green">
             Order created. The patient can download the request from their dashboard, take it to any
-            lab, and upload the result for you to review.
+            laboratory, and upload the result for you to review.
           </p>
         )}
         <Button

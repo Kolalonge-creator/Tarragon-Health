@@ -35,7 +35,7 @@ export async function RedFlagAttestation() {
         {current ? (
           <p className="text-charcoal-ink/70">
             Attested {attestedAt!.toLocaleDateString()}, current. You confirm you know and will act
-            on the glucose, symptom, lab and medication red flags, and that a red flag overrides
+            on the glucose, symptom, laboratory and medication red flags, and that a red flag overrides
             routine scheduling.
           </p>
         ) : (
