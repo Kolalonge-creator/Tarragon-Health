@@ -17,7 +17,7 @@ type Analyte = { code: string; kind: string; unit: string; sensitive?: boolean; 
 const panels = () => (getProposedConfig("lab.panels").value as { panels: Record<string, { analytes: Analyte[] }> }).panels;
 
 describe("lab.panels mirrors the migration seed", () => {
-  it("is the S27g membership_annual seed with the three screening analytes made required (v3 = the lab_panel_versions v2 row)", () => {
+  it("is the S27g membership_annual seed with the three screening analytes made required (registry v5 = lab_panel_versions v4, minus the add-on and TSH)", () => {
     const match = /lab-panels-v2-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(migration("_s27g_lab_panel_membership_sex_ranges.sql"));
     if (!match?.[1]) throw new Error("lab panel v2 seed not found in the migration");
     const seed = JSON.parse(match[1]).panels.membership_annual.analytes as Analyte[];
@@ -27,10 +27,10 @@ describe("lab.panels mirrors the migration seed", () => {
       const { optional: _optional, ...rest } = a;
       return rest;
     });
-    // v4 (S46d, lab_panel_versions v3) is that plus the one anti-HBs add-on, appended last
+    // v4 (S46d, lab_panel_versions v3) was that plus the one anti-HBs add-on, appended last; v5 (lab_panel_versions v4) drops TSH from it (founder decision 2026-10-30)
     const withoutAddOn = panels().membership_annual!.analytes.filter((a) => a.code !== "anti_hbs");
-    expect(required).toEqual(withoutAddOn);
-    expect(getProposedConfig("lab.panels").version).toBe(4);
+    expect(required.filter((a) => a.code !== "tsh")).toEqual(withoutAddOn);
+    expect(getProposedConfig("lab.panels").version).toBe(5);
     expect(migration("_membership_annual_screening_required.sql")).toContain("a - 'optional'");
   });
 
@@ -76,7 +76,7 @@ describe("lab.panels mirrors the migration seed", () => {
     const list = panels().membership_annual!.analytes;
     expect(list.filter((x) => x.optional).map((x) => x.code)).toEqual(["anti_hbs"]);
     expect(list.filter((x) => x.kind === "qualitative" && !x.optional).map((x) => x.code).sort()).toEqual(["hbsag", "hcv_ab", "hiv_screen"]);
-    expect(list).toHaveLength(19);
+    expect(list).toHaveLength(18);
   });
 
   it("anti-HBs is a clinician-set add-on: optional, ordered by the clinician, not sensitive, and has no price anywhere in the migration (S46-1)", () => {
@@ -85,6 +85,17 @@ describe("lab.panels mirrors the migration seed", () => {
     expect(a.sensitive).toBeUndefined();
     const sql = migration("_s46d_health_report_completion.sql");
     expect(sql).not.toMatch(/insert into public\.(lab_test_prices|service_products|panel_bundles)/i);
+    expect(getProposedConfig("lab.panels").status).toBe("proposed");
+  });
+
+  it("TSH is not on the yearly panel, and the migration that drops it changes nothing else (founder decision 2026-10-30)", () => {
+    expect(panels().membership_annual!.analytes.map((a) => a.code)).not.toContain("tsh");
+    const sql = migration("_lab_panel_membership_annual_v4_without_tsh.sql");
+    expect(sql).toContain("a ->> 'code' <> 'tsh'");
+    expect(sql).toContain("where panel_code = 'membership_annual' and version = 3");
+    // PROPOSED and unsigned: it never signs, and the sign-off it creates is inactive and unapproved
+    expect(sql).not.toMatch(/approved_by\s*=|sign_lab_panels\s*\(\s*\)\s*;/);
+    expect(sql).toMatch(/insert into public\.lab_panel_signoffs \(version, is_active, config, notes\)\s+select [^;]*false, l\.config/);
     expect(getProposedConfig("lab.panels").status).toBe("proposed");
   });
 

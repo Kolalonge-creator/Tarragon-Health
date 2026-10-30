@@ -398,7 +398,7 @@ begin
        ('alt', '1742-6', 'U/L', 'U/L'),
        -- integration with S27g: the one membership panel needs these five more before a push counts as complete (hiv, hbsag and hcv are optional)
        ('ast', '1920-8', 'U/L', 'U/L'), ('haemoglobin', '718-7', 'g/dL', 'g/dL'), ('wbc', '6690-2', '10^9/L', '10^9/L'),
-       ('platelets', '777-3', '10^9/L', '10^9/L'), ('tsh', '3016-3', 'mIU/L', 'mIU/L')) t(a, l, u, p) loop
+       ('platelets', '777-3', '10^9/L', '10^9/L')) t(a, l, u, p) loop
     perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, %L, %L, %L, %L)::text$q$, v_lab, m.l, m.u, m.a, m.p));
   end loop;
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '1558-6', 'mmol/L', 'fasting_glucose', 'mg/dL', 18.016)::text$q$, v_lab));

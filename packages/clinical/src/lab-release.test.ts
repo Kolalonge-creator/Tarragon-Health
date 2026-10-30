@@ -12,7 +12,7 @@ const NORMAL: LabItemInput[] = [
   { analyteCode: "ldl_cholesterol", valueNumeric: 100 }, { analyteCode: "hdl_cholesterol", valueNumeric: 55 },
   { analyteCode: "triglycerides", valueNumeric: 110 }, { analyteCode: "alt", valueNumeric: 24 },
   { analyteCode: "ast", valueNumeric: 20 }, { analyteCode: "haemoglobin", valueNumeric: 14 }, { analyteCode: "wbc", valueNumeric: 6 },
-  { analyteCode: "platelets", valueNumeric: 250 }, { analyteCode: "tsh", valueNumeric: 2 },
+  { analyteCode: "platelets", valueNumeric: 250 },
   // HIV, HBsAg and anti-HCV are done every year (CMO C1/C6), so a complete result carries all three
   { analyteCode: "hiv_screen", valueText: "negative" }, { analyteCode: "hbsag", valueText: "negative" }, { analyteCode: "hcv_ab", valueText: "negative" },
 ];
