@@ -4,8 +4,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProposedConfig } from "@tarragon/shared";
-import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "@/app/(marketing)/_content/pricing-ladder";
+import { getProposedConfig, PROPOSED_CONFIG } from "@tarragon/shared";
+import { YEARLY_PANEL_TESTS, ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "@/app/(marketing)/_content/pricing-ladder";
 
 const PAGE = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "pricing", "page.tsx"), "utf8");
 const labels = { evergreen: "₦84,000", evergreenPlus: "₦129,000" };
@@ -85,5 +85,25 @@ describe("the Membership ladder pricing content", () => {
 
   it("sabotage: the banned-word check really catches a banned tier name", () => {
     expect(/\b(basic|lite|standard|premium|gold)\b/i.test("Gold plan")).toBe(true);
+  });
+});
+
+describe("yearly panel test list on the Membership Plus card", () => {
+  it("lists the panel tests on Plus only, and none on Free or Membership", () => {
+    const cards = ladderCards({ evergreen: "A", evergreenPlus: "B" });
+    expect(cards.find((c) => c.id === "evergreen_plus")!.panelTests).toBe(YEARLY_PANEL_TESTS);
+    expect(cards.find((c) => c.id === "evergreen")!.panelTests).toBeUndefined();
+    expect(cards.find((c) => c.id === "free")!.panelTests).toBeUndefined();
+  });
+
+  it("matches the analytes of the membership_annual lab panel, minus the analytes deliberately not promised", () => {
+    // anti_hbs: clinician-set add-on. tsh: removed from the yearly panel by founder decision 2026-10-30, but lab_panel_versions v3 (live) and
+    // the registry still carry it until a new panel version is signed. Remove "tsh" here once that version lands.
+    const NOT_PROMISED = ["anti_hbs", "tsh"];
+    const entries = PROPOSED_CONFIG.filter((e) => e.key === "lab.panels");
+    const latest = entries.reduce((a, b) => (b.version > a.version ? b : a));
+    const v = latest.value as { panels: { membership_annual: { analytes: { code: string; label: string }[] } } };
+    const registry = v.panels.membership_annual.analytes.filter((a) => !NOT_PROMISED.includes(a.code)).map((a) => a.label).sort();
+    expect(YEARLY_PANEL_TESTS.flatMap((g) => g.tests).sort()).toEqual(registry);
   });
 });

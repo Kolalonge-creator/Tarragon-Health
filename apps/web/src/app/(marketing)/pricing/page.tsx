@@ -14,6 +14,7 @@ import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { PanelTests } from "../_components/panel-tests";
 import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
@@ -101,6 +102,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
                   <li key={line}>{line}</li>
                 ))}
               </ul>
+              {card.panelTests ? <PanelTests groups={card.panelTests} /> : null}
             </section>
           ))}
         </div>
