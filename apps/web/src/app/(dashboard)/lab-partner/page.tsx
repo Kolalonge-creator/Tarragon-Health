@@ -12,6 +12,7 @@ import { LabPartnerFacilities } from "./lab-partner-facilities";
 import { LabPartnerServices } from "./lab-partner-services";
 import { LabPartnerSpecimenBoard } from "./lab-partner-specimen-board";
 import { LabPartnerDashboardStatsRow } from "./lab-partner-dashboard-stats-row";
+import { LabPartnerFirst } from "./lab-partner-first";
 import { PartnerStaffInviteForm } from "@/components/partner-admin/partner-staff-invite-form";
 
 export default async function LabPartnerPage() {
@@ -58,6 +59,8 @@ export default async function LabPartnerPage() {
         </LoadFailure>
       )}
 
+      <LabPartnerFirst awaiting={overview.awaitingCount} />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={SEMANTIC_ICON.logistics} label="Orders routed to you" {...overview.tiles.routed} />
         <StatTile
@@ -88,12 +91,34 @@ export default async function LabPartnerPage() {
           server-side data this page already fetched, and keeping it
           self-contained means it can revalidate independently as specimens
           move through lab_partner_update_specimen_status/reject. */}
-      <LabPartnerDashboardStatsRow />
-      <LabPartnerTurnaroundCard />
-      <LabPartnerSpecimenBoard />
-      <LabPartnerWorklist />
-      <LabPartnerFacilities />
-      <LabPartnerServices />
+      <div id="lab-samples" className="scroll-mt-4">
+        <LabPartnerSpecimenBoard />
+      </div>
+      <div id="lab-orders" className="scroll-mt-4">
+        <LabPartnerWorklist />
+      </div>
+
+      <details className="group rounded-xl border border-charcoal-ink/10 bg-white">
+        <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-charcoal-ink">
+          Today&apos;s counts and turnaround{" "}
+          <span className="text-charcoal-ink/60">(samples received, processing, rejected, turnaround time)</span>
+          <span aria-hidden className="ml-2 inline-block transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="space-y-6 px-5 pb-5">
+          <LabPartnerDashboardStatsRow />
+          <LabPartnerTurnaroundCard />
+        </div>
+      </details>
+      <details className="group rounded-xl border border-charcoal-ink/10 bg-white">
+        <summary className="cursor-pointer list-none px-5 py-3 text-sm font-medium text-charcoal-ink">
+          Your branches and services
+          <span aria-hidden className="ml-2 inline-block transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="space-y-6 px-5 pb-5">
+          <LabPartnerFacilities />
+          <LabPartnerServices />
+        </div>
+      </details>
       {profile.is_partner_admin && <PartnerStaffInviteForm />}
     </div>
   );

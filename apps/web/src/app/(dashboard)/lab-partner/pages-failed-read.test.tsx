@@ -24,6 +24,7 @@ jest.mock("./lab-partner-facilities", () => ({ LabPartnerFacilities: () => null 
 jest.mock("./lab-partner-services", () => ({ LabPartnerServices: () => null }));
 jest.mock("./lab-partner-specimen-board", () => ({ LabPartnerSpecimenBoard: () => null }));
 jest.mock("./lab-partner-dashboard-stats-row", () => ({ LabPartnerDashboardStatsRow: () => null }));
+jest.mock("./lab-partner-first", () => ({ LabPartnerFirst: () => null }));
 jest.mock("@/components/partner-admin/partner-staff-invite-form", () => ({ PartnerStaffInviteForm: () => null }));
 jest.mock("./results/result-entry", () => ({ OrderResultCard: () => <div data-testid="order" /> }));
 
