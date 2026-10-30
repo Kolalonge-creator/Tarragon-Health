@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 
 export { formatMinor, formatNumber, formatPercent, currencySymbol } from "@/lib/analytics/format";
 
@@ -54,5 +55,31 @@ export function TableShell({ children }: { children: ReactNode }) {
 export function Th({ children, right }: { children: ReactNode; right?: boolean }) {
   return (
     <th className={`py-2 pr-4 font-medium ${right ? "text-right" : "text-left"}`}>{children}</th>
+  );
+}
+
+/**
+ * What a finance list or figure shows when its read failed.
+ *
+ * Used in place of the empty-state line, never beside it. "No open signals ✓",
+ * "No outstanding payables ✓" and "Nothing configured" are statements about the
+ * business; a failed read is not one, and on a fraud monitor, a payables list or
+ * a statutory-deadline tracker the difference is money.
+ */
+export function ReadFailure({ what }: { what: string }) {
+  return (
+    <LoadFailure>
+      {what} could not be loaded just now. This is not the same as there being none. Reload the page to try again.
+    </LoadFailure>
+  );
+}
+
+/** The data on screen is the last good read: the latest refresh failed. */
+export function StaleNote({ what }: { what: string }) {
+  return (
+    <StaleDataNotice className="mb-3">
+      {what} may be out of date: the last refresh failed. What is shown is the last successful read. Reload to try
+      again.
+    </StaleDataNotice>
   );
 }

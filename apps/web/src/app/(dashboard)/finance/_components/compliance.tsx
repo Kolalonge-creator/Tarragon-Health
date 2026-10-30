@@ -10,7 +10,8 @@ import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
 import { useComplianceCalendar, financeKeys, fetchComplianceSuggestedAmount } from "@/lib/finance/queries";
 import { markFiledAction, unmarkFiledAction } from "@/lib/finance/actions";
 import type { ComplianceObligation } from "@/lib/finance/schemas";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote } from "./primitives";
+import { statTileValue } from "@/components/ui/stat-tile-value";
 import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 const STATUS_VARIANT: Record<string, "green" | "amber" | "red" | "grey"> = {
@@ -31,14 +32,19 @@ export function ComplianceCalendar() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
+  // Unknown is not zero. "Overdue 0" is a claim that no statutory filing is late, so a calendar that
+  // did not load shows no count at all rather than a quiet board.
   const counts = useMemo(() => {
-    const rows = calendar.data ?? [];
+    const rows = calendar.data;
+    if (rows === undefined) return null;
     return {
       overdue: rows.filter((r) => r.status === "overdue").length,
       dueSoon: rows.filter((r) => r.status === "due_soon").length,
       upcoming: rows.filter((r) => r.status === "upcoming").length,
     };
   }, [calendar.data]);
+  const tile = (n: number | undefined) =>
+    statTileValue(n === undefined ? null : String(n), calendar.isError ? "Could not be loaded" : "Loading…");
 
   async function openMarkFiled(o: ComplianceObligation) {
     setOpen(`${o.obligation_code}-${o.period_label}`);
@@ -98,16 +104,19 @@ export function ComplianceCalendar() {
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile icon={AlertTriangle} label="Overdue" value={String(counts.overdue)} />
-        <StatTile icon={Clock} label="Due within 7 days" value={String(counts.dueSoon)} />
-        <StatTile icon={CalendarClock} label="Upcoming" value={String(counts.upcoming)} />
+        <StatTile icon={AlertTriangle} label="Overdue" {...tile(counts?.overdue)} />
+        <StatTile icon={Clock} label="Due within 7 days" {...tile(counts?.dueSoon)} />
+        <StatTile icon={CalendarClock} label="Upcoming" {...tile(counts?.upcoming)} />
       </div>
 
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
 
       <SectionCard title="Filing calendar" description="Next 3 months, plus last month's obligations.">
+        {calendar.isError && calendar.data !== undefined && <StaleNote what="The filing calendar" />}
         {calendar.isLoading ? (
           <CenterNote>Loading…</CenterNote>
+        ) : calendar.isError && calendar.data === undefined ? (
+          <ReadFailure what="The filing calendar" />
         ) : (calendar.data ?? []).length === 0 ? (
           <CenterNote>Nothing configured.</CenterNote>
         ) : (
