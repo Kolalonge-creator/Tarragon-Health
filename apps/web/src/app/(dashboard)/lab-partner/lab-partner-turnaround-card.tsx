@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { useLabPartnerTurnaroundStats } from "@/lib/queries/lab-partner";
 
 /**
@@ -9,7 +10,7 @@ import { useLabPartnerTurnaroundStats } from "@/lib/queries/lab-partner";
  * be measured silently from the other side of the fence.
  */
 export function LabPartnerTurnaroundCard() {
-  const { data: stats, isLoading } = useLabPartnerTurnaroundStats();
+  const { data: stats, isLoading, isError } = useLabPartnerTurnaroundStats();
 
   return (
     <Card>
@@ -22,6 +23,11 @@ export function LabPartnerTurnaroundCard() {
       <CardContent>
         {isLoading ? (
           <p className="text-sm text-charcoal-ink/60">Loading…</p>
+        ) : isError && !stats ? (
+          <LoadFailure>
+            Your turnaround figures could not be loaded just now. They are unknown, not zero. Refresh the page to try
+            again.
+          </LoadFailure>
         ) : !stats || stats.orders_resulted === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No resulted orders in this window yet.</p>
         ) : (
