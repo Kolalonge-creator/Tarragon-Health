@@ -16,7 +16,8 @@ import {
 } from "@/lib/finance/actions";
 import type { LedgerEntry } from "@/lib/finance/schemas";
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
@@ -49,11 +50,26 @@ export function LedgerBrowser() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const totals = useMemo(() => {
-    const d = lines.reduce((s, l) => s + majorToMinor(l.debit), 0);
-    const c = lines.reduce((s, l) => s + majorToMinor(l.credit), 0);
-    return { debit: d, credit: c, balanced: d === c && d > 0 };
+  // Each amount is read exactly or refused. A blank amount is "no amount on this side", not zero
+  // by guesswork, and anything else that cannot be read blocks the entry, so a typed line is never
+  // dropped and a comma never truncates a figure.
+  const parsed = useMemo(() => {
+    const rows = lines.map((l, i) => {
+      const debit = parseOptionalMoney(l.debit);
+      const credit = parseOptionalMoney(l.credit);
+      return { i, debit, credit };
+    });
+    const issues = rows.flatMap((r) => [
+      ...(r.debit.ok ? [] : [{ i: r.i, field: "debit" as const, error: r.debit.error }]),
+      ...(r.credit.ok ? [] : [{ i: r.i, field: "credit" as const, error: r.credit.error }]),
+    ]);
+    const minorOf = (p: { ok: boolean; minor?: number | null }) => (p.ok ? (p.minor ?? 0) : 0);
+    const d = rows.reduce((s, r) => s + minorOf(r.debit), 0);
+    const c = rows.reduce((s, r) => s + minorOf(r.credit), 0);
+    return { rows, issues, debit: d, credit: c, balanced: issues.length === 0 && d === c && d > 0 };
   }, [lines]);
+  const totals = parsed;
+  const lineIssue = (i: number, field: "debit" | "credit") => parsed.issues.find((x) => x.i === i && x.field === field)?.error;
 
   function updateLine(i: number, patch: Partial<DraftLine>) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -61,18 +77,30 @@ export function LedgerBrowser() {
 
   async function submit() {
     setMessage(null);
+    if (parsed.issues.length > 0) {
+      const first = parsed.issues[0];
+      setMessage({ ok: false, text: `Line ${first.i + 1}: ${first.error}` });
+      return;
+    }
     if (!totals.balanced) {
       setMessage({ ok: false, text: "Debits must equal credits and be non-zero." });
       return;
     }
-    const payload: JournalLineInput[] = lines
-      .filter((l) => l.account_code && (majorToMinor(l.debit) > 0 || majorToMinor(l.credit) > 0))
-      .map((l) => ({
-        account_code: l.account_code,
-        debit_minor: majorToMinor(l.debit),
-        credit_minor: majorToMinor(l.credit),
-        memo: l.memo || undefined,
-        cost_center_code: l.cost_center_code || undefined,
+    // A line with an amount but no account is refused, not dropped: dropping it would post an entry
+    // that is missing something the person typed.
+    const missingAccount = parsed.rows.find((r) => !lines[r.i].account_code && ((r.debit.ok && r.debit.minor) || (r.credit.ok && r.credit.minor)));
+    if (missingAccount) {
+      setMessage({ ok: false, text: `Line ${missingAccount.i + 1} has an amount but no account.` });
+      return;
+    }
+    const payload: JournalLineInput[] = parsed.rows
+      .filter((r) => lines[r.i].account_code && ((r.debit.ok && r.debit.minor) || (r.credit.ok && r.credit.minor)))
+      .map((r) => ({
+        account_code: lines[r.i].account_code,
+        debit_minor: r.debit.ok ? (r.debit.minor ?? 0) : 0,
+        credit_minor: r.credit.ok ? (r.credit.minor ?? 0) : 0,
+        memo: lines[r.i].memo || undefined,
+        cost_center_code: lines[r.i].cost_center_code || undefined,
       }));
     if (payload.length < 2) {
       setMessage({ ok: false, text: "A journal entry needs at least two lines." });
@@ -192,10 +220,12 @@ export function LedgerBrowser() {
                     </td>
                     <td className="py-2 pr-2">
                       <Input inputMode="decimal" className="text-right" value={l.debit}
+                        aria-invalid={lineIssue(i, "debit") ? true : undefined} title={lineIssue(i, "debit")}
                         onChange={(e) => updateLine(i, { debit: e.target.value, credit: "" })} placeholder="0" />
                     </td>
                     <td className="py-2 pr-2">
                       <Input inputMode="decimal" className="text-right" value={l.credit}
+                        aria-invalid={lineIssue(i, "credit") ? true : undefined} title={lineIssue(i, "credit")}
                         onChange={(e) => updateLine(i, { credit: e.target.value, debit: "" })} placeholder="0" />
                     </td>
                     <td className="py-2 pr-2">
@@ -238,6 +268,9 @@ export function LedgerBrowser() {
               </div>
             </div>
 
+            {parsed.issues.length > 0 && !message && (
+              <p role="alert" className="text-sm text-red-600">Line {parsed.issues[0].i + 1}: {parsed.issues[0].error}</p>
+            )}
             {message && (
               <p className={`text-sm ${message.ok ? "text-brand-green" : "text-red-600"}`}>{message.text}</p>
             )}

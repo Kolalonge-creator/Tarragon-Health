@@ -10,7 +10,8 @@ import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
 import { useComplianceCalendar, financeKeys, fetchComplianceSuggestedAmount } from "@/lib/finance/queries";
 import { markFiledAction, unmarkFiledAction } from "@/lib/finance/actions";
 import type { ComplianceObligation } from "@/lib/finance/schemas";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 const STATUS_VARIANT: Record<string, "green" | "amber" | "red" | "grey"> = {
   filed: "green",
@@ -59,12 +60,16 @@ export function ComplianceCalendar() {
 
   async function markFiled(o: ComplianceObligation) {
     setMsg(null);
+    // The amount is optional, but one that is typed must be readable: "abc" used to be recorded as a
+    // remittance of zero.
+    const filedAmount = parseOptionalMoney(amount);
+    if (!filedAmount.ok) return setMsg({ ok: false, text: filedAmount.error });
     const res = await markFiledAction({
       obligation_code: o.obligation_code,
       period_label: o.period_label,
       due_date: o.due_date,
       remittance_reference: ref,
-      amount_minor: amount ? majorToMinor(amount) : undefined,
+      amount_minor: filedAmount.minor ?? undefined,
       currency: "NGN",
     });
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not save." });
