@@ -26,8 +26,8 @@ export function ServiceRegionsManager() {
         <CardTitle>States</CardTitle>
         <CardDescription>
           {liveCount} of {regions?.length ?? 0} states live. {plusCount} approved for Membership Plus blood
-          collection (Plus buyers pick from these; the nationwide partner-lab list does not depend on it). Deactivating a state re-gates its
-          partner actions immediately; it does not remove partner data you&apos;ve already loaded.
+          collection (Plus buyers pick from these; the nationwide partner laboratory list does not depend on it). Deactivating a state re-gates its
+          partner actions immediately; it does not remove partner data you have already loaded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -61,7 +61,7 @@ export default async function NgoProgrammesPage() {
     <div className="space-y-6">
       <PageHeader
         title="NGO-funded programmes"
-        description="A funded cohort for a real, signed NGO/PHC/government partnership — see docs/FUNDING_STRATEGY.md for how these are sold. Creating one here does not notify anyone; the programme's own ngo_admin invites their roster from /ngo once it's active."
+        description="A funded cohort for a real, signed NGO/PHC/government partnership (see docs/FUNDING_STRATEGY.md for how these are sold). Creating one here does not notify anyone; the programme's own ngo_admin invites their roster from /ngo once it is active."
       />
       <NgoProgrammesManager
         ngoOrganisations={ngoOrgs ?? []}
