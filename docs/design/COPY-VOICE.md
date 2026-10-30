@@ -45,6 +45,8 @@ To fix a failure, reword the string. Do not raise the number in `baseline.ts`. O
 
 ## Status
 
-The marketing site, the patient dashboard, the clinician dashboard, the admin screens, the notification templates and the English string catalogue have all had a pass (2026-10-30). Mobile app copy, the database-stored notification templates and the legal pages have not.
+The marketing site, the patient dashboard, the clinician dashboard, the admin screens, the notification templates, the English string catalogue and the mobile app have all had a pass (2026-10-30). The database-stored notification templates and the legal pages have not.
+
+Mobile pass (2026-10-30): 37 em dashes and 7 "your doctor" strings were reworded, a developer phrase ("already native") was removed from a patient subtitle, and contractions were expanded in the longer paragraphs. Four hits were left on purpose because they need a human reviewer: the AUDIT-C answer options in `lib/mental-health.ts` (a clinical instrument that mirrors the web copy), `emergency-guidance-modal.tsx`, and the emergency contraception text in `lib/contraception.ts`. The web copies of the video-visit, second-opinion, healthy-ageing and similar strings still carry the old wording.
 
 Update 2026-10-30: the 126 contractions in `apps/web/src/app/(marketing)/_content/resources.ts` were expanded to full forms (rule 5); no wording or fact changed.

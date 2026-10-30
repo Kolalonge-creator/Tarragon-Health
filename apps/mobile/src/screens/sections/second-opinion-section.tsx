@@ -60,7 +60,7 @@ function RecommendedReferralBlock({ requestId, referralId, onChanged }: { reques
   };
   return (
     <View style={{ gap: 6, marginTop: 6 }}>
-      <AppText variant="bodyStrong">Your doctor suggests seeing a specialist</AppText>
+      <AppText variant="bodyStrong">A doctor suggests seeing a specialist</AppText>
       {referral.reason && <MutedText>{referral.reason}</MutedText>}
       {referral.status === "draft" ? (
         <>

@@ -153,7 +153,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       {/* Fixed red with white text in both schemes: a first responder must recognise this card at a glance. */}
       <View style={{ backgroundColor: lightPalette.dangerText, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
-          {facts.fullName ?? "—"}
+          {facts.fullName ?? "Name not recorded"}
         </Text>
         {/* A detail the person chose not to share says so. It never reads "None on file": a stranger would take that as "has none". */}
         <FactRow label="Blood group" value={notShared("blood") ?? facts.bloodGroup ?? "Not on file"} />

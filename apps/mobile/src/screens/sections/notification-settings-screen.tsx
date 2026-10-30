@@ -140,11 +140,11 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
           <Badge tone="neutral">Important</Badge>
-          <MutedText>Appointments, medications, referrals — on by default, adjustable below.</MutedText>
+          <MutedText>Appointments, medications and referrals are on by default. You can adjust them below.</MutedText>
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
           <Badge tone="neutral">Routine</Badge>
-          <MutedText>Health education & wellness — the easiest to turn down.</MutedText>
+          <MutedText>Health education and wellness are the easiest to turn down.</MutedText>
         </View>
       </Card>
 

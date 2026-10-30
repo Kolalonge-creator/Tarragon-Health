@@ -181,7 +181,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
       <CalloutCard
         icon="people-outline"
         title="People you support"
-        subtitle="Children and adults whose care you manage — open, switch accounts, and act on their behalf."
+        subtitle="Children and adults whose care you manage. You can open their accounts, switch between them, and act on their behalf."
         ctaLabel="Open people you support"
         onPress={() => onNavigate("supporting")}
       />
@@ -198,7 +198,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
         <Card>
           <ErrorText>
             We couldn&apos;t load who can see your health information just now. Nobody has gained or lost
-            access because of this — refresh to try again.
+            access because of this. Refresh to try again.
           </ErrorText>
         </Card>
       ) : (
@@ -434,7 +434,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
       </View>
       <AppText variant="label">Their phone number</AppText>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={phone} onChangeText={setPhone} placeholder="+2348012345678" keyboardType="phone-pad" style={textInputStyle} />
-      <MutedText>If this number belongs to a Tarragon account, they&apos;ll be able to follow your care straight away.</MutedText>
+      <MutedText>If this number belongs to a Tarragon account, they will be able to follow your care straight away.</MutedText>
 
       <PrimaryButton title={current.name ? "Update next of kin" : "Save next of kin"} onPress={submit} loading={submitting} />
     </Card>

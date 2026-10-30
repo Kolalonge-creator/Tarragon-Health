@@ -71,7 +71,7 @@ export function MonitoringCoverCard() {
         </AppText>
         <MutedText>
           Every reading you log is still checked against care protocols, and you still get the full
-          emergency safety net — immediate guidance, your emergency contact notified, and a check-in
+          emergency safety net: immediate guidance, your emergency contact notified, and a check-in
           afterwards. Membership adds a doctor on your care team being told as well, and following
           up with you. You can join from the Membership page.
         </MutedText>
@@ -92,7 +92,7 @@ export function MonitoringCoverCard() {
         {endsAt ? (
           <>
             Your {cover.service_product?.name ?? "cover"} runs until {shortDate(endsAt)}
-            {endingSoon ? ` — that is ${remaining} day${remaining === 1 ? "" : "s"} away.` : "."} It
+            {endingSoon ? `, which is ${remaining} day${remaining === 1 ? "" : "s"} away.` : "."} It
             will simply stop then; nothing renews on its own.
           </>
         ) : (

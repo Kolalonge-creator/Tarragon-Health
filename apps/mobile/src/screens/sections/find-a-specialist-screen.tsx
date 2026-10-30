@@ -161,7 +161,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           {!!p.languages?.length && <MutedText>Languages: {p.languages.join(", ")}</MutedText>}
         </Card>
       ))}
-      <MutedText>Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the referral.</MutedText>
+      <MutedText>Interested in seeing one of these specialists? Message your care team and they will arrange the referral.</MutedText>
     </ScrollView>
   );
 }

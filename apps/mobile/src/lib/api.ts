@@ -748,7 +748,7 @@ async function request<T>(
       return request<T>(path, method, body, true, noRetry, timeoutMs);
     }
     await supabase.auth.signOut();
-    return { ok: false, error: "Your session expired — please sign in again.", status: 401 };
+    return { ok: false, error: "Your session expired. Please sign in again.", status: 401 };
   }
 
   try {

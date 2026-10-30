@@ -73,7 +73,7 @@ export function isPolypharmacy(activeMedicationCount: number): boolean {
 
 export const HOME_CARE_STATUS_LABEL: Record<HomeCareRequestStatus, string> = {
   eligibility_pending: "Checking eligibility",
-  eligible: "Eligible — arranging a visit",
+  eligible: "Eligible: arranging a visit",
   ineligible: "Not eligible for a home visit",
   scheduled: "Visit scheduled",
   visit_completed: "Visit completed",

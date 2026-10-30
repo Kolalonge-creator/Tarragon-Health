@@ -385,7 +385,7 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
             {history.map((symptom) => (
               <GroupedListRow
                 key={symptom.id}
-                title={`${symptomLabel(symptom.symptom_type)}: severity ${symptom.severity ?? "—"}/10`}
+                title={`${symptomLabel(symptom.symptom_type)}: severity ${symptom.severity ?? "-"}/10`}
                 subtitle={
                   symptom.description
                     ? `${symptom.description} · ${new Date(symptom.reported_at).toLocaleString()}`

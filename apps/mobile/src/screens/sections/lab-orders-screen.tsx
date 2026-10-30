@@ -560,7 +560,7 @@ export function LabOrdersScreen() {
                                     .map((a) =>
                                       a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label
                                     )
-                                    .join(", ")}. This isn't a diagnosis — you'll need to follow up with a doctor about it.`
+                                    .join(", ")}. This is not a diagnosis. You will need to follow up with a doctor about it.`
                                 : "One or more values in this file fall outside the range printed on the report itself. Only a doctor reviewing the full picture can tell you what it means."}
                             </AppText>
                           </View>

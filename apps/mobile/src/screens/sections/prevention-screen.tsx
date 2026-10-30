@@ -275,7 +275,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         setActionError(result.error);
         return;
       }
-      setActionDoneLabel("Noted — we won't keep asking about this one.");
+      setActionDoneLabel("Noted. We will not keep asking about this one.");
     }
     await load();
   }
@@ -387,7 +387,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         ) : !risk.data || risk.data.length === 0 ? (
           <Card>
             <MutedText>
-              Complete the risk assessment on the full app to see your personal risk tiers — a
+              Complete the risk assessment on the full app to see your personal risk tiers. It is a
               starting point for your care, not a diagnosis.
             </MutedText>
           </Card>
@@ -522,7 +522,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               The screening worth doing at your age, what to ask a laboratory for, and roughly what
               it costs. Working out which tests you need and writing the request is free, and always
               will be. You take that request to whichever laboratory you choose and pay them
-              directly, at their price — we add nothing and take no cut. Upload the result when it
+              directly, at their price. We add nothing and take no cut. Upload the result when it
               comes back and a doctor can read it with you.
             </MutedText>
 
@@ -655,7 +655,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
             })}
           </GroupedList>
         )}
-        <MutedText>Each result, compared with your previous one — for tracking, not diagnosis.</MutedText>
+        <MutedText>Each result, compared with your previous one. This is for tracking, not diagnosis.</MutedText>
       </View>
 
       <Modal visible={actionTarget !== null} animationType="slide" transparent onRequestClose={closeAction}>

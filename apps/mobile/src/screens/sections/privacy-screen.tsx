@@ -182,7 +182,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           devices.map((d) => (
             <View key={d.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 }}>
               <AppText variant="body" style={{ textTransform: "capitalize" }}>{d.provider.replace(/_/g, " ")}</AppText>
-              <MutedText>{d.connectedAt ? `Connected ${when(d.connectedAt)}` : "—"}</MutedText>
+              <MutedText>{d.connectedAt ? `Connected ${when(d.connectedAt)}` : "Not recorded"}</MutedText>
             </View>
           ))
         )}

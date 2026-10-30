@@ -112,7 +112,7 @@ function StiBookingPanel() {
         </View>
       ))}
 
-      <MutedText>Home test kits aren&apos;t available from a partner yet. For now, take the request to a laboratory of your choice.</MutedText>
+      <MutedText>Home test kits are not available from a partner yet. For now, take the request to a laboratory of your choice.</MutedText>
     </Card>
   );
 }
