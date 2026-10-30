@@ -2,7 +2,7 @@ import type { StatTileValueProps } from "@/components/ui/stat-tile-value";
 import type { RefreshQueryState } from "@/lib/queries/list-query-state";
 import type { PharmacistDispense, PharmacistProfile } from "@/lib/queries/pharmacist";
 import { sliceState, sliceTile, unknownHint, type QuerySlice } from "@/lib/queries/query-slice";
-import { isAwaitingStatus, isOpenStatus } from "./order-status";
+import { isAwaitingStatus, isOpenStatus, needsPharmacistResponse } from "./order-status";
 import type { PharmacistOrderRow } from "./items";
 import { isLagosToday } from "./format";
 
@@ -38,6 +38,8 @@ export interface PharmacistOverview {
     tiles: { awaiting: StatTileValueProps; inProgress: StatTileValueProps; open: StatTileValueProps };
     /** The first few open orders, from the last good read. */
     snapshot: PharmacistOrderRow[];
+    /** Paid orders the pharmacist has not yet accepted or declined. null when there is no data: unknown, not zero. */
+    awaitingCount: number | null;
     /** True only when the orders were read, are current, and none are open. */
     caughtUp: boolean;
   };
@@ -149,6 +151,7 @@ export function buildPharmacistOverview(
         open: sliceTile(orders, (rows) => rows.filter((o) => isOpenStatus(o.status)).length),
       },
       snapshot: open.slice(0, 3),
+      awaitingCount: orders.data === undefined ? null : orders.data.filter((o) => needsPharmacistResponse(o.status)).length,
       caughtUp: ordersState === "ready" && open.length === 0,
     },
     dispenses: {
