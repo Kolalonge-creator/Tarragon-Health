@@ -391,7 +391,7 @@ export const TEMPLATE_MAP: Record<
     const path = suggestedType ? `/patient/quick-log/${suggestedType}` : "/patient/vitals";
     return {
       smsText:
-        `Hi, it's time for your check-in (due ${dueDate}). ` +
+        `Hi, your check-in is due ${dueDate}. ` +
         "Open the Tarragon Health app to log it. Tarragon Health",
       pushUrl: path,
     };
@@ -405,7 +405,7 @@ export const TEMPLATE_MAP: Record<
   lifestyle_nudge: (payload) => {
     const message = String(
       payload.message ??
-        "Checking in on your lifestyle programme; log a quick update when you get a chance.",
+        "Please log a short update on your lifestyle programme when you can.",
     );
     const path = "/patient/lifestyle";
     return {
@@ -440,7 +440,7 @@ export const TEMPLATE_MAP: Record<
     const daysBefore = String(payload.days_before ?? "");
     return {
       smsText:
-        `Hi, reminder: your request at ${facilityName} is for ${requestedDate} ` +
+        `Hi, a reminder that your request at ${facilityName} is for ${requestedDate} ` +
         `(${daysBefore} day${daysBefore === "1" ? "" : "s"} from now). ` +
         `Open the app to reply. Tarragon Health`,
     };
@@ -600,7 +600,7 @@ export const TEMPLATE_MAP: Record<
     return {
       smsText:
         "Hi, your recent health record suggests a quick check-in would help. Open the " +
-        "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
+        "Tarragon Health app to see what is due. Booking takes a minute. Tarragon Health",
     };
   },
   // Patient Engagement Engine (§16.6/§16.13) — personalized reminder on a
@@ -614,13 +614,13 @@ export const TEMPLATE_MAP: Record<
     const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
     const DIMENSION_COPY: Record<string, string> = {
       monitoring: "It looks like a monitoring reading is overdue. Logging one takes about a minute.",
-      appointments: "You've got an appointment that could use a bit of attention.",
+      appointments: "You have an appointment that needs your attention.",
       medication: "A medication check-in is waiting. A quick answer helps your care team keep track.",
-      lifestyle: "It's been a little quiet on your lifestyle log. Even a small update helps.",
+      lifestyle: "Your lifestyle log has been quiet for a while. Even a small update helps.",
       prevention: "A screening or vaccination on your schedule is coming up.",
-      app_usage: "We haven't seen you in a little while. Is everything OK?",
-      messages: "There's a message from your care team waiting on a reply.",
-      care_plan: "There's a step on your care plan that's still open.",
+      app_usage: "We have not seen you for a while. Is everything all right?",
+      messages: "A message from your care team is waiting for a reply.",
+      care_plan: "A step on your care plan is still open.",
     };
     const message =
       (dimension && DIMENSION_COPY[dimension]) ||
@@ -647,7 +647,7 @@ export const TEMPLATE_MAP: Record<
       care_plan: "your care plan",
     };
     const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
-    const message = `We've noticed it's been a bit of a stretch with ${area}. Would a simpler routine help? Your care team is happy to talk it through.`;
+    const message = `We have noticed that keeping up with ${area} may have been difficult. Would a simpler routine help? Your care team will gladly talk it through.`;
     return {
       smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
       pushUrl: "/patient",
@@ -659,7 +659,7 @@ export const TEMPLATE_MAP: Record<
   // theory the usual one may simply not be working for them right now.
   engagement_alternative_channel_checkin: () => {
     const message =
-      "We've been trying to reach you and wanted to check in a different way. Is everything OK?";
+      "We have been trying to reach you and wanted to check in a different way. Is everything all right?";
     return {
       smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
     };
@@ -802,7 +802,7 @@ export const TEMPLATE_MAP: Record<
   video_visit_alternate_proposed: () => {
     return {
       smsText:
-        "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you'll be refunded in full. Tarragon Health",
+        "Your doctor offered different times for your video visit. Pick one in the app within 24 hours, or you will be refunded in full. Tarragon Health",
     };
   },
   // Sent when a doctor declines a paid video-visit request, or nobody
@@ -811,7 +811,7 @@ export const TEMPLATE_MAP: Record<
   video_visit_declined: (payload) => {
     return {
       smsText:
-        "We couldn't schedule your video visit. " +
+        "We could not schedule your video visit. " +
         `Your payment will be refunded in full. You can request another time in the app. Tarragon Health`,
     };
   },
@@ -1405,7 +1405,7 @@ export const TEMPLATE_MAP: Record<
   // all — see the channel filter above).
   emergency_card_viewed: (payload) => {
     const on = String(payload.viewed_on ?? "today");
-    const smsText = `Tarragon Health: your emergency card link was viewed on ${on}. If that wasn't expected, replace it at any time from your dashboard.`;
+    const smsText = `Tarragon Health: your emergency card link was viewed on ${on}. If that was not expected, replace it at any time from your dashboard.`;
     return {
       smsText,
       pushUrl: "/patient/emergency-card",
@@ -1414,7 +1414,7 @@ export const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Your emergency card link was opened on ${on}.</p>` +
-          `<p style="color:#5b6b78;font-size:13px">This is expected if you or a hospital scanned it while you were being treated. If it wasn't expected, you can replace the link at any time from your Emergency card page &mdash; the old one stops working immediately.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">This is expected if you or a hospital scanned it while you were being treated. If it was not expected, you can replace the link at any time from your Emergency card page. The old one stops working immediately.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,
       },
@@ -1435,7 +1435,7 @@ export const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Your emergency card live link expires in about 30 days.</p>` +
-          `<p style="color:#5b6b78;font-size:13px">Replace it from your Emergency card page to keep it working for another 12 months. If you'd rather let it lapse, that's fine &mdash; your printed card is unaffected either way.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Replace it from your Emergency card page to keep it working for another 12 months. If you would rather let it lapse, that is fine. Your printed card is unaffected either way.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,
       },
@@ -2436,7 +2436,7 @@ export const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>${message}</p>` +
-          `<p style="color:#5b6b78;font-size:13px">If this was you, there's nothing else to do. If it wasn't, change your password right away and reach out to your care team from the app.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">If this was you, nothing more is needed. If it was not, change your password right away and contact your care team from the app.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,
         text: message,
@@ -2452,7 +2452,7 @@ export const TEMPLATE_MAP: Record<
   medication_dose_reminder: (payload) => {
     const scheduledTime = String(payload.scheduled_time ?? "now");
     return {
-      smsText: `Hi, it's ${scheduledTime}: time for your care plan check. Open the Tarragon Health app to see what is due. Tarragon Health`,
+      smsText: `Hi, it is ${scheduledTime}: time for your care plan check. Open the Tarragon Health app to see what is due. Tarragon Health`,
       pushUrl: "/patient/medications",
     };
   },
@@ -2465,7 +2465,7 @@ export const TEMPLATE_MAP: Record<
   // there -- these three copies need to read as one continuing message as
   // a patient moves through the ladder, not as independently-worded alerts.
   vitals_monitoring_due: () => ({
-    smsText: "Hi, it's time for your check-in. Open the Tarragon Health app to log it. Tarragon Health",
+    smsText: "Hi, it is time for your check-in. Open the Tarragon Health app to log it. Tarragon Health",
     pushUrl: "/patient/vitals",
   }),
   vitals_monitoring_overdue: () => ({
