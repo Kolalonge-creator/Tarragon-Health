@@ -3,7 +3,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleHmoEligibility } from "./handler.ts";
 
 import { withSentry } from "../_shared/observability/sentry.ts";
-Deno.serve(withSentry("hmo-eligibility", (req) => {
+import { withCors } from "../_shared/http/cors.ts";
+// The web app calls this straight from the browser, so the preflight and every response need CORS headers (see _shared/http/cors.ts).
+Deno.serve(withCors(withSentry("hmo-eligibility", (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const asUser = (authorization: string) =>
@@ -17,4 +19,4 @@ Deno.serve(withSentry("hmo-eligibility", (req) => {
     rpcAsUser: (authorization, fn, args) => asUser(authorization).rpc(fn, args),
     rpcAsService: (fn, args) => service.rpc(fn, args),
   });
-}));
+})));
