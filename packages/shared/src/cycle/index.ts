@@ -6,3 +6,4 @@ export * from "./prediction";
 export * from "./thermal-shift";
 export * from "./pattern-report";
 export * from "./planning-copy";
+export * from "./hero";

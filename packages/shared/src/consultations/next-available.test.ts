@@ -1,5 +1,7 @@
+import { describe, expect, it } from "@jest/globals";
 import { daysAwayLabel, nextAvailable } from "./next-available";
-import type { ConsultSlot } from "./slots";
+
+type ConsultSlot = { clinician_id: string; clinician_name: string; slot_start: string; slot_end: string; consultation_method: "telemedicine"; location: null; specialty: string | null; languages: string[]; sex: string | null; licence_checked_on: string | null };
 
 const slot = (start: string): ConsultSlot => ({
   clinician_id: "c", clinician_name: "Dr A", slot_start: start, slot_end: start, consultation_method: "telemedicine",
