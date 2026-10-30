@@ -1,4 +1,5 @@
 import { LatestBpHero } from "./latest-bp-hero";
+import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
@@ -57,6 +58,121 @@ export default async function PatientVitalsPage() {
   // S59c: the describe table, the explainer and the safety-net lines, each only when signed and equal to the live signed version (a draft is inert).
   const ux = presentingComplaints.length > 0 ? await loadAssessmentUx() : NO_ASSESSMENT_UX;
 
+  const tabs: PreventionTab[] = [
+    {
+      id: "readings",
+      label: "Readings",
+      anchorIds: ["log-reading"],
+      content: (
+        <>
+          <LatestBpHero patientId={subjectId} />
+          {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
+          <VitalsTrendChart patientId={subjectId} />
+          {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
+          {/* Offers sit under the patient's own readings, never above them. W-53 / D-03: the calm-screen Membership offer; price and refund window come from versioned config. */}
+          {subjectId === profile.id ? <FollowWithDoctorCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
+          {/* Journey 1: above target for a week, the same offer with its own title. The database decides (Free, above target, checkout open). */}
+          {subjectId === profile.id ? <AboveTargetMembershipCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
+          {/* Renders nothing until there is sensor glucose to show. */}
+          <AgpCard patientId={subjectId} audience="patient" />
+          <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Directly above the form someone logs a reading into, which is the
+                one moment they are actually thinking about what happens to it. */}
+            <MonitoringCoverCard />
+
+            <div id="log-reading" className="scroll-mt-20">
+              <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
+            </div>
+            <div className="space-y-4">
+              <HbpmSummaryCard patientId={subjectId} />
+              <GlucoseInsights patientId={subjectId} />
+            </div>
+          </div>
+
+          {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
+          {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
+          {guards.diaryEntryOpen && (
+            <p className="text-sm">
+              <Link href="/patient/diary" className="font-medium underline" data-testid="diary-entry-link">
+                {t("diary.entry_link")}
+              </Link>
+              <span className="ml-2 text-charcoal-ink/60 dark:text-night-ink/60">{t("diary.entry_link_hint")}</span>
+            </p>
+          )}
+
+          {/* Renders nothing once the subject is old enough that a paediatric
+              growth chart no longer applies — see growth-tracking-card.tsx. */}
+          <GrowthTrackingCard
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
+            ageYears={ageYears}
+          />
+          {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
+          <HeldReadingsCard patientId={subjectId} />
+          <VitalsHistory patientId={subjectId} viewerId={profile.id} />
+          <VisitReportCard />
+          {/* Renders nothing unless the patient has an active diabetes care
+              plan — see diabetes-daily-log.tsx for the gate. */}
+          <DiabetesDailyLog patientId={subjectId} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ComplicationStatus patientId={subjectId} />
+            <FootRiskStatus patientId={subjectId} />
+          </div>
+          {/* Renders nothing until a connected wearable has synced at least one
+              night — see sleep-summary-card.tsx. */}
+          <SleepSummaryCard patientId={subjectId} />
+        </>
+      ),
+    },
+    {
+      id: "symptoms",
+      label: "Symptoms",
+      anchorIds: ["symptom-check"],
+      content: (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <SymptomLogForm patientId={subjectId} ageYears={ageYears} />
+            <SymptomLogHistory patientId={subjectId} />
+          </div>
+
+          <div id="symptom-check" className="scroll-mt-24 space-y-3">
+            {/* S59c: a follow-up waiting for an answer (renders nothing otherwise, and only while the checker is open). */}
+            {presentingComplaints.length > 0 && subjectId === profile.id ? <SymptomCheckbackBanner /> : null}
+            <SymptomTriageCheck
+              patientId={subjectId}
+              presentingComplaints={presentingComplaints}
+              degradedConfig={degradedModeConfig()}
+              reviewTime={reviewTime}
+              eligibility={eligibility}
+              reviewEntitled={reviewEntitled}
+              ux={ux}
+            />
+          </div>
+        </>
+      ),
+    },
+    {
+      id: "devices",
+      label: "Devices",
+      anchorIds: ["connect-devices"],
+      content: (
+        <>
+          {/* id target for the Privacy Centre's "Manage device connections" link
+              (/patient/vitals#connect-devices) — that link used to land here at
+              the top of Vitals with no scroll-to, which read as broken. */}
+          <div id="connect-devices">
+            <FeatureConsentGate dataType="device_data" onBehalfOf={subjectId !== profile.id}>
+              <WearableConnectSection patientId={subjectId} />
+            </FeatureConsentGate>
+          </div>
+          <DeviceSyncSupportCard patientId={subjectId} />
+        </>
+      ),
+    },
+  ];
+
   return (
     <DashboardSection
       id="vitals"
@@ -64,92 +180,9 @@ export default async function PatientVitalsPage() {
       description="Record your readings and symptoms, and see how they change over time."
       icon={SEMANTIC_ICON.bp}
     >
-      <LatestBpHero patientId={subjectId} />
-      {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
-      <VitalsTrendChart patientId={subjectId} />
-      {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}
-      {/* Offers sit under the patient's own readings, never above them. W-53 / D-03: the calm-screen Membership offer; price and refund window come from versioned config. */}
-      {subjectId === profile.id ? <FollowWithDoctorCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
-      {/* Journey 1: above target for a week, the same offer with its own title. The database decides (Free, above target, checkout open). */}
-      {subjectId === profile.id ? <AboveTargetMembershipCard patientId={subjectId} priceLabel={membershipPriceLabel()} refundDays={refundWindowDays()} /> : null}
-      {/* Renders nothing until there is sensor glucose to show. */}
-      <AgpCard patientId={subjectId} audience="patient" />
-      <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Directly above the form someone logs a reading into, which is the
-            one moment they are actually thinking about what happens to it. */}
-        <MonitoringCoverCard />
-
-        <div id="log-reading" className="scroll-mt-20">
-          <VitalsForm patientId={subjectId} pharmacyOpen={guards.pharmacyOpen} />
-        </div>
-        <div className="space-y-4">
-          <HbpmSummaryCard patientId={subjectId} />
-          <GlucoseInsights patientId={subjectId} />
-        </div>
-      </div>
-
-      {extendedObservationsOn ? <LifestyleLogCard types={["water_ml", "sleep_hours", "mood", "inhaler_use"]} /> : null}
-      {extendedObservationsOn ? <InhalerHistory patientId={subjectId} /> : null}
-      {guards.diaryEntryOpen && (
-        <p className="text-sm">
-          <Link href="/patient/diary" className="font-medium underline" data-testid="diary-entry-link">
-            {t("diary.entry_link")}
-          </Link>
-          <span className="ml-2 text-charcoal-ink/60 dark:text-night-ink/60">{t("diary.entry_link_hint")}</span>
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SymptomLogForm patientId={subjectId} ageYears={ageYears} />
-        <SymptomLogHistory patientId={subjectId} />
-      </div>
-
-      {/* Renders nothing once the subject is old enough that a paediatric
-          growth chart no longer applies — see growth-tracking-card.tsx. */}
-      <GrowthTrackingCard
-        patientId={subjectId}
-        organisationId={profile.organisation_id}
-        ageYears={ageYears}
-      />
-      <div id="symptom-check" className="scroll-mt-24 space-y-3">
-        {/* S59c: a follow-up waiting for an answer (renders nothing otherwise, and only while the checker is open). */}
-        {presentingComplaints.length > 0 && subjectId === profile.id ? <SymptomCheckbackBanner /> : null}
-        <SymptomTriageCheck
-          patientId={subjectId}
-          presentingComplaints={presentingComplaints}
-          degradedConfig={degradedModeConfig()}
-          reviewTime={reviewTime}
-          eligibility={eligibility}
-          reviewEntitled={reviewEntitled}
-          ux={ux}
-        />
-      </div>
-
-      {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
-      <HeldReadingsCard patientId={subjectId} />
-      <VitalsHistory patientId={subjectId} viewerId={profile.id} />
-      <VisitReportCard />
-      {/* Renders nothing unless the patient has an active diabetes care
-          plan — see diabetes-daily-log.tsx for the gate. */}
-      <DiabetesDailyLog patientId={subjectId} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ComplicationStatus patientId={subjectId} />
-        <FootRiskStatus patientId={subjectId} />
-      </div>
-      {/* Renders nothing until a connected wearable has synced at least one
-          night — see sleep-summary-card.tsx. */}
-      <SleepSummaryCard patientId={subjectId} />
-      {/* id target for the Privacy Centre's "Manage device connections" link
-          (/patient/vitals#connect-devices) — that link used to land here at
-          the top of Vitals with no scroll-to, which read as broken. */}
-      <div id="connect-devices">
-        <FeatureConsentGate dataType="device_data" onBehalfOf={subjectId !== profile.id}>
-          <WearableConnectSection patientId={subjectId} />
-        </FeatureConsentGate>
-      </div>
-      <DeviceSyncSupportCard patientId={subjectId} />
+      {/* Three tabs instead of one 5,000px scroll (design audit W3): the readings and their history, the symptom log and checker, and connected devices.
+          Every panel stays mounted, so a half-typed reading or symptom survives a tab switch. */}
+      <PreventionTabs ariaLabel="Vitals sections" tabs={tabs} />
     </DashboardSection>
   );
 }
