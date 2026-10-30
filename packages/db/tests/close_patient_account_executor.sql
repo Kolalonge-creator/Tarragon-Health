@@ -86,6 +86,19 @@ begin
   insert into public.patient_devices (organisation_id, patient_id, device_type, ble_device_id) values (p_org, p_patient, 'bp_cuff', 'AA:BB:' || p_tag);
   insert into public.wearable_connections (organisation_id, patient_id, provider, status, access_token, refresh_token) values (p_org, p_patient, 'fitbit', 'active', 'tok-' || p_tag, 'ref-' || p_tag);
 
+  if p_full then
+    -- the patient's reading-reminder rule, which a KEPT clinical row (a consultation follow-up) points at: it must stay, untouched
+    declare v_rule uuid; v_note uuid;
+    begin
+      select id into v_rule from public.vitals_reminder_rules where patient_id = p_patient;
+      set local session_replication_role = replica;
+      insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter) values (p_org, p_patient, 'other', 'proof') returning id into v_note;
+      insert into public.consultation_follow_ups (organisation_id, patient_id, encounter_note_id, action_type, description, linked_vitals_reminder_rule_id)
+        values (p_org, p_patient, v_note, 'monitoring_schedule', 'proof', v_rule);
+      set local session_replication_role = origin;
+    end;
+  end if;
+
   -- sharing
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (p_patient, p_sup, 'manage', p_patient);
   if p_full then
@@ -252,10 +265,13 @@ begin
   for t in select table_name from public.data_registry where retention_class = 'operational' loop
     if t.table_name in ('wellness_points_ledger', 'clinician_time_entries') then
       if coalesce((after_j ->> t.table_name)::int, 0) <> coalesce((before_j ->> t.table_name)::int, 0) then raise exception 'FAIL 2a: % (append-only) was changed', t.table_name; end if;
-    elsif coalesce((after_j ->> t.table_name)::int, 0) <> 0 then
-      raise exception 'FAIL 2b: operational table % still has rows for the patient', t.table_name;
+    elsif coalesce((after_j ->> t.table_name)::int, 0) <> (select count(*) from (values (t.table_name)) v(n) where v.n = 'vitals_reminder_rules') then
+      raise exception 'FAIL 2b: operational table % still has rows for the patient (or lost the one a kept row points at)', t.table_name;
     end if;
   end loop;
+  if not exists (select 1 from public.consultation_follow_ups f join public.vitals_reminder_rules v on v.id = f.linked_vitals_reminder_rule_id where f.patient_id = pat) then
+    raise exception 'FAIL 2e: a reminder rule that a kept clinical follow-up points at was deleted or the link was cleared';
+  end if;
   if (res -> 'removed' ->> 'patient_home_layout') is distinct from '1' or (res -> 'removed' ->> 'feature_waitlist') is distinct from '1' then raise exception 'FAIL 2c: the summary does not list what was removed (%)', res -> 'removed'; end if;
   if exists (select 1 from public.push_subscriptions where profile_id = pat) or exists (select 1 from public.user_known_devices where profile_id = pat)
      or exists (select 1 from public.notification_settings where profile_id = pat) then raise exception 'FAIL 2d: account-level rows remain'; end if;
@@ -337,19 +353,15 @@ declare
   req uuid; r text;
 begin
   req := pg_temp.cx_request(pat3, v_org, adm, 'completed', true);
-  update public.profiles set is_active = false where id = pat3;
   insert into cx_fx values ('req3', req);
-  -- completed on paper but the login was never banned: the function refuses to call that closed, and rolls back
-  r := pg_temp.cx_close(adm, req);
-  if r not like 'ERR:55000:%not banned%' or exists (select 1 from public.audit_log where entity_id = req and action = 'data_deletion.account_closed')
-     or not exists (select 1 from public.vitals_reminder_rules where patient_id = pat3) then raise exception 'FAIL 9g: an account with a live login was reported closed (%)', r; end if;
-  update auth.users set banned_until = now() + interval '100 years' where id = pat3;
+  -- completed on paper, but the profile is still active and the login was never banned: the function makes both true
   r := pg_temp.cx_close(adm, req);
   if r like 'ERR:%' then raise exception 'FAIL 9a: a hand-completed request could not be finished (%)', r; end if;
   if exists (select 1 from public.vitals_reminder_rules where patient_id = pat3) or exists (select 1 from public.push_subscriptions where profile_id = pat3)
      or exists (select 1 from public.profile_access where profile_id = pat3) then raise exception 'FAIL 9b: the removal did not run for a hand-completed request'; end if;
   if not exists (select 1 from public.data_deletion_requests where id = req and status = 'completed' and decision_note = 'Closed by hand.' and anonymisation_summary is null) then raise exception 'FAIL 9c: the hand-completed request row was changed'; end if;
   if not exists (select 1 from public.patient_allergies where patient_id = pat3) then raise exception 'FAIL 9d: a clinical row was deleted'; end if;
+  if exists (select 1 from public.profiles where id = pat3 and is_active) or not exists (select 1 from auth.users where id = pat3 and banned_until > now() + interval '99 years') then raise exception 'FAIL 9g: a hand-completed account was left active or with a live login'; end if;
   if (select count(*) from public.audit_log where entity_id = req and action = 'data_deletion.account_closed') <> 1 then raise exception 'FAIL 9e: no close marker'; end if;
   r := pg_temp.cx_close(adm, req);
   if (r::jsonb ->> 'already_closed') <> 'true' then raise exception 'FAIL 9f: the hand-completed request was closed twice'; end if;

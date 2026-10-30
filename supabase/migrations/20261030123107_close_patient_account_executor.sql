@@ -183,6 +183,8 @@ $$
 declare
   v_class text;
   v_n integer;
+  v_keep text := '';
+  fk record;
 begin
   if to_regclass('public.' || quote_ident(p_table)) is null then
     raise exception 'close account: % is not a table (a stale registry row must be fixed, not skipped)', p_table using errcode = '42P01';
@@ -194,7 +196,20 @@ begin
   if private.table_is_retained(p_table) then
     raise exception 'close account: refusing to delete from % (under a retention category)', p_table using errcode = '42501';
   end if;
-  execute format('delete from public.%I t where (%s) = $1', p_table, p_expr) using p_patient;
+  -- A row that a KEPT table points at stays: deleting it would null, cascade into or be refused by that kept row (or fail its check
+  -- constraint and block the whole close). Example: a reading-reminder rule linked from a consultation follow-up.
+  for fk in
+    select c.conrelid::regclass::text as child, a.attname as col, ra.attname as refcol
+      from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+      join pg_attribute ra on ra.attrelid = c.confrelid and ra.attnum = c.confkey[1]
+     where c.contype = 'f' and c.confrelid = to_regclass('public.' || quote_ident(p_table)) and array_length(c.conkey, 1) = 1
+       and c.conrelid <> c.confrelid
+       and not exists (select 1 from public.data_registry r where r.retention_class = 'operational' and to_regclass('public.' || quote_ident(r.table_name)) = c.conrelid)
+  loop
+    v_keep := v_keep || format(' and not exists (select 1 from %s k where k.%I = t.%I)', fk.child, fk.col, fk.refcol);
+  end loop;
+  execute format('delete from public.%I t where (%s) = $1%s', p_table, p_expr, v_keep) using p_patient;
   get diagnostics v_n = row_count;
   return v_n;
 end $$;
@@ -246,6 +261,13 @@ begin
   select * into p from public.profiles where id = d.patient_id for update;
   if not found or p.role <> 'patient' then
     raise exception 'only a patient account can be closed here' using errcode = '22023';
+  end if;
+
+  -- A request an admin completed by hand: make sure the account really is deactivated and the login banned before finishing the
+  -- removal (the old manual path could leave either undone; an approved request gets both from the completion trigger below).
+  if d.status = 'completed' then
+    update public.profiles set is_active = false where id = d.patient_id and is_active;
+    update auth.users set banned_until = now() + interval '100 years' where id = d.patient_id and (banned_until is null or banned_until <= now());
   end if;
 
   -- 1. Operational rows, from the registry. Everything else in the registry is kept.

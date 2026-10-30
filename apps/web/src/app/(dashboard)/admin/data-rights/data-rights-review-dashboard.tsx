@@ -335,6 +335,14 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
               <p className="font-medium">
                 This closes {request.patient?.full_name ?? "this patient"}&apos;s account now. It cannot be undone.
               </p>
+              {request.status === "approved_partial" && (
+                <p>
+                  This was approved in part. The button does not read the blocked list; it only ever removes the operational data below and
+                  never touches clinical records.{" "}
+                  {request.blocked_categories.length > 0 ? `Blocked: ${request.blocked_categories.join(", ")}. ` : ""}
+                  {request.blocked_reason ? `Reason: ${request.blocked_reason}` : ""}
+                </p>
+              )}
               <p>Removed:</p>
               <ul className="list-disc pl-5">
                 {DELETION_REMOVED.map((t) => (
