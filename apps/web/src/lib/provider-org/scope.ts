@@ -16,20 +16,23 @@ export async function getProviderOrgOptions(): Promise<ProviderOrgOption[]> {
   const supabase = await createClient();
 
   if (profile?.role === "admin") {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("provider_organisations")
       .select("organisation_id, display_name, legal_name")
       .order("legal_name");
+    // A failed read is not "no provider organisation is set up yet".
+    if (error) throw error;
     return (data ?? []).map((o) => ({
       id: o.organisation_id,
       name: o.display_name ?? o.legal_name,
     }));
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("provider_org_members")
     .select("organisation_id, organisations(name)")
     .eq("is_active", true);
+  if (error) throw error;
 
   return (data ?? [])
     .filter((row) => row.organisations)

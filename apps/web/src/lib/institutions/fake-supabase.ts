@@ -5,7 +5,7 @@ type Reply = { data: unknown; error: { message: string } | null; count?: number 
 
 /**
  * Test double for the institution loaders: every query on a table resolves to
- * that table's canned reply, whatever filters are chained on it. A table
+ * that table's canned reply (an rpc, the reply named for it), whatever filters are chained on it. A table
  * missing from the map replies with an empty success, so a test names only the
  * reads it cares about.
  */
@@ -22,7 +22,7 @@ export function fakeSupabase(replies: Record<string, Reply>): SupabaseClient<Dat
   };
   return {
     from: (table: string) => chain(replies[table] ?? { data: [], error: null }),
-    rpc: () => chain({ data: null, error: null }),
+    rpc: (name: string) => chain(replies[name] ?? { data: null, error: null }),
   } as unknown as SupabaseClient<Database>;
 }
 

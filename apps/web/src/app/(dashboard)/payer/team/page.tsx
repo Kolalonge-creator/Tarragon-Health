@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveSelectedInsurer } from "@/lib/payer/scope";
 import { InsurerPicker } from "../insurer-picker";
 import { TeamManager } from "./team-manager";
+import { ListUnavailable } from "@/components/institution/section-unavailable";
 
 export default async function PayerTeamPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function PayerTeamPage({
   }
 
   const supabase = await createClient();
-  const { data: seats } = await supabase
+  const { data: seats, error } = await supabase
     .from("payer_administrators")
     .select("id, payer_role, job_title, is_active, profiles!payer_administrators_profile_id_fkey(full_name)")
     .eq("insurer_id", selected.id)
@@ -33,6 +34,9 @@ export default async function PayerTeamPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Team</h1>
         <InsurerPicker options={options} selectedId={selected.id} />
       </div>
+      {error ? (
+        <ListUnavailable title="Team" />
+      ) : (
       <TeamManager
         insurerId={selected.id}
         seats={(seats ?? []).map((s) => ({
@@ -43,6 +47,7 @@ export default async function PayerTeamPage({
           full_name: s.profiles?.full_name ?? "—",
         }))}
       />
+      )}
     </div>
   );
 }

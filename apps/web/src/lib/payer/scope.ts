@@ -17,14 +17,17 @@ export async function getPayerInsurerOptions(): Promise<InsurerOption[]> {
   const supabase = await createClient();
 
   if (profile?.role === "admin") {
-    const { data } = await supabase.from("insurers").select("id, name").order("name");
+    const { data, error } = await supabase.from("insurers").select("id, name").order("name");
+    // A failed read is not "no insurer is set up yet".
+    if (error) throw error;
     return data ?? [];
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("payer_administrators")
     .select("insurer_id, insurers(id, name)")
     .eq("is_active", true);
+  if (error) throw error;
 
   return (data ?? [])
     .map((row) => row.insurers)
