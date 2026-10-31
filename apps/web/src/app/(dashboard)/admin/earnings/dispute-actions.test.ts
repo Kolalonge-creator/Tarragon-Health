@@ -27,6 +27,11 @@ describe("resolveEarningsDispute", () => {
     await resolveEarningsDispute(undefined, form({ resolution: "adjusted", dispute_id: id, direction: "take_away", amount: "12.50", note: "Counted twice by mistake" }));
     expect(rpc).toHaveBeenCalledWith("resolve_earnings_dispute", expect.objectContaining({ p_amount_kobo: -1250 }));
   });
+  it.each(["1,5000", "1e3", "12.345", "abc"])("refuses a correction of %s with a reason and calls nothing", async (amount) => {
+    const r = await resolveEarningsDispute(undefined, form({ resolution: "adjusted", dispute_id: id, direction: "add", amount, note: "Agreed, the fee was short" }));
+    expect(r?.error).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
+  });
   it("rejects with no amount", async () => {
     rpc.mockResolvedValue({ data: {}, error: null });
     await resolveEarningsDispute(undefined, form({ resolution: "rejected", dispute_id: id, note: "Checked and it stands" }));
@@ -70,8 +75,20 @@ describe("setPayoutWithholding", () => {
     expect(r?.message).toMatch(/cleared/);
     expect(rpc).toHaveBeenCalledWith("set_payout_withholding", { p_id: id, p_withholding_kobo: 0 });
   });
+  it.each(["1,5000", "5 000", "1e3", "12.345", "-5"])("refuses a withholding of %s with a reason and saves nothing", async (withholding) => {
+    const r = await setPayoutWithholding(undefined, form({ payout_id: id, withholding }));
+    expect(r?.error).toMatch(/^Withholding: /);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("reads a comma withholding exactly, and 0 clears it", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await setPayoutWithholding(undefined, form({ payout_id: id, withholding: "1,250.50" }));
+    expect(rpc).toHaveBeenLastCalledWith("set_payout_withholding", { p_id: id, p_withholding_kobo: 125050 });
+    await setPayoutWithholding(undefined, form({ payout_id: id, withholding: "0" }));
+    expect(rpc).toHaveBeenLastCalledWith("set_payout_withholding", { p_id: id, p_withholding_kobo: 0 });
+  });
   it("refuses a garbage amount and a bad id", async () => {
-    expect((await setPayoutWithholding(undefined, form({ payout_id: id, withholding: "abc" })))?.error).toMatch(/naira/);
+    expect((await setPayoutWithholding(undefined, form({ payout_id: id, withholding: "abc" })))?.error).toMatch(/not an amount/);
     expect((await setPayoutWithholding(undefined, form({ payout_id: "x", withholding: "5" })))?.error).toMatch(/could not be found/);
     expect(rpc).not.toHaveBeenCalled();
   });

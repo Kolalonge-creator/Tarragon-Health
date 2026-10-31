@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo } from "@/lib/format-money";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 /**
  * Fee schedules and the earnings ledger (S30, spec 7.7). Input schemas, the plain-words error mapping, the parsers for the
@@ -98,10 +99,19 @@ const pctOrNull = (v: FormDataEntryValue | null): number | null => {
  * founder cannot approve an amount by leaving a box empty); a step with no percent is simply not a step.
  */
 export function buildItemsFromForm(form: FormData, taskTypes: readonly string[]): FormBuildResult {
-  const money = (name: string): number | null => nairaInputToKobo(form.get(name));
+  // Blank is null. Anything typed is read exactly or refused with the reason, so an unreadable amount is
+  // never dropped as if it were blank, and "1,5000" is never read as 15,000.
+  let unreadable: string | null = null;
+  const money = (name: string, label: string): number | null => {
+    const parsed = parseOptionalMoney(String(form.get(name) ?? ""));
+    if (parsed.ok) return parsed.minor;
+    unreadable ??= `${label}: ${parsed.error}`;
+    return null;
+  };
   const task_types: Record<string, TaskTypeFee> = {};
   for (const code of taskTypes) {
-    const base = money(`base_${code}`);
+    const base = money(`base_${code}`, `Fee for ${code}`);
+    if (unreadable) return { ok: false, error: unreadable };
     if (base === null) return { ok: false, error: `Please enter a fee for ${code} (enter 0 for none).` };
     const steps: WaitStep[] = [];
     for (const slot of [1, 2]) {
@@ -118,9 +128,10 @@ export function buildItemsFromForm(form: FormData, taskTypes: readonly string[])
     }
     task_types[code] = { base_fee_kobo: base, wait_multiplier_steps: steps };
   }
-  const onCall = money("on_call_shift_fee");
-  const lead = money("lead_fee");
-  const minimum = money("pilot_minimum");
+  const onCall = money("on_call_shift_fee", "On-call shift fee");
+  const lead = money("lead_fee", "Lead fee");
+  const minimum = money("pilot_minimum", "Pilot minimum");
+  if (unreadable) return { ok: false, error: unreadable };
   if (onCall === null || lead === null || minimum === null) {
     return { ok: false, error: "Please fill in the on-call shift fee, the lead fee and the pilot minimum (enter 0 for none)." };
   }
@@ -130,7 +141,8 @@ export function buildItemsFromForm(form: FormData, taskTypes: readonly string[])
     const pct = pctOrNull(form.get(`share_${type}`));
     if (pct === null || Number.isNaN(pct) || pct > 100) return { ok: false, error: `Please enter the ${type} share as a whole number from 0 to 100.` };
     share[type] = pct;
-    const ref = money(`reference_${type}`);
+    const ref = money(`reference_${type}`, `Reference price for ${type}`);
+    if (unreadable) return { ok: false, error: unreadable };
     if (ref !== null) reference[type] = ref;
   }
   const items: FeeItems = {

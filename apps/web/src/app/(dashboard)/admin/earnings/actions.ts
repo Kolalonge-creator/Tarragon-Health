@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { nairaInputToKobo } from "@/lib/format-money";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import { adjustmentSchema, buildItemsFromForm, describeEarningsError, scheduleIdSchema } from "@/lib/earnings/earnings";
 
 export type EarningsActionState = { error?: string; message?: string } | undefined;
@@ -68,8 +68,10 @@ export async function postEarningsAdjustment(_prev: EarningsActionState, formDat
     reason: String(formData.get("reason") ?? ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
-  const kobo = nairaInputToKobo(formData.get("amount"));
-  if (kobo === null || kobo === 0) return { error: "Please enter an amount in naira that is more than zero." };
+  // Read exactly or refused with the reason: "1,5000" is not read as ₦15,000, and "1e3" is not ₦1,000.
+  const amount = parseMoneyInput(String(formData.get("amount") ?? ""), { allowZero: false });
+  if (!amount.ok) return { error: amount.error };
+  const kobo = amount.minor;
   const requestId = String(formData.get("request_id") ?? "");
   const supabase = await createClient();
   const { error } = await supabase.rpc("post_earnings_adjustment", {

@@ -49,6 +49,23 @@ describe("buildItemsFromForm", () => {
     const r = buildItemsFromForm(form({ reference_video: "" }), TYPES);
     expect(r.ok && "consultation_reference_price_kobo" in r.items).toBe(false);
   });
+  it("reads a comma fee exactly", () => {
+    const r = buildItemsFromForm(form({ base_symptom_review: "1,250.50" }), TYPES);
+    expect(r.ok && r.items.task_types.symptom_review?.base_fee_kobo).toBe(125050);
+  });
+  it.each([["base_symptom_review", "1,5000"], ["on_call_shift_fee", "1e3"], ["lead_fee", "12.345"], ["pilot_minimum", "5 000"]])(
+    "refuses an unreadable %s of %s and names it",
+    (field, value) => {
+      const r = buildItemsFromForm(form({ [field]: value }), TYPES);
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.error).toMatch(/is not an amount|decimal places/);
+    },
+  );
+  it("refuses an unreadable reference price instead of dropping it as if blank", () => {
+    const r = buildItemsFromForm(form({ reference_video: "10,00" }), TYPES);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error).toContain("Reference price for video");
+  });
   it("refuses a blank fee instead of reading it as zero", () => {
     expect(buildItemsFromForm(form({ base_symptom_review: "" }), TYPES)).toEqual({ ok: false, error: "Please enter a fee for symptom_review (enter 0 for none)." });
   });

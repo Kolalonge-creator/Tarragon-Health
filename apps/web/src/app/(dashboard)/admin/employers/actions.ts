@@ -5,7 +5,7 @@ import { z } from "zod";
 import { hasAnyPermission } from "@/lib/auth/permissions";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { nairaInputToKobo } from "@/lib/format-money";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 export type EmployerActionState = { error?: string; message?: string } | undefined;
 
@@ -133,7 +133,7 @@ export async function setEmployerVerificationAction(
 }
 
 /* The form collects naira (nobody types kobo), so the amounts arrive already
- * converted by nairaInputToKobo — the schema still checks they are whole kobo. */
+ * read by parseOptionalMoney — the schema still checks they are whole kobo. */
 const contractSchema = z.object({
   organisationId: z.string().uuid(),
   billingModel: z.enum(["per_employee", "per_active_member", "fixed_contract", "service_based", "hybrid"]),
@@ -155,11 +155,18 @@ export async function upsertEmployerContractAction(
 ): Promise<EmployerActionState> {
   const actor = await requireEmployerManageWithProfile();
 
+  // Blank means "no amount". Anything typed is read exactly or refused, so an unreadable rate is never
+  // saved as if the box had been left empty, which would silently clear the contract's billing rate.
+  const rate = parseOptionalMoney(String(formData.get("billingRateNaira") ?? ""));
+  if (!rate.ok) return { error: `Rate: ${rate.error}` };
+  const fixed = parseOptionalMoney(String(formData.get("billingFixedAmountNaira") ?? ""));
+  if (!fixed.ok) return { error: `Fixed amount: ${fixed.error}` };
+
   const parsed = contractSchema.safeParse({
     organisationId: formData.get("organisationId"),
     billingModel: formData.get("billingModel"),
-    billingRateKobo: nairaInputToKobo(formData.get("billingRateNaira")) ?? undefined,
-    billingFixedAmountKobo: nairaInputToKobo(formData.get("billingFixedAmountNaira")) ?? undefined,
+    billingRateKobo: rate.minor ?? undefined,
+    billingFixedAmountKobo: fixed.minor ?? undefined,
     billingInterval: formData.get("billingInterval"),
     signNow: formData.get("signNow") === "on",
   });

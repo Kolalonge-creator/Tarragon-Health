@@ -121,12 +121,22 @@ describe("postEarningsAdjustment", () => {
   });
   it("refuses a zero or blank amount and a short reason without calling the database", async () => {
     expect((await postEarningsAdjustment(undefined, form({ ...base, amount: "0" })))?.error).toMatch(/more than zero/);
-    expect((await postEarningsAdjustment(undefined, form({ ...base, amount: "" })))?.error).toMatch(/more than zero/);
+    expect((await postEarningsAdjustment(undefined, form({ ...base, amount: "" })))?.error).toMatch(/Enter an amount/);
     expect((await postEarningsAdjustment(undefined, form({ ...base, reason: "short" })))?.error).toMatch(/reason/);
     expect(rpc).not.toHaveBeenCalled();
   });
   it("maps a salaried clinician to a sentence", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "earnings_not_contracted" } });
     expect((await postEarningsAdjustment(undefined, form(base)))?.error).toMatch(/salary/);
+  });
+  it("reads a comma amount exactly", async () => {
+    rpc.mockResolvedValue({ data: id, error: null });
+    await postEarningsAdjustment(undefined, form({ ...base, amount: "₦1,250.50" }));
+    expect(rpc).toHaveBeenCalledWith("post_earnings_adjustment", expect.objectContaining({ p_amount_kobo: 125050 }));
+  });
+  it.each(["1,5000", "1,50", "5 000", "1e3", "12.345", "-5", "abc"])("refuses %s with a reason instead of guessing an amount", async (amount) => {
+    const r = await postEarningsAdjustment(undefined, form({ ...base, amount }));
+    expect(r?.error).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
