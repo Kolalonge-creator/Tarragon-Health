@@ -70,6 +70,8 @@ describe("sliceText", () => {
     expect(sliceText(slice<number>({ isLoading: true }), (n) => String(n))).toBe("Loading…");
     expect(sliceText(slice<number>({ isError: true }), (n) => String(n))).toBe("Could not be loaded");
     expect(sliceText(slice<number>({ data: undefined, isError: true }), (n) => String(n), "No open period")).toBe("Could not be loaded");
+  });
+});
 
 describe("fromQueryResult", () => {
   const result = (r: { data?: number; isPending: boolean; isError: boolean }) => fromQueryResult({ data: r.data, isPending: r.isPending, isError: r.isError });
