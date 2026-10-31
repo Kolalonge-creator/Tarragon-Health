@@ -4458,7 +4458,7 @@ export const en = {
   "ecf.medicines_not_shown_one": "1 medicine is not shown by the patient. Ask the patient or their family.",
   "ecf.medicines_not_shown_many": "{count} medicines are not shown by the patient. Ask the patient or their family.",
   "ecf.preview_title": "What a responder will see",
-  "ecf.preview_help": "This is your card as it stands with your choices above. It updates when you save.",
+  "ecf.preview_help": "This is your card as it stands with the choices you have made. It updates when you save.",
   "journal.description": "What you have noted, with any check you did at the time.",
   "journal.none": "Nothing noted yet.",
   "journal.severity": "How bad: {value} of 5",

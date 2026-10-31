@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getActingFor } from "@/lib/acting/acting-for";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { Disclosure } from "@/components/ui/disclosure";
 import { NAV_ICON } from "@/lib/icons";
 import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
@@ -13,7 +20,11 @@ import { CardFieldsForm } from "./card-fields-form";
 import { CoverageForm } from "./coverage-form";
 import { t } from "@tarragon/i18n";
 import { LockScreenImageCard } from "./lock-screen-image-card";
-import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
+import {
+  applyCardFieldChoices,
+  choicesFromRow,
+  hiddenFields,
+} from "@/lib/emergency/field-choices";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
 import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
 
@@ -48,7 +59,9 @@ export default async function EmergencyCardPage() {
   // quietly render as "nothing recorded".
   const { data: card, error: cardError } = await supabase
     .from("emergency_cards")
-    .select("id, token, is_active, created_at, expires_at, view_count, last_viewed_at")
+    .select(
+      "id, token, is_active, created_at, expires_at, view_count, last_viewed_at",
+    )
     .eq("patient_id", user.id)
     .maybeSingle();
 
@@ -79,7 +92,14 @@ export default async function EmergencyCardPage() {
 
   // S47d: the preview is built from the same facts and the same choices as the printed card and the live link
   const previewChoices = choicesFromRow(fields);
-  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id, { includeCoverage: true }), previewChoices);
+  const previewFacts = acting
+    ? null
+    : applyCardFieldChoices(
+        await loadEmergencyDatasetForPatient(supabase, user.id, {
+          includeCoverage: true,
+        }),
+        previewChoices,
+      );
 
   const { data: lookups, error: lookupsError } = active
     ? await supabase
@@ -114,63 +134,104 @@ export default async function EmergencyCardPage() {
       {acting ? (
         <Card className="border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10">
           <CardContent className="pt-6 text-sm text-amber-900 dark:text-amber-200">
-            This is <span className="font-semibold">your own</span> emergency card, not{" "}
-            {acting.fullName ? `${acting.fullName}'s` : "theirs"} — this feature does not yet
-            cover the people you support. Do not print or carry this if you meant to get one for
-            them.
+            This is <span className="font-semibold">your own</span> emergency
+            card, not {acting.fullName ? `${acting.fullName}'s` : "theirs"} —
+            this feature does not yet cover the people you support. Do not print
+            or carry this if you meant to get one for them.
           </CardContent>
         </Card>
       ) : null}
 
+      {previewFacts ? (
+        <EmergencyCardPreview
+          facts={previewFacts}
+          hidden={hiddenFields(previewChoices)}
+        />
+      ) : null}
+
       {/* Sits before either card option: both the print and live paths depend
           on this being filled in, and it is the field most likely to be blank. */}
-      {bloodError ? (
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2">Blood group and genotype</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-              We could not load your blood group and genotype just now. That is not the same as
-              us having none on file, so please refresh and try again before you add anything.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <BloodAttestationForm
-          initial={
-            blood
-              ? {
-                  bloodGroup: blood.blood_group,
-                  genotype: blood.genotype,
-                  genotypeNote: blood.genotype_note,
-                  provenance: blood.provenance,
-                }
-              : null
-          }
-        />
-      )}
+      <div id="blood-attestation" className="scroll-mt-20">
+        {bloodError ? (
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Blood group and genotype</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                We could not load your blood group and genotype just now. That
+                is not the same as us having none on file, so please refresh and
+                try again before you add anything.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <BloodAttestationForm
+            initial={
+              blood
+                ? {
+                    bloodGroup: blood.blood_group,
+                    genotype: blood.genotype,
+                    genotypeNote: blood.genotype_note,
+                    provenance: blood.provenance,
+                  }
+                : null
+            }
+          />
+        )}
+      </div>
 
       {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
-      {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
-      {acting ? null : coverageError ? (
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2">{t("ecf.coverage.title")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p role="alert" className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-              {t("ecf.coverage.load_failed")}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <CoverageForm
-          initial={coverageRow ? { scheme: coverageRow.scheme === "nhia" ? "nhia" : "hmo", memberNumber: coverageRow.member_number, planName: coverageRow.plan_name } : null}
-        />
+      {acting ? null : (
+        <Disclosure
+          title="Choose what the card shows"
+          hint="Pick which details a stranger can see"
+        >
+          <CardFieldsForm initial={choicesFromRow(fields)} />
+        </Disclosure>
       )}
-      {acting || !choicesFromRow(fields).lock_screen_opt_in ? null : <LockScreenImageCard />}
-      {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
+      {acting ? null : (
+        <Disclosure
+          title="Health insurance cover"
+          hint="Optional: your HMO or NHIA member number"
+        >
+          {coverageError ? (
+            <Card>
+              <CardHeader>
+                <CardTitle as="h2">{t("ecf.coverage.title")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  role="alert"
+                  className="text-sm text-charcoal-ink/80 dark:text-night-ink/80"
+                >
+                  {t("ecf.coverage.load_failed")}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <CoverageForm
+              initial={
+                coverageRow
+                  ? {
+                      scheme: coverageRow.scheme === "nhia" ? "nhia" : "hmo",
+                      memberNumber: coverageRow.member_number,
+                      planName: coverageRow.plan_name,
+                    }
+                  : null
+              }
+            />
+          )}
+        </Disclosure>
+      )}
+      {acting || !choicesFromRow(fields).lock_screen_opt_in ? null : (
+        <Disclosure
+          title="Save as a lock screen picture"
+          hint="You turned this on in your choices"
+        >
+          <LockScreenImageCard />
+        </Disclosure>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}
@@ -178,9 +239,9 @@ export default async function EmergencyCardPage() {
           <CardHeader>
             <CardTitle as="h2">Your printable card</CardTitle>
             <CardDescription>
-              Print it, fold it into your wallet, or save the page to your phone. This is just
-              your own record (the same as printing your Health Passport), so there is nothing
-              extra to agree to here.
+              Print it, fold it into your wallet, or save the page to your
+              phone. This is just your own record (the same as printing your
+              Health Passport), so there is nothing extra to agree to here.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -193,9 +254,10 @@ export default async function EmergencyCardPage() {
               <li>Your emergency contact</li>
             </ul>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-              Nothing else: no test results, no notes from your care team, no history. A QR code
-              on the printed card carries the same facts as plain text, so any phone&rsquo;s
-              camera can read it with no app and no internet.
+              Nothing else: no test results, no notes from your care team, no
+              history. A QR code on the printed card carries the same facts as
+              plain text, so any phone&rsquo;s camera can read it with no app
+              and no internet.
             </p>
             <Button asChild>
               <Link href="/patient/emergency-card/print" target="_blank">
@@ -225,8 +287,8 @@ export default async function EmergencyCardPage() {
           <CardContent className="space-y-4">
             {expiresSoon ? (
               <p className="rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-2 text-xs text-amber-900 dark:text-amber-200">
-                This link expires soon. Replace it below to keep it working, or let it lapse.
-                Your printed card is unaffected either way.
+                This link expires soon. Replace it below to keep it working, or
+                let it lapse. Your printed card is unaffected either way.
               </p>
             ) : null}
 
@@ -243,7 +305,9 @@ export default async function EmergencyCardPage() {
                   <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     Scan this, or open the link below.
                   </p>
-                  <p className="break-all text-xs text-charcoal-ink/60 dark:text-night-ink/60">{url}</p>
+                  <p className="break-all text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    {url}
+                  </p>
                   <Link
                     href={`/emergency/${active.token}`}
                     target="_blank"
@@ -261,8 +325,9 @@ export default async function EmergencyCardPage() {
                 there. The controls come back on a successful refresh. */}
             {cardError ? (
               <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-                We could not check whether you have a live link just now. Please refresh and try
-                again. Your printed card is unaffected either way.
+                We could not check whether you have a live link just now. Please
+                refresh and try again. Your printed card is unaffected either
+                way.
               </p>
             ) : (
               <EmergencyCardControls hasActiveCard={Boolean(active)} />
@@ -272,50 +337,62 @@ export default async function EmergencyCardPage() {
       </div>
 
       {active ? (
-        <Card>
-          <CardHeader>
-            <CardTitle as="h2">Who has looked at your live link</CardTitle>
-            <CardDescription>
-              You&rsquo;re also notified the moment it&rsquo;s viewed, so you don&rsquo;t need to
-              check back here to know.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {lookupsError ? (
-              // "Nobody has opened it yet" is a claim about who has seen this
-              // patient's record. We only make it when we actually read the log.
-              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-                We could not load this just now, so we can&apos;t tell you either way. Please
-                refresh and try again.
-              </p>
-            ) : !lookups || lookups.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Nobody has opened it yet.</p>
-            ) : (
-              <>
-                <p className="mb-2 text-sm text-charcoal-ink dark:text-night-ink">
-                  Opened {active.view_count} time{active.view_count === 1 ? "" : "s"}.
+        <Disclosure
+          title="Who has looked at your live link"
+          hint="You are also notified the moment it is viewed"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Who has looked at your live link</CardTitle>
+              <CardDescription>
+                You&rsquo;re also notified the moment it&rsquo;s viewed, so you
+                don&rsquo;t need to check back here to know.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {lookupsError ? (
+                // "Nobody has opened it yet" is a claim about who has seen this
+                // patient's record. We only make it when we actually read the log.
+                <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                  We could not load this just now, so we can&apos;t tell you
+                  either way. Please refresh and try again.
                 </p>
-                <ul className="space-y-1">
-                  {lookups.map((l) => (
-                    <li key={l.id} className="text-sm text-charcoal-ink/75 dark:text-night-ink/75">
-                      {new Date(l.looked_up_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
-                  If any of these look wrong, replace your link. The old one stops working
-                  straight away.
+              ) : !lookups || lookups.length === 0 ? (
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                  Nobody has opened it yet.
                 </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <>
+                  <p className="mb-2 text-sm text-charcoal-ink dark:text-night-ink">
+                    Opened {active.view_count} time
+                    {active.view_count === 1 ? "" : "s"}.
+                  </p>
+                  <ul className="space-y-1">
+                    {lookups.map((l) => (
+                      <li
+                        key={l.id}
+                        className="text-sm text-charcoal-ink/75 dark:text-night-ink/75"
+                      >
+                        {new Date(l.looked_up_at).toLocaleString("en-GB", {
+                          timeZone: "Africa/Lagos",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
+                    If any of these look wrong, replace your link. The old one
+                    stops working straight away.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Disclosure>
       ) : null}
 
       <Badge variant="grey">The live link is kept out of search engines</Badge>
