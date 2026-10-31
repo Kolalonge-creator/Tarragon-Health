@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo } from "@/lib/format-money";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 
 type EmployerAccount = Tables<"employer_accounts">;
 type CorporateContract = Tables<"corporate_contracts">;
@@ -72,8 +73,10 @@ export function EmployerDetailManager({
   const [billingFixedNaira, setBillingFixedNaira] = useState(
     contract?.billing_fixed_amount_kobo != null ? String(koboToNaira(contract.billing_fixed_amount_kobo)) : ""
   );
-  const billingRateKobo = nairaInputToKobo(billingRateNaira);
-  const billingFixedKobo = nairaInputToKobo(billingFixedNaira);
+  const billingRate = parseOptionalMoney(billingRateNaira);
+  const billingFixed = parseOptionalMoney(billingFixedNaira);
+  const billingRateKobo = billingRate.ok ? billingRate.minor : null;
+  const billingFixedKobo = billingFixed.ok ? billingFixed.minor : null;
 
   return (
     <div className="space-y-6">
@@ -207,8 +210,10 @@ export function EmployerDetailManager({
                 value={billingRateNaira}
                 onChange={(e) => setBillingRateNaira(e.target.value)}
               />
-              <p className="text-xs text-charcoal-ink/60">
-                {billingRateKobo === null
+              <p className={`text-xs ${billingRate.ok ? "text-charcoal-ink/60" : "text-red-600"}`} role={billingRate.ok ? undefined : "alert"}>
+                {!billingRate.ok
+                  ? billingRate.error
+                  : billingRateKobo === null
                   ? "Amount in naira, per person"
                   : `${formatKobo(billingRateKobo)} per person${
                       rosterCount > 0 ? `, ${formatKobo(billingRateKobo * rosterCount)} for the ${rosterCount} on the roster` : ""
@@ -227,8 +232,8 @@ export function EmployerDetailManager({
                 value={billingFixedNaira}
                 onChange={(e) => setBillingFixedNaira(e.target.value)}
               />
-              <p className="text-xs text-charcoal-ink/60">
-                {billingFixedKobo === null ? "Amount in naira" : formatKobo(billingFixedKobo)}
+              <p className={`text-xs ${billingFixed.ok ? "text-charcoal-ink/60" : "text-red-600"}`} role={billingFixed.ok ? undefined : "alert"}>
+                {!billingFixed.ok ? billingFixed.error : billingFixedKobo === null ? "Amount in naira" : formatKobo(billingFixedKobo)}
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-charcoal-ink/70 sm:col-span-2">

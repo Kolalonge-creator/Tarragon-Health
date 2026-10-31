@@ -87,3 +87,36 @@ describe("upsertEmployerContractAction — existing-contract lookup failure", ()
     expect(insert).not.toHaveBeenCalled();
   });
 });
+
+describe("upsertEmployerContractAction: billing amounts", () => {
+  const org = "11111111-1111-4111-8111-111111111111";
+  beforeEach(() => {
+    insert.mockReset();
+    update.mockReset();
+    maybeSingle.mockReset();
+  });
+
+  it.each([
+    ["billingRateNaira", "1,5000", /^Rate: /],
+    ["billingRateNaira", "1e3", /^Rate: /],
+    ["billingFixedAmountNaira", "12.345", /^Fixed amount: /],
+    ["billingFixedAmountNaira", "5 000", /^Fixed amount: /],
+  ])("refuses %s of %s and saves nothing, instead of clearing the rate as if blank", async (field, value, expected) => {
+    const fd = formDataFor(org);
+    fd.set(field, value);
+    const result = await upsertEmployerContractAction(undefined, fd);
+    expect(result?.error).toMatch(expected);
+    expect(maybeSingle).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("reads a comma rate exactly and leaves a blank fixed amount empty", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    insert.mockResolvedValue({ error: null });
+    const fd = formDataFor(org);
+    fd.set("billingRateNaira", "1,250.50");
+    await upsertEmployerContractAction(undefined, fd);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ billing_rate_kobo: 125050, billing_fixed_amount_kobo: null }));
+  });
+});
