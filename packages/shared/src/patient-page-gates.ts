@@ -47,7 +47,8 @@ export type PatientGateAnswers = Partial<Record<PatientGateId, PatientGateAnswer
  */
 export function isGateHidden(gate: PatientPageGate, answer: PatientGateAnswer): boolean {
   if (answer.guardOpen === true) return false;
-  if (gate.holdable && answer.holds !== false) return false;
+  // A holdable page (care access) is never hidden on a failed read: only a guard positively known to be off, for someone known to hold nothing.
+  if (gate.holdable && (answer.guardOpen === null || answer.holds !== false)) return false;
   return true;
 }
 

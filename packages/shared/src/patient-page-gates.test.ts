@@ -26,7 +26,9 @@ describe("isGateHidden", () => {
   });
   it("fails closed for hiding: a guard that could not be read counts as closed", () => {
     expect(isGateHidden(gate("resultPassport"), { guardOpen: null, holds: null })).toBe(true);
-    expect(isGateHidden(gate("membership"), { guardOpen: null, holds: false })).toBe(true);
+    // A holdable care-access page stays on a failed guard read; it is hidden only when the guard is known off and nothing is held.
+    expect(isGateHidden(gate("membership"), { guardOpen: null, holds: false })).toBe(false);
+    expect(isGateHidden(gate("membership"), { guardOpen: false, holds: false })).toBe(true);
   });
   it("keeps a closed page that holds something for the person", () => {
     expect(isGateHidden(gate("recordsRequests"), { guardOpen: false, holds: true })).toBe(false);

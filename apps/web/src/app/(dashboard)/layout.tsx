@@ -143,14 +143,14 @@ export default async function DashboardLayout({
   // data-theme attribute (no flash). Only the patient surface consumes it.
   const theme = await themePromise;
 
-  // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
-  // (no per-page check to repeat here); delegated members do not get the box.
   // Patient pages whose go-live guard is off stay out of the menu and out of search (a guard that cannot be read counts as closed).
   // Only the gated pages that are actually in this person's menu or in the curated search list are looked up.
   const patientMenu = isPatient ? getNavSections(profile?.role, profile?.receives_care) : [];
   const hiddenPatientHrefs = isPatient
     ? await readHiddenPatientHrefs(supabase, user.id, [...navHrefs(patientMenu), ...PATIENT_EXTRA_PAGES.map((e) => e.href)])
     : new Set<string>();
+  // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
+  // (no per-page check to repeat here); delegated members do not get the box.
   const adminSearchEntries =
     profile?.role === "admin"
       ? buildAdminSearchIndex(
