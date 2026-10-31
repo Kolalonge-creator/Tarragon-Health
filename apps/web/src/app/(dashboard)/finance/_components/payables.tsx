@@ -29,8 +29,10 @@ import { parseMoneyInput } from "@/lib/finance/money-input";
 
 /** Approving posts the expense; paying books the cash out. Neither is
  * reversible from this screen (a mistake has to be corrected with a journal
- * reversal), so both go through a confirmation carrying the real amounts. */
-type PendingBillAction = { kind: "approve" | "pay"; bill: FinanceBill };
+ * reversal), so both go through a confirmation carrying the real amounts.
+ * Voiding a draft books nothing but cannot be undone, so it asks too, and
+ * takes its reason in the same dialog. */
+type PendingBillAction = { kind: "approve" | "pay" | "void"; bill: FinanceBill };
 
 const STATUS_VARIANT: Record<string, "grey" | "amber" | "green" | "red"> = {
   draft: "grey",
@@ -55,6 +57,7 @@ export function PayablesAndVendors() {
 
   const [confirming, setConfirming] = useState<PendingBillAction | null>(null);
   const [payBankCode, setPayBankCode] = useState("");
+  const [voidReason, setVoidReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   const emptyVendorForm = () => ({
@@ -152,30 +155,32 @@ export function PayablesAndVendors() {
     setConfirming({ kind: "pay", bill });
   }
 
+  function askToVoid(bill: FinanceBill) {
+    setMsg(null);
+    setVoidReason("");
+    setConfirming({ kind: "void", bill });
+  }
+
   async function runConfirmed() {
     if (!confirming) return;
     const { kind, bill } = confirming;
     if (kind === "pay" && !payBankCode) return;
+    if (kind === "void" && !voidReason.trim()) return;
     setBusy(true);
     const res =
       kind === "approve"
         ? await approveBillAction(bill.id)
-        : await payBillAction(bill.id, payBankCode, lagosToday());
+        : kind === "pay"
+          ? await payBillAction(bill.id, payBankCode, lagosToday())
+          : await voidBillAction(bill.id, voidReason.trim());
     setBusy(false);
     setConfirming(null);
     if (res.ok) {
-      setMsg({ ok: true, text: kind === "approve" ? "Bill approved and posted." : "Bill paid and posted." });
+      setMsg({ ok: true, text: kind === "approve" ? "Bill approved and posted." : kind === "pay" ? "Bill paid and posted." : "Bill voided." });
       invalidate();
     } else {
-      setMsg({ ok: false, text: res.error ?? (kind === "approve" ? "Could not approve." : "Could not mark paid.") });
+      setMsg({ ok: false, text: res.error ?? (kind === "approve" ? "Could not approve." : kind === "pay" ? "Could not mark paid." : "Could not void.") });
     }
-  }
-  async function voidDraft(id: string) {
-    const reason = window.prompt("Reason for voiding?") ?? "";
-    if (!reason) return;
-    const res = await voidBillAction(id, reason);
-    if (res.ok) { setMsg({ ok: true, text: "Bill voided." }); invalidate(); }
-    else setMsg({ ok: false, text: res.error ?? "Could not void." });
   }
 
   return (
@@ -191,39 +196,62 @@ export function PayablesAndVendors() {
 
       <ConfirmDialog
         open={confirming !== null}
-        title={confirming?.kind === "pay" ? "Pay this bill?" : "Approve this bill?"}
+        title={confirming?.kind === "pay" ? "Pay this bill?" : confirming?.kind === "void" ? "Void this draft bill?" : "Approve this bill?"}
         description={
           confirming?.kind === "pay"
             ? "This books the cash out of the bank account you choose. Correct a mistake with a journal reversal, not by editing the bill."
-            : "This posts the expense and the payable, including withholding tax if the vendor is WHT-applicable."
+            : confirming?.kind === "void"
+              ? "Nothing has been posted for a draft, so voiding books nothing. A voided bill cannot be reopened. Enter a new bill if it was voided by mistake."
+              : "This posts the expense and the payable, including withholding tax if the vendor is WHT-applicable."
         }
-        confirmLabel={confirming?.kind === "pay" ? "Pay bill" : "Approve and post"}
-        confirmDisabled={busy || (confirming?.kind === "pay" && !payBankCode)}
+        confirmLabel={confirming?.kind === "pay" ? "Pay bill" : confirming?.kind === "void" ? "Void bill" : "Approve and post"}
+        destructive={confirming?.kind === "void"}
+        confirmDisabled={busy || (confirming?.kind === "pay" && !payBankCode) || (confirming?.kind === "void" && !voidReason.trim())}
         onCancel={() => setConfirming(null)}
         onConfirm={runConfirmed}
       >
         {confirming && (
           <div className="space-y-3">
             <ConfirmDialogFacts
-              rows={[
-                { label: "Vendor", value: confirming.bill.vendor_name },
-                { label: "Bill", value: `#${confirming.bill.bill_no}` },
-                { label: "Amount", value: formatMinor(confirming.bill.amount_minor, confirming.bill.currency) },
-                {
-                  label: "Withholding tax",
-                  value: confirming.bill.wht_minor
-                    ? formatMinor(confirming.bill.wht_minor, confirming.bill.currency)
-                    : "None",
-                },
-                {
-                  label: confirming.kind === "pay" ? "Cash leaving" : "Net to vendor",
-                  value: formatMinor(
-                    confirming.bill.amount_minor - (confirming.bill.wht_minor ?? 0),
-                    confirming.bill.currency,
-                  ),
-                },
-              ]}
+              rows={
+                confirming.kind === "void"
+                  ? [
+                      { label: "Vendor", value: confirming.bill.vendor_name },
+                      { label: "Bill", value: `#${confirming.bill.bill_no}` },
+                      { label: "Amount", value: formatMinor(confirming.bill.amount_minor, confirming.bill.currency) },
+                      ...(confirming.bill.description ? [{ label: "For", value: confirming.bill.description }] : []),
+                    ]
+                  : [
+                      { label: "Vendor", value: confirming.bill.vendor_name },
+                      { label: "Bill", value: `#${confirming.bill.bill_no}` },
+                      { label: "Amount", value: formatMinor(confirming.bill.amount_minor, confirming.bill.currency) },
+                      {
+                        label: "Withholding tax",
+                        value: confirming.bill.wht_minor
+                          ? formatMinor(confirming.bill.wht_minor, confirming.bill.currency)
+                          : "None",
+                      },
+                      {
+                        label: confirming.kind === "pay" ? "Cash leaving" : "Net to vendor",
+                        value: formatMinor(
+                          confirming.bill.amount_minor - (confirming.bill.wht_minor ?? 0),
+                          confirming.bill.currency,
+                        ),
+                      },
+                    ]
+              }
             />
+            {confirming.kind === "void" && (
+              <div className="space-y-1">
+                <Label htmlFor="void-reason">Reason for voiding (required)</Label>
+                <Input
+                  id="void-reason"
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="e.g. Entered twice"
+                />
+              </div>
+            )}
             {confirming.kind === "pay" && (
               <div className="space-y-1">
                 <Label htmlFor="pay-bank">Pay from</Label>
@@ -443,7 +471,7 @@ export function PayablesAndVendors() {
                       {b.status === "draft" && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => askToApprove(b)}>Approve</Button>
-                          <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => voidDraft(b.id)}>Void</button>
+                          <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => askToVoid(b)}>Void</button>
                         </>
                       )}
                       {b.status === "approved" && (
