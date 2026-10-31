@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
-import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo } from "@/lib/format-money";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import { adjudicateClaimAction } from "./actions";
 
 type Row = {
@@ -63,11 +64,18 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
    */
   function reviewApproval(row: Row, form: HTMLFormElement) {
     const fd = new FormData(form);
-    const coveredKobo = nairaInputToKobo(fd.get("insurerCoveredNaira"));
-    if (coveredKobo === null) {
+    // Read exactly or refused with the reason: "1,5000" is not read as 15,000 and "12.345" is not rounded.
+    const rawCovered = String(fd.get("insurerCoveredNaira") ?? "");
+    if (rawCovered.trim() === "") {
       setFeedback({ error: "Enter the covered amount in naira." });
       return;
     }
+    const covered = parseMoneyInput(rawCovered);
+    if (!covered.ok) {
+      setFeedback({ error: `Covered amount: ${covered.error}` });
+      return;
+    }
+    const coveredKobo = covered.minor;
     setFeedback(null);
     setPendingApproval({
       claimId: row.id,

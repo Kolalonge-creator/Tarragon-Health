@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 /**
  * INV-15: money is integer minor units (kobo), never a float. This scan walks finance-facing code and fails when it
  * finds float handling of money: parseFloat, toFixed, or a multiply or divide by 100 (the naira/kobo conversion done
- * by hand). The one sanctioned conversion is `nairaToKobo` / `koboToNaira` / `nairaInputToKobo` (shared helpers).
+ * by hand). The one sanctioned conversion is `nairaToKobo` / `koboToNaira` (shared helpers) and `parseMoneyInput` for typed input.
  *
  * Existing violations are listed in ALLOW with a reason per entry. The list can only shrink: a new line that matches a
  * pattern and is not on it fails the build. Matching is on the trimmed source line, so moving code does not matter but

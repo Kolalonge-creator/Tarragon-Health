@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo } from "@/lib/format-money";
+import { parseOptionalMoney } from "@/lib/finance/money-input";
 import { createServiceAction, deactivateServiceAction } from "./actions";
 
 type Service = {
@@ -48,9 +49,15 @@ export function ServicesManager({ organisationId, services }: { organisationId: 
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
               // Naira in, kobo out: the single conversion for this form.
-              const kobo = nairaInputToKobo(fd.get("priceNaira"));
+              // A blank price means no price. A price that cannot be read is refused, not saved as if blank,
+              // and the form keeps what was typed so it can be corrected.
+              const price = parseOptionalMoney(String(fd.get("priceNaira") ?? ""));
+              if (!price.ok) {
+                setFeedback({ error: `Price: ${price.error}` });
+                return;
+              }
               fd.delete("priceNaira");
-              if (kobo !== null) fd.set("priceKobo", String(kobo));
+              if (price.minor !== null) fd.set("priceKobo", String(price.minor));
               fd.set("organisationId", organisationId);
               run((f) => createServiceAction(undefined, f), fd);
               e.currentTarget.reset();
