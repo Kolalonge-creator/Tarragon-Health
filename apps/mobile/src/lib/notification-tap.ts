@@ -11,6 +11,9 @@ export function sectionForNotification(data: unknown): SectionId | null {
   if (typeof d.url === "string" && (d.url === "/patient/vitals" || d.url.startsWith("/patient/vitals/") || d.url.startsWith("/patient/vitals?"))) {
     return "vitals";
   }
+  if (typeof d.url === "string" && (d.url === "/patient/messages" || d.url.startsWith("/patient/messages/") || d.url.startsWith("/patient/messages?"))) {
+    return "messages";
+  }
   return null;
 }
 

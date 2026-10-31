@@ -18,7 +18,7 @@ import { CareMessageTemplateManager } from "@/components/care-message-template-m
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatWait, isAwaitingCareTeam, isPastReplyTarget, waitingMs } from "@/lib/worklist/message-triage";
+import { formatWait, isAwaitingCareTeam, isOlderUnanswered, isPastReplyTarget, REPLY_LOOKBACK_DAYS, waitingMs } from "@/lib/worklist/message-triage";
 import { getProposedConfig, type ConfigValue, type Enums } from "@tarragon/shared";
 
 const REPLY_TARGET_HOURS = (getProposedConfig<ConfigValue>("care_messages.reply_target").value as unknown as { hours: number }).hours;
@@ -200,6 +200,7 @@ export function ClinicianMessagesWorklist() {
   const allOpen = visible.filter((t) => t.status === "open");
   const myPastTarget = (threads ?? []).filter((t) => (myThreadIds?.has(t.id) ?? false) && isPastReplyTarget(t, REPLY_TARGET_HOURS)).length;
   const awaitingCount = allOpen.filter(isAwaitingCareTeam).length;
+  const olderCount = allOpen.filter((t) => isOlderUnanswered(t)).length;
   const open = awaitingOnly ? allOpen.filter(isAwaitingCareTeam) : allOpen;
   const closed = visible.filter((t) => t.status === "closed");
 
@@ -213,6 +214,7 @@ export function ClinicianMessagesWorklist() {
               ? "Nobody is waiting on a reply. Ordered by most recent activity."
               : `${awaitingCount} waiting on a reply, longest wait first.`}
             {myPastTarget > 0 ? ` ${myPastTarget} of your conversations ${myPastTarget === 1 ? "is" : "are"} past the ${REPLY_TARGET_HOURS} hour reply target.` : ""}
+            {olderCount > 0 ? ` ${olderCount} older ${olderCount === 1 ? "conversation was" : "conversations were"} last written by the patient or their supporter more than ${REPLY_LOOKBACK_DAYS} days ago and ${olderCount === 1 ? "has" : "have"} no badge. Worth a look.` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

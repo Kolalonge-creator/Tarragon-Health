@@ -39,6 +39,9 @@ test.describe("staff to patient chat", () => {
 
   let patient: TestPatient;
   let coordinator: { userId: string; email: string; password: string };
+  // The coordinator's signed-in browser state, saved by the first test so the later tests do not sign in again (repeated sign-ins of one
+  // account on the dev server have timed out in CI).
+  let staffState: Awaited<ReturnType<import("@playwright/test").BrowserContext["storageState"]>> | undefined;
 
   test.beforeAll(async () => {
     test.setTimeout(180_000);
@@ -86,6 +89,7 @@ test.describe("staff to patient chat", () => {
     const staffContext = await browser.newContext();
     const staffPage = await staffContext.newPage();
     await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    staffState = await staffContext.storageState();
 
     // 1. The chat is closed until asked for, then offers a form because there is no conversation yet.
     await gotoRoute(staffPage, `/clinician/patients/${patient.userId}`);
@@ -124,6 +128,75 @@ test.describe("staff to patient chat", () => {
     await expect(staffPage.getByText(/Seen by the patient/).first()).toBeVisible({ timeout: 60_000 });
 
     await patientContext.close();
+    await staffContext.close();
+  });
+
+  // A staff member starts a conversation with a file and a button on the very first message. The thread is created first, then the
+  // first message's id is looked up (first_care_message_id, no second thread read), then the button and the file are attached.
+  // (Journey patients each live in their own organisation, so this uses the same patient as the test above, via "Start a new conversation".)
+  test("a new conversation can carry a file and a button on its first message", async ({ browser }) => {
+    const staffContext = await browser.newContext({ storageState: staffState });
+    const staffPage = await staffContext.newPage();
+    if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    await gotoRoute(staffPage, `/clinician/patients/${patient.userId}`);
+    await staffPage.getByRole("button", { name: /Open chat with/ }).click();
+    await staffPage.getByRole("button", { name: "Start a new conversation" }).click();
+    await staffPage.getByLabel("Subject").fill("[e2e-test] Your referral letter");
+    await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
+    // The open thread above also offers this button on its reply box; the new-conversation form is the last one on the page.
+    await staffPage.getByLabel("Book an appointment").last().check();
+    await staffPage.locator('input[type="file"]').last().setInputFiles({
+      name: "letter.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+    });
+    await staffPage.getByRole("button", { name: "Send", exact: true }).last().click();
+    await expect(staffPage.getByText("The letter is attached.")).toBeVisible({ timeout: 30_000 });
+
+    // Both extras landed on the first message of the new thread, and the staff page shows no "could not be added" notice.
+    await expect
+      .poll(
+        () =>
+          psql(
+            `select (select count(*) from public.care_message_attachments a join public.care_message_threads t on t.id = a.thread_id
+                      where t.patient_id = '${patient.userId}' and t.subject = '[e2e-test] Your referral letter') || ',' ||
+                    (select count(*) from public.care_message_actions x join public.care_messages m on m.id = x.message_id
+                      join public.care_message_threads t on t.id = m.thread_id
+                      where t.patient_id = '${patient.userId}' and t.subject = '[e2e-test] Your referral letter')`,
+          ),
+        { timeout: 30_000 },
+      )
+      .toBe("1,1");
+    await expect(staffPage.getByText(/could not be added/)).toHaveCount(0);
+    await staffContext.close();
+  });
+
+  // The 24 hour reply target shows as a red badge inside the 14 day lookback. Older than that it is not badged; it is counted in a quiet sentence.
+  test("the reply-target badge shows inside 14 days and not beyond it", async ({ browser }) => {
+    const asPatient = (subject: string, hoursAgo: number) => {
+      psql(`begin;
+        select set_config('request.jwt.claims', json_build_object('sub', '${patient.userId}', 'role', 'authenticated')::text, true);
+        set local role authenticated;
+        select public.start_care_thread('${subject}', 'A question from the patient');
+        commit;`);
+      psql(`update public.care_message_threads set last_message_at = now() - interval '${hoursAgo} hours', care_team_last_read_at = null
+             where patient_id = '${patient.userId}' and subject = '${subject}'`);
+    };
+    asPatient("[e2e-test] Badge recent", 25);
+    asPatient("[e2e-test] Badge old", 24 * 20);
+
+    const staffContext = await browser.newContext({ storageState: staffState });
+    const staffPage = await staffContext.newPage();
+    if (!staffState) await login(staffPage, coordinator, /\/(dashboard|clinician)/);
+    await gotoRoute(staffPage, "/clinician/messages");
+
+    const recent = staffPage.locator("li", { hasText: "[e2e-test] Badge recent" });
+    const old = staffPage.locator("li", { hasText: "[e2e-test] Badge old" });
+    await expect(recent).toBeVisible({ timeout: 60_000 });
+    await expect(recent.getByText("Past 24h reply target")).toBeVisible();
+    await expect(old).toBeVisible();
+    await expect(old.getByText("Past 24h reply target")).toHaveCount(0);
+    await expect(staffPage.getByText(/older conversation.*no badge/)).toBeVisible();
     await staffContext.close();
   });
 });
