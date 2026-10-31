@@ -295,6 +295,14 @@ export async function proxy(request: NextRequest) {
     // clinician-only action server-side (isClinicalTier, doctor-tier.ts) —
     // this only opens the door, same division of labour as isDelegatableArea
     // below.
+    // A clinician who holds a community grant follows the overdue-work notice to the coordinator
+    // address; send them to their own moderation desk instead of home.
+    if (
+      profile.role === "clinician" &&
+      (pathname === "/dashboard/care-coordinator/community" || pathname.startsWith("/dashboard/care-coordinator/community/"))
+    ) {
+      return NextResponse.redirect(new URL("/clinician/community/moderation", request.url));
+    }
     const isCoordinatorClinicianPath =
       profile.role === "care_coordinator" &&
       [

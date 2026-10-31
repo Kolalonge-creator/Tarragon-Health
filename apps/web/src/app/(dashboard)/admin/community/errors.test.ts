@@ -11,8 +11,8 @@ describe("friendlyDbError", () => {
     expect(friendlyDbError({ code: "42501", message: "a filter rule set cannot go live without blocking phone numbers, email addresses, links and handles" })).toMatch(/keep blocking/);
   });
   it("explains that a community permission goes to care coordinator accounts only", () => {
-    const t = friendlyDbError({ code: "42501", message: "community moderation is granted to an active care coordinator account" });
-    expect(t).toBe("Only an active care coordinator account can be given a community permission. Admin accounts cannot.");
+    const t = friendlyDbError({ code: "42501", message: "community moderation is granted to an active care coordinator or clinician account" });
+    expect(t).toBe("Only an active care coordinator or clinician account can be given a community permission. Admin accounts cannot.");
     expect(t).not.toMatch(/granted to/);
     expect(friendlyDbError({ code: "42501", message: "only an admin grants community moderation" })).toBe("Only an admin can give or end these permissions.");
   });

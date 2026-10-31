@@ -216,9 +216,9 @@ describe("group prompts", () => {
 
 describe("granting staff to an admin account", () => {
   it("shows a plain English sentence for the database refusal", async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community moderation is granted to an active care coordinator account" } });
+    mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community moderation is granted to an active care coordinator or clinician account" } });
     const r = await grantStaffAction(undefined, form({ profile_id: U, scope: "moderator" }));
     expect(r?.ok).toBe(false);
-    expect(r?.message).toBe("Only an active care coordinator account can be given a community permission. Admin accounts cannot.");
+    expect(r?.message).toBe("Only an active care coordinator or clinician account can be given a community permission. Admin accounts cannot.");
   });
 });
