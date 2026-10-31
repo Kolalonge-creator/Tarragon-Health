@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { careMessageSender } from "@tarragon/shared";
 import { DoctorNameLink } from "@/components/doctor-name-link";
 import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { DraftReplyCard } from "@/components/draft-reply-card";
@@ -81,6 +82,7 @@ function AuthorLabel({ message }: { message: CareMessage }) {
 
 /** A plain word for the seat someone is speaking from, next to their name. */
 function roleLabel(message: CareMessage): string | null {
+  if (message.author_role === "care_team") return careMessageSender(message.actor).role;
   if (message.author_role === "sponsor") return "Supporting them";
   if (message.author_role === "patient") return "Patient";
   return null;
