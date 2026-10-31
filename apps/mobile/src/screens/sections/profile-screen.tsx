@@ -107,10 +107,13 @@ function LocationSection({
   userId,
   profile,
   onSaved,
+  bare = false,
 }: {
   userId: string;
   profile: ProfileRow;
   onSaved: (patch: Partial<ProfileRow>) => void;
+  /** Omit the section label when a Disclosure already carries the title. */
+  bare?: boolean;
 }) {
   const [state, setState] = useState(profile.state ?? "");
   const [city, setCity] = useState(profile.city ?? "");
@@ -136,7 +139,7 @@ function LocationSection({
 
   return (
     <View style={{ gap: 10 }}>
-      <SectionLabel>Your location</SectionLabel>
+      {bare ? null : <SectionLabel>Your location</SectionLabel>}
       <MutedText>
         Save where you are. We&apos;ll use it to show nearby labs, vaccination centres, and pharmacies as
         soon as that&apos;s available in your area.
@@ -908,6 +911,9 @@ export function ProfileScreen() {
     );
   }
 
+  const locationHint =
+    [profile.area, profile.city, profile.state].filter(Boolean).join(", ") || "Not saved yet. Used to show nearby services.";
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 18 }}>
       <View style={{ gap: 4 }}>
@@ -922,7 +928,9 @@ export function ProfileScreen() {
       <GroupHeading title="About you" description="Your details, where you are and who we call in an emergency." />
       <PersonalDetailsSection profile={profile} email={email} />
       <SectionDivider />
-      <LocationSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <Disclosure title="Your location" hint={locationHint}>
+        <LocationSection userId={userId} profile={profile} onSaved={patchProfile} bare />
+      </Disclosure>
       <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
