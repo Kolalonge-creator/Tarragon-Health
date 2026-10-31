@@ -598,8 +598,10 @@ export function useMyOwnedThreadIds(userId: string | null | undefined) {
   });
 }
 
-/** The id of the first message of a thread this staff member just started (they cannot select message rows, so it comes from the audited open). */
+/** The id of the first message of a thread this staff member just started. A plain id lookup (no message text), so unlike the audited open it
+ * writes no second audit row for the one visit. */
 export async function firstMessageIdOfThread(supabase: ReturnType<typeof createClient>, threadId: string): Promise<string | null> {
-  const messages = await loadThreadMessages(supabase, threadId);
-  return messages[0]?.id ?? null;
+  const { data, error } = await supabase.rpc("first_care_message_id", { p_thread: threadId });
+  if (error) throw error;
+  return (data as string | null) ?? null;
 }

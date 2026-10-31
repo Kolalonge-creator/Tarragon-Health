@@ -57980,6 +57980,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      first_care_message_id: {
+        Args: { p_thread: string }
+        Returns: string
+      }
       count_curbside_consults_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number

@@ -8,6 +8,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Scale, TrendingUp, CalendarClock } from "lucide-react";
 import { useRevrecSummary, financeKeys } from "@/lib/finance/queries";
 import { runRevenueRecognitionAction } from "@/lib/finance/actions";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, formatNumber, ReadFailure, StaleNote } from "./primitives";
 import { statTileValue } from "@/components/ui/stat-tile-value";
 
@@ -18,8 +19,24 @@ export function RevenueRecognition() {
   const isLoading = revrec.isLoading;
   // Unknown is not zero: a summary that did not load shows no figure, not "Deferred ₦0".
   const unknownHint = revrec.isError ? "Could not be loaded" : "Loading…";
+  const { ask, dialog } = useConfirmAction();
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function askToRun() {
+    ask({
+      title: "Run revenue recognition now?",
+      description:
+        "This posts one journal entry for every month that has elapsed on an active schedule and has not been recognised yet. It cannot be undone; a mistake is corrected by reversing the entry on the ledger. The run also happens by itself on the 1st of each month.",
+      facts: [
+        { label: "Active schedules", value: data ? formatNumber(data.active_schedules) : "Unknown" },
+        { label: "Deferred, not yet recognised", value: data ? formatMinor(data.total_deferred_minor, "NGN") : "Unknown" },
+      ],
+      confirmLabel: "Post entries",
+      destructive: false,
+      run,
+    });
+  }
 
   async function run() {
     setRunning(true);
@@ -44,6 +61,7 @@ export function RevenueRecognition() {
 
   return (
     <div className="space-y-6">
+      {dialog}
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         A payment for a service the patient has not used yet is held in Deferred revenue and
         recognised straight-line across the period it covers (ASC 606 / IFRS 15), one journal entry
@@ -60,7 +78,7 @@ export function RevenueRecognition() {
       <SectionCard
         title="Recognition schedules"
         description="Each paid period, recognised straight-line to its end date."
-        actions={<Button size="sm" onClick={run} disabled={running}>{running ? "Running…" : "Run recognition now"}</Button>}
+        actions={<Button size="sm" onClick={askToRun} disabled={running}>{running ? "Running…" : "Run recognition now"}</Button>}
       >
         {message && <p className={`mb-3 text-sm ${message.ok ? "text-brand-green" : "text-red-600"}`}>{message.text}</p>}
         {revrec.isError && data !== undefined && <StaleNote what="Recognition schedules" />}

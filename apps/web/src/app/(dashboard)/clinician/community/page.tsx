@@ -192,6 +192,11 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
         <p className="text-sm text-charcoal-ink/60">Group rules, safety rules and notes for the community groups.</p>
       </div>
       <nav aria-label="More community pages" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        {(ctx.is_moderator || ctx.is_safety_reviewer) && (
+          <Link href="/clinician/community/moderation" className="font-medium text-brand-green underline">
+            Moderation and safety desk
+          </Link>
+        )}
         {ctx.is_clinician && (
           <Link href="/clinician/community/qa" className="font-medium text-brand-green underline">
             Doctor question sessions

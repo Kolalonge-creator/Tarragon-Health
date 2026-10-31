@@ -63,4 +63,10 @@ describe("signScreeningRuleSetAction", () => {
     await run(form({ understood: "on", typed: "SIGN", id: ID }));
     expect(flashes[1]?.detail).toMatch(/^Something went wrong/);
   });
+  it("shows the refusal text the live function raises, which carries no error code (P0001)", async () => {
+    rpc.mockResolvedValueOnce({ error: { message: "not authorised: only the active Chief Medical Officer can sign the screening rules", code: "P0001" } });
+    await run(form({ understood: "on", typed: "SIGN", id: ID }));
+    expect(flashes[0]).toMatchObject({ ok: false });
+    expect(flashes[0]?.detail).toMatch(/only the active Chief Medical Officer/);
+  });
 });

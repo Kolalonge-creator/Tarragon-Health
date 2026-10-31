@@ -11,6 +11,11 @@
  * environment without pulling the Supabase client in.
  */
 
+import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
+
+/** Read from the one config entry, so the badge and the database reminder cannot drift apart. */
+export const REPLY_LOOKBACK_DAYS = (getProposedConfig<ConfigValue>("care_messages.reply_target").value as unknown as { lookbackDays: number }).lookbackDays;
+
 export interface TriageableThread {
   status: string;
   last_message_at: string;
@@ -79,8 +84,23 @@ export function isPastReplyTarget(
   thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role">,
   targetHours: number,
   now: number = Date.now(),
+  lookbackDays: number = REPLY_LOOKBACK_DAYS,
 ): boolean {
   if (thread.status !== "open") return false;
   if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
-  return now - new Date(thread.last_message_at).getTime() > targetHours * 3_600_000;
+  const waited = now - new Date(thread.last_message_at).getTime();
+  // Older than the lookback is not flagged: it shows in the quiet "older" count instead, so an old thread whose author role
+  // was only just filled in cannot suddenly raise a wave of red badges.
+  return waited > targetHours * 3_600_000 && waited <= lookbackDays * 86_400_000;
+}
+
+/** Open conversations where the patient's side spoke last, past the lookback. Counted quietly, never badged. */
+export function isOlderUnanswered(
+  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role">,
+  now: number = Date.now(),
+  lookbackDays: number = REPLY_LOOKBACK_DAYS,
+): boolean {
+  if (thread.status !== "open") return false;
+  if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
+  return now - new Date(thread.last_message_at).getTime() > lookbackDays * 86_400_000;
 }

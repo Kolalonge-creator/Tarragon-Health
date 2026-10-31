@@ -14,7 +14,7 @@ import {
  * before any call; the database decides who is allowed (auth.uid() inside the function); replies are plain English.
  */
 
-const REFRESH_PATHS = ["/dashboard/care-coordinator/community", "/admin/community"] as const;
+const REFRESH_PATHS = ["/dashboard/care-coordinator/community", "/clinician/community/moderation", "/admin/community"] as const;
 function refresh(): void {
   for (const p of REFRESH_PATHS) revalidatePath(p);
 }

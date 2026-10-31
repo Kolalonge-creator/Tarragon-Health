@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { Disclosure } from "@/components/ui/disclosure";
 import { GoalsDialog } from "./goals-dialog";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { AssistantEmergencyButton } from "@/components/ai/assistant-emergency-button";
@@ -94,6 +95,33 @@ const TRACKERS = [
   },
 ] as const;
 
+/** The three trackers shown up front; the rest sit under "More to track". */
+const PRIORITY_TRACKER_HREFS: readonly string[] = [
+  "/patient/nutrition",
+  "/patient/weight",
+  "/patient/activity",
+];
+const PRIORITY_TRACKERS = TRACKERS.filter((t) => PRIORITY_TRACKER_HREFS.includes(t.href));
+const MORE_TRACKERS = TRACKERS.filter((t) => !PRIORITY_TRACKER_HREFS.includes(t.href));
+
+function TrackerLinks({ trackers, columns }: { trackers: readonly (typeof TRACKERS)[number][]; columns: string }) {
+  return (
+    <div className={`grid gap-3 ${columns}`}>
+      {trackers.map(({ href, label, description, icon: Icon }) => (
+        <Link
+          key={href}
+          href={href}
+          className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage dark:hover:bg-brand-green/20"
+        >
+          <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+          <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{label}</span>
+          <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{description}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Single "where am I today" panel so a patient doesn't have to visit four
  * separate pages to see their own state — weight, steps, and points are
@@ -157,19 +185,10 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
             <HeroValue value={points.toLocaleString()} unit="points" caption="Banked so far" />
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-4">
-          {TRACKERS.map(({ href, label, description, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage dark:hover:bg-brand-green/20"
-            >
-              <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
-              <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{label}</span>
-              <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{description}</span>
-            </Link>
-          ))}
-        </div>
+        <TrackerLinks trackers={PRIORITY_TRACKERS} columns="sm:grid-cols-3" />
+        <Disclosure title="More to track" hint="Exercise programmes, sleep, smoking, alcohol and rewards">
+          <TrackerLinks trackers={MORE_TRACKERS} columns="sm:grid-cols-3" />
+        </Disclosure>
       </CardContent>
     </Card>
   );

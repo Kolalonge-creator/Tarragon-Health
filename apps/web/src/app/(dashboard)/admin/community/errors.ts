@@ -20,7 +20,7 @@ const BY_MESSAGE: ReadonlyArray<readonly [RegExp, string]> = [
   [/live community group needs rules/i, "A live group needs rules text."],
   [/archived/i, "An archived group is final and cannot be changed."],
   [/created as a draft/i, "A new group always starts as a draft."],
-  [/(granted to )?an active (admin or )?care coordinator account/i, "Only an active care coordinator account can be given a community permission. Admin accounts cannot."],
+  [/(granted to )?an active (admin or )?care coordinator( or clinician)? account/i, "Only an active care coordinator or clinician account can be given a community permission. Admin accounts cannot."],
   [/only an admin grants/i, "Only an admin can give or end these permissions."],
   [/admins only|admins and the Chief Medical Officer only/i, "Only an admin can do that."],
   [/admins, the Chief Medical Officer and doctors only/i, "This is for doctors, the Chief Medical Officer and admins."],

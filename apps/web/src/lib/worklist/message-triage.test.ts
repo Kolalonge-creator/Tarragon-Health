@@ -3,7 +3,9 @@ import {
   compareThreads,
   formatWait,
   isAwaitingCareTeam,
+  isOlderUnanswered,
   isPastReplyTarget,
+  REPLY_LOOKBACK_DAYS,
   waitingMs,
   type TriageableThread,
 } from "./message-triage";
@@ -109,5 +111,30 @@ describe("isPastReplyTarget", () => {
     expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(true);
     expect(isPastReplyTarget({ status: "open", last_message_author_role: "care_team", last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(false);
     expect(isPastReplyTarget({ status: "closed", last_message_author_role: "patient", last_message_at: "2026-10-29T00:00:00Z" }, 24, now)).toBe(false);
+  });
+});
+
+describe("the 14 day lookback on the reply-target badge", () => {
+  const now = new Date("2026-10-31T12:00:00Z").getTime();
+  const open = { status: "open", last_message_author_role: "patient" };
+  it("is the configured 14 days", () => {
+    expect(REPLY_LOOKBACK_DAYS).toBe(14);
+  });
+  it("badges a wait inside the lookback but not one older than it", () => {
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-20T12:00:00Z" }, 24, now)).toBe(true); // 11 days
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-16T12:00:00Z" }, 24, now)).toBe(false); // 15 days
+  });
+  it("counts an older patient-last conversation quietly, and nothing else", () => {
+    expect(isOlderUnanswered({ ...open, last_message_at: "2026-10-16T12:00:00Z" }, now)).toBe(true);
+    expect(isOlderUnanswered({ ...open, last_message_at: "2026-10-20T12:00:00Z" }, now)).toBe(false);
+    expect(isOlderUnanswered({ status: "open", last_message_author_role: "care_team", last_message_at: "2026-09-01T00:00:00Z" }, now)).toBe(false);
+    expect(isOlderUnanswered({ status: "open", last_message_author_role: null, last_message_at: "2026-09-01T00:00:00Z" }, now)).toBe(false);
+    expect(isOlderUnanswered({ status: "closed", last_message_author_role: "patient", last_message_at: "2026-09-01T00:00:00Z" }, now)).toBe(false);
+  });
+  it("a thread is either badged or counted as older, never both", () => {
+    for (const days of [1, 5, 14, 15, 40]) {
+      const t = { ...open, last_message_at: new Date(now - days * 86_400_000).toISOString() };
+      expect(isPastReplyTarget(t, 24, now) && isOlderUnanswered(t, now)).toBe(false);
+    }
   });
 });

@@ -1762,5 +1762,9 @@ ai017_runtime_governed.sql
 s68h_child_daily_log.sql
 # SLA breach notices: a test patient's alert is told once and not chased daily, while a real patient's alert is chased on every later day (control). Sabotage: removing the test-patient rule from escalate_overdue_clinician_alerts makes the test alert get a second notice.
 sla_breach_test_patient_no_repeat.sql
+# Staff chat follow-ups: 14 day reminder ceiling, role backfill, first_care_message_id (no audit row). Has a sabotage step.
+staff_chat_followups.sql
 # Community go-live: no longer a child of the clinical-operations master. Parent removed, still a feature, still off; opens on its own switch while clinical operations is off; the symptom checker still reads closed under the same master. Sabotage: parent restored, the open check must fail.
 community_independent_of_clinical_operations.sql
+# Community staff may be clinician accounts: a clinician is granted moderator and safety reviewer, a patient and a non-admin granter still refused, the clinician's own session reads as both, an ungranted or deactivated clinician reads as neither. Sabotage: the old care-coordinator-only guard must refuse the clinician grant.
+community_staff_clinician_accounts.sql
