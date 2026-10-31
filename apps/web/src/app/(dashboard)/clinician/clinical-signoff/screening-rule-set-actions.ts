@@ -37,7 +37,7 @@ export async function signScreeningRuleSetAction(formData: FormData): Promise<vo
   if (!pending.signable) return finish(false, "This draft changes the rules themselves, so it cannot be signed from here. Nothing was signed.");
   const { error } = await (supabase as unknown as { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ error: { message: string; code?: string } | null }> })
     .rpc("sign_screening_rule_set", { p_id: id.data });
-  if (error) return finish(false, ["22023", "23514", "42501"].includes(error.code ?? "") ? error.message : "Something went wrong. Nothing was signed. Please try again.");
+  if (error) return finish(false, ["22023", "23514", "42501", "P0001"].includes(error.code ?? "") ? error.message : "Something went wrong. Nothing was signed. Please try again.");
   revalidatePath(path);
   return finish(true);
 }
