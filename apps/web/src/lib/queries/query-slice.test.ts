@@ -1,4 +1,4 @@
-import { sliceState, sliceText, sliceTile, unknownHint, type QuerySlice } from "./query-slice";
+import { fromQueryResult, sliceState, sliceText, sliceTile, unknownHint, type QuerySlice } from "./query-slice";
 
 const slice = <T,>(s: Partial<QuerySlice<T>>): QuerySlice<T> => ({
   data: undefined,
@@ -70,5 +70,21 @@ describe("sliceText", () => {
     expect(sliceText(slice<number>({ isLoading: true }), (n) => String(n))).toBe("Loading…");
     expect(sliceText(slice<number>({ isError: true }), (n) => String(n))).toBe("Could not be loaded");
     expect(sliceText(slice<number>({ data: undefined, isError: true }), (n) => String(n), "No open period")).toBe("Could not be loaded");
+
+describe("fromQueryResult", () => {
+  const result = (r: { data?: number; isPending: boolean; isError: boolean }) => fromQueryResult({ data: r.data, isPending: r.isPending, isError: r.isError });
+
+  it("reads a first read still in flight as loading", () => {
+    expect(sliceState(result({ isPending: true, isError: false }))).toBe("loading");
+  });
+  it("reads a first read that failed as failed, and a failed refresh with data as stale", () => {
+    expect(sliceState(result({ isPending: false, isError: true }))).toBe("failed");
+    expect(sliceState(result({ data: 1, isPending: false, isError: true }))).toBe("stale");
+  });
+  it("reads a current read as ready", () => {
+    expect(sliceState(result({ data: 1, isPending: false, isError: false }))).toBe("ready");
+  });
+  it("passes the data through untouched", () => {
+    expect(result({ data: 0, isPending: false, isError: false }).data).toBe(0);
   });
 });

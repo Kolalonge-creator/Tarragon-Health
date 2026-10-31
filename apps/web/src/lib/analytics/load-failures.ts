@@ -28,7 +28,8 @@ export type AnalyticsLoadState = "failed" | "stale" | "none";
 /**
  * Pages that already say, in their own words and about their own figures, when
  * something did not load: the Overview (lib/analytics/overview-summary.ts, a
- * hint in each tile) and the Investor page (refreshQueryState with its own
+ * hint in each tile and a notice when a refresh failed on figures still shown)
+ * and the Investor page (refreshQueryState with its own
  * LoadFailure and StaleDataNotice). A second, generic alert above them would
  * only say the same thing twice. That holds only while each page mounts just
  * the queries it reports on; self-reporting-pages.test.ts pins that, so a third
