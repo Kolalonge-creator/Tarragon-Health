@@ -1,9 +1,5 @@
-import {
-  buildFinanceOverview,
-  sectionState,
-  type FinanceOverviewInputs,
-  type QuerySlice,
-} from "./overview-summary";
+import { buildFinanceOverview, type FinanceOverviewInputs } from "./overview-summary";
+import type { QuerySlice } from "@/lib/queries/query-slice";
 import {
   dashboardSummarySchema,
   kpiSummarySchema,
@@ -96,12 +92,13 @@ describe("the refusal contract this module relies on", () => {
   });
 });
 
-describe("sectionState", () => {
+describe("section states", () => {
+  const stateOf = (dashboard: QuerySlice<DashboardSummary>) => buildFinanceOverview(inputs({ dashboard })).dashboard.state;
   it("separates loading, failed, stale and ready", () => {
-    expect(sectionState(loading())).toBe("loading");
-    expect(sectionState(failed())).toBe("failed");
-    expect(sectionState(stale(DASHBOARD))).toBe("stale");
-    expect(sectionState(loaded(DASHBOARD))).toBe("ready");
+    expect(stateOf(loading())).toBe("loading");
+    expect(stateOf(failed())).toBe("failed");
+    expect(stateOf(stale(DASHBOARD))).toBe("stale");
+    expect(stateOf(loaded(DASHBOARD))).toBe("ready");
   });
 });
 
