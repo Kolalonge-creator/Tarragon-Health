@@ -13,6 +13,11 @@ import {
   type PocReleased,
   type TestingDay,
 } from "@/lib/testing-days";
+import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
+import { formatNaira, panelIncluded, UPGRADE_CODE } from "@tarragon/commerce";
+import { YEARLY_PANEL_TESTS, testingDaysOffer, type TestingDaysOffer } from "@tarragon/shared";
+import { loadCatalogue } from "@/lib/commerce/api";
+import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
@@ -43,6 +48,8 @@ export function TestingDaysScreen() {
   const [bookings, setBookings] = useState<MyTestingBooking[]>([]);
   const [poc, setPoc] = useState<PocReleased>({ results: [], ecgs: [] });
   const [notMember, setNotMember] = useState(false);
+  const [offer, setOffer] = useState<TestingDaysOffer>({ options: [], showPanelTests: false });
+  const locale = asLocale(useUiLanguage());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +60,11 @@ export function TestingDaysScreen() {
     if (d.ok) {
       setDays(d.data.days);
       setNotMember(d.data.notMember);
+      // A Free account is shown what Membership includes and costs, from the shop's own catalogue. A failed read leaves only the prompt.
+      if (d.data.notMember) {
+        const c = await loadCatalogue();
+        if (c.ok) setOffer(testingDaysOffer(c.data.map((i) => ({ code: i.code, kind: i.kind, name_key: i.nameKey, amount_kobo: i.amountKobo })), panelIncluded, (code) => code === UPGRADE_CODE));
+      }
     } else setError(d.error);
     if (b.ok) setBookings(b.data);
     if (p.ok) setPoc(p.data);
@@ -93,6 +105,23 @@ export function TestingDaysScreen() {
       {notMember && (
         <Card style={{ gap: 8 }}>
           <AppText variant="bodyStrong">Testing days are part of Membership</AppText>
+          {offer.showPanelTests ? (
+            <View style={{ gap: 4 }}>
+              <MutedText>With Membership Plus, your yearly blood tests are taken at a testing day. They cover:</MutedText>
+              {YEARLY_PANEL_TESTS.map((g) => (
+                <AppText key={g.heading} variant="body">
+                  <AppText variant="bodyStrong">{g.heading}: </AppText>
+                  {g.tests.join(", ")}
+                </AppText>
+              ))}
+            </View>
+          ) : null}
+          {offer.options.map((o) => (
+            <View key={o.code} style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+              <AppText variant="body" style={{ flex: 1 }}>{Object.hasOwn(en, o.nameKey) ? t(o.nameKey as MessageKey, locale) : "Membership"}</AppText>
+              <AppText variant="bodyStrong">{`₦${formatNaira(o.amountKobo)}`}</AppText>
+            </View>
+          ))}
           <SecondaryButton title="See what Membership includes" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/membership`)} />
         </Card>
       )}

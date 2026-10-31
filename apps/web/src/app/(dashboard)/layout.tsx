@@ -15,7 +15,8 @@ import { getCommunityStaffContext } from "@/components/community/staff-rpc";
 import { withCommunityNav } from "@/components/community/community-nav";
 import { groupListSchema } from "@/lib/community/model";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
-import { buildPatientSearchIndex } from "@/lib/patient-search";
+import { buildPatientSearchIndex, PATIENT_EXTRA_PAGES } from "@/lib/patient-search";
+import { navHrefs, readHiddenPatientHrefs, withoutHiddenNav, withoutHiddenSearch } from "@/lib/patient-page-gates";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
@@ -144,6 +145,12 @@ export default async function DashboardLayout({
 
   // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
   // (no per-page check to repeat here); delegated members do not get the box.
+  // Patient pages whose go-live guard is off stay out of the menu and out of search (a guard that cannot be read counts as closed).
+  // Only the gated pages that are actually in this person's menu or in the curated search list are looked up.
+  const patientMenu = isPatient ? getNavSections(profile?.role, profile?.receives_care) : [];
+  const hiddenPatientHrefs = isPatient
+    ? await readHiddenPatientHrefs(supabase, user.id, [...navHrefs(patientMenu), ...PATIENT_EXTRA_PAGES.map((e) => e.href)])
+    : new Set<string>();
   const adminSearchEntries =
     profile?.role === "admin"
       ? buildAdminSearchIndex(
@@ -155,7 +162,7 @@ export default async function DashboardLayout({
       : profile?.role === "clinician" && isChiefMedicalOfficer
         ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
         : isPatient
-          ? buildPatientSearchIndex(getNavSections(profile?.role, profile?.receives_care))
+          ? withoutHiddenSearch(buildPatientSearchIndex(patientMenu), hiddenPatientHrefs)
           : undefined;
 
   // "Community" appears in a staff menu only when the database says this person has community duties (cached per request).
@@ -194,10 +201,13 @@ export default async function DashboardLayout({
         idLabel={idLabel}
         idValue={idValue}
         profileHref={profileHref}
-        navSections={withCommunityNav(
-          getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
-          profile?.role,
-          communityStaff,
+        navSections={withoutHiddenNav(
+          withCommunityNav(
+            getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
+            profile?.role,
+            communityStaff,
+          ),
+          hiddenPatientHrefs,
         )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}

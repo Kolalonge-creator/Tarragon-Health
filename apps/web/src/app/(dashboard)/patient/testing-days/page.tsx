@@ -1,9 +1,11 @@
-import Link from "next/link";
+import { testingDaysOffer, type TestingDaysOffer } from "@tarragon/shared";
+import { parseCatalogue } from "@/lib/commerce/model";
+import { panelIncluded, UPGRADE_CODE } from "@/lib/commerce/tiers";
+import { FreeTestingDaysOffer } from "./free-offer";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   myBookingListSchema,
@@ -30,6 +32,12 @@ export default async function TestingDaysPage() {
   const supabase = await createClient();
   const { data: listRaw, error: listError } = await supabase.rpc("list_testing_days", {});
   const notMember = listError?.message === "membership_required";
+  // A Free account is shown what Membership includes and costs, read from the shop's own catalogue. A failed read shows only the prompt.
+  let offer: TestingDaysOffer = { options: [], showPanelTests: false };
+  if (notMember) {
+    const { data: catalogueRaw, error: catalogueError } = await supabase.rpc("catalogue");
+    if (!catalogueError) offer = testingDaysOffer(parseCatalogue(catalogueRaw), panelIncluded, (code) => code === UPGRADE_CODE);
+  }
   const days: TestingDay[] = listError ? [] : testingDayListSchema.catch([]).parse(listRaw ?? []);
 
   const { data: bookingsRaw } = await supabase.rpc("my_testing_bookings");
@@ -46,14 +54,7 @@ export default async function TestingDaysPage() {
         description="Your yearly health check happens at a testing day near you. Choose a day to reserve your place, and we will remind you."
       />
       {notMember ? (
-        <Card>
-          <CardContent className="space-y-2 pt-6">
-            <p className="text-sm text-charcoal-ink">Testing days are part of Membership.</p>
-            <Link href="/patient/membership" className="text-sm font-medium text-brand-green underline">
-              See what Membership includes
-            </Link>
-          </CardContent>
-        </Card>
+        <FreeTestingDaysOffer offer={offer} />
       ) : (
         <TestingDaysPanel days={days} bookings={bookings} />
       )}
