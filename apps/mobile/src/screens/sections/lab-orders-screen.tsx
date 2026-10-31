@@ -40,7 +40,7 @@ import {
   StatusChip,
   type StatusTone,
 } from "@/ui/legacy-kit";
-import { InlineAlert } from "@/ui/kit";
+import { Disclosure, InlineAlert } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 
 interface CapturedPhoto {
@@ -489,99 +489,100 @@ export function LabOrdersScreen() {
       </View>
 
       {/* Result documents */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Result documents</SectionLabel>
-        {documents.error ? (
-          <Card>
-            <ErrorText>Could not load your result documents.</ErrorText>
-          </Card>
-        ) : !documents.data || documents.data.length === 0 ? (
-          <Card>
-            <MutedText>No result documents yet.</MutedText>
-          </Card>
-        ) : (
-          <View style={{ gap: 14 }}>
-            {resultDocumentGroups.map((group) => (
-              <View key={group.label} style={{ gap: 10 }}>
-                {resultDocumentGroups.length > 1 && (
-                  <AppText variant="label" tone="textSubtle" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
-                    {group.label}
-                  </AppText>
-                )}
-                {group.documents.map((doc) => (
-                  <Card key={doc.id} style={{ gap: 6 }}>
-                    <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                      <AppText variant="bodyStrong" style={{ flex: 1 }}>
-                        {doc.originalFilename ?? "Result"}
-                      </AppText>
-                      <StatusPill
-                        tone={doc.interpretationSentAt ? "green" : "amber"}
-                        label={doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
-                      />
-                    </View>
-                    <MutedText>
-                      {doc.source === "patient" ? "You uploaded this" : "Uploaded by your care team"} · {formatDate(doc.createdAt)}
-                      {doc.note ? ` · ${doc.note}` : ""}
-                    </MutedText>
-                    {doc.signedUrl ? (
-                      <AppText variant="label" tone="brandText" onPress={() => openDocument(doc.signedUrl)}>
-                        {doc.isPdf ? "Open original (PDF) →" : "View original →"}
-                      </AppText>
-                    ) : (
-                      <MutedText>File unavailable.</MutedText>
-                    )}
-                    {doc.interpretationSentAt && doc.patientInterpretation ? (
-                      <View style={{ backgroundColor: colors.brandTint, borderRadius: 10, padding: 10, gap: 6 }}>
-                        <AppText variant="body">{doc.patientInterpretation}</AppText>
-                        {doc.nextSteps ? (
-                          <AppText variant="body">
-                            <AppText variant="bodyStrong">Next steps: </AppText>
-                            {doc.nextSteps}
-                          </AppText>
-                        ) : null}
-                        <MutedText>
-                          {doc.reviewedByName ? `Reviewed by Dr. ${doc.reviewedByName}` : "Reviewed by your care team"}
-                          {doc.reviewedAt ? ` · ${formatDate(doc.reviewedAt)}` : ""}
-                        </MutedText>
+      <Disclosure title="Result documents" hint="Photos and files of results you uploaded">
+        <View style={{ gap: 10 }}>
+          {documents.error ? (
+            <Card>
+              <ErrorText>Could not load your result documents.</ErrorText>
+            </Card>
+          ) : !documents.data || documents.data.length === 0 ? (
+            <Card>
+              <MutedText>No result documents yet.</MutedText>
+            </Card>
+          ) : (
+            <View style={{ gap: 14 }}>
+              {resultDocumentGroups.map((group) => (
+                <View key={group.label} style={{ gap: 10 }}>
+                  {resultDocumentGroups.length > 1 && (
+                    <AppText variant="label" tone="textSubtle" style={{ textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      {group.label}
+                    </AppText>
+                  )}
+                  {group.documents.map((doc) => (
+                    <Card key={doc.id} style={{ gap: 6 }}>
+                      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                        <AppText variant="bodyStrong" style={{ flex: 1 }}>
+                          {doc.originalFilename ?? "Result"}
+                        </AppText>
+                        <StatusPill
+                          tone={doc.interpretationSentAt ? "green" : "amber"}
+                          label={doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
+                        />
                       </View>
-                    ) : (
-                      <>
-                        <MutedText>
-                          Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as they have.
-                        </MutedText>
-                        {doc.aiSummaryStatus === "pending" ? (
-                          <MutedText>Preparing an automatic summary…</MutedText>
-                        ) : doc.aiSummaryStatus === "flagged" ? (
-                          <View style={{ backgroundColor: colors.status.warnBg, borderRadius: 10, padding: 10 }}>
-                            <OutputKindLabel kind="automated_information" note="Automated summary. Not a medical opinion." />
-                            <AppText variant="body" style={{ marginTop: 2 }}>
-                              {doc.aiFlaggedAnalytes.length > 0
-                                ? `${doc.aiFlaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${doc.aiFlaggedAnalytes
-                                    .map((a) =>
-                                      a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label
-                                    )
-                                    .join(", ")}. This is not a diagnosis. You will need to follow up with a doctor about it.`
-                                : "One or more values in this file fall outside the range printed on the report itself. Only a doctor reviewing the full picture can tell you what it means."}
+                      <MutedText>
+                        {doc.source === "patient" ? "You uploaded this" : "Uploaded by your care team"} · {formatDate(doc.createdAt)}
+                        {doc.note ? ` · ${doc.note}` : ""}
+                      </MutedText>
+                      {doc.signedUrl ? (
+                        <AppText variant="label" tone="brandText" onPress={() => openDocument(doc.signedUrl)}>
+                          {doc.isPdf ? "Open original (PDF) →" : "View original →"}
+                        </AppText>
+                      ) : (
+                        <MutedText>File unavailable.</MutedText>
+                      )}
+                      {doc.interpretationSentAt && doc.patientInterpretation ? (
+                        <View style={{ backgroundColor: colors.brandTint, borderRadius: 10, padding: 10, gap: 6 }}>
+                          <AppText variant="body">{doc.patientInterpretation}</AppText>
+                          {doc.nextSteps ? (
+                            <AppText variant="body">
+                              <AppText variant="bodyStrong">Next steps: </AppText>
+                              {doc.nextSteps}
                             </AppText>
-                          </View>
-                        ) : doc.aiSummaryStatus === "ready" ? (
+                          ) : null}
                           <MutedText>
-                            The values in this file look consistent with the ranges printed on the report. A doctor
-                            hasn&apos;t reviewed this yet.
+                            {doc.reviewedByName ? `Reviewed by Dr. ${doc.reviewedByName}` : "Reviewed by your care team"}
+                            {doc.reviewedAt ? ` · ${formatDate(doc.reviewedAt)}` : ""}
                           </MutedText>
-                        ) : null}
-                        {doc.source === "patient" && !doc.reviewedAt ? (
-                          <ReplaceDocumentControl documentId={doc.id} onReplaced={() => patientId && load(patientId)} />
-                        ) : null}
-                      </>
-                    )}
-                  </Card>
-                ))}
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+                        </View>
+                      ) : (
+                        <>
+                          <MutedText>
+                            Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as they have.
+                          </MutedText>
+                          {doc.aiSummaryStatus === "pending" ? (
+                            <MutedText>Preparing an automatic summary…</MutedText>
+                          ) : doc.aiSummaryStatus === "flagged" ? (
+                            <View style={{ backgroundColor: colors.status.warnBg, borderRadius: 10, padding: 10 }}>
+                              <OutputKindLabel kind="automated_information" note="Automated summary. Not a medical opinion." />
+                              <AppText variant="body" style={{ marginTop: 2 }}>
+                                {doc.aiFlaggedAnalytes.length > 0
+                                  ? `${doc.aiFlaggedAnalytes.length === 1 ? "This test is" : "These tests are"} outside the range printed on the report itself: ${doc.aiFlaggedAnalytes
+                                      .map((a) =>
+                                        a.reportedRange ? `${a.label} (report range: ${a.reportedRange})` : a.label
+                                      )
+                                      .join(", ")}. This is not a diagnosis. You will need to follow up with a doctor about it.`
+                                  : "One or more values in this file fall outside the range printed on the report itself. Only a doctor reviewing the full picture can tell you what it means."}
+                              </AppText>
+                            </View>
+                          ) : doc.aiSummaryStatus === "ready" ? (
+                            <MutedText>
+                              The values in this file look consistent with the ranges printed on the report. A doctor
+                              hasn&apos;t reviewed this yet.
+                            </MutedText>
+                          ) : null}
+                          {doc.source === "patient" && !doc.reviewedAt ? (
+                            <ReplaceDocumentControl documentId={doc.id} onReplaced={() => patientId && load(patientId)} />
+                          ) : null}
+                        </>
+                      )}
+                    </Card>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </Disclosure>
 
       {/* Result interpretations */}
       <View style={{ gap: 10 }}>
@@ -612,86 +613,88 @@ export function LabOrdersScreen() {
       </View>
 
       {/* Results over time */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Your results over time</SectionLabel>
-        {trends.error ? (
-          <Card>
-            <ErrorText>Could not load your lab results.</ErrorText>
-          </Card>
-        ) : !trends.data || trends.data.length === 0 ? (
-          <Card>
-            <MutedText>No lab results on file yet.</MutedText>
-          </Card>
-        ) : (
-          <GroupedList>
-            {trends.data.map((trend) => {
-              const delta = trend.previousValue !== null ? trend.latestValue - trend.previousValue : null;
-              const deltaLabel =
-                delta === null
-                  ? null
-                  : delta === 0
-                    ? "no change"
-                    : `${delta > 0 ? "▲" : "▼"} ${Math.abs(Math.round(delta * 100) / 100)} since last test`;
-              return (
-                <GroupedListRow
-                  key={trend.code}
-                  title={trend.label}
-                  subtitle={formatDate(trend.latestTakenAt)}
-                  trailing={
-                    <View style={{ alignItems: "flex-end" }}>
-                      <AppText variant="bodyStrong">
-                        {trend.latestValue}
-                        {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
-                      </AppText>
-                      {deltaLabel ? <AppText variant="caption" tone="textSubtle">{deltaLabel}</AppText> : null}
-                    </View>
-                  }
-                />
-              );
-            })}
-          </GroupedList>
-        )}
-        <MutedText>Each result, compared with your previous one, for tracking, not diagnosis.</MutedText>
-      </View>
+      <Disclosure title="Your results over time" hint="Each result next to your previous one">
+        <View style={{ gap: 10 }}>
+          {trends.error ? (
+            <Card>
+              <ErrorText>Could not load your lab results.</ErrorText>
+            </Card>
+          ) : !trends.data || trends.data.length === 0 ? (
+            <Card>
+              <MutedText>No lab results on file yet.</MutedText>
+            </Card>
+          ) : (
+            <GroupedList>
+              {trends.data.map((trend) => {
+                const delta = trend.previousValue !== null ? trend.latestValue - trend.previousValue : null;
+                const deltaLabel =
+                  delta === null
+                    ? null
+                    : delta === 0
+                      ? "no change"
+                      : `${delta > 0 ? "▲" : "▼"} ${Math.abs(Math.round(delta * 100) / 100)} since last test`;
+                return (
+                  <GroupedListRow
+                    key={trend.code}
+                    title={trend.label}
+                    subtitle={formatDate(trend.latestTakenAt)}
+                    trailing={
+                      <View style={{ alignItems: "flex-end" }}>
+                        <AppText variant="bodyStrong">
+                          {trend.latestValue}
+                          {trend.latestUnit ? ` ${trend.latestUnit}` : ""}
+                        </AppText>
+                        {deltaLabel ? <AppText variant="caption" tone="textSubtle">{deltaLabel}</AppText> : null}
+                      </View>
+                    }
+                  />
+                );
+              })}
+            </GroupedList>
+          )}
+          <MutedText>Each result, compared with your previous one, for tracking, not diagnosis.</MutedText>
+        </View>
+      </Disclosure>
 
       {/* Lab tests catalogue */}
-      <View style={{ gap: 10 }}>
-        <SectionLabel>Lab tests</SectionLabel>
-        {catalogue.error ? (
-          <Card>
-            <ErrorText>Could not load the lab catalogue.</ErrorText>
-          </Card>
-        ) : !catalogue.data || catalogue.data.length === 0 ? (
-          <Card>
-            <MutedText>No lab tests available yet.</MutedText>
-          </Card>
-        ) : (
-          <View style={{ gap: 14 }}>
-            {groupBundlesByCategory(catalogue.data).map(({ category, bundles }) => (
-              <View key={category.key} style={{ gap: 6 }}>
-                <AppText variant="label" tone="textSubtle" style={{ letterSpacing: 0.3, textTransform: "uppercase", paddingHorizontal: spacing.card }}>
-                  {category.label}
-                </AppText>
-                <GroupedList>
-                  {bundles.map((bundle) => (
-                    <LabCatalogueRow
-                      key={bundle.id}
-                      bundle={bundle}
-                      patientId={patientId}
-                      organisationId={organisationId}
-                      onOrdered={() => patientId && load(patientId)}
-                    />
-                  ))}
-                </GroupedList>
-              </View>
-            ))}
-          </View>
-        )}
-        <MutedText>
-          Message your care team in the app and they&apos;ll write you a request to take to a laboratory of your
-          choice. You pay the lab directly, at whatever they charge, and we take nothing on top.
-        </MutedText>
-      </View>
+      <Disclosure title="Lab tests" hint="Request a test and print the form">
+        <View style={{ gap: 10 }}>
+          {catalogue.error ? (
+            <Card>
+              <ErrorText>Could not load the lab catalogue.</ErrorText>
+            </Card>
+          ) : !catalogue.data || catalogue.data.length === 0 ? (
+            <Card>
+              <MutedText>No lab tests available yet.</MutedText>
+            </Card>
+          ) : (
+            <View style={{ gap: 14 }}>
+              {groupBundlesByCategory(catalogue.data).map(({ category, bundles }) => (
+                <View key={category.key} style={{ gap: 6 }}>
+                  <AppText variant="label" tone="textSubtle" style={{ letterSpacing: 0.3, textTransform: "uppercase", paddingHorizontal: spacing.card }}>
+                    {category.label}
+                  </AppText>
+                  <GroupedList>
+                    {bundles.map((bundle) => (
+                      <LabCatalogueRow
+                        key={bundle.id}
+                        bundle={bundle}
+                        patientId={patientId}
+                        organisationId={organisationId}
+                        onOrdered={() => patientId && load(patientId)}
+                      />
+                    ))}
+                  </GroupedList>
+                </View>
+              ))}
+            </View>
+          )}
+          <MutedText>
+            Message your care team in the app and they&apos;ll write you a request to take to a laboratory of your
+            choice. You pay the lab directly, at whatever they charge, and we take nothing on top.
+          </MutedText>
+        </View>
+      </Disclosure>
     </ScrollView>
   );
 }
