@@ -191,7 +191,7 @@ function main() {
   const { remoteOnly, localOnly } = evaluate(remoteRows, localFiles);
 
   if (remoteOnly.length === 0 && localOnly.length === 0) {
-    console.log(`OK: ${remoteRows.length} applied migrations all reconcile against ${localVersions.length} local files.`);
+    console.log(`OK: ${remoteRows.length} applied migrations all reconcile against ${localFiles.length} local files.`);
     return;
   }
 
