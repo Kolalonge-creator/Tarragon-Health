@@ -1762,3 +1762,5 @@ ai017_runtime_governed.sql
 s68h_child_daily_log.sql
 # Community go-live: no longer a child of the clinical-operations master. Parent removed, still a feature, still off; opens on its own switch while clinical operations is off; the symptom checker still reads closed under the same master. Sabotage: parent restored, the open check must fail.
 community_independent_of_clinical_operations.sql
+# Community staff may be clinician accounts: a clinician is granted moderator and safety reviewer, a patient and a non-admin granter still refused, the clinician's own session reads as both, an ungranted or deactivated clinician reads as neither. Sabotage: the old care-coordinator-only guard must refuse the clinician grant.
+community_staff_clinician_accounts.sql

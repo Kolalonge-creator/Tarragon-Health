@@ -61,13 +61,13 @@ export async function loadCommunitySwitch(): Promise<Loaded<{ isOn: boolean }>> 
 
 export type StaffCandidate = { id: string; full_name: string | null; role: string };
 
-/** Active care coordinator accounts (the database refuses grants to anyone else), read through the signed-in admin's own session (row level security applies). */
+/** Active care coordinator and clinician accounts (the database refuses grants to anyone else), read through the signed-in admin's own session (row level security applies). */
 export async function loadStaffCandidates(): Promise<Loaded<StaffCandidate[]>> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, role")
-    .eq("role", "care_coordinator")
+    .in("role", ["care_coordinator", "clinician"])
     .eq("is_active", true)
     .order("full_name", { ascending: true });
   if (error || !data) return { ok: false };
