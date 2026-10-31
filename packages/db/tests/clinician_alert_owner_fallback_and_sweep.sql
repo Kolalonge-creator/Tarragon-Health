@@ -10,6 +10,8 @@
 --                  open the rule)
 --   6  no-user      a caller with no signed-in user is refused too, unless the sweep marked its own transaction; a signed-in user cannot use the marker
 --   7  suppressed   the sweep leaves a suppressed alert alone
+--   8  backup       the backup clinician comes from the same picker as the owner (one body, not a hand-copied second one): never the
+--                  owner, and spread across the doctors who are free
 --
 -- Fixtures built here, wrapped in BEGIN/ROLLBACK, raises on failure.
 -- Run: psql "$DATABASE_URL" -f packages/db/tests/clinician_alert_owner_fallback_and_sweep.sql
@@ -204,6 +206,26 @@ begin
   update public.clinician_alerts set responsible_clinician_id = null, suppressed = true where id = v;
   perform private.assign_unowned_clinician_alerts();
   if pg_temp.owner(v) is not null then raise exception 'FAIL 7: the sweep assigned a suppressed alert'; end if;
+end $$;
+
+-- ================================================================ 8 the backup comes from the shared picker
+do $$
+declare v uuid; v_backups uuid[] := '{}'; v_b uuid; i integer;
+begin
+  if pg_get_functiondef('private.classify_and_assign_clinician_alert()'::regprocedure) not like '%pick_alert_clinician%' then
+    raise exception 'FAIL 8: the alert trigger does not use the shared picker for the backup';
+  end if;
+  insert into fx values ('smoD3', pg_temp.mkstaff(pg_temp.f('orgD'), 'smoD3', 'senior_medical_officer', pg_temp.f('admin')));
+  for i in 1..3 loop
+    v := pg_temp.mkalert(pg_temp.f('orgD'), pg_temp.f('patD'), 'symptom_escalation');
+    select backup_clinician_id into v_b from public.clinician_alerts where id = v;
+    if v_b is null then raise exception 'FAIL 8: alert % got no backup clinician although three senior doctors exist', i; end if;
+    if v_b = pg_temp.owner(v) then raise exception 'FAIL 8: alert % got its own owner as its backup', i; end if;
+    v_backups := v_backups || v_b;
+  end loop;
+  if (select count(distinct b) from unnest(v_backups) b) < 2 then
+    raise exception 'FAIL 8: three alerts in a row all went to the same backup (%), the load was not spread', v_backups;
+  end if;
 end $$;
 
 rollback;
