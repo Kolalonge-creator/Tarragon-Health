@@ -145,12 +145,12 @@ test.describe("staff to patient chat", () => {
     await staffPage.getByLabel("Message", { exact: true }).fill("The letter is attached.");
     // The open thread above also offers this button on its reply box; the new-conversation form is the last one on the page.
     await staffPage.getByLabel("Book an appointment").last().check();
-    await staffPage.locator('input[type="file"]').setInputFiles({
+    await staffPage.locator('input[type="file"]').last().setInputFiles({
       name: "letter.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
     });
-    await staffPage.getByRole("button", { name: "Send", exact: true }).click();
+    await staffPage.getByRole("button", { name: "Send", exact: true }).last().click();
     await expect(staffPage.getByText("The letter is attached.")).toBeVisible({ timeout: 30_000 });
 
     // Both extras landed on the first message of the new thread, and the staff page shows no "could not be added" notice.
