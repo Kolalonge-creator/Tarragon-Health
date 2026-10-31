@@ -3,6 +3,7 @@
 import { useLabPartnerDashboardStats } from "@/lib/queries/lab-specimens";
 import { labPartnerFirstView } from "@/lib/lab-partner/first-view";
 import { LoadFailure } from "@/components/ui/load-failure";
+import { NeedsFirst } from "@/components/ui/needs-first";
 
 /**
  * The first thing on the lab home. Which items show, in what order, and when
@@ -24,45 +25,28 @@ export function LabPartnerFirst({ awaiting }: { awaiting: number | null }) {
       </LoadFailure>
     );
   }
-
+  if (view.kind === "loading") {
+    return <NeedsFirst id="lab-first" body={{ kind: "loading", text: "Checking your orders and samples…" }} />;
+  }
+  if (view.kind === "clear") {
+    return (
+      <NeedsFirst
+        id="lab-first"
+        body={{ kind: "clear", text: "No delayed samples and no orders waiting for a result." }}
+      />
+    );
+  }
   return (
-    <section
-      aria-labelledby="lab-first"
-      className="rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm"
-    >
-      <h2 id="lab-first" className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-        Needs you first
-      </h2>
-      {view.kind === "loading" && <p className="mt-2 text-sm text-charcoal-ink/60">Checking your orders and samples…</p>}
-      {view.kind === "clear" && (
-        <p className="mt-2 text-sm text-charcoal-ink/70">No delayed samples and no orders waiting for a result.</p>
-      )}
-      {view.kind === "items" && (
-        <>
-          <a
-            href={view.top.href}
-            className="mt-2 inline-flex font-heading text-xl font-semibold text-charcoal-ink hover:underline"
-          >
-            {view.top.text}
-          </a>
-          {view.rest.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm">
-              {view.rest.map((item) => (
-                <li key={item.key}>
-                  <a href={item.href} className="font-medium text-brand-green hover:underline">
-                    {item.text}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-          {view.incomplete && (
-            <p className="mt-3 text-sm text-charcoal-ink/60">
-              This list is incomplete: some counts did not load. Refresh the page to try again.
-            </p>
-          )}
-        </>
-      )}
-    </section>
+    <NeedsFirst
+      id="lab-first"
+      body={{
+        kind: "items",
+        top: view.top,
+        rest: view.rest,
+        notice: view.incomplete
+          ? "This list is incomplete: some counts did not load. Refresh the page to try again."
+          : undefined,
+      }}
+    />
   );
 }

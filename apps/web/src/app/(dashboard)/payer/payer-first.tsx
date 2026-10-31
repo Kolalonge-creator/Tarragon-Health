@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { LoadFailure } from "@/components/ui/load-failure";
+import { NeedsFirst } from "@/components/ui/needs-first";
 import type { FirstView } from "@/lib/payer/first-view";
 
 /** Draws the payer "Needs you first" block. What it says is decided in lib/payer/first-view.ts. */
@@ -12,46 +12,28 @@ export function PayerFirst({ view }: { view: FirstView }) {
       </LoadFailure>
     );
   }
-
+  if (view.kind === "clear") {
+    return (
+      <NeedsFirst
+        id="payer-first"
+        body={{
+          kind: "clear",
+          text: "No pre-authorisations to decide, no claims to adjudicate and no approved claims to pay.",
+        }}
+      />
+    );
+  }
   return (
-    <section
-      aria-labelledby="payer-first"
-      className="rounded-xl border border-charcoal-ink/10 bg-white p-5 shadow-sm"
-    >
-      <h2 id="payer-first" className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-        Needs you first
-      </h2>
-      {view.kind === "clear" && (
-        <p className="mt-2 text-sm text-charcoal-ink/70">
-          No pre-authorisations to decide, no claims to adjudicate and no approved claims to pay.
-        </p>
-      )}
-      {view.kind === "items" && (
-        <>
-          <Link
-            href={view.top.href}
-            className="mt-2 inline-flex font-heading text-xl font-semibold text-charcoal-ink hover:underline"
-          >
-            {view.top.text}
-          </Link>
-          {view.rest.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm">
-              {view.rest.map((item) => (
-                <li key={item.key}>
-                  <Link href={item.href} className="font-medium text-brand-green hover:underline">
-                    {item.text}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          {view.incomplete && (
-            <p className="mt-3 text-sm text-charcoal-ink/60">
-              This list is incomplete: some queues did not load. Refresh the page to try again.
-            </p>
-          )}
-        </>
-      )}
-    </section>
+    <NeedsFirst
+      id="payer-first"
+      body={{
+        kind: "items",
+        top: view.top,
+        rest: view.rest,
+        notice: view.incomplete
+          ? "This list is incomplete: some queues did not load. Refresh the page to try again."
+          : undefined,
+      }}
+    />
   );
 }
