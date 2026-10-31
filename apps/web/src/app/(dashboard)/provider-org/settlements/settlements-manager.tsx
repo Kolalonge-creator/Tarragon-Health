@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
+import { formatKobo } from "@/lib/format-money";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import { createSettlementAction, setSettlementStatusAction } from "./actions";
 
 type Settlement = {
@@ -36,7 +37,8 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
 
   // Echoed back under the field so the operator sees the amount they are
   // actually issuing, not the digits they typed.
-  const invoicedKobo = nairaInputToKobo(invoicedNaira);
+  // Read the way the save reads it, so a value that would be refused never shows a confident figure.
+  const invoiced = invoicedNaira.trim() === "" ? null : parseMoneyInput(invoicedNaira);
 
   function run(action: (fd: FormData) => Promise<{ error?: string; message?: string } | undefined>, fd: FormData) {
     startTransition(async () => {
@@ -65,13 +67,18 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
               // Naira in, kobo out: the single conversion for this form.
-              const kobo = nairaInputToKobo(fd.get("invoicedTotalNaira"));
-              if (kobo === null) {
+              const rawInvoiced = String(fd.get("invoicedTotalNaira") ?? "");
+              if (rawInvoiced.trim() === "") {
                 setFeedback({ error: "Enter the invoiced total in naira." });
                 return;
               }
+              const total = parseMoneyInput(rawInvoiced);
+              if (!total.ok) {
+                setFeedback({ error: `Invoiced total: ${total.error}` });
+                return;
+              }
               fd.delete("invoicedTotalNaira");
-              fd.set("invoicedTotalKobo", String(kobo));
+              fd.set("invoicedTotalKobo", String(total.minor));
               fd.set("organisationId", organisationId);
               run((f) => createSettlementAction(undefined, f), fd);
               e.currentTarget.reset();
@@ -99,8 +106,8 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
                 value={invoicedNaira}
                 onChange={(e) => setInvoicedNaira(e.target.value)}
               />
-              <p className="text-xs text-charcoal-ink/60">
-                {invoicedKobo === null ? "Amount in naira" : `Issuing ${formatKobo(invoicedKobo)}`}
+              <p className={`text-xs ${invoiced && !invoiced.ok ? "text-red-600" : "text-charcoal-ink/60"}`} role={invoiced && !invoiced.ok ? "alert" : undefined}>
+                {invoiced === null ? "Amount in naira" : invoiced.ok ? `Issuing ${formatKobo(invoiced.minor)}` : invoiced.error}
               </p>
             </div>
             <div className="space-y-1.5">

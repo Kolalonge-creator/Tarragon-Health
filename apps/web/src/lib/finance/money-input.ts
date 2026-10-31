@@ -17,12 +17,9 @@
  * The result is built from the digits, not from floating point, so ₦0.29 is 29
  * kobo and not 28.999999.
  *
- * `nairaInputToKobo` in lib/format-money.ts does a similar job for the admin
- * screens. It is deliberately looser: it deletes every comma and space, so
- * "1,5000" is read as ₦15,000 and "1,50" as ₦150, and it rounds past two
- * decimals. That is a fair trade for a paste from an invoice, not for a general
- * ledger, where a typo should be refused with a reason. This one also returns
- * that reason, which the finance forms show.
+ * It is the one way to read a typed amount: the admin earnings and employer screens, payer claims, provider
+ * organisation and partner settlement forms all use it, and the looser `nairaInputToKobo` it replaced has been
+ * removed. A typo is refused with a reason rather than guessed at.
  */
 
 export type MoneyParse = { ok: true; minor: number } | { ok: false; error: string };

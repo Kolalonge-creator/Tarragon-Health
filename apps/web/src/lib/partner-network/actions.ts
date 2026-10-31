@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { nairaInputToKobo } from "@/lib/format-money";
+import { parseMoneyInput } from "@/lib/finance/money-input";
 import {
   complaintFormSchema,
   declareSourcingSchema,
@@ -99,14 +99,22 @@ export async function createTermsAction(_prev: PartnerActionState, formData: For
   const basis = String(formData.get("basis") ?? "");
   const raw = String(formData.get("value") ?? "");
   // a fixed share is typed in naira and stored in kobo once, here; a percentage is typed in per cent and stored in basis points
-  const value = basis === "fixed_kobo" ? nairaInputToKobo(raw) : Math.round(Number(raw) * 100);
+  let value: number;
+  if (basis === "fixed_kobo") {
+    // Read exactly or refused with the reason: "1,5000" is not read as 15,000 and "12.345" is not rounded.
+    const fixed = parseMoneyInput(raw);
+    if (!fixed.ok) return fail(`Fixed amount: ${fixed.error}`);
+    value = fixed.minor;
+  } else {
+    value = Math.round(Number(raw) * 100);
+  }
   const p = termsSchema.safeParse({
     kind: formData.get("kind"),
     partner: formData.get("partner"),
     catalogCode: formData.get("catalog_code"),
     source: formData.get("source"),
     basis,
-    value: value ?? Number.NaN,
+    value,
     sponsorPaidOnly: formData.get("sponsor_paid_only") === "on",
     reason: formData.get("reason"),
   });

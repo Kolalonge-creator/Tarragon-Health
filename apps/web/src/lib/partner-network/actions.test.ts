@@ -63,6 +63,12 @@ describe("settlement actions move no money", () => {
     await createTermsAction(undefined, fd({ ...base, basis: "basis_points", value: "12.5" }));
     expect(rpc.mock.calls[1]?.[1]).toMatchObject({ p_basis: "basis_points", p_value: 1250 });
   });
+  it.each(["1,5000", "1e3", "12.345", "5 000", "abc", ""])("a fixed share of %s is refused with a reason and nothing is sent", async (value) => {
+    const out = await createTermsAction(undefined, fd({ kind: "pharmacy", partner: P, catalog_code: "care_pack_90", source: "pharmacy_margin", basis: "fixed_kobo", value, reason: "Agreed with the pharmacy in writing on 1 October" }));
+    expect(out).toHaveProperty("error");
+    expect((out as { error: string }).error).toMatch(/^Fixed amount: /);
+    expect(rpc).not.toHaveBeenCalled();
+  });
   it("terms for a laboratory never reach the database", async () => {
     const out = await createTermsAction(undefined, fd({ kind: "lab", partner: P, catalog_code: "care_pack_90", source: "pharmacy_margin", basis: "fixed_kobo", value: "100", reason: "Agreed with the pharmacy in writing on 1 October" }));
     expect(out).toHaveProperty("error");
