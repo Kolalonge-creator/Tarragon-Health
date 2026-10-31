@@ -39,6 +39,12 @@ const q = (data: unknown) => ({ data, isLoading: false, isError: false });
 const decimalInputs = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]'));
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
 
+// jsdom does not implement the modal dialog methods the shared ConfirmDialog calls.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function close() { this.removeAttribute("open"); };
+});
+
 beforeEach(() => {
   for (const k of Object.keys(hooks)) delete hooks[k];
   for (const k of Object.keys(actions)) actions[k].mockClear();
@@ -61,6 +67,7 @@ describe("manual journal", () => {
     type(debit1, "1,500,000");
     type(credit2, "1,500,000");
     fireEvent.click(screen.getByText("Post entry"));
+    fireEvent.click(within(container.querySelector("dialog[open]") as HTMLElement).getByRole("button", { name: "Post entry" }));
     await waitFor(() => expect(act("postManualJournalAction")).toHaveBeenCalledTimes(1));
     const arg = act("postManualJournalAction").mock.calls[0][0];
     expect(arg.lines.map((l: { debit_minor: number; credit_minor: number }) => [l.debit_minor, l.credit_minor])).toEqual([
