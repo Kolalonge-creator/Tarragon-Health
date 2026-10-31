@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 import { refreshQueryState } from "@/lib/queries/list-query-state";
+import { coordinatorFirstView } from "@/lib/care-coordinator/first-view";
+import { CoordinatorFirst } from "./coordinator-first";
 
 const CHANNEL_LABEL = { call: "Call" } as const;
 
@@ -81,8 +83,16 @@ export function CareCoordinatorOverview() {
   const UNKNOWN = { hint: "Could not be loaded" };
 
   const openTasks = tasks ?? [];
-  const actFirst = openTasks.filter((t) => t.priority === 1).slice(0, 3);
-  const followUps = openTasks.filter((t) => t.trigger_type === "awaiting_result").slice(0, 3);
+  const actFirstAll = openTasks.filter((t) => t.priority === 1);
+  const followUpsAll = openTasks.filter((t) => t.trigger_type === "awaiting_result");
+  const actFirst = actFirstAll.slice(0, 3);
+  const followUps = followUpsAll.slice(0, 3);
+
+  const firstView = coordinatorFirstView({
+    state: states.tasks,
+    actFirst: tasks === undefined ? undefined : actFirstAll.length,
+    followUps: tasks === undefined ? undefined : followUpsAll.length,
+  });
 
   return (
     <div className="space-y-5">
@@ -100,6 +110,8 @@ export function CareCoordinatorOverview() {
           read successfully, so treat it as a few minutes old rather than a live board.
         </StaleDataNotice>
       )}
+
+      <CoordinatorFirst view={firstView} />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {tasksFailed ? (
@@ -161,7 +173,7 @@ export function CareCoordinatorOverview() {
         )}
       </div>
 
-      <Card>
+      <Card id="coordinator-act-first">
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Act-first outreach</CardTitle>
           <Link
@@ -205,7 +217,7 @@ export function CareCoordinatorOverview() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card id="coordinator-follow-ups">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Follow-ups pending</CardTitle>
             <Link
