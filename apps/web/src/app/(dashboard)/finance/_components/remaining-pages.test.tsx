@@ -4,7 +4,7 @@
  * reached its row limit must say it may be cut off, and a statutory figure must not flash as zero while
  * it loads.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 type Q = { data?: unknown; isLoading?: boolean; isError?: boolean };
 const hooks: Record<string, Q> = {};
@@ -56,6 +56,12 @@ const failed: Q = { isError: true };
 const stale = (data: unknown): Q => ({ data, isError: true });
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
 const alerts = () => screen.getAllByRole("alert").map((a) => a.textContent).join(" | ");
+
+// jsdom does not implement the modal dialog methods the shared ConfirmDialog calls.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function close() { this.removeAttribute("open"); };
+});
 
 beforeEach(() => {
   for (const k of Object.keys(hooks)) delete hooks[k];
@@ -148,8 +154,9 @@ describe("revenue recognition", () => {
   });
   it("does not report a run that returned no count as '0 entries posted'", async () => {
     hooks.revrec = ok(summary);
-    render(<RevenueRecognition />);
+    const { container } = render(<RevenueRecognition />);
     fireEvent.click(screen.getByText("Run recognition now"));
+    fireEvent.click(within(container.querySelector("dialog[open]") as HTMLElement).getByRole("button", { name: "Post entries" }));
     expect(await screen.findByText(/number of entries posted was not returned/)).toBeTruthy();
   });
 });

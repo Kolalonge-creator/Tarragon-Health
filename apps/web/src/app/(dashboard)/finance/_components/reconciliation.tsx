@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useReconciliationSummary, useReconciliationFlags, financeKeys } from "@/lib/finance/queries";
-import type { ReconciliationFlag } from "@/lib/finance/schemas";
+import type { ReconciliationFlag, ReconciliationSummary } from "@/lib/finance/schemas";
 import {
   importSettlementAction,
   matchPaymentAction,
@@ -106,6 +106,26 @@ export function Reconciliation() {
   }
 
   const drafts = (data?.settlements ?? []).filter((s) => s.status === "draft");
+
+  function askToPost(s: ReconciliationSummary["settlements"][number]) {
+    ask({
+      title: "Post this settlement to the ledger?",
+      description:
+        "This moves the payout from clearing to the bank and expenses the fee. It cannot be edited afterwards; a mistake is corrected by reversing the entry on the ledger.",
+      facts: [
+        { label: "Provider", value: s.external_ref ? `${s.provider} · ${s.external_ref}` : s.provider },
+        { label: "Settlement date", value: s.settlement_date },
+        { label: "Gross", value: formatMinor(s.gross_minor, s.currency) },
+        { label: "Fees", value: formatMinor(s.fees_minor, s.currency) },
+        { label: "Net", value: formatMinor(s.net_minor, s.currency) },
+        { label: "Payments matched", value: String(s.matched_count) },
+        ...(s.variance_minor !== 0 ? [{ label: "Variance", value: formatMinor(s.variance_minor, s.currency) }] : []),
+      ],
+      confirmLabel: "Post settlement",
+      destructive: false,
+      run: () => post(s.id),
+    });
+  }
 
   async function post(id: string) {
     const res = await postSettlementAction(id);
@@ -275,7 +295,7 @@ export function Reconciliation() {
                   </td>
                   <td className="py-2 text-right">
                     {s.status === "draft" && (
-                      <Button size="sm" variant="outline" onClick={() => post(s.id)}>Post</Button>
+                      <Button size="sm" variant="outline" onClick={() => askToPost(s)}>Post</Button>
                     )}
                   </td>
                 </tr>

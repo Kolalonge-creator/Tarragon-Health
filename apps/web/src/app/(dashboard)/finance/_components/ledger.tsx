@@ -16,6 +16,7 @@ import {
 } from "@/lib/finance/actions";
 import type { LedgerEntry } from "@/lib/finance/schemas";
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
+import { useConfirmAction } from "./confirm-action";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure, TruncationNote } from "./primitives";
 import { parseOptionalMoney } from "@/lib/finance/money-input";
 import { LEDGER_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
@@ -50,6 +51,7 @@ export function LedgerBrowser() {
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const { ask, dialog: postDialog } = useConfirmAction();
 
   // Each amount is read exactly or refused. A blank amount is "no amount on this side", not zero
   // by guesswork, and anything else that cannot be read blocks the entry, so a typed line is never
@@ -76,7 +78,7 @@ export function LedgerBrowser() {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
 
-  async function submit() {
+  function submit() {
     setMessage(null);
     if (parsed.issues.length > 0) {
       const first = parsed.issues[0];
@@ -107,6 +109,24 @@ export function LedgerBrowser() {
       setMessage({ ok: false, text: "A journal entry needs at least two lines." });
       return;
     }
+    ask({
+      title: "Post this journal entry?",
+      description:
+        "A posted entry cannot be edited. A mistake is corrected by reversing it on the ledger. An entry above the approval threshold goes to a second finance officer instead of posting.",
+      facts: [
+        { label: "Date", value: entryDate },
+        { label: "Memo", value: memo.trim() || "None" },
+        { label: "Lines", value: String(payload.length) },
+        { label: "Debits", value: formatMinor(totals.debit, currency) },
+        { label: "Credits", value: formatMinor(totals.credit, currency) },
+      ],
+      confirmLabel: "Post entry",
+      destructive: false,
+      run: () => post(payload),
+    });
+  }
+
+  async function post(payload: JournalLineInput[]) {
     setSaving(true);
     const res = await postManualJournalAction({ entry_date: entryDate, currency, memo, lines: payload });
     setSaving(false);
@@ -355,6 +375,7 @@ export function LedgerBrowser() {
         )}
       </SectionCard>
 
+      {postDialog}
       <ConfirmDialog
         open={reversing !== null}
         title="Reverse this journal entry?"
