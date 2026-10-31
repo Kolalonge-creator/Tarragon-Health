@@ -50,7 +50,7 @@ describe("readHiddenPatientHrefs", () => {
     const c = client({ guards: { paper_diary_entry: "error", clinical_operations_enabled: "error" }, appointments: 0 });
     const hidden = await readHiddenPatientHrefs(c, "p1", ["/patient/diary", "/patient/appointments"]);
     expect(hidden.has("/patient/diary")).toBe(true);
-    expect(hidden.has("/patient/appointments")).toBe(true); // holds === false is proven, guard unreadable => closed
+    expect(hidden.has("/patient/appointments")).toBe(false); // guard unreadable on a holdable page => stays
   });
 
   it("reads nothing for a menu that has none of the gated pages", async () => {

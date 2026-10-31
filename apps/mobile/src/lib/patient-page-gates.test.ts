@@ -42,10 +42,10 @@ describe("loadHiddenSections", () => {
     expect(await loadHiddenSections("p1")).toEqual([]);
   });
 
-  it("counts an unreadable guard as closed, and never hides a safety section", async () => {
+  it("keeps a holdable section on an unreadable guard, and never hides a safety section", async () => {
     setup({ appointmentsGuard: "error", recordsGuard: "error", appointments: 0, records: [] });
     const hidden = await loadHiddenSections("p1");
-    expect(hidden.sort()).toEqual(["appointments", "recordsRequests"]);
+    expect(hidden).toEqual([]);
     for (const safe of ["emergency", "messages", "vitals", "medications", "care"]) expect(hidden).not.toContain(safe);
   });
 });
