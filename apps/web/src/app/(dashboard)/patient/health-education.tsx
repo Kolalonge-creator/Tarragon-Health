@@ -53,6 +53,7 @@ import { PortionGuideView } from "@/components/learning/portion-guide-view";
 import { TeachbackQuiz } from "@/components/learning/teachback-quiz";
 import { isPortionGuideBody, portionAudienceFor } from "@tarragon/shared";
 import { LearningSearch } from "@/components/learning/learning-search";
+import { Disclosure } from "@/components/ui/disclosure";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure",
@@ -689,10 +690,7 @@ function LearningPathways({
   }
 
   return (
-    <div>
-      <h3 className="mb-3 font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
-        Learning pathways
-      </h3>
+    <Disclosure title="Learning pathways" hint="Step-by-step courses, one lesson at a time">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {programmes.map((p) => (
           <button
@@ -709,7 +707,7 @@ function LearningPathways({
           </button>
         ))}
       </div>
-    </div>
+    </Disclosure>
   );
 }
 
@@ -900,9 +898,9 @@ export function HealthEducationLibrary({
 
   return (
     <div className={cn("space-y-6")}>
+      <LearningSearch />
       <WeeklyLessonCard patientId={patientId} organisationId={organisationId} />
       <RecordLessonCard patientId={patientId} />
-      <LearningSearch />
       <RecommendationsBanner patientId={patientId} />
 
       {firstCondition && (
