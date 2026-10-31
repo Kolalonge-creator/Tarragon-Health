@@ -34,6 +34,7 @@ import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit";
 
 /**
  * The cycle tracker's native screen (spec §44's large sub-feature —
@@ -435,8 +436,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
 
       {/* ---------- Patterns ---------- */}
       {prediction.stats.usedCycles > 0 && (
-        <Card style={{ gap: 10 }}>
-          <AppText variant="bodyStrong">Your patterns</AppText>
+        <Disclosure title="Your patterns" hint="Cycle length, period length and how steady they are">
           <MutedText>
             Measured from the {prediction.stats.usedCycles} most recent cycle
             {prediction.stats.usedCycles === 1 ? "" : "s"} you logged.
@@ -472,13 +472,12 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
               </AppText>
             </View>
           </View>
-        </Card>
+        </Disclosure>
       )}
 
       {/* ---------- History ---------- */}
       {hasHistory && (
-        <Card style={{ gap: 8 }}>
-          <AppText variant="bodyStrong">Periods you have logged</AppText>
+        <Disclosure title="Periods you have logged" hint="Remove one that was logged by mistake">
           <MutedText>
             Remove any that were logged by mistake. A wrong start date changes every estimate
             that comes after it.
@@ -504,7 +503,7 @@ function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenP
               </AppText>
             </View>
           ))}
-        </Card>
+        </Disclosure>
       )}
 
       <AppText variant="caption" tone="textSubtle">
