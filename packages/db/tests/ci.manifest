@@ -1766,3 +1766,5 @@ staff_chat_followups.sql
 community_independent_of_clinical_operations.sql
 # Community staff may be clinician accounts: a clinician is granted moderator and safety reviewer, a patient and a non-admin granter still refused, the clinician's own session reads as both, an ungranted or deactivated clinician reads as neither. Sabotage: the old care-coordinator-only guard must refuse the clinician grant.
 community_staff_clinician_accounts.sql
+# Clinician alert owner: an alert whose type owner tier is empty falls back to the backup, then senior tier, then the CMO; the insert trigger still spreads load; a sweep assigns open unowned alerts once a doctor exists (and leaves owned ones alone); the reassignment guard still refuses a signed-in non-CMO. Sabotage: the old insert trigger leaves an overdue_task alert unowned, and no sweep function exists.
+clinician_alert_owner_fallback_and_sweep.sql
