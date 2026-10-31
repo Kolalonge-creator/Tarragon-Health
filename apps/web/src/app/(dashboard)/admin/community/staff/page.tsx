@@ -40,7 +40,7 @@ export default async function CommunityStaffPage() {
               {staff.data.staff.map((s) => (
                 <tr key={s.id} className="border-b border-charcoal-ink/10 align-top">
                   <th scope="row" className="py-2 pr-3 font-medium">{s.staff_name ?? "Unnamed"}</th>
-                  <td className="py-2 pr-3">{s.profile_role === "care_coordinator" ? "Care coordinator" : s.profile_role}</td>
+                  <td className="py-2 pr-3">{s.profile_role === "care_coordinator" ? "Care coordinator" : s.profile_role === "clinician" ? "Clinician" : s.profile_role}</td>
                   <td className="py-2 pr-3">{SCOPE[s.scope]}</td>
                   <td className="py-2 pr-3">{s.group_name ?? "All groups"}</td>
                   <td className="py-2 pr-3">{when(s.granted_at)}</td>
