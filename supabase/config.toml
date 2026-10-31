@@ -105,3 +105,10 @@ verify_jwt = false
 # S26b: pg_cron calls this weekly with a shared secret header (handler.ts checks it), not a Supabase JWT.
 [functions.refund-reconcile]
 verify_jwt = false
+
+# pg_cron and database triggers call this with the project's publishable key as the bearer (a non-JWT key, vault secret
+# edge_function_publishable_key), and handler code ignores the request entirely: it only drains notifications already queued.
+# verify_jwt stays false so a plain `supabase functions deploy` reproduces the live setting instead of silently flipping it back to
+# true (which would reject that key and stop every email). Live was 0 x 401 over 360 calls on 2026-10-31 with this setting.
+[functions.send-pending-notifications]
+verify_jwt = false

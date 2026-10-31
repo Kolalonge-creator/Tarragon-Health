@@ -32,11 +32,12 @@ describe("which rule applies", () => {
     for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...OPS_ALERT_TEMPLATES, ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
     expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 3 + OPS_ALERT_TEMPLATES.length + ACK_TIMEOUT_TEMPLATES.length);
   });
-  it("security notices keep payload first, everything else the payload only", () => {
+  it("everything not listed takes the payload address first and the recipient's own verified address otherwise", () => {
     expect(addressRuleFor("security.new_device_signin")).toBe("payload_then_own");
-    expect(addressRuleFor("booking_reminder")).toBe("payload_only");
-    expect(addressRuleFor(null)).toBe("payload_only");
-    expect(addressRuleFor(undefined)).toBe("payload_only");
+    expect(addressRuleFor("booking_reminder")).toBe("payload_then_own");
+    expect(addressRuleFor("a_template_nobody_has_listed_yet")).toBe("payload_then_own");
+    expect(addressRuleFor(null)).toBe("payload_then_own");
+    expect(addressRuleFor(undefined)).toBe("payload_then_own");
   });
   it("every page template has a renderer, an email body and is safety critical (so quiet hours never hold it)", () => {
     for (const t of PAGE_TEMPLATES) {
@@ -120,11 +121,17 @@ describe("resolveEmailAddress (the sender's real path)", () => {
     expect(await resolveEmailAddress("security.new_device_signin", "", auth.lookupFor("doc"))).toEqual({ address: "doctor@clinic.test", source: "auth" });
   });
 
-  it("other templates use the payload only and make no Auth lookup", async () => {
+  it("other templates use an explicit payload address with no Auth lookup", async () => {
     const before = auth.calls.length;
     expect(await resolveEmailAddress("booking_reminder", "p@x.test", auth.lookupFor("doc"))).toEqual({ address: "p@x.test", source: "payload" });
-    expect(await resolveEmailAddress("booking_reminder", 42, auth.lookupFor("doc"))).toEqual({ address: undefined, source: "none" });
     expect(auth.calls.length).toBe(before);
+  });
+
+  it("an unlisted template whose payload names no address goes to the recipient's own verified address, never anywhere else", async () => {
+    expect(await resolveEmailAddress("a_template_nobody_has_listed_yet", undefined, auth.lookupFor("doc"))).toEqual({ address: "doctor@clinic.test", source: "auth" });
+    expect(await resolveEmailAddress("booking_reminder", 42, auth.lookupFor("doc"))).toEqual({ address: "doctor@clinic.test", source: "auth" });
+    expect(await resolveEmailAddress("booking_reminder", undefined, auth.lookupFor("unverified"))).toEqual({ address: undefined, source: "none" });
+    expect(await resolveEmailAddress("booking_reminder", undefined, async () => { throw new Error("auth down"); })).toEqual({ address: undefined, source: "lookup_failed" });
   });
 });
 

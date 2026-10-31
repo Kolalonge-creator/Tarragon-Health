@@ -46,13 +46,18 @@ export function audienceFor(template: string | null | undefined, fromDatabase: s
   return template != null ? AUDIENCE_OVERRIDES[template] ?? fromDatabase : fromDatabase;
 }
 
-export type AddressRule = "own_only" | "payload_then_own" | "payload_only";
+export type AddressRule = "own_only" | "payload_then_own";
 
+/**
+ * Every template not listed above takes an explicit payload address when it has one, and otherwise the recipient's own verified
+ * address. The fallback is the root-cause fix for the "recipient has no email address" class (it hit four separate templates
+ * before this): a database function that queues an email knowing only the recipient's profile id used to fail unless someone
+ * remembered to list its template. Falling back to the recipient's own address cannot redirect anything to a third party,
+ * because it is only used when the payload names no address at all.
+ */
 export function addressRuleFor(template: string | null | undefined): AddressRule {
-  if (template == null) return "payload_only";
-  if (OWN_ADDRESS_ONLY_TEMPLATES.has(template)) return "own_only";
-  if (template.startsWith("security.")) return "payload_then_own";
-  return "payload_only";
+  if (template != null && OWN_ADDRESS_ONLY_TEMPLATES.has(template)) return "own_only";
+  return "payload_then_own";
 }
 
 /** The part of a Supabase Auth user the rule needs. */
@@ -90,7 +95,6 @@ export async function resolveEmailAddress(
 ): Promise<ResolvedAddress> {
   const rule = addressRuleFor(template);
   const fromPayload = typeof payloadToEmail === "string" && payloadToEmail.length > 0 ? payloadToEmail : undefined;
-  if (rule === "payload_only") return fromPayload ? { address: fromPayload, source: "payload" } : { address: undefined, source: "none" };
   if (rule === "payload_then_own" && fromPayload) return { address: fromPayload, source: "payload" };
   let verified: string | undefined;
   try {
