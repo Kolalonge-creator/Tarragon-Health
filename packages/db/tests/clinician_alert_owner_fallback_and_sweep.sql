@@ -8,6 +8,8 @@
 --                  run assigns nothing, and an alert that already had an owner is not moved
 --   5  guard       a signed-in clinician who is not the CMO still cannot assign an alert to someone else (the system exemption did not
 --                  open the rule)
+--   6  no-user      a caller with no signed-in user is refused too, unless the sweep marked its own transaction; a signed-in user cannot use the marker
+--   7  suppressed   the sweep leaves a suppressed alert alone
 --
 -- Fixtures built here, wrapped in BEGIN/ROLLBACK, raises on failure.
 -- Run: psql "$DATABASE_URL" -f packages/db/tests/clinician_alert_owner_fallback_and_sweep.sql
@@ -158,6 +160,50 @@ begin
   if not v_refused then
     raise exception 'FAIL 5: a senior doctor who is not the CMO assigned an alert to someone else';
   end if;
+end $$;
+
+-- ================================================================ 6 a no-user caller is NOT exempt unless the sweep marked its transaction
+do $$
+declare v uuid := pg_temp.mkalert(pg_temp.f('orgD'), pg_temp.f('patD'), 'abnormal_result'); v_refused boolean := false; v_target uuid;
+begin
+  v_target := case when pg_temp.owner(v) = pg_temp.f('smoD1') then pg_temp.f('smoD2') else pg_temp.f('smoD1') end;
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('tarragon.alert_owner_sweep', 'off', true);
+  begin
+    update public.clinician_alerts set responsible_clinician_id = v_target where id = v;
+  exception when sqlstate '42501' then
+    v_refused := true;
+  end;
+  if not v_refused then
+    raise exception 'FAIL 6: a caller with no signed-in user reassigned an alert without the sweep marker';
+  end if;
+  -- a signed-in user cannot use the marker either
+  v_refused := false;
+  perform set_config('tarragon.alert_owner_sweep', 'on', true);
+  perform set_config('request.jwt.claim.sub', pg_temp.f('smoD1_profile')::text, true);
+  begin
+    update public.clinician_alerts set responsible_clinician_id = pg_temp.f('smoD2') where id = v and responsible_clinician_id is distinct from pg_temp.f('smoD2');
+    if not found then
+      perform set_config('request.jwt.claim.sub', pg_temp.f('smoD2_profile')::text, true);
+      update public.clinician_alerts set responsible_clinician_id = pg_temp.f('smoD1') where id = v;
+    end if;
+  exception when sqlstate '42501' then
+    v_refused := true;
+  end;
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('tarragon.alert_owner_sweep', 'off', true);
+  if not v_refused then
+    raise exception 'FAIL 6: a signed-in non-CMO reassigned an alert by setting the sweep marker';
+  end if;
+end $$;
+
+-- ================================================================ 7 the sweep skips a suppressed alert
+do $$
+declare v uuid := pg_temp.mkalert(pg_temp.f('orgC'), pg_temp.f('patC'), 'abnormal_result');
+begin
+  update public.clinician_alerts set responsible_clinician_id = null, suppressed = true where id = v;
+  perform private.assign_unowned_clinician_alerts();
+  if pg_temp.owner(v) is not null then raise exception 'FAIL 7: the sweep assigned a suppressed alert'; end if;
 end $$;
 
 rollback;
