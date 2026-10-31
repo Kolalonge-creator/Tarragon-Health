@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { PageHeader } from "@/components/ui/page-header";
+import { Disclosure } from "@/components/ui/disclosure";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
@@ -50,20 +51,19 @@ export default async function WellnessHubPage() {
         <ChallengesSection patientId={profile.id} />
       </div>
 
-      <div>
-        <h2 className="mb-2 flex items-center gap-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
-          <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
-          Meal log
-        </h2>
+      {/* Folded to keep the page short (design audit 4.7). Each opens in place; nothing inside was changed. */}
+      <Disclosure title="Meal log" hint="Log what you eat and earn points for it">
         <NutritionFlow
           patientId={profile.id}
           visionConfigured={isMealVisionConfigured()}
           activeConditions={activeConditions}
           mealPlanGenerationConfigured={isMealPlanGenerationConfigured()}
         />
-      </div>
+      </Disclosure>
 
-      <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
+      <Disclosure title="Workout classes" hint="Live and on-demand classes you can join">
+        <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
+      </Disclosure>
     </div>
   );
 }
