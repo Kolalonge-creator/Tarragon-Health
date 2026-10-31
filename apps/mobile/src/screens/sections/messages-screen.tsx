@@ -219,7 +219,13 @@ export function MessagesScreen({ patientId, onNavigate }: MessagesScreenProps) {
             // Attribution is null-gated: a care-team message shows the real name only when
             // the record carries one, otherwise the plain team label. Never an invented name.
             const attribution = careMessageSender(item.actor);
-            const senderName = fromMe ? tr("messages.sender.you") : (attribution.name ?? tr("messages.sender.team"));
+            // Same rule as web: a care coordinator is never named, only their role.
+            const isCoordinator = item.actor?.doctor_tier === "care_coordinator";
+            const senderName = fromMe
+              ? tr("messages.sender.you")
+              : isCoordinator
+                ? tr("messages.sender.team")
+                : (attribution.name ?? tr("messages.sender.team"));
             const sender = !fromMe && attribution.role ? `${senderName}, ${attribution.role}` : senderName;
             const sentAt = formatSentAt(item.created_at);
             return (
