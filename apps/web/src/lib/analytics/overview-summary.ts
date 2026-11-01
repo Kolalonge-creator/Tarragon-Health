@@ -1,4 +1,5 @@
 import { statTileValue, type StatTileValueProps } from "@/components/ui/stat-tile-value";
+import { LOADING_HINT, NOT_LOADED_HINT, sliceState, type QuerySlice } from "@/lib/queries/query-slice";
 import { formatMinor, formatNumber, formatPercent } from "./format";
 import type {
   BusinessSummary,
@@ -26,9 +27,6 @@ import type {
  * own note), so the number is revenue growth and now says so.
  */
 
-/** The slice of a react-query result this module needs. */
-export type QuerySlice<T> = { data: T | undefined; isPending: boolean };
-
 export type TileDelta = { text: string; direction: "up" | "down" | "flat" };
 export type OverviewTile = StatTileValueProps & { delta?: TileDelta };
 
@@ -51,14 +49,54 @@ export interface OverviewSummary {
     facilities: OverviewTile;
     bpControl: OverviewTile;
   };
+  /**
+   * Said when a background refresh failed on a figure that still has its last
+   * good value on screen, so that value is not shown as current. null when
+   * nothing is stale. The layout's own notice steps aside on this page (see
+   * SELF_REPORTING_PATHS), so this is the only place it can be said.
+   */
+  staleNotice: string | null;
 }
 
-/** The muted line shown in a tile's place when its figure is not known. */
-function unknownHint(q: { isPending: boolean }): string {
-  return q.isPending ? "Loading" : "Could not load";
+export const TILE_LABELS: Record<keyof OverviewSummary["tiles"], string> = {
+  revenue: "Total revenue",
+  patients: "Total patients",
+  revenue12m: "Revenue (12 months)",
+  verification: "Clinician licences verified",
+  facilities: "Facilities with activity",
+  bpControl: "BP control rate",
+};
+
+function staleNotice(inputs: OverviewInputs): string | null {
+  // The read each tile is built from.
+  const source: Record<keyof OverviewSummary["tiles"], QuerySlice<unknown>> = {
+    revenue: inputs.financial,
+    patients: inputs.business,
+    revenue12m: inputs.investor,
+    verification: inputs.governance,
+    facilities: inputs.facilities,
+    bpControl: inputs.outcomes,
+  };
+  const stale = (Object.keys(source) as Array<keyof OverviewSummary["tiles"]>).filter(
+    (tile) => sliceState(source[tile]) === "stale"
+  );
+  if (stale.length === 0) return null;
+  const names = stale.map((tile) => TILE_LABELS[tile]).join(", ");
+  return `${names} may be out of date: the last refresh failed. They are the last figures we read successfully, not live ones, and anything written from them, such as the opening line, may be out of date too. Reload the page to try again.`;
 }
 
-function unknownTile(q: { isPending: boolean }): OverviewTile {
+/**
+ * The muted line shown in a tile's place when its figure is not known. Not the
+ * shared `unknownHint`, which says "Loading…" until a read has errored: here a
+ * query that finished with a refused answer (the governance `{}` that parses
+ * to zeros) is not loading and has not errored, and must still say it could
+ * not be loaded.
+ */
+function unknownHint(q: { isLoading: boolean }): string {
+  return q.isLoading ? LOADING_HINT : NOT_LOADED_HINT;
+}
+
+function unknownTile(q: { isLoading: boolean }): OverviewTile {
   return statTileValue(null, unknownHint(q));
 }
 
@@ -161,7 +199,7 @@ function riskSentence(q: QuerySlice<GovernanceSummary>): string {
   const risk = riskFigures(q);
   if (risk === null) {
     // Only a settled failure is worth a sentence; a pending query is just slow.
-    return q.isPending ? "" : "Governance figures could not be loaded.";
+    return q.isLoading ? "" : "Governance figures could not be loaded.";
   }
   // An empty register means nobody has logged anything, which is not the same
   // as nothing being wrong, so it is said in those words.
@@ -190,7 +228,7 @@ function bannerCopy({ business, investor, governance }: OverviewInputs): string 
   if (parts.length === 0) {
     if (risk) return risk;
     // Nothing to say yet. Only call it loading if something still is.
-    return [business, investor, governance].some((q) => q.isPending)
+    return [business, investor, governance].some((q) => q.isLoading)
       ? "Your latest figures are loading."
       : "Some figures could not be loaded.";
   }
@@ -208,5 +246,6 @@ export function buildOverviewSummary(inputs: OverviewInputs): OverviewSummary {
       facilities: facilitiesTile(inputs.facilities),
       bpControl: bpControlTile(inputs.outcomes),
     },
+    staleNotice: staleNotice(inputs),
   };
 }

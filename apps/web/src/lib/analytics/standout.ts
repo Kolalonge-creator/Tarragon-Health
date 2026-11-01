@@ -71,9 +71,9 @@ export function standoutView(
   }
 
   const sources = [
-    { known: clinical !== null, pending: governance.isPending },
-    { known: investor.data !== undefined, pending: investor.isPending },
-    { known: f !== undefined, pending: facilities.isPending },
+    { known: clinical !== null, pending: governance.isLoading },
+    { known: investor.data !== undefined, pending: investor.isLoading },
+    { known: f !== undefined, pending: facilities.isLoading },
   ];
   const failed = sources.some((s) => !s.known && !s.pending);
   const waiting = sources.some((s) => !s.known && s.pending);

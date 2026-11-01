@@ -61,7 +61,7 @@ import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/mater
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
-import { Button, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { Button, Disclosure, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppText } from "@/ui/kit/AppText";
 import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 
@@ -557,14 +557,19 @@ function ContraceptionCard({
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="bodyStrong">Contraception</AppText>
+    <>
+      {/* The condition caution stays visible; only the options and the method note fold away. */}
+      {cautionNote && (
+        <Card>
+          <CautionNote text={cautionNote} />
+        </Card>
+      )}
+      <Disclosure title="Contraception" hint="Options, and the method you use now">
       <MutedText>
         Learn about your options, and let us know what you&apos;re currently using so your care team has the
         full picture.
       </MutedText>
       <ContraceptionEducation />
-      {cautionNote && <CautionNote text={cautionNote} />}
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={method} onChangeText={setMethod} placeholder="e.g. combined pill, implant, condoms, none" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
       {saved && <MutedText>Saved.</MutedText>}
@@ -577,7 +582,8 @@ function ContraceptionCard({
           Book a contraception consultation
         </AppText>
       </View>
-    </Card>
+      </Disclosure>
+    </>
   );
 }
 
@@ -983,8 +989,7 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="bodyStrong">Breast health: report a symptom</AppText>
+    <Disclosure title="Breast health: report a symptom" hint="Report something new, and see past reports">
       <MutedText>
         Noticed something new? Report it here for clinical assessment, separate from your routine breast
         screening.
@@ -1028,7 +1033,7 @@ function BreastSymptomCard({ patientId, organisationId }: { patientId: string; o
           ))}
         </View>
       )}
-    </Card>
+    </Disclosure>
   );
 }
 
@@ -1178,8 +1183,7 @@ function FertilityRequestCard({
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="bodyStrong">Fertility</AppText>
+    <Disclosure title="Fertility" hint="Request an assessment, and read the basics">
       <MutedText>
         Fertility assessment involves your history, some tests and, where appropriate, a specialist review,
         rather than a guaranteed outcome or a fixed timeline.
@@ -1212,7 +1216,7 @@ function FertilityRequestCard({
           <PrimaryButton title="Request a fertility assessment" onPress={submit} loading={submitting} />
         </View>
       )}
-    </Card>
+    </Disclosure>
   );
 }
 

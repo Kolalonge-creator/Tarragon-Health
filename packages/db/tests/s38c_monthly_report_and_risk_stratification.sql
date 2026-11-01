@@ -67,8 +67,13 @@ declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
   h uuid; h2 uuid; l uuid; l2 uuid; d uuid; nn uuid; x uuid; y1 uuid; y2 uuid; t uuid; r uuid; f uuid; p0 uuid; p1 uuid;
   c uuid := gen_random_uuid(); c2 uuid := gen_random_uuid(); a uuid := gen_random_uuid();
-  v_m date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date - interval '1 month')::date;
-  v_first date := date_trunc('month', (now() at time zone 'Africa/Lagos'))::date;
+  -- The month the proof pretends it is. It is the month that contains the day 12 days ago, not the calendar month, because the
+  -- "recent" fixtures above are placed up to 11 days before today. Anchored on the calendar month, those readings land in the
+  -- reported month on the 1st to the 11th of any month and change its counts (a 7 or 8 where the proof expects 4; found on 1 November).
+  -- Anchored here they are always at least a month after the reported month, whatever today is. The pretend "now" values below are
+  -- the 2nd and 3rd of that month, which is never later than 10 days ago, so they are never in the future.
+  v_first date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date - 12)::date;
+  v_m date := (v_first - interval '1 month')::date;
   v_now2 timestamptz; v_now3 timestamptz;
   v_o jsonb; pt uuid; lp uuid; s record; v_n integer; v_n2 integer; v_rep jsonb; v_row jsonb; v_txt text; v_id uuid; v_before integer; v_aud integer; v_ok boolean;
   i integer;
@@ -142,6 +147,14 @@ begin
 
   v_n2 := private.compute_risk_scores(now());
   insert into s38c_results values ('3a second run the same day writes nothing', v_n2::text, '0', case when v_n2 = 0 then 'PASS' else 'FAIL' end);
+  -- The scoring fixtures above place readings 1 to 11 days back. In the first days of a month some of
+  -- those fall in last month (the month the report checks below cover) and inflate the counts, so the
+  -- proof failed on the 1st to 12th of every month. Scoring is finished: drop those stray readings.
+  -- The report fixtures sit on days 1 to 8 of last month, so nothing from day 10 on is wanted.
+  delete from public.vitals_readings
+   where patient_id in (select id from auth.users where email like 's38c-%@example.invalid')
+     and taken_at >= (v_m + 10)::timestamp at time zone 'Africa/Lagos'
+     and taken_at <  v_first::timestamp at time zone 'Africa/Lagos';
   begin
     update public.risk_scores set dropout_risk = 99 where patient_id = h;
     insert into s38c_results values ('3b risk_scores update refused by the append-only trigger', 'updated', 'refused', 'FAIL');
