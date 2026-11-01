@@ -213,7 +213,7 @@ begin
   if v_cond ->> 'detail' not like '%A Counsel%' or v_cond ->> 'detail' not like '%decision support%' then raise exception 'FAIL 5: the dashboard detail does not show the record: %', v_cond; end if;
 
   -- the baseline: an EMPTY report is not a baseline, so the attestation is still refused; then a real baseline exists; then allowed
-  perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '1 month')::date, true, v_admin);
+  perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '1 month')::date, true, v_admin);
   if exists (select 1 from public.symptom_accuracy_reports where organisation_id = v_org and is_baseline) then raise exception 'FAIL 4i0: an empty report became a baseline'; end if;
   perform pg_temp.act(v_cmo);
   if pg_temp.try(format('select public.attest_go_live_condition(%L, %L, true, %L)', 'symptom_checker_enabled', 'accuracy_baseline_recorded', 'Attesting on an empty report (proof)')) <> '22023' then

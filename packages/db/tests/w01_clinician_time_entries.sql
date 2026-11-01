@@ -79,7 +79,7 @@ end $f$;
 -- 0. Fixtures ----------------------------------------------------------------------------------------------------------
 do $$
 declare v_org uuid; v_admin uuid; v_doc uuid; v_other uuid; v_cmo uuid; v_fin uuid; v_free uuid; v_pp uuid; v_i integer;
-        v_task uuid; v_task2 uuid; v_thread uuid; v_month timestamptz := date_trunc('month', now());
+        v_task uuid; v_task2 uuid; v_thread uuid; v_month timestamptz := date_trunc('month', now() at time zone 'Africa/Lagos') at time zone 'Africa/Lagos';
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');

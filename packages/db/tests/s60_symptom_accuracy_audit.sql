@@ -91,15 +91,15 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid;
   v_lagos uuid; v_edo uuid; v_kano uuid; v_testp uuid;
-  v_m1 date := (date_trunc('month', now()) - interval '1 month')::date;
-  v_m2 date := (date_trunc('month', now()) - interval '2 month')::date;
+  v_m1 date := (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '1 month')::date;
+  v_m2 date := (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '2 month')::date;
   v_r1 uuid; v_r1b uuid; v_r2 uuid; v_rt uuid; v_rep public.symptom_accuracy_reports%rowtype; v_c jsonb; v_cell jsonb; v_n integer; v_r text; v_w numeric[];
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   if not exists (select 1 from public.triage_protocols) then raise exception 'fixture: need a triage_protocols row'; end if;
   -- an EMPTY month is recorded but is never the baseline: it must not satisfy the go-live condition (and must not use up the baseline)
-  v_rt := private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '6 month')::date, false, null);
+  v_rt := private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '6 month')::date, false, null);
   if (select is_baseline from public.symptom_accuracy_reports where id = v_rt) or (select reviewed_total from public.symptom_accuracy_reports where id = v_rt) <> 0 then
     raise exception 'FAIL 1g: an empty month became the baseline';
   end if;
@@ -188,7 +188,7 @@ begin
   if pg_temp.try('select count(id) from public.symptom_accuracy_reports') <> '42501' then raise exception 'FAIL 6e: anon can read reports'; end if;
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
-  if pg_temp.try(format('select public.run_symptom_accuracy_audit_now(%L)', date_trunc('month', now())::date)) <> '22023' then raise exception 'FAIL 6f: an unfinished month was accepted'; end if;
+  if pg_temp.try(format('select public.run_symptom_accuracy_audit_now(%L)', date_trunc('month', now() at time zone 'Africa/Lagos')::date)) <> '22023' then raise exception 'FAIL 6f: an unfinished month was accepted'; end if;
   if pg_temp.try(format('select public.run_symptom_accuracy_audit_now(%L)', v_m1)) <> 'ok' then raise exception 'FAIL 6g: the admin could not run the audit for a finished month'; end if;
   perform pg_temp.back();
   if (select count(*) from public.symptom_accuracy_reports where organisation_id = v_org and period_start = v_m1 and not includes_test_accounts) <> 1 then
@@ -205,12 +205,12 @@ begin
 
   -- SABOTAGE (a): lower the minimum cell size to 5 and audit a month where Kano has 7: the cell must now show
   update public.profiles set is_test = true where id in (v_lagos, v_edo, v_kano);
-  perform pg_temp.cohort(v_org, v_kano, v_doc, (date_trunc('month', now()) - interval '3 month')::date, 7, 4, 3);
-  perform pg_temp.cohort(v_org, v_edo, v_doc, (date_trunc('month', now()) - interval '3 month')::date, 11, 10, 0);
-  perform pg_temp.cohort(v_org, v_lagos, v_doc, (date_trunc('month', now()) - interval '3 month')::date, 12, 9, 2);
+  perform pg_temp.cohort(v_org, v_kano, v_doc, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '3 month')::date, 7, 4, 3);
+  perform pg_temp.cohort(v_org, v_edo, v_doc, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '3 month')::date, 11, 10, 0);
+  perform pg_temp.cohort(v_org, v_lagos, v_doc, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '3 month')::date, 12, 9, 2);
   update public.profiles set is_test = false where id in (v_lagos, v_edo, v_kano);
   update public.symptom_accuracy_config set config = jsonb_set(config, '{min_cell_size}', '5') where is_active;
-  v_rt := private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '3 month')::date, false, v_admin);
+  v_rt := private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '3 month')::date, false, v_admin);
   select c into v_cell from public.symptom_accuracy_reports r, jsonb_array_elements(r.cells) c where r.id = v_rt and c ->> 'dimension' = 'region' and c ->> 'group' = 'Kano';
   if (v_cell ->> 'suppressed')::boolean then raise exception 'VACUOUS TEST (a): with the minimum lowered to 5 the 7-case cell was still suppressed'; end if;
   update public.symptom_accuracy_config set config = jsonb_set(config, '{min_cell_size}', '10') where is_active;

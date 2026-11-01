@@ -174,7 +174,7 @@ begin
   if v_o.mapped_category is not null or v_o.mapping_version is not null or v_o.agrees is not null then raise exception 'FAIL 2a: a value was computed without a confirmed map'; end if;
   update public.symptom_accuracy_config set config = jsonb_set(config, '{min_cell_size}', '5') where is_active;
   -- the REAL basis (patient 1 is a real account): the unmapped outcomes exist for it and are not counted, and the empty report is no baseline
-  v_rep := private.run_symptom_accuracy_audit(v_org, current_date, false, v_admin);
+  v_rep := private.run_symptom_accuracy_audit(v_org, (now() at time zone 'Africa/Lagos')::date, false, v_admin);
   if (select reviewed_total from public.symptom_accuracy_reports where id = v_rep) <> 0 or (select is_baseline from public.symptom_accuracy_reports where id = v_rep) then
     raise exception 'FAIL 2b: unmapped outcomes were counted or made a baseline';
   end if;
@@ -267,7 +267,7 @@ begin
   insert into public.symptom_reviews (organisation_id, assessment_id, patient_id, status, recorded_by, protocol_version, clinician_id, final_diagnosis_code, clinician_category, agrees, patient_message, reviewed_at, is_test)
     select v_org, assessment_id, patient_id, 'completed', patient_id, protocol_version, v_c1, 'B50.9', 'urgent', (checker_category = 'urgent'), 'Your care team reviewed this check.', now(), true
       from public.symptom_encounter_outcomes where status = 'active' and diagnosis_code = 'B50.9' order by created_at desc limit 1;
-  v_rep := private.run_symptom_accuracy_audit(v_org, current_date, true, v_admin);
+  v_rep := private.run_symptom_accuracy_audit(v_org, (now() at time zone 'Africa/Lagos')::date, true, v_admin);
   select cells into v_j from public.symptom_accuracy_reports where id = v_rep;
   select c into v_cell from jsonb_array_elements(v_j) c where c ->> 'dimension' = 'overall';
   if (v_cell ->> 'n')::int <> v_before then raise exception 'FAIL 5a: counted % (expected % : every computed active row, the manually reviewed assessment once)', v_cell ->> 'n', v_before; end if;
