@@ -147,6 +147,14 @@ begin
 
   v_n2 := private.compute_risk_scores(now());
   insert into s38c_results values ('3a second run the same day writes nothing', v_n2::text, '0', case when v_n2 = 0 then 'PASS' else 'FAIL' end);
+  -- The scoring fixtures above place readings 1 to 11 days back. In the first days of a month some of
+  -- those fall in last month (the month the report checks below cover) and inflate the counts, so the
+  -- proof failed on the 1st to 12th of every month. Scoring is finished: drop those stray readings.
+  -- The report fixtures sit on days 1 to 8 of last month, so nothing from day 10 on is wanted.
+  delete from public.vitals_readings
+   where patient_id in (select id from auth.users where email like 's38c-%@example.invalid')
+     and taken_at >= (v_m + 10)::timestamp at time zone 'Africa/Lagos'
+     and taken_at <  v_first::timestamp at time zone 'Africa/Lagos';
   begin
     update public.risk_scores set dropout_risk = 99 where patient_id = h;
     insert into s38c_results values ('3b risk_scores update refused by the append-only trigger', 'updated', 'refused', 'FAIL');
