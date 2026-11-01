@@ -6,6 +6,7 @@ import type { AttentionKey, AttentionView } from "@tarragon/shared";
 const UNKNOWN_LABEL: Record<AttentionKey, string> = {
   serious_incidents: "serious incidents",
   ai_governance: "AI governance sign-off",
+  front_desk_signoff: "front desk sign-off",
   clinician_verification: "clinician verifications",
   booking_requests: "booking requests",
 };
