@@ -1770,3 +1770,5 @@ community_independent_of_clinical_operations.sql
 community_staff_clinician_accounts.sql
 # Clinician alert owner: an alert whose type owner tier is empty falls back to the backup, then senior tier, then the CMO; the insert trigger still spreads load; a sweep assigns open unowned alerts once a doctor exists (and leaves owned ones alone); the reassignment guard still refuses a signed-in non-CMO. Sabotage: the old insert trigger leaves an overdue_task alert unowned, and no sweep function exists.
 clinician_alert_owner_fallback_and_sweep.sql
+# Front Desk M1: anon reads nothing from any of the 14 fd_ tables; staff reads are organisation-scoped; nobody writes directly (admin included); admin RPCs refuse a patient and anon; config changes are audited with their value; sequence-step and knowledge wording is draft until a person approves it, editing returns it to draft, knowledge text is immutable and versioned; the audit log is append only; consent/contact/run constraints hold; English-only and no sms channel. Sabotage: reset-approval trigger dropped, INSERT granted with RLS off, audit append-only trigger dropped must each flip.
+fd_m1_front_desk_foundations.sql
