@@ -1,6 +1,7 @@
 import { formatMinor, formatNumber } from "@/lib/analytics/format";
-import { statTileValue, type StatTileValueProps } from "@/components/ui/stat-tile-value";
-import { refreshQueryState, type RefreshQueryState } from "@/lib/queries/list-query-state";
+import type { StatTileValueProps } from "@/components/ui/stat-tile-value";
+import type { RefreshQueryState } from "@/lib/queries/list-query-state";
+import { sliceState, sliceText, sliceTile, unknownHint, type QuerySlice } from "@/lib/queries/query-slice";
 import type { DashboardSummary, KpiSummary, RevenueByFundingSource, RiskFlags } from "./schemas";
 
 /**
@@ -26,47 +27,16 @@ import type { DashboardSummary, KpiSummary, RevenueByFundingSource, RiskFlags } 
  * that, so adding defaults to one of those schemas fails a test.
  */
 
-/** The part of a TanStack Query result this needs. */
-export interface QuerySlice<T> {
-  data: T | undefined;
-  isLoading: boolean;
-  isError: boolean;
-}
-
-const LOADING = "Loading…";
-const NOT_LOADED = "Could not be loaded";
 const NO_HISTORY = "Not enough data yet";
 
-export function sectionState<T>(q: QuerySlice<T>): RefreshQueryState {
-  return refreshQueryState({
-    isLoading: q.isLoading,
-    isError: q.isError,
-    hasData: q.data !== undefined,
-  });
-}
-
 /**
- * A tile value. Data present: the read value, or `whenNull` if the ledger has
- * no figure for this metric. No data: loading, or could not be loaded. Never 0.
+ * The shared rules in lib/queries/query-slice.ts, with this page's wording for
+ * a figure the ledger genuinely has no value for.
  */
-function tile<T>(
-  q: QuerySlice<T>,
-  read: (data: T) => string | null,
-  whenNull: string = NO_HISTORY
-): StatTileValueProps {
-  if (q.data !== undefined) return statTileValue(read(q.data), whenNull);
-  return statTileValue(null, q.isError ? NOT_LOADED : LOADING);
-}
-
-/** The same rule for plain text rows. */
-function text<T>(
-  q: QuerySlice<T>,
-  read: (data: T) => string | null,
-  whenNull: string = NO_HISTORY
-): string {
-  if (q.data !== undefined) return read(q.data) ?? whenNull;
-  return q.isError ? NOT_LOADED : LOADING;
-}
+const tile = <T,>(q: QuerySlice<T>, read: (data: T) => string | null, whenNull: string = NO_HISTORY): StatTileValueProps =>
+  sliceTile(q, read, whenNull);
+const text = <T,>(q: QuerySlice<T>, read: (data: T) => string | null, whenNull: string = NO_HISTORY): string =>
+  sliceText(q, read, whenNull);
 
 const ngn = (minor: number) => formatMinor(minor, "NGN");
 
@@ -214,13 +184,13 @@ export interface FinanceOverview {
 export function buildFinanceOverview(inputs: FinanceOverviewInputs): FinanceOverview {
   const { dashboard: d, kpis: k, funding: f, flags: fl } = inputs;
 
-  const dashState = sectionState(d);
-  const flagState = sectionState(fl);
+  const dashState = sliceState(d);
+  const flagState = sliceState(fl);
   const items = fl.data !== undefined ? flagItems(fl.data) : [];
 
   let revenueByCurrency: FinanceOverview["dashboard"]["revenueByCurrency"];
   if (d.data === undefined)
-    revenueByCurrency = { status: "unknown", rows: [], message: d.isError ? NOT_LOADED : LOADING };
+    revenueByCurrency = { status: "unknown", rows: [], message: unknownHint(d) };
   else if (d.data.revenue_by_currency.length === 0)
     revenueByCurrency = { status: "empty", rows: [], message: "" };
   else
@@ -260,7 +230,7 @@ export function buildFinanceOverview(inputs: FinanceOverviewInputs): FinanceOver
       allClear: fl.data !== undefined && !fl.isError && items.length === 0,
     },
     kpis: {
-      state: sectionState(k),
+      state: sliceState(k),
       tiles: {
         grossMargin: tile(k, (x) => (x.gross_margin_pct === null ? null : `${x.gross_margin_pct}%`), NO_HISTORY),
         netMargin: tile(k, (x) => (x.net_margin_pct === null ? null : `${x.net_margin_pct}%`), NO_HISTORY),
@@ -271,7 +241,7 @@ export function buildFinanceOverview(inputs: FinanceOverviewInputs): FinanceOver
       },
     },
     funding: {
-      state: sectionState(f),
+      state: sliceState(f),
       tiles: {
         cash: tile(f, (x) => ngn(x.cash_minor)),
         promotional: tile(f, (x) => ngn(x.promotional_minor)),

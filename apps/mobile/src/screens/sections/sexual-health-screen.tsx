@@ -45,6 +45,7 @@ import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit";
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   const colors = useLegacyColors();
@@ -425,8 +426,7 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
 
   return (
     <>
-      <Card style={{ gap: 12 }}>
-        <AppText variant="bodyStrong">Contraception methods</AppText>
+      <Disclosure title="Contraception methods" hint="Compare methods and request one">
         <MutedText>
           Compare methods in plain language, then request the one that fits you. Your care team will
           follow up before anything is prescribed.
@@ -452,10 +452,9 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
             ))}
           </View>
         ))}
-      </Card>
+      </Disclosure>
 
-      <Card style={{ gap: 8 }}>
-        <AppText variant="bodyStrong">Your contraception plans</AppText>
+      <Disclosure title="Your contraception plans" hint="Methods you have asked for">
         {plans.length === 0 && <MutedText>You have not requested a method yet. Browse above whenever you are ready.</MutedText>}
         {plans.map((plan) => (
           <View key={plan.id} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10 }}>
@@ -466,7 +465,7 @@ function ContraceptionCard({ userId, organisationId }: { userId: string; organis
             <AppText variant="label" tone="textMuted">{CONTRACEPTION_STATUS_LABEL[plan.status]}</AppText>
           </View>
         ))}
-      </Card>
+      </Disclosure>
     </>
   );
 }
@@ -680,8 +679,7 @@ function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
   }, []);
 
   return (
-    <Card style={{ gap: 8 }}>
-      <AppText variant="bodyStrong">Learn</AppText>
+    <Disclosure title="Learn" hint="Plain-language reading on fertility, contraception and related topics">
       <MutedText>Plain-language reading on fertility, contraception, and related health topics.</MutedText>
 
       {loading && <MutedText>Loading…</MutedText>}
@@ -696,7 +694,7 @@ function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
       ))}
 
       <SecondaryButton title="Browse everything in Learn" onPress={onOpenLearn} />
-    </Card>
+    </Disclosure>
   );
 }
 

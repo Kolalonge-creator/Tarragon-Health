@@ -14,6 +14,7 @@ import { spacing } from "@/ui/theme";
 import { useLegacyColors, textStyles } from "@/ui/design";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit";
 
 const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] = [
   {
@@ -34,17 +35,27 @@ const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] 
 ];
 
 /** Now native screens, not browser hand-offs. See tracker-screens.tsx. */
-const NATIVE_TRACKERS: {
+interface Tracker {
   label: string;
   section: SectionId;
   icon: keyof typeof Ionicons.glyphMap;
-}[] = [
-  { label: "Meals", section: "meals", icon: "restaurant-outline" },
-  { label: "Sleep", section: "sleep", icon: "moon-outline" },
-  { label: "Movement", section: "activity", icon: "walk-outline" },
-  { label: "Smoking", section: "smoking", icon: "flame-outline" },
-  { label: "Alcohol", section: "alcohol", icon: "wine-outline" },
-  { label: "Exercise programmes", section: "exercise", icon: "barbell-outline" },
+  subtitle: string;
+}
+
+/** The three trackers shown up front (mirrors the web lifestyle page). */
+const PRIORITY_TRACKERS: Tracker[] = [
+  { label: "Meals", section: "meals", icon: "restaurant-outline", subtitle: "Log it here, in the app." },
+  { label: "Weight management", section: "weightManagement", icon: "scale-outline", subtitle: "Your weight and metabolic health." },
+  { label: "Movement", section: "activity", icon: "walk-outline", subtitle: "Log it here, in the app." },
+];
+
+/** The rest sit under the closed "More to track" disclosure. */
+const MORE_TRACKERS: Tracker[] = [
+  { label: "Exercise programmes", section: "exercise", icon: "barbell-outline", subtitle: "Log it here, in the app." },
+  { label: "Sleep", section: "sleep", icon: "moon-outline", subtitle: "Log it here, in the app." },
+  { label: "Smoking", section: "smoking", icon: "flame-outline", subtitle: "Log it here, in the app." },
+  { label: "Alcohol", section: "alcohol", icon: "wine-outline", subtitle: "Log it here, in the app." },
+  { label: "Wellness rewards", section: "wellness", icon: "gift-outline", subtitle: "Points, badges, and challenges." },
 ];
 
 interface LifestyleScreenProps {
@@ -130,28 +141,17 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
         );
       })}
 
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <SecondaryButton title="Weight management" onPress={() => onNavigate("weightManagement")} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <SecondaryButton title="Wellness rewards" onPress={() => onNavigate("wellness")} />
-        </View>
-      </View>
-
       <View style={{ gap: 8 }}>
-        <AppText variant="bodyStrong">More ways to track</AppText>
-        {NATIVE_TRACKERS.map((tracker) => (
-          <CalloutCard
-            key={tracker.section}
-            icon={tracker.icon}
-            title={tracker.label}
-            subtitle="Log it here, in the app."
-            ctaLabel="Open"
-            onPress={() => onNavigate(tracker.section)}
-          />
+        {PRIORITY_TRACKERS.map((tracker) => (
+          <TrackerCard key={tracker.section} tracker={tracker} onNavigate={onNavigate} />
         ))}
       </View>
+
+      <Disclosure title="More to track" hint="Exercise programmes, sleep, smoking, alcohol and rewards">
+        {MORE_TRACKERS.map((tracker) => (
+          <TrackerCard key={tracker.section} tracker={tracker} onNavigate={onNavigate} />
+        ))}
+      </Disclosure>
 
       <Modal visible={pastGoalsOpen} animationType="slide" onRequestClose={() => setPastGoalsOpen(false)}>
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -162,6 +162,18 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
         </View>
       </Modal>
     </ScrollView>
+  );
+}
+
+function TrackerCard({ tracker, onNavigate }: { tracker: Tracker; onNavigate: (section: SectionId) => void }) {
+  return (
+    <CalloutCard
+      icon={tracker.icon}
+      title={tracker.label}
+      subtitle={tracker.subtitle}
+      ctaLabel="Open"
+      onPress={() => onNavigate(tracker.section)}
+    />
   );
 }
 

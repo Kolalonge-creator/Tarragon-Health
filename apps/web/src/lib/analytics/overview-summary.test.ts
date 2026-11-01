@@ -4,9 +4,10 @@ import { describe, expect, it } from "@jest/globals";
 import { formatPercent } from "./format";
 import {
   buildOverviewSummary,
+  TILE_LABELS,
   type OverviewInputs,
-  type QuerySlice,
 } from "./overview-summary";
+import type { QuerySlice } from "@/lib/queries/query-slice";
 import {
   businessSummarySchema,
   clinicalOutcomesSchema,
@@ -31,9 +32,11 @@ import {
  * shapes the RPCs return, including the `{}` a non-analyst receives.
  */
 
-const loaded = <T>(data: T): QuerySlice<T> => ({ data, isPending: false });
-const loading = <T>(): QuerySlice<T> => ({ data: undefined, isPending: true });
-const failed = <T>(): QuerySlice<T> => ({ data: undefined, isPending: false });
+const loaded = <T>(data: T): QuerySlice<T> => ({ data, isLoading: false, isError: false });
+const loading = <T>(): QuerySlice<T> => ({ data: undefined, isLoading: true, isError: false });
+const failed = <T>(): QuerySlice<T> => ({ data: undefined, isLoading: false, isError: true });
+/** A refresh failed after a good read: the last good data is still there. */
+const stale = <T>(data: T): QuerySlice<T> => ({ data, isLoading: false, isError: true });
 
 function inputs(overrides: Partial<OverviewInputs> = {}): OverviewInputs {
   return {
@@ -80,8 +83,8 @@ describe("revenue growth wording", () => {
 
 describe("a figure that is not known never renders as zero", () => {
   it.each([
-    ["still loading", loading, "Loading"],
-    ["failed", failed, "Could not load"],
+    ["still loading", loading, "Loading…"],
+    ["failed", failed, "Could not be loaded"],
   ])("every tile shows a hint, not a number, when its query is %s", (_name, slice, hint) => {
     const { tiles } = buildOverviewSummary({
       business: slice(),
@@ -104,17 +107,15 @@ describe("a figure that is not known never renders as zero", () => {
     // read as 0% verified with "No open risk items" and a green arrow.
     const { tiles, banner } = buildOverviewSummary(inputs({ governance: loaded(governanceSummarySchema.parse({})) }));
 
-    expect(tiles.verification.empty).toEqual({ hint: "Could not load" });
+    expect(tiles.verification.empty).toEqual({ hint: "Could not be loaded" });
     expect(banner).toContain("Governance figures could not be loaded.");
     expect(banner).not.toMatch(/No risks have been logged|open risk|No open risk/);
   });
 
   it("keeps a real answer visible when a later refresh fails", () => {
-    const stale: QuerySlice<ReturnType<typeof governanceSummarySchema.parse>> = {
-      data: governanceSummarySchema.parse({ clinical: CLINICIANS_ALL_VERIFIED }),
-      isPending: false,
-    };
-    const { tiles } = buildOverviewSummary(inputs({ governance: stale }));
+    const { tiles } = buildOverviewSummary(
+      inputs({ governance: stale(governanceSummarySchema.parse({ clinical: CLINICIANS_ALL_VERIFIED })) })
+    );
     expect(tiles.verification.value).toBe(formatPercent(100));
   });
 
@@ -309,5 +310,51 @@ describe("Overview component", () => {
     // The shape that caused the original bug: `data?.x ?? 0`. The derivation
     // lives in lib/analytics/overview-summary.ts, where unknown stays unknown.
     expect(source).not.toMatch(/\?\?\s*0\b/);
+  });
+});
+
+describe("figures kept after a failed refresh are marked out of date", () => {
+  it("says nothing when every read is current", () => {
+    expect(buildOverviewSummary(inputs()).staleNotice).toBeNull();
+  });
+
+  it("says nothing for a figure that never loaded: its tile already says so", () => {
+    const { staleNotice, tiles } = buildOverviewSummary(inputs({ business: failed(), financial: loading() }));
+    expect(staleNotice).toBeNull();
+    expect(tiles.patients.empty).toEqual({ hint: "Could not be loaded" });
+  });
+
+  it("names the cards whose figures are the last good ones, and only those", () => {
+    const { staleNotice, tiles } = buildOverviewSummary(
+      inputs({
+        business: stale(businessSummarySchema.parse({ total_patients: 31, active_patients: 31 })),
+        outcomes: stale(clinicalOutcomesSchema.parse({})),
+      })
+    );
+    expect(staleNotice).toContain(TILE_LABELS.patients);
+    expect(staleNotice).toContain(TILE_LABELS.bpControl);
+    expect(staleNotice).not.toContain(TILE_LABELS.revenue);
+    expect(staleNotice).toMatch(/may be out of date: the last refresh failed/);
+    // The last good figure is still shown, not blanked.
+    expect(tiles.patients.value).toBe("31");
+  });
+
+  it.each([
+    ["financial", TILE_LABELS.revenue],
+    ["business", TILE_LABELS.patients],
+    ["investor", TILE_LABELS.revenue12m],
+    ["facilities", TILE_LABELS.facilities],
+    ["outcomes", TILE_LABELS.bpControl],
+  ] as const)("a stale %s read is reported against %s", (key, label) => {
+    const base = inputs();
+    const { staleNotice } = buildOverviewSummary({ ...base, [key]: stale(base[key].data) } as OverviewInputs);
+    expect(staleNotice).toContain(label);
+  });
+
+  it("a stale governance read is reported against the licences card", () => {
+    const { staleNotice } = buildOverviewSummary(
+      inputs({ governance: stale(governanceSummarySchema.parse({ clinical: CLINICIANS_ALL_VERIFIED })) })
+    );
+    expect(staleNotice).toContain(TILE_LABELS.verification);
   });
 });
