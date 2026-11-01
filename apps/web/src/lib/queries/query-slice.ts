@@ -18,6 +18,27 @@ export interface QuerySlice<T> {
   isError: boolean;
 }
 
+/**
+ * The fields of a TanStack `useQuery` result that `fromQueryResult` reads.
+ */
+export interface QueryResultLike<T> {
+  data: T | undefined;
+  isPending: boolean;
+  isError: boolean;
+}
+
+/**
+ * A `useQuery` result as a slice. `isPending` becomes `isLoading` on purpose:
+ * TanStack's own `isLoading` is only true while a fetch is in flight, so a
+ * first read that is paused (the browser is offline) has no data, is not
+ * loading and has not failed, and a summary would call it "ready". `isPending`
+ * is true for any query that has no data yet and has not errored, which is the
+ * state "still waiting for the first answer".
+ */
+export function fromQueryResult<T>(q: QueryResultLike<T>): QuerySlice<T> {
+  return { data: q.data, isLoading: q.isPending, isError: q.isError };
+}
+
 export const LOADING_HINT = "Loading…";
 export const NOT_LOADED_HINT = "Could not be loaded";
 export const NOT_RECORDED_HINT = "Not recorded";

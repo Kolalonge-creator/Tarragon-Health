@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
-import type { OverviewInputs, QuerySlice } from "./overview-summary";
+import type { OverviewInputs } from "./overview-summary";
+import type { QuerySlice } from "@/lib/queries/query-slice";
 import { facilityEngagementSchema, governanceSummarySchema, investorSummarySchema } from "./schemas";
 import { standoutView } from "./standout";
 
-const loaded = <T>(data: T): QuerySlice<T> => ({ data, isPending: false });
-const loading = <T>(): QuerySlice<T> => ({ data: undefined, isPending: true });
-const failed = <T>(): QuerySlice<T> => ({ data: undefined, isPending: false });
+const loaded = <T>(data: T): QuerySlice<T> => ({ data, isLoading: false, isError: false });
+const loading = <T>(): QuerySlice<T> => ({ data: undefined, isLoading: true, isError: false });
+const failed = <T>(): QuerySlice<T> => ({ data: undefined, isLoading: false, isError: true });
 
 const ALL_VERIFIED = { staff_total: 10, staff_verified: 10, staff_unverified_active: 0, verification_pct: 100 };
 

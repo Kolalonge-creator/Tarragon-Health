@@ -1772,3 +1772,5 @@ community_staff_clinician_accounts.sql
 clinician_alert_owner_fallback_and_sweep.sql
 # Front Desk M1: anon reads nothing from any of the 14 fd_ tables; staff reads are organisation-scoped; nobody writes directly (admin included); admin RPCs refuse a patient and anon; config changes are audited with their value; sequence-step and knowledge wording is draft until a person approves it, editing returns it to draft, knowledge text is immutable and versioned; the audit log is append only; consent/contact/run constraints hold; English-only and no sms channel. Sabotage: reset-approval trigger dropped, INSERT granted with RLS off, audit append-only trigger dropped must each flip.
 fd_m1_front_desk_foundations.sql
+# Notification sender shared secret: the verifier accepts only the vault secret (not empty, null or wrong), is service_role only, and pg_cron plus all four trigger/sweep callers send the x-sender-secret header. Sabotage: a caller stripped of the header and a verifier opened to authenticated are each detected.
+notification_sender_shared_secret.sql

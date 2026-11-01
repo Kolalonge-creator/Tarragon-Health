@@ -32,6 +32,7 @@
 // hop stays its own auditable, delivery-tracked row.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { refuseUnlessSender } from "./sender-auth.ts";
 import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
@@ -480,11 +481,18 @@ async function documentLinkFor(template: string | null, recipientId: string, pay
   return `${base}/d/${await signDocumentLink(secret, kind, id, Date.now() + DOCUMENT_LINK_TTL_MS)}`;
 }
 
-Deno.serve(withSentry("send-pending-notifications", async () => {
+Deno.serve(withSentry("send-pending-notifications", async (req: Request) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Only the database (pg_cron and its triggers) may drive a drain; see sender-auth.ts.
+  const refused = await refuseUnlessSender(req, async (secret) => {
+    const { data, error } = await supabase.rpc("verify_notification_sender_secret", { p_secret: secret });
+    return { ok: data === true, failed: error !== null };
+  });
+  if (refused) return refused;
 
   // send_after (set by queue_vitals_reminders/queue_medication_checkin_reminders
   // from profiles.preferred_reminder_hour) holds a non-urgent reminder back
