@@ -107,9 +107,8 @@ verify_jwt = false
 verify_jwt = false
 
 # Pinned to the live setting so a plain `supabase functions deploy` does not flip it. pg_cron and database triggers call this with
-# the vault secret edge_function_publishable_key as the bearer; whether that key is a JWT was NOT confirmed (the vault read returned
-# nothing), so true is not known to be safe. Live showed no 401s over 360 calls on 2026-10-31 with false. The handler checks nothing
-# about the request, so anyone who can reach the URL can force a drain of already-queued notifications. Open follow-up: have the
-# cron send a shared secret header and have the handler check it, then set this back to true.
+# the vault secret edge_function_publishable_key as the bearer, which is not necessarily a JWT, so the platform JWT check stays off.
+# The real check is the handler's: every database caller also sends the vault secret notification_sender_secret in x-sender-secret,
+# and the handler asks public.verify_notification_sender_secret (service role only) before it reads any pending notification.
 [functions.send-pending-notifications]
 verify_jwt = false
