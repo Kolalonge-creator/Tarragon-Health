@@ -28,6 +28,7 @@ import { radius } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor, textStyles } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -76,8 +77,7 @@ function StiBookingPanel() {
 
 
   return (
-    <Card style={{ gap: 10 }}>
-      <AppText variant="bodyStrong">STI testing</AppText>
+    <Disclosure title="STI testing" hint="Tests you can take to any laboratory, and roughly what they cost">
       <MutedText>
         Test on your own schedule, whether or not you did the check-in above. Working out what you
         need and writing the request is free. You take it to any laboratory and pay them directly at
@@ -113,7 +113,7 @@ function StiBookingPanel() {
       ))}
 
       <MutedText>Home test kits are not available from a partner yet. For now, take the request to a laboratory of your choice.</MutedText>
-    </Card>
+    </Disclosure>
   );
 }
 
