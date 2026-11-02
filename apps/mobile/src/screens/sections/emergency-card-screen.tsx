@@ -22,6 +22,7 @@ import { EmergencyCoverageCard } from "./emergency-coverage-card";
 import { FreshnessNote } from "@/ui/freshness-note";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { Disclosure } from "@/ui/kit/Disclosure";
 
 interface EmergencyCardScreenProps {
   patientId: string;
@@ -153,21 +154,21 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       {/* Fixed red with white text in both schemes: a first responder must recognise this card at a glance. */}
       <View style={{ backgroundColor: lightPalette.dangerText, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
-          {facts.fullName ?? "Name not recorded"}
+          {facts.fullName ?? "Name not added yet"}
         </Text>
-        {/* A detail the person chose not to share says so. It never reads "None on file": a stranger would take that as "has none". */}
-        <FactRow label="Blood group" value={notShared("blood") ?? facts.bloodGroup ?? "Not on file"} />
-        <FactRow label="Genotype" value={notShared("blood") ?? facts.genotype ?? "Not on file"} />
+        {/* A detail the person chose not to share says so. It never reads "Not added yet": a stranger would take that as "has none". */}
+        <FactRow label="Blood group" value={notShared("blood") ?? facts.bloodGroup ?? "Not added yet"} />
+        <FactRow label="Genotype" value={notShared("blood") ?? facts.genotype ?? "Not added yet"} />
         <FactRow
           label="Allergies"
-          value={notShared("allergies") ?? (facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "None on file")}
+          value={notShared("allergies") ?? (facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "Not added yet")}
         />
         <FactRow
           label="Current medicines"
           value={
             notShared("medications") ??
             ([
-              facts.medications.length > 0 ? facts.medications.map((m) => m.drugName).join(", ") : facts.medicinesNotShown ? "" : "None on file",
+              facts.medications.length > 0 ? facts.medications.map((m) => m.drugName).join(", ") : facts.medicinesNotShown ? "" : "Not added yet",
               facts.medicinesNotShown
                 ? facts.medicinesNotShown === 1
                   ? "1 medicine is not shown by the patient. Ask the patient or their family."
@@ -178,7 +179,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
               .join(" "))
           }
         />
-        <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file")} />
+        <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "Not added yet")} />
         <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? t("mpass.emergency.included_above")} />
         <FactRow
           label="Emergency contact"
@@ -186,7 +187,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
             notShared("emergency_contact") ??
             (facts.emergencyContact
               ? `${facts.emergencyContact.name}${facts.emergencyContact.phone ? " · " + facts.emergencyContact.phone : ""}`
-              : "Not on file")
+              : "Not added yet")
           }
         />
         {/* S09y: shown only when the person filled it in. Absent otherwise, never "none". Patient entered, not checked with the scheme. */}
@@ -205,7 +206,9 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
             <ErrorText>{t("ecf.coverage.load_failed")}</ErrorText>
           </Card>
         ) : (
-          <EmergencyCoverageCard key={facts.coverage ? "filled" : "empty"} initial={facts.coverage} onChanged={reloadFacts} />
+          <Disclosure title="Health insurance cover" hint="Optional: your HMO or NHIA member number">
+            <EmergencyCoverageCard key={facts.coverage ? "filled" : "empty"} initial={facts.coverage} onChanged={reloadFacts} />
+          </Disclosure>
         )
       ) : null}
 
@@ -243,12 +246,15 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
       </Card>
 
       {/* The person chooses what the card shows. After a save the facts are read again, so the saved copy on this phone holds only what they chose. */}
+      <Disclosure title="Choose what the card shows" hint="Pick which details a stranger can see">
       <EmergencyCardFieldsCard patientId={patientId} organisationId={organisationId} onSaved={async () => {
           void loadLockScreenOptIn(patientId).then(setLockOptIn);
           return reloadFacts();
         }} />
+      </Disclosure>
 
       {lockOptIn ? (
+        <Disclosure title={t("lsi.title", locale)} hint="You turned this on in your choices">
         <Card style={{ gap: 10 }}>
           <AppText variant="bodyLargeStrong">{t("lsi.title", locale)}</AppText>
           <MutedText>{t("lsi.intro", locale)}</MutedText>
@@ -270,6 +276,7 @@ export function EmergencyCardScreen({ patientId, organisationId }: EmergencyCard
           <MutedText>{t("lsi.mobile_how_to", locale)}</MutedText>
           <MutedText>{t("lsi.how_to", locale)}</MutedText>
         </Card>
+        </Disclosure>
       ) : null}
 
       <EmergencyPackView />
