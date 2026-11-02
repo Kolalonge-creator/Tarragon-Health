@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatPatientDate } from "@/lib/format-date";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ const ACK_STATUS_BADGE: Record<AckStatus, { label: string; variant: BadgeProps["
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatPatientDate(value);
 }
 
 /** Which slice of the inbox is on screen. Plain links rather than client

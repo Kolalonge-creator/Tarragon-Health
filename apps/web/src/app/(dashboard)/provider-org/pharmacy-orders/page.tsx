@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +87,7 @@ export default async function ProviderOrgPharmacyOrdersPage({
                       <td className="py-2 pr-4">
                         <Badge>{o.status.replace(/_/g, " ")}</Badge>
                       </td>
-                      <td className="py-2 pr-4">{new Date(o.requested_at).toLocaleDateString()}</td>
+                      <td className="py-2 pr-4">{formatPatientDate(o.requested_at)}</td>
                     </tr>
                   ))}
                 </tbody>

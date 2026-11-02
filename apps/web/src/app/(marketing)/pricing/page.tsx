@@ -21,7 +21,7 @@ import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "Free, and a paid year of care with a monthly video call with your care team, in naira. You see the price before you pay.",
+    "Free, Membership or Membership Plus: a year of care with a monthly video call, in naira. You see the price before you pay.",
   path: MARKETING_ROUTES.pricing,
 });
 
@@ -107,6 +107,11 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
           ))}
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAFETY_STATEMENT}</p>
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
+          <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
+            How paying works, and our no-hidden-cost promise
+          </Link>
+        </p>
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-charcoal-ink/70">
           {renewalCopy(autoRenews, refundDays).short}
         </p>

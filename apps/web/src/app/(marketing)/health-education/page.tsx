@@ -158,7 +158,7 @@ export default function HealthEducationPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             If you would like to know how you are doing beyond your readings, try the free, anonymous{" "}
             <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-              Mental Well-being Check
+              Mental Wellbeing Check
             </Link>
             . It takes two minutes, has ten questions, and needs no sign-up.
           </p>

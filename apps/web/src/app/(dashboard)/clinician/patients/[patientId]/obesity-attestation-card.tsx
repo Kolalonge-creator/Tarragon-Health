@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ObesityAttestButton } from "./obesity-attest-button";
@@ -38,7 +39,7 @@ export async function ObesityAttestationCard() {
       <CardContent>
         {data?.attested_at ? (
           <p className="text-sm text-brand-green">
-            Attested on {new Date(data.attested_at).toLocaleDateString()}. You have confirmed you will
+            Attested on {formatPatientDate(data.attested_at)}. You have confirmed you will
             act on the red flags in §16.
           </p>
         ) : (

@@ -26,7 +26,13 @@ import { readPregnancySafety } from "@/lib/clinical/pregnancy-status";
  * No model is involved (INV-01).
  */
 
-export const HYPERTENSION_PROTOCOL_CODE = "htn_hearts_ng";
+/**
+ * The approved hypertension step table this engine reads. It must equal pathway_definitions.step_table_code for the 'bp'
+ * pathway: the Chief Medical Officer approved protocols.htn_rtsl_ng v1 on 2026-11-02 while this constant still said
+ * "htn_hearts_ng" (a code no protocol row ever carried), so get_approved_protocol returned null and no proposal was ever
+ * drafted. The only write stays a DRAFT care-plan change that a tied prescriber must sign.
+ */
+export const HYPERTENSION_PROTOCOL_CODE = "htn_rtsl_ng";
 const MS_PER_DAY = 86_400_000;
 const DAYS_IN_YEAR = 365.25;
 /** How far back stopped medicines, skipped-dose reasons and the last change are looked for. A look-back, not a clinical threshold. */

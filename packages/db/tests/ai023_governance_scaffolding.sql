@@ -12,7 +12,10 @@ begin
   select id into v_id from public.ai_systems where system_code = 'AI-023';
   if v_id is null then raise exception 'FAIL 1: AI-023 not registered'; end if;
   if (select is_enabled from public.ai_systems where id = v_id) then raise exception 'FAIL 2: AI-023 is enabled'; end if;
-  if (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-023 was marked runtime_governed'; end if;
+  -- Check 3 (updated 2026-11-02 by 20261102135233_ai023_runtime_governed): the flag now says the truth. Every receptionist call goes
+  -- through runGovernedAi, which consults ai_runtime_config('AI-023') first, so the system IS runtime governed; the original check
+  -- guarded against the scaffolding migration claiming that before a call site existed.
+  if not (select runtime_governed from public.ai_systems where id = v_id) then raise exception 'FAIL 3: AI-023 should be runtime_governed (the call site consults ai_runtime_config)'; end if;
   if (select vendor_id from public.ai_systems where id = v_id) is null then raise exception 'FAIL 4: AI-023 has no vendor'; end if;
 
   -- Structural criteria are met; exactly the two human judgements remain.

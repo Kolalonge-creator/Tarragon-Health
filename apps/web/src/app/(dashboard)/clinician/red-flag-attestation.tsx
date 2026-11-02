@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAttestationCurrent } from "@/lib/clinical/attestation";
 import { AttestButton } from "./attest-button";
@@ -34,7 +35,7 @@ export async function RedFlagAttestation() {
       <CardContent className="space-y-2 text-sm">
         {current ? (
           <p className="text-charcoal-ink/70">
-            Attested {attestedAt!.toLocaleDateString()}, current. You confirm you know and will act
+            Attested {formatPatientDate(attestedAt!)}, current. You confirm you know and will act
             on the glucose, symptom, laboratory and medication red flags, and that a red flag overrides
             routine scheduling.
           </p>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
@@ -112,11 +113,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
               </p>
               <p className="mt-0.5 text-xs text-charcoal-ink/60">
                 {egfr.equation}, from a creatinine taken{" "}
-                {new Date(egfr.takenAt).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {formatPatientDate(egfr.takenAt)}
                 .
               </p>
               {egfr.stale ? (
