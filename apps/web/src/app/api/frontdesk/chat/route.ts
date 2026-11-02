@@ -22,6 +22,9 @@ const bodySchema = z
   })
   .refine((b) => (b.conversationId === undefined) === (b.secret === undefined), { message: "conversationId and secret go together" });
 
+/** The model call is capped at 20 seconds with one retry; the platform limit sits just above that so a stall ends in the fallback, not a timeout page. */
+export const maxDuration = 45;
+
 const noStore = { "cache-control": "no-store" } as const;
 
 function emergencyOnly(message: string): Response | null {

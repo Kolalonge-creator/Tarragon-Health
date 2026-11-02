@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { hasPermission } from "@/lib/auth/permissions";
+import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { PageHeader } from "@/components/ui/page-header";
@@ -43,7 +43,9 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: 
 export default async function InboxPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  if (!(await hasPermission("leads.manage"))) redirect("/admin");
+  // Conversations can hold health details a visitor typed, so the inbox is admin only (the database enforces it too).
+  const { isSuperAdmin } = await getCallerPermissions();
+  if (!isSuperAdmin) redirect("/admin");
 
   const { data, error } = await fdRpcData<InboxItem[]>(await createClient(), "fd_inbox");
   const items = data ?? [];

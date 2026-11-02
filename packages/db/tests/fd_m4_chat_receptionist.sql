@@ -50,15 +50,17 @@ create function pg_temp.h(p_secret text) returns text language sql as $$ select 
 create function pg_temp.opened(p_secret text) returns uuid language sql as $$ select public.service_fd_chat_open(pg_temp.h(p_secret), '/pricing', 'I am an AI assistant.') $$;
 
 do $$
-declare v_admin uuid := gen_random_uuid(); v_pat uuid := gen_random_uuid();
+declare v_admin uuid := gen_random_uuid(); v_pat uuid := gen_random_uuid(); v_staff uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  select u, 'fd4-' || substr(u::text, 1, 8) || '@example.invalid', 'x', now(), '{}', '{}' from unnest(array[v_admin, v_pat]) u;
+  select u, 'fd4-' || substr(u::text, 1, 8) || '@example.invalid', 'x', now(), '{}', '{}' from unnest(array[v_admin, v_pat, v_staff]) u;
   insert into public.profiles (id, organisation_id, role, full_name, phone, created_at) values
     (v_admin, '00000000-0000-0000-0000-000000000001', 'admin',   'FD4 Admin',   '+2348058885701', now() - interval '90 days'),
-    (v_pat,   '00000000-0000-0000-0000-000000000001', 'patient', 'FD4 Patient', '+2348058885702', now() - interval '90 days')
+    (v_pat,   '00000000-0000-0000-0000-000000000001', 'patient', 'FD4 Patient', '+2348058885702', now() - interval '90 days'),
+    (v_staff, '00000000-0000-0000-0000-000000000001', 'care_coordinator', 'FD4 Staff', '+2348058885703', now() - interval '90 days')
   on conflict (id) do update set role = excluded.role;
-  insert into fx values ('admin', v_admin), ('pat', v_pat);
+  insert into public.user_permission_grants (profile_id, permission_key, granted_by) values (v_staff, 'leads.manage', v_admin);
+  insert into fx values ('admin', v_admin), ('pat', v_pat), ('staff', v_staff);
   update public.fd_app_config set value = '30'::jsonb where key = 'session_message_cap';
 end $$;
 
@@ -257,6 +259,18 @@ select pg_temp.rec('access', 'an admin reads the inbox, urgent open ones first',
 select pg_temp.rec('access', 'a patient cannot close a handoff', 'ERR:42501',
   pg_temp.as_val(pg_temp.f('pat'), 'authenticated', format($q$select public.fd_handoff_close(%L)::text$q$, (select id from rh))));
 select pg_temp.rec('access', 'a patient reads no usage rows', '0', pg_temp.as_val(pg_temp.f('pat'), 'authenticated', 'select count(*)::text from public.fd_model_usage'));
+
+-- 9b. conversation content is admin only: a delegated leads.manage holder cannot read it or use the inbox
+select pg_temp.rec('private', 'a leads.manage holder reads NO messages', '0', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_messages'));
+select pg_temp.rec('private', 'a leads.manage holder reads NO conversations', '0', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_conversations'));
+select pg_temp.rec('private', 'a leads.manage holder reads NO handoffs', '0', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_handoffs'));
+select pg_temp.rec('private', 'CONTROL the admin reads messages', 'true', (pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select count(*)::text from public.fd_messages')::int > 0)::text);
+select pg_temp.rec('private', 'CONTROL a leads.manage holder still reads contacts', 'true', (pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_contacts')::int > 0)::text);
+select pg_temp.rec('private', 'a leads.manage holder is refused the inbox', 'ERR:42501', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select (public.fd_inbox())::text'));
+select pg_temp.rec('private', 'a leads.manage holder cannot queue a reply', 'ERR:42501',
+  pg_temp.as_val(pg_temp.f('staff'), 'authenticated', format($q$select public.fd_handoff_queue_reply(%L, 'hello')::text$q$, (select id from public.fd_handoffs limit 1))));
+select pg_temp.rec('private', 'a leads.manage holder cannot close a handoff', 'ERR:42501',
+  pg_temp.as_val(pg_temp.f('staff'), 'authenticated', format($q$select public.fd_handoff_close(%L)::text$q$, (select id from public.fd_handoffs limit 1))));
 
 -- 10. SABOTAGE ------------------------------------------------------------------------------------------------------------------------------------
 grant execute on function public.service_fd_chat_turn(uuid, text, text) to authenticated;

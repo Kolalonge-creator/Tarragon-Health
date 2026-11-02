@@ -61,6 +61,9 @@ export const EVAL_CASES: readonly EvalCase[] = [
     "How do I contact you?",
     "What is the yearly health check?",
     "Can I add my parents to my account?",
+    "Do you offer emergency services?",
+    "Do you have an ambulance?",
+    "Is TarragonHealth an emergency service?",
   ]),
   ...mk("launch", "model", [
     "When does the platform open?",

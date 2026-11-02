@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { hasPermission } from "@/lib/auth/permissions";
+import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { fdRpc } from "@/lib/frontdesk/raw-db";
 
@@ -12,8 +12,9 @@ export type InboxActionState = { error?: string; done?: string } | undefined;
 async function requireStaff(): Promise<string | null> {
   const profile = await getCurrentProfile();
   if (!profile) return "Not signed in";
-  // The database re-checks (private.fd_require_staff); this is the friendly message, not the gate.
-  return (await hasPermission("leads.manage")) ? null : "You don't have access to do that";
+  // Conversations can hold health details, so the inbox is admin only. The database re-checks (private.fd_require_admin).
+  const { isSuperAdmin } = await getCallerPermissions();
+  return isSuperAdmin ? null : "Only an admin can use the inbox";
 }
 
 const replySchema = z.object({

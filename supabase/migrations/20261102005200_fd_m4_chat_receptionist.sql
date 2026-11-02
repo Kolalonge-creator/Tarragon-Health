@@ -35,6 +35,16 @@ alter table public.fd_handoffs
 create index if not exists fd_handoffs_alert_idx on public.fd_handoffs (created_at) where alert_state in ('pending', 'sending');
 create index if not exists fd_handoffs_reply_idx on public.fd_handoffs (replied_at) where reply_state in ('queued', 'sending');
 
+-- Conversation content is the most sensitive thing this feature holds: a visitor may type symptoms or a mental health message. M1 let any
+-- leads.manage holder (a delegated sales-type permission) read it. From here messages, conversations and handoffs are ADMIN ONLY to read, and the
+-- inbox and reply functions below require an admin. Contacts, consents, sequences and the CRM outbox stay readable to leads.manage.
+drop policy if exists fd_messages_staff_select on public.fd_messages;
+create policy fd_messages_admin_select on public.fd_messages for select to authenticated using (private.is_admin());
+drop policy if exists fd_conversations_staff_select on public.fd_conversations;
+create policy fd_conversations_admin_select on public.fd_conversations for select to authenticated using (private.is_admin());
+drop policy if exists fd_handoffs_staff_select on public.fd_handoffs;
+create policy fd_handoffs_admin_select on public.fd_handoffs for select to authenticated using (private.is_admin());
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 2. Model usage and prices
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -241,7 +251,7 @@ create function public.fd_handoff_queue_reply(p_handoff uuid, p_text text) retur
 language plpgsql security definer set search_path = '' as $$
 declare h record; c record; v_edited boolean;
 begin
-  perform private.fd_require_staff();
+  perform private.fd_require_admin();
   if p_text is null or btrim(p_text) = '' or char_length(p_text) > 4000 then raise exception 'reply must be 1 to 4000 characters'; end if;
   select * into h from public.fd_handoffs where id = p_handoff for update;
   if not found then raise exception 'unknown handoff'; end if;
@@ -260,7 +270,7 @@ end $$;
 
 create function public.fd_handoff_close(p_handoff uuid) returns void language plpgsql security definer set search_path = '' as $$
 begin
-  perform private.fd_require_staff();
+  perform private.fd_require_admin();
   update public.fd_handoffs set status = 'closed' where id = p_handoff and status in ('open', 'replied');
   if not found then raise exception 'unknown or already closed handoff'; end if;
 end $$;
@@ -363,7 +373,7 @@ select cron.schedule(
 -- ---------------------------------------------------------------------------------------------------------------------------------
 create function public.fd_inbox() returns jsonb language plpgsql stable security definer set search_path = '' as $$
 begin
-  perform private.fd_require_staff();
+  perform private.fd_require_admin();
   return coalesce((select jsonb_agg(to_jsonb(q) order by q.rank, q.created_at desc) from (
     select h.id, h.status, h.urgency, h.reason, h.summary, h.suggested_reply, h.founder_reply, h.reply_state, h.alert_state, h.created_at,
            (case when h.status = 'open' and h.urgency = 'urgent' then 0 when h.status = 'open' then 1 else 2 end) as rank,

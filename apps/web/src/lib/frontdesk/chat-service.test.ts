@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { buildIntro, handleChatTurn, plainSummary, type ChatDb, type ChatDeps, type HandoffReason } from "./chat-service";
 import { parseChatConfig, type ChatConfig } from "./config";
-import { AI_UNAVAILABLE_REPLY, EMERGENCY_REPLY, FALLBACK_HANDOFF_REPLY, HUMAN_REPLY, MEDICAL_ADVICE_REPLY, PROMPT_EXTRACTION_REPLY, REPLACED_REPLY, SELF_HARM_REPLY } from "./safety";
+import { AI_UNAVAILABLE_REPLY, EMERGENCY_FOLLOWUP_REPLY, EMERGENCY_REPLY, FALLBACK_HANDOFF_REPLY, HUMAN_REPLY, MEDICAL_ADVICE_REPLY, PROMPT_EXTRACTION_REPLY, REPLACED_REPLY, SELF_HARM_REPLY } from "./safety";
 import type { ReceptionistAnswer, ReceptionistInput } from "./types";
 import { EVAL_KNOWLEDGE } from "./eval/cases";
 
@@ -119,6 +119,23 @@ describe("handleChatTurn: emergencies are answered first, whatever else is faili
     await handleChatTurn(h.deps, input("I have chest pain", "conv-1"));
     expect(h.handoffs).toHaveLength(1);
     spy.mockRestore();
+  });
+});
+
+describe("handleChatTurn: a conversation already in an emergency", () => {
+  it("answers any later message with the fixed follow-up and never calls the model", async () => {
+    const h = harness({ turn: { ok: true, status: "emergency", count: 2, history: [{ role: "visitor", content: "ok what do I do now?" }] } });
+    const r = await handleChatTurn(h.deps, input("ok what do I do now?", "conv-1"));
+    expect(r).toMatchObject({ reply: EMERGENCY_FOLLOWUP_REPLY, status: "emergency", emergency: true });
+    expect(h.receptionist).not.toHaveBeenCalled();
+    expect(h.replies[0]?.answeredBy).toBe("rules");
+  });
+  it("a question about emergencies is answered by the model, not treated as one", async () => {
+    const h = harness();
+    const r = await handleChatTurn(h.deps, input("Do you offer emergency services?"));
+    expect(r).toMatchObject({ emergency: false });
+    expect(h.receptionist).toHaveBeenCalled();
+    expect(h.handoffs).toHaveLength(0);
   });
 });
 

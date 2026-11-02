@@ -66,6 +66,9 @@ function buildModel(modelId: string, maxTokens: number): ChatAnthropic {
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: modelId,
     maxTokens,
+    // A visitor is waiting: one retry at most, and give up after 20 seconds so the fallback reply (capture-and-handoff) arrives instead of a spinner.
+    maxRetries: 1,
+    clientOptions: { timeout: 20_000 },
     // Same claude-*-5-generation workaround as ai-coach/model.ts and service-navigation: these models reject sampling overrides, so the
     // "low temperature" the spec asks for is achieved by the structured output and the rules, not by a parameter.
     invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },

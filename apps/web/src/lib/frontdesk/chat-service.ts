@@ -1,4 +1,4 @@
-import { asksForPerson, classifyIncoming, fixedReplyFor, FALLBACK_HANDOFF_REPLY, REPLACED_REPLY, type RuleOutcome } from "./safety";
+import { asksForPerson, classifyIncoming, EMERGENCY_FOLLOWUP_REPLY, fixedReplyFor, FALLBACK_HANDOFF_REPLY, REPLACED_REPLY, type RuleOutcome } from "./safety";
 import { guardReply } from "./output-guard";
 import type { ChatConfig } from "./config";
 import { knowledgeText, type KnowledgeEntry, type LiveFacts } from "./knowledge";
@@ -173,6 +173,12 @@ export async function handleChatTurn(deps: ChatDeps, input: ChatTurnInput): Prom
       return { mode: "chat", conversationId, reply: fixed, status: "handed_off", needsContact: true, emergency: false };
     }
     return { mode: "chat", conversationId, reply: fixed, status: turn.status, needsContact: false, emergency: false };
+  }
+
+  // A conversation already marked as an emergency never reaches the model again: only the fixed wording answers it.
+  if (turn.status === "emergency") {
+    await deps.db.reply({ conversationId, text: EMERGENCY_FOLLOWUP_REPLY, model: null, tokensIn: null, tokensOut: null, flags: [], interactionId: null, answeredBy: "rules" });
+    return { mode: "chat", conversationId, reply: EMERGENCY_FOLLOWUP_REPLY, status: "emergency", needsContact: true, emergency: true };
   }
 
   // A complaint is also a person's job, whatever the model would have said.

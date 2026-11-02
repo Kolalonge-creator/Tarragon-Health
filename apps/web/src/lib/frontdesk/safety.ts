@@ -39,7 +39,9 @@ const EMERGENCY: readonly Rule[] = [
   { id: "pregnancy_emergency", re: /\b(pregnan\w*|labou?r)\b[^.?!]{0,40}\b(bleeding|severe\s+pain|no\s+movement|not\s+moving|water\s+broke|convuls\w*)\b|\bbaby\b[^.?!]{0,25}\b(not\s+moving|not\s+breathing|blue)\b/i },
   { id: "allergic_reaction", re: /\banaphyla\w*\b|\bthroat\s+(is\s+)?(closing|swelling)\b|\b(face|lips?|tongue)\b[^.?!]{0,15}\bswell(ing|ed|ollen)\b/i },
   { id: "dying", re: /\b(i\s+am|i'?m|he\s+is|she\s+is|he'?s|she'?s|they\s+are|my\s+\w+\s+is)\s+(dying|going\s+to\s+die|about\s+to\s+die)\b|\bgoing\s+to\s+die\b|\bnear\s+death\b/i },
-  { id: "emergency_word", re: /\bemergency\b|\bambulance\b|\bneed\s+help\s+(now|urgently|immediately)\b|\burgent(ly)?\s+(help|hospital)\b|\bhelp\s+me\s+(please\s+)?(now|urgent)/i },
+  // The words "emergency" and "ambulance" alone are NOT enough ("Do you offer emergency services?" is a question about the service). It takes a statement
+  // that this is one, an ambulance being asked for, or a call for urgent help.
+  { id: "emergency_word", re: /\b(this|that|it)\s+is\s+an?\s+(medical\s+)?emergency\b(?!\s+(service|services|number|line|room|ward|contact|plan|cover|care|use|only))|\b(it|this|that)'?s\s+an?\s+(medical\s+)?emergency\b(?!\s+(service|services|number|line|room|ward|contact|plan|cover|care|use|only))|\bmedical\s+emergency\b(?!\s+(service|services|cover|plan))|\b(i|we)\s+(have|am\s+having|are\s+having|need)\s+an?\s+emergency\b|^\W*(an?\s+)?emergency\W*$|\b(need|send|call|get|bring|want|please\s+send)\s+(me\s+)?(an?\s+)?ambulance\b|\bneed\s+help\s+(now|urgently|immediately)\b|\burgent(ly)?\s+(help|hospital)\b|\bhelp\s+me\s+(please\s+)?(now|urgent)/i },
   { id: "severe_head_injury", re: /\bhead\s+injur\w*\b|\bhit\s+(my|his|her)\s+head\b[^.?!]{0,30}\b(vomit|dizzy|bleed|unconscious|confus)/i },
 ];
 
@@ -120,6 +122,10 @@ export const MEDICAL_ADVICE_REPLY =
 
 export const PROMPT_EXTRACTION_REPLY =
   "I can only help with questions about TarragonHealth, such as what we offer, how the app works, and how to join. What would you like to know?";
+
+/** Said to any later message in a conversation already marked as an emergency: the model is not consulted, so nothing can contradict the first instruction. */
+export const EMERGENCY_FOLLOWUP_REPLY =
+  "Please go to the nearest hospital now, or ask someone near you to take you. I am an AI assistant and cannot help in an emergency. Our team has been alerted and will follow up.";
 
 export const HUMAN_REPLY =
   "Of course. I am an AI assistant, so I have passed this to our team and a person will reply. Please leave your name and an email address or phone number so they can reach you.";
