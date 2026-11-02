@@ -47,7 +47,8 @@ begin
   execute replace(v_def, ', ''x-sender-secret'', (select decrypted_secret from vault.decrypted_secrets where name = ''notification_sender_secret'')', '');
   select string_agg(p.oid::regprocedure::text, ', ') into v_missing
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'private' and pg_get_functiondef(p.oid) like '%/functions/v1/send-pending-notifications%'
+  where n.nspname = 'private' and p.prokind = 'f'
+    and pg_get_functiondef(p.oid) like '%/functions/v1/send-pending-notifications%'
     and pg_get_functiondef(p.oid) not like '%x-sender-secret%';
   if v_missing is null then raise exception 'SABOTAGE NOT DETECTED: a caller without the header passed the check'; end if;
 end $$;
