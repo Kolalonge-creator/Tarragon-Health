@@ -28,7 +28,14 @@ begin
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Esc proof TEST patient', is_test = true where id = v_test;
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Esc proof real patient', is_test = false where id = v_real;
   select cs.profile_id into v_doc from public.clinical_staff cs where cs.active and cs.organisation_id = v_org and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer') order by cs.created_at limit 1;
-  if v_doc is null then raise exception 'need an active senior doctor in org 0001'; end if;
+  if v_doc is null then
+    -- a fresh replay has no doctor: mint an employed senior one (no indemnity needed for an employed senior)
+    v_doc := gen_random_uuid();
+    insert into auth.users (id, email) values (v_doc, 'esc-proof-doctor-' || v_doc || '@example.test');
+    update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Esc proof senior doctor' where id = v_doc;
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, employment_type)
+    values (v_org, v_doc, 'Esc proof senior doctor', true, now(), 'senior_medical_officer', 'employed');
+  end if;
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title) values (v_org, v_test, 'emergency', 'open', 'Esc proof: emergency (test patient)') returning id into v_alert_t;
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title) values (v_org, v_real, 'emergency', 'open', 'Esc proof: emergency (real patient)') returning id into v_alert_r;
