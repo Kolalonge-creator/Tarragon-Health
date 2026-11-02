@@ -1793,3 +1793,5 @@ ai023_governance_scaffolding.sql
 golive_service_role_gate_ai_org_fallback_cron_incident_autoresolve.sql
 # Signed items wiring: AI-023 runtime_governed; glucose wording guard names its real reader; community overdue check in pg_cron with a heartbeat. Sabotage: a broken work reader is recorded as a failed heartbeat.
 signed_items_wiring_followups.sql
+# The emergency synchronous-contact rule skips an is_test patient (closes on a note); a real patient is still refused. Sabotage: the pre-fix body refuses the test patient.
+emergency_sync_contact_rule_skips_test_accounts.sql

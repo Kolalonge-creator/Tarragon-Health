@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1172,
+  "baselineCeiling": 1163,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -4990,10 +4990,10 @@
       "baseline": true
     },
     "triage.cuf_001.body": {
-      "hash": "166806e9b22dbe7e",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "0f3cbaa421781874",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.cuf_001.title": {
       "hash": "991c1765b0a67b68",
@@ -5026,10 +5026,10 @@
       "baseline": true
     },
     "triage.glu_e01.body": {
-      "hash": "a1cdd65e29b95064",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "2a712c42976b14e3",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_e01.title": {
       "hash": "704b7be9e3fc2cd1",
@@ -5038,10 +5038,10 @@
       "baseline": true
     },
     "triage.glu_e02.body": {
-      "hash": "a1cdd65e29b95064",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "b4b54221a039fa9c",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_e02.title": {
       "hash": "704b7be9e3fc2cd1",
@@ -5050,10 +5050,10 @@
       "baseline": true
     },
     "triage.glu_t01.body": {
-      "hash": "6ee75b54e1ea7397",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "3dbf4824fed34aab",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t01.title": {
       "hash": "661bb89e92713ff9",
@@ -5062,10 +5062,10 @@
       "baseline": true
     },
     "triage.glu_t02.body": {
-      "hash": "c24b8fd4f09aa455",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "9879c615f14b7bba",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t02.title": {
       "hash": "c9b0792cbde469b0",
@@ -5074,10 +5074,10 @@
       "baseline": true
     },
     "triage.glu_t03.body": {
-      "hash": "6fb5e3033c5b3bd9",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "ab0cadce682c5932",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t03.title": {
       "hash": "ed4dd2de195d97ea",
@@ -5086,10 +5086,10 @@
       "baseline": true
     },
     "triage.glu_t04.body": {
-      "hash": "36888bf799bb3667",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "b2495f52ffd33431",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t04.title": {
       "hash": "2cabc1611c2585db",
@@ -5098,10 +5098,10 @@
       "baseline": true
     },
     "triage.glu_t05.body": {
-      "hash": "3a6876f66e938ee3",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "d76bd6a3fb3fbdb8",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t05.title": {
       "hash": "40f77952a223a1f0",
@@ -5110,10 +5110,10 @@
       "baseline": true
     },
     "triage.glu_t06.body": {
-      "hash": "7ef6492a0a6e8579",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "e413160ccd0ce029",
+      "reviewer": "Kola Longe, Chief Medical Officer (fast-sugar wording signed on the sign-off hub, go_live_attestations 2026-10-28)",
+      "reviewedOn": "2026-10-28",
+      "baseline": false
     },
     "triage.glu_t06.title": {
       "hash": "94d64e5724ee31e4",

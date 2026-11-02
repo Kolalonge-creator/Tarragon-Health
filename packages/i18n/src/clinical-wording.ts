@@ -11,6 +11,8 @@ export interface Sign {
   readonly by: string;
   readonly on: string;
   readonly version: number;
+  /** Where the signature comes from and what it covers; the record that lets a reader check it. */
+  readonly note?: string;
 }
 
 export const WORDING_SIGNED: Sign | null = WORDING.signed as Sign | null;
