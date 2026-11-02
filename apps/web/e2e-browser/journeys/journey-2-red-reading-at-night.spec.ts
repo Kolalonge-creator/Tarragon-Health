@@ -5,6 +5,7 @@ import { grade } from "../../../../supabase/functions/_shared/clinical/engine";
 import type { RuleSet, TriageInput } from "../../../../supabase/functions/_shared/clinical/types";
 import { BP_CARE_V1 } from "../../../../packages/clinical/src/rules/bp-care-v1";
 import { captureNotifications, neutralityViolations } from "./harness/capture";
+import { CLINICAL_CONTENT, readableText } from "./harness/payload-text";
 import { drainBus, serviceClient } from "./harness/drain";
 import { newRunId } from "./harness/env";
 import { seedOnCallTeam } from "./harness/oncall";
@@ -12,6 +13,7 @@ import { finishJourney } from "./harness/report";
 import { currentRuleSet, fixtureApprovalEnabled, fixtureApproveNewestDraft, hasRealApproval, type RuleSetRow } from "./harness/ruleset";
 import { completeOnboardingFixture, createUser, grantMembershipFixture, newOrganisation, signIn } from "./harness/sessions";
 import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
+import { ownIp } from "../helpers/own-ip";
 
 /**
  * Journey 2 (spec D.7.3): a red reading at night, in full depth.
@@ -29,7 +31,7 @@ const DIASTOLIC = 120;
 test.describe("Journey 2: a red reading at night", () => {
   test.setTimeout(900_000);
   // Playwright's default is no action timeout at all, which turns a wrong selector into a 15 minute hang.
-  test.use({ actionTimeout: 60_000, navigationTimeout: 120_000 });
+  test.use({ actionTimeout: 60_000, navigationTimeout: 120_000, extraHTTPHeaders: ownIp() });
 
   test("runs every step that can run today and declares the rest pending", async ({ page, context }, testInfo) => {
     const run = startJourney(J2);
@@ -381,8 +383,8 @@ test.describe("Journey 2: a red reading at night", () => {
         // The supporter's own real session sees the open alert, with only the person's name (no grade, reading or cause).
         const open = await supporterClient.rpc("circle_open_alerts");
         expect(open.error, JSON.stringify(open.error)).toBeNull();
-        const text = JSON.stringify(open.data);
-        expect(text).not.toMatch(/blood|pressure|190|120|red|headache|emergency/i);
+        // Read the words, not the ids and timestamps: a random uuid or timestamp can contain "120" or "190" (see harness/payload-text.ts).
+        expect(readableText(open.data), "the supporter's alert carries clinical content").not.toMatch(CLINICAL_CONTENT);
         expect(Array.isArray(open.data) ? (open.data as unknown[]).length : 1).toBeGreaterThan(0);
       });
     } else {

@@ -5,6 +5,7 @@
 // sent anywhere. "Capture" is therefore reading those rows: recipient, channel, template, priority and payload. It lets a
 // journey assert who was told, on which channel, how urgently, and (INV-07) that nothing clinical is in the text.
 
+import { containsNumber, readableText } from "./payload-text";
 import { sqlRows, lit } from "./sql";
 
 export interface CapturedNotification {
@@ -42,10 +43,11 @@ export function neutralityViolations(rows: readonly CapturedNotification[], know
     // The payload is what a template can read and a sender can carry. The template KEY (for example emergency_event_clinician_alert) is an
     // internal identifier that is never shown to anyone, so it is not linted here: the words people read come from the rendered template,
     // which the production lint covers, and a key that merely contains a word like "emergency" is not a notification naming one.
-    const text = JSON.stringify(n.payload);
+    // Ids and timestamps are removed first: a random uuid can contain "120" and fail the known-reading check at random (payload-text.ts).
+    const text = readableText(n.payload);
     const hit = text.match(FORBIDDEN);
     if (hit) out.push(`${n.template ?? "?"} (${n.channel}) contains "${hit[0]}"`);
-    for (const r of knownReadings) if (text.includes(r)) out.push(`${n.template ?? "?"} (${n.channel}) contains the reading ${r}`);
+    for (const r of knownReadings) if (containsNumber(text, r)) out.push(`${n.template ?? "?"} (${n.channel}) contains the reading ${r}`);
   }
   return out;
 }
