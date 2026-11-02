@@ -163,6 +163,13 @@ export const AI_SYSTEMS = {
     // DISABLED, runtime_governed false, behind the cuff_camera_enabled guard.
     failClosedIfGovernanceUnavailable: true,
   },
+  websiteReceptionist: {
+    code: "AI-023",
+    // Front Desk (spec F2). Answers a public website visitor from approved knowledge only; red flags are handled by fixed rules before the
+    // model and replies are checked by fixed rules after. Moderate risk, but it speaks to the public on the service's behalf, so it fails
+    // closed like AI-003: the fallback (a contact form and an alert to the team) costs nothing. Registered DISABLED, not runtime_governed.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

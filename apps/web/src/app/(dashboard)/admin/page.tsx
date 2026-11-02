@@ -12,6 +12,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
+import { readPendingFrontDeskSignoff } from "@/lib/queries/pending-front-desk-signoff";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
 import { attentionView, dependenciesDown, figure, type AttentionItem } from "@tarragon/shared";
@@ -95,6 +96,7 @@ export default async function AdminPage() {
     pendingBookingsRes,
     dependencyReport,
     aiGovernanceSignoff,
+    frontDeskSignoff,
     incidentsRes,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
@@ -124,6 +126,8 @@ export default async function AdminPage() {
     // clinician-reachable mirror (/clinician/ai-governance) via
     // readPendingAiGovernanceSignoff so the two counts can never drift.
     readPendingAiGovernanceSignoff(supabase),
+    // Front desk wording (follow-up emails, assistant knowledge) waits on an admin; approving it is the founder's call, so super admin only.
+    isSuperAdmin ? readPendingFrontDeskSignoff(supabase) : Promise.resolve(null),
     // Serious incidents still being worked (sev1 and sev2, not yet resolved). Only read for someone who may see the register; RLS
     // would return nothing to anyone else, and "nothing" must not be drawn as "none".
     canViewIncidents
@@ -198,6 +202,14 @@ export default async function AdminPage() {
       label: () => aiGovernanceLabel,
       href: "/admin/settings/ai-governance",
       count: figure(aiGovernanceAttentionCount, aiGovernanceFailed),
+    });
+  }
+  if (frontDeskSignoff) {
+    attentionItems.push({
+      key: "front_desk_signoff",
+      label: (n) => `${formatNumber(n)} front desk item${n === 1 ? "" : "s"} awaiting your approval`,
+      href: "/admin/sign-off",
+      count: figure(frontDeskSignoff.attentionCount, frontDeskSignoff.failed),
     });
   }
   attentionItems.push(

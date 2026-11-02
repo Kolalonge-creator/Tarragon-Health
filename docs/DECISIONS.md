@@ -3,6 +3,16 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## Front Desk build, 2026-11-01 (founder, chosen in a chat prompt)
+
+Source: "Tarragon Front Desk: Build Specification v1.0", reconciled against this file and CLAUDE.md before any code. Design record: `docs/FRONT-DESK.md`.
+
+- **FD-1: follow-ups are email only.** The spec's SMS steps are built as email. SMS stays for phone verification codes only (OQ-05) and the Termii sender ID is not approved. `fd_consents.channel` has no `sms`.
+- **FD-2: English only.** No Pidgin templates or evaluation set (decision of 2026-10-07 stands). The `language` column exists per the spec but is constrained to `en`.
+- **FD-3: milestones M1 to M5 in order, one PR each, stopping at each acceptance check.** M6 (voice) and the Meta DM channels are not built; the "inbound message becomes a platform action" rule in CLAUDE.md applies to any future channel.
+- **FD-4: the assistant never states a typed price.** Knowledge text holds `{{membership_price}}`, `{{paid_product_name}}`, `{{refund_days}}` and `{{launch_date}}`, filled at read time from the same versioned config the pricing page uses.
+- **FD-5: wording is data with a human gate.** Sequence steps and knowledge are seeded as draft; nothing sends and nothing is stated until a person approves that exact text; editing approved wording returns it to draft. Follow-ups start OFF and in dry-run.
+
 ## S70 to S75 planning, 2026-10-07 (founder and CMO, chosen in a chat prompt)
 
 Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-review-and-build-plan.md`. These are decisions, **not clinical signatures**: no platform draft existed, so nothing was signed in the database. Each clinical item becomes a PROPOSED config draft when its session is built, and the CMO signs that draft in the sign-off screen after reading the primary guideline text (the pack's evidence is search summaries and recall, tagged accordingly). Open questions OQ-309 to OQ-327 hold the follow-ups.

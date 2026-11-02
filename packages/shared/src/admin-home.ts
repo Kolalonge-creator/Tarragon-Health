@@ -17,7 +17,7 @@ export interface AttentionItem {
 }
 
 /** Most urgent first: a serious incident, then clinical-safety sign-off, then people waiting on a decision. */
-export const ATTENTION_PRIORITY = ["serious_incidents", "ai_governance", "clinician_verification", "booking_requests"] as const;
+export const ATTENTION_PRIORITY = ["serious_incidents", "ai_governance", "front_desk_signoff", "clinician_verification", "booking_requests"] as const;
 export type AttentionKey = (typeof ATTENTION_PRIORITY)[number];
 
 export interface ResolvedAttention {
