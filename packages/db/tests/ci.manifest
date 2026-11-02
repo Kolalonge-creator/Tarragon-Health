@@ -1789,3 +1789,5 @@ finance_dates_use_lagos.sql
 fd_m5_reporting_and_review.sql
 # AI-023 governance scaffolding: 8 guardrails, one draft knowledge source per Front Desk topic, a 71-case required suite plus the baseline pair, a draft v1 version; nothing approved, no run seeded, still disabled and not runtime governed, only evaluation_passing and validation outstanding, enabling refused. Sabotage: a deleted guardrail and a direct knowledge-source approval are both detected.
 ai023_governance_scaffolding.sql
+# Go-live readiness fixes: MDM cron RPC gate reads the JWT role not current_user; anonymous AI interactions audit against the platform organisation; cron-failure incidents auto-resolve once the job runs clean. Sabotage: forced gate, no-op resolver.
+golive_service_role_gate_ai_org_fallback_cron_incident_autoresolve.sql
