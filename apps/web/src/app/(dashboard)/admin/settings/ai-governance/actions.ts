@@ -8,6 +8,7 @@ import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites, type EvalSuiteResult } from "@/lib/ai-governance/run-coach-eval-suites";
 import { runAiDocumentCaptureEvalSuites } from "@/lib/ai-governance/run-document-capture-eval-suites";
+import { runAiFrontDeskEvalSuites } from "@/lib/ai-governance/run-frontdesk-eval-suites";
 import { runAiImagingReportEvalSuites } from "@/lib/ai-governance/run-imaging-eval-suites";
 import { runAiScribeEvalSuites } from "@/lib/ai-governance/run-scribe-eval-suites";
 
@@ -322,7 +323,7 @@ export type RunEvalSuitesState =
  * action able to drive either without duplicating the ~100 lines of
  * permission-check / version-lookup / incremental-recording logic below.
  */
-const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017", "AI-018"] as const;
+const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017", "AI-018", "AI-023"] as const;
 type SupportedEvalSystemCode = (typeof SUPPORTED_EVAL_SYSTEM_CODES)[number];
 
 async function runSuitesForSystem(
@@ -332,6 +333,7 @@ async function runSuitesForSystem(
   if (systemCode === "AI-001") return runAiCoachGovernanceSuites(options);
   if (systemCode === "AI-017") return runAiScribeEvalSuites(options);
   if (systemCode === "AI-018") return runAiDocumentCaptureEvalSuites(options);
+  if (systemCode === "AI-023") return runAiFrontDeskEvalSuites(options);
   return runAiImagingReportEvalSuites(options);
 }
 
@@ -403,7 +405,7 @@ export async function runAiEvalSuitesAction(
   if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
   const totalSuiteCount =
-    systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 4 : systemCode === "AI-018" ? 2 : 1;
+    systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 4 : systemCode === "AI-018" || systemCode === "AI-023" ? 2 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 
