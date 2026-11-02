@@ -58,12 +58,16 @@ function query(sqlText) {
   const dir = mkdtempSync(join(tmpdir(), "mig-"));
   const file = join(dir, "q.sql");
   writeFileSync(file, sqlText);
-  const args = ["supabase", "db", "query", "--linked", "--project-ref", PROJECT_REF, "-f", file, "--output-format", "json"];
+  const args = ["supabase@3", "db", "query", "--linked", "--project-ref", PROJECT_REF, "-f", file, "--output-format", "json"];
   // The CLI creates a login role per call and can fail to ("Failed to create login role", status 544) before any SQL is sent, e.g. when another
   // workflow is starting at the same time. Reads retry on any transient error; a write retries only on that login-role failure, which is safe
   // because nothing has run yet. A write that fails any other way is never repeated.
   const isRead = /^\s*select /i.test(sqlText);
-  return execWithRetry("npx", ["--yes", ...args], {}, isRead ? {} : { isRetryable: isLoginRoleFailure });
+  // Supabase CLI 3.0.0 (2026-11-02) refuses a hosted statement from a non-interactive run unless a read says --read-only or a
+  // write says --yes ("Confirmation required ... This run can't ask because it is running in agent mode. Nothing was changed.").
+  // The first post-merge run after that release failed on its very first SELECT and applied nothing (run 41448278873).
+  const consent = isRead ? ["--read-only"] : ["--yes"];
+  return execWithRetry("npx", ["--yes", ...args, ...consent], {}, isRead ? {} : { isRetryable: isLoginRoleFailure });
 }
 
 let applied = 0;

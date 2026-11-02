@@ -179,7 +179,7 @@ function main() {
   writeFileSync(queryFile, "select version, name from supabase_migrations.schema_migrations order by version;");
   let remoteRows;
   try {
-    const raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"]);
+    const raw = shRetry("npx", ["--yes", "supabase@3", "db", "query", "--linked", "--read-only", "-f", queryFile, "--output-format", "json"]);
     remoteRows = parseRows(raw);
   } finally {
     rmSync(queryDir, { recursive: true, force: true });
