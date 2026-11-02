@@ -60,6 +60,10 @@ export const AI_SYSTEM_SURFACES: Readonly<Record<string, AiSystemSurface>> = {
   "AI-020": { noText: "The person's remembered goals, read into AI-001's context; shown only through the coach (AI-001)." },
   "AI-021": { noText: CONFIRM_FIELDS },
   "AI-022": { noText: CONFIRM_FIELDS },
+  "AI-023": {
+    noText:
+      "Front Desk M1: registered, but no call site and no chat widget exist yet, so no model-written text reaches anyone. M4 replaces this entry with the website chat widget as a surface, which must render the shared AI label (a visitor is told they are talking to an AI assistant).",
+  },
 };
 
 /** Every surface above that shows model-written text. Derived, so the map and the list cannot disagree. */
