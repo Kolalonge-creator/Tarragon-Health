@@ -21,7 +21,6 @@ declare
   v_doc uuid;
   v_alert_t uuid; v_alert_r uuid; v_esc_t uuid; v_esc_r uuid;
   v_ok boolean; v_src text;
-  v_old text;
 begin
   insert into auth.users (id, email) values (v_test, 'esc-proof-test-' || v_test || '@example.test'), (v_real, 'esc-proof-real-' || v_real || '@example.test');
   -- an auth.users insert creates the profile row by trigger; shape it afterwards
@@ -59,12 +58,29 @@ begin
   end;
   perform pg_temp.chk('2 CONTROL real patient emergency still refused without contact', 'false', v_ok::text);
 
-  -- 3. SABOTAGE: pre-fix body refuses the test patient
+  -- 3. SABOTAGE: the exact pre-fix body (I5, 2026-07-30, no is_test read) must refuse a FRESH test-patient emergency
   v_src := pg_get_functiondef('private.enforce_emergency_escalation_synchronous_contact'::regproc);
-  v_old := regexp_replace(v_src, '\n\s*-- A test account cannot take a call.*?end if;', '');
-  if v_old = v_src then raise exception 'sabotage could not remove the is_test branch'; end if;
-  execute v_old;
-  update public.escalations set status = 'open' where id = v_esc_t;
+  execute $sab$
+    create or replace function private.enforce_emergency_escalation_synchronous_contact()
+     returns trigger language plpgsql security definer set search_path to ''
+    as $f$
+    declare v_level public.alert_level; v_has_contact boolean;
+    begin
+      if new.status is distinct from 'resolved' or old.status = 'resolved' then return new; end if;
+      select level into v_level from public.clinician_alerts where id = new.clinician_alert_id;
+      if v_level is distinct from 'emergency' then return new; end if;
+      select exists (select 1 from public.video_consultations vc where vc.status in ('started', 'completed')
+        and (vc.escalation_id = new.id or (vc.patient_id = new.patient_id and vc.started_at is not null and vc.started_at between new.created_at and now()))) into v_has_contact;
+      if not v_has_contact then
+        raise exception 'An emergency escalation cannot be resolved with only a note -- complete a synchronous voice or video contact with the patient first (start a virtual review)' using errcode = '23514';
+      end if;
+      return new;
+    end $f$;
+  $sab$;
+  insert into esc_results values ('info: sabotaged body reads is_test', (pg_get_functiondef('private.enforce_emergency_escalation_synchronous_contact'::regproc) ~ 'is_test')::text, 'false', 'INFO');
+  insert into public.clinician_alerts (organisation_id, patient_id, level, status, title) values (v_org, v_test, 'emergency', 'open', 'Esc proof: emergency (test patient, sabotage)') returning id into v_alert_t;
+  insert into public.escalations (organisation_id, patient_id, status, assigned_doctor_id, reason, clinician_alert_id) values (v_org, v_test, 'open', v_doc, 'Esc proof test sabotage', v_alert_t) returning id into v_esc_t;
+  insert into esc_results values ('info: sabotage fixture alert level', (select level::text from public.clinician_alerts where id = v_alert_t), 'emergency', 'INFO');
   begin
     update public.escalations set status = 'resolved', resolution_note = 'test data', identity_confirmed = true where id = v_esc_t; v_ok := true;
   exception when sqlstate '23514' then v_ok := false;
