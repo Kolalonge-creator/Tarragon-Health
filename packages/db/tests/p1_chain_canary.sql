@@ -78,17 +78,20 @@ create function pg_temp.run_readings(p_run uuid) returns setof uuid language sql
 $f$ select (x ->> 'reading_id')::uuid from public.chain_canary_runs r, jsonb_array_elements(r.fixtures) x where r.run_id = p_run and r.kind = 'started' $f$;
 
 -- Stand in for process-events: the same database calls its handlers make, for every fixture reading of a run.
-create function pg_temp.emulate_processor(p_run uuid) returns void language plpgsql as $f$
+create function pg_temp.emulate_processor(p_run uuid, p_red_first boolean default false) returns void language plpgsql as $f$
 declare
   it jsonb; v_rs uuid; v_res jsonb; v_te uuid; r record; v_code text;
 begin
   select id into v_rs from public.triage_rule_sets where code = 'bp_care_triage' and status = 'approved' order by version desc limit 1;
-  for it in select * from jsonb_array_elements((select fixtures from public.chain_canary_runs where run_id = p_run and kind = 'started')) loop
+  for it in select x.value from jsonb_array_elements((select fixtures from public.chain_canary_runs where run_id = p_run and kind = 'started')) with ordinality x(value, n)
+             order by case when p_red_first and x.value ->> 'fixture' = 'bp_red_chest_pain' then 0 else 1 end, x.n loop
     v_code := it ->> 'fixture';
     select version into r from public.triage_rule_sets where id = v_rs;
     if v_code = 'bp_red_chest_pain' then
       v_res := jsonb_build_object('status', 'graded', 'grade', 'red', 'ruleId', 'BP-R1', 'explanationKey', 'EMG-001',
-        'actions', '[{"kind":"show_emergency_guidance","code":"EMG-001"},{"kind":"page_on_call"}]'::jsonb, 'matchedRuleIds', '["BP-R1"]'::jsonb, 'taskKey', null,
+        'actions', case when p_red_first then '[{"kind":"show_emergency_guidance","code":"EMG-001"},{"kind":"page_on_call"},{"kind":"create_task","task":"low_bp_review","notifyKey":"notify.triage.task_created","dueMinutes":1440}]'::jsonb
+                        else '[{"kind":"show_emergency_guidance","code":"EMG-001"},{"kind":"page_on_call"}]'::jsonb end,
+        'matchedRuleIds', '["BP-R1"]'::jsonb, 'taskKey', case when p_red_first then 'low_bp_review' else null end,
         'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', r.version));
     else
       v_res := jsonb_build_object('status', 'graded', 'grade', 'amber', 'ruleId', 'BP-A3', 'explanationKey', 'TRI-004',
@@ -109,7 +112,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_pat uuid; v_s public.chain_canary_subjects; v_t0 timestamptz := clock_timestamp();
-  v_run uuid; v_run2 uuid; v_run3 uuid; v_run4 uuid; v_ok boolean; v_n integer; v_tick jsonb; v_rota_before integer; v_err text; v_stage text; v_nid uuid;
+  v_run uuid; v_run2 uuid; v_run3 uuid; v_run4 uuid; v_run6 uuid; v_run7 uuid; v_run8 uuid; v_ok boolean; v_n integer; v_tick jsonb; v_rota_before integer; v_err text; v_stage text; v_nid uuid;
 begin
   select id into v_org from public.organisations where not coalesce((metadata ->> 'canary')::boolean, false) order by created_at limit 1;
   select count(*) into v_rota_before from public.on_call_rota where organisation_id = v_org;
@@ -214,6 +217,24 @@ begin
   perform pg_temp.res('the run-now readings carry no logged-by actor', '0', (select count(*)::text from public.vitals_readings where id in (select pg_temp.run_readings(v_run4)) and logged_by_profile_id is not null));
   perform private.chain_canary_evaluate_safe(v_run4);
 
+  -- 6b. The merged-task case (the 2026-11-01 false miss). Both fixtures belong to one patient and a task's dedup key is per patient and type, so when
+  -- the bus processes the RED event first its task is the one that is made, and the amber event merges into it. The chain worked, so the canary must pass.
+  v_run6 := private.chain_canary_start();
+  perform pg_temp.emulate_processor(v_run6, true);
+  perform pg_temp.res('red processed first: one amber_bp_review task, merged once, linked to the red event', '1,1,true',
+    (select count(*)::text || ',' || max(t.merged_count)::text || ',' || bool_and(te.grade = 'red')::text
+       from public.clinical_tasks t join public.triage_events te on te.id = t.triage_event_id
+      where t.patient_id = v_s.patient_id and t.type = 'amber_bp_review' and t.state not in ('completed', 'cancelled')));
+  v_ok := private.chain_canary_evaluate(v_run6);
+  perform pg_temp.res('a task merged into the red event''s task still passes the canary', 'true:', coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run6 and kind = 'result'), ''));
+
+  -- the check can still fail: a task that was never made is still a miss
+  v_run7 := private.chain_canary_start();
+  perform pg_temp.emulate_processor(v_run7, true);
+  update public.clinical_tasks set state = 'cancelled', cancel_reason = 'proof: task removed' where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
+  v_ok := private.chain_canary_evaluate(v_run7);
+  perform pg_temp.res('with no task at all the canary still fails at the task stage', 'false:task', coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run7 and kind = 'result'), ''));
+
   -- 7. The tick -----------------------------------------------------------------------------------------------------------------------
   select count(*) into v_n from public.chain_canary_runs where kind = 'started';
   v_tick := private.chain_canary_tick();
@@ -257,6 +278,14 @@ begin
   perform pg_temp.res('anon has no execute on the run-now RPC', 'false', has_function_privilege('anon', 'public.chain_canary_run_now()', 'EXECUTE')::text);
   perform pg_temp.res('authenticated has no execute on the tick', 'false', has_function_privilege('authenticated', 'private.chain_canary_tick()', 'EXECUTE')::text);
   perform pg_temp.res('there is exactly one canary cron job and it is not per minute', '11,41 * * * *', (select schedule from cron.job where jobname = 'chain-canary'));
+
+  -- 9a. SABOTAGE of the merged-task rule: a task that nothing merged into, linked to another event, is not the amber event's task
+  v_run8 := private.chain_canary_start();
+  perform pg_temp.emulate_processor(v_run8, true);
+  update public.clinical_tasks set merged_count = 0 where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
+  v_ok := private.chain_canary_evaluate(v_run8);
+  insert into results values ('sabotaged', 'without the merge the red event''s task is not accepted for the amber event', 'true:',
+    coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run8 and kind = 'result'), ''));
 
   -- 9. SABOTAGE ----------------------------------------------------------------------------------------------------------------------
   drop trigger pages_chain_canary_auto_ack on public.pages;
