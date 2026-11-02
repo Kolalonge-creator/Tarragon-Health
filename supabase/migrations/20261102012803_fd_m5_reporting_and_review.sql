@@ -93,6 +93,10 @@ create index if not exists fd_report_runs_pending_idx on public.fd_report_runs (
 
 alter table public.fd_conversations add column if not exists transcript_purged_at timestamptz;
 
+-- A reviewer's note can quote what a visitor wrote ("gave a dose"), so the queue is admin only to read, like the transcripts it points at (M4).
+drop policy if exists fd_review_queue_staff_select on public.fd_review_queue;
+create policy fd_review_queue_admin_select on public.fd_review_queue for select to authenticated using (private.is_admin());
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 3. Topic and outcome of each conversation
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -130,7 +134,7 @@ language plpgsql stable security definer set search_path = '' as $$
 declare
   v_org constant uuid := '00000000-0000-0000-0000-000000000001';
   v_conv jsonb; v_hand jsonb; v_topics jsonb; v_unans jsonb; v_funnel jsonb; v_leads jsonb; v_review jsonb; v_spend jsonb; v_fu jsonb;
-  v_ds date := (p_from at time zone 'UTC')::date; v_de date := (p_to at time zone 'UTC')::date;
+  v_ds date := (p_from at time zone 'Europe/London')::date; v_de date := (p_to at time zone 'Europe/London')::date;
 begin
   select jsonb_build_object(
            'total', count(*),
@@ -264,18 +268,22 @@ end $$;
 create function public.service_fd_generate_report() returns uuid
 language sql security definer set search_path = '' as $$ select private.fd_generate_report_at(now(), false) $$;
 
--- Admin: produce a report for the seven days ending today (to check it before the first Friday). Idempotent per day; a failed one is retried.
-create function public.fd_report_generate_now() returns uuid
+-- Admin: produce a report for the seven days ending today (to check it before the first Friday). Idempotent per day. Says what it found, so the
+-- page can tell "made and on its way" from "already sent earlier" (a second email for the same week would be dropped by the email provider's
+-- duplicate check, so it is never re-sent from here). A failed one is put back in the queue.
+create function public.fd_report_generate_now() returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_id uuid; v_week_start date := (now() at time zone 'Europe/London')::date - 7;
+declare v_id uuid; v_created boolean; v_status text; v_week_start date := (now() at time zone 'Europe/London')::date - 7;
 begin
   perform private.fd_require_admin();
   v_id := private.fd_generate_report_at(now(), true);
+  v_created := v_id is not null;
   if v_id is null then
     select id into v_id from public.fd_report_runs where organisation_id = '00000000-0000-0000-0000-000000000001' and week_start = v_week_start;
     update public.fd_report_runs set status = 'pending', attempts = 0, last_error = null where id = v_id and status = 'failed';
   end if;
-  return v_id;
+  select status into v_status from public.fd_report_runs where id = v_id;
+  return jsonb_build_object('id', v_id, 'created', v_created, 'status', v_status);
 end $$;
 
 create function public.service_fd_claim_reports(p_limit integer default 1)

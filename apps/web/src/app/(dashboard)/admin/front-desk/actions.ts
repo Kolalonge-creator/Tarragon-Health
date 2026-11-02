@@ -48,13 +48,19 @@ export async function setSamplePercentAction(_prev: FrontDeskActionState, formDa
   return { done: parsed.data.percent === "100" ? "Every conversation will be put on the review queue." : `${parsed.data.percent}% of ordinary conversations will be reviewed.` };
 }
 
-/** Makes a report for the seven days ending today, so it can be checked before the first Friday. It is emailed within a few minutes. */
+interface ReportNow { id: string | null; created: boolean; status: "pending" | "sending" | "sent" | "failed" | null }
+
+/**
+ * Makes a report for the seven days ending today, so it can be checked before the first Friday. It is emailed within a few minutes. If today's
+ * report was already made and sent, it says so instead: the email provider drops a second email for the same week, so it is never re-sent.
+ */
 export async function generateReportNowAction(_prev: FrontDeskActionState): Promise<FrontDeskActionState> {
   const denied = await requireSuperAdmin();
   if (denied) return { error: denied };
-  const { data, error } = await fdRpcData<string>(await createClient(), "fd_report_generate_now");
+  const { data, error } = await fdRpcData<ReportNow>(await createClient(), "fd_report_generate_now");
   if (error) return { error };
-  if (!data) return { error: "No report could be made" };
+  if (!data || !data.id) return { error: "No report could be made" };
   revalidatePath("/admin/front-desk");
+  if (data.status === "sent") return { done: "Today's report was already made and emailed. Check your inbox, or come back tomorrow for a new one." };
   return { done: "Report made. It will be emailed to you within a few minutes." };
 }

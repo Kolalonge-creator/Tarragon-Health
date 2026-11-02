@@ -192,6 +192,12 @@ select pg_temp.rec('metrics', 'an empty window gives zero and a null share, not 
   (select (e #>> '{conversations,total}' = '0' and e #> '{conversations,ai_resolved_pct}' = 'null'::jsonb and e #> '{funnel,enquiry_to_account_pct}' = 'null'::jsonb)::text
      from (select private.fd_week_metrics('2020-01-01 00:00+00', '2020-01-08 00:00+00') as e) z));
 
+-- Summer time: the week 2026-07-03 .. 2026-07-10 (London) must take the spend of those calendar days, not a window shifted by one day.
+insert into public.fd_model_usage (day, model, calls, tokens_in, tokens_out, cost_usd) values
+  ('2026-07-02', 'claude-sonnet-4-5', 1, 1, 1, 100), ('2026-07-03', 'claude-sonnet-4-5', 1, 1, 1, 1), ('2026-07-09', 'claude-sonnet-4-5', 1, 1, 1, 2), ('2026-07-10', 'claude-sonnet-4-5', 1, 1, 1, 200);
+select pg_temp.rec('metrics', 'in summer time the spend window is the London calendar days (3 July to 9 July, not shifted a day)', 'true',
+  ((private.fd_week_metrics('2026-07-02 23:00+00', '2026-07-09 23:00+00') #>> '{spend,cost_usd}')::numeric = 3)::text);
+
 -- 4. report timing ------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.mkconv('r1', '2026-03-10 12:00+00', '2026-03-10 12:10+00', 1, 'ai_resolved', 2000, 'pricing', 'open', false, true);
 insert into public.fd_messages (conversation_id, role, content) values (pg_temp.f('c_r1'), 'visitor', 'SECRET-SYMPTOM-TEXT my chest hurts when I climb stairs');
@@ -219,10 +225,18 @@ select pg_temp.rec('timing', 'a forced report covers the seven days ending today
 select pg_temp.rec('timing', 'forcing the same day again makes none new (idempotent)', 'none', coalesce(private.fd_generate_report_at('2026-05-05 11:00+00', true)::text, 'none'));
 select pg_temp.rec('timing', 'a patient cannot generate a report', 'ERR:42501', pg_temp.as_val(pg_temp.f('pat'), 'authenticated', 'select public.fd_report_generate_now()::text'));
 select pg_temp.rec('timing', 'a leads.manage holder cannot generate a report', 'ERR:42501', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select public.fd_report_generate_now()::text'));
-select pg_temp.rec('timing', 'an admin can generate one now', '36', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select char_length(public.fd_report_generate_now()::text)::text'));
-select pg_temp.rec('timing', 'and asking again returns the same report', 'true', (select (
-  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select public.fd_report_generate_now()::text') =
-  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select public.fd_report_generate_now()::text'))::text));
+select pg_temp.rec('timing', 'an admin can generate one now, and is told it was created', '36/true/pending',
+  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select char_length(r ->> 'id')::text || '/' || (r ->> 'created') || '/' || (r ->> 'status') from (select public.fd_report_generate_now() r) z$q$));
+select pg_temp.rec('timing', 'asking again returns the same report and says it was not created again', 'true/false',
+  (select ((a ->> 'id') = (b ->> 'id'))::text || '/' || (b ->> 'created') from
+     (select pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select public.fd_report_generate_now()::text')::jsonb a,
+             pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select public.fd_report_generate_now()::text')::jsonb b) z));
+update public.fd_report_runs set status = 'sent', sent_at = now() where week_start = (now() at time zone 'Europe/London')::date - 7;
+select pg_temp.rec('timing', 'an already sent report is reported as sent and is not queued again', 'false/sent',
+  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select (r ->> 'created') || '/' || (r ->> 'status') from (select public.fd_report_generate_now() r) z$q$));
+update public.fd_report_runs set status = 'failed' where week_start = (now() at time zone 'Europe/London')::date - 7;
+select pg_temp.rec('timing', 'a failed one is put back in the queue', 'false/pending',
+  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select (r ->> 'created') || '/' || (r ->> 'status') from (select public.fd_report_generate_now() r) z$q$));
 
 -- 5. delivery -----------------------------------------------------------------------------------------------------------------------------------
 update public.fd_report_runs set status = 'sent';
@@ -413,6 +427,8 @@ select pg_temp.rec('access', 'the metrics function is not callable from a sessio
   pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select private.fd_week_metrics(now() - interval '7 days', now())::text$q$));
 select pg_temp.rec('access', 'an admin reads incidents', 'true', (pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select count(*)::text from public.fd_incidents')::int > 0)::text);
 select pg_temp.rec('access', 'a leads.manage holder reads no incidents', '0', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_incidents'));
+select pg_temp.rec('access', 'a leads.manage holder reads no review rows (their notes can quote visitors)', '0', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select count(*)::text from public.fd_review_queue'));
+select pg_temp.rec('access', 'an admin reads the review rows', 'true', (pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'select count(*)::text from public.fd_review_queue')::int > 0)::text);
 select pg_temp.rec('access', 'a patient reads no incidents', '0', pg_temp.as_val(pg_temp.f('pat'), 'authenticated', 'select count(*)::text from public.fd_incidents'));
 select pg_temp.rec('access', 'a patient cannot write an incident', 'ERR:42501',
   pg_temp.as_val(pg_temp.f('pat'), 'authenticated', $q$insert into public.fd_incidents (opened_note) values ('x') returning 'x'$q$));
