@@ -101,11 +101,13 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
-    supabase.from("clinical_staff").select("id", { count: "exact", head: true }).eq("active", true),
+    // Real staff only: the synthetic canary organisation's test clinician (clinical_staff.is_test) is not a colleague (INV-13).
+    supabase.from("clinical_staff").select("id", { count: "exact", head: true }).eq("active", true).or("is_test.is.null,is_test.eq.false"),
     supabase
       .from("clinical_staff")
       .select("id", { count: "exact", head: true })
-      .is("license_verified_at", null),
+      .is("license_verified_at", null)
+      .or("is_test.is.null,is_test.eq.false"),
     supabase
       .from("booking_requests")
       .select("*", { count: "exact", head: true })

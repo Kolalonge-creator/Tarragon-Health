@@ -1,5 +1,27 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
+
+type SendsRow = { data: { sent_at: string | null } | null; error: { message: string } | null };
+const sendsRpc = jest.fn(async (): Promise<SendsRow> => ({ data: null, error: null }));
+jest.mock("@/lib/supabase/service-role", () => ({
+  createServiceRoleClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            gte: () => ({
+              order: () => ({
+                limit: () => ({ maybeSingle: () => sendsRpc() }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
 import {
+  checkChannel,
   checkConfigured,
   checkDependencies,
   checkMlService,
@@ -117,7 +139,26 @@ describe("checkDependencies", () => {
 
     expect(report.supabase.status).toBe("up");
     expect(report.ml_service.status).toBe("not_deployed");
-    expect(report.termii).toEqual({ status: "configured" });
+    sendsRpc.mockResolvedValue({ data: null, error: null });
+    expect(report.termii).toEqual({ status: "configured", evidence: "env" });
     expect(typeof report.checked_at).toBe("string");
+  });
+});
+
+describe("checkChannel: email and SMS are judged by evidence of sends, because the edge sender holds the keys", () => {
+  it("a successful send inside the window counts as configured even with no env var in this process", async () => {
+    sendsRpc.mockResolvedValueOnce({ data: { sent_at: "2026-11-02T13:25:45.924Z" }, error: null });
+    expect(await checkChannel("email", undefined)).toEqual({ status: "configured", evidence: "recent_send", last_sent_at: "2026-11-02T13:25:45.924Z" });
+  });
+  it("no send and no env var is unconfigured; a failed read is unconfigured, never a throw", async () => {
+    sendsRpc.mockResolvedValueOnce({ data: null, error: null });
+    expect(await checkChannel("sms", undefined)).toEqual({ status: "unconfigured" });
+    sendsRpc.mockRejectedValueOnce(new Error("boom"));
+    expect(await checkChannel("sms", undefined)).toEqual({ status: "unconfigured" });
+  });
+  it("the env var alone is enough and skips the database", async () => {
+    sendsRpc.mockClear();
+    expect(await checkChannel("email", "re_key")).toEqual({ status: "configured", evidence: "env" });
+    expect(sendsRpc).not.toHaveBeenCalled();
   });
 });
