@@ -11,7 +11,9 @@
 -- at or after the fixture reading and that another event merged into (merged_count > 0). A task that was never made still fails, and so does
 -- a task that exists but is older than the reading.
 --
--- The function body is the one defined in 20261013223401_p1_chain_canary.sql (the only definition on record) with this one lookup changed.
+-- The function body is the LIVE one (read from pg_get_functiondef on 2026-11-02, which reads private.vitals_readings_current: a later migration
+-- patched the original in 20261013223401_p1_chain_canary.sql). Checked line by line against live in a rolled-back transaction: the only
+-- difference is the five lines added below. Do not rebuild this from the original file; that would undo the later patch.
 create or replace function private.chain_canary_evaluate(p_run uuid) returns boolean
 language plpgsql security definer set search_path = ''
 as $$
@@ -41,7 +43,7 @@ begin
   begin
     for it in select * from jsonb_array_elements(st.fixtures) loop
       select * into f from public.chain_canary_fixtures where code = it ->> 'fixture';
-      select * into rd from public.vitals_readings where id = (it ->> 'reading_id')::uuid;
+      select * into rd from private.vitals_readings_current where id = (it ->> 'reading_id')::uuid;
       v_stage := null; v_msg := null; v_t := '{}'::jsonb;
 
       select * into te from public.triage_events where trigger_type = 'observation' and trigger_id = rd.id order by shadow, created_at limit 1;
