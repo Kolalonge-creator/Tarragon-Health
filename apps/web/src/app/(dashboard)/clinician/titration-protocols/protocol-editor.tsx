@@ -39,7 +39,7 @@ export function ProtocolEditor() {
       <label className="block text-sm text-charcoal-ink">
         Protocol code
         <input name="code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" spellCheck={false} className={FIELD} />
-        <span className="mt-1 block text-xs text-charcoal-ink/60">Lowercase letters, digits and underscores. The blood pressure step table the app reads is called htn_hearts_ng.</span>
+        <span className="mt-1 block text-xs text-charcoal-ink/60">Lowercase letters, digits and underscores. The blood pressure step table the app reads is called htn_rtsl_ng.</span>
       </label>
       <label className="block text-sm text-charcoal-ink">
         Definition (JSON)
