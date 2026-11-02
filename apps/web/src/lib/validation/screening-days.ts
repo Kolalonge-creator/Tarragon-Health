@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { screeningDayDateProblem } from "@tarragon/shared";
 
 /** Mirrors requestScreeningDay's field-by-field checks (screening-days/actions.ts)
  * — same error copy, now enforced with the codebase's usual Zod + safeParse
@@ -7,7 +8,10 @@ export const requestScreeningDaySchema = z.object({
   hostName: z.string().trim().min(1, "Who is this screening day for?"),
   contactPhone: z.string().trim().optional(),
   location: z.string().trim().min(1, "Where will this happen?"),
-  eventDate: z.string().min(1, "When is it happening?"),
+  eventDate: z.string().superRefine((value, ctx) => {
+    const problem = screeningDayDateProblem(value);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  }),
   panelBundleId: z.string().min(1, "Choose which check you'd like people to have."),
   slotsRequested: z.coerce
     .number()

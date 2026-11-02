@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { koboToNaira } from "@tarragon/shared";
+import { useActionState, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { earliestScreeningDayDate, koboToNaira, SCREENING_DAY_STEPS } from "@tarragon/shared";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  SCREENING_DAYS_QUERY_KEY,
   useScreeningDays,
   useScreeningDaySlots,
   useSelfBookablePanelBundles,
@@ -28,9 +30,18 @@ function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
 }
 
-function RequestForm() {
+function RequestForm({ onSent }: { onSent: () => void }) {
   const { data: bundles } = useSelfBookablePanelBundles();
   const [state, action, pending] = useActionState(requestScreeningDay, undefined);
+  const queryClient = useQueryClient();
+
+  // The request is made on the server, so the list above has to be told to look again or it keeps saying there is nothing.
+  useEffect(() => {
+    if (!state?.message) return;
+    void queryClient.invalidateQueries({ queryKey: [SCREENING_DAYS_QUERY_KEY] });
+    // Close the form so a second tap cannot send the same request twice; the new request shows in the list above.
+    onSent();
+  }, [state, queryClient, onSent]);
 
   return (
     <Card>
@@ -56,7 +67,7 @@ function RequestForm() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="eventDate">Event date</Label>
-              <Input id="eventDate" name="eventDate" type="date" required />
+              <Input id="eventDate" name="eventDate" type="date" min={earliestScreeningDayDate()} required />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -216,6 +227,11 @@ export function ScreeningDaysPanel() {
 
   return (
     <div className="space-y-6">
+      <ol className="list-decimal space-y-1 pl-5 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+        {SCREENING_DAY_STEPS.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
       {days && days.length > 0 ? (
         <div className="space-y-4">
           {days.map((day) => (
@@ -231,7 +247,7 @@ export function ScreeningDaysPanel() {
       )}
 
       {showForm ? (
-        <RequestForm />
+        <RequestForm onSent={() => setShowForm(false)} />
       ) : (
         <Button variant="outline" onClick={() => setShowForm(true)}>
           Request a screening day

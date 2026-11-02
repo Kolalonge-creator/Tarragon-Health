@@ -5,7 +5,7 @@ import type { Tables } from "@tarragon/shared";
 export type ScreeningDay = Tables<"screening_days">;
 export type ScreeningDaySlot = Tables<"screening_day_slots">;
 
-const SCREENING_DAYS_QUERY_KEY = "screening-days";
+export const SCREENING_DAYS_QUERY_KEY = "screening-days";
 const SCREENING_DAY_SLOTS_QUERY_KEY = "screening-day-slots";
 const SELF_BOOKABLE_BUNDLES_QUERY_KEY = "self-bookable-panel-bundles";
 
