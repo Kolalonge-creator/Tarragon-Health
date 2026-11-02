@@ -28,7 +28,7 @@ An AI receptionist on the website, a follow-up email engine for stalled sign-ups
 
 ## Known gaps carried to later milestones
 
-- `transcript_retention_days` is a setting only; the purge and the contact-erasure path (conversations keep their text when a contact is deleted) are built in M2 (F10) and M5. Until then the 365-day retention promise is not enforced and must not be stated in the privacy notice.
+- Transcript retention is enforced from M5: a daily job deletes the messages of a conversation that has been quiet for `transcript_retention_days` (365) and keeps a summary, unless a pending review, an open handoff or an open safety incident still needs the text. The contact-erasure path (a subject-access or deletion request, with the 30-day tracking) is NOT built: until it is, a deletion request is handled by the DPO by hand, and the privacy notice may state the 12-month retention but not an automated erasure.
 - Approving wording and enabling sends are admin only. Delegated `leads.manage` holders can draft wording and switch the assistant off, nothing more.
 - The migration version must be checked against the live project (`list_migrations`) immediately before it is applied.
 
@@ -60,7 +60,17 @@ kill switch -> daily spend cap -> store the message -> **fixed rules** (emergenc
 | | Status |
 |---|---|
 | M1 Foundations (schema, RLS, config, audit log, draft seeds) | Built; merged |
-| M2 Follow-up engine | Built; PR open |
+| M2 Follow-up engine | Built; merged and applied |
 | M3 CRM link | Built; PR open |
 | M4 Chat receptionist | Built; PR open |
-| M5 Reporting and review | Not started |
+| M5 Reporting and review | Built; PR open |
+
+## M5: reporting and review
+
+**Weekly report (F15).** The database makes the report, once per week (`fd_report_runs` is unique on the week), from 07:30 London time on Friday. London time is decided in SQL, so summer time needs no second schedule. A schedule that misses the slot is healed for 24 hours and never produces a report days late. It covers the seven London days before that Friday. The dispatcher only sends it, to `FOUNDER_ALERT_EMAIL`, and it needs no follow-up secret. The email has headlines, what needs the founder (open safety incidents first), and the numbers. It carries counts and topic names, never what a visitor wrote. "Email me a report now" on the dashboard makes one for the seven days ending today, to check it before the first Friday.
+
+**Numbers need two facts nothing recorded before.** A conversation's topic (`fd_conversations.intent`) is set from the visitor's words by fixed rules in the web app (`topic.ts`; no model). How a conversation ended (`resolution_type`) is settled by a sweep every 10 minutes: `ai_resolved` when the assistant answered and no person was needed, `abandoned` when the visitor wrote and got no answer. A handoff or emergency keeps its own outcome. Settling does not close the chat. "Enquiry to account to paid" are in-week counts, not a tracked cohort; read them as a trend.
+
+**Review (F16).** An hourly sampler puts on the queue every flagged conversation, every handoff, and a share of the rest chosen by a stable hash of the conversation id (`review_sample_percent`, default 10; 100 is the live pilot's "review everything"). Only an admin reads the transcripts and records a verdict. A verdict is final. **Unsafe opens an incident, and an incident closes only by saying which rule or wording was tightened.** Tightening is a human act on purpose: nothing here edits approved wording or safety rules by itself. The incident survives deletion of its conversation.
+
+**Not built:** a Sonnet-written narrative (the narrative is rule-based and always produced; an AI narrative needs its own registered AI system and sign-off), the optional Google Drive Word copy, subject-access and erasure tracking, and showing open incidents on the admin home. The pages are `/admin/front-desk` (dashboard and kill switch) and `/admin/front-desk/reviews`.
