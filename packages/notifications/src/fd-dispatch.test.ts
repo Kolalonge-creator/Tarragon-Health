@@ -190,6 +190,7 @@ describe("dispatchFollowups", () => {
 describe("handleDispatch", () => {
   const req = (secret?: string) => new Request("https://x.invalid/fd", { method: "POST", headers: secret ? { "x-fd-followup-secret": secret } : {} });
   const mk = () => ({ ...harness([run(1)]).deps, secret: "s3cret" as string | null });
+  const json = async (res: Response) => (await res.json()) as { followups: unknown; alerts: unknown; replies: unknown };
 
   it("fails closed without a configured secret", async () => {
     expect((await handleDispatch(req("s3cret"), { ...mk(), secret: null })).status).toBe(503);
@@ -201,22 +202,29 @@ describe("handleDispatch", () => {
     expect((await handleDispatch(req("wrong"), deps)).status).toBe(401);
     expect(d.mock.outbox).toHaveLength(0);
   });
-  it("claims nothing when email or the unsubscribe secret is not configured (the runs wait for the next tick)", async () => {
+  it("claims nothing when email is not configured (the work waits for the next tick)", async () => {
     let claimed = 0;
     const claim = async () => { claimed += 1; return { ok: true as const, runs: [] }; };
     expect((await handleDispatch(req("s3cret"), { ...mk(), email: null, claim })).status).toBe(503);
-    expect((await handleDispatch(req("s3cret"), { ...mk(), unsubscribeSecret: null, claim })).status).toBe(503);
     expect(claimed).toBe(0);
+  });
+  it("without the unsubscribe secret NO follow-up is claimed (it could not carry a working unsubscribe link), but the call still succeeds", async () => {
+    let claimed = 0;
+    const claim = async () => { claimed += 1; return { ok: true as const, runs: [] }; };
+    const res = await handleDispatch(req("s3cret"), { ...mk(), unsubscribeSecret: null, claim });
+    expect(res.status).toBe(200);
+    expect((await json(res)).followups).toEqual({ skipped: "unsubscribe_secret_missing" });
+    expect(claimed).toBe(0);
+  });
+  it("runs a batch with the right secret", async () => {
+    const res = await handleDispatch(req("s3cret"), mk());
+    expect(res.status).toBe(200);
+    expect((await json(res)).followups).toEqual({ claimed: 1, sent: 1, failed: 0, unrecorded: 0 });
   });
   it("answers 500 when an email went out but could not be recorded, so the cron failure is visible", async () => {
     const d = harness([run(1)]);
     const res = await handleDispatch(req("s3cret"), { ...d.deps, secret: "s3cret", finish: async () => { throw new Error("db down"); } });
     expect(res.status).toBe(500);
-    expect(((await res.json()) as { unrecorded: number }).unrecorded).toBe(1);
-  });
-  it("runs a batch with the right secret", async () => {
-    const res = await handleDispatch(req("s3cret"), mk());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ claimed: 1, sent: 1, failed: 0, unrecorded: 0 });
+    expect(((await json(res)).followups as { unrecorded: number }).unrecorded).toBe(1);
   });
 });
