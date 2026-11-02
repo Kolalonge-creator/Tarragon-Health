@@ -22,3 +22,9 @@ export async function fdRpc(supabase: SupabaseClient, fn: string, args: Record<s
   const { error } = await raw(supabase).rpc(fn, args);
   return { error: error ? error.message : null };
 }
+
+/** Like fdRpc but returns the function's result, for reads such as the follow-up overview. */
+export async function fdRpcData<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown> = {}): Promise<{ data: T | null; error: string | null }> {
+  const { data, error } = await raw(supabase).rpc(fn, args);
+  return { data: (data ?? null) as T | null, error: error ? error.message : null };
+}

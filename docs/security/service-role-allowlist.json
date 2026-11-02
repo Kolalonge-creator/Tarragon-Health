@@ -303,6 +303,14 @@
    "category": "cron or webhook route (no user session)"
   },
   {
+   "file": "apps/web/src/app/api/frontdesk/events/route.ts",
+   "category": "Front Desk M2 (2026-11-02): route for a SIGNED-IN user. Calls only service_fd_record_event for the user's own id (from the session, never the body), four accepted event types, rate limited."
+  },
+  {
+   "file": "apps/web/src/app/api/frontdesk/unsubscribe/route.ts",
+   "category": "Front Desk M2 (2026-11-02): unauthenticated by design (an email link). Calls only service_fd_unsubscribe after an HMAC token check on the contact id, rate limited; GET changes nothing."
+  },
+  {
    "file": "apps/web/src/app/api/health/deadman/route.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },
@@ -781,6 +789,10 @@
   {
    "file": "supabase/functions/expo-push-receipts/index.ts",
    "category": "edge function (runs with no user session)"
+  },
+  {
+   "file": "supabase/functions/fd-followup-dispatcher/index.ts",
+   "category": "edge function, shared-secret header check, fails closed without the secret (Front Desk M2, 2026-11-02). Calls only service_fd_claim_runs and service_fd_finish_run and reads the fd_app_config reply_to row."
   },
   {
    "file": "supabase/functions/hmo-eligibility/index.ts",

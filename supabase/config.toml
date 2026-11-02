@@ -112,3 +112,8 @@ verify_jwt = false
 # and the handler asks public.verify_notification_sender_secret (service role only) before it reads any pending notification.
 [functions.send-pending-notifications]
 verify_jwt = false
+
+# Front Desk M2: pg_cron calls this every 5 minutes with the vault secret fd_followup_secret in x-fd-followup-secret (handler.ts checks it).
+# The bearer is the publishable key, which is not necessarily a JWT, so the platform JWT check stays off, as for the functions above.
+[functions.fd-followup-dispatcher]
+verify_jwt = false

@@ -4,3 +4,6 @@
  * file re-exports it so web code and the console use the same copy. See docs/design/S14.md.
  */
 export * from "../../../supabase/functions/_shared/integrations/index.ts";
+
+/** Front desk follow-ups (M2): the renderer, the unsubscribe token and the dispatcher share one copy between the Edge Function and web routes. */
+export * from "../../../supabase/functions/_shared/frontdesk/index.ts";

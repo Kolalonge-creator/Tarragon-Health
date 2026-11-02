@@ -30,6 +30,14 @@ const files = ["supabase/functions", "apps", "packages", "services"]
   .map((f) => ({ path: relative(ROOT, f), text: readFileSync(f, "utf8") }));
 
 const PIPELINE = "supabase/functions/send-pending-notifications/index.ts";
+/**
+ * Front Desk M2: follow-up email to people who have no profile (an enquirer from the website) cannot go through the pipeline, whose recipients are
+ * profiles. This sender is allow-listed on purpose, and it carries the same protections itself, which the test below pins: quiet hours, the
+ * frequency cap, consent and suppression are decided in SQL (service_fd_claim_runs) before anything is sent, and the Resend adapter re-lints
+ * every `patient` audience email for conditions, readings, results and medicines (INV-07). Discreet mode concerns clinical notification content,
+ * which these emails never carry.
+ */
+const FRONT_DESK_DISPATCHER = "supabase/functions/fd-followup-dispatcher/index.ts";
 
 interface Rule { readonly name: string; readonly pattern: RegExp; readonly allowed: ReadonlyMap<string, string> }
 
@@ -51,6 +59,7 @@ const rules: Rule[] = [
       [PIPELINE, "the pipeline"],
       ["supabase/functions/_shared/integrations/email-resend.ts", "S14 adapter; not called by any production code (asserted below)"],
       ["supabase/functions/_shared/integrations/from-env.ts", "S14 adapter factory; not called by any production code (asserted below)"],
+      [FRONT_DESK_DISPATCHER, "Front Desk follow-up email to non-patients; gates are in SQL and the adapter lint (asserted below)"],
     ]),
   },
   {
@@ -86,7 +95,23 @@ describe("notification senders", () => {
       .map((f) => f.path)
       .filter((p) => !p.startsWith("supabase/functions/_shared/integrations/") && !p.startsWith("packages/integrations/"));
     const emailCallers = callers.filter((p) => /emailFromEnv\(|createResendEmail\(/.test(files.find((f) => f.path === p)!.text));
-    expect(emailCallers).toEqual([]);
+    expect(emailCallers).toEqual([FRONT_DESK_DISPATCHER]);
+  });
+
+  it("the Front Desk dispatcher sends only what the database claimed, under the patient lint, with one-click unsubscribe", () => {
+    const entry = files.find((f) => f.path === FRONT_DESK_DISPATCHER)!.text;
+    const dispatch = files.find((f) => f.path === "supabase/functions/_shared/frontdesk/dispatch.ts")!.text;
+    const handler = files.find((f) => f.path === "supabase/functions/fd-followup-dispatcher/handler.ts")!.text;
+    // the only source of recipients is the claim function, which applies consent, suppression, quiet hours, caps and dry-run
+    expect(entry).toContain("service_fd_claim_runs");
+    expect(dispatch).not.toMatch(/\.from\(["']fd_contacts/);
+    // every send is audience "patient" (INV-07 lint in the adapter), idempotent per run, and carries List-Unsubscribe headers
+    expect(dispatch).toContain('audience: "patient"');
+    expect(dispatch).toContain("fd-run-");
+    expect(dispatch).toContain("headers: mail.headers");
+    // fails closed: no secret, wrong secret, or no email provider means nothing is claimed
+    expect(handler.indexOf("x-fd-followup-secret")).toBeLessThan(handler.indexOf("dispatchFollowups("));
+    expect(handler).toContain("deps.email");
   });
 
   it("the pipeline applies discreet mode and quiet hours before any provider call", () => {

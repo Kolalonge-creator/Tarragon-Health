@@ -781,6 +781,7 @@ export function getNavSections(
           items: [
             { label: "Dashboard", href: "/admin", icon: "dashboard", exact: true },
             { label: "Admin sign-off", href: "/admin/sign-off", icon: "review" },
+            { label: "Follow-ups", href: "/admin/follow-ups", icon: "review" },
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Analytics", href: "/analytics", icon: "analytics" },
           ],
