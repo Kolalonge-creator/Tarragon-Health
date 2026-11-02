@@ -1,4 +1,6 @@
 import type { ConsultationPrepBundle } from "@/lib/queries/consultation-video";
+import { formatPatientDate } from "@/lib/format-date";
+import { encounterTypeLabel } from "@/lib/clinical/encounter-type-label";
 import { Badge } from "@/components/ui/badge";
 
 /**
@@ -77,7 +79,7 @@ export function ConsultationPatientSnapshot({ bundle }: { bundle: ConsultationPr
           <ul className="space-y-1">
             {bundle.recent_results.map((r, i) => (
               <li key={i} className="text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()}: {r.result_status}
+                {formatPatientDate(r.created_at)}: {r.result_status}
                 {r.result_summary ? `: ${r.result_summary}` : ""}
               </li>
             ))}
@@ -116,7 +118,7 @@ export function ConsultationPatientSnapshot({ bundle }: { bundle: ConsultationPr
           <ul className="space-y-1">
             {bundle.previous_consultations.map((p, i) => (
               <li key={i} className="text-charcoal-ink/80">
-                {new Date(p.encounter_date).toLocaleDateString()}: {p.encounter_type.replace(/_/g, " ")}
+                {formatPatientDate(p.encounter_date)}: {encounterTypeLabel(p.encounter_type)}
                 {p.diagnosis ? `: ${p.diagnosis}` : ""}
               </li>
             ))}

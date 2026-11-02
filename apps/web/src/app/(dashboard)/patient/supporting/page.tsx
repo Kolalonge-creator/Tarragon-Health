@@ -82,7 +82,7 @@ export default async function SupportingPage() {
             Want care here yourself as well?
           </p>
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            You can join as a patient too, starting on the free plan if you like, and carry on
+            You can join as a patient too (the app itself is free to join) and carry on
             supporting {profile.full_name ? "them" : "the people you support"} exactly as you do
             now.
           </p>

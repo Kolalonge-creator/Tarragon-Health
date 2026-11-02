@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
@@ -19,7 +20,7 @@ const STATUS_BADGE: Record<ImagingOrderStatus, { label: string; variant: "grey" 
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatPatientDate(value);
 }
 
 /**

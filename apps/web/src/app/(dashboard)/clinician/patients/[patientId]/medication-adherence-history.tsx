@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { readMedicationDoseLogAudited } from "@/lib/clinical/dose-log";
 import { privateReasonByLog, readDoseReasonsAudited, reasonLabelFor } from "@/lib/clinical/dose-reasons";
 import { readWeeklyAdherence } from "@/lib/clinical/weekly-adherence";
@@ -96,13 +97,7 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
                       {log.scheduled_time ? ` · ${log.scheduled_time}` : ""}
                     </p>
                     <p className="text-xs text-charcoal-ink/50">
-                      {new Date(log.logged_at).toLocaleString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatPatientDateTime(log.logged_at)}
                       {log.logged_by_profile_id ? " · logged by a supporter" : ""}
                       {log.reason ? ` · ${log.reason}` : ""}
                       {reasonLabelFor(log, privateByLog) ? ` · reason given: ${reasonLabelFor(log, privateByLog)}` : ""}

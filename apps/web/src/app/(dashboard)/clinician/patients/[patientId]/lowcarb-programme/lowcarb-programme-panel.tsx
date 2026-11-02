@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { describeLowCarbEvent, loadLowCarbProgramme } from "@/lib/lowcarb/programme";
@@ -64,7 +65,7 @@ export async function LowCarbProgrammePanel({ patientId }: { patientId: string }
               {e.supervision_accepted ? <Badge variant="blue">Medicines supervised</Badge> : null}
             </div>
             {e.last_medicine_review_at ? (
-              <p className="text-sm text-charcoal-ink/70">Medicines last reviewed {new Date(e.last_medicine_review_at).toLocaleDateString("en-NG")}.</p>
+              <p className="text-sm text-charcoal-ink/70">Medicines last reviewed {formatPatientDate(e.last_medicine_review_at)}.</p>
             ) : (
               <p className="text-sm text-charcoal-ink/70">No medicine review recorded yet.</p>
             )}

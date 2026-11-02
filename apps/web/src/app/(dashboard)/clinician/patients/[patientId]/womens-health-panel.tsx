@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FertilityRequestStatusForm } from "./fertility-request-status-form";
 import { CyclePatternReportPanel } from "./cycle-pattern-report";
@@ -112,7 +113,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
           <CardContent className="space-y-1 text-sm">
             {breastReports.map((r) => (
               <p key={r.id}>
-                {new Date(r.created_at).toLocaleDateString()}: {r.symptom_types.join(", ")}
+                {formatPatientDate(r.created_at)}: {r.symptom_types.join(", ")}
                 {r.laterality ? ` (${r.laterality})` : ""}
               </p>
             ))}
@@ -129,7 +130,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
             {fertilityRequests.map((r) => (
               <div key={r.id} className="rounded-md border border-charcoal-ink/10 p-2.5">
                 <p>
-                  {new Date(r.created_at).toLocaleDateString()}
+                  {formatPatientDate(r.created_at)}
                   {r.trying_duration_months != null ? ` · trying ${r.trying_duration_months} months` : ""}
                 </p>
                 {r.concern_notes && <p className="text-charcoal-ink/70">{r.concern_notes}</p>}
