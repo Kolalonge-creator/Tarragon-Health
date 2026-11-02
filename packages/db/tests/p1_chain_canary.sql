@@ -231,7 +231,8 @@ begin
   -- the check can still fail: a task that was never made is still a miss
   v_run7 := private.chain_canary_start();
   perform pg_temp.emulate_processor(v_run7, true);
-  update public.clinical_tasks set state = 'cancelled', cancel_reason = 'proof: task removed' where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
+  -- (state is guarded by the queue functions, so "no amber_bp_review task" is made by giving the task another type, which neither lookup can match)
+  update public.clinical_tasks set type = 'silence_check' where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
   v_ok := private.chain_canary_evaluate(v_run7);
   perform pg_temp.res('with no task at all the canary still fails at the task stage', 'false:task', coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run7 and kind = 'result'), ''));
 
