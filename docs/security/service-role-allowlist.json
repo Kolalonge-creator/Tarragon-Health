@@ -483,6 +483,10 @@
    "category": "AI-018 evaluation runner: service-role client READS ai_systems, ai_evaluation_suites and ai_evaluation_cases only (admin-scoped governance tables); it writes no table (reviewed 2026-10-29)"
   },
   {
+   "file": "apps/web/src/lib/ai-governance/run-frontdesk-eval-suites.ts",
+   "category": "AI-023 evaluation runner: service-role client READS ai_systems, ai_system_versions, ai_evaluation_suites and ai_evaluation_cases only (admin-scoped governance tables); it writes no table, and sends only the synthetic visitor messages in the eval set (2026-11-02)"
+  },
+  {
    "file": "apps/web/src/lib/ai-governance/run-imaging-eval-suites.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
   },

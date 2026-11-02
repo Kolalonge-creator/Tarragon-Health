@@ -329,12 +329,12 @@ function MarkVersionDeployedForm({ versionId }: { versionId: string }) {
  * extraction) via the `systemCode` prop -- runAiEvalSuitesAction dispatches
  * to the right harness module server-side.
  */
-function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" | "AI-017" | "AI-018" }) {
+function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" | "AI-017" | "AI-018" | "AI-023" }) {
   const [state, action, pending] = useActionState<RunEvalSuitesState, FormData>(
     runAiEvalSuitesAction,
     undefined
   );
-  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : "the suite below";
+  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : systemCode === "AI-023" ? "the two suites below" : "the suite below";
 
   return (
     <form action={action} className="min-w-[20rem] flex-1 space-y-2">
@@ -960,7 +960,8 @@ export function AiGovernanceConsole({
                     {(entry.system_code === "AI-001" ||
                       entry.system_code === "AI-016" ||
                       entry.system_code === "AI-017" ||
-                      entry.system_code === "AI-018") && (
+                      entry.system_code === "AI-018" ||
+                      entry.system_code === "AI-023") && (
                       <RunEvalSuitesForm systemCode={entry.system_code} />
                     )}
                     {draftPrompt && !activePrompt && (
