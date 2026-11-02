@@ -1,4 +1,5 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { formatPatientDate } from "@/lib/format-date";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { openPatientRecord } from "@/lib/clinical/open-patient-record";
@@ -265,13 +266,7 @@ export default async function ClinicianPatientPage({
                   }
                   reports={(bloodReports ?? []).map((r) => ({
                     id: r.id,
-                    label: `${r.original_filename ?? "Result"} · ${new Date(
-                      r.created_at,
-                    ).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}`,
+                    label: `${r.original_filename ?? "Result"} · ${formatPatientDate(r.created_at)}`,
                   }))}
                 />
                 <PatientTimeline patientId={patient.id} />
@@ -531,11 +526,7 @@ export default async function ClinicianPatientPage({
             {patient.date_of_birth && (
               <span>
                 DOB{" "}
-                {new Date(patient.date_of_birth).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {formatPatientDate(patient.date_of_birth)}
               </span>
             )}
           </p>

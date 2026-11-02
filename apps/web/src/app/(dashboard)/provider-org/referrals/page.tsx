@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { resolveSelectedProviderOrg } from "@/lib/provider-org/scope";
 import { OrgPicker } from "../org-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,7 +109,7 @@ export default async function ProviderOrgReferralsPage({
                         <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>{r.status.replace(/_/g, " ")}</Badge>
                       </td>
                       <td className="py-2 pr-4">
-                        {r.appointment_date ? new Date(r.appointment_date).toLocaleString() : "—"}
+                        {r.appointment_date ? formatPatientDateTime(r.appointment_date) : "—"}
                       </td>
                     </tr>
                   ))}

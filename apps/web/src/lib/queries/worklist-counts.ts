@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { excludeTestPatients, fetchTestPatientIds } from "@/lib/queries/real-patients";
 
 type Client = SupabaseClient<Database>;
 
@@ -23,11 +24,14 @@ type Client = SupabaseClient<Database>;
  * this exact failure. Never soften one of these back to `count ?? 0` on its
  * own.
  */
-async function countOpenEscalations(supabase: Client) {
-  const { count, error } = await supabase
-    .from("escalations")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["open", "under_review"]);
+async function countOpenEscalations(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("escalations")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["open", "under_review"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -56,20 +60,26 @@ async function countReferralsAwaitingClosure(supabase: Client) {
   return referralCount(supabase, "awaiting_closure");
 }
 
-async function countOutreachTasks(supabase: Client) {
-  const { count, error } = await supabase
-    .from("care_outreach_tasks")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["open", "in_progress", "contacted"]);
+async function countOutreachTasks(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("care_outreach_tasks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["open", "in_progress", "contacted"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countAsyncConsults(supabase: Client) {
-  const { count, error } = await supabase
-    .from("async_consults")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["submitted", "in_review"]);
+async function countAsyncConsults(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("async_consults")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["submitted", "in_review"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -82,140 +92,187 @@ async function countSecondOpinionRequests(supabase: Client) {
   return Array.isArray(data) ? data.length : 0;
 }
 
-async function countPrescriptionRenewalRequests(supabase: Client) {
-  const { count, error } = await supabase
-    .from("prescription_renewal_requests")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["submitted", "in_review"]);
+async function countPrescriptionRenewalRequests(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("prescription_renewal_requests")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["submitted", "in_review"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countVerifiedDocumentRequests(supabase: Client) {
-  const { count, error } = await supabase
-    .from("verified_documents")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "requested");
+async function countVerifiedDocumentRequests(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("verified_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "requested"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countSeniorCaseReviews(supabase: Client) {
-  const { count, error } = await supabase
-    .from("senior_case_reviews")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["submitted", "in_review"]);
+async function countSeniorCaseReviews(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("senior_case_reviews")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["submitted", "in_review"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countAdherenceAlerts(supabase: Client) {
-  const { count, error } = await supabase
-    .from("medication_adherence_alerts")
-    .select("id", { count: "exact", head: true })
-    .neq("status", "resolved");
+async function countAdherenceAlerts(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("medication_adherence_alerts")
+      .select("id", { count: "exact", head: true })
+      .neq("status", "resolved"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countMedicationReviews(supabase: Client) {
-  const { count, error } = await supabase
-    .from("medication_reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+async function countMedicationReviews(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("medication_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countPreventiveReviews(supabase: Client) {
-  const { count, error } = await supabase
-    .from("preventive_reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+async function countPreventiveReviews(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("preventive_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countAnnualReviews(supabase: Client) {
-  const { count, error } = await supabase
-    .from("annual_reviews")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["pending", "in_progress"]);
+async function countAnnualReviews(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("annual_reviews")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "in_progress"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countLifestyleReviews(supabase: Client) {
-  const { count, error } = await supabase
-    .from("lpe_reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+async function countLifestyleReviews(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("lpe_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countLifestyleFlags(supabase: Client) {
-  const { count, error } = await supabase
-    .from("lpe_red_flag_events")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "open");
+async function countLifestyleFlags(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("lpe_red_flag_events")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countCarePlanReviewPrompts(supabase: Client) {
-  const { count, error } = await supabase
-    .from("care_plan_review_prompts")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "open");
+async function countCarePlanReviewPrompts(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("care_plan_review_prompts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countRecommendations(supabase: Client) {
-  const { count, error } = await supabase
-    .from("care_plan_recommendations")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "proposed");
+async function countRecommendations(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("care_plan_recommendations")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "proposed"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countPendingVaccinationVerifications(supabase: Client) {
-  const { count, error } = await supabase
-    .from("vaccination_records")
-    .select("id", { count: "exact", head: true })
-    .eq("verification_status", "pending_verification");
+/** vaccination_records keys the patient as `profile_id`, not `patient_id`. */
+async function countPendingVaccinationVerifications(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("vaccination_records")
+      .select("id", { count: "exact", head: true })
+      .eq("verification_status", "pending_verification"),
+    testPatientIds,
+    { column: "profile_id" }
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
-async function countActiveCases(supabase: Client) {
-  const { count, error } = await supabase
-    .from("care_management_cases")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "active");
+async function countActiveCases(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("care_management_cases")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
 /** Exact same filter as useOperationsQueueAlerts (lib/queries/operations-queue.ts). */
-async function countOperationsQueueAlerts(supabase: Client) {
-  const { count, error } = await supabase
-    .from("clinician_alerts")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "open");
+async function countOperationsQueueAlerts(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
 /** Exact same filter as the results-inbox page's own "Awaiting action" count
  * (apps/web/src/app/(dashboard)/clinician/results-inbox/page.tsx). */
-async function countResultsInboxAwaitingAction(supabase: Client) {
-  const { count, error } = await supabase
-    .from("lab_result_documents")
-    .select("id", { count: "exact", head: true })
-    .neq("acknowledgement_status", "action_completed");
+async function countResultsInboxAwaitingAction(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("lab_result_documents")
+      .select("id", { count: "exact", head: true })
+      .neq("acknowledgement_status", "action_completed"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -229,11 +286,14 @@ async function countResultsInboxAwaitingAction(supabase: Client) {
  * found sitting 127 hours overdue with no badge anywhere pointing at it
  * during the 2026-09-17 pending-jobs-banner audit.
  */
-async function countPendingEcRequests(supabase: Client) {
-  const { count, error } = await supabase
-    .from("emergency_contraception_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+async function countPendingEcRequests(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("emergency_contraception_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -242,11 +302,14 @@ async function countPendingEcRequests(supabase: Client) {
  * (`status !== "closed"`). Found a CRITICAL-severity incident sitting in
  * this queue with no badge anywhere pointing at it during the same audit
  * that found the emergency-contraception gap above. */
-async function countOpenSafetyIncidents(supabase: Client) {
-  const { count, error } = await supabase
-    .from("clinical_incident_reports")
-    .select("id", { count: "exact", head: true })
-    .neq("status", "closed");
+async function countOpenSafetyIncidents(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("clinical_incident_reports")
+      .select("id", { count: "exact", head: true })
+      .neq("status", "closed"),
+    testPatientIds, { nullable: true }
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -256,11 +319,14 @@ async function countOpenSafetyIncidents(supabase: Client) {
  * Medical Officer+ can move a concern into review or close it), but every
  * tier can see the queue -- see that page's own header comment -- so the
  * count is safe to show to every tier too. */
-async function countOpenSafeguardingConcerns(supabase: Client) {
-  const { count, error } = await supabase
-    .from("safeguarding_concerns")
-    .select("id", { count: "exact", head: true })
-    .neq("status", "closed");
+async function countOpenSafeguardingConcerns(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("safeguarding_concerns")
+      .select("id", { count: "exact", head: true })
+      .neq("status", "closed"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -276,21 +342,27 @@ async function countOpenSafeguardingConcerns(supabase: Client) {
  * counter earlier the same day. Affordability reports stay uncounted here,
  * not silently dropped: opening the page itself still shows them exactly as
  * before. */
-async function countOpenMedicationDispenseFlags(supabase: Client) {
-  const { count, error } = await supabase
-    .from("medication_dispense_flags")
-    .select("id", { count: "exact", head: true })
-    .neq("status", "resolved");
+async function countOpenMedicationDispenseFlags(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("medication_dispense_flags")
+      .select("id", { count: "exact", head: true })
+      .neq("status", "resolved"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
 
 /** Exact same filter as useSupportTicketQueue (lib/queries/support-tickets.ts). */
-async function countOpenSupportTickets(supabase: Client) {
-  const { count, error } = await supabase
-    .from("support_tickets")
-    .select("id", { count: "exact", head: true })
-    .not("status", "in", "(resolved,closed)");
+async function countOpenSupportTickets(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("support_tickets")
+      .select("id", { count: "exact", head: true })
+      .not("status", "in", "(resolved,closed)"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -298,11 +370,14 @@ async function countOpenSupportTickets(supabase: Client) {
 /** Exact same filter as useComplaintQueue (lib/queries/complaints.ts) --
  * every complaint short of governance_review, the point at which it moves
  * to a different reviewer and stops being this queue's job. */
-async function countOpenComplaints(supabase: Client) {
-  const { count, error } = await supabase
-    .from("complaints")
-    .select("id", { count: "exact", head: true })
-    .neq("status", "governance_review");
+async function countOpenComplaints(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("complaints")
+      .select("id", { count: "exact", head: true })
+      .neq("status", "governance_review"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -339,6 +414,10 @@ async function countTherapyApprovalsWaiting(supabase: Client) {
  * and a home-visit collection blocks a diagnostic sample from ever being
  * taken -- the more clinically load-bearing of the two. Pharmacy orders stay
  * fully visible on the page itself, just not globally counted.
+ *
+ * Not yet excluding test patients (INV-13): this counter is owned by a
+ * concurrent change to the home-visit worklist; apply excludeTestPatients
+ * here once that lands rather than editing it twice.
  */
 async function countLabOrdersAwaitingHomeVisitAssignment(supabase: Client) {
   const { count, error } = await supabase
@@ -353,11 +432,14 @@ async function countLabOrdersAwaitingHomeVisitAssignment(supabase: Client) {
 /** Exact same filter as useOrgLabResultConsultRequests
  * (lib/queries/lab-result-consult.ts) -- a paid consult request whose result
  * a doctor hasn't yet accepted a booking slot for. */
-async function countLabResultConsultsWaiting(supabase: Client) {
-  const { count, error } = await supabase
-    .from("lab_result_consult_requests")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["payment_confirmed", "document_uploaded"]);
+async function countLabResultConsultsWaiting(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("lab_result_consult_requests")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["payment_confirmed", "document_uploaded"]),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -365,11 +447,14 @@ async function countLabResultConsultsWaiting(supabase: Client) {
 /** Recognised FHIR Bundle entries from a partner import (labs/HMOs/hospitals
  * via POST /api/v1/fhir/import) waiting for a clinician to confirm, modify,
  * or dismiss them into the record -- see clinician/fhir-review. */
-async function countFhirProposedResourcesPending(supabase: Client) {
-  const { count, error } = await supabase
-    .from("fhir_import_proposed_resources")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "proposed");
+async function countFhirProposedResourcesPending(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("fhir_import_proposed_resources")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "proposed"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -377,11 +462,14 @@ async function countFhirProposedResourcesPending(supabase: Client) {
 /** Patient requests to void or correct an allergy or a condition she entered herself, still waiting
  * for a tied doctor (S05b-d/e/f; one table, both record kinds) -- see clinician/record-changes. RLS on the request table already limits the
  * count to the requests this clinician may decide, so a Care Coordinator always sees 0. */
-async function countRecordChangeRequestsWaiting(supabase: Client) {
-  const { count, error } = await supabase
-    .from("patient_allergy_correction_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+async function countRecordChangeRequestsWaiting(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("patient_allergy_correction_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -413,12 +501,15 @@ async function countCareThreadsAwaitingReply(supabase: Client) {
  * navigating straight to /clinician/patients/[patientId] — nothing
  * surfaced "a patient is waiting on this" anywhere.
  */
-async function countPreventiveHealthCheckReviewsWaiting(supabase: Client) {
-  const { count, error } = await supabase
-    .from("annual_health_checks")
-    .select("id", { count: "exact", head: true })
-    .not("review_requested_at", "is", null)
-    .is("reviewed_at", null);
+async function countPreventiveHealthCheckReviewsWaiting(supabase: Client, testPatientIds: readonly string[] = []) {
+  const { count, error } = await excludeTestPatients(
+    supabase
+      .from("annual_health_checks")
+      .select("id", { count: "exact", head: true })
+      .not("review_requested_at", "is", null)
+      .is("reviewed_at", null),
+    testPatientIds
+  );
   if (error) throw error;
   return count ?? 0;
 }
@@ -479,7 +570,17 @@ export type WorklistCountKey =
  * testable for every counter at once (worklist-counts.test.ts), rather than
  * trusted to twenty near-identical copies of the same three lines.
  */
-export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> = {
+/**
+ * The second argument is the INV-13 test-patient id list (lib/queries/real-patients.ts).
+ * Every counter over a table with a `patient_id` column excludes those ids; a
+ * counter backed by an RPC leaves the exclusion to the function. It defaults
+ * to "nothing to exclude" so the generic tests above can still call a counter
+ * with just a client.
+ */
+export const COUNTERS: Record<
+  WorklistCountKey,
+  (supabase: Client, testPatientIds?: readonly string[]) => Promise<number>
+> = {
   escalations: countOpenEscalations,
   referralsNeedingUrgency: countReferralsNeedingUrgency,
   waitlistedReferrals: countWaitlistedReferrals,
@@ -531,8 +632,12 @@ export function useWorklistCounts(keys: WorklistCountKey[]) {
     queryKey: ["worklist-counts", ...keys.slice().sort()],
     queryFn: async () => {
       const supabase = createClient();
+      // INV-13: one read of the test-patient list per run, shared by every counter, so a
+      // staff member's badges never count a test account's work. Throws on failure like
+      // every counter here, so a broken read shows as "could not be loaded", not as 0.
+      const testPatientIds = await fetchTestPatientIds(supabase);
       const entries = await Promise.all(
-        keys.map(async (key) => [key, await COUNTERS[key](supabase)] as const)
+        keys.map(async (key) => [key, await COUNTERS[key](supabase, testPatientIds)] as const)
       );
       return Object.fromEntries(entries) as Record<WorklistCountKey, number>;
     },

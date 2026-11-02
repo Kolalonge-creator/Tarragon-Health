@@ -1,4 +1,5 @@
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { formatPatientDate } from "@/lib/format-date";
 import { canReviewSafeguardingConcern } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -171,11 +172,7 @@ export default async function SafeguardingPage({
                       )}
                       <span className="text-xs text-charcoal-ink/60">
                         Raised {timeAgo(concern.created_at)} (
-                        {new Date(concern.created_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatPatientDate(concern.created_at)}
                         )
                       </span>
                     </div>

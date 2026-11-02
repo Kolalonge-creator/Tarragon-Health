@@ -14,6 +14,9 @@ import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { credentialMonitorSchema } from "@/lib/queries/provider-quality";
+import { excludeTestPatients } from "@/lib/queries/real-patients";
+import { getTestPatientIdsForRequest } from "@/lib/queries/real-patients-request";
+import { ENCOUNTER_TYPE_LABEL } from "@/lib/clinical/encounter-type-label";
 import { Worklist } from "./worklist";
 import { TodayPriorities } from "./today-priorities";
 import { RedFlagAttestation } from "./red-flag-attestation";
@@ -27,7 +30,6 @@ import {
   lagosDayBounds,
   nextActionView,
   rankEscalations,
-  sumFigures,
   type EscalationLevel,
   type HomeEscalation,
 } from "@tarragon/shared";
@@ -48,15 +50,6 @@ type PendingAutoDraftedNoteRow = {
   reason_for_encounter: string;
   encounter_date: string;
   patient: { full_name: string | null } | null;
-};
-
-const ENCOUNTER_TYPE_LABEL: Record<string, string> = {
-  video_consult: "Video consult",
-  async_consult: "Async consult",
-  in_person: "In person",
-  phone: "Phone",
-  escalation_review: "Escalation review",
-  other: "Other",
 };
 
 const GREETING_LABEL: Record<GreetingWord, string> = {
@@ -136,23 +129,38 @@ export default async function ClinicianPage() {
   // open/under-review escalation — same filter as lib/queries/worklist-counts's
   // countOpenEscalations and lib/queries/escalations's fetchDoctorEscalations,
   // just run with the server client so this page stays a single request.
+  //
+  // INV-13: a test account (profiles.is_test) is never a real doctor's work. The
+  // headline patient count reads the flag directly; every patient-keyed read
+  // below excludes the test-patient id list (one cached read per request).
+  // Without this the hero "Your next case" was a test patient's emergency.
   const now = new Date();
   const todayBounds = lagosDayBounds(now);
+  const testPatientIds = await getTestPatientIdsForRequest();
   const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes] = await Promise.all([
-    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "patient"),
     supabase
-      .from("escalations")
-      .select(
-        "id, reason, status, assigned_doctor_id, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
-      )
-      .in("status", ["open", "under_review"])
-      .order("created_at", { ascending: true })
-      .returns<OverviewEscalationRow[]>(),
-    supabase.from("medication_reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabase
-      .from("care_plan_review_prompts")
+      .from("profiles")
       .select("id", { count: "exact", head: true })
-      .eq("status", "open"),
+      .eq("role", "patient")
+      .eq("is_test", false),
+    excludeTestPatients(
+      supabase
+        .from("escalations")
+        .select(
+          "id, reason, status, assigned_doctor_id, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
+        )
+        .in("status", ["open", "under_review"])
+        .order("created_at", { ascending: true }),
+      testPatientIds
+    ).returns<OverviewEscalationRow[]>(),
+    excludeTestPatients(
+      supabase.from("medication_reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      testPatientIds
+    ),
+    excludeTestPatients(
+      supabase.from("care_plan_review_prompts").select("id", { count: "exact", head: true }).eq("status", "open"),
+      testPatientIds
+    ),
     // Today's visits for this doctor (Lagos calendar day); a cancelled, no-show or still-held (unconfirmed) slot is not work.
     profile?.id
       ? supabase
@@ -222,13 +230,22 @@ export default async function ClinicianPage() {
   if (isClinicalDirector) {
     const [protocolDraftsRes, triageProtocolsRes, credentialMonitorRes] = await Promise.all([
       supabase.from("protocol_drafts").select("id", { count: "exact", head: true }).eq("status", "in_review"),
-      supabase.from("triage_protocols").select("id", { count: "exact", head: true }).is("approved_at", null),
+      // Only the newest version is work: an older unsigned, inactive draft was
+      // superseded by whatever came after it and is history, not a signing task.
+      supabase
+        .from("triage_protocols")
+        .select("version, approved_at, is_active")
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       supabase.rpc("provider_credential_monitor"),
     ]);
     governancePanelFailed =
       protocolDraftsRes.error !== null || triageProtocolsRes.error !== null || credentialMonitorRes.error !== null;
     protocolDraftsPending = protocolDraftsRes.count ?? 0;
-    triageProtocolsUnsigned = triageProtocolsRes.count ?? 0;
+    const latestTriage = triageProtocolsRes.data;
+    triageProtocolsUnsigned =
+      latestTriage && latestTriage.approved_at === null && !latestTriage.is_active ? 1 : 0;
     if (!governancePanelFailed) {
       const parsed = credentialMonitorSchema.safeParse(credentialMonitorRes.data);
       if (!parsed.success) {
@@ -266,10 +283,8 @@ export default async function ClinicianPage() {
     now,
   );
 
-  const reviewsFigure = sumFigures([
-    figure(medReviewsRes.count, medReviewsRes.error !== null),
-    figure(carePlanReviewsRes.count, carePlanReviewsRes.error !== null),
-  ]);
+  const medReviewsFigure = figure(medReviewsRes.count, medReviewsRes.error !== null);
+  const carePlanReviewsFigure = figure(carePlanReviewsRes.count, carePlanReviewsRes.error !== null);
   const appointmentsFigure = appointmentsTodayRes
     ? figure(appointmentsTodayRes.count, appointmentsTodayRes.error !== null)
     : figure(null, true);
@@ -301,7 +316,8 @@ export default async function ClinicianPage() {
         tiles={[
           { label: "Appointments today", figure: appointmentsFigure, href: "/clinician/appointments", note: "on your list" },
           { label: "Notes to complete", figure: notesFigure, href: "#notes-to-complete", note: "to review and sign" },
-          { label: "Reviews due", figure: reviewsFigure, href: "/clinician/medication-reviews", note: "care plans and medicines" },
+          { label: "Medicine reviews due", figure: medReviewsFigure, href: "/clinician/medication-reviews", note: "to review" },
+          { label: "Care plan reviews due", figure: carePlanReviewsFigure, href: "/clinician/care-plan-review", note: "to review" },
         ]}
       />
 
@@ -438,13 +454,13 @@ export default async function ClinicianPage() {
         {patientCountFailed ? (
           <StatTile
             icon={SEMANTIC_ICON.parentCare}
-            label="Active patients"
+            label="Patients"
             empty={{ hint: "Could not be loaded" }}
           />
         ) : (
           <StatTile
             icon={SEMANTIC_ICON.parentCare}
-            label="Active patients"
+            label="Patients"
             value={formatNumber(patientCount)}
           />
         )}

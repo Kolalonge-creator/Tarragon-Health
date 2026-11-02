@@ -63,3 +63,66 @@ describe("worklist counters", () => {
     ).rejects.toEqual({ message: "permission denied" });
   });
 });
+
+/**
+ * INV-13: a test account must never appear in a staff member's headline
+ * numbers. Every counter over a table with a `patient_id` column applies the
+ * exclusion when test ids are supplied; the RPC-backed counters leave it to
+ * the function (they never touch the filter builder).
+ */
+describe("worklist counters exclude test patients (INV-13)", () => {
+  type Filter = { method: string; args: unknown[] };
+
+  function recordingClient(filters: Filter[]): Client {
+    const builder: Record<string, unknown> = {
+      then: (resolve: (value: CountResult) => unknown) =>
+        Promise.resolve({ count: 3, error: null }).then(resolve),
+    };
+    for (const method of ["from", "select", "eq", "neq", "in", "or", "is", "gte", "not"]) {
+      builder[method] = (...args: unknown[]) => {
+        filters.push({ method, args });
+        return builder;
+      };
+    }
+    builder.rpc = () => Promise.resolve({ data: 3, error: null });
+    return builder as unknown as Client;
+  }
+
+  const TABLE_BACKED = KEYS.filter((key) => {
+    const filters: Filter[] = [];
+    void COUNTERS[key](recordingClient(filters), []);
+    return filters.some((f) => f.method === "from");
+  });
+
+  // The one table-backed counter deliberately left alone (owned by a concurrent change) and the one nullable column.
+  const NOT_YET_EXCLUDED: WorklistCountKey[] = ["labOrdersAwaitingHomeVisitAssignment"];
+  const NULLABLE_PATIENT_COLUMN: WorklistCountKey[] = ["openSafetyIncidents"];
+  // Tables that name the patient column something other than patient_id.
+  const PATIENT_COLUMN: Partial<Record<WorklistCountKey, string>> = { vaccinationVerifications: "profile_id" };
+
+  it.each(TABLE_BACKED.filter((k) => !NOT_YET_EXCLUDED.includes(k) && !NULLABLE_PATIENT_COLUMN.includes(k)))(
+    "%s filters out the supplied test patient ids",
+    async (key) => {
+      const filters: Filter[] = [];
+      await COUNTERS[key](recordingClient(filters), ["t1", "t2"]);
+      expect(filters).toContainEqual({
+        method: "not",
+        args: [PATIENT_COLUMN[key] ?? "patient_id", "in", "(t1,t2)"],
+      });
+    }
+  );
+
+  it.each(NULLABLE_PATIENT_COLUMN)("%s keeps rows about no patient while excluding test patients", async (key) => {
+    const filters: Filter[] = [];
+    await COUNTERS[key](recordingClient(filters), ["t1"]);
+    expect(filters).toContainEqual({ method: "or", args: ["patient_id.is.null,patient_id.not.in.(t1)"] });
+  });
+
+  it.each(TABLE_BACKED)("%s adds no filter when there is no test patient", async (key) => {
+    const filters: Filter[] = [];
+    await COUNTERS[key](recordingClient(filters), []);
+    expect(filters.filter((f) => f.method === "not" || f.method === "or").map((f) => f.args[0])).not.toContain(
+      "patient_id"
+    );
+  });
+});

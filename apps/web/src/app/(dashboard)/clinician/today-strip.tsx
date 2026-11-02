@@ -10,13 +10,14 @@ type Tile = {
 };
 
 /**
- * Three tiles for today: appointments, notes to complete, reviews due. A tile
- * whose count could not be loaded says so; it never shows 0. Each tile is one
- * link of at least 44px, so it works with a thumb.
+ * Four tiles for today: appointments, notes to complete, medicine reviews due,
+ * care plan reviews due (the two review kinds each link to their own worklist).
+ * A tile whose count could not be loaded says so; it never shows 0. Each tile
+ * is one link of at least 44px, so it works with a thumb.
  */
 export function TodayStrip({ tiles }: { tiles: readonly Tile[] }) {
   return (
-    <section aria-label="Today" className="grid gap-3 sm:grid-cols-3">
+    <section aria-label="Today" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((tile) => (
         <Link
           key={tile.label}

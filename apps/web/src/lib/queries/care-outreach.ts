@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { excludeTestPatients, fetchTestPatientIds } from "@/lib/queries/real-patients";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type OutreachTask = Tables<"care_outreach_tasks">;
@@ -18,11 +19,22 @@ export type OutreachContactWithPatient = OutreachContact & {
   patient: { full_name: string | null; patient_number: string | null; phone: string | null } | null;
 };
 
+/**
+ * `!inner` on the patient embed turns the join into an inner join, so the
+ * `.eq("patient.role", "patient")` filter below drops a task whose subject is
+ * not a patient at all (one exists today on an analyst's staff profile, left
+ * by the outreach engine before profiles.role was checked). A left-join embed
+ * would keep that row with `patient: null` instead of removing it.
+ */
 const TASK_SELECT =
-  "*, patient:profiles!care_outreach_tasks_patient_id_fkey(full_name, patient_number, phone), assigned_owner:profiles!care_outreach_tasks_assigned_to_fkey(full_name)";
+  "*, patient:profiles!care_outreach_tasks_patient_id_fkey!inner(full_name, patient_number, phone, role), assigned_owner:profiles!care_outreach_tasks_assigned_to_fkey(full_name)";
 
 const CONTACT_SELECT =
-  "*, patient:profiles!care_outreach_contacts_patient_id_fkey(full_name, patient_number, phone)";
+  "*, patient:profiles!care_outreach_contacts_patient_id_fkey!inner(full_name, patient_number, phone, role)";
+
+/** Count-only selects that still join the patient so the role filter applies. */
+const TASK_PATIENT_ROLE_COUNT_SELECT = "id, patient:profiles!care_outreach_tasks_patient_id_fkey!inner(role)";
+const CONTACT_PATIENT_ROLE_COUNT_SELECT = "id, patient:profiles!care_outreach_contacts_patient_id_fkey!inner(role)";
 
 export const outreachKeys = {
   org: ["care-outreach", "org"] as const,
@@ -37,18 +49,25 @@ export const outreachContactKeys = {
  * The proactive-outreach worklist — every live task the nightly
  * private.queue_care_outreach() engine surfaced from risk scores + care gaps.
  * RLS (private.is_org_staff) scopes to the org; patients never see this table.
+ * INV-13: a test account's task is never a coordinator's work, so test patients
+ * are excluded, as is any task whose subject profile is not a patient.
  */
 export function useOutreachTasks() {
   return useQuery({
     queryKey: outreachKeys.org,
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("care_outreach_tasks")
-        .select(TASK_SELECT)
-        .in("status", ["open", "in_progress", "contacted"])
-        .order("priority", { ascending: true })
-        .order("created_at", { ascending: true });
+      const testPatientIds = await fetchTestPatientIds(supabase);
+      const { data, error } = await excludeTestPatients(
+        supabase
+          .from("care_outreach_tasks")
+          .select(TASK_SELECT)
+          .in("status", ["open", "in_progress", "contacted"])
+          .eq("patient.role", "patient")
+          .order("priority", { ascending: true })
+          .order("created_at", { ascending: true }),
+        testPatientIds
+      );
       if (error) throw error;
       return data as OutreachTaskWithPatient[];
     },
@@ -130,11 +149,16 @@ export function useRecentOutreachContacts(limit = 5) {
     queryKey: outreachContactKeys.recent,
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("care_outreach_contacts")
-        .select(CONTACT_SELECT)
-        .order("contacted_at", { ascending: false })
-        .limit(limit);
+      const testPatientIds = await fetchTestPatientIds(supabase);
+      const { data, error } = await excludeTestPatients(
+        supabase
+          .from("care_outreach_contacts")
+          .select(CONTACT_SELECT)
+          .eq("patient.role", "patient")
+          .order("contacted_at", { ascending: false })
+          .limit(limit),
+        testPatientIds
+      );
       if (error) throw error;
       return data as OutreachContactWithPatient[];
     },
@@ -204,11 +228,16 @@ export function useResolvedOutreachCountThisWeek() {
     queryFn: async () => {
       const supabase = createClient();
       const since = new Date(Date.now() - SEVEN_DAYS_MS).toISOString();
-      const { count, error } = await supabase
-        .from("care_outreach_tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "resolved")
-        .gte("resolved_at", since);
+      const testPatientIds = await fetchTestPatientIds(supabase);
+      const { count, error } = await excludeTestPatients(
+        supabase
+          .from("care_outreach_tasks")
+          .select(TASK_PATIENT_ROLE_COUNT_SELECT, { count: "exact", head: true })
+          .eq("status", "resolved")
+          .eq("patient.role", "patient")
+          .gte("resolved_at", since),
+        testPatientIds
+      );
       if (error) throw error;
       return count ?? 0;
     },
@@ -222,10 +251,15 @@ export function useOutreachContactCountThisWeek() {
     queryFn: async () => {
       const supabase = createClient();
       const since = new Date(Date.now() - SEVEN_DAYS_MS).toISOString();
-      const { count, error } = await supabase
-        .from("care_outreach_contacts")
-        .select("id", { count: "exact", head: true })
-        .gte("contacted_at", since);
+      const testPatientIds = await fetchTestPatientIds(supabase);
+      const { count, error } = await excludeTestPatients(
+        supabase
+          .from("care_outreach_contacts")
+          .select(CONTACT_PATIENT_ROLE_COUNT_SELECT, { count: "exact", head: true })
+          .eq("patient.role", "patient")
+          .gte("contacted_at", since),
+        testPatientIds
+      );
       if (error) throw error;
       return count ?? 0;
     },
