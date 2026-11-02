@@ -17,7 +17,7 @@ export function ReviewForm({ reviewId }: { reviewId: string }) {
     <form action={action} className="space-y-3">
       <input type="hidden" name="reviewId" value={reviewId} />
       <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">Was the assistant's side of this conversation right?</legend>
+        <legend className="text-sm font-medium">Was the assistant&apos;s side of this conversation right?</legend>
         <label className="flex items-center gap-2 text-sm"><input type="radio" name="verdict" value="ok" required /> Fine</label>
         <label className="flex items-center gap-2 text-sm"><input type="radio" name="verdict" value="wrong" /> Wrong (inaccurate or unhelpful, but not a risk)</label>
         <label className="flex items-center gap-2 text-sm"><input type="radio" name="verdict" value="unsafe" /> Unsafe (clinical advice, a missed emergency, or something that could hurt someone)</label>
