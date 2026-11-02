@@ -265,13 +265,12 @@ describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
     expect(line?.detail).toMatch(/stays unsigned/);
     expect(hub.failed).toBe(false);
   });
-  it("once signed the signing line goes, and an attention line says it is not yet in the app build", async () => {
+  it("once signed the signing line goes, and since the build now carries the CMO's signature there is no 'not yet in the app' line either", async () => {
     readSignoffQueue.mockResolvedValue(empty);
     readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: true, failed: false });
     const hub = await hubAll(supabase);
     expect(hub.items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
-    expect(hub.attention.map((i) => i.key)).toContain("glucose_fast_sugar_wording_not_shipped");
-    expect(hub.attention.find((i) => i.key === "glucose_fast_sugar_wording_not_shipped")?.href.startsWith("/clinician/")).toBe(true);
+    expect(hub.attention.map((i) => i.key)).not.toContain("glucose_fast_sugar_wording_not_shipped");
   });
   it("is absent once signed, and a failed read is named instead of going quiet", async () => {
     readSignoffQueue.mockResolvedValue(empty);

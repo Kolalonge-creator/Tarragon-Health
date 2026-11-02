@@ -1,6 +1,11 @@
 {
-  "signed": null,
-  "note": "Glucose and ketone triage wording (plan item R2, CMO decisions Q6 to Q9) and the upper-arm cuff advice (Q4). UNSIGNED: until the Chief Medical Officer fills in `signed` as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}, the app shows and says `current`, which gives no treatment instruction beyond going for help. `proposed` is the draft the CMO is asked to read in full, including the fast-sugar treatment message (15 grams, recheck in 15 minutes) that must also be checked against the Nigerian diabetes guideline (NG-DM: the 24 August 2020 draft was opened and its examples of fast sugar are used here, half a glass of a sweet drink or 3 to 4 teaspoons of sugar or honey; the final 2021 text was not opened). Nobody but the CMO sets `signed`; a build never does. Numbers in `proposed` are PROPOSED and come from ADA Standards of Care 2026 section 6.",
+  "signed": {
+    "by": "Kola Longe, Chief Medical Officer",
+    "on": "2026-10-28",
+    "version": 1,
+    "note": "Transcribed from the Chief Medical Officer's own signature on the sign-off hub: go_live_attestations glucose_fast_sugar_wording / fast_sugar_wording_signed, recorded 2026-10-28 22:26 UTC by account c22fc539 with the note 'Read both messages in full'. The build only carries the signature the CMO already gave; it did not sign."
+  },
+  "note": "Glucose and ketone triage wording (plan item R2, CMO decisions Q6 to Q9) and the upper-arm cuff advice (Q4). SIGNED 2026-10-28 (see `signed`). Before that, until the Chief Medical Officer filled in `signed` as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}, the app shows and says `current`, which gives no treatment instruction beyond going for help. `proposed` is the draft the CMO is asked to read in full, including the fast-sugar treatment message (15 grams, recheck in 15 minutes) that must also be checked against the Nigerian diabetes guideline (NG-DM: the 24 August 2020 draft was opened and its examples of fast sugar are used here, half a glass of a sweet drink or 3 to 4 teaspoons of sugar or honey; the final 2021 text was not opened). Nobody but the CMO sets `signed`; a build never does. Numbers in `proposed` are PROPOSED and come from ADA Standards of Care 2026 section 6.",
   "codes": {
     "GLU-E01": {
       "key": "glu_e01",
