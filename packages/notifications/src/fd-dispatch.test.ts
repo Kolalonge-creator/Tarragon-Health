@@ -209,7 +209,7 @@ describe("handleDispatch", () => {
     const d = harness([run(1)]);
     const res = await handleDispatch(req("s3cret"), { ...d.deps, secret: "s3cret", finish: async () => { throw new Error("db down"); } });
     expect(res.status).toBe(500);
-    expect((await res.json()).unrecorded).toBe(1);
+    expect(((await res.json()) as { unrecorded: number }).unrecorded).toBe(1);
   });
   it("runs a batch with the right secret", async () => {
     const res = await handleDispatch(req("s3cret"), mk());
