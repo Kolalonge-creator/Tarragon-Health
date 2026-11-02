@@ -55050,6 +55050,7 @@ export type Database = {
           p_action?: string
           p_from?: string
           p_limit?: number
+          p_offset?: number
           p_to?: string
         }
         Returns: Json
@@ -55152,6 +55153,7 @@ export type Database = {
           p_account?: string
           p_from?: string
           p_limit?: number
+          p_offset?: number
           p_source?: string
           p_to?: string
         }

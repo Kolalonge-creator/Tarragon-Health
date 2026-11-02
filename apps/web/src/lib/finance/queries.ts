@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { APPROVAL_HISTORY_LIMIT, AUDIT_LOG_PAGE_LIMIT, LEDGER_PAGE_LIMIT } from "./row-limits";
+import {
+  APPROVAL_HISTORY_LIMIT,
+  AUDIT_LOG_PAGE_LIMIT,
+  LEDGER_PAGE_LIMIT,
+  PACK_AUDIT_LOG_LIMIT,
+  PACK_LEDGER_LIMIT,
+  PACK_PAGE_SIZE,
+} from "./row-limits";
 import { createClient } from "@/lib/supabase/client";
 import {
   accountsListSchema,
@@ -99,6 +106,45 @@ export function useBalanceSheet(asOf: string, currency: string) {
   });
 }
 
+/**
+ * Reads a list a page at a time until a short page says it is over, or until
+ * `ceiling` rows are held. A page that fails fails the whole read: a partial
+ * list must never look like a complete one. Rows are de-duplicated by id
+ * because an entry posted while the pages are being read shifts every later
+ * offset by one.
+ */
+export async function readAllPages<T extends { id: string }>(
+  readPage: (offset: number) => Promise<T[]>,
+  ceiling: number,
+  pageSize: number = PACK_PAGE_SIZE,
+): Promise<T[]> {
+  const seen = new Set<string>();
+  const rows: T[] = [];
+  for (let offset = 0; rows.length < ceiling; offset += pageSize) {
+    const page = await readPage(offset);
+    for (const row of page) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+    if (page.length < pageSize) break;
+  }
+  return rows.slice(0, ceiling);
+}
+
+async function readLedgerPage(args: { from: string; to: string; account?: string; source?: string }, limit: number, offset: number) {
+  const { data, error } = await createClient().rpc("finance_ledger_entries", {
+    p_from: args.from,
+    p_to: args.to,
+    p_account: args.account ?? undefined,
+    p_source: args.source ?? undefined,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return ledgerEntriesSchema.parse(data);
+}
+
 export function useLedgerEntries(args: {
   from: string;
   to: string;
@@ -109,17 +155,15 @@ export function useLedgerEntries(args: {
 }) {
   return useQuery({
     queryKey: ["finance", "ledger", args],
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("finance_ledger_entries", {
-        p_from: args.from,
-        p_to: args.to,
-        p_account: args.account ?? undefined,
-        p_source: args.source ?? undefined,
-        p_limit: args.limit ?? LEDGER_PAGE_LIMIT,
-      });
-      if (error) throw error;
-      return ledgerEntriesSchema.parse(data);
-    },
+    queryFn: () => readLedgerPage(args, args.limit ?? LEDGER_PAGE_LIMIT, 0),
+  });
+}
+
+/** Every entry in the range, newest first, for the printed audit pack. Stops at PACK_LEDGER_LIMIT. */
+export function useAllLedgerEntries(args: { from: string; to: string }) {
+  return useQuery({
+    queryKey: ["finance", "ledger", "all", args],
+    queryFn: () => readAllPages((offset) => readLedgerPage(args, PACK_PAGE_SIZE, offset), PACK_LEDGER_LIMIT),
   });
 }
 
@@ -484,19 +528,30 @@ export function useRiskFlags() {
   });
 }
 
+async function readAuditLogPage(args: { from: string; to: string; action?: string }, limit: number, offset: number) {
+  const { data, error } = await createClient().rpc("finance_audit_log", {
+    p_from: args.from,
+    p_to: args.to,
+    p_action: args.action ?? undefined,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return financeAuditLogSchema.parse(data);
+}
+
 export function useFinanceAuditLog(args: { from: string; to: string; action?: string; limit?: number }) {
   return useQuery({
     queryKey: ["finance", "audit-log", args],
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("finance_audit_log", {
-        p_from: args.from,
-        p_to: args.to,
-        p_action: args.action ?? undefined,
-        p_limit: args.limit ?? AUDIT_LOG_PAGE_LIMIT,
-      });
-      if (error) throw error;
-      return financeAuditLogSchema.parse(data);
-    },
+    queryFn: () => readAuditLogPage(args, args.limit ?? AUDIT_LOG_PAGE_LIMIT, 0),
+  });
+}
+
+/** Every logged finance action in the range, newest first, for the printed audit pack. Stops at PACK_AUDIT_LOG_LIMIT. */
+export function useAllFinanceAuditLog(args: { from: string; to: string }) {
+  return useQuery({
+    queryKey: ["finance", "audit-log", "all", args],
+    queryFn: () => readAllPages((offset) => readAuditLogPage(args, PACK_PAGE_SIZE, offset), PACK_AUDIT_LOG_LIMIT),
   });
 }
 
