@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
-import type { Tables } from "@tarragon/shared";
+import { screeningDayDateProblem, type Tables } from "@tarragon/shared";
 
 export type ScreeningDay = Tables<"screening_days">;
 export type ScreeningDaySlot = Tables<"screening_day_slots">;
@@ -55,7 +55,8 @@ export async function requestScreeningDay(input: {
 }): Promise<QueryResult<null>> {
   if (!input.hostName.trim()) return { ok: false, error: "Who is this screening day for?" };
   if (!input.location.trim()) return { ok: false, error: "Where will this happen?" };
-  if (!input.eventDate) return { ok: false, error: "When is it happening?" };
+  const dateProblem = screeningDayDateProblem(input.eventDate);
+  if (dateProblem) return { ok: false, error: dateProblem };
   if (!input.panelBundleId) return { ok: false, error: "Choose which check you'd like people to have." };
   if (!Number.isFinite(input.slotsRequested) || input.slotsRequested <= 0) {
     return { ok: false, error: "How many people are coming?" };

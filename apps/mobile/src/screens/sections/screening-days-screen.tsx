@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { koboToNaira } from "@tarragon/shared";
+import { koboToNaira, SCREENING_DAY_STEPS } from "@tarragon/shared";
 import {
   loadScreeningDays,
   loadScreeningDaySlots,
@@ -78,6 +78,7 @@ export function ScreeningDaysScreen() {
           a health check for everyone. One payer covers the whole group upfront; we&apos;ll confirm the price and
           headcount with you first.
         </MutedText>
+        <MutedText>{SCREENING_DAY_STEPS.map((step, i) => `${i + 1}. ${step}`).join("\n")}</MutedText>
       </View>
 
       {loading && <ActivityIndicator color={colors.brand} />}
@@ -140,7 +141,7 @@ function RequestForm({ bundles, onDone }: { bundles: PanelBundleOption[]; onDone
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={hostName} onChangeText={setHostName} placeholder="Group name (e.g. Redeemer's Church, Lekki)" style={textInputStyle} />
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={contactPhone} onChangeText={setContactPhone} placeholder="Contact phone" style={textInputStyle} keyboardType="phone-pad" />
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={location} onChangeText={setLocation} placeholder="Where will this happen?" style={textInputStyle} />
-      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={eventDate} onChangeText={setEventDate} placeholder="Event date (YYYY-MM-DD)" style={textInputStyle} />
+      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={eventDate} onChangeText={setEventDate} placeholder="Event date, for example 2026-12-05" style={textInputStyle} />
 
       <AppText variant="label">Which check?</AppText>
       <View style={{ gap: 6 }}>
