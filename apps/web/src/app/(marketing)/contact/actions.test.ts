@@ -112,7 +112,7 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
     jest.resetModules();
   });
 
-  const limiter = jest.fn<() => Promise<{ success: boolean; retryAfterSeconds: number }>>();
+  const limiter = jest.fn();
   async function load(rpcImpl: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>) {
     jest.doMock("@/lib/supabase/service-role", () => ({
       createServiceRoleClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }), rpc: (fn: string, args: Record<string, unknown>) => rpcImpl(fn, args) }),
