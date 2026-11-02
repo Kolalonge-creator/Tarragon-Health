@@ -338,3 +338,8 @@ export * from "./refund-rule";
 export * from "./default-meal-type";
 export * from "./consultations/next-available";
 export * from "./group-ledger";
+
+// W5: patient pages behind a go-live guard are hidden from menus, search and hubs while the guard is off, on web and phone alike.
+export * from "./patient-page-gates";
+export * from "./yearly-panel-tests";
+export * from "./testing-days-offer";

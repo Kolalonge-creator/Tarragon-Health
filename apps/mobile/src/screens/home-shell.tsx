@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { signOutOfThisPhone } from "@/lib/sign-out";
-import type { SectionId } from "@/lib/sections";
+import { SECTIONS, type SectionId } from "@/lib/sections";
 import { expoNotificationTapPort, startNotificationTaps } from "@/lib/notification-tap";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
@@ -76,6 +76,7 @@ import { FamilyScreen } from "@/screens/sections/family-screen";
 import { CommunityScreen } from "@/screens/sections/community/community-screen";
 import { CommunityNotOpen } from "@/screens/sections/community/not-open";
 import { useCommunityEntry } from "@/lib/community/use-community-entry";
+import { useHiddenSections } from "@/lib/patient-page-gates";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
 import {
@@ -262,7 +263,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   // Community is the person's own account only, and only while it is open for an adult: the menu entry is hidden for someone with a
   // supported person's account open, for a supporter-only account, while the go-live guard is off, and for anyone under 18.
   const communityVisible = useCommunityEntry(userId, acting !== null, actingChecked);
-  const hiddenSections: SectionId[] = communityVisible ? [] : ["community"];
+  // Sections behind a go-live guard that is off are left out of the menu too (shared list with web), unless the person already holds something there.
+  const closedSections = useHiddenSections(userId, actingChecked);
+  const hiddenSections: SectionId[] = [
+    ...(communityVisible ? [] : (["community"] as const)),
+    ...SECTIONS.map((s) => s.id).filter((id) => closedSections.includes(id)),
+  ];
   // S29e: people who need a supporter's attention, shown as a count on "People you support" in the menu. The backup for the push:
   // read on open, on a light timer and whenever the app comes back. A failed read leaves the last known count (never invents one).
   const [attentionCount, setAttentionCount] = useState(0);
