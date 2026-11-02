@@ -42,6 +42,7 @@ export function createResendEmail(config: ResendConfig): EmailProvider {
           text: input.text,
           html: input.html,
           tags: Object.entries(input.tags ?? {}).map(([name, value]) => ({ name, value })),
+          headers: input.headers,
           attachments: input.attachments?.map((a) => ({ filename: a.filename, content: a.contentBase64 })),
         },
       });

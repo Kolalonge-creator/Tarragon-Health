@@ -174,6 +174,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/follow-ups", "follow ups followups emails stalled sign up signup unsubscribe bounce dry run dry-run go live master switch quiet hours sequences nudges reminders welcome re-engage reengage sent held back"],
   ["/admin/sign-off", "sign off signoff approve approval wording follow-up emails sequences knowledge front desk receptionist chat assistant draft waiting what needs me"],
   ["/clinician/learning-creator", "creator author write writing learning centre articles invited mdcn credentials evidence indemnity verify"],
   ["/admin/settings/health-education/creators", "creator creators clinician author authors write writers invite verify verification mdcn credentials indemnity suspend learning content partner"],

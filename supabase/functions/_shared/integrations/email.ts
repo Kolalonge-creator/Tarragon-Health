@@ -28,6 +28,8 @@ export interface SendEmailInput {
   /** Letters, digits, dash and underscore only (the vendor's rule). */
   readonly tags?: Readonly<Record<string, string>>;
   readonly attachments?: readonly EmailAttachment[];
+  /** Extra message headers, for example List-Unsubscribe and List-Unsubscribe-Post (RFC 8058 one-click). Names are validated by the vendor. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 export interface SentEmail {
   readonly providerMessageId: string;
