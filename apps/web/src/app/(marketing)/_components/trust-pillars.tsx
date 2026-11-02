@@ -3,7 +3,7 @@
 const PILLARS = [
   {
     title: "Clinically reviewed",
-    body: "Real doctors review your readings and results against care protocols, rather than an algorithm acting alone.",
+    body: "Every reading is checked against care protocols. On Membership and Membership Plus, your care team reviews your readings and results; on Free, an abnormal screening or critical laboratory result still goes to a doctor.",
   },
   {
     title: "Personal, not automated",

@@ -146,7 +146,7 @@ export const NAIRA_ONLY_STATEMENT =
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const pricingPromises = (autoRenews: boolean): string[] => [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  `There are two plans: Free, and ${P}. ${P} is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.`,
+  "There are three plans: Free, Membership and Membership Plus. Each paid plan is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
   renewalCopy(autoRenews, 0).promise,
   "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
   `The ${P} price is reviewed once a year at most, and we will tell you at least 30 days before any change. A ${P} you have already paid for is honoured until it ends.`,
@@ -309,7 +309,7 @@ export const ALWAYS_FREE_NOTE =
  * offer here would have described something the platform cannot do.
  */
 export const FREE_TRIAL_INTRO =
-  `There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is ${P}, one price for a year that you see and confirm first.`;
+  `There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is Membership or Membership Plus, one price for a year that you see and confirm first.`;
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
@@ -317,8 +317,8 @@ export const FREE_TRIALS: { title: string; body: string }[] = [
     body: "Record your blood pressure, blood sugar or weight and receive your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous reading immediately gives you guidance.",
   },
   {
-    title: `Join ${P} when you want to see a doctor`,
-    body: `If you want your care team to look at your numbers with you every month, and a yearly blood test, join ${P}. There is no plan to join first, and nothing carries on charging you afterwards.`,
+    title: "Join Membership when you want to see a doctor",
+    body: "If you want your care team to look at your numbers with you every month, join Membership. Add the yearly blood panel with Membership Plus. Nothing carries on charging you afterwards.",
   },
 ];
 
@@ -336,7 +336,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill or vaccine is due.",
   },
   {
-    title: `For ${P}, you see the exact price`,
+    title: "For Membership or Membership Plus, you see the exact price",
     body: "In the app, before you are charged. The price is exact, not an estimate. Tarragon does not charge for a test, refill or vaccine, so there is no Tarragon price to show for those; see the next step.",
   },
   {
@@ -348,7 +348,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "It names exactly which tests to run and why, so the laboratory knows what is needed. You choose where to go and when.",
   },
   {
-    title: "Your result or delivery comes back in the app",
+    title: "Your result comes back in the app",
     body: "Your result is explained in plain language, and you receive an alert so that you do not miss it. If anything needs attention, your care team calls you. This does not create a new charge.",
   },
 ];
@@ -357,7 +357,7 @@ export const OUR_UNDERTAKINGS: string[] = [
   "We show you the price and wait for your confirmation before we charge you anything",
   "A doctor reviews your case before any diagnosis is offered or any medicine is changed",
   "Your health information reaches a family member only with your consent",
-  `There is no contract and no subscription, and your card is charged once for the ${P} you confirm`,
+  "There is no monthly subscription. A year of Membership or Membership Plus is one payment you confirm first, and it does not renew unless you choose that.",
   "What is Membership is always labelled as Membership, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
   "The free app stays free, with no expiry date and nothing that turns into a charge on its own",
 ];

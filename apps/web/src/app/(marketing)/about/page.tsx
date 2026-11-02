@@ -39,7 +39,7 @@ const ABOUT_COMMITMENTS = [
     value: "Free",
     label: "the app itself is free",
     detail:
-      `Everything you do yourself in the app is free, with no time limit. ${paidProductName()} includes a yearly blood test collected for you and a video call with your care team every month, for one price you see before you pay.`,
+      `Everything you do yourself in the app is free, with no time limit. ${paidProductName()} includes a yearly blood test, with results uploaded to your account and talked through by your care team, and a video call with your care team every month, for one price you see before you pay.`,
   },
   {
     value: "Built to scale",
@@ -130,11 +130,11 @@ export default function AboutPage() {
           {[
             {
               title: "Clinically reviewed",
-              body: "Every reading and result is reviewed by your clinical team, rather than by an algorithm acting alone.",
+              body: "Every reading is checked against care protocols. On Membership and Membership Plus, your care team reviews your readings and results; on Free, an abnormal screening or critical laboratory result still goes to a doctor.",
             },
             {
-              title: "Protocol-driven",
-              body: "Referral to a doctor follows a defined four-level pathway, every time, for every patient.",
+              title: "Follows a written pathway",
+              body: "Referral to a doctor follows one written pathway, every time, for every patient.",
             },
             {
               title: "Family included, if you choose",

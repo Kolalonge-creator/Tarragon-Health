@@ -154,13 +154,13 @@ export default async function HowPricingWorksPage() {
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.hmo ? "text-brand-green" : "text-charcoal-ink/30"}>
-                      {row.hmo ? "✓" : "—"}
+                      {row.hmo ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.hmo ? "Covered by your HMO" : "Not covered by your HMO"}</span>
                   </td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
-                      {row.tarragon ? "✓" : "—"}
+                      {row.tarragon ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.tarragon ? "Covered by TarragonHealth" : "Not covered by TarragonHealth"}</span>
                   </td>
@@ -201,13 +201,13 @@ export default async function HowPricingWorksPage() {
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.oneOff ? "text-brand-green" : "text-charcoal-ink/30"}>
-                      {row.oneOff ? "✓" : "—"}
+                      {row.oneOff ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.oneOff ? "Included" : "Not included"}</span>
                   </td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
-                      {row.tarragon ? "✓" : "—"}
+                      {row.tarragon ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.tarragon ? "Included" : "Not included"}</span>
                   </td>

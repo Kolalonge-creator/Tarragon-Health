@@ -37,7 +37,7 @@ export const BREADCRUMB_LABELS: Partial<Record<MarketingRouteKey, string>> = {
   advancedDiagnostics: "Advanced Diagnostics",
   screeningJourney: "Screening Journey",
   vaccinations: "Vaccinations",
-  mentalWellbeingCheck: "Mental Well-being Check",
+  mentalWellbeingCheck: "Mental Wellbeing Check",
   healthEducation: "Health Education",
   bmiCalculator: "BMI & Calorie Calculator",
   activityCalculator: "Activity Calculator",

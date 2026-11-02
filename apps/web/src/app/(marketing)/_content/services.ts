@@ -1,6 +1,7 @@
 import type { MarketingRouteKey } from "@/lib/marketing/routes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { paidProductName } from "@/lib/marketing/membership";
+import { EXAMPLE_DATA_NOTE } from "./b2b";
 
 export type ServiceCard = {
   key: MarketingRouteKey;
@@ -91,7 +92,7 @@ export const PROOF_STATS = [
   {
     value: "Free",
     label: "to join",
-    detail: `The app is free, with no time limit. ${paidProductName()} includes a yearly blood test collected for you and a monthly video call with your care team.`,
+    detail: `The app is free, with no time limit. ${paidProductName()} includes a yearly blood test, with results uploaded to your account and talked through by your care team, and a monthly video call with your care team.`,
   },
   {
     value: "12 hrs",
@@ -162,7 +163,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 5,
     title: "A reading is dangerous",
-    body: "A dangerous reading brings you clear guidance straight away, alerts the person you named, and is followed up. With Continuous Monitoring, a doctor is alerted as well.",
+    body: "A dangerous reading brings you clear guidance straight away, alerts the person you named, and is followed up. On Membership and Membership Plus, a doctor on your care team is alerted as well.",
   },
   {
     step: 6,
@@ -205,6 +206,8 @@ export type AudienceTab = {
   body: string;
   points: string[];
   stats: AudienceStat[];
+  /** Caption under the stat panel when the figures are made up to show the shape of the report, not real client data. */
+  statsNote?: string;
   cta: { label: string; href: string; source?: string } | null;
 };
 
@@ -279,6 +282,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Cervical screening overdue", value: "60 employees" },
       { label: "Urgent follow-up needed", value: "25 employees" },
     ],
+    statsNote: EXAMPLE_DATA_NOTE,
     cta: { label: "See corporate health plans", href: MARKETING_ROUTES.corporate },
   },
   {
@@ -297,6 +301,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Abnormal results caught early", value: "146" },
       { label: "Claims impact", value: "Reporting live" },
     ],
+    statsNote: EXAMPLE_DATA_NOTE,
     cta: { label: "See HMO support", href: MARKETING_ROUTES.hmo },
   },
 ];
@@ -310,7 +315,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
 export const HOMEPAGE_FAQS = [
   {
     category: "general",
-    question: "What is Tarragon Health?",
+    question: "What is TarragonHealth?",
     answer:
       "TarragonHealth is a health monitoring platform in Nigeria for chronic disease (hypertension, diabetes and weight management), preventive health and family care coordination. Every reading is checked against clinical protocols, and a doctor reviews anything that needs attention.",
   },
@@ -318,7 +323,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "I am healthy. Is Tarragon for me?",
     answer:
-      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free, and you pay for the yearly check only when you take it. In most years the result is reassurance. If a check does find something, a doctor follows up within a day, or within 12 hours if the result is critical.",
+      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free. Your yearly check is included in Membership Plus, or you can take our request to any laboratory and pay them directly. In most years the result is reassurance. If a check does find something, a doctor follows up within a day, or within 12 hours if the result is critical.",
   },
   {
     category: "general",
@@ -336,7 +341,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How much does it cost?",
     answer:
-      `The app is free, with no time limit. ${paidProductName()} is one price for a year and includes a yearly blood test collected for you and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the ${paidProductName()} price.`,
+      `The app is free, with no time limit. ${paidProductName()} is one price for a year and includes a yearly blood test, with results uploaded to your account and talked through by your care team, and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the ${paidProductName()} price.`,
   },
   {
     category: "general",
