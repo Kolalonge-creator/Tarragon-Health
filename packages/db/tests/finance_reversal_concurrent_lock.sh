@@ -181,6 +181,21 @@ restore_fixed_functions() {
     echo "$out" >&2
     return 1
   fi
+  # The migration above predates 20261102090647_finance_dates_use_lagos_not_utc.sql and recreates
+  # private.finance_reverse_entry with `current_date` (the UTC date). Put the Lagos date back, or this
+  # proof leaves the stack with the UTC body and finance_dates_use_lagos.sql then fails its scan.
+  if ! out="$("${PSQL_SETUP[@]}" -c "
+    do \$\$
+    declare v_def text := pg_get_functiondef('private.finance_reverse_entry(uuid,text,uuid)'::regprocedure);
+    begin
+      if v_def ~* '\\mcurrent_date\\M' and to_regprocedure('private.lagos_today()') is not null then
+        execute regexp_replace(v_def, '\\mcurrent_date\\M', 'private.lagos_today()', 'gi');
+      end if;
+    end \$\$;" 2>&1)"; then
+    echo "CRITICAL: restore_fixed_functions could not put the Lagos date back in private.finance_reverse_entry." >&2
+    echo "$out" >&2
+    return 1
+  fi
   return 0
 }
 
