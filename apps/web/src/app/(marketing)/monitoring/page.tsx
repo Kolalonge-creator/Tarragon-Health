@@ -132,7 +132,7 @@ export default async function MonitoringPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Two plans"
+          eyebrow="Your options"
           title="Free, or a Membership plan"
           description="Every reading is checked on both. Membership is what adds a doctor who is told and follows up."
         />
