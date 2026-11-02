@@ -232,7 +232,8 @@ begin
   v_run7 := private.chain_canary_start();
   perform pg_temp.emulate_processor(v_run7, true);
   -- (state is guarded by the queue functions, so "no amber_bp_review task" is made by giving the task another type, which neither lookup can match)
-  update public.clinical_tasks set type = 'silence_check' where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
+  -- every row of the patient, cancelled ones included: inside one transaction an earlier run's cancelled task has the same created_at and would otherwise match
+  update public.clinical_tasks set type = 'silence_check' where patient_id = v_s.patient_id and type = 'amber_bp_review';
   v_ok := private.chain_canary_evaluate(v_run7);
   perform pg_temp.res('with no task at all the canary still fails at the task stage', 'false:task', coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run7 and kind = 'result'), ''));
 
@@ -283,7 +284,7 @@ begin
   -- 9a. SABOTAGE of the merged-task rule: a task that nothing merged into, linked to another event, is not the amber event's task
   v_run8 := private.chain_canary_start();
   perform pg_temp.emulate_processor(v_run8, true);
-  update public.clinical_tasks set merged_count = 0 where patient_id = v_s.patient_id and type = 'amber_bp_review' and state not in ('completed', 'cancelled');
+  update public.clinical_tasks set merged_count = 0 where patient_id = v_s.patient_id and type = 'amber_bp_review';
   v_ok := private.chain_canary_evaluate(v_run8);
   insert into results values ('sabotaged', 'without the merge the red event''s task is not accepted for the amber event', 'true:',
     coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run8 and kind = 'result'), ''));
