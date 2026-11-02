@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { useFinanceAuditLog, useFinanceAuditActions } from "@/lib/finance/queries";
-import { SectionCard, CenterNote, TableShell, Th, ReadFailure, StaleNote, TruncationNote } from "./primitives";
-import { AUDIT_LOG_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
+import { usePagedFinanceAuditLog, useFinanceAuditActions } from "@/lib/finance/queries";
+import { SectionCard, CenterNote, TableShell, Th, ReadFailure, StaleNote, LoadMoreFooter } from "./primitives";
 import { formatPatientDateTime, lagosDayBounds, lagosDaysAgo, lagosToday } from "@/lib/format-date";
 
 function summarizeEvent(event: Record<string, unknown>): string {
@@ -29,7 +28,7 @@ export function FinanceAuditLog() {
     to: lagosDayBounds(today)!.end,
   };
 
-  const log = useFinanceAuditLog({ ...range, action: action || undefined });
+  const log = usePagedFinanceAuditLog({ ...range, action: action || undefined });
   const actions = useFinanceAuditActions();
 
   return (
@@ -68,13 +67,12 @@ export function FinanceAuditLog() {
           </div>
         }
       >
-        {log.isError && log.data !== undefined && <StaleNote what="The activity log" />}
-        {hitLimit(log.data?.length, AUDIT_LOG_PAGE_LIMIT) && <TruncationNote shown={AUDIT_LOG_PAGE_LIMIT} what="log rows" />}
+        {log.isError && log.rows !== undefined && !log.loadMoreFailed && <StaleNote what="The activity log" />}
         {log.isLoading ? (
           <CenterNote>Loading…</CenterNote>
-        ) : log.isError && log.data === undefined ? (
+        ) : log.isError && log.rows === undefined ? (
           <ReadFailure what="The activity log" />
-        ) : (log.data ?? []).length === 0 ? (
+        ) : (log.rows ?? []).length === 0 ? (
           <CenterNote>No finance activity in this range.</CenterNote>
         ) : (
           <TableShell>
@@ -87,7 +85,7 @@ export function FinanceAuditLog() {
               </tr>
             </thead>
             <tbody>
-              {(log.data ?? []).map((e) => (
+              {(log.rows ?? []).map((e) => (
                 <tr key={e.id} className="border-b border-charcoal-ink/5 align-top">
                   <td className="py-2 pr-4 whitespace-nowrap text-charcoal-ink/60">
                     {formatPatientDateTime(e.created_at)}
@@ -104,6 +102,15 @@ export function FinanceAuditLog() {
             </tbody>
           </TableShell>
         )}
+        <LoadMoreFooter
+          shown={log.rows?.length ?? 0}
+          what="log rows"
+          hasMore={log.hasMore}
+          capped={log.capped}
+          loading={log.isLoadingMore}
+          failed={log.loadMoreFailed}
+          onLoadMore={log.loadMore}
+        />
       </SectionCard>
     </div>
   );

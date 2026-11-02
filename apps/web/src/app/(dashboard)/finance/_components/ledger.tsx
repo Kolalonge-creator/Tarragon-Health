@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
-import { useLedgerEntries, useFinanceAccounts, useCostCenters, financeKeys } from "@/lib/finance/queries";
+import { usePagedLedgerEntries, useFinanceAccounts, useCostCenters, financeKeys } from "@/lib/finance/queries";
 import {
   postManualJournalAction,
   reverseJournalAction,
@@ -17,9 +17,8 @@ import {
 import type { LedgerEntry } from "@/lib/finance/schemas";
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
 import { useConfirmAction } from "./confirm-action";
-import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure, TruncationNote } from "./primitives";
+import { SectionCard, CenterNote, TableShell, Th, formatMinor, ReadFailure, StaleNote, InlineReadFailure, LoadMoreFooter } from "./primitives";
 import { parseOptionalMoney } from "@/lib/finance/money-input";
-import { LEDGER_PAGE_LIMIT, hitLimit } from "@/lib/finance/row-limits";
 
 const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
@@ -40,7 +39,7 @@ export function LedgerBrowser() {
   const [source, setSource] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  const entries = useLedgerEntries({ from, to, source: source || undefined });
+  const entries = usePagedLedgerEntries({ from, to, source: source || undefined });
   const accounts = useFinanceAccounts();
   const costCenters = useCostCenters();
 
@@ -323,17 +322,16 @@ export function LedgerBrowser() {
             {ledgerMessage.text}
           </p>
         )}
-        {entries.isError && entries.data !== undefined && <StaleNote what="The general ledger" />}
-        {hitLimit(entries.data?.length, LEDGER_PAGE_LIMIT) && <TruncationNote shown={LEDGER_PAGE_LIMIT} what="entries" />}
+        {entries.isError && entries.rows !== undefined && !entries.loadMoreFailed && <StaleNote what="The general ledger" />}
         {entries.isLoading ? (
           <CenterNote>Loading…</CenterNote>
-        ) : entries.isError && entries.data === undefined ? (
+        ) : entries.isError && entries.rows === undefined ? (
           <ReadFailure what="The general ledger" />
-        ) : (entries.data ?? []).length === 0 ? (
+        ) : (entries.rows ?? []).length === 0 ? (
           <CenterNote>No entries in this range.</CenterNote>
         ) : (
           <div className="space-y-4">
-            {(entries.data ?? []).map((e) => (
+            {(entries.rows ?? []).map((e) => (
               <div key={e.id} className="rounded-lg border border-charcoal-ink/10">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/5 bg-warm-ivory/40 px-3 py-2">
                   <div className="flex items-center gap-2 text-sm">
@@ -373,6 +371,15 @@ export function LedgerBrowser() {
             ))}
           </div>
         )}
+        <LoadMoreFooter
+          shown={entries.rows?.length ?? 0}
+          what="entries"
+          hasMore={entries.hasMore}
+          capped={entries.capped}
+          loading={entries.isLoadingMore}
+          failed={entries.loadMoreFailed}
+          onLoadMore={entries.loadMore}
+        />
       </SectionCard>
 
       {postDialog}

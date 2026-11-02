@@ -6,13 +6,15 @@
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-type Q = { data?: unknown; isLoading?: boolean; isError?: boolean };
+type Q = { data?: unknown; isLoading?: boolean; isError?: boolean; paged?: Record<string, unknown> };
 const hooks: Record<string, Q> = {};
 const actions: Record<string, jest.Mock> = {};
 const act = (name: string) => (actions[name] ??= jest.fn(async () => ({ ok: true, data: {} })));
 
 jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
 jest.mock("@/lib/finance/actions", () => new Proxy({ __esModule: true }, { get: (t: Record<string, unknown>, k: string) => (k in t ? t[k] : (...a: unknown[]) => act(k)(...a)) }));
+const mockLoadMore = jest.fn();
+const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, capped: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {
@@ -20,7 +22,7 @@ jest.mock("@/lib/finance/queries", () => {
     financeKeys: { all: ["finance"] },
     useFinanceAccounts: () => get("accounts"),
     useCostCenters: () => get("costCenters"),
-    useLedgerEntries: () => get("entries"),
+    usePagedLedgerEntries: () => paged(get("entries")),
     useRevrecSummary: () => get("revrec"),
     useReconciliationSummary: () => get("recon"),
     useReconciliationFlags: () => get("flags"),
