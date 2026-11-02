@@ -126,6 +126,17 @@ select pg_temp.rec('disabled', 'and creates no contact', '0', (select count(*)::
 
 -- 2. detection --------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.cfg('followups_enabled', 'true'::jsonb);
+-- DPO GATE: until the lawful basis is confirmed the detector creates no account contact and no consent.
+select pg_temp.as_val(null, 'service_role', $q$select (public.service_fd_detect())::text$q$);
+select pg_temp.rec('basis', 'with the lawful basis unconfirmed no account contact is created', '0',
+  (select count(*)::text from public.fd_contacts where app_user_id in (pg_temp.f('a'), pg_temp.f('b'), pg_temp.f('c'))));
+select pg_temp.rec('basis', 'a leads.manage-style outsider cannot confirm it (patient refused)', 'ERR:42501',
+  pg_temp.as_val(pg_temp.f('pat'), 'authenticated', $q$select public.fd_set_config('account_followup_basis_confirmed', 'true'::jsonb)::text$q$));
+select pg_temp.rec('basis', 'a non-boolean value is refused', 'ERR:P0001',
+  pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select public.fd_set_config('account_followup_basis_confirmed', '"yes"'::jsonb)::text$q$));
+select pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select public.fd_set_config('account_followup_basis_confirmed', 'true'::jsonb)::text$q$);
+select pg_temp.rec('basis', 'an admin confirms it and the change is audited', 'true',
+  (select exists (select 1 from public.fd_audit_log where entity = 'fd_app_config' and entity_id = 'account_followup_basis_confirmed' and (detail -> 'value') = 'true'::jsonb)::text));
 select pg_temp.rec('detect', 'the detector runs as service_role', 'true',
   (pg_temp.as_val(null, 'service_role', $q$select (public.service_fd_detect())::text$q$) like '{%')::text);
 select pg_temp.rec('detect', 'contacts exist for the stalled, onboarded and new accounts', '3',
@@ -290,7 +301,25 @@ update public.fd_consents set withdrawn_at = now() where contact_id = pg_temp.co
 update public.fd_followup_runs set sent_at = now() - interval '13 hours' where state = 'sent' and contact_id = pg_temp.contact_of(pg_temp.f('b'));
 select pg_temp.claim();
 select pg_temp.rec('consent', 'withdrawing the marketing consent skips the send', 'skipped/no_consent',
-  pg_temp.run_state(pg_temp.contact_of(pg_temp.f('b')), 'reengage_1'));
+  pg_temp.run_state_key(pg_temp.contact_of(pg_temp.f('b')), 'reengage_1', 'reeng:proof'));
+
+-- 10b. the platform's own marketing opt-out (profiles.marketing_opt_in, the broadcast unsubscribe) is honoured by marketing follow-ups
+select private.fd_record_consent(pg_temp.contact_of(pg_temp.f('b')), 'email', 'marketing', 'consent', 'marketing-v1', 'proof marketing wording', 'proof');
+select private.fd_enrol(pg_temp.contact_of(pg_temp.f('b')), 'reengage_7d', now(), 'reeng:optout');
+update public.profiles set marketing_opt_in = false where id = pg_temp.f('b');
+update public.fd_followup_runs set sent_at = now() - interval '13 hours' where state = 'sent' and contact_id = pg_temp.contact_of(pg_temp.f('b'));
+select pg_temp.claim();
+select pg_temp.rec('optout', 'a marketing follow-up is skipped when the person opted out of marketing elsewhere', 'skipped/opted_out',
+  pg_temp.run_state_key(pg_temp.contact_of(pg_temp.f('b')), 'reengage_1', 'reeng:optout'));
+select pg_temp.rec('optout', 'unsubscribing here also clears the platform marketing flag', 'false',
+  (select marketing_opt_in::text from public.profiles where id = pg_temp.f('c')));
+
+-- 10c. an event recorded before the contact existed (only an app user id) still counts for the goal check
+insert into public.fd_funnel_events (contact_id, app_user_id, event_type, dedupe_key) values (null, pg_temp.f('b'), 'checkout_started', 'orphan-event-proof-1');
+select pg_temp.rec('orphan', 'an event with no contact id but the same app user stops the sequence', 'true',
+  (select private.fd_goal_reached(pg_temp.contact_of(pg_temp.f('b')), array['checkout_started'], now() - interval '1 day'))::text);
+select pg_temp.rec('orphan', 'CONTROL another user''s event does not', 'false',
+  (select private.fd_goal_reached(pg_temp.contact_of(pg_temp.f('c')), array['checkout_started'], now() - interval '1 day'))::text);
 
 -- 11. app events ------------------------------------------------------------------------------------------------------------------------------
 insert into public.fd_contacts (email, app_user_id, source) select lower(u.email), pg_temp.f('f'), 'app_signup' from auth.users u where u.id = pg_temp.f('f') on conflict do nothing;

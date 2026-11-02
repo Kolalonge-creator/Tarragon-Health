@@ -131,7 +131,7 @@ describe("dispatchFollowups", () => {
   it("sends each claimed run once, with the run id as the idempotency key and the unsubscribe headers, and records success", async () => {
     const h = harness([run(1), run(2)]);
     const r = await dispatchFollowups(h.deps);
-    expect(r).toEqual({ claimed: 2, sent: 2, failed: 0 });
+    expect(r).toEqual({ claimed: 2, sent: 2, failed: 0, unrecorded: 0 });
     expect(h.mock.outbox.map((o) => o.idempotencyKey)).toEqual(["fd-run-00000000-0000-4000-8000-000000000001", "fd-run-00000000-0000-4000-8000-000000000002"]);
     expect(h.mock.outbox[0]?.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(h.mock.outbox[0]?.audience).toBe("patient");
@@ -146,7 +146,7 @@ describe("dispatchFollowups", () => {
     const h = harness([run(1), run(2)]);
     h.mock.failNextCall();
     const r = await dispatchFollowups(h.deps);
-    expect(r).toEqual({ claimed: 2, sent: 1, failed: 1 });
+    expect(r).toEqual({ claimed: 2, sent: 1, failed: 1, unrecorded: 0 });
     expect(h.finished[0]).toMatchObject({ ok: false, msg: null });
     expect(h.finished[0]?.err).toMatch(/network/);
     expect(h.finished[1]?.ok).toBe(true);
@@ -156,7 +156,7 @@ describe("dispatchFollowups", () => {
     const h = harness([run(1)]);
     const boom = { ...h.deps, email: { ...h.mock, send: async () => { throw new Error("socket hang up"); } } };
     const r = await dispatchFollowups(boom);
-    expect(r).toEqual({ claimed: 1, sent: 0, failed: 1 });
+    expect(r).toEqual({ claimed: 1, sent: 0, failed: 1, unrecorded: 0 });
     expect(h.finished[0]?.err).toBe("socket hang up");
   });
 
@@ -171,7 +171,16 @@ describe("dispatchFollowups", () => {
     const h = harness([run(1)]);
     h.mock.suppress("ada1@example.invalid");
     const r = await dispatchFollowups(h.deps);
-    expect(r).toEqual({ claimed: 1, sent: 0, failed: 1 });
+    expect(r).toEqual({ claimed: 1, sent: 0, failed: 1, unrecorded: 0 });
+  });
+
+  it("when the email WENT OUT but recording it failed, it is counted unrecorded and NOT recorded as a failure (which would schedule a resend)", async () => {
+    const h = harness([run(1)]);
+    const calls: boolean[] = [];
+    const r = await dispatchFollowups({ ...h.deps, finish: async (_id, ok) => { calls.push(ok); throw new Error("db down"); } });
+    expect(r).toEqual({ claimed: 1, sent: 0, failed: 0, unrecorded: 1 });
+    expect(h.mock.outbox).toHaveLength(1);
+    expect(calls).toEqual([true]);
   });
 });
 
@@ -196,9 +205,15 @@ describe("handleDispatch", () => {
     expect((await handleDispatch(req("s3cret"), { ...mk(), unsubscribeSecret: null, claim })).status).toBe(503);
     expect(claimed).toBe(0);
   });
+  it("answers 500 when an email went out but could not be recorded, so the cron failure is visible", async () => {
+    const d = harness([run(1)]);
+    const res = await handleDispatch(req("s3cret"), { ...d.deps, secret: "s3cret", finish: async () => { throw new Error("db down"); } });
+    expect(res.status).toBe(500);
+    expect((await res.json()).unrecorded).toBe(1);
+  });
   it("runs a batch with the right secret", async () => {
     const res = await handleDispatch(req("s3cret"), mk());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ claimed: 1, sent: 1, failed: 0 });
+    expect(await res.json()).toEqual({ claimed: 1, sent: 1, failed: 0, unrecorded: 0 });
   });
 });

@@ -14,7 +14,7 @@ jest.mock("@/lib/frontdesk/raw-db", () => ({
   fdRpcData: (s: unknown, fn: string, a?: Record<string, unknown>) => fdRpcData(s, fn, a),
 }));
 
-import { backToDryRunAction, goLiveAction, setMasterSwitchAction } from "./actions";
+import { backToDryRunAction, confirmBasisAction, goLiveAction, setMasterSwitchAction } from "./actions";
 
 const form = (entries: [string, string][]) => {
   const f = new FormData();
@@ -28,7 +28,7 @@ beforeEach(() => {
   getCallerPermissions.mockResolvedValue({ isSuperAdmin: true });
   fdRpc.mockResolvedValue({ error: null });
   fdRpcData.mockImplementation(async (_s, fn) =>
-    fn === "fd_followup_overview" ? { data: { approved_steps: 4, followups_enabled: true }, error: null } : { data: 3, error: null });
+    fn === "fd_followup_overview" ? { data: { approved_steps: 4, followups_enabled: true, basis_confirmed: true }, error: null } : { data: 3, error: null });
 });
 
 describe("follow-up console actions", () => {
@@ -57,16 +57,35 @@ describe("follow-up console actions", () => {
   });
 
   it("go live REFUSES when no email has been approved", async () => {
-    fdRpcData.mockImplementation(async () => ({ data: { approved_steps: 0, followups_enabled: true }, error: null }));
+    fdRpcData.mockImplementation(async () => ({ data: { approved_steps: 0, followups_enabled: true, basis_confirmed: true }, error: null }));
     const r = await goLiveAction(undefined, form([["confirm", "on"]]));
     expect(r?.error).toMatch(/Approve wording first/);
     expect(fdRpc).not.toHaveBeenCalled();
   });
 
   it("go live REFUSES while the master switch is off", async () => {
-    fdRpcData.mockImplementation(async () => ({ data: { approved_steps: 4, followups_enabled: false }, error: null }));
+    fdRpcData.mockImplementation(async () => ({ data: { approved_steps: 4, followups_enabled: false, basis_confirmed: true }, error: null }));
     expect((await goLiveAction(undefined, form([["confirm", "on"]])))?.error).toMatch(/Turn follow-ups on first/);
     expect(fdRpc).not.toHaveBeenCalled();
+  });
+
+  it("go live REFUSES until the DPO has confirmed the lawful basis", async () => {
+    fdRpcData.mockImplementation(async () => ({ data: { approved_steps: 4, followups_enabled: true, basis_confirmed: false }, error: null }));
+    expect((await goLiveAction(undefined, form([["confirm", "on"]])))?.error).toMatch(/lawful basis/);
+    expect(fdRpc).not.toHaveBeenCalled();
+  });
+
+  it("confirming the basis needs the box ticked and an admin", async () => {
+    expect((await confirmBasisAction(undefined, form([])))?.error).toMatch(/Tick the box/);
+    getCallerPermissions.mockResolvedValue({ isSuperAdmin: false });
+    expect((await confirmBasisAction(undefined, form([["confirm", "on"]])))?.error).toMatch(/admin/i);
+    expect(fdRpc).not.toHaveBeenCalled();
+  });
+
+  it("confirming the basis sets the audited config key", async () => {
+    const r = await confirmBasisAction(undefined, form([["confirm", "on"]]));
+    expect(r?.done).toMatch(/Confirmed/);
+    expect(fdRpc).toHaveBeenCalledWith(expect.anything(), "fd_set_config", { p_key: "account_followup_basis_confirmed", p_value: true });
   });
 
   it("go live changes nothing when the current state cannot be read", async () => {

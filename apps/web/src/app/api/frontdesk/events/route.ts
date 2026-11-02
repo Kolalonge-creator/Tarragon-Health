@@ -20,6 +20,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
+  // Only a JSON request: a cross-site form post (text/plain or form-encoded) carries the session cookie but cannot be application/json without a
+  // CORS preflight, so another site cannot make a signed-in person record events.
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return new NextResponse(null, { status: 415 });
   const user = await getCurrentUser();
   if (!user) return new NextResponse(null, { status: 401 });
   const limited = await rateLimit(`fd-events:${user.id}`, { limit: 60, windowSeconds: 60 });

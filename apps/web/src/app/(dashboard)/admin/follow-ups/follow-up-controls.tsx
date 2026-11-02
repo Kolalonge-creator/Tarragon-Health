@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
-import { backToDryRunAction, goLiveAction, setMasterSwitchAction, type FollowUpActionState } from "./actions";
+import { backToDryRunAction, confirmBasisAction, goLiveAction, setMasterSwitchAction, type FollowUpActionState } from "./actions";
 
 function Result({ state }: { state: FollowUpActionState }) {
   if (!state) return null;
@@ -45,6 +45,24 @@ export function BackToDryRun() {
   return (
     <form action={action} className="space-y-2">
       <Button type="submit" variant="outline" disabled={pending}>{pending ? "Saving…" : "Back to dry-run (stop sending)"}</Button>
+      <Result state={state} />
+    </form>
+  );
+}
+
+export function ConfirmBasis() {
+  const [state, action, pending] = useActionState(confirmBasisAction, undefined);
+  return (
+    <form action={action} className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:bg-night-card">
+      <p className="text-sm">
+        Before anyone is followed up, the data protection officer must confirm that the sign-up terms tell people we may email them about setting up and using their
+        account. Until then the system finds nobody and records no consent.
+      </p>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="confirm" required className="mt-1 h-4 w-4" />
+        <span>As data protection officer, I confirm the sign-up terms cover account-setup emails.</span>
+      </label>
+      <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Confirm"}</Button>
       <Result state={state} />
     </form>
   );

@@ -41,7 +41,15 @@ describe("funnel events route", () => {
   });
 
   it("rejects a malformed body", async () => {
-    expect((await POST(new Request("https://x.invalid", { method: "POST", body: "not json" }))).status).toBe(400);
+    expect((await POST(new Request("https://x.invalid", { method: "POST", body: "not json", headers: { "content-type": "application/json" } }))).status).toBe(400);
+  });
+
+  it("refuses anything that is not JSON, so a cross-site form post cannot record events", async () => {
+    for (const ct of ["text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x"]) {
+      const res = await POST(new Request("https://x.invalid", { method: "POST", body: JSON.stringify({ type: "checkout_started" }), headers: { "content-type": ct } }));
+      expect(res.status).toBe(415);
+    }
+    expect(fdRpcData).not.toHaveBeenCalled();
   });
 
   it("is rate limited", async () => {

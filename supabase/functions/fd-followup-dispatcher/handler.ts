@@ -30,5 +30,7 @@ export async function handleDispatch(req: Request, deps: HandlerDeps): Promise<R
     siteUrl: deps.siteUrl,
   });
   if ("error" in result) return Response.json({ error: "claim_failed" }, { status: 500 });
+  // A send that went out but could not be recorded is not a success: 500 makes the failed cron call visible instead of silent.
+  if (result.unrecorded > 0) return Response.json(result, { status: 500 });
   return Response.json(result);
 }

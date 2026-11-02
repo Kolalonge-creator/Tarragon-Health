@@ -6,13 +6,14 @@ import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Badge } from "@/components/ui/badge";
-import { BackToDryRun, GoLive, MasterSwitch } from "./follow-up-controls";
+import { BackToDryRun, ConfirmBasis, GoLive, MasterSwitch } from "./follow-up-controls";
 
 export const metadata = { title: "Follow-ups" };
 
 interface Overview {
   followups_enabled: boolean | null;
   followups_dry_run: boolean | null;
+  basis_confirmed: boolean | null;
   in_quiet_hours: boolean;
   approved_steps: number;
   total_steps: number;
@@ -46,6 +47,7 @@ export default async function FollowUpsPage() {
   const enabled = data?.followups_enabled === true;
   const dryRun = data?.followups_dry_run !== false; // anything but an explicit false is dry-run, as in the database
   const held = data?.skipped_last_7d?.dry_run ?? 0;
+  const basisConfirmed = data?.basis_confirmed === true;
 
   return (
     <div className="space-y-8">
@@ -58,9 +60,10 @@ export default async function FollowUpsPage() {
         <LoadFailure>The follow-up state could not be loaded. This is not a report that nothing is happening. Reload to try again.</LoadFailure>
       ) : (
         <>
-          <section aria-label="State" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section aria-label="State" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Tile label="Follow-ups" value={enabled ? "On" : "Off"} tone={enabled ? "green" : "grey"} />
             <Tile label="Mode" value={dryRun ? "Dry-run (nothing sent)" : "Live"} tone={dryRun ? "amber" : "green"} />
+            <Tile label="Lawful basis" value={basisConfirmed ? "Confirmed by DPO" : "Not confirmed"} tone={basisConfirmed ? "green" : "amber"} />
             <Tile label="Approved emails" value={`${data.approved_steps} of ${data.total_steps}`} tone={data.approved_steps > 0 ? "green" : "amber"} />
             <Tile label="Right now" value={data.in_quiet_hours ? "Quiet hours (21:00 to 07:00)" : "Sending hours"} tone="grey" />
           </section>
@@ -71,7 +74,8 @@ export default async function FollowUpsPage() {
               <MasterSwitch enabled={enabled} />
               {enabled && !dryRun && <BackToDryRun />}
             </div>
-            {enabled && dryRun && <GoLive heldBack={held} />}
+            {!basisConfirmed && <ConfirmBasis />}
+            {enabled && dryRun && basisConfirmed && <GoLive heldBack={held} />}
             {!enabled && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Turn follow-ups on to start finding people to follow up. It starts in dry-run, so nothing is sent until you go live.</p>}
           </section>
 

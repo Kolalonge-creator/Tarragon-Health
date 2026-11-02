@@ -29,6 +29,8 @@ export interface DispatchResult {
   readonly claimed: number;
   readonly sent: number;
   readonly failed: number;
+  /** Sent, but recording the outcome failed: the run stays 'sending' and is reclaimed later (the provider dedupes the idempotency key). Needs a look. */
+  readonly unrecorded: number;
 }
 
 /**
@@ -41,7 +43,9 @@ export async function dispatchFollowups(deps: DispatchDeps): Promise<DispatchRes
   if (!claimed.ok) return { error: claimed.error };
   let sent = 0;
   let failed = 0;
+  let unrecorded = 0;
   for (const run of claimed.runs) {
+    let delivered = false;
     try {
       const token = await unsubscribeToken(deps.unsubscribeSecret, run.contact_id);
       const unsubscribeUrl = `${deps.appBaseUrl}/api/frontdesk/unsubscribe?c=${run.contact_id}&t=${token}`;
@@ -66,6 +70,7 @@ export async function dispatchFollowups(deps: DispatchDeps): Promise<DispatchRes
         headers: mail.headers,
       });
       if (res.ok) {
+        delivered = true;
         await deps.finish(run.run_id, true, res.data.providerMessageId, null);
         sent += 1;
       } else {
@@ -73,9 +78,14 @@ export async function dispatchFollowups(deps: DispatchDeps): Promise<DispatchRes
         failed += 1;
       }
     } catch (e) {
-      await deps.finish(run.run_id, false, null, e instanceof Error ? e.message : "unknown").catch(() => undefined);
-      failed += 1;
+      // If the email was delivered and only the bookkeeping failed, do NOT record a failure (that would schedule a resend): count it for a human.
+      if (delivered) {
+        unrecorded += 1;
+      } else {
+        await deps.finish(run.run_id, false, null, e instanceof Error ? e.message : "unknown").catch(() => undefined);
+        failed += 1;
+      }
     }
   }
-  return { claimed: claimed.runs.length, sent, failed };
+  return { claimed: claimed.runs.length, sent, failed, unrecorded };
 }

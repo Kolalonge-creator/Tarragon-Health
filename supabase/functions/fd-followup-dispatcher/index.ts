@@ -24,7 +24,9 @@ Deno.serve(async (req) => {
       return error ? { ok: false, error: error.message } : { ok: true, runs: (data ?? []) as ClaimedRun[] };
     },
     finish: async (runId, ok, messageId, err) => {
-      await service.rpc("service_fd_finish_run", { p_run: runId, p_ok: ok, p_message_id: messageId, p_error: err });
+      const { error } = await service.rpc("service_fd_finish_run", { p_run: runId, p_ok: ok, p_message_id: messageId, p_error: err });
+      // supabase-js returns the error instead of throwing; surface it so a lost outcome is never silent.
+      if (error) throw new Error(`could not record the outcome of run ${runId}: ${error.message}`);
     },
   });
 });

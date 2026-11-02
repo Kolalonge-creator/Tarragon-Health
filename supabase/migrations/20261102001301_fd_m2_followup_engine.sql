@@ -41,6 +41,36 @@ update public.fd_sequences set priority = case key
  where organisation_id = '00000000-0000-0000-0000-000000000001';
 create index if not exists fd_followup_runs_sending_idx on public.fd_followup_runs (claimed_at) where state = 'sending';
 
+-- DPO GATE. The detector records an account-follow-up consent on the basis 'contract' for every confirmed account. That is a legal claim about
+-- what the sign-up terms say, so it is made only after a person has confirmed it (config account_followup_basis_confirmed, admin only, audited).
+insert into public.fd_app_config (key, value, description) values
+  ('account_followup_basis_confirmed', 'false'::jsonb,
+   'Set true only after the DPO confirms the sign-up terms cover account-setup emails (lawful basis: contract). Until then the detector creates no account contacts or consents.')
+on conflict do nothing;
+
+create or replace function private.fd_validate_config(p_key text, p_value jsonb) returns void language plpgsql immutable set search_path = '' as $$
+declare v_num numeric;
+begin
+  if p_key in ('assistant_enabled', 'prelaunch_mode', 'followups_enabled', 'followups_dry_run', 'account_followup_basis_confirmed') then
+    if jsonb_typeof(p_value) <> 'boolean' then raise exception '% must be true or false', p_key; end if;
+  elsif p_key in ('weekly_send_cap', 'stall_minutes', 'inactive_days', 'session_message_cap', 'transcript_retention_days') then
+    if jsonb_typeof(p_value) <> 'number' then raise exception '% must be a whole number', p_key; end if;
+    v_num := (p_value #>> '{}')::numeric;
+    if v_num < 1 or v_num <> trunc(v_num) or v_num > 100000 then raise exception '% must be a whole number from 1 to 100000', p_key; end if;
+  elsif p_key = 'daily_model_spend_cap_usd' then
+    if jsonb_typeof(p_value) <> 'number' or (p_value #>> '{}')::numeric <= 0 or (p_value #>> '{}')::numeric > 100000 then
+      raise exception 'daily_model_spend_cap_usd must be a positive number'; end if;
+  elsif p_key = 'launch_date' then
+    if jsonb_typeof(p_value) <> 'string' or (p_value #>> '{}') !~ '^\d{4}-\d{2}-\d{2}$' then raise exception 'launch_date must be YYYY-MM-DD'; end if;
+  elsif p_key = 'quiet_hours' then
+    if jsonb_typeof(p_value) <> 'object' or coalesce(p_value ->> 'start', '') !~ '^([01]\d|2[0-3]):[0-5]\d$'
+       or coalesce(p_value ->> 'end', '') !~ '^([01]\d|2[0-3]):[0-5]\d$' or coalesce(p_value ->> 'timezone', '') = '' then
+      raise exception 'quiet_hours needs start and end as HH:MM and a timezone'; end if;
+  elsif p_key in ('model_fast', 'model_strong', 'sender_name', 'reply_to') then
+    if jsonb_typeof(p_value) <> 'string' or btrim(p_value #>> '{}') = '' then raise exception '% must be non-empty text', p_key; end if;
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 1. Small helpers
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -122,8 +152,10 @@ language sql stable security definer set search_path = '' as $$
          or ('app_active' = any (p_stops) and c.app_user_id is not null
             and exists (select 1 from auth.users u where u.id = c.app_user_id and u.last_sign_in_at > p_since))
          or ('account_created' = any (p_stops) and c.app_user_id is not null)
+         -- An event recorded before the contact existed has only app_user_id, so match on either.
          or exists (select 1 from public.fd_funnel_events e
-                     where e.contact_id = c.id and e.event_type = any (p_stops) and e.occurred_at >= p_since)
+                     where (e.contact_id = c.id or (c.app_user_id is not null and e.app_user_id = c.app_user_id))
+                       and e.event_type = any (p_stops) and e.occurred_at >= p_since)
        ))
 $$;
 
@@ -156,6 +188,9 @@ begin
   update public.fd_contacts set suppressed = true, suppressed_reason = p_reason, updated_at = now() where id = p_contact;
   update public.fd_consents set withdrawn_at = now() where contact_id = p_contact and withdrawn_at is null;
   update public.fd_followup_runs set state = 'cancelled' where contact_id = p_contact and state in ('scheduled', 'sending');
+  -- Keep the platform's own marketing opt-out in step, so one 'stop' is honoured by broadcasts too.
+  update public.profiles set marketing_opt_in = false
+   where id = (select app_user_id from public.fd_contacts where id = p_contact) and marketing_opt_in is distinct from false;
   perform private.fd_audit('suppress', 'fd_contacts', p_contact::text, jsonb_build_object('reason', p_reason), 'system');
 end $$;
 
@@ -196,6 +231,8 @@ begin
   if private.fd_cfg('followups_enabled') is distinct from 'true'::jsonb then return jsonb_build_object('skipped', 'followups_disabled'); end if;
 
   -- (a) New accounts with a confirmed email: a contact, an account-follow-up consent (basis: contract), the account_created event, the welcome sequence.
+  -- Only after the DPO has confirmed the basis; until then no account contact or consent is created and the loops below find nobody.
+  if private.fd_cfg('account_followup_basis_confirmed') is not distinct from 'true'::jsonb then
   for r in
     select p.id as uid, p.full_name, p.created_at, lower(u.email) as email
       from public.profiles p join auth.users u on u.id = p.id
@@ -208,6 +245,7 @@ begin
     perform private.fd_record_consent(v_contact, 'email', 'service_followup', 'contract', 'account-followup-v1', v_wording, 'account_signup');
     v_new := v_new + 1;
   end loop;
+  end if;
 
   -- (b) Derived funnel events for app users who have a contact (idempotent by dedupe key).
   insert into public.fd_funnel_events (contact_id, app_user_id, event_type, occurred_at, dedupe_key)
@@ -254,6 +292,7 @@ begin
   for r in
     select c.id as cid, p.id as uid, p.created_at from public.fd_contacts c join public.profiles p on p.id = c.app_user_id
      where p.created_at > now() - interval '30 days' and not c.suppressed
+       and not exists (select 1 from public.fd_followup_runs fr where fr.contact_id = c.id and fr.enrolment_key = 'welcome:' || p.id)
   loop
     v_welcome := v_welcome + private.fd_enrol(r.cid, 'welcome', r.created_at, 'welcome:' || r.uid);
   end loop;
@@ -263,6 +302,7 @@ begin
     select c.id as cid, p.id as uid, p.onboarding_completed_at as at from public.fd_contacts c join public.profiles p on p.id = c.app_user_id
      where p.onboarding_completed_at is not null and p.onboarding_completed_at > now() - interval '45 days' and not c.suppressed
        and not exists (select 1 from public.patient_risk_scores s where s.patient_id = p.id)
+       and not exists (select 1 from public.fd_followup_runs fr where fr.contact_id = c.id and fr.enrolment_key = 'risk:' || p.id)
   loop
     v_risk := v_risk + private.fd_enrol(r.cid, 'risk_check_nudge', r.at, 'risk:' || r.uid);
   end loop;
@@ -272,6 +312,7 @@ begin
     select c.id as cid, p.id as uid, p.created_at from public.fd_contacts c join public.profiles p on p.id = c.app_user_id
      where p.onboarding_completed_at is null and p.is_active and not c.suppressed
        and p.created_at <= now() - make_interval(mins => v_stall_min) and p.created_at > now() - interval '30 days'
+       and not exists (select 1 from public.fd_followup_runs fr where fr.contact_id = c.id and fr.enrolment_key = 'stall:' || p.id)
   loop
     v_stall := v_stall + private.fd_enrol(r.cid, 'finish_signup', greatest(r.created_at, now() - make_interval(mins => v_stall_min)), 'stall:' || r.uid);
   end loop;
@@ -283,6 +324,8 @@ begin
      where p.onboarding_completed_at is not null and not c.suppressed
        and coalesce(u.last_sign_in_at, p.onboarding_completed_at) < now() - make_interval(days => v_inactive_days)
        and coalesce(u.last_sign_in_at, p.onboarding_completed_at) > now() - interval '60 days'
+       and not exists (select 1 from public.fd_followup_runs fr
+                        where fr.contact_id = c.id and fr.enrolment_key = 'reengage:' || p.id || ':' || to_char(date_trunc('quarter', now()), 'YYYY"Q"Q'))
   loop
     v_inactive := v_inactive + private.fd_enrol(r.cid, 'reengage_7d', now(), 'reengage:' || r.uid || ':' || to_char(date_trunc('quarter', now()), 'YYYY"Q"Q'));
   end loop;
@@ -342,6 +385,9 @@ begin
       when r.supp or exists (select 1 from public.notification_email_suppressions z where z.email = r.em) then 'suppressed'
       when not private.fd_email_ok(r.em) then 'no_email'
       when not private.fd_has_consent(r.cid, r.purp) then 'no_consent'
+      -- The platform already has an unsubscribe from marketing email (profiles.marketing_opt_in, the broadcast link); marketing-purpose follow-ups honour it.
+      when r.purp = 'marketing' and exists (select 1 from public.fd_contacts cc join public.profiles pp on pp.id = cc.app_user_id
+                                             where cc.id = r.cid and pp.marketing_opt_in is false) then 'opted_out'
       when private.fd_goal_reached(r.cid, r.stops, r.enrolled_at) then 'goal_reached'
       when (select count(*) from public.fd_followup_runs x where x.contact_id = r.cid and x.state = 'sent' and x.sent_at > now() - interval '7 days') >= v_cap then 'weekly_cap'
       else null end;
@@ -423,6 +469,7 @@ begin
     'followups_enabled', private.fd_cfg('followups_enabled'),
     'followups_dry_run', private.fd_cfg('followups_dry_run'),
     'in_quiet_hours', private.fd_in_quiet_hours(),
+    'basis_confirmed', private.fd_cfg('account_followup_basis_confirmed'),
     'approved_steps', (select count(*) from public.fd_sequence_steps where status = 'approved'),
     'total_steps', (select count(*) from public.fd_sequence_steps),
     'by_state', coalesce((select jsonb_object_agg(state, n) from (select state, count(*) n from public.fd_followup_runs group by state) q), '{}'::jsonb),
@@ -505,7 +552,8 @@ select cron.schedule(
     ),
     timeout_milliseconds := 55000
   ) as request_id
-  where private.fd_cfg('followups_enabled') = 'true'::jsonb;
+  where private.fd_cfg('followups_enabled') = 'true'::jsonb
+    and exists (select 1 from vault.decrypted_secrets where name = 'fd_followup_secret');
   $$
 );
 

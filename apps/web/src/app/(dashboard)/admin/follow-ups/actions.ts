@@ -31,6 +31,24 @@ export async function setMasterSwitchAction(_prev: FollowUpActionState, formData
   return { done: parsed.data.enabled === "true" ? "Follow-ups are on" : "Follow-ups are off" };
 }
 
+const basisSchema = z.object({ confirm: z.literal("on", { message: "Tick the box to confirm" }) });
+
+/**
+ * The DPO's confirmation that the sign-up terms cover account-setup emails (lawful basis: contract). Until it is given the detector creates no
+ * account contact or consent, so nothing can be sent on an unconfirmed basis. Admin only and audited; there is deliberately no way to undo it
+ * from here, because withdrawing it later is a legal decision to be taken with the DPO, not a switch.
+ */
+export async function confirmBasisAction(_prev: FollowUpActionState, formData: FormData): Promise<FollowUpActionState> {
+  const denied = await requireSuperAdmin();
+  if (denied) return { error: denied };
+  const parsed = basisSchema.safeParse({ confirm: formData.get("confirm") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
+  const { error } = await fdRpc(await createClient(), "fd_set_config", { p_key: "account_followup_basis_confirmed", p_value: true });
+  if (error) return { error };
+  revalidatePath("/admin/follow-ups");
+  return { done: "Confirmed. The next sweep (within 15 minutes) will find the people to follow up." };
+}
+
 const goLiveSchema = z.object({ confirm: z.literal("on", { message: "Tick the box to confirm" }) });
 
 /**
@@ -44,10 +62,11 @@ export async function goLiveAction(_prev: FollowUpActionState, formData: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
 
   const supabase = await createClient();
-  const overview = await fdRpcData<{ approved_steps: number; followups_enabled: unknown }>(supabase, "fd_followup_overview");
+  const overview = await fdRpcData<{ approved_steps: number; followups_enabled: unknown; basis_confirmed: unknown }>(supabase, "fd_followup_overview");
   if (overview.error || !overview.data) return { error: "Could not read the current state, so nothing was changed. Reload and try again." };
   if (overview.data.approved_steps < 1) return { error: "No email has been approved yet, so there is nothing to send. Approve wording first." };
   if (overview.data.followups_enabled !== true) return { error: "Turn follow-ups on first." };
+  if (overview.data.basis_confirmed !== true) return { error: "The DPO has not yet confirmed the lawful basis for account emails. Confirm it first." };
 
   const set = await fdRpc(supabase, "fd_set_config", { p_key: "followups_dry_run", p_value: false });
   if (set.error) return { error: set.error };
