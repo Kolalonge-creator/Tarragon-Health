@@ -6,9 +6,17 @@ import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Badge } from "@/components/ui/badge";
-import { BackToDryRun, ConfirmBasis, GoLive, MasterSwitch } from "./follow-up-controls";
+import { BackToDryRun, ConfirmBasis, GoLive, HubspotSwitch, MasterSwitch } from "./follow-up-controls";
 
 export const metadata = { title: "Follow-ups" };
+
+interface CrmOverview {
+  hubspot_enabled: boolean | null;
+  by_state: Record<string, number>;
+  synced_contacts: number;
+  sync_contacts: number;
+  last_error: string | null;
+}
 
 interface Overview {
   followups_enabled: boolean | null;
@@ -43,7 +51,12 @@ export default async function FollowUpsPage() {
   const { isSuperAdmin } = await getCallerPermissions();
   if (!isSuperAdmin) redirect("/admin");
 
-  const { data, error } = await fdRpcData<Overview>(await createClient(), "fd_followup_overview");
+  const supabase = await createClient();
+  const [{ data, error }, crm] = await Promise.all([
+    fdRpcData<Overview>(supabase, "fd_followup_overview"),
+    fdRpcData<CrmOverview>(supabase, "fd_crm_overview"),
+  ]);
+  const hubspotOn = crm.data?.hubspot_enabled === true;
   const enabled = data?.followups_enabled === true;
   const dryRun = data?.followups_dry_run !== false; // anything but an explicit false is dry-run, as in the database
   const held = data?.skipped_last_7d?.dry_run ?? 0;
@@ -77,6 +90,27 @@ export default async function FollowUpsPage() {
             {!basisConfirmed && <ConfirmBasis />}
             {enabled && dryRun && basisConfirmed && <GoLive heldBack={held} />}
             {!enabled && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Turn follow-ups on to start finding people to follow up. It starts in dry-run, so nothing is sent until you go live.</p>}
+          </section>
+
+          <section aria-label="HubSpot" className="space-y-3">
+            <h2 className="font-heading text-xl font-semibold">HubSpot</h2>
+            {crm.error || !crm.data ? (
+              <LoadFailure>The HubSpot state could not be loaded. This is not a report that nothing is queued.</LoadFailure>
+            ) : (
+              <>
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                  Enquirers who ticked the consent box are sent to HubSpot as one contact each, with a note of where they came from and what they agreed to.
+                  Sales fields (stage, status, owner) stay yours: we only read them back.
+                </p>
+                <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                  <li>Sync: <strong>{hubspotOn ? "On" : "Off"}</strong></li>
+                  <li>Contacts marked for sync: <strong>{crm.data.sync_contacts}</strong> ({crm.data.synced_contacts} already in HubSpot)</li>
+                  {Object.entries(crm.data.by_state).map(([k, v]) => <li key={k}>Writes {k}: <strong>{v}</strong></li>)}
+                </ul>
+                {crm.data.last_error && <p className="text-sm text-red-700">Last problem: {crm.data.last_error}</p>}
+                <HubspotSwitch enabled={hubspotOn} />
+              </>
+            )}
           </section>
 
           <section aria-label="Numbers" className="space-y-3">

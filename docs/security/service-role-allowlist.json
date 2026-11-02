@@ -795,6 +795,10 @@
    "category": "edge function, shared-secret header check, fails closed without the secret (Front Desk M2, 2026-11-02). Calls only service_fd_claim_runs and service_fd_finish_run and reads the fd_app_config reply_to row."
   },
   {
+   "file": "supabase/functions/fd-hubspot-sync/index.ts",
+   "category": "edge function, shared-secret header check, fails closed without the secret (Front Desk M3, 2026-11-02). Calls only service_fd_hubspot_claim and service_fd_hubspot_finish."
+  },
+  {
    "file": "supabase/functions/hmo-eligibility/index.ts",
    "category": "edge function (runs with no user session)"
   },

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
-import { backToDryRunAction, confirmBasisAction, goLiveAction, setMasterSwitchAction, type FollowUpActionState } from "./actions";
+import { backToDryRunAction, confirmBasisAction, goLiveAction, setHubspotSwitchAction, setMasterSwitchAction, type FollowUpActionState } from "./actions";
 
 function Result({ state }: { state: FollowUpActionState }) {
   if (!state) return null;
@@ -63,6 +63,19 @@ export function ConfirmBasis() {
         <span>As data protection officer, I confirm the sign-up terms cover account-setup emails.</span>
       </label>
       <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Confirm"}</Button>
+      <Result state={state} />
+    </form>
+  );
+}
+
+export function HubspotSwitch({ enabled }: { enabled: boolean }) {
+  const [state, action, pending] = useActionState(setHubspotSwitchAction, undefined);
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="enabled" value={enabled ? "false" : "true"} />
+      <Button type="submit" variant={enabled ? "outline" : "default"} disabled={pending}>
+        {pending ? "Saving…" : enabled ? "Turn HubSpot sync off" : "Turn HubSpot sync on"}
+      </Button>
       <Result state={state} />
     </form>
   );

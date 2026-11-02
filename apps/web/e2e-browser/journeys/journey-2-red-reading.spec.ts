@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { adminClient, deleteTestPatient, type TestPatient } from "../helpers/supabase-admin";
 import { createJourneyPatient, drainEventBus, loginAs, pollWithDrain } from "./journey-helpers";
+import { ownIp } from "../helpers/own-ip";
+
+// Its own client IP, so its sign-ins do not share the 20-per-5-minutes bucket with every other spec (helpers/own-ip.ts).
+test.use({ extraHTTPHeaders: ownIp() });
 
 /**
  * Journey 2 (spec D.7.3): a red reading at night.

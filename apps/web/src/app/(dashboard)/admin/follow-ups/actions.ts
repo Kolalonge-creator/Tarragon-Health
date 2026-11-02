@@ -49,6 +49,18 @@ export async function confirmBasisAction(_prev: FollowUpActionState, formData: F
   return { done: "Confirmed. The next sweep (within 15 minutes) will find the people to follow up." };
 }
 
+/** The HubSpot sync switch. Off holds every CRM write in the outbox (nothing is lost); the function also needs its HubSpot token to deliver. */
+export async function setHubspotSwitchAction(_prev: FollowUpActionState, formData: FormData): Promise<FollowUpActionState> {
+  const denied = await requireSuperAdmin();
+  if (denied) return { error: denied };
+  const parsed = switchSchema.safeParse({ enabled: formData.get("enabled") });
+  if (!parsed.success) return { error: "Invalid request" };
+  const { error } = await fdRpc(await createClient(), "fd_set_config", { p_key: "hubspot_enabled", p_value: parsed.data.enabled === "true" });
+  if (error) return { error };
+  revalidatePath("/admin/follow-ups");
+  return { done: parsed.data.enabled === "true" ? "HubSpot sync is on" : "HubSpot sync is off" };
+}
+
 const goLiveSchema = z.object({ confirm: z.literal("on", { message: "Tick the box to confirm" }) });
 
 /**

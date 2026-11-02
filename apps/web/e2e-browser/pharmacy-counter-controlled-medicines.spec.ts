@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient, createTestPatient, deleteTestPatient, pollUntil, type TestPatient } from "./helpers/supabase-admin";
+import { ownIp } from "./helpers/own-ip";
 
 // OQ-276 click-through (CMO decision 2026-10-07): the pharmacy counter checks the controlled-medicines list a second time. A pharmacist who
 // enters the right collection code for a controlled medicine gets a plain refusal, sees nothing about the patient and has no supply form;
@@ -46,6 +47,9 @@ async function gotoRoute(page: Page, path: string): Promise<void> {
 async function shot(page: Page, name: string): Promise<void> {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 }
+
+// Its own client IP, so its sign-ins do not share the 20-per-5-minutes bucket with every other spec (helpers/own-ip.ts).
+test.use({ extraHTTPHeaders: ownIp() });
 
 test.describe("pharmacy counter: controlled medicines (OQ-276)", () => {
   test.describe.configure({ mode: "serial" });

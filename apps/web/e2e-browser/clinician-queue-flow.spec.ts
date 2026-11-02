@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient, createTestPatient, deleteTestPatient, pollUntil, type TestPatient } from "./helpers/supabase-admin";
+import { ownIp } from "./helpers/own-ip";
 
 // S16-S20 Stage 6 (W6.2): the clinician queue, click-through. Next task, finish it with a coded outcome, hand a second one back with a
 // reason, a claim that runs out (the sweep returns the task and the page says so), and a task the clinical lead withdraws while it is held.
@@ -46,6 +47,9 @@ interface Staff {
   email: string;
   password: string;
 }
+
+// Its own client IP, so its sign-ins do not share the 20-per-5-minutes bucket with every other spec (helpers/own-ip.ts).
+test.use({ extraHTTPHeaders: ownIp() });
 
 test.describe("clinician queue (S16-S20)", () => {
   test.describe.configure({ mode: "serial" });

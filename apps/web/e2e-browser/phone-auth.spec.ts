@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { adminClient } from "./helpers/supabase-admin";
+import { ownIp } from "./helpers/own-ip";
 
 /**
  * Phone sign-up, verification, sign-in and recovery (S03, functions 1.1 to 1.3 and 1.6), through the real UI.
@@ -56,6 +57,9 @@ async function fillLogin(page: Page, local: string, password: string): Promise<v
   await page.locator("#password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
+
+// Its own client IP, so its sign-ins do not share the 20-per-5-minutes bucket with every other spec (helpers/own-ip.ts).
+test.use({ extraHTTPHeaders: ownIp() });
 
 // No retries: every attempt re-signs-up the same number, and phone sign-up is limited to 3 an hour per number in the
 // dev server's memory, so a retry only adds a "Too many attempts" failure on top of the real one.

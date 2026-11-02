@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { deleteTestPatient, type TestPatient } from "./helpers/supabase-admin";
 import { createJourneyPatient } from "./journeys/journey-helpers";
 import { deleteAccount, gotoRoute, login, makeDoctor, psql, type Account } from "./helpers/staff-session";
+import { ownIp } from "./helpers/own-ip";
 
 // Events harness E5 and E7, in a real browser (docs/design/DASHBOARD-PROGRAMME-CLINICIAN-FIRST.md section 4).
 //
@@ -45,7 +46,7 @@ test.describe("E5 and E7: a care message makes the round trip and each person is
 
   test("patient writes; the doctor is told once and sees it; the doctor answers; the patient is told once and sees the answer", async ({ browser }) => {
     // 1. The patient writes to the care team from the app.
-    const patientContext = await browser.newContext();
+    const patientContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const patientPage = await patientContext.newPage();
     await login(patientPage, patient, /\/patient/);
     await gotoRoute(patientPage, "/patient/messages");
@@ -63,7 +64,7 @@ test.describe("E5 and E7: a care message makes the round trip and each person is
     expect(stored).toBe("1,1");
 
     // 2. E7, doctor side: the assigned doctor has exactly one unread notice for it, worded for a person, and it points at the patient.
-    const doctorContext = await browser.newContext();
+    const doctorContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const doctorPage = await doctorContext.newPage();
     await login(doctorPage, doctor);
     await gotoRoute(doctorPage, "/clinician");

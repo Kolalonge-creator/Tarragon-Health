@@ -113,5 +113,13 @@ jobs:
           CHANNEL="${{ github.event.inputs.channel }}"
           if [ -z "$CHANNEL" ]; then CHANNEL="preview"; fi
           SUBJECT=$(git log -1 --format=%s "${{ github.sha }}")
+          # The app reads its server address and public key from EXPO_PUBLIC_* at bundle time. Those live in the
+          # build profiles of eas.json (base), and `eas update` does not read them, so without this the update
+          # was bundled with empty values and the app showed a blank screen ("supabaseUrl is required") on
+          # every installed build that downloaded it. They are public client values, already committed.
+          eval "$(jq -r '.build.base.env // {} | to_entries[] | "export \(.key)=\(.value|@sh)"' eas.json)"
+          for v in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_PLATFORM_URL; do
+            if [ -z "${!v}" ]; then echo "::error::$v is empty, refusing to publish an update the app cannot start with."; exit 1; fi
+          done
           npx eas-cli@latest update --branch "$CHANNEL" --non-interactive \
             --message "$SUBJECT (${GITHUB_SHA::7})"
