@@ -297,7 +297,10 @@ async function sendWebPush(
       if (statusCode === 404 || statusCode === 410) {
         goneSubscriptionIds.push(sub.id);
       }
-      lastError = err instanceof Error ? err.message : "unknown error";
+      // The push service's HTTP status says why (403 = key mismatch or bad VAPID subject,
+      // 400/413 = bad request); the bare library message does not.
+      const base = err instanceof Error ? err.message : "unknown error";
+      lastError = statusCode ? `${base} (HTTP ${statusCode})` : base;
     }
   }
 
