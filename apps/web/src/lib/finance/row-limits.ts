@@ -11,6 +11,12 @@
 /** The General Ledger and Audit pages read this many rows at a time and offer "Load more" for the next page. */
 export const LEDGER_PAGE_LIMIT = 200;
 export const AUDIT_LOG_PAGE_LIMIT = 200;
+/**
+ * Most rows a "Load more" list will hold on screen. Each ledger entry is a card with a table, so an unbounded list
+ * would freeze the browser on a wide date range; past this the page says it stopped and asks for a narrower range
+ * (the printed pack is the way to read everything).
+ */
+export const LIST_ROW_CEILING = 5000;
 export const APPROVAL_HISTORY_LIMIT = 100;
 export const UNIFIED_LEDGER_PAGE_LIMIT = 50;
 

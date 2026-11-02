@@ -106,6 +106,7 @@ export function FinanceAuditLog() {
           shown={log.rows?.length ?? 0}
           what="log rows"
           hasMore={log.hasMore}
+          capped={log.capped}
           loading={log.isLoadingMore}
           failed={log.loadMoreFailed}
           onLoadMore={log.loadMore}

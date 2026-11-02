@@ -106,12 +106,13 @@ export function TruncationNote({ shown, what }: { shown: number; what: string })
 /**
  * The bottom of a list read a page at a time. Says how many are shown, offers the next page, and says plainly when the
  * next page could not be read (the rows above are still correct) instead of leaving a button that does nothing.
- * Renders nothing once the last page has been read.
+ * Renders nothing once the last page has been read, and the cut-off note if the on-screen ceiling stopped it first.
  */
 export function LoadMoreFooter({
   shown,
   what,
   hasMore,
+  capped,
   loading,
   failed,
   onLoadMore,
@@ -119,10 +120,12 @@ export function LoadMoreFooter({
   shown: number;
   what: string;
   hasMore: boolean;
+  capped: boolean;
   loading: boolean;
   failed: boolean;
   onLoadMore: () => void;
 }) {
+  if (capped) return <TruncationNote shown={shown} what={what} />;
   if (!hasMore) return null;
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">

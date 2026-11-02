@@ -14,7 +14,7 @@ const act = (name: string) => (actions[name] ??= jest.fn(async () => ({ ok: true
 jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
 jest.mock("@/lib/finance/actions", () => new Proxy({ __esModule: true }, { get: (t: Record<string, unknown>, k: string) => (k in t ? t[k] : (...a: unknown[]) => act(k)(...a)) }));
 const mockLoadMore = jest.fn();
-const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
+const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, capped: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {

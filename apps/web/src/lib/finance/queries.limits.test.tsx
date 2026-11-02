@@ -179,6 +179,25 @@ describe("Load more: the paged hooks", () => {
     expect(rpc.mock.calls[1][1]).toMatchObject({ p_limit: 200, p_offset: 200 });
     expect(result.current.hasMore).toBe(false);
   });
+  it("stops offering pages at the on-screen ceiling and says it was cut off", async () => {
+    rpc.mockImplementation(async (_n: string, a: { p_offset: number }) => ({ data: full(`p${a.p_offset}-`, entry), error: null }));
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    for (let n = 1; n < 25; n++) {
+      expect(result.current.hasMore).toBe(true);
+      act(() => result.current.loadMore());
+      await waitFor(() => expect(result.current.rows).toHaveLength(200 * (n + 1)));
+    }
+    expect(result.current.rows).toHaveLength(5000);
+    expect(result.current.hasMore).toBe(false);
+    expect(result.current.capped).toBe(true);
+  });
+  it("a short last page is the end, not a cut-off", async () => {
+    rpc.mockResolvedValue({ data: [entry("a")], error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    expect(result.current.capped).toBe(false);
+  });
   it("flattenPages holds each id once and keeps the order", () => {
     expect(flattenPages([[{ id: "a" }, { id: "b" }], [{ id: "b" }, { id: "c" }]])).toEqual([{ id: "a" }, { id: "b" }, { id: "c" }]);
     expect(flattenPages(undefined)).toBeUndefined();

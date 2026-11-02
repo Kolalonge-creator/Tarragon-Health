@@ -17,7 +17,7 @@ jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQ
 jest.mock("next/link", () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => <a>{children}</a> }));
 jest.mock("@/lib/finance/actions", () => new Proxy({ __esModule: true }, { get: (t: Record<string, unknown>, k: string) => (k in t ? t[k] : (...a: unknown[]) => act(k)(...a)) }));
 const mockLoadMore = jest.fn();
-const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
+const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, capped: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {
@@ -97,6 +97,12 @@ describe("general ledger", () => {
     render(<LedgerBrowser />);
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+  it("at the on-screen ceiling it says the list was cut off and offers no button", () => {
+    hooks.entries = { ...ok(fullPage()), paged: { capped: true } };
+    render(<LedgerBrowser />);
+    expect(screen.getByRole("status").textContent).toContain("There may be more: narrow the date range");
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
   it("disables the button while the next page is loading", () => {
     hooks.entries = { ...ok(fullPage()), paged: { hasMore: true, isLoadingMore: true } };

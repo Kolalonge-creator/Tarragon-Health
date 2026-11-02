@@ -3,6 +3,7 @@ import {
   APPROVAL_HISTORY_LIMIT,
   AUDIT_LOG_PAGE_LIMIT,
   LEDGER_PAGE_LIMIT,
+  LIST_ROW_CEILING,
   PACK_AUDIT_LOG_LIMIT,
   PACK_LEDGER_LIMIT,
   PACK_PAGE_SIZE,
@@ -159,6 +160,8 @@ export interface PagedList<T> {
   isLoadingMore: boolean;
   /** The last "Load more" failed. The rows already on screen are still correct. */
   loadMoreFailed: boolean;
+  /** LIST_ROW_CEILING rows are on screen and the database may hold more: no further page is offered, and the page says so. */
+  capped: boolean;
 }
 
 /** The rows of every page read so far, newest first, each id once (an entry posted mid-read shifts later offsets by one). */
@@ -187,8 +190,12 @@ function usePagedList<T extends { id: string }>(
     queryFn: ({ pageParam }) => readPage(pageSize, pageParam),
     // A full page means there may be another. A short one is the end. The count is of rows the database
     // returned, not of rows after de-duplication, so a repeated row never ends the list early.
-    getNextPageParam: (lastPage, allPages) => (lastPage.length >= pageSize ? allPages.length * pageSize : undefined),
+    // Stops offering pages at LIST_ROW_CEILING, so a wide range cannot make the browser hold tens of thousands of cards.
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length >= pageSize && allPages.length * pageSize < LIST_ROW_CEILING ? allPages.length * pageSize : undefined,
   });
+  const pages = q.data?.pages;
+  const lastPage = pages?.[pages.length - 1];
   return {
     rows: flattenPages(q.data?.pages),
     isLoading: q.isLoading,
@@ -197,6 +204,7 @@ function usePagedList<T extends { id: string }>(
     loadMore: () => void q.fetchNextPage(),
     isLoadingMore: q.isFetchingNextPage,
     loadMoreFailed: q.isFetchNextPageError,
+    capped: !q.hasNextPage && lastPage !== undefined && lastPage.length >= pageSize,
   };
 }
 

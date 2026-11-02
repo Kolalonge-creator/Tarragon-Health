@@ -375,6 +375,7 @@ export function LedgerBrowser() {
           shown={entries.rows?.length ?? 0}
           what="entries"
           hasMore={entries.hasMore}
+          capped={entries.capped}
           loading={entries.isLoadingMore}
           failed={entries.loadMoreFailed}
           onLoadMore={entries.loadMore}
