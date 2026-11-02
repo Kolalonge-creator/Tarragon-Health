@@ -12,7 +12,7 @@ import { AssistantSwitch, ReportNow, SampleShare } from "./front-desk-controls";
 
 export const metadata = { title: "Front desk" };
 
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "short", timeStyle: "short" }) : "—");
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "short", timeStyle: "short" }) : "not yet");
 
 export default async function FrontDeskPage() {
   const profile = await getCurrentProfile();

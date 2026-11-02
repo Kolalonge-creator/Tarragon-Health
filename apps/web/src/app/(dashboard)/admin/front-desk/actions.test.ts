@@ -87,11 +87,21 @@ describe("sample share", () => {
 
 describe("report now", () => {
   it("asks the database for a report and says it is on its way", async () => {
-    fdRpcData.mockResolvedValue({ data: ID, error: null });
-    expect((await generateReportNowAction(undefined))?.done).toMatch(/emailed/);
+    fdRpcData.mockResolvedValue({ data: { id: ID, created: true, status: "pending" }, error: null });
+    expect((await generateReportNowAction(undefined))?.done).toMatch(/emailed to you within a few minutes/);
     expect(fdRpcData).toHaveBeenCalledWith({}, "fd_report_generate_now", undefined);
   });
+  it("says so, instead of promising an email, when today's report was already sent", async () => {
+    fdRpcData.mockResolvedValue({ data: { id: ID, created: false, status: "sent" }, error: null });
+    expect((await generateReportNowAction(undefined))?.done).toMatch(/already made and emailed/);
+  });
+  it("a retried failed report is on its way again", async () => {
+    fdRpcData.mockResolvedValue({ data: { id: ID, created: false, status: "pending" }, error: null });
+    expect((await generateReportNowAction(undefined))?.done).toMatch(/within a few minutes/);
+  });
   it("does not claim success when nothing came back", async () => {
+    expect(await generateReportNowAction(undefined)).toEqual({ error: "No report could be made" });
+    fdRpcData.mockResolvedValue({ data: { id: null, created: false, status: null }, error: null });
     expect(await generateReportNowAction(undefined)).toEqual({ error: "No report could be made" });
   });
 });
