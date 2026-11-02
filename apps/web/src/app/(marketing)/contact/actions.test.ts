@@ -104,3 +104,73 @@ describe("submitLead — submitted values survive a failed submission", () => {
     expect(result).toEqual({ success: true });
   });
 });
+
+
+describe("submitLead: Front Desk capture needs the explicit consent tick", () => {
+  const rpc = jest.fn();
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  const limiter = jest.fn();
+  async function load(rpcImpl: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>) {
+    jest.doMock("@/lib/supabase/service-role", () => ({
+      createServiceRoleClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }), rpc: (fn: string, args: Record<string, unknown>) => rpcImpl(fn, args) }),
+    }));
+    jest.doMock("@/lib/rate-limit", () => ({ getClientIp: async () => "203.0.113.9", rateLimit: () => limiter() }));
+    limiter.mockResolvedValue({ success: true, retryAfterSeconds: 0 });
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "k";
+    return (await import("./actions")).submitLead;
+  }
+
+  it("captures with the exact wording and version, and a normalised phone, when the box is ticked", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { captured: true }, error: null });
+    const submit = await load((fn, args) => rpc(fn, args));
+    const r = await submit(undefined, formDataFor({ consent: "on", contact: "0803 123 4567" }));
+    expect(r).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [fn, args] = rpc.mock.calls[0] as [string, Record<string, unknown>];
+    expect(fn).toBe("service_fd_capture_lead");
+    expect(args).toMatchObject({ p_email: null, p_phone: "+2348031234567", p_source: "website_form", p_consent: true, p_wording_version: "enquiry-consent-v1" });
+    expect(String(args.p_wording)).toMatch(/email me about my enquiry/);
+  });
+
+  it("does NOT capture when the box is not ticked, but still saves the enquiry", async () => {
+    rpc.mockReset();
+    const submit = await load((fn, args) => rpc(fn, args));
+    expect(await submit(undefined, formDataFor({ contact: "ada@example.com" }))).toEqual({ success: true });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("over the capture rate limit the enquiry is still saved but nothing is captured", async () => {
+    rpc.mockReset();
+    const submit = await load((fn, args) => rpc(fn, args));
+    limiter.mockResolvedValue({ success: false, retryAfterSeconds: 600 });
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("a limiter fault fails open: the lead is still captured", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { captured: true }, error: null });
+    const submit = await load((fn, args) => rpc(fn, args));
+    limiter.mockRejectedValue(new Error("redis down"));
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("still reports success to the visitor when capture fails (the enquiry itself is saved)", async () => {
+    rpc.mockReset().mockResolvedValue({ data: null, error: { message: "boom" } });
+    const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const submit = await load((fn, args) => rpc(fn, args));
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("still reports success when capture throws", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const submit = await load(async () => { throw new Error("network"); });
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    spy.mockRestore();
+  });
+});

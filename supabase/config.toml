@@ -117,3 +117,7 @@ verify_jwt = false
 # The bearer is the publishable key, which is not necessarily a JWT, so the platform JWT check stays off, as for the functions above.
 [functions.fd-followup-dispatcher]
 verify_jwt = false
+
+# Front Desk M3: pg_cron calls this every 5 minutes with the vault secret fd_followup_secret (handler.ts checks it), same as the dispatcher above.
+[functions.fd-hubspot-sync]
+verify_jwt = false

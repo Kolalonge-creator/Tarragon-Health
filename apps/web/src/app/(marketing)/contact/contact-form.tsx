@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL } from "@/lib/validation/lead";
 import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
+import { ENQUIRY_CONSENT_WORDING } from "@/lib/frontdesk/lead-consent";
 
 const ROLE_LABELS: Record<(typeof LEAD_ROLES)[number], string> = {
   patient: "Patient",
@@ -163,10 +164,18 @@ export function ContactForm() {
           id="message"
           name="message"
           rows={5}
-          placeholder="Tell us what you want help with..."
+          placeholder="Tell us what you want help with. Please do not include health details."
           defaultValue={values?.message}
           {...fieldErrorProps(ERROR_ID, invalid)}
         />
+      </div>
+      <div className="flex items-start gap-3">
+        <input id="consent" name="consent" type="checkbox" className="mt-1 h-4 w-4 shrink-0 rounded border-charcoal-ink/30" />
+        <Label htmlFor="consent" className="text-sm font-normal leading-relaxed text-charcoal-ink/80">
+          {ENQUIRY_CONSENT_WORDING}{" "}
+          <a href="/privacy" className="font-medium text-brand-green underline underline-offset-2">Privacy Notice</a>
+          <span className="block text-charcoal-ink/60">Optional. We will reply to your message either way.</span>
+        </Label>
       </div>
       <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
         {pending ? "Sending..." : "Send message"}
