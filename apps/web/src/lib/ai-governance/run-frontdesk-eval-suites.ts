@@ -7,6 +7,9 @@
  *
  * Same division of responsibility as run-coach-eval-suites.ts: this reads the suite definitions and returns results; the admin console's server
  * action records the runs. It writes nothing, approves nothing, and sends only the synthetic visitor messages in the eval set, never patient data.
+ * Two deliberate departures, both noted for the reviewer: (1) the model is called through callReceptionistModel directly, not runGovernedAi,
+ * because AI-023 is disabled until this very run passes and the governed path would refuse; the console action records the run and its cost
+ * instead. (2) The knowledge text is the fixed fixture in eval/cases.ts, so re-run this after any approved wording changes.
  * Needs ANTHROPIC_API_KEY. About 71 model calls on claude-haiku-4-5 per full run, well under one dollar.
  */
 import { callReceptionistModel } from "../frontdesk/receptionist";
@@ -15,6 +18,7 @@ import type { ReceptionistAnswer } from "../frontdesk/types";
 import {
   ADVERSARIAL_PROBES,
   dbCaseCode,
+  mapWithConcurrency,
   BASELINE_CASE_SOURCE,
   scoreAdversarialProbe,
   scoreModelCase,
@@ -27,6 +31,8 @@ import type { EvalCaseOutcome, EvalSuite, EvalSuiteCase, EvalSuiteResult } from 
 export const SUITE_NAME = "AI-023 website receptionist golden questions";
 const BASELINE_SUITE_NAME = "Platform AI safety baseline";
 const LAUNCH_DATE = "31 December 2026";
+const CONCURRENCY = 8;
+
 
 async function loadSuites(): Promise<{ aiSystemId: string; suite: EvalSuite; baseline: EvalSuite | null; modelId: string }> {
   const db = createServiceRoleClient();
@@ -66,12 +72,13 @@ async function loadSuites(): Promise<{ aiSystemId: string; suite: EvalSuite; bas
     cases: (caseRows ?? []) as EvalSuiteCase[],
   };
 
-  const { data: baseRow } = await db
+  const { data: baseRow, error: baseRowError } = await db
     .from("ai_evaluation_suites")
     .select("id, pass_threshold_pct")
     .eq("name", BASELINE_SUITE_NAME)
     .is("ai_system_id", null)
     .maybeSingle();
+  if (baseRowError) throw new Error(`Could not load suite "${BASELINE_SUITE_NAME}": ${baseRowError.message}`);
   let baseline: EvalSuite | null = null;
   if (baseRow) {
     const { data: baseCases, error: baseError } = await db
@@ -113,11 +120,10 @@ async function runDedicatedSuite(
 ): Promise<{ result: EvalSuiteResult; scoreByCase: Record<string, CaseScore> }> {
   const evalById = new Map(EVAL_CASES.map((c) => [dbCaseCode(c.id), c]));
   const probeByCode = new Map(ADVERSARIAL_PROBES.map((p) => [p.caseCode, p]));
-  const outcomes: EvalCaseOutcome[] = [];
-  const scores: CaseScore[] = [];
   const scoreByCase: Record<string, CaseScore> = {};
 
-  for (const c of suite.cases) {
+  // Calls run a few at a time: 71 serial calls take far longer than the console page's 300 second limit and a timeout would lose the whole run.
+  const results = await mapWithConcurrency(suite.cases, CONCURRENCY, async (c) => {
     const evalCase = evalById.get(c.case_code);
     const probe = probeByCode.get(c.case_code);
     if (!evalCase && !probe) throw new Error(`No evaluation input for case_code "${c.case_code}" -- add one before running.`);
@@ -130,16 +136,20 @@ async function runDedicatedSuite(
       modelId,
     });
     const score = evalCase ? scoreModelCase(evalCase, answer) : scoreAdversarialProbe(c.case_code, answer);
-    scores.push(score);
-    scoreByCase[c.case_code] = score;
     console.log(`  ${score.unsafe ? "UNSAFE" : score.pass ? "PASS" : "FAIL"} ${c.case_code}: ${score.note}`);
-    outcomes.push({
+    const outcome: EvalCaseOutcome = {
       case_id: c.id,
       case_code: c.case_code,
       outcome: score.pass ? "pass" : "fail",
       actual_output: `${score.unsafe ? "UNSAFE: " : ""}${score.note}. Reply: ${answer.reply}`.slice(0, 1500),
-    });
-  }
+    };
+    return { score, outcome };
+  });
+  const outcomes = results.map((x) => x.outcome);
+  const scores = results.map((x) => x.score);
+  suite.cases.forEach((c, i) => {
+    scoreByCase[c.case_code] = scores[i]!;
+  });
   return { result: toResult(suite, outcomes, scores), scoreByCase };
 }
 

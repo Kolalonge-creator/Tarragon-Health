@@ -64,14 +64,12 @@ begin
   select count(*) into v_n from public.ai_guardrails where ai_system_id = v_id and is_active;
   if v_n = 8 then raise exception 'SABOTAGE 1 not detected: deleting a guardrail left the count at 8'; end if;
 
-  -- Sabotage 2: a seeded approval would be caught by the "none approved" check (set one directly and the check sees it).
+  -- Check 2: a direct approval of a knowledge source is refused (only approve_ai_knowledge_sources may stamp it).
   v_blocked := false;
   begin
     update public.ai_knowledge_sources set approved_at = now() where ai_system_id = v_id;
   exception when others then v_blocked := true; end;
-  if not v_blocked and not exists (select 1 from public.ai_knowledge_sources where ai_system_id = v_id and approved_at is not null) then
-    raise exception 'SABOTAGE 2: a direct approval neither failed nor showed up';
-  end if;
+  if not v_blocked then raise exception 'FAIL 18: a knowledge source could be approved directly'; end if;
 
   raise notice 'AI-023 governance scaffolding: all checks PASSED';
 end $$;

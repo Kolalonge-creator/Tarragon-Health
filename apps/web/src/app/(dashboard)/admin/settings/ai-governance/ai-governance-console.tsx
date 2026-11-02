@@ -334,7 +334,7 @@ function RunEvalSuitesForm({ systemCode }: { systemCode: "AI-001" | "AI-016" | "
     runAiEvalSuitesAction,
     undefined
   );
-  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : "the suite below";
+  const suiteCountLabel = systemCode === "AI-001" ? "the four suites below" : systemCode === "AI-023" ? "the two suites below" : "the suite below";
 
   return (
     <form action={action} className="min-w-[20rem] flex-1 space-y-2">
