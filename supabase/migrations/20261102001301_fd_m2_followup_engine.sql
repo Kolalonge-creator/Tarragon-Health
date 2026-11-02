@@ -459,6 +459,36 @@ begin
   return true;
 end $$;
 
+-- The unsubscribe token is an HMAC of the contact id under the Vault secret fd_unsubscribe_secret. Verifying it HERE (not in the web app) keeps
+-- that secret in exactly one place besides the Edge Function that mints it: the web app needs no copy of it. TypeScript mints the same value
+-- (supabase/functions/_shared/frontdesk/unsubscribe-token.ts); a shared test vector proves the two agree.
+create function private.fd_unsub_token(p_contact uuid) returns text language plpgsql stable security definer set search_path = '' as $$
+declare v_secret text;
+begin
+  select decrypted_secret into v_secret from vault.decrypted_secrets where name = 'fd_unsubscribe_secret';
+  if v_secret is null or v_secret = '' then return null; end if;
+  return left(encode(extensions.hmac(convert_to('fd-unsub:' || p_contact::text, 'UTF8'), convert_to(v_secret, 'UTF8'), 'sha256'), 'hex'), 40);
+end $$;
+
+-- True only for the right token for that contact. Hash-then-compare so the comparison does not stop at the first differing character.
+create function public.service_fd_unsubscribe_token_valid(p_contact uuid, p_token text) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+declare v_expected text := private.fd_unsub_token(p_contact);
+begin
+  if v_expected is null or p_token is null or p_token !~ '^[0-9a-f]{40}$' then return false; end if;
+  return sha256(convert_to(v_expected, 'UTF8')) = sha256(convert_to(p_token, 'UTF8'));
+end $$;
+
+-- The link's action: a valid token for a real contact unsubscribes them. 'ok' or 'invalid'; never says whether a contact exists.
+create function public.service_fd_unsubscribe_with_token(p_contact uuid, p_token text) returns text
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.service_fd_unsubscribe_token_valid(p_contact, p_token) then return 'invalid'; end if;
+  if not exists (select 1 from public.fd_contacts where id = p_contact) then return 'invalid'; end if;
+  perform private.fd_suppress_contact(p_contact, 'unsubscribed');
+  return 'ok';
+end $$;
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 5. Console: overview and "go live without losing what dry-run held back"
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -517,11 +547,16 @@ revoke all on function public.service_fd_claim_runs(integer) from public, anon, 
 revoke all on function public.service_fd_finish_run(uuid, boolean, text, text) from public, anon, authenticated;
 revoke all on function public.service_fd_record_event(uuid, text, text, text) from public, anon, authenticated;
 revoke all on function public.service_fd_unsubscribe(uuid) from public, anon, authenticated;
+revoke all on function private.fd_unsub_token(uuid) from public, anon, authenticated;
+revoke all on function public.service_fd_unsubscribe_token_valid(uuid, text) from public, anon, authenticated;
+revoke all on function public.service_fd_unsubscribe_with_token(uuid, text) from public, anon, authenticated;
 grant execute on function public.service_fd_detect() to service_role;
 grant execute on function public.service_fd_claim_runs(integer) to service_role;
 grant execute on function public.service_fd_finish_run(uuid, boolean, text, text) to service_role;
 grant execute on function public.service_fd_record_event(uuid, text, text, text) to service_role;
 grant execute on function public.service_fd_unsubscribe(uuid) to service_role;
+grant execute on function public.service_fd_unsubscribe_token_valid(uuid, text) to service_role;
+grant execute on function public.service_fd_unsubscribe_with_token(uuid, text) to service_role;
 revoke all on function public.fd_followup_overview() from public, anon;
 revoke all on function public.fd_rearm_dry_run_runs() from public, anon;
 grant execute on function public.fd_followup_overview() to authenticated;
@@ -564,7 +599,8 @@ do $$
 declare f text;
 begin
   foreach f in array array['public.service_fd_detect()', 'public.service_fd_claim_runs(integer)', 'public.service_fd_finish_run(uuid, boolean, text, text)',
-                           'public.service_fd_record_event(uuid, text, text, text)', 'public.service_fd_unsubscribe(uuid)'] loop
+                           'public.service_fd_record_event(uuid, text, text, text)', 'public.service_fd_unsubscribe(uuid)',
+                           'public.service_fd_unsubscribe_token_valid(uuid, text)', 'public.service_fd_unsubscribe_with_token(uuid, text)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') or has_function_privilege('authenticated', f, 'EXECUTE') then
       raise exception 'fd M2: % is callable by a non service role', f;
     end if;

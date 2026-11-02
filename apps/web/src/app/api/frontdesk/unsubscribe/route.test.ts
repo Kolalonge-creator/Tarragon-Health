@@ -1,5 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { unsubscribeToken } from "@tarragon/integrations";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const fdRpcData = jest.fn<(s: unknown, fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: string | null }>>();
 const rateLimit = jest.fn<(k: string, r: unknown) => Promise<{ success: boolean; retryAfterSeconds: number }>>();
@@ -10,19 +9,23 @@ jest.mock("@/lib/rate-limit", () => ({ rateLimit: (k: string, r: unknown) => rat
 
 import { GET, POST } from "./route";
 
-const SECRET = "unsub-secret-that-is-long-enough-for-tests-0123456789";
 const CONTACT = "11111111-1111-4111-8111-111111111111";
-let token = "";
-const url = (c = CONTACT, t = token) => `https://app.tarragonhealth.ng/api/frontdesk/unsubscribe?c=${c}&t=${t}`;
+const TOKEN = "b546d680d7b00bf4f89a1166a07d08d8370fcadd";
+const url = (c = CONTACT, t = TOKEN) => `https://app.tarragonhealth.ng/api/frontdesk/unsubscribe?c=${c}&t=${t}`;
 
-beforeAll(async () => {
-  process.env.FD_UNSUBSCRIBE_SECRET = SECRET;
-  token = await unsubscribeToken(SECRET, CONTACT);
-});
+/** The database decides: valid only for the exact pair; unsubscribes only through the with_token function. */
+function database(valid: boolean) {
+  fdRpcData.mockImplementation(async (_s, fn, args) => {
+    if (fn === "service_fd_unsubscribe_token_valid") return { data: valid && args.p_contact === CONTACT && args.p_token === TOKEN, error: null };
+    if (fn === "service_fd_unsubscribe_with_token") return { data: valid && args.p_contact === CONTACT && args.p_token === TOKEN ? "ok" : "invalid", error: null };
+    return { data: null, error: "unexpected rpc " + fn };
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   rateLimit.mockResolvedValue({ success: true, retryAfterSeconds: 0 });
-  fdRpcData.mockResolvedValue({ data: true, error: null });
+  database(true);
 });
 
 describe("unsubscribe route", () => {
@@ -30,7 +33,7 @@ describe("unsubscribe route", () => {
     const res = await GET(new Request(url()));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("Yes, stop these emails");
-    expect(fdRpcData).not.toHaveBeenCalled();
+    expect(fdRpcData.mock.calls.map((c) => c[1])).toEqual(["service_fd_unsubscribe_token_valid"]);
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
@@ -38,43 +41,40 @@ describe("unsubscribe route", () => {
     const res = await POST(new Request(url(), { method: "POST", body: "List-Unsubscribe=One-Click", headers: { "content-type": "application/x-www-form-urlencoded" } }));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("You are unsubscribed");
-    expect(fdRpcData).toHaveBeenCalledWith(expect.anything(), "service_fd_unsubscribe", { p_contact: CONTACT });
+    expect(fdRpcData).toHaveBeenCalledWith(expect.anything(), "service_fd_unsubscribe_with_token", { p_contact: CONTACT, p_token: TOKEN });
   });
 
-  it("refuses a forged or tampered token and unsubscribes nobody", async () => {
-    const bad = token.replace(/.$/, token.endsWith("0") ? "1" : "0");
-    expect((await POST(new Request(url(CONTACT, bad), { method: "POST" }))).status).toBe(400);
-    expect((await GET(new Request(url(CONTACT, bad)))).status).toBe(400);
-    expect(fdRpcData).not.toHaveBeenCalled();
+  it("refuses a token the database rejects and unsubscribes nobody", async () => {
+    database(false);
+    expect((await POST(new Request(url(), { method: "POST" }))).status).toBe(400);
+    expect((await GET(new Request(url()))).status).toBe(400);
+    expect(fdRpcData.mock.calls.some((c) => c[1] === "service_fd_unsubscribe_with_token")).toBe(false);
   });
 
-  it("refuses a valid token for a different contact", async () => {
-    const other = "22222222-2222-4222-8222-222222222222";
-    expect((await POST(new Request(url(other, token), { method: "POST" }))).status).toBe(400);
-    expect(fdRpcData).not.toHaveBeenCalled();
-  });
-
-  it("refuses missing or malformed parameters", async () => {
+  it("refuses missing or malformed parameters without asking the database", async () => {
     expect((await POST(new Request("https://app.tarragonhealth.ng/api/frontdesk/unsubscribe", { method: "POST" }))).status).toBe(400);
     expect((await POST(new Request(url("not-a-uuid", "short"), { method: "POST" }))).status).toBe(400);
+    expect(fdRpcData).not.toHaveBeenCalled();
   });
 
-  it("fails closed when the secret is not configured", async () => {
-    delete process.env.FD_UNSUBSCRIBE_SECRET;
-    expect((await POST(new Request(url(), { method: "POST" }))).status).toBe(400);
-    process.env.FD_UNSUBSCRIBE_SECRET = SECRET;
+  it("reads the link from a form body when the query is empty (the page's own button)", async () => {
+    const form = new FormData();
+    form.set("c", CONTACT);
+    form.set("t", TOKEN);
+    const res = await POST(new Request("https://app.tarragonhealth.ng/api/frontdesk/unsubscribe", { method: "POST", body: form }));
+    expect(res.status).toBe(200);
   });
 
   it("never reports success when the database call failed", async () => {
-    fdRpcData.mockResolvedValue({ data: null, error: "boom" });
+    fdRpcData.mockImplementation(async (_s, fn) => (fn === "service_fd_unsubscribe_token_valid" ? { data: true, error: null } : { data: null, error: "boom" }));
     const res = await POST(new Request(url(), { method: "POST" }));
     expect(res.status).toBe(500);
     expect(await res.text()).not.toContain("You are unsubscribed");
   });
 
-  it("treats an unknown contact as an invalid link", async () => {
-    fdRpcData.mockResolvedValue({ data: false, error: null });
-    expect((await POST(new Request(url(), { method: "POST" }))).status).toBe(400);
+  it("treats a failed token check as an invalid link, never as valid", async () => {
+    fdRpcData.mockResolvedValue({ data: null, error: "boom" });
+    expect((await GET(new Request(url()))).status).toBe(400);
   });
 
   it("rate limits repeated posts", async () => {

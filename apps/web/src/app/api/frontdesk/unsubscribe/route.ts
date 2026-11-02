@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { verifyUnsubscribeToken } from "@tarragon/integrations";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -39,6 +38,7 @@ function clientKey(request: Request): string {
   return (h.get("x-vercel-forwarded-for") ?? h.get("x-forwarded-for") ?? "unknown").split(",")[0]!.trim();
 }
 
+/** The contact id and token from the link, if they are well formed AND the database says the token is right (the secret lives only in the Vault). */
 async function parse(request: Request): Promise<{ c: string; t: string } | null> {
   const q = new URL(request.url).searchParams;
   let c = q.get("c");
@@ -54,8 +54,8 @@ async function parse(request: Request): Promise<{ c: string; t: string } | null>
   }
   const parsed = paramsSchema.safeParse({ c, t });
   if (!parsed.success) return null;
-  const secret = process.env.FD_UNSUBSCRIBE_SECRET ?? "";
-  return (await verifyUnsubscribeToken(secret, parsed.data.c, parsed.data.t)) ? parsed.data : null;
+  const { data, error } = await fdRpcData<boolean>(createServiceRoleClient(), "service_fd_unsubscribe_token_valid", { p_contact: parsed.data.c, p_token: parsed.data.t });
+  return !error && data === true ? parsed.data : null;
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -74,9 +74,9 @@ export async function POST(request: Request): Promise<Response> {
   if (!limited.success) return html(429, "Too many requests", "<h1>Please try again later</h1><p>Too many requests came from your connection.</p>");
   const p = await parse(request);
   if (!p) return INVALID();
-  const { data, error } = await fdRpcData<boolean>(createServiceRoleClient(), "service_fd_unsubscribe", { p_contact: p.c });
+  const { data, error } = await fdRpcData<string>(createServiceRoleClient(), "service_fd_unsubscribe_with_token", { p_contact: p.c, p_token: p.t });
   // An error is never reported as success: a person who thinks they are unsubscribed and is not has been misled.
   if (error) return html(500, "Something went wrong", "<h1>We could not do that just now</h1><p>Please try again, or reply to the email and a person will stop the messages for you.</p>");
-  if (data === false) return INVALID();
+  if (data !== "ok") return INVALID();
   return html(200, "Unsubscribed", "<h1>You are unsubscribed</h1><p>We will not send you any more follow-up emails. If this was a mistake, just reply to any earlier email and a person will help.</p>");
 }

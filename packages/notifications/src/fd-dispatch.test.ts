@@ -85,6 +85,9 @@ describe("every seeded step, fully rendered, is accepted by the patient email li
 });
 
 describe("unsubscribe token", () => {
+  it("matches the shared vector that the database proof also asserts (TypeScript and SQL mint the same token)", async () => {
+    expect(await unsubscribeToken("proof-unsub-secret-0123456789abcdef0123456789", CONTACT)).toBe("b546d680d7b00bf4f89a1166a07d08d8370fcadd");
+  });
   it("verifies for the same contact and secret", async () => {
     const t = await unsubscribeToken(SECRET, CONTACT);
     expect(t).toMatch(/^[0-9a-f]{40}$/);

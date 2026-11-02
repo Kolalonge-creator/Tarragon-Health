@@ -291,6 +291,34 @@ select email, 'bounced' from public.fd_contacts where id = pg_temp.contact_of(pg
 select pg_temp.rec('suppress', 'a bounce recorded by the Resend webhook table suppresses the front desk contact', 'true/bounced',
   (select suppressed::text || '/' || suppressed_reason from public.fd_contacts where id = pg_temp.contact_of(pg_temp.f('a'))));
 
+-- 9b. the unsubscribe token is verified in the database against the Vault secret, and agrees with the TypeScript minting (shared test vector)
+select vault.create_secret('proof-unsub-secret-0123456789abcdef0123456789', 'fd_unsubscribe_secret');
+select pg_temp.rec('token', 'SQL mints the same token as TypeScript for the shared vector (secret and contact id)', 'b546d680d7b00bf4f89a1166a07d08d8370fcadd',
+  (select private.fd_unsub_token('11111111-1111-4111-8111-111111111111')));
+create temp table tk(c uuid, t text) on commit drop;
+grant all on tk to public;
+insert into public.fd_contacts (email, source) values ('fd2-token-proof@example.invalid', 'import');
+insert into tk select id, private.fd_unsub_token(id) from public.fd_contacts where email = 'fd2-token-proof@example.invalid';
+select pg_temp.rec('token', 'the right token is valid', 'true',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_token_valid(%L, %L)::text$q$, (select c from tk), (select t from tk))));
+select pg_temp.rec('token', 'a tampered token is not', 'false',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_token_valid(%L, %L)::text$q$, (select c from tk), (select overlay(t placing case when substr(t,1,1)='0' then '1' else '0' end from 1 for 1) from tk))));
+select pg_temp.rec('token', 'a valid token for another contact is not', 'false',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_token_valid(%L, %L)::text$q$, pg_temp.contact_of(pg_temp.f('b')), (select t from tk))));
+select pg_temp.rec('token', 'a malformed token is not', 'false',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_token_valid(%L, 'short')::text$q$, (select c from tk))));
+select pg_temp.rec('token', 'a wrong token does not unsubscribe anyone', 'invalid/false',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_with_token(%L, repeat('a', 40))$q$, (select c from tk)))
+  || '/' || (select suppressed::text from public.fd_contacts where id = (select c from tk)));
+select pg_temp.rec('token', 'anon cannot call the token functions', 'ERR:42501',
+  pg_temp.as_val(null, 'anon', format($q$select public.service_fd_unsubscribe_with_token(%L, %L)$q$, (select c from tk), (select t from tk))));
+select pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_with_token(%L, %L)$q$, (select c from tk), (select t from tk)));
+select pg_temp.rec('token', 'the right token unsubscribes the contact', 'true',
+  (select suppressed::text from public.fd_contacts where id = (select c from tk)));
+delete from vault.secrets where name = 'fd_unsubscribe_secret';
+select pg_temp.rec('token', 'with no secret configured every token is invalid (fails closed)', 'false',
+  pg_temp.as_val(null, 'service_role', format($q$select public.service_fd_unsubscribe_token_valid(%L, %L)::text$q$, (select c from tk), (select t from tk))));
+
 -- 10. consent ---------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.rec('consent', 'a marketing sequence is NOT started for a contact with only follow-up consent', '0',
   (select private.fd_enrol(pg_temp.contact_of(pg_temp.f('b')), 'reengage_7d', now(), 'reeng:proof'))::text);
