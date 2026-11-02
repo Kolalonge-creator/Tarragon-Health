@@ -1,5 +1,6 @@
 import "server-only";
 import { createMlClientFromEnv } from "@tarragon/shared";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
  * Live, introspective dependency checks for `/api/status` (§90.17/§90.18 —
@@ -27,7 +28,14 @@ export interface MlCheck {
 
 export interface ConfiguredCheck {
   status: "configured" | "unconfigured";
+  /** How we know: the env var is present in this process, or a message actually went out recently. Absent when unconfigured. */
+  evidence?: "env" | "recent_send";
+  /** ISO time of the newest successful send on that channel, when evidence is recent_send. */
+  last_sent_at?: string;
 }
+
+/** How far back a successful send still counts as proof the channel works. Email goes out every day (test pages at 06:50 UTC); SMS is rare (phone codes only). */
+const SEND_EVIDENCE_WINDOW_DAYS = 7;
 
 export interface DependencyReport {
   checked_at: string;
@@ -94,14 +102,62 @@ export function checkConfigured(envVar: string | undefined): ConfiguredCheck {
   return { status: envVar ? "configured" : "unconfigured" };
 }
 
+type SendsClient = {
+  from(table: "notifications"): {
+    select(cols: string): {
+      eq(col: string, v: string): {
+        eq(col: string, v: string): {
+          gte(col: string, v: string): {
+            order(col: string, o: { ascending: boolean }): {
+              limit(n: number): { maybeSingle(): PromiseLike<{ data: { sent_at: string | null } | null; error: { message: string } | null }> };
+            };
+          };
+        };
+      };
+    };
+  };
+};
+
+/**
+ * Email (Resend) and SMS (Termii) are sent by the Supabase edge sender with Supabase edge secrets, not by this Next.js process,
+ * so the web env var is normally absent on purpose and presence-only reported "unconfigured" while mail was going out every day
+ * (seen on the admin dashboard 2026-11-02). Evidence beats presence: a successful send on the channel inside the window means
+ * the channel works end to end. The env var still counts when it is set. Never throws; a failed read is "unconfigured".
+ */
+export async function checkChannel(channel: "email" | "sms", envVar: string | undefined, client?: SendsClient): Promise<ConfiguredCheck> {
+  if (envVar) return { status: "configured", evidence: "env" };
+  try {
+    const supabase = client ?? (createServiceRoleClient() as unknown as SendsClient);
+    const since = new Date(Date.now() - SEND_EVIDENCE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("sent_at")
+      .eq("channel", channel)
+      .eq("status", "sent")
+      .gte("sent_at", since)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data?.sent_at) return { status: "configured", evidence: "recent_send", last_sent_at: data.sent_at };
+  } catch {
+    // fall through: no evidence is "unconfigured", never an exception on a status probe
+  }
+  return { status: "unconfigured" };
+}
+
 export async function checkDependencies(): Promise<DependencyReport> {
-  const [supabase, ml_service] = await Promise.all([checkSupabase(), checkMlService()]);
+  const [supabase, ml_service, termii, resend] = await Promise.all([
+    checkSupabase(),
+    checkMlService(),
+    checkChannel("sms", process.env.TERMII_API_KEY),
+    checkChannel("email", process.env.RESEND_API_KEY),
+  ]);
   return {
     checked_at: new Date().toISOString(),
     supabase,
     ml_service,
-    termii: checkConfigured(process.env.TERMII_API_KEY),
+    termii,
     paystack: checkConfigured(process.env.PAYSTACK_SECRET_KEY),
-    resend: checkConfigured(process.env.RESEND_API_KEY),
+    resend,
   };
 }

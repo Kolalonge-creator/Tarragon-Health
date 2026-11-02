@@ -420,10 +420,14 @@ async function countTherapyApprovalsWaiting(supabase: Client) {
  * here once that lands rather than editing it twice.
  */
 async function countLabOrdersAwaitingHomeVisitAssignment(supabase: Client) {
+  // A self-arranged order (the patient takes the request to any laboratory and pays there, the default since 2026-08-03)
+  // never needs a home-visit provider, so it must not be counted as waiting for one. On 2026-11-02 every open order on the
+  // platform was self-arranged and the Chief Medical Officer's dashboard said "Home visit orders 56" for work that did not exist.
   const { count, error } = await supabase
     .from("lab_orders")
     .select("id", { count: "exact", head: true })
     .is("home_visit_provider_id", null)
+    .neq("fulfilment", "self_arranged")
     .in("status", ["payment_confirmed", "ordered"]);
   if (error) throw error;
   return count ?? 0;
