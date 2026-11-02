@@ -64,7 +64,8 @@ begin
   select count(*) into v_n from public.ai_guardrails where ai_system_id = v_id and is_active;
   if v_n = 8 then raise exception 'SABOTAGE 1 not detected: deleting a guardrail left the count at 8'; end if;
 
-  -- Check 2: a direct approval of a knowledge source is refused (only approve_ai_knowledge_sources may stamp it).
+  -- Check 2: a direct approval of a knowledge source is refused. Two independent mechanisms do this (the approval guard trigger, and the
+  -- approved_by/approved_at pairing check), so disabling either alone still passes; it fails only if a path opens that stamps both.
   v_blocked := false;
   begin
     update public.ai_knowledge_sources set approved_at = now() where ai_system_id = v_id;
