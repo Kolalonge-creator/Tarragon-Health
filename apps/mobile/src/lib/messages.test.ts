@@ -25,7 +25,7 @@ function messagesTable(rows: unknown[]) {
   return builder;
 }
 
-function directoryTable(rows: { id: string; full_name: string | null }[]) {
+function directoryTable(rows: { id: string; full_name: string | null; doctor_tier?: string | null }[]) {
   let requestedIds: string[] = [];
   const builder: Record<string, unknown> = {
     then: (resolve: (value: { data: unknown; error: null }) => unknown) =>
@@ -46,7 +46,7 @@ describe("loadThreadMessages", () => {
       { id: "msg-2", thread_id: "t1", actor_clinical_staff_id: "staff-b", created_at: "2026-09-02T00:00:00Z" },
     ];
     const directory = [
-      { id: "staff-a", full_name: "Dr. A" },
+      { id: "staff-a", full_name: "Dr. A", doctor_tier: "senior_medical_officer" },
       { id: "staff-b", full_name: "Dr. B" },
     ];
     mockFrom.mockImplementation((table: string) =>
@@ -57,6 +57,7 @@ describe("loadThreadMessages", () => {
 
     expect(result[0].actor?.full_name).toBe("Dr. A");
     expect(result[1].actor?.full_name).toBe("Dr. B");
+    expect(result[0].actor?.doctor_tier).toBe("senior_medical_officer");
   });
 
   it("null-gates the actor for a patient/sponsor-authored message", async () => {

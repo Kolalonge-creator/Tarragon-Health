@@ -256,6 +256,7 @@ export type ConsultationDurationType = Enums<"consultation_duration_type">;
 
 export * from "./ui-language";
 export * from "./clinical-tier";
+export * from "./care-message-sender";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
 export * from "./observation-limits";

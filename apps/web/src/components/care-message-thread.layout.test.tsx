@@ -42,6 +42,8 @@ describe("CareMessageThread layout", () => {
     expect(screen.getByText("NE")).not.toBeNull(); // named doctor
     expect(screen.queryByText("Tunde Bello")).toBeNull();
     expect(screen.getByText("Ngozi Eze")).not.toBeNull();
+    expect(screen.getByText("· Doctor")).not.toBeNull(); // role label for the named doctor
+    expect(screen.getByText("· Care coordinator")).not.toBeNull(); // coordinator keeps a role, not a name
   });
 
   it("puts the viewer's own messages on the right for a patient and on the left for staff", () => {

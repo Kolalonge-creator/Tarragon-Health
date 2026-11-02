@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, FlatList, KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import { careMessageSender } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadReplyTimeSentence, loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
 import { loadMessageActions, MESSAGE_ACTIONS } from "@/lib/message-actions";
@@ -217,7 +218,15 @@ export function MessagesScreen({ patientId, onNavigate }: MessagesScreenProps) {
             const fromMe = item.author_role === "patient";
             // Attribution is null-gated: a care-team message shows the real name only when
             // the record carries one, otherwise the plain team label. Never an invented name.
-            const sender = fromMe ? tr("messages.sender.you") : (item.actor?.full_name ?? tr("messages.sender.team"));
+            const attribution = careMessageSender(item.actor);
+            // Same rule as web: a care coordinator is never named, only their role.
+            const isCoordinator = item.actor?.doctor_tier === "care_coordinator";
+            const senderName = fromMe
+              ? tr("messages.sender.you")
+              : isCoordinator
+                ? tr("messages.sender.team")
+                : (attribution.name ?? tr("messages.sender.team"));
+            const sender = !fromMe && attribution.role ? `${senderName}, ${attribution.role}` : senderName;
             const sentAt = formatSentAt(item.created_at);
             return (
               <View style={{ flexDirection: "row", justifyContent: fromMe ? "flex-end" : "flex-start" }}>

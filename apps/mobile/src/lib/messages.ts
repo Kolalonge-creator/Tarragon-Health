@@ -1,9 +1,9 @@
 import { supabase } from "./supabase";
-import { parseReplyTime, replyTimeSentence, type Tables } from "@tarragon/shared";
+import { parseReplyTime, replyTimeSentence, type Enums, type Tables } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
 export type CareMessage = Tables<"care_messages"> & {
-  actor: { full_name: string | null } | null;
+  actor: { full_name: string | null; doctor_tier: Enums<"doctor_tier"> | null } | null;
 };
 
 type MessageActor = NonNullable<CareMessage["actor"]>;
@@ -25,11 +25,11 @@ type MessageActor = NonNullable<CareMessage["actor"]>;
 async function fetchMessageActors(actorIds: string[]): Promise<Map<string, MessageActor>> {
   const actorById = new Map<string, MessageActor>();
   if (actorIds.length === 0) return actorById;
-  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name").in("id", actorIds);
+  const { data, error } = await supabase.from("clinical_staff_directory").select("id, full_name, doctor_tier").in("id", actorIds);
   if (error) throw error;
   for (const row of data ?? []) {
     if (!row.id) continue;
-    actorById.set(row.id, { full_name: row.full_name });
+    actorById.set(row.id, { full_name: row.full_name, doctor_tier: row.doctor_tier });
   }
   return actorById;
 }
