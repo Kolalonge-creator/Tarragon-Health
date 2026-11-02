@@ -1,3 +1,4 @@
+import { topicOf } from "./topic";
 import { asksForPerson, classifyIncoming, EMERGENCY_FOLLOWUP_REPLY, fixedReplyFor, FALLBACK_HANDOFF_REPLY, REPLACED_REPLY, type RuleOutcome } from "./safety";
 import { guardReply } from "./output-guard";
 import type { ChatConfig } from "./config";
@@ -24,6 +25,8 @@ export interface ChatDb {
   handoff(args: { conversationId: string; reason: HandoffReason; urgency: "normal" | "urgent"; summary: string; suggestedReply: string | null }): Promise<void>;
   usageAdd(model: string, tokensIn: number, tokensOut: number): Promise<void>;
   spendToday(): Promise<number | null>;
+  /** Records what the visitor is asking about, for the weekly report. Optional and best effort: a failure here never touches the chat. */
+  noteTopic?(conversationId: string, topic: string): Promise<void>;
 }
 
 export type ConversationStatus = "open" | "handed_off" | "emergency" | "closed";
@@ -125,6 +128,7 @@ async function handleEmergency(deps: ChatDeps, input: ChatTurnInput, rule: Extra
   if (conversationId !== null) {
     const turn = await attempt("store the message", () => deps.db.turn(conversationId as string, input.secretHash, input.text));
     if (turn && turn.ok) history = turn.history;
+    await attempt("note the topic", async () => deps.db.noteTopic?.(conversationId as string, "emergency"));
     await attempt("store the reply", () => deps.db.reply({ conversationId: conversationId as string, text: reply, model: null, tokensIn: null, tokensOut: null, flags: ["emergency"], interactionId: null, answeredBy: "rules" }));
     await attempt("open the urgent handoff", () =>
       deps.db.handoff({ conversationId: conversationId as string, reason: "emergency", urgency: "urgent", summary: plainSummary(history, "emergency", rule), suggestedReply: null }),
@@ -161,6 +165,11 @@ export async function handleChatTurn(deps: ChatDeps, input: ChatTurnInput): Prom
     return { mode: "error", reason: turn.reason };
   }
   const history = turn.history;
+  // What they are asking about, for the weekly report. Only the first message, or a later one that names a real topic, is worth a call.
+  const topic = topicOf(input.text);
+  if (deps.db.noteTopic && (topic !== "other" || turn.count <= 1)) {
+    await deps.db.noteTopic(conversationId, topic).catch((e: unknown) => console.error("front desk: could not note the topic", e));
+  }
 
   // ---- RULES (no model) ---------------------------------------------------------------------------------------------------------------
   const rule = early;

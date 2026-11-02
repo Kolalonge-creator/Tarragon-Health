@@ -174,6 +174,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/front-desk", "front desk dashboard kill switch assistant off on weekly report friday numbers metrics funnel enquiries topics handoffs spend cost review sample incidents receptionist chat"],
+  ["/admin/front-desk/reviews", "review reviews conversations transcripts verdict fine wrong unsafe incident incidents rule tightened sampler flagged quality check answers"],
   ["/admin/inbox", "inbox website chat handoff handoffs visitor visitors reply replies suggested reply summary urgent emergency assistant receptionist conversations transcripts enquiries"],
   ["/admin/follow-ups", "follow ups followups emails stalled sign up signup unsubscribe bounce dry run dry-run go live master switch quiet hours sequences nudges reminders welcome re-engage reengage sent held back"],
   ["/admin/sign-off", "sign off signoff approve approval wording follow-up emails sequences knowledge front desk receptionist chat assistant draft waiting what needs me"],

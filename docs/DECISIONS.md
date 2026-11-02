@@ -12,6 +12,7 @@ Source: "Tarragon Front Desk: Build Specification v1.0", reconciled against this
 - **FD-3: milestones M1 to M5 in order, one PR each, stopping at each acceptance check.** M6 (voice) and the Meta DM channels are not built; the "inbound message becomes a platform action" rule in CLAUDE.md applies to any future channel.
 - **FD-4: the assistant never states a typed price.** Knowledge text holds `{{membership_price}}`, `{{paid_product_name}}`, `{{refund_days}}` and `{{launch_date}}`, filled at read time from the same versioned config the pricing page uses.
 - **FD-5: wording is data with a human gate.** Sequence steps and knowledge are seeded as draft; nothing sends and nothing is stated until a person approves that exact text; editing approved wording returns it to draft. Follow-ups start OFF and in dry-run.
+- **FD-6: an unsafe answer is closed by a person, not by the system.** A reviewer's "unsafe" opens an incident; it closes only with a written statement of which rule or wording was tightened. The system never edits approved wording or safety rules itself. The weekly report is made by the database (once per week, London time) and carries counts and topic names only, never visitor text. Transcripts are deleted after the retention period unless a person still needs them.
 
 ## S70 to S75 planning, 2026-10-07 (founder and CMO, chosen in a chat prompt)
 
