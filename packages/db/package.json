@@ -17,7 +17,7 @@
     "@supabase/supabase-js": "^2.45.4"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^26.6.6",
     "eslint": "^9",
     "typescript": "^5",
     "typescript-eslint": "^8"
