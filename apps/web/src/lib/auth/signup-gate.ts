@@ -25,11 +25,22 @@ export async function checkSignupGate(input: { phone?: string; email?: string; i
   }
 }
 
-/** For the sign-up page: show the invite code box only while it matters. Never throws. */
+/**
+ * For the sign-up page: show the invite code box only while it matters. Never throws.
+ *
+ * The box matters only while the switch is on AND an uninvited person is still refused. Once the
+ * public_signup_enabled go-live guard is on, private.signup_permitted says yes to everyone, so the
+ * box would only confuse the public; signup_gate_status with no phone, email or code is exactly
+ * that "uninvited stranger" question (no invite or reservation can match an empty identity).
+ */
 export async function isInviteOnlySignup(): Promise<boolean> {
   try {
-    const on = await loose(createServiceRoleClient()).rpc("platform_switch_is_on", { p_key: "signup_invites_required" });
-    return !on.error && on.data === true;
+    const client = loose(createServiceRoleClient());
+    const on = await client.rpc("platform_switch_is_on", { p_key: "signup_invites_required" });
+    if (on.error || on.data !== true) return false;
+    const stranger = await client.rpc("signup_gate_status", { p_phone: null, p_email: null, p_invite_code: null });
+    if (stranger.error) return true;
+    return stranger.data !== true;
   } catch {
     return false;
   }
