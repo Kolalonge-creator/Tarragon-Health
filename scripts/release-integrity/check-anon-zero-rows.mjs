@@ -204,7 +204,7 @@ function main() {
   try {
     raw = localUrl
       ? execFileSync("psql", [localUrl, "-q", "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-f", file], { encoding: "utf8", maxBuffer: 1024 * 1024 * 50 })
-      : execWithRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "--read-only", "-f", file, "--output-format", "json"], { env: { ...process.env } });
+      : execWithRetry("npx", ["--yes", "supabase@3", "db", "query", "--linked", "--read-only", "-f", file, "--output-format", "json"], { env: { ...process.env } });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

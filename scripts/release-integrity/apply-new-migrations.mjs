@@ -58,7 +58,7 @@ function query(sqlText) {
   const dir = mkdtempSync(join(tmpdir(), "mig-"));
   const file = join(dir, "q.sql");
   writeFileSync(file, sqlText);
-  const args = ["supabase", "db", "query", "--linked", "--project-ref", PROJECT_REF, "-f", file, "--output-format", "json"];
+  const args = ["supabase@3", "db", "query", "--linked", "--project-ref", PROJECT_REF, "-f", file, "--output-format", "json"];
   // The CLI creates a login role per call and can fail to ("Failed to create login role", status 544) before any SQL is sent, e.g. when another
   // workflow is starting at the same time. Reads retry on any transient error; a write retries only on that login-role failure, which is safe
   // because nothing has run yet. A write that fails any other way is never repeated.
