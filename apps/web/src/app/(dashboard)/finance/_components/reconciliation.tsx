@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { lagosDateOfInstant } from "@/lib/format-date";
 import { useReconciliationSummary, useReconciliationFlags, financeKeys } from "@/lib/finance/queries";
 import type { ReconciliationFlag, ReconciliationSummary } from "@/lib/finance/schemas";
 import {
@@ -186,7 +187,7 @@ export function Reconciliation() {
                             { label: "Issue", value: FLAG_TYPE_LABEL[f.flag_type] ?? f.flag_type },
                             { label: "Provider", value: f.provider },
                             { label: "Reference", value: f.provider_reference },
-                            { label: "Detected", value: f.detected_at.slice(0, 10) },
+                            { label: "Detected", value: lagosDateOfInstant(f.detected_at) },
                           ],
                           confirmLabel: "Ignore flag",
                           run: () => resolveFlag(id, status),
@@ -354,7 +355,7 @@ function FlagRow({
   const currency = flag.currency ?? "NGN";
   return (
     <tr className="border-b border-charcoal-ink/5">
-      <td className="py-2 pr-4 text-charcoal-ink/60">{flag.detected_at.slice(0, 10)}</td>
+      <td className="py-2 pr-4 text-charcoal-ink/60">{lagosDateOfInstant(flag.detected_at)}</td>
       <td className="py-2 pr-4 capitalize text-charcoal-ink/70">{flag.provider}</td>
       <td className="py-2 pr-4">
         <Badge variant={flag.flag_type === "missing_locally" ? "red" : "amber"}>
@@ -393,7 +394,7 @@ function UnmatchedRow({
   const eligible = drafts.filter((d) => d.currency === (payment.currency ?? "NGN"));
   return (
     <tr className="border-b border-charcoal-ink/5">
-      <td className="py-2 pr-4 text-charcoal-ink/60">{payment.processed_at?.slice(0, 10) ?? "—"}</td>
+      <td className="py-2 pr-4 text-charcoal-ink/60">{payment.processed_at ? lagosDateOfInstant(payment.processed_at) : "—"}</td>
       <td className="py-2 pr-4 capitalize text-charcoal-ink/70">{payment.provider}</td>
       <td className="py-2 pr-4 font-mono text-xs text-charcoal-ink/50">{payment.reference?.slice(0, 22) ?? "—"}</td>
       <td className="py-2 pr-4 text-right tabular-nums">{formatMinor(payment.amount_minor, payment.currency ?? "NGN")}</td>

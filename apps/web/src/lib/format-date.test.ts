@@ -9,6 +9,7 @@
 
 import {
   lagosToday,
+  lagosDateOfInstant,
   lagosDaysAgo,
   lagosMonth,
   lagosMonthStart,
@@ -116,5 +117,21 @@ describe("lagosDayBounds", () => {
 
   it.each(["", "2026-10", "31/10/2026", "2026-13-40", "not a date", "2026-10-31T10:00"])("refuses %j", (value) => {
     expect(lagosDayBounds(value)).toBeNull();
+  });
+});
+
+describe("lagosDateOfInstant", () => {
+  it("is the next Lagos day for a timestamp stamped 23:30 UTC", () => {
+    expect(lagosDateOfInstant("2026-03-31T23:30:00+00:00")).toBe("2026-04-01");
+    expect("2026-03-31T23:30:00+00:00".slice(0, 10)).toBe("2026-03-31");
+  });
+  it("keeps the same day for an afternoon timestamp", () => {
+    expect(lagosDateOfInstant("2026-03-31T14:00:00.000Z")).toBe("2026-03-31");
+  });
+  it("reads an offset the same way", () => {
+    expect(lagosDateOfInstant("2026-04-01T00:30:00+01:00")).toBe("2026-04-01");
+  });
+  it("returns a value that is not a date unchanged", () => {
+    expect(lagosDateOfInstant("not a date")).toBe("not a date");
   });
 });

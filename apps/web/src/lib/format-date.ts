@@ -104,6 +104,15 @@ export function lagosToday(now: Date = new Date()): string {
   return lagosWallClock(now).slice(0, 10);
 }
 
+/** The Lagos calendar date of a stored timestamp (an ISO string with an offset), as "YYYY-MM-DD".
+ * `iso.slice(0, 10)` is the UTC day, which is the PREVIOUS day for anything stamped 23:00-24:00 UTC;
+ * a ledger screen showing that next to a journal entry dated by the Lagos clock would disagree with it.
+ * A value that is not a date comes back unchanged rather than as "Invalid Da". */
+export function lagosDateOfInstant(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? iso : lagosToday(at);
+}
+
 /** The Lagos date n days before now, as "YYYY-MM-DD". */
 export function lagosDaysAgo(days: number, now: Date = new Date()): string {
   return lagosToday(new Date(now.getTime() - days * MS_PER_DAY));
