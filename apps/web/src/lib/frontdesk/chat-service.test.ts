@@ -240,3 +240,46 @@ describe("helpers", () => {
     expect(parseChatConfig([{ key: "prelaunch_mode", value: false }, { key: "assistant_enabled", value: true }])).toMatchObject({ prelaunch: false, assistantEnabled: true });
   });
 });
+
+describe("handleChatTurn: topic for the weekly report", () => {
+  const withTopics = (over: Parameters<typeof harness>[0] = {}, fail = false) => {
+    const h = harness(over);
+    const topics: [string, string][] = [];
+    h.deps.db.noteTopic = async (c, t) => { if (fail) throw new Error("topic down"); topics.push([c, t]); };
+    return { ...h, topics };
+  };
+  it("notes what the first message is about", async () => {
+    const h = withTopics();
+    await handleChatTurn(h.deps, input("How much does it cost?"));
+    expect(h.topics).toEqual([["conv-1", "pricing"]]);
+  });
+  it("notes 'other' on the first message but not on later unrecognised ones", async () => {
+    const first = withTopics();
+    await handleChatTurn(first.deps, input("hello"));
+    expect(first.topics).toEqual([["conv-1", "other"]]);
+    const later = withTopics({ turn: { ok: true, status: "open", count: 4, history: [{ role: "visitor", content: "ok thanks" }] } });
+    await handleChatTurn(later.deps, input("ok thanks", "conv-1"));
+    expect(later.topics).toEqual([]);
+  });
+  it("a later message that names a real topic is still noted", async () => {
+    const h = withTopics({ turn: { ok: true, status: "open", count: 4, history: [{ role: "visitor", content: "when do you launch" }] } });
+    await handleChatTurn(h.deps, input("when do you launch", "conv-1"));
+    expect(h.topics).toEqual([["conv-1", "launch"]]);
+  });
+  it("a failure to note the topic never breaks the answer", async () => {
+    const h = withTopics({}, true);
+    const r = await handleChatTurn(h.deps, input("How much does it cost?"));
+    expect(r.mode).toBe("chat");
+    expect(h.replies).toHaveLength(1);
+  });
+  it("an emergency is noted as 'emergency'", async () => {
+    const h = withTopics();
+    await handleChatTurn(h.deps, input("I have chest pain and cannot breathe"));
+    expect(h.topics).toEqual([["conv-1", "emergency"]]);
+  });
+  it("the kill switch notes nothing (nothing is stored)", async () => {
+    const h = withTopics({ config: { assistantEnabled: false } });
+    await handleChatTurn(h.deps, input("How much does it cost?"));
+    expect(h.topics).toEqual([]);
+  });
+});

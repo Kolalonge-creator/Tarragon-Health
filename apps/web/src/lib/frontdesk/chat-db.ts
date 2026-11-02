@@ -37,6 +37,10 @@ export function createChatDb(supabase: SupabaseClient): ChatDb {
       // Spend accounting must not break a reply, but an undercount must not be silent either.
       if (error) console.error("front desk: could not record model usage", error);
     },
+    async noteTopic(conversationId, topic) {
+      const { error } = await fdRpcData(supabase, "service_fd_chat_note_topic", { p_conv: conversationId, p_topic: topic });
+      if (error) throw new Error(`front desk: service_fd_chat_note_topic failed: ${error}`);
+    },
     async spendToday() {
       const { data, error } = await fdRpcData<number | string>(supabase, "service_fd_spend_today", {});
       return error || data === null ? null : Number(data);
