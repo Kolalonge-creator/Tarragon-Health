@@ -1,5 +1,6 @@
 import { formatNumber } from "@/lib/analytics/format";
 import { statTileValue, type StatTileValueProps } from "@/components/ui/stat-tile-value";
+import { NOT_LOADED_HINT } from "@/lib/queries/query-slice";
 
 /**
  * What the lab liaison overview shows, worked out apart from the page so the
@@ -31,10 +32,8 @@ export function readCount(result: CountResult): number | null {
   return typeof result.count === "number" ? result.count : null;
 }
 
-const NOT_LOADED = "Could not be loaded";
-
 function countTile(count: number | null): StatTileValueProps {
-  return statTileValue(count === null ? null : formatNumber(count), NOT_LOADED);
+  return statTileValue(count === null ? null : formatNumber(count), NOT_LOADED_HINT);
 }
 
 export interface LiaisonSummaryInputs {
