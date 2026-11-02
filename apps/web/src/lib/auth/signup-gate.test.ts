@@ -31,12 +31,30 @@ describe("checkSignupGate", () => {
 });
 
 describe("isInviteOnlySignup", () => {
-  it("is true only when the switch answers true, and false on any failure", async () => {
-    rpc.mockResolvedValueOnce({ data: true, error: null });
+  it("is true only when the switch is on AND a stranger is still refused, and false on any failure", async () => {
+    // switch on, stranger refused: the box matters
+    rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: false, error: null });
     expect(await isInviteOnlySignup()).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("signup_gate_status", { p_phone: null, p_email: null, p_invite_code: null });
+    rpc.mockReset();
+    // switch off: no box
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await isInviteOnlySignup()).toBe(false);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    rpc.mockReset();
     rpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
     expect(await isInviteOnlySignup()).toBe(false);
     rpc.mockRejectedValueOnce(new Error("n"));
     expect(await isInviteOnlySignup()).toBe(false);
+  });
+
+  it("hides the box once public sign-up is open (the guard lets a stranger in) even while the switch is still on", async () => {
+    rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: true, error: null });
+    expect(await isInviteOnlySignup()).toBe(false);
+  });
+
+  it("keeps the box when the stranger check itself fails (the switch said invite-only)", async () => {
+    rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await isInviteOnlySignup()).toBe(true);
   });
 });
