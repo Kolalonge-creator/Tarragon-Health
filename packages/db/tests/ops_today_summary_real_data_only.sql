@@ -16,7 +16,7 @@ do $$
 declare
   v_org uuid := '00000000-0000-0000-0000-000000000001';
   v_admin uuid; v_test uuid := gen_random_uuid(); v_real uuid := gen_random_uuid();
-  before jsonb; after jsonb; v_staff uuid;
+  before jsonb; after jsonb; v_staff uuid; v_doc uuid;
 begin
   select id into v_admin from public.profiles where role = 'admin' and organisation_id = v_org order by created_at limit 1;
   if v_admin is null then
@@ -38,7 +38,14 @@ begin
 
   -- 2. test-patient noise
   select cs.id into v_staff from public.clinical_staff cs where cs.active and cs.organisation_id = v_org and coalesce(cs.is_test, false) = false order by cs.created_at limit 1;
-  if v_staff is null then raise exception 'need an active clinical_staff row in org 0001 for the lab order fixture'; end if;
+  if v_staff is null then
+    -- a fresh replay has no doctor: mint an employed senior one for the clinician-ordered fixtures
+    v_doc := gen_random_uuid();
+    insert into auth.users (id, email) values (v_doc, 'ots-doctor-' || v_doc || '@example.test');
+    update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'OTS senior doctor' where id = v_doc;
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, employment_type)
+    values (v_org, v_doc, 'OTS senior doctor', true, now(), 'senior_medical_officer', 'employed') returning id into v_staff;
+  end if;
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title) values (v_org, v_test, 'emergency', 'open', 'OTS test emergency');
   insert into public.lab_orders (organisation_id, patient_id, status, fulfilment, ordered_at, origin, ordered_by, clinical_indication)
     values (v_org, v_test, 'ordered', 'self_arranged', now() - interval '5 days', 'clinically_triggered', v_staff, 'OTS proof');
