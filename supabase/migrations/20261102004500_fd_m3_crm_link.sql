@@ -56,6 +56,39 @@ begin
   end if;
 end $$;
 
+-- A website-form enquiry must leave a consent record even with no email address (a phone-only enquiry still joins the CRM), so the consent
+-- vocabulary gains the channel 'web' and the purpose 'enquiry_record'.
+alter table public.fd_consents drop constraint if exists fd_consents_channel_check;
+alter table public.fd_consents add constraint fd_consents_channel_check check (channel in ('email', 'chat', 'web'));
+alter table public.fd_consents drop constraint if exists fd_consents_purpose_check;
+alter table public.fd_consents add constraint fd_consents_purpose_check check (purpose in ('service_followup', 'marketing', 'chat_capture', 'enquiry_record'));
+
+-- Contact creation that cannot race: a concurrent capture of the same email re-reads instead of failing on the unique index.
+create or replace function private.fd_ensure_contact(p_email text, p_name text, p_app_user uuid, p_source text) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare v_id uuid; v_org constant uuid := '00000000-0000-0000-0000-000000000001'; v_email text := lower(btrim(p_email));
+begin
+  select id into v_id from public.fd_contacts
+   where organisation_id = v_org and ((p_app_user is not null and app_user_id = p_app_user) or email = v_email)
+   order by (app_user_id = p_app_user) desc nulls last limit 1;
+  if v_id is null then
+    insert into public.fd_contacts (email, name, app_user_id, source, lifecycle_stage)
+    values (v_email, nullif(btrim(p_name), ''), p_app_user, p_source, case when p_app_user is null then 'enquiry' else 'signed_up' end)
+    on conflict (organisation_id, email) where email is not null do nothing
+    returning id into v_id;
+    if v_id is not null then return v_id; end if;
+    -- Lost the race to a concurrent insert of the same email: use theirs.
+    select id into v_id from public.fd_contacts where organisation_id = v_org and email = v_email;
+  end if;
+  update public.fd_contacts
+     set app_user_id = coalesce(app_user_id, p_app_user), name = coalesce(name, nullif(btrim(p_name), '')),
+         email = coalesce(email, v_email),
+         lifecycle_stage = case when p_app_user is not null and lifecycle_stage = 'enquiry' then 'signed_up' else lifecycle_stage end,
+         updated_at = now()
+   where id = v_id;
+  return v_id;
+end $$;
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 1. The outbox
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -142,11 +175,11 @@ begin
   -- Suppression always wins: someone who unsubscribed is not re-enrolled or re-synced by submitting another form.
   if v_suppressed then return jsonb_build_object('captured', true, 'contact_id', v_contact, 'suppressed', true); end if;
 
+  -- Every capture leaves a record of what was agreed to, whatever contact details were given.
+  perform private.fd_record_consent(v_contact, case p_source when 'chat' then 'chat' else 'web' end,
+                                    case p_source when 'chat' then 'chat_capture' else 'enquiry_record' end, 'consent', p_wording_version, p_wording, p_source);
   if v_email is not null then
     perform private.fd_record_consent(v_contact, 'email', 'service_followup', 'consent', p_wording_version, p_wording, p_source);
-  end if;
-  if p_source = 'chat' then
-    perform private.fd_record_consent(v_contact, 'chat', 'chat_capture', 'consent', p_wording_version, p_wording, 'chat');
   end if;
   update public.fd_contacts set crm_sync = true, updated_at = now() where id = v_contact;
 
@@ -186,6 +219,9 @@ begin
   select c.id, 'contact_upsert', 'stage:' || c.lifecycle_stage || ':' || to_char(now(), 'YYYYMMDDHH24MISSUS')
     from public.fd_contacts c
    where c.crm_sync and not c.suppressed and c.hubspot_contact_id is not null and c.lifecycle_stage is distinct from c.hubspot_synced_stage
+     -- Not while an upsert is already in flight, and not for a day after one gave up: the 6-attempt cap must mean something.
+     and not exists (select 1 from public.fd_hubspot_outbox x where x.contact_id = c.id and x.kind = 'contact_upsert'
+                       and (x.state in ('pending', 'sending') or (x.state = 'failed' and x.created_at > now() - interval '24 hours')))
   on conflict do nothing;
 
   update public.fd_hubspot_outbox set state = 'failed', error = 'gave up after 6 attempts'

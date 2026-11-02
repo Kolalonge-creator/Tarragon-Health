@@ -28,6 +28,8 @@ describe("enquiry consent wording", () => {
     expect(ENQUIRY_CONSENT_VERSION).toMatch(/^enquiry-consent-v\d+$/);
     expect(ENQUIRY_CONSENT_WORDING).toMatch(/email me about my enquiry/);
     expect(ENQUIRY_CONSENT_WORDING).toMatch(/stop at any time/);
+    // the person is told where the details go
+    expect(ENQUIRY_CONSENT_WORDING).toMatch(/HubSpot/);
     expect(ENQUIRY_CONSENT_WORDING).not.toMatch(/[–—]/);
   });
 });

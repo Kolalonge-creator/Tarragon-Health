@@ -164,7 +164,7 @@ export function ContactForm() {
           id="message"
           name="message"
           rows={5}
-          placeholder="Tell us what you want help with..."
+          placeholder="Tell us what you want help with. Please do not include health details."
           defaultValue={values?.message}
           {...fieldErrorProps(ERROR_ID, invalid)}
         />

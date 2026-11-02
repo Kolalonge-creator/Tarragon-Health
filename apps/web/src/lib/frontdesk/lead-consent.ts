@@ -6,7 +6,7 @@
 export const ENQUIRY_CONSENT_VERSION = "enquiry-consent-v1";
 
 export const ENQUIRY_CONSENT_WORDING =
-  "I agree that TarragonHealth may email me about my enquiry and keep my details in its customer records, as described in the Privacy Notice. I can ask it to stop at any time.";
+  "I agree that TarragonHealth may email me about my enquiry and keep my details and message in its customer records, which are held with its CRM provider (HubSpot), as described in the Privacy Notice. I can ask it to stop at any time.";
 
 export interface LeadContactDetails {
   readonly email: string | null;

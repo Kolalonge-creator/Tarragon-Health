@@ -88,6 +88,8 @@ select pg_temp.rec('form', 'the phone was kept on the same contact', '+234803123
 select pg_temp.rec('form', 'a live email consent records the wording version and a 64 character hash', 'consent/enquiry-consent-v1/true',
   (select lawful_basis || '/' || wording_version || '/' || (evidence_hash ~ '^[0-9a-f]{64}$' and withdrawn_at is null)::text
      from public.fd_consents where contact_id = pg_temp.cid('ada@example.invalid') and channel = 'email' and purpose = 'service_followup'));
+select pg_temp.rec('form', 'a web consent record exists too, whatever details were given', '1',
+  (select count(*)::text from public.fd_consents where contact_id = pg_temp.cid('ada@example.invalid') and channel = 'web' and purpose = 'enquiry_record' and withdrawn_at is null));
 select pg_temp.rec('form', 'it is marked for CRM sync', 'true', (select crm_sync::text from public.fd_contacts where email = 'ada@example.invalid'));
 select pg_temp.rec('form', 'exactly one pending CRM upsert', '1', pg_temp.pending_upserts(pg_temp.cid('ada@example.invalid')));
 select pg_temp.rec('form', 'one note, carrying the source, the consent version and their message', 'true',
@@ -103,7 +105,7 @@ select pg_temp.cap('ADA@example.invalid ', null, 'chat', 'Do you cover my parent
 select pg_temp.rec('chat', 'still exactly one contact for that email (the form lead and the chat lead are one person)', '1',
   (select count(*)::text from public.fd_contacts where email = 'ada@example.invalid'));
 select pg_temp.rec('chat', 'its original source is kept', 'website_form', (select source from public.fd_contacts where email = 'ada@example.invalid'));
-select pg_temp.rec('chat', 'a chat consent was added next to the email consent', '2',
+select pg_temp.rec('chat', 'a chat consent was added next to the web and email consents', '3',
   (select count(*)::text from public.fd_consents where contact_id = pg_temp.cid('ada@example.invalid') and withdrawn_at is null));
 select pg_temp.rec('chat', 'still exactly ONE pending upsert (a burst becomes one write)', '1', pg_temp.pending_upserts(pg_temp.cid('ada@example.invalid')));
 select pg_temp.rec('chat', 'a second note for the second enquiry', '2', pg_temp.notes(pg_temp.cid('ada@example.invalid')));
@@ -116,6 +118,11 @@ select pg_temp.cap(null, '+2348099990001', 'chat', 'Phone only please.');
 select pg_temp.rec('phone', 'a phone-only enquiry is one contact keyed on the phone', '1', (select count(*)::text from public.fd_contacts where phone = '+2348099990001' and email is null));
 select pg_temp.cap(null, '+2348099990001', 'chat', 'Same person again.');
 select pg_temp.rec('phone', 'the same phone again is the same contact', '1', (select count(*)::text from public.fd_contacts where phone = '+2348099990001'));
+select pg_temp.rec('phone', 'a phone-only enquiry still leaves a live consent record (chat)', '1',
+  (select count(*)::text from public.fd_consents where contact_id = (select id from public.fd_contacts where phone = '+2348099990001' limit 1) and withdrawn_at is null));
+select pg_temp.cap(null, '+2348099990002', 'website_form', 'Phone only from the form.');
+select pg_temp.rec('phone', 'a phone-only WEBSITE FORM lead has a live web consent record (no consent, no CRM)', '1',
+  (select count(*)::text from public.fd_consents where contact_id = (select id from public.fd_contacts where phone = '+2348099990002') and channel = 'web' and withdrawn_at is null));
 select pg_temp.rec('phone', 'a phone-only contact is not enrolled in email follow-up', '0',
   (select count(*)::text from public.fd_followup_runs fr join public.fd_contacts c on c.id = fr.contact_id where c.phone = '+2348099990001'));
 select pg_temp.cap('later@example.invalid', '+2348099990001', 'chat', 'Now with an email.');
@@ -182,6 +189,17 @@ select pg_temp.hclaim();
 select pg_temp.rec('delivery', 'and not again on the next claim (it is already sending)', 'false',
   (select exists (select 1 from lastclaim, jsonb_array_elements(j) x where (x ->> 'k') = 'contact_upsert' and (x ->> 'c')::uuid = pg_temp.cid('later@example.invalid')
                     and (x ->> 'a')::int = 1)::text));
+
+-- a failed stage upsert is NOT re-enqueued on every claim
+update public.fd_contacts set lifecycle_stage = 'onboarded' where email = 'later@example.invalid';
+update public.fd_hubspot_outbox set state = 'failed', error = 'gave up' where contact_id = pg_temp.cid('later@example.invalid') and kind = 'contact_upsert' and state in ('pending', 'sending');
+create temp table upsert_count(n bigint) on commit drop;
+grant all on upsert_count to public;
+insert into upsert_count select count(*) from public.fd_hubspot_outbox where contact_id = pg_temp.cid('later@example.invalid') and kind = 'contact_upsert';
+select pg_temp.hclaim();
+select pg_temp.hclaim();
+select pg_temp.rec('delivery', 'a recently failed upsert is not re-enqueued by later claims (the cap means something)', 'true',
+  ((select count(*) from public.fd_hubspot_outbox where contact_id = pg_temp.cid('later@example.invalid') and kind = 'contact_upsert') = (select n from upsert_count))::text);
 
 -- 7. access ---------------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.rec('access', 'a patient cannot capture a lead', 'ERR:42501',

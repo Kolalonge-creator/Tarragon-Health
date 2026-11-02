@@ -112,10 +112,13 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
     jest.resetModules();
   });
 
+  const limiter = jest.fn<() => Promise<{ success: boolean; retryAfterSeconds: number }>>();
   async function load(rpcImpl: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>) {
     jest.doMock("@/lib/supabase/service-role", () => ({
       createServiceRoleClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }), rpc: (fn: string, args: Record<string, unknown>) => rpcImpl(fn, args) }),
     }));
+    jest.doMock("@/lib/rate-limit", () => ({ getClientIp: async () => "203.0.113.9", rateLimit: () => limiter() }));
+    limiter.mockResolvedValue({ success: true, retryAfterSeconds: 0 });
     process.env.SUPABASE_SERVICE_ROLE_KEY = "k";
     return (await import("./actions")).submitLead;
   }
@@ -137,6 +140,22 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
     const submit = await load((fn, args) => rpc(fn, args));
     expect(await submit(undefined, formDataFor({ contact: "ada@example.com" }))).toEqual({ success: true });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("over the capture rate limit the enquiry is still saved but nothing is captured", async () => {
+    rpc.mockReset();
+    const submit = await load((fn, args) => rpc(fn, args));
+    limiter.mockResolvedValue({ success: false, retryAfterSeconds: 600 });
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("a limiter fault fails open: the lead is still captured", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { captured: true }, error: null });
+    const submit = await load((fn, args) => rpc(fn, args));
+    limiter.mockRejectedValue(new Error("redis down"));
+    expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it("still reports success to the visitor when capture fails (the enquiry itself is saved)", async () => {
