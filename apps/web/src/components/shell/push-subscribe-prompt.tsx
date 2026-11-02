@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { NAV_ICON } from "@/lib/icons";
 import { VAPID_PUBLIC_KEY } from "@/lib/push/vapid-public-key";
+import { sameApplicationServerKey } from "@/lib/push/same-application-server-key";
 
 const DISMISSED_KEY = "th_push_prompt_dismissed";
 
@@ -19,12 +20,16 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 async function subscribeAndStore(): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
   const registration = await navigator.serviceWorker.ready;
+  const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
   let subscription = await registration.pushManager.getSubscription();
+  // A subscription made before a VAPID key rotation is bound to the old key and every send
+  // to it is rejected, so drop it and subscribe again with the current key.
+  if (subscription && !sameApplicationServerKey(subscription.options.applicationServerKey, applicationServerKey)) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
   if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+    subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
   }
   const json = subscription.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;

@@ -1,7 +1,7 @@
 // Deployed entrypoint for fd-followup-dispatcher. Wiring only; the logic and its header are in handler.ts.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { emailFromEnv } from "../_shared/integrations/index.ts";
-import type { ClaimedAlert, ClaimedReply, ClaimedRun } from "../_shared/frontdesk/index.ts";
+import type { ClaimedAlert, ClaimedReply, ClaimedReport, ClaimedRun } from "../_shared/frontdesk/index.ts";
 import { handleDispatch } from "./handler.ts";
 
 Deno.serve(async (req) => {
@@ -38,6 +38,16 @@ Deno.serve(async (req) => {
       finish: async (handoffId, ok, messageId, err) => {
         const { error } = await service.rpc("service_fd_finish_reply", { p_handoff: handoffId, p_ok: ok, p_message_id: messageId, p_error: err });
         if (error) throw new Error(`could not record the outcome of reply ${handoffId}: ${error.message}`);
+      },
+    },
+    reports: {
+      claim: async (limit) => {
+        const { data, error } = await service.rpc("service_fd_claim_reports", { p_limit: limit });
+        return error ? { ok: false, error: error.message } : { ok: true, reports: (data ?? []) as ClaimedReport[] };
+      },
+      finish: async (reportId, ok, narrative, recipient, err) => {
+        const { error } = await service.rpc("service_fd_finish_report", { p_report: reportId, p_ok: ok, p_narrative: narrative, p_recipient: recipient, p_error: err });
+        if (error) throw new Error(`could not record the outcome of report ${reportId}: ${error.message}`);
       },
     },
     claim: async (limit) => {
