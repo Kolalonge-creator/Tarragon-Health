@@ -70,6 +70,7 @@ const CALL_SITES: Record<string, Site> = {
   // grep). The live path is the edge function below, which reads ai_runtime_config; a mirror test keeps the two in step.
   [`${W}/scribe/note-draft.ts`]: { systems: ["AI-017"], gatedIn: ["supabase/functions/scribe-draft/index.ts"] },
   [`${W}/service-navigation/generate.ts`]: { systems: ["AI-015"] },
+  [`${W}/frontdesk/receptionist.ts`]: { systems: ["AI-023"] },
   [`${W}/vaccination-cards/extract.ts`]: { systems: ["AI-012"], gatedIn: [`${W}/vaccination-cards/extraction-actions.ts`] },
   [`${W}/vitals/cuff-display-vision.ts`]: { systems: ["AI-022"], gatedIn: ["apps/web/src/app/api/mobile/cuff-display-proposal/route.ts"] },
   "supabase/functions/scribe-draft/index.ts": { systems: ["AI-017"] },

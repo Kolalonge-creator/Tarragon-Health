@@ -1,9 +1,12 @@
-// Front Desk follow-up dispatcher: POST /functions/v1/fd-followup-dispatcher. pg_cron calls this every 5 minutes (only while the master
-// switch fd_app_config.followups_enabled is on) with the vault secret fd_followup_secret in x-fd-followup-secret. The database decides what
-// may be sent (consent, suppression, quiet hours, caps, goal reached, dry-run); this renders and sends it. Fails closed without its secret.
+// Front Desk dispatcher: POST /functions/v1/fd-followup-dispatcher. It delivers three things, each decided by the database:
+//   1. follow-up emails (only while the master switch is on; every sending rule lives in service_fd_claim_runs),
+//   2. handoff ALERTS to the founder (the time-critical one: an emergency wording alert),
+//   3. the founder's REPLIES to visitors.
+// pg_cron calls it every 5 minutes, and a new handoff calls it at once. Auth is the vault secret fd_followup_secret in x-fd-followup-secret.
+// Fails closed without its secret. Alerts do NOT depend on the follow-up secrets: an emergency alert must go out even if the rest is unset.
 import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
 import type { EmailProvider } from "../_shared/integrations/email.ts";
-import { dispatchFollowups, type ClaimedRun } from "../_shared/frontdesk/index.ts";
+import { deliverAlerts, deliverReplies, dispatchFollowups, type AlertDeps, type ClaimedRun, type DeliveryResult, type DispatchResult, type ReplyDeps } from "../_shared/frontdesk/index.ts";
 
 export interface HandlerDeps {
   readonly secret: string | null;
@@ -13,24 +16,39 @@ export interface HandlerDeps {
   readonly siteUrl: string;
   readonly claim: (limit: number) => Promise<{ ok: true; runs: readonly ClaimedRun[] } | { ok: false; error: string }>;
   readonly finish: (runId: string, ok: boolean, messageId: string | null, error: string | null) => Promise<void>;
+  /** Where handoff alerts go. Without it, alerts stay pending (and the response says so). */
+  readonly founderEmail?: string | null;
+  readonly alerts?: Pick<AlertDeps, "claim" | "finish">;
+  readonly replies?: Pick<ReplyDeps, "claim" | "finish">;
 }
 
 export async function handleDispatch(req: Request, deps: HandlerDeps): Promise<Response> {
   if (!deps.secret) return Response.json({ error: "not configured" }, { status: 503 });
   if (!constantTimeEqual(req.headers.get("x-fd-followup-secret") ?? "", deps.secret)) return Response.json({ error: "unauthorised" }, { status: 401 });
-  // Without these nothing is claimed, so nothing is consumed: the runs simply wait for the next tick.
+  // Without email nothing is claimed, so nothing is consumed: everything simply waits for the next tick.
   if (!deps.email) return Response.json({ error: "email_unavailable" }, { status: 503 });
-  if (!deps.unsubscribeSecret) return Response.json({ error: "unsubscribe_secret_missing" }, { status: 503 });
-  const result = await dispatchFollowups({
-    email: deps.email,
-    claim: deps.claim,
-    finish: deps.finish,
-    unsubscribeSecret: deps.unsubscribeSecret,
-    appBaseUrl: deps.appBaseUrl,
-    siteUrl: deps.siteUrl,
-  });
-  if ("error" in result) return Response.json({ error: "claim_failed" }, { status: 500 });
-  // A send that went out but could not be recorded is not a success: 500 makes the failed cron call visible instead of silent.
-  if (result.unrecorded > 0) return Response.json(result, { status: 500 });
-  return Response.json(result);
+
+  const out: {
+    followups: DispatchResult | { skipped: string } | { error: string };
+    alerts: DeliveryResult | { skipped: string } | { error: string };
+    replies: DeliveryResult | { skipped: string } | { error: string };
+  } = { followups: { skipped: "unsubscribe_secret_missing" }, alerts: { skipped: "not_configured" }, replies: { skipped: "not_configured" } };
+
+  // 2 first: the alert is the most time-critical thing this function does.
+  if (deps.alerts) {
+    out.alerts = deps.founderEmail
+      ? await deliverAlerts({ email: deps.email, to: deps.founderEmail, appBaseUrl: deps.appBaseUrl, claim: deps.alerts.claim, finish: deps.alerts.finish })
+      : { skipped: "founder_alert_email_missing" };
+  }
+  if (deps.unsubscribeSecret) {
+    out.followups = await dispatchFollowups({ email: deps.email, claim: deps.claim, finish: deps.finish, unsubscribeSecret: deps.unsubscribeSecret, appBaseUrl: deps.appBaseUrl, siteUrl: deps.siteUrl });
+    if (deps.replies) {
+      out.replies = await deliverReplies({ email: deps.email, appBaseUrl: deps.appBaseUrl, unsubscribeSecret: deps.unsubscribeSecret, claim: deps.replies.claim, finish: deps.replies.finish });
+    }
+  }
+
+  const parts = [out.followups, out.alerts, out.replies];
+  const broken = parts.some((p) => "error" in p || ("unrecorded" in p && p.unrecorded > 0));
+  // A send that went out but could not be recorded, or an unreadable queue, is not a success: 500 makes the failed cron call visible.
+  return Response.json(out, { status: broken ? 500 : 200 });
 }
