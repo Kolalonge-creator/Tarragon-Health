@@ -115,7 +115,7 @@ export const EMERGENCY_REPLY =
   "This sounds like it could be an emergency. Please go to the nearest hospital now, or ask someone near you to take you. I am an AI assistant and cannot help in an emergency. I have also alerted our team.";
 
 export const SELF_HARM_REPLY =
-  "I am really sorry you are going through this. Please tell someone near you right now, and go to the nearest hospital emergency department if you feel you might act on these thoughts. You do not have to face this alone. I am an AI assistant and cannot help in an emergency, and I have alerted our team.";
+  "I am really sorry you are going through this. Please tell someone near you right now, and go to the nearest hospital emergency department if you feel you might act on these thoughts. You do not have to face this alone. I am an AI assistant and cannot help in an emergency. If you would like a person from our team to contact you, leave your name and a phone number or email below.";
 
 export const MEDICAL_ADVICE_REPLY =
   "I am an AI assistant and I cannot give medical advice, interpret results, or say what you should take. A doctor can do that properly in a doctor call, which you can book in the TarragonHealth app. If you think this could be urgent, please go to the nearest hospital. Is there something about our service I can help with?";
@@ -125,7 +125,7 @@ export const PROMPT_EXTRACTION_REPLY =
 
 /** Said to any later message in a conversation already marked as an emergency: the model is not consulted, so nothing can contradict the first instruction. */
 export const EMERGENCY_FOLLOWUP_REPLY =
-  "Please go to the nearest hospital now, or ask someone near you to take you. I am an AI assistant and cannot help in an emergency. Our team has been alerted and will follow up.";
+  "Please go to the nearest hospital now, or ask someone near you to take you. I am an AI assistant and cannot help in an emergency. If you would like a person from our team to contact you afterwards, leave your name and a phone number or email below.";
 
 export const HUMAN_REPLY =
   "Of course. I am an AI assistant, so I have passed this to our team and a person will reply. Please leave your name and an email address or phone number so they can reach you.";
