@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const rpc = jest.fn();
 jest.mock("@/lib/supabase/client", () => ({ createClient: () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 
-import { readAllPages, useAllFinanceAuditLog, useAllLedgerEntries, useApprovalHistory, useFinanceAuditLog, useLedgerEntries } from "./queries";
+import { act } from "react";
+import { flattenPages, readAllPages, useAllFinanceAuditLog, usePagedFinanceAuditLog, usePagedLedgerEntries, useAllLedgerEntries, useApprovalHistory } from "./queries";
 
 function wrap() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -19,24 +20,6 @@ const callOf = (name: string) => rpc.mock.calls.find((c) => c[0] === name)?.[1];
 beforeEach(() => { rpc.mockReset(); rpc.mockResolvedValue({ data: [], error: null }); });
 
 describe("finance reporting hooks pass a row limit", () => {
-  it("ledger: 200 by default, and what the caller asks for", async () => {
-    const { result, rerender } = renderHook(({ limit }: { limit?: number }) => useLedgerEntries({ from: "2026-01-01", to: "2026-01-31", limit }), { wrapper: wrap(), initialProps: {} });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(callOf("finance_ledger_entries")).toMatchObject({ p_limit: 200 });
-    rpc.mockClear();
-    rerender({ limit: 5000 });
-    await waitFor(() => expect(callOf("finance_ledger_entries")).toBeDefined());
-    expect(callOf("finance_ledger_entries")).toMatchObject({ p_limit: 5000 });
-  });
-  it("audit log: 200 by default, and what the caller asks for", async () => {
-    const { result } = renderHook(() => useFinanceAuditLog({ from: "a", to: "b", limit: 5000 }), { wrapper: wrap() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(callOf("finance_audit_log")).toMatchObject({ p_limit: 5000 });
-    rpc.mockClear();
-    const second = renderHook(() => useFinanceAuditLog({ from: "a", to: "c" }), { wrapper: wrap() });
-    await waitFor(() => expect(second.result.current.isSuccess).toBe(true));
-    expect(callOf("finance_audit_log")).toMatchObject({ p_limit: 200 });
-  });
   it("approval history: 100 by default, and what the caller asks for", async () => {
     const a = renderHook(() => useApprovalHistory(), { wrapper: wrap() });
     await waitFor(() => expect(a.result.current.isSuccess).toBe(true));
@@ -95,5 +78,109 @@ describe("the printed pack reads every page", () => {
       expect.objectContaining({ p_limit: 1000, p_offset: 0 }),
       expect.objectContaining({ p_limit: 1000, p_offset: 1000 }),
     ]);
+  });
+});
+
+describe("Load more: the paged hooks", () => {
+  const entry = (id: string) => ({ id, entry_no: 1, entry_date: "2026-10-01", period_month: "2026-10", source: "manual", memo: null, is_reversed: false, reversal_of: null, currency: "NGN", lines: [] });
+  const log = (id: string) => ({ id, created_at: "2026-10-30T10:00:00.000Z", actor_name: "Ada", action: "finance.journal.post", entity_type: "x", entity_id: null, event: {} });
+  const full = (prefix: string, mk: (id: string) => unknown, from = 0) => Array.from({ length: 200 }, (_, i) => mk(`${prefix}${from + i}`));
+  const ledgerArgs = { from: "2026-01-01", to: "2026-01-31" };
+
+  it("the first read is 200 rows from offset 0; a full page means there is more", async () => {
+    rpc.mockResolvedValue({ data: full("e", entry), error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    expect(callOf("finance_ledger_entries")).toMatchObject({ p_limit: 200, p_offset: 0 });
+    expect(result.current.hasMore).toBe(true);
+  });
+  it("loadMore asks for the next 200 from offset 200 and appends them in order", async () => {
+    rpc.mockResolvedValueOnce({ data: full("e", entry), error: null }).mockResolvedValueOnce({ data: [entry("last")], error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(201));
+    expect(rpc.mock.calls[1][1]).toMatchObject({ p_limit: 200, p_offset: 200 });
+    expect(result.current.rows?.[0].id).toBe("e0");
+    expect(result.current.rows?.[200].id).toBe("last");
+    expect(result.current.hasMore).toBe(false);
+  });
+  it("each further page moves the offset on by a whole page: 200, then 400", async () => {
+    rpc.mockResolvedValueOnce({ data: full("a", entry), error: null })
+      .mockResolvedValueOnce({ data: full("b", entry), error: null })
+      .mockResolvedValueOnce({ data: [entry("c")], error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(400));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(401));
+    expect(rpc.mock.calls.map((c) => c[1].p_offset)).toEqual([0, 200, 400]);
+  });
+  it("a short first page has no more to load", async () => {
+    rpc.mockResolvedValue({ data: [entry("a"), entry("b")], error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.hasMore).toBe(false);
+  });
+  it("an entry posted between pages shifts the offset by one: the repeated row is held once and the list still goes on", async () => {
+    const first = full("e", entry);
+    const second = [first[199], ...full("n", entry, 0).slice(0, 199)];
+    rpc.mockResolvedValueOnce({ data: first, error: null }).mockResolvedValueOnce({ data: second, error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(399));
+    expect(new Set(result.current.rows?.map((r) => r.id)).size).toBe(399);
+    // the second page was full (200 rows from the database), so there may be a third even though 199 were new
+    expect(result.current.hasMore).toBe(true);
+  });
+  it("a failed next page keeps the rows already read, says so, and a retry reads the same page", async () => {
+    rpc.mockResolvedValueOnce({ data: full("e", entry), error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "boom" } })
+      .mockResolvedValueOnce({ data: [entry("last")], error: null });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.loadMoreFailed).toBe(true));
+    expect(result.current.rows).toHaveLength(200);
+    expect(result.current.isError).toBe(true);
+    expect(result.current.hasMore).toBe(true);
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(201));
+    expect(rpc.mock.calls[2][1]).toMatchObject({ p_offset: 200 });
+    expect(result.current.loadMoreFailed).toBe(false);
+  });
+  it("a failed first read is an error with no rows, never an empty list", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const { result } = renderHook(() => usePagedLedgerEntries(ledgerArgs), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.rows).toBeUndefined();
+    expect(result.current.loadMoreFailed).toBe(false);
+  });
+  it("changing the filter starts again from the first page", async () => {
+    rpc.mockResolvedValue({ data: full("e", entry), error: null });
+    const { result, rerender } = renderHook(({ source }: { source?: string }) => usePagedLedgerEntries({ ...ledgerArgs, source }), { wrapper: wrap(), initialProps: {} });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+    rpc.mockClear();
+    rerender({ source: "manual" });
+    await waitFor(() => expect(callOf("finance_ledger_entries")).toMatchObject({ p_source: "manual", p_offset: 0 }));
+  });
+  it("the audit log pages the same way", async () => {
+    rpc.mockResolvedValueOnce({ data: full("a", log), error: null }).mockResolvedValueOnce({ data: [log("z")], error: null });
+    const { result } = renderHook(() => usePagedFinanceAuditLog({ from: "a", to: "b" }), { wrapper: wrap() });
+    await waitFor(() => expect(result.current.rows).toHaveLength(200));
+    expect(result.current.hasMore).toBe(true);
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(201));
+    expect(rpc.mock.calls[1][1]).toMatchObject({ p_limit: 200, p_offset: 200 });
+    expect(result.current.hasMore).toBe(false);
+  });
+  it("flattenPages holds each id once and keeps the order", () => {
+    expect(flattenPages([[{ id: "a" }, { id: "b" }], [{ id: "b" }, { id: "c" }]])).toEqual([{ id: "a" }, { id: "b" }, { id: "c" }]);
+    expect(flattenPages(undefined)).toBeUndefined();
   });
 });

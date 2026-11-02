@@ -6,7 +6,7 @@
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
-type Q = { data?: unknown; isLoading?: boolean; isError?: boolean };
+type Q = { data?: unknown; isLoading?: boolean; isError?: boolean; paged?: Record<string, unknown> };
 const hooks: Record<string, Q> = {};
 const ledgerArgs: unknown[] = [];
 const unifiedArgs: unknown[] = [];
@@ -16,13 +16,15 @@ const act = (name: string) => (actions[name] ??= jest.fn(async () => ({ ok: true
 jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
 jest.mock("next/link", () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => <a>{children}</a> }));
 jest.mock("@/lib/finance/actions", () => new Proxy({ __esModule: true }, { get: (t: Record<string, unknown>, k: string) => (k in t ? t[k] : (...a: unknown[]) => act(k)(...a)) }));
+const mockLoadMore = jest.fn();
+const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {
     __esModule: true,
     financeKeys: { all: ["finance"] },
     fetchComplianceSuggestedAmount: jest.fn(),
-    useLedgerEntries: (args: unknown) => { ledgerArgs.push(args); return get("entries"); },
+    usePagedLedgerEntries: (args: unknown) => { ledgerArgs.push(args); return paged(get("entries")); },
     useFinanceAccounts: () => get("accounts"),
     useCostCenters: () => get("costCenters"),
     useBudgetVariance: () => get("variance"),
@@ -64,6 +66,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  mockLoadMore.mockClear();
   for (const k of Object.keys(hooks)) delete hooks[k];
   for (const k of Object.keys(actions)) delete actions[k];
   ledgerArgs.length = 0;
@@ -81,10 +84,33 @@ describe("general ledger", () => {
     expect(alerts()).toContain("The general ledger could not be loaded");
     expect(container.textContent).not.toContain("No entries in this range");
   });
-  it("says the list may be cut off when it is exactly as long as the row limit", () => {
-    hooks.entries = ok(rowsOf(200, (i) => ({ id: `e${i}`, entry_no: i, entry_date: "2026-10-01", source: "manual", memo: null, is_reversed: false, currency: "NGN", lines: [] })));
+  const fullPage = () => rowsOf(200, (i) => ({ id: `e${i}`, entry_no: i, entry_date: "2026-10-01", source: "manual", memo: null, is_reversed: false, currency: "NGN", lines: [] }));
+  it("offers Load more, and says how many are shown, while the database has more", () => {
+    hooks.entries = { ...ok(fullPage()), paged: { hasMore: true } };
     render(<LedgerBrowser />);
-    expect(screen.getByRole("status").textContent).toContain("Showing the newest 200 entries");
+    expect(screen.getByRole("status").textContent).toContain("Showing the newest 200 entries. There are more.");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+  });
+  it("shows no Load more once the last page has been read", () => {
+    hooks.entries = ok(fullPage());
+    render(<LedgerBrowser />);
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+  it("disables the button while the next page is loading", () => {
+    hooks.entries = { ...ok(fullPage()), paged: { hasMore: true, isLoadingMore: true } };
+    render(<LedgerBrowser />);
+    expect((screen.getByRole("button", { name: "Loading…" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("says the next page failed, keeps the rows, and offers Try again", () => {
+    hooks.entries = { ...ok(fullPage()), isError: true, paged: { hasMore: true, loadMoreFailed: true } };
+    const { container } = render(<LedgerBrowser />);
+    expect(alerts()).toContain("The next entries could not be loaded just now. The entries above are still correct.");
+    expect(container.textContent).not.toContain("may be out of date");
+    expect(container.textContent).toContain("#0");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockLoadMore).toHaveBeenCalled();
   });
   it("says nothing about a limit for a shorter list, and the genuine empty line for an empty one", () => {
     hooks.entries = ok([]);

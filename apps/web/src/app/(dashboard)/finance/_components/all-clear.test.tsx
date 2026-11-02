@@ -6,12 +6,14 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 
-type Q = { data?: unknown; isLoading?: boolean; isError?: boolean };
+type Q = { data?: unknown; isLoading?: boolean; isError?: boolean; paged?: Record<string, unknown> };
 const hooks: Record<string, Q> = {};
 const auditArgs: unknown[] = [];
 
 jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: jest.fn() }) }));
 jest.mock("@/lib/finance/actions", () => new Proxy({ __esModule: true }, { get: (t: Record<string, unknown>, k: string) => (k in t ? t[k] : jest.fn(async () => ({ ok: true, data: {} }))) }));
+const mockLoadMore = jest.fn();
+const paged = (q: Q) => ({ rows: q.data, isLoading: q.isLoading, isError: q.isError, hasMore: false, loadMore: mockLoadMore, isLoadingMore: false, loadMoreFailed: false, ...q.paged });
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {
@@ -26,7 +28,7 @@ jest.mock("@/lib/finance/queries", () => {
     useApAging: () => get("aging"),
     useFinanceAccounts: () => get("accounts"),
     useComplianceCalendar: () => get("calendar"),
-    useFinanceAuditLog: (args: unknown) => { auditArgs.push(args); return get("auditLog"); },
+    usePagedFinanceAuditLog: (args: unknown) => { auditArgs.push(args); return paged(get("auditLog")); },
     useFinanceAuditActions: () => get("auditActions"),
   };
 });
@@ -42,6 +44,7 @@ const failed: Q = { isError: true };
 const stale = (data: unknown): Q => ({ data, isError: true });
 
 beforeEach(() => {
+  mockLoadMore.mockClear();
   for (const k of Object.keys(hooks)) delete hooks[k];
   auditArgs.length = 0;
   hooks.accounts = ok([]);
@@ -182,6 +185,31 @@ describe("audit log", () => {
     render(<FinanceAuditLog />);
     expect(screen.getByText("No finance activity in this range.")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+  const logRows = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `a${i}`, created_at: "2026-10-30T10:00:00.000Z", actor_name: "Ada", action: "finance.journal.post", event: {} }));
+  it("offers Load more while the database has more log rows, and calls it on click", () => {
+    hooks.auditLog = { ...ok(logRows(200)), paged: { hasMore: true } };
+    hooks.auditActions = ok([]);
+    render(<FinanceAuditLog />);
+    expect(screen.getByRole("status").textContent).toContain("Showing the newest 200 log rows. There are more.");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+  });
+  it("shows no Load more once the last page has been read", () => {
+    hooks.auditLog = ok(logRows(200));
+    hooks.auditActions = ok([]);
+    render(<FinanceAuditLog />);
+    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+  it("says the next page failed, keeps the rows, and offers Try again", () => {
+    hooks.auditLog = { ...ok(logRows(200)), isError: true, paged: { hasMore: true, loadMoreFailed: true } };
+    hooks.auditActions = ok([]);
+    const { container } = render(<FinanceAuditLog />);
+    expect(screen.getAllByRole("alert").map((a) => a.textContent).join(" | ")).toContain("The next log rows could not be loaded just now.");
+    expect(container.textContent).not.toContain("may be out of date");
+    expect(container.querySelectorAll("tbody tr").length).toBe(200);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockLoadMore).toHaveBeenCalled();
   });
   it("queries from the start of a Lagos day to the end of today in Lagos, with a stable key", () => {
     hooks.auditLog = ok([]);

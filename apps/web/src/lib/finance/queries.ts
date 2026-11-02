@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   APPROVAL_HISTORY_LIMIT,
   AUDIT_LOG_PAGE_LIMIT,
@@ -43,6 +43,8 @@ import {
   auditActionsListSchema,
   complianceSuggestedAmountSchema,
   companyProfileSchema,
+  type FinanceAuditLogEntry,
+  type LedgerEntry,
 } from "./schemas";
 
 /**
@@ -145,18 +147,62 @@ async function readLedgerPage(args: { from: string; to: string; account?: string
   return ledgerEntriesSchema.parse(data);
 }
 
-export function useLedgerEntries(args: {
-  from: string;
-  to: string;
-  account?: string;
-  source?: string;
-  /** Newest-first row cap. Defaults to LEDGER_PAGE_LIMIT, which the page says when it is reached. */
-  limit?: number;
-}) {
-  return useQuery({
-    queryKey: ["finance", "ledger", args],
-    queryFn: () => readLedgerPage(args, args.limit ?? LEDGER_PAGE_LIMIT, 0),
+/** What a list with a "Load more" button hands the page. `rows` is undefined until the first page has arrived. */
+export interface PagedList<T> {
+  rows: T[] | undefined;
+  isLoading: boolean;
+  /** The first read failed, or a refresh failed. With `rows` set it is a refresh; without, nothing has been read. */
+  isError: boolean;
+  /** The last page came back full, so the database may hold more behind it. */
+  hasMore: boolean;
+  loadMore: () => void;
+  isLoadingMore: boolean;
+  /** The last "Load more" failed. The rows already on screen are still correct. */
+  loadMoreFailed: boolean;
+}
+
+/** The rows of every page read so far, newest first, each id once (an entry posted mid-read shifts later offsets by one). */
+export function flattenPages<T extends { id: string }>(pages: T[][] | undefined): T[] | undefined {
+  if (!pages) return undefined;
+  const seen = new Set<string>();
+  const rows: T[] = [];
+  for (const page of pages) {
+    for (const row of page) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function usePagedList<T extends { id: string }>(
+  queryKey: readonly unknown[],
+  pageSize: number,
+  readPage: (limit: number, offset: number) => Promise<T[]>,
+): PagedList<T> {
+  const q = useInfiniteQuery({
+    queryKey,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => readPage(pageSize, pageParam),
+    // A full page means there may be another. A short one is the end. The count is of rows the database
+    // returned, not of rows after de-duplication, so a repeated row never ends the list early.
+    getNextPageParam: (lastPage, allPages) => (lastPage.length >= pageSize ? allPages.length * pageSize : undefined),
   });
+  return {
+    rows: flattenPages(q.data?.pages),
+    isLoading: q.isLoading,
+    isError: q.isError,
+    hasMore: q.hasNextPage,
+    loadMore: () => void q.fetchNextPage(),
+    isLoadingMore: q.isFetchingNextPage,
+    loadMoreFailed: q.isFetchNextPageError,
+  };
+}
+
+/** The general ledger a page at a time, newest first: the first LEDGER_PAGE_LIMIT, then more on request. */
+export function usePagedLedgerEntries(args: { from: string; to: string; account?: string; source?: string }): PagedList<LedgerEntry> {
+  return usePagedList(["finance", "ledger", "paged", args], LEDGER_PAGE_LIMIT, (limit, offset) => readLedgerPage(args, limit, offset));
 }
 
 /** Every entry in the range, newest first, for the printed audit pack. Stops at PACK_LEDGER_LIMIT. */
@@ -540,11 +586,9 @@ async function readAuditLogPage(args: { from: string; to: string; action?: strin
   return financeAuditLogSchema.parse(data);
 }
 
-export function useFinanceAuditLog(args: { from: string; to: string; action?: string; limit?: number }) {
-  return useQuery({
-    queryKey: ["finance", "audit-log", args],
-    queryFn: () => readAuditLogPage(args, args.limit ?? AUDIT_LOG_PAGE_LIMIT, 0),
-  });
+/** The finance activity log a page at a time, newest first: the first AUDIT_LOG_PAGE_LIMIT, then more on request. */
+export function usePagedFinanceAuditLog(args: { from: string; to: string; action?: string }): PagedList<FinanceAuditLogEntry> {
+  return usePagedList(["finance", "audit-log", "paged", args], AUDIT_LOG_PAGE_LIMIT, (limit, offset) => readAuditLogPage(args, limit, offset));
 }
 
 /** Every logged finance action in the range, newest first, for the printed audit pack. Stops at PACK_AUDIT_LOG_LIMIT. */

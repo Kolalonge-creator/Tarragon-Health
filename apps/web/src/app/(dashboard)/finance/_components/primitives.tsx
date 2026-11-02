@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
 
@@ -99,5 +100,43 @@ export function TruncationNote({ shown, what }: { shown: number; what: string })
     <p role="status" className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
       Showing the newest {shown} {what}. There may be more: narrow the date range to see the rest.
     </p>
+  );
+}
+
+/**
+ * The bottom of a list read a page at a time. Says how many are shown, offers the next page, and says plainly when the
+ * next page could not be read (the rows above are still correct) instead of leaving a button that does nothing.
+ * Renders nothing once the last page has been read.
+ */
+export function LoadMoreFooter({
+  shown,
+  what,
+  hasMore,
+  loading,
+  failed,
+  onLoadMore,
+}: {
+  shown: number;
+  what: string;
+  hasMore: boolean;
+  loading: boolean;
+  failed: boolean;
+  onLoadMore: () => void;
+}) {
+  if (!hasMore) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <p role="status" className="text-xs text-charcoal-ink/60">
+        Showing the newest {shown} {what}. There are more.
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={onLoadMore} disabled={loading}>
+        {loading ? "Loading…" : failed ? "Try again" : "Load more"}
+      </Button>
+      {failed && !loading && (
+        <p role="alert" className="text-xs text-red-700">
+          The next {what} could not be loaded just now. The {what} above are still correct.
+        </p>
+      )}
+    </div>
   );
 }

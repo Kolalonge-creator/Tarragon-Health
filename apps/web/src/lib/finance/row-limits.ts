@@ -8,6 +8,7 @@
  * is false from entry N+1 on, and the only sign is that the list is exactly N
  * long. So a list that reaches its limit says so.
  */
+/** The General Ledger and Audit pages read this many rows at a time and offer "Load more" for the next page. */
 export const LEDGER_PAGE_LIMIT = 200;
 export const AUDIT_LOG_PAGE_LIMIT = 200;
 export const APPROVAL_HISTORY_LIMIT = 100;
