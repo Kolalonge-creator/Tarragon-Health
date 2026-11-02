@@ -303,6 +303,14 @@
    "category": "cron or webhook route (no user session)"
   },
   {
+   "file": "apps/web/src/app/api/frontdesk/chat/config/route.ts",
+   "category": "Front Desk M4 (2026-11-02): unauthenticated by design (the website widget). Reads only fd_app_config (via loadChatConfig) to say whether the assistant is on and to return the opening disclosure and consent wording. Returns nothing secret."
+  },
+  {
+   "file": "apps/web/src/app/api/frontdesk/chat/contact/route.ts",
+   "category": "Front Desk M4 (2026-11-02): unauthenticated by design (the website widget). Calls only service_fd_chat_capture and service_fd_chat_handoff for a conversation whose secret hash matches; needs the explicit consent tick; JSON only, allowed Origin, rate limited; the consent wording is this site's own constant."
+  },
+  {
    "file": "apps/web/src/app/api/frontdesk/events/route.ts",
    "category": "Front Desk M2 (2026-11-02): route for a SIGNED-IN user. Calls only service_fd_record_event for the user's own id (from the session, never the body), four accepted event types, rate limited."
   },
@@ -581,6 +589,10 @@
   {
    "file": "apps/web/src/lib/emergency/alert-contact.ts",
    "category": "app server code (baselined 2026-10-27; owner to justify)"
+  },
+  {
+   "file": "apps/web/src/lib/frontdesk/chat-runtime.ts",
+   "category": "Front Desk M4 (2026-11-02): wires the website chat's database (service_fd_chat_* RPCs only), config, knowledge and the governed model call (AI-023). Reached only from the chat and contact routes."
   },
   {
    "file": "apps/web/src/lib/go-live/actions.ts",
