@@ -201,7 +201,7 @@ function main() {
 
   try {
     console.log(`Checking anon EXECUTE on SECURITY DEFINER functions in public/private schemas of project ${PROJECT_REF}...`);
-    const raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"], {
+    const raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "--read-only", "-f", queryFile, "--output-format", "json"], {
       env: { ...process.env },
     });
     const rows = parseRows(raw);

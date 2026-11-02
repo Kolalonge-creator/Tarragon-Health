@@ -77,7 +77,7 @@ function main() {
   writeFileSync(file, QUERY);
   let raw;
   try {
-    raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", file, "--output-format", "json"], {
+    raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "--read-only", "-f", file, "--output-format", "json"], {
       env: { ...process.env },
     });
   } finally {

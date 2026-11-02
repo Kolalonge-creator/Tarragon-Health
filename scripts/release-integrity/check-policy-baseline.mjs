@@ -69,7 +69,7 @@ function main() {
   writeFileSync(file, QUERY);
   let live;
   try {
-    live = parseRows(execWithRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", file, "--output-format", "json"], { env: { ...process.env } }));
+    live = parseRows(execWithRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "--read-only", "-f", file, "--output-format", "json"], { env: { ...process.env } }));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
