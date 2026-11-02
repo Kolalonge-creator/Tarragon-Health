@@ -150,6 +150,41 @@ begin
   insert into _checks (msg) values ('PASS 4b: commission earned and paid at 23:30 UTC are dated the next Lagos day');
 end $$;
 
+-- 4d. every report runs as a finance account with its arguments left out. A body is only resolved when it runs, and a default is
+-- evaluated as the CALLER, so a wrong rewrite shows up here and not when the migration is applied.
+create function pg_temp.run_reports(p_tag text) returns void language plpgsql as $$
+declare v_org uuid; v_fin uuid;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  v_fin := pg_temp.mint(p_tag || '-rep@example.invalid', 'finance', v_org);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_fin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.finance_trial_balance(); perform public.finance_balance_sheet(); perform public.finance_ledger_entries();
+  perform public.finance_revenue_by_funding_source(); perform public.finance_kpi_summary('NGN'); perform public.finance_dashboard_summary();
+  perform public.finance_ap_aging(); perform public.finance_risk_flags(); perform public.finance_employer_billing_summary();
+  perform public.finance_compliance_calendar(3); perform public.finance_compliance_calendar_for_year(2027);
+  perform public.finance_unified_ledger(null, v_org, null, null, 5, 0);
+  reset role;
+end $$;
+select pg_temp.run_reports('r');
+insert into _checks (msg) values ('PASS 4d: every finance report runs as a finance account with its arguments left out');
+
+-- 5d. SABOTAGE: a default of private.lagos_today() (authenticated cannot run it); the report run must fail
+do $$
+declare src text := pg_get_functiondef('public.finance_trial_balance(date,text)'::regprocedure); got text;
+begin
+  execute replace(src, '((now() AT TIME ZONE ''Africa/Lagos''::text))::date', 'private.lagos_today()');
+  begin
+    perform pg_temp.run_reports('s5d');
+  exception when others then got := sqlerrm;
+  end;
+  reset role;
+  if got is null or got not ilike '%permission denied%' then
+    raise exception 'SABOTAGE 5d: a lagos_today() default for a finance user was not caught (got: %)', got;
+  end if;
+  insert into _checks (msg) values ('PASS 5d: sabotage (a lagos_today() default evaluated as the caller) is caught');
+end $$;
+
 -- 5a. SABOTAGE: current_date back in the manual journal; the behaviour check must fail
 do $$
 declare src text := pg_get_functiondef('public.finance_post_manual_journal(date,text,text,jsonb)'::regprocedure); got text;
