@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const revalidate = 300;
 
 function formatValue(value: number | null): string {
-  if (value === null) return "—";
+  if (value === null) return "No";
   return new Intl.NumberFormat("en-NG").format(value);
 }
 

@@ -3,6 +3,9 @@ import type { MarketingMediaSlot } from "./media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
+/** Caption under every made-up stat panel: the figures show the shape of a report, never a real client. */
+export const EXAMPLE_DATA_NOTE = "Illustrative example, not real client data.";
+
 export type B2bStat = {
   label: string;
   value: string;
@@ -63,7 +66,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       "Referral to a doctor for staff who need closer care",
     ],
     exampleTitle: "What a workforce report looks like",
-    exampleNote: "Illustrative example, not real client data.",
+    exampleNote: EXAMPLE_DATA_NOTE,
     exampleStats: [
       { label: "Pre-diabetic (workforce)", value: "", pill: { text: "12%", tone: "amber" } },
       { label: "Uncontrolled blood pressure", value: "", pill: { text: "8%", tone: "red" } },
@@ -122,10 +125,10 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       "Missed care followed up until it is completed, not only flagged",
       "Immediate doctor follow-up on abnormal screening results",
       "Outcome reporting designed for renewal discussions",
-      "The same four-level clinical referral pathway as every Tarragon patient",
+      "The same clinical referral pathway as every TarragonHealth patient",
     ],
     exampleTitle: "What member reporting looks like",
-    exampleNote: "Illustrative example, not real client data.",
+    exampleNote: EXAMPLE_DATA_NOTE,
     exampleStats: [
       { label: "Members monitored", value: "4,820" },
       { label: "Missed care completed (90 days)", value: "", pill: { text: "+31%", tone: "green" } },
@@ -146,7 +149,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
         body: "Population risk and outcome data are prepared for your team as evidence you can bring to renewal discussions, not only a claims log.",
       },
     ],
-    ctaLabel: "Talk to Tarragon Health",
+    ctaLabel: "Talk to TarragonHealth",
     metadata: pageMetadata({
       title: "HMO Support",
       description:

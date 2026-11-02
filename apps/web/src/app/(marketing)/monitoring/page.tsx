@@ -73,7 +73,7 @@ const FAQ = [
   {
     question: "What counts as a dangerous reading?",
     answer:
-      "Blood pressure, blood sugar, oxygen level, temperature and pulse each have thresholds that are set from clinical guidelines and approved by our clinical director. The thresholds are the same on both plans.",
+      "Blood pressure, blood sugar, oxygen level, temperature and pulse each have thresholds that are set from clinical guidelines and approved by our Chief Medical Officer. The thresholds are the same on every plan.",
   },
   {
     question: "Do I need Membership for hypertension or diabetes?",
@@ -115,7 +115,7 @@ export default async function MonitoringPage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="What actually happens"
-          title="What is free on both plans, and the one thing that is not"
+          title="What is free on every plan, and the one thing that is not"
         />
         <ol className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2">
           {WHAT_HAPPENS.map((item) => (
@@ -132,8 +132,8 @@ export default async function MonitoringPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Two plans"
-          title="Free, or Membership"
+          eyebrow="Your options"
+          title="Free, or a Membership plan"
           description="Every reading is checked on both. Membership is what adds a doctor who is told and follows up."
         />
         <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">

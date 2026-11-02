@@ -8,7 +8,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Mental Well-being Check",
+  title: "Mental Wellbeing Check",
   description:
     "A free, anonymous two-minute check-in on how you are really doing. Not a diagnosis, nothing saved, just an honest pulse-check and a clear next step.",
   path: MARKETING_ROUTES.mentalWellbeingCheck,

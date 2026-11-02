@@ -122,6 +122,9 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
               </span>
             </div>
           ))}
+          {tab.statsNote ? (
+            <p className="mt-4 text-xs text-charcoal-ink/60">{tab.statsNote}</p>
+          ) : null}
         </div>
       </div>
     </div>
