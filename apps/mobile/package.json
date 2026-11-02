@@ -75,7 +75,7 @@
     "@expo/config-plugins": "~54.0.5",
     "@jest/globals": "^29.7.0",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.19.43",
+    "@types/node": "^26.6.6",
     "@types/react": "19.1.17",
     "babel-preset-expo": "~54.0.12",
     "eas-cli": "^22.6.0",
