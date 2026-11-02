@@ -1791,3 +1791,5 @@ fd_m5_reporting_and_review.sql
 ai023_governance_scaffolding.sql
 # Go-live readiness fixes: MDM cron RPC gate reads the JWT role not current_user; anonymous AI interactions audit against the platform organisation; cron-failure incidents auto-resolve once the job runs clean. Sabotage: forced gate, no-op resolver.
 golive_service_role_gate_ai_org_fallback_cron_incident_autoresolve.sql
+# The emergency synchronous-contact rule skips an is_test patient (closes on a note); a real patient is still refused. Sabotage: the pre-fix body refuses the test patient.
+emergency_sync_contact_rule_skips_test_accounts.sql
