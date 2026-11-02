@@ -3,6 +3,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { leadSchema } from "@/lib/validation/lead";
 import { pickFormValues } from "@/lib/forms/pick-form-values";
+import { fdRpcData } from "@/lib/frontdesk/raw-db";
+import { ENQUIRY_CONSENT_VERSION, ENQUIRY_CONSENT_WORDING, parseLeadContact } from "@/lib/frontdesk/lead-consent";
 
 const LEAD_VALUE_FIELDS = ["name", "contact", "role", "goal", "message"] as const;
 
@@ -66,6 +68,28 @@ export async function submitLead(
       error: "We could not save your message. Please try again shortly.",
       values: submittedValues(formData),
     };
+  }
+
+  // Front Desk F4. Only with the explicit, separate consent tick: the enquiry above is stored and answered by a person either way, but it
+  // joins the CRM and the follow-up emails only if the visitor agreed to exactly the wording shown beside the box. Best effort: the lead is
+  // already saved, so a failure here is logged and never shown to the visitor as a failed submission.
+  if (formData.get("consent") === "on") {
+    try {
+      const details = parseLeadContact(parsed.data.contact);
+      const captured = await fdRpcData(supabase, "service_fd_capture_lead", {
+        p_email: details.email,
+        p_phone: details.phone,
+        p_name: parsed.data.name,
+        p_source: "website_form",
+        p_message: parsed.data.message ?? null,
+        p_consent: true,
+        p_wording: ENQUIRY_CONSENT_WORDING,
+        p_wording_version: ENQUIRY_CONSENT_VERSION,
+      });
+      if (captured.error) console.error("front desk: could not capture the enquiry", captured.error);
+    } catch (e) {
+      console.error("front desk: could not capture the enquiry", e);
+    }
   }
 
   return { success: true };
