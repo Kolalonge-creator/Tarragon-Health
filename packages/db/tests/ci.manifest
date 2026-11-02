@@ -1791,3 +1791,5 @@ fd_m5_reporting_and_review.sql
 ai023_governance_scaffolding.sql
 # Go-live readiness fixes: MDM cron RPC gate reads the JWT role not current_user; anonymous AI interactions audit against the platform organisation; cron-failure incidents auto-resolve once the job runs clean. Sabotage: forced gate, no-op resolver.
 golive_service_role_gate_ai_org_fallback_cron_incident_autoresolve.sql
+# ops_today_summary reads real people only (analytics_clean), counts open+investigating incidents, and treats only partner orders as laboratory delays. Sabotage: the old status<>closed predicate counts more.
+ops_today_summary_real_data_only.sql
