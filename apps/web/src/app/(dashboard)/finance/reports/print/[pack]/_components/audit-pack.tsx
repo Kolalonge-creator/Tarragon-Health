@@ -4,12 +4,12 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   useTrialBalance,
-  useLedgerEntries,
+  useAllLedgerEntries,
   useReconciliationSummary,
   useApAging,
   useBudgetVariance,
   useApprovalHistory,
-  useFinanceAuditLog,
+  useAllFinanceAuditLog,
 } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
@@ -30,9 +30,9 @@ import { PACK_APPROVAL_LIMIT, PACK_AUDIT_LOG_LIMIT, PACK_LEDGER_LIMIT, hitLimit 
 
 export function AuditPack({ from, to, currency }: { from: string; to: string; currency: string }) {
   const tb = useTrialBalance(to, currency);
-  // The reporting RPCs cut off at a default number of rows. The pack asks for far more, and prints a
-  // warning in the section if even that was reached, because it calls itself the full record.
-  const gl = useLedgerEntries({ from, to, limit: PACK_LEDGER_LIMIT });
+  // The pack reads the whole ledger and audit log a page at a time, and prints a warning in the
+  // section if a ceiling stopped it, because it calls itself the full record.
+  const gl = useAllLedgerEntries({ from, to });
   const recon = useReconciliationSummary();
   const apAging = useApAging();
   const variance = useBudgetVariance(from, to, currency);
@@ -44,7 +44,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
     const b = lagosDayBounds(to);
     return { start: a?.start ?? `${from}T00:00:00+01:00`, end: b?.end ?? `${to}T23:59:59.999+01:00`, valid: Boolean(a && b) };
   }, [from, to]);
-  const auditLog = useFinanceAuditLog({ from: range.start, to: range.end, limit: PACK_AUDIT_LOG_LIMIT });
+  const auditLog = useAllFinanceAuditLog({ from: range.start, to: range.end });
 
   const approvalsInRange = useMemo(() => {
     if (!range.valid) return [];

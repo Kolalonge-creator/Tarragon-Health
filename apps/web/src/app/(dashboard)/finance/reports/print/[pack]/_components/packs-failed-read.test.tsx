@@ -12,6 +12,12 @@ const auditLogArgs: unknown[] = [];
 
 jest.mock("next/image", () => ({ __esModule: true, default: () => null }));
 jest.mock("next/link", () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => <a>{children}</a> }));
+// The real ceilings are 50,000 rows, which jsdom cannot draw. Small ceilings test the same rule.
+jest.mock("@/lib/finance/row-limits", () => ({
+  ...jest.requireActual("@/lib/finance/row-limits"),
+  PACK_LEDGER_LIMIT: 30,
+  PACK_AUDIT_LOG_LIMIT: 20,
+}));
 jest.mock("@/lib/finance/queries", () => {
   const get = (name: string): Q => ({ data: undefined, isLoading: false, isError: false, ...hooks[name] });
   return {
@@ -21,12 +27,12 @@ jest.mock("@/lib/finance/queries", () => {
     useBalanceSheet: () => get("bs"),
     useCashFlowStatement: () => get("cf"),
     useTrialBalance: () => get("tb"),
-    useLedgerEntries: () => get("gl"),
+    useAllLedgerEntries: () => get("gl"),
     useReconciliationSummary: () => get("recon"),
     useApAging: () => get("aging"),
     useBudgetVariance: () => get("variance"),
     useApprovalHistory: () => get("approvals"),
-    useFinanceAuditLog: (args: unknown) => { auditLogArgs.push(args); return get("auditLog"); },
+    useAllFinanceAuditLog: (args: unknown) => { auditLogArgs.push(args); return get("auditLog"); },
     useTaxSummary: () => get("tax"),
     useComplianceCalendarForYear: () => get("calendar"),
   };
@@ -117,7 +123,7 @@ describe("audit pack", () => {
   it("queries the audit trail for the Lagos days, not UTC days", () => {
     setAuditHealthy();
     render(<AuditPack {...props} />);
-    expect(auditLogArgs[0]).toEqual({ from: "2026-09-30T23:00:00.000Z", to: "2026-10-31T22:59:59.999Z", limit: 5000 });
+    expect(auditLogArgs[0]).toEqual({ from: "2026-09-30T23:00:00.000Z", to: "2026-10-31T22:59:59.999Z" });
   });
 
   it("counts an approval at 00:30 Lagos on the first day, and one at the last millisecond of the last day, and not one before", () => {
@@ -133,17 +139,17 @@ describe("audit pack", () => {
     expect(screen.getAllByText("manual journal")).toHaveLength(2);
   });
 
-  it("prints a warning in each section that reached its row limit, because the pack calls itself the full record", () => {
+  it("prints a warning in each section that reached its ceiling, because the pack calls itself the full record", () => {
     setAuditHealthy();
     const many = (n: number, make: (i: number) => unknown) => Array.from({ length: n }, (_, i) => make(i));
-    hooks.gl = ok(many(5000, (i) => ({ id: `g${i}`, entry_no: i, entry_date: "2026-10-01", source: "manual", memo: null, is_reversed: false, currency: "NGN", lines: [] })));
-    hooks.auditLog = ok(many(5000, (i) => ({ id: `l${i}`, created_at: "2026-10-01T10:00:00Z", actor_name: "Ada", action: "finance.post" })));
+    hooks.gl = ok(many(30, (i) => ({ id: `g${i}`, entry_no: i, entry_date: "2026-10-01", source: "manual", memo: null, is_reversed: false, currency: "NGN", lines: [] })));
+    hooks.auditLog = ok(many(20, (i) => ({ id: `l${i}`, created_at: "2026-10-01T10:00:00Z", actor_name: "Ada", action: "finance.post" })));
     hooks.approvals = ok(many(1000, (i) => ({ id: `a${i}`, requested_at: "2026-10-05T10:00:00Z", request_type: "manual_journal", requested_by_name: "Ada", status: "approved", reviewed_by_name: "Bola" })));
     render(<AuditPack {...props} />);
     const warnings = screen.getAllByText(/Incomplete: this section holds only the newest/).map((w) => w.textContent);
     expect(warnings).toHaveLength(3);
-    expect(warnings.join(" ")).toContain("5000 entries");
-    expect(warnings.join(" ")).toContain("5000 log rows");
+    expect(warnings.join(" ")).toContain("30 entries");
+    expect(warnings.join(" ")).toContain("20 log rows");
     expect(warnings.join(" ")).toContain("1000 reviewed approvals");
   });
 
