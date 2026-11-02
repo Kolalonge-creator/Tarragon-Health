@@ -64,7 +64,7 @@ jobs:
           script: bash apps/mobile/.maestro/run-android-ci.sh "$RUNNER_TEMP/app.apk"
       - name: Keep the Maestro report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-android-report
           path: ~/.maestro/tests

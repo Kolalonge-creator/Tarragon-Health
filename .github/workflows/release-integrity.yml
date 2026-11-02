@@ -151,7 +151,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/release-integrity/check-policy-baseline.mjs --out "$RUNNER_TEMP/pg-policies-live.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: pg-policies-live
