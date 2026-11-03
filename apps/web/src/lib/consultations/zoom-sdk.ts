@@ -43,11 +43,15 @@ export const ZOOM_SDK_VENDOR_SCRIPTS: ReadonlyArray<{ readonly src: string; read
 
 let knownUnavailable = false;
 /**
- * True once a load of the SDK has failed in this page. The room then opens the link straight from the click (a window opened after
- * the SDK's own slow failure arrives too late for the browser's popup rule and is blocked silently).
+ * True once the SDK has failed on this page, at load or at run time (an unsupported browser, a refused join). The room then opens the
+ * link straight from the click (a window opened after the SDK's own slow failure arrives too late for the browser's popup rule and
+ * is blocked silently). A later successful load clears it, so one transient failure does not lock the session into links.
  */
 export function zoomSdkKnownUnavailable(): boolean {
   return knownUnavailable;
+}
+export function markZoomSdkUnavailable(): void {
+  knownUnavailable = true;
 }
 
 export interface ZoomSelfUser {
@@ -90,22 +94,22 @@ export async function loadZoomEmbedded(document_?: Document | null, timeoutMs = 
   if (win?.ZoomMtgEmbedded) return win.ZoomMtgEmbedded;
   // One clock for the whole chain: the vendor files and the SDK together must arrive within the timeout.
   const deadline = Date.now() + timeoutMs;
-  for (const vendor of ZOOM_SDK_VENDOR_SCRIPTS) {
-    if (doc.head.querySelector(`script[src="${vendor.src}"]`)) continue;
-    const loaded = await loadScript(doc, vendor.src, vendor.integrity, deadline - Date.now());
-    if (!loaded) {
-      knownUnavailable = true;
-      return null;
-    }
+  // The vendor files are fetched together (one round trip, not five) and run in order: a script with async=false keeps its place in
+  // the document's queue, so React is defined before ReactDOM runs, and all of them before the SDK is even asked for.
+  const missing = ZOOM_SDK_VENDOR_SCRIPTS.filter((v) => !doc.head.querySelector(`script[src="${v.src}"]`));
+  const vendors = await Promise.all(missing.map((v) => loadScript(doc, v.src, v.integrity, timeoutMs, false)));
+  if (vendors.some((loaded) => !loaded)) {
+    knownUnavailable = true;
+    return null;
   }
-  const loaded = await loadScript(doc, ZOOM_SDK_SCRIPT, ZOOM_SDK_INTEGRITY, deadline - Date.now());
+  const loaded = await loadScript(doc, ZOOM_SDK_SCRIPT, ZOOM_SDK_INTEGRITY, deadline - Date.now(), true);
   const sdk = loaded ? (win?.ZoomMtgEmbedded ?? null) : null;
-  if (!sdk) knownUnavailable = true;
+  knownUnavailable = !sdk;
   return sdk;
 }
 
 /** Appends one pinned script and resolves true once it has run, false when it was blocked, failed, or took too long. */
-function loadScript(doc: Document, src: string, integrity: string, timeoutMs: number): Promise<boolean> {
+function loadScript(doc: Document, src: string, integrity: string, timeoutMs: number, async: boolean): Promise<boolean> {
   return new Promise((resolve) => {
     const script = doc.createElement("script");
     let settled = false;
@@ -119,7 +123,7 @@ function loadScript(doc: Document, src: string, integrity: string, timeoutMs: nu
     };
     const timer = setTimeout(() => finish(false), Math.max(0, timeoutMs));
     script.src = src;
-    script.async = true;
+    script.async = async;
     script.crossOrigin = "anonymous";
     script.integrity = integrity;
     script.onload = () => finish(true);

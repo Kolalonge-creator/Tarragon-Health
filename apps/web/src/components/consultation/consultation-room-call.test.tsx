@@ -24,7 +24,14 @@ jest.mock("@/lib/consultations/actions", () => ({
 
 const loadSdk = jest.fn();
 let sdkKnownUnavailable = false;
-jest.mock("@/lib/consultations/zoom-sdk", () => ({ loadZoomEmbedded: (...a: unknown[]) => loadSdk(...a), zoomSdkKnownUnavailable: () => sdkKnownUnavailable }));
+const markUnavailable = jest.fn(() => {
+  sdkKnownUnavailable = true;
+});
+jest.mock("@/lib/consultations/zoom-sdk", () => ({
+  loadZoomEmbedded: (...a: unknown[]) => loadSdk(...a),
+  zoomSdkKnownUnavailable: () => sdkKnownUnavailable,
+  markZoomSdkUnavailable: () => markUnavailable(),
+}));
 
 const view: RoomView = {
   encounter_id: "7b9c2f0e-5d3a-4c11-9a52-0f6d1e8b7a44",
@@ -67,6 +74,7 @@ function fakeSdk(over: Partial<ZoomEmbeddedClient> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  sdkKnownUnavailable = false;
   window.open = jest.fn(() => null);
   report.mockResolvedValue({ ok: true });
 });
@@ -211,6 +219,8 @@ describe("ConsultationRoom with the in-app call", () => {
       await expectLink();
       expect(f.client.join).not.toHaveBeenCalled();
       expect(f.sdk.destroyClient).toHaveBeenCalled();
+      // a browser the SDK cannot use is remembered, so the next join opens the link from the click rather than trying the SDK again
+      expect(markUnavailable).toHaveBeenCalled();
     });
 
     it("when Zoom refuses the join (a bad signature, a closed room, no host key)", async () => {

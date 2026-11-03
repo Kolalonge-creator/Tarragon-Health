@@ -90,7 +90,18 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
     // a window asked for after the SDK's slow failure arrives too late and is blocked silently (the first live consultation, 2026-11-03).
     const useLinkDirectly = !call || zoomSdkKnownUnavailable();
     const early = useLinkDirectly ? window.open("about:blank", "_blank") : null;
-    if (early) early.opener = null;
+    if (early) {
+      // The same two protections the one-shot open had: no way back to this page, and no referrer (the page address names the encounter).
+      early.opener = null;
+      try {
+        const meta = early.document.createElement("meta");
+        meta.name = "referrer";
+        meta.content = "no-referrer";
+        early.document.head.appendChild(meta);
+      } catch {
+        // a browser that will not let the page touch the blank window's document still gets the origin-only referrer policy
+      }
+    }
     startTransition(async () => {
       if (call && !useLinkDirectly) {
         const started = await inApp.start(media);

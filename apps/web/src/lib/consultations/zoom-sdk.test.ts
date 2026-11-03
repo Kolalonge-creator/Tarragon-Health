@@ -11,9 +11,12 @@ const loadLast = async () => {
   await Promise.resolve();
   await Promise.resolve();
 };
-/** Loads every vendor script in turn, leaving the SDK script pending. */
+/** Lets every vendor script "load", after which the loader appends the SDK script. */
 const loadVendors = async () => {
-  for (let i = 0; i < ZOOM_SDK_VENDOR_SCRIPTS.length; i += 1) await loadLast();
+  for (const s of scripts().filter((x) => x.src !== ZOOM_SDK_SCRIPT)) s.dispatchEvent(new Event("load"));
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 };
 
 beforeEach(() => {
@@ -33,12 +36,12 @@ describe("loading Zoom's embedded Meeting SDK", () => {
     for (const v of ZOOM_SDK_VENDOR_SCRIPTS) expect(v.integrity).toMatch(/^sha384-[A-Za-z0-9+/]{64}$/);
   });
 
-  it("adds the vendor scripts one at a time, then the SDK, each pinned by hash, and resolves to the global once it has loaded", async () => {
+  it("adds the vendor scripts together and in order, then the SDK once they have all run, each pinned by hash, and resolves to the global", async () => {
     const p = loadZoomEmbedded();
-    // only the first vendor file is asked for until it has run: the SDK must find every global in place
-    expect(scripts()).toHaveLength(1);
-    expect(scripts()[0]?.src).toBe(ZOOM_SDK_VENDOR_SCRIPTS[0]!.src);
-    expect(scripts()[0]?.integrity).toBe(ZOOM_SDK_VENDOR_SCRIPTS[0]!.integrity);
+    // all five vendor files are fetched at once (one round trip) but run in document order, so each global is in place for the next
+    expect(scripts().map((s) => s.src)).toEqual(ZOOM_SDK_VENDOR_SCRIPTS.map((v) => v.src));
+    expect(scripts().map((s) => s.integrity)).toEqual(ZOOM_SDK_VENDOR_SCRIPTS.map((v) => v.integrity));
+    for (const s of scripts()) expect(s.async).toBe(false);
     await loadVendors();
     expect(scripts().map((s) => s.src)).toEqual([...ZOOM_SDK_VENDOR_SCRIPTS.map((v) => v.src), ZOOM_SDK_SCRIPT]);
     // the browser checks the bytes against the reviewed hash, so a changed file on Zoom's host cannot run on these pages
@@ -48,6 +51,8 @@ describe("loading Zoom's embedded Meeting SDK", () => {
     window.ZoomMtgEmbedded = fakeGlobal();
     await loadLast();
     expect(await p).toBe(window.ZoomMtgEmbedded);
+    // a good load clears any earlier failure, so one bad moment does not lock the page into links
+    expect(zoomSdkKnownUnavailable()).toBe(false);
   });
 
   it("does not load twice when the global is already there", async () => {
@@ -61,15 +66,17 @@ describe("loading Zoom's embedded Meeting SDK", () => {
     present.src = ZOOM_SDK_VENDOR_SCRIPTS[0]!.src;
     document.head.appendChild(present);
     void loadZoomEmbedded();
-    expect(scripts()).toHaveLength(2);
-    expect(scripts()[1]?.src).toBe(ZOOM_SDK_VENDOR_SCRIPTS[1]!.src);
+    expect(scripts()).toHaveLength(ZOOM_SDK_VENDOR_SCRIPTS.length);
+    expect(scripts().filter((s) => s.src === ZOOM_SDK_VENDOR_SCRIPTS[0]!.src)).toHaveLength(1);
   });
 
   it("resolves null, leaves no failed script behind, and remembers the failure when a vendor file is blocked", async () => {
     const p = loadZoomEmbedded();
     scripts()[0]?.dispatchEvent(new Event("error"));
+    // the failed one is gone at once; the others still arrive, and the chain still answers null
+    for (const s of scripts()) s.dispatchEvent(new Event("load"));
     expect(await p).toBeNull();
-    expect(scripts()).toHaveLength(0);
+    expect(scripts().map((s) => s.src)).toEqual(ZOOM_SDK_VENDOR_SCRIPTS.slice(1).map((v) => v.src));
     expect(zoomSdkKnownUnavailable()).toBe(true);
   });
 
