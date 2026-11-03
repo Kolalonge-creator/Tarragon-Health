@@ -32,7 +32,7 @@ import { GoalsAndMilestonesCard } from "@/app/(dashboard)/patient/goals-and-mile
 import { TestimonialForm } from "@/components/testimonial-form";
 
 export default async function PatientCarePage() {
-  const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectSex, uiLanguage } = await getPatientDashboardContext();
   const supabase = await createClient();
   const coachAccess = await isAssistantOffered(supabase);
   // S69: the community link shows only when community is open for this person (module and go-live guard, or a test account); a failed read hides it.
@@ -72,9 +72,13 @@ export default async function PatientCarePage() {
               fire for anyone on a diabetes care plan regardless of tier, and
               self-reporting pregnancy shouldn't require a paid plan. Renders a
               plain status card for everyone else. */}
-          <PregnancyStatus patientId={subjectId} />
+          {/* Never for a patient recorded as male; unrecorded sex keeps it (same fail-open rule as cycle tracking). */}
+          {subjectSex !== "male" && <PregnancyStatus patientId={subjectId} />}
           <PatientEscalations patientId={subjectId} />
-          <HospitalAdmissionsCard patientId={subjectId} />
+          {/* The admission form is a rare job; folded so the page opens on the care plan, not on two date fields. */}
+          <Disclosure title="Hospital admissions" hint="Tell your care team about a hospital stay, and see the ones recorded">
+            <HospitalAdmissionsCard patientId={subjectId} />
+          </Disclosure>
         </div>
 
         <div className="space-y-4">
@@ -82,7 +86,11 @@ export default async function PatientCarePage() {
               availability + not-for-emergencies copy. */}
           <BookVideoVisit patientId={subjectId} />
           {/* Member benefit with a monthly allowance (S22): the card reads its own allowance, never shows a price. */}
-          <WrittenQuestionCard patientId={subjectId} locale={uiLanguage} />
+          {/* The composer is long (what, question, how long, photos). Folded: the Messages tab is the everyday door; this is the
+              Member's written-reply benefit, opened when wanted. */}
+          <Disclosure title="Write to your care team" hint="A written reply within a few days; Members get a monthly allowance">
+            <WrittenQuestionCard patientId={subjectId} locale={uiLanguage} />
+          </Disclosure>
           <VisitSummaryCard locale={uiLanguage} patientId={subjectId} readOnly={subjectId !== profile.id} />
           <YourReferrals patientId={subjectId} />
           <NavigationRequests patientId={subjectId} />

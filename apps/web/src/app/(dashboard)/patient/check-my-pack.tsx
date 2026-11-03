@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FilePicker } from "@/components/ui/file-picker";
 import { Badge } from "@/components/ui/badge";
 import { checkMedicationPack } from "@/lib/medications/pack-actions";
 import { NAFDAC_MAS, type PackCheckResult } from "@/lib/medications/pack-check";
@@ -87,14 +88,7 @@ export function CheckMyPack() {
       </CardHeader>
       <CardContent className="space-y-3">
         <form ref={formRef} action={onSubmit} className="space-y-2">
-          <input
-            type="file"
-            name="photo"
-            accept="image/*"
-            capture="environment"
-            required
-            className="block w-full text-sm text-charcoal-ink/80 dark:text-night-ink/80 file:mr-3 file:rounded file:border-0 file:bg-brand-green file:px-3 file:py-1.5 file:text-sm file:text-white"
-          />
+          <FilePicker id="pack-photo" name="photo" accept="image/*" capture="environment" required label="Take a photo of the pack" />
           <Button type="submit" size="sm" disabled={pending}>
             {pending ? "Reading the pack…" : "Check this pack"}
           </Button>

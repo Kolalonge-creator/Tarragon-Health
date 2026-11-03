@@ -542,14 +542,14 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
   return (
     <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Pay for their plan</p>
+      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Pay for a doctor&apos;s time for them</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select name="planCode" defaultValue="" className="max-w-xs">
-          <option value="">Choose a plan</option>
+          <option value="">Choose what to buy</option>
+          {/* One-off pieces of a doctor's work since the two-tier model; nothing here renews, so no "/mo" or "/yr". */}
           {payable.map((plan) => (
             <option key={plan.code} value={plan.code}>
-              {plan.name} ({naira(plan.price_kobo)}
-              {plan.interval === "yearly" ? "/yr" : "/mo"})
+              {plan.name} ({naira(plan.price_kobo)})
             </option>
           ))}
         </Select>
@@ -559,8 +559,8 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
       </div>
       {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
       <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-        Billed to you, held by them. They keep their own account and can cancel it themselves at any
-        time. Both of you are told when it starts.
+        Billed to you now, in naira, via Paystack; held by them. They keep their own account, and both
+        of you can see it on their record once it lands.
       </p>
     </form>
   );

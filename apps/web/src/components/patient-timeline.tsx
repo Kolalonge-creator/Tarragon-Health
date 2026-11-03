@@ -17,6 +17,50 @@ import { canAnnotate, ItemNote } from "@/components/item-note";
  * source-table trigger.
  */
 
+/** A row that stands for several events written in one go (a risk assessment scheduling every screening at once). */
+export type TimelineDisplayEvent = TimelineEvent & { burst?: TimelineEvent[] };
+
+const BURST_TYPES: ReadonlySet<TimelineEventType> = new Set(["screening_due"]);
+const BURST_MIN = 3;
+
+/**
+ * A risk assessment writes one "screening due" event per recommended test, seventeen for a typical adult, all within the
+ * same minute; the timeline's first page was nothing but those rows. Three or more of them from the same day fold into one
+ * row that names the first two and counts the rest. Any other event type, and a lone screening, are left exactly as written.
+ */
+export function collapseScreeningBursts(events: TimelineEvent[]): TimelineDisplayEvent[] {
+  const out: TimelineDisplayEvent[] = [];
+  let i = 0;
+  while (i < events.length) {
+    const first = events[i]!;
+    if (!BURST_TYPES.has(first.event_type)) {
+      out.push(first);
+      i += 1;
+      continue;
+    }
+    const day = first.occurred_at.slice(0, 10);
+    let j = i + 1;
+    while (j < events.length && events[j]!.event_type === first.event_type && events[j]!.occurred_at.slice(0, 10) === day) j += 1;
+    const run = events.slice(i, j);
+    if (run.length >= BURST_MIN) {
+      // The writer puts the test's name in the summary ("Blood Pressure Check · due 2026-10-30"); the title is just "Screening due".
+      const names = run.map((e) => (e.summary ?? e.title).replace(/\s*[·-]\s*due\b.*$/i, "").trim()).filter(Boolean);
+      const shown = names.slice(0, 2).join(", ");
+      const rest = names.length - Math.min(2, names.length);
+      out.push({
+        ...first,
+        title: `${run.length} screenings scheduled`,
+        summary: rest > 0 ? `${shown} and ${rest} more. Book them together in your Health Check.` : `${shown}. Book them together in your Health Check.`,
+        burst: run,
+      });
+    } else {
+      out.push(...run);
+    }
+    i = j;
+  }
+  return out;
+}
+
 // Each event type gets a small status dot. This is the clinical status-colour
 // system (attention/action/positive/neutral), deliberately separate from the
 // brand palette per docs/BRAND_GUIDE.md §5.
@@ -127,9 +171,9 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
 
 // The single per-event row, shared by both flat and grouped-by-month
 // rendering below so the two modes can never visually drift apart.
-function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: TimelineEvent; linkBasePath?: string; allowNotes?: boolean }) {
+function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: TimelineDisplayEvent; linkBasePath?: string; allowNotes?: boolean }) {
   const style = EVENT_STYLE[event.event_type];
-  const subpath = EVENT_LINK_SUBPATH[event.event_type];
+  const subpath = event.burst ? "/health-check" : EVENT_LINK_SUBPATH[event.event_type];
   const href = linkBasePath && subpath ? `${linkBasePath}${subpath}` : null;
 
   const body = (
@@ -162,17 +206,17 @@ function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: 
       ) : (
         body
       )}
-      {allowNotes && canAnnotate(event.source_table, event.source_id) ? <ItemNote table={event.source_table} id={event.source_id as string} /> : null}
+      {allowNotes && !event.burst && canAnnotate(event.source_table, event.source_id) ? <ItemNote table={event.source_table} id={event.source_id as string} /> : null}
     </li>
   );
 }
 
-type TimelineMonthGroup = { key: string; label: string; events: TimelineEvent[] };
+type TimelineMonthGroup = { key: string; label: string; events: TimelineDisplayEvent[] };
 
 // `data` always arrives newest-first (occurred_at desc), so grouping in
 // first-seen order naturally yields newest-month-first groups without a
 // separate sort pass.
-function groupEventsByMonth(events: TimelineEvent[]): TimelineMonthGroup[] {
+function groupEventsByMonth(events: TimelineDisplayEvent[]): TimelineMonthGroup[] {
   const groups: TimelineMonthGroup[] = [];
   const indexByKey = new Map<string, number>();
   for (const event of events) {
@@ -231,7 +275,8 @@ export function PatientTimeline({
   /** S44 (spec 2.14): shows "add a note" and "this looks wrong" on each item. Only the person's own timeline sets it; a clinician view never does. */
   allowNotes?: boolean;
 }) {
-  const { data, isLoading, isError } = usePatientTimeline(patientId, limit);
+  const { data: raw, isLoading, isError } = usePatientTimeline(patientId, limit);
+  const data = raw ? collapseScreeningBursts(raw) : raw;
   const monthGroups = groupByMonth && data ? groupEventsByMonth(data) : null;
 
   return (

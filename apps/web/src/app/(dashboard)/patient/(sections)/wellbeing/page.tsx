@@ -53,31 +53,39 @@ export default async function PatientWellbeingPage() {
         </div>
       </details>
 
-      <SharedPhoneSettings />
+      {/* Folded: most people are on their own phone, and the full explanation, switch and PIN stood above the check-in on every
+          visit (design audit S5). The "Hide now" inside stays one tap away, and the gate below still hides everything once it is on. */}
+      <Disclosure title="Using a shared phone?" hint="Keep wellbeing screens hidden behind a PIN, or hide them now">
+        <SharedPhoneSettings />
+      </Disclosure>
       {ownProfile && <WorklistNotice enabled={features.worklist} optedOut={features.worklistActivityOptOut} />}
 
       <SharedPhoneGate>
         <WellbeingTiles patientId={subjectId} />
         {/* The daily check-in is the main job on this page, so it sits straight under the tiles. */}
-        <WellbeingCheckinForm patientId={subjectId} calmToolEnabled={features.panic} />
+        {/* The calm tool is already the first thing on the page; a second copy inside the form was the same button twice. */}
+        <WellbeingCheckinForm patientId={subjectId} />
         <WellbeingTrendChart patientId={subjectId} />
         {/* A care-team hand-off notice is never folded away. */}
         <MentalHealthHandoffCard patientId={subjectId} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("library.title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p className="text-charcoal-ink/70 dark:text-night-ink/70">{t("library.intro")}</p>
-            <div className="flex flex-wrap gap-4">
-              <Link className="underline" href="/patient/wellbeing/library">{t("library.title")}</Link>
-              <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.title")}</Link>
-              <Link className="underline" href="/patient/wellbeing/journal">{t("journal.title")}</Link>
-              <Link className="underline" href="/patient/sleep">Sleep</Link>
-            </div>
-          </CardContent>
-        </Card>
+        {/* One row of chips rather than a card with a paragraph: four doors, nothing to read first. */}
+        <nav aria-label={t("library.title")} className="flex flex-wrap gap-2">
+          {[
+            { href: "/patient/wellbeing/library", label: t("library.title") },
+            { href: "/patient/wellbeing/breathing", label: t("breathing.title") },
+            { href: "/patient/wellbeing/journal", label: t("journal.title") },
+            { href: "/patient/sleep", label: "Sleep" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="inline-flex min-h-11 items-center rounded-full border border-charcoal-ink/15 bg-white px-4 text-sm font-medium text-charcoal-ink hover:bg-charcoal-ink/[0.03] dark:border-night-ink/20 dark:bg-night-card dark:text-night-ink"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
 
         {/* Folded to keep the page short (design audit P3). Each opens in place; nothing inside was changed. */}
         <Disclosure title="Mood alongside your readings" hint="How your mood lines up with your health numbers">
@@ -92,7 +100,11 @@ export default async function PatientWellbeingPage() {
           </FeatureConsentGate>
         </Disclosure>
 
-        {ownProfile && <ShareSummaryCard enabled={features.share} />}
+        {ownProfile && features.share && (
+          <Disclosure title="Share with my care team" hint="Choose what to send; nothing is shared until you say so">
+            <ShareSummaryCard enabled={features.share} />
+          </Disclosure>
+        )}
       </SharedPhoneGate>
 
       {/* Two routes, deliberately side by side and clearly distinguished.
@@ -122,29 +134,23 @@ export default async function PatientWellbeingPage() {
         <TherapyNetwork organisationId={organisationId} patientId={subjectId} />
       </Disclosure>
 
-      <Disclosure title="Learn about mental health" hint="Short reads and guidance">
+      <Disclosure title="Learn about mental health" hint="Short reads, and where your medicines are tracked">
         <CategoryDetail
           category="mental_health"
           patientId={subjectId}
           organisationId={organisationId}
         />
-      </Disclosure>
-
-      {/* Module 46 §46.10: a mental-health medication (e.g. an SSRI) flows
-          through the same medications/medication_reviews/adherence stack as
-          any other prescription — no parallel medication view here. */}
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            Any medicine your care team has started for you (including for your mental
-            wellbeing) is tracked with your other medications: adherence, side effects, and
-            reviews all in one place.
-          </p>
-          <Link href="/patient/medications" className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
+        {/* Module 46 §46.10: a mental-health medication (e.g. an SSRI) flows
+            through the same medications/medication_reviews/adherence stack as
+            any other prescription — no parallel medication view here. */}
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          Any medicine your care team has started for you, including for your mental wellbeing, is tracked with your other
+          medications: adherence, side effects and reviews in one place.{" "}
+          <Link href="/patient/medications" className="font-medium text-brand-green underline dark:text-brand-green-bright">
             View your medications
           </Link>
-        </CardContent>
-      </Card>
+        </p>
+      </Disclosure>
     </DashboardSection>
   );
 }
