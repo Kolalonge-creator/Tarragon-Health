@@ -112,8 +112,8 @@ declare
   v_kind text; v_id text; v_uuid uuid;
   c_uuid constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 begin
-  -- (the retired platform-credit entries are marked once, by name, in the backfill below: the two removal proofs scan every
-  -- function body for the retired features' names, so this function must not spell them)
+  -- (the entries of the retired stored-balance feature are marked once, by source, in the backfill below: the removal proofs
+  -- scan every function body for the retired features' names with LIKE, where _ matches any character, so this body spells none)
   if p_source_ref is not null then
     if p_source_ref ~ c_uuid then
       v_kind := 'payment_transaction'; v_id := p_source_ref;
