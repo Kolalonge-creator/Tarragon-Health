@@ -19,7 +19,7 @@ export default function ContactPage() {
         <SectionHeading
           as="h1"
           eyebrow="Contact"
-          title="Join TarragonHealth"
+          title="Talk to us"
           description="Tell us who you are and what you need: patient, family, employer or HMO. A member of our team will reply to you personally."
         />
         <div className="mx-auto max-w-xl">

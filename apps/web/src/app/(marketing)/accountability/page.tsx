@@ -47,7 +47,7 @@ export default async function AccountabilityPage() {
               What happens when something looks wrong
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              These times come straight from the version our Clinical Director signed. If that
+              These times come straight from the signed version. If that
               document changes, this page changes with it, and we will not quote a number
               that nobody has approved.
             </p>
@@ -85,9 +85,8 @@ export default async function AccountabilityPage() {
             })}
 
             <p className="rounded-2xl bg-white/60 p-6 text-sm text-charcoal-ink/70">
-              Each figure is the longest we allow ourselves, not our best case. Most emergency
-              flags reach a doctor far faster than the limit shown. The limit is the standard we hold
-              ourselves to, whichever part of the platform raised the flag.
+              Each figure is the longest we allow ourselves, not a best case. The limit is the standard
+              we hold ourselves to, whichever part of the platform raised the flag.
               {published.approvedByName && (
                 <>
                   {" "}
@@ -95,7 +94,6 @@ export default async function AccountabilityPage() {
                   <span className="font-medium text-charcoal-ink">
                     {published.approvedByName}
                   </span>
-                  , our Clinical Director
                   {published.approvedAt
                     ? `, on ${new Date(published.approvedAt).toLocaleDateString("en-GB", {
                         day: "numeric",
