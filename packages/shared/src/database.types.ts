@@ -20203,6 +20203,7 @@ export type Database = {
           entry_no: number
           id: string
           is_reversed: boolean
+          is_test: boolean
           memo: string | null
           period_month: string
           reversal_of: string | null
@@ -20217,6 +20218,7 @@ export type Database = {
           entry_no?: number
           id?: string
           is_reversed?: boolean
+          is_test?: boolean
           memo?: string | null
           period_month: string
           reversal_of?: string | null
@@ -20231,6 +20233,7 @@ export type Database = {
           entry_no?: number
           id?: string
           is_reversed?: boolean
+          is_test?: boolean
           memo?: string | null
           period_month?: string
           reversal_of?: string | null
@@ -35322,6 +35325,7 @@ export type Database = {
           error: string | null
           event_type: Database["public"]["Enums"]["payment_transaction_type"]
           id: string
+          is_test: boolean
           organisation_id: string | null
           processed_at: string | null
           provider: Database["public"]["Enums"]["payment_provider"]
@@ -35341,6 +35345,7 @@ export type Database = {
           error?: string | null
           event_type?: Database["public"]["Enums"]["payment_transaction_type"]
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           processed_at?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"]
@@ -35360,6 +35365,7 @@ export type Database = {
           error?: string | null
           event_type?: Database["public"]["Enums"]["payment_transaction_type"]
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           processed_at?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"]
@@ -37508,6 +37514,7 @@ export type Database = {
           emergency_contact_relationship: string | null
           full_name: string | null
           glucose_display_unit: string
+          test_keep_reason: string | null
           weight_display_unit: string
           temperature_display_unit: string
           length_display_unit: string
@@ -37566,6 +37573,7 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          test_keep_reason?: string | null
           weight_display_unit?: string
           temperature_display_unit?: string
           length_display_unit?: string
@@ -37624,6 +37632,7 @@ export type Database = {
           emergency_contact_relationship?: string | null
           full_name?: string | null
           glucose_display_unit?: string
+          test_keep_reason?: string | null
           weight_display_unit?: string
           temperature_display_unit?: string
           length_display_unit?: string
@@ -40726,6 +40735,7 @@ export type Database = {
           currency: Database["public"]["Enums"]["currency"]
           deferred_account_code: string
           id: string
+          is_test: boolean
           organisation_id: string | null
           payment_transaction_id: string | null
           period_end: string
@@ -40744,6 +40754,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           payment_transaction_id?: string | null
           period_end: string
@@ -40762,6 +40773,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           payment_transaction_id?: string | null
           period_end?: string

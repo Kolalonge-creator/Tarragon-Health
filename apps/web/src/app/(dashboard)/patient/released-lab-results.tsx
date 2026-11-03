@@ -13,7 +13,7 @@ import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FilePicker } from "@/components/ui/file-picker";
 import { Label } from "@/components/ui/label";
 
 const TOUCH = "min-h-11";
@@ -124,7 +124,7 @@ function AddOwnResult({ locale, onDone }: { locale: Locale; onDone: () => void }
       <h3 className="font-medium">{t("labres.add.title", locale)}</h3>
       <p className={`text-sm ${MUTED}`}>{t("labres.add.help", locale)}</p>
       <Label htmlFor="own-result-file" className="sr-only">{t("labres.add.title", locale)}</Label>
-      <Input id="own-result-file" type="file" name="file" accept={LAB_RESULT_FILE_ACCEPT} required className={TOUCH} />
+      <FilePicker id="own-result-file" name="file" accept={LAB_RESULT_FILE_ACCEPT} required label="Choose a file or photo" hint="PDF or a clear photo of the result." />
       {state?.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       {state?.success ? <p role="status" className="text-sm text-green-800">{t("labres.add.done", locale)}</p> : null}
       <Button type="submit" className={TOUCH} disabled={pending}>{t("labres.add.button", locale)}</Button>

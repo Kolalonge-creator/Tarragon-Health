@@ -31,6 +31,8 @@ describe("community inbox notices", () => {
     ["community_overdue", "Community work is waiting. Something in the Community queue has waited longer than it should. Please open the queue.", "/clinician/community/moderation?tab=moderation", {}],
     ["community_staff_alert", "A Community post needs a safety reviewer now. Open the Community safety queue.", "/clinician/community/moderation?tab=safety", { kind: "safety" }],
     ["community_staff_alert", "Community moderation queue has new items. Open the queue when you can.", "/dashboard/care-coordinator/community?tab=moderation", { kind: "queue", area: "coordinator" }],
+    ["community_staff_alert", "A Community post needs a safety reviewer now. Open the Community safety queue.", "/analytics/community?tab=safety", { kind: "safety", area: "analyst" }],
+    ["community_staff_alert", "Community moderation queue has new items. Open the queue when you can.", "/admin/community/moderation?tab=moderation", { kind: "queue", area: "admin" }],
     ["community_unmask_notice", "A community name was looked up. An admin looked up who is behind a community name. The reason is in the audit log.", "/clinician", {}],
   ] as Array<[string, string, string, Record<string, string>]>)("%s", (template, text, href, extra) => {
     // The payload carries a group and a handle on purpose: no notice may ever echo them. Staff alerts add only the kind and the reader's area.
