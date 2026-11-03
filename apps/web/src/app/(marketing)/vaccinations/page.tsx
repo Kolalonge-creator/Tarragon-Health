@@ -18,7 +18,7 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Your schedule is created for you",
-    body: "The vaccines that are due or coming up for you are worked out automatically, from routine childhood immunisation to adult and travel vaccines such as human papillomavirus (HPV). If you add a child who is too young to have their own login, their schedule is kept on your account in the same way.",
+    body: "The vaccines that are due or coming up for you are worked out automatically, from routine childhood immunisation to adult vaccines such as human papillomavirus (HPV) and travel vaccines. If you add a child who is too young to have their own login, their schedule is kept on your account in the same way.",
   },
   {
     step: 2,
@@ -60,7 +60,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Free for everyone",
-    body: "Vaccination tracking, reminders and verification are free for every Tarragon member, because we believe everyone should have access to this kind of prevention.",
+    body: "Vaccination tracking, reminders and verification are free for everyone who uses Tarragon, because we believe everyone should have access to this kind of prevention.",
   },
 ];
 

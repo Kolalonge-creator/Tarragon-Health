@@ -37,7 +37,7 @@ const CONNECTS = [
   },
   {
     title: "A doctor when you need one directly",
-    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a single paid booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
+    body: "With Membership, send a written question and a doctor on your care team replies in the app, usually within 72 hours, and have a video call with your care team every month. Membership is one yearly price you see and confirm before anything is charged, and it does not renew unless you choose that.",
   },
 ];
 
@@ -56,7 +56,7 @@ const JOURNEY = [
   },
   {
     title: "The result comes back reviewed",
-    body: "Your result is added to your record with an explanation in plain language, and a doctor reviews it. If anything needs attention, your care team follows up with you directly, at no extra charge.",
+    body: "Your result is added to your record with an explanation in plain language. An abnormal result goes to a doctor on every plan, and with Membership your care team talks every result through with you.",
   },
 ];
 
@@ -204,7 +204,7 @@ export default function CareCoordinationPage() {
           <p>
             Tarragon holds the full picture. Every reading, result, refill and referral is kept on
             one record over time, and your care team monitors it. As a result, an abnormal result
-            triggers follow-up within hours, a refill is arranged before you run out, and a
+            reaches a doctor within 24 hours, a refill is arranged before you run out, and a
             specialist sees your history instead of starting from the beginning.
           </p>
         </div>

@@ -65,7 +65,7 @@ export const DEVICES_FAQ: readonly FaqItem[] = [
   {
     question: "Do I have to buy one of these?",
     answer:
-      "No. Typing in a reading takes seconds and keeps your record just as current. Any device that syncs through Apple Health or Health Connect can also send readings to your record as those connections become available. These models are well regarded and are the ones people most often ask about.",
+      "No. Typing in a reading takes seconds and keeps your record just as current. Any device that syncs through Apple Health or Health Connect can also send readings to your record as those connections become available. These are the models our pairing is built around, listed so you know what we are testing, not as a recommendation to buy.",
   },
   {
     question: "Does Tarragon sell these or make money if I buy one?",
@@ -75,6 +75,6 @@ export const DEVICES_FAQ: readonly FaqItem[] = [
   {
     question: "My device is not syncing automatically. Is something wrong?",
     answer:
-      "Automatic sync is being introduced one connection at a time, so a given device may not send readings automatically yet. Nothing is lost in the meantime. You can enter the reading in the app in seconds, and it is added to the same record and receives the same doctor review as a synced reading.",
+      "Automatic sync is being introduced one connection at a time, so a given device may not send readings automatically yet. Nothing is lost in the meantime. You can enter the reading in the app in seconds, and it is added to the same record and checked in the same way as a synced reading.",
   },
 ] as const;

@@ -39,7 +39,7 @@ export function GiftPersonalizer() {
   const displayName = firstName.trim() || "someone you love";
   const relationshipLabel =
     RELATIONSHIPS.find((option) => option.value === relationship)?.label ?? "family member";
-  const ctaLabel = firstName.trim() ? `Buy ${firstName.trim()} some care` : "Buy them some care";
+  const ctaLabel = firstName.trim() ? `Give ${firstName.trim()} a year of Membership` : "Give them a year of Membership";
 
   return (
     <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
@@ -60,7 +60,7 @@ export function GiftPersonalizer() {
           </span>
         </div>
         <p className="mt-6 text-xs font-medium uppercase tracking-wide text-deep-forest">
-          A health check, gifted
+          A year of Membership, gifted
         </p>
         <p className="mt-2 font-heading text-2xl font-bold leading-snug text-charcoal-ink sm:text-3xl">
           For {displayName}
@@ -68,8 +68,8 @@ export function GiftPersonalizer() {
         <p className="mt-1 text-sm text-charcoal-ink/60">Your {relationshipLabel.toLowerCase()}</p>
         <div className="my-6 border-t border-dashed border-charcoal-ink/15" />
         <p className="text-sm leading-relaxed text-charcoal-ink/70">
-          A named check or a doctor&apos;s time, doctor-reviewed and already paid for. Theirs to book
-          whenever they are ready.
+          A year of care with their care team, already paid for. Theirs to accept whenever they
+          are ready.
         </p>
         <p className="mt-4 text-xs text-charcoal-ink/65">From you, waiting on their account</p>
       </div>
@@ -83,8 +83,7 @@ export function GiftPersonalizer() {
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
           Tell us who you are gifting this to and we will personalise the card. This does not
-          start the purchase, it is just for you: the real gift happens on your dashboard once
-          you have added them as family.
+          start the purchase, it is just for you: the real gift happens from your dashboard.
         </p>
         <div className="mt-6 space-y-4">
           <div>

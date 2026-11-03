@@ -30,8 +30,13 @@ export async function generateMetadata(): Promise<Metadata> {
 // The underlying table refreshes on a nightly cron; re-render at the same cadence.
 export const revalidate = 300;
 
-function formatValue(value: number | null): string {
-  if (value === null) return "No";
+function formatValue(value: number | null, suppressed: boolean): string {
+  // A held-back figure is shown as the threshold it sits under, which the
+  // footnote explains, rather than as "No" (which read as the answer to a
+  // question) or an em dash (which read as missing data). A figure that is
+  // missing for any other reason (not yet computed) is not "under 25", so it
+  // says only that it is not available.
+  if (value === null) return suppressed ? "Under 25" : "Not yet available";
   return new Intl.NumberFormat("en-NG").format(value);
 }
 
@@ -69,7 +74,7 @@ export default async function ImpactPage() {
               className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
             >
               <p className="font-heading text-3xl font-semibold text-brand-green">
-                {formatValue(metric.value)}
+                {formatValue(metric.value, metric.suppressed)}
               </p>
               <p className="mt-2 text-sm font-medium text-charcoal-ink">{metric.label}</p>
               {metric.description && (

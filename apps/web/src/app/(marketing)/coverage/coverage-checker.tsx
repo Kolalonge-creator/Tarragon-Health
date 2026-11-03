@@ -92,11 +92,9 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
               ))}
           </div>
           <p className="mt-3 text-xs text-charcoal-ink/65">
-            The dot tracks home sample collection, which still waits on a contracted logistics
-            partner everywhere. We do not deliver medication: you collect it from a pharmacy you
-            choose. Everything else on this page, including labs,
-            pharmacy collection and specialist referrals, already works the same way in all 36
-            states and the FCT.
+            Everything on this page, including laboratory requests, pharmacy collection and
+            specialist referrals, works the same way in all 36 states and the FCT. We do not
+            collect samples at home and we do not deliver medication.
           </p>
         </div>
       )}

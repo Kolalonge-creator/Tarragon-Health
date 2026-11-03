@@ -9,19 +9,18 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const revalidate = 300;
 
 /**
- * Written Result Interpretation.
+ * Understanding a laboratory result.
  *
- * The one paid product on this platform with no dependency on anything else:
- * no partner laboratory, no negotiated rate, no fulfilment chain, no prior
- * relationship. Somebody uploads a PDF from any laboratory in the country and a
- * doctor writes back what it means. That makes it the natural front door, and
- * this page is written for a stranger rather than for an existing patient.
- *
- * WHY IT EXISTS AT ALL. Tarragon stopped selling laboratory tests on
- * 2026-09-10, because what it had recorded as its cost was the laboratory's own
- * published retail price -- so any margin made it dearer than the lab doing the
- * test. Deciding which tests you need stays free. Reading the result is the
- * paid product. This page is the commercial half of that decision.
+ * Founder decision 2026-11-03: reading a result with a doctor is part of
+ * Membership, not a product of its own. The Written Result Interpretation and
+ * Result Consultation catalogue rows are inactive and nobody has ever bought
+ * one, so this page no longer sells a reading. What is true on every plan:
+ * uploading is free, every result is checked against the normal range, and an
+ * abnormal result reaches a doctor within 24 hours (12 if critical). What
+ * Membership adds: a doctor on your care team goes through any result with
+ * you, on the monthly video call or in a written question between calls.
+ * The page is still written for a stranger holding a report, because that is
+ * who arrives here from search.
  *
  * THE HONEST LIMIT, WHICH BELONGS ON THE PAGE. A doctor reading a PDF has not
  * examined the person and cannot diagnose from paper alone. Saying so is not a
@@ -34,22 +33,22 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Understand your laboratory results",
   description:
-    "Upload a result from any laboratory in Nigeria and a doctor will write back what it means, which figures are outside the normal range, and what to do next.",
+    "Upload a result from any laboratory in Nigeria. Anything abnormal reaches a doctor on every plan; with Membership a doctor goes through it with you.",
   path: MARKETING_ROUTES.resultInterpretation,
 });
 
 const STEPS = [
   {
     title: "Upload what you already have",
-    body: "A PDF, a photograph of a printed report, or whatever the laboratory gave you, from any laboratory or hospital in Nigeria. You do not need to have ordered the test through us, and most people who use this service did not.",
+    body: "A PDF, a photograph of a printed report, or whatever the laboratory gave you, from any laboratory or hospital in Nigeria. You do not need to have arranged the test through us. Uploading is free on every plan.",
   },
   {
-    title: "A doctor reads it properly",
-    body: "This is not a template, and it is not an automatic flag on anything outside the reference range. A doctor on our care team reads the actual figures against your age, sex and anything else on your record.",
+    title: "Anything abnormal reaches a doctor",
+    body: "Every result is checked against the normal range. A figure outside it goes to a doctor within 24 hours, or within 12 hours if it is critical, on every plan including Free. That is not an automatic flag left on your record: a doctor looks at it and tells you what it means.",
   },
   {
-    title: "You get it back in writing",
-    body: "The reply explains which figures are outside the normal range, what that does and does not indicate, what to do next, and what is worth rechecking and when. It is written in plain language and kept on your record, where you can read it again in six months.",
+    title: "With Membership, a doctor goes through it with you",
+    body: "On your monthly video call, or as a written question between calls, a doctor on your care team reads the actual figures against your age, sex and the rest of your record: what is outside the normal range, what that does and does not indicate, what to do next, and what is worth rechecking and when. The answer stays on your record in plain language.",
   },
   {
     title: "It becomes part of your history",
@@ -61,17 +60,17 @@ const FAQ = [
   {
     question: "Do I have to have used Tarragon before?",
     answer:
-      "No. Create a free account, upload the result, and pay for the reading. Nothing else has to be set up first.",
+      "No. Create a free account and upload the result. If a figure is outside the normal range, a doctor looks at it on every plan. If you want a doctor to go through the whole result with you, that is part of Membership.",
   },
   {
     question: "Which laboratories do you accept results from?",
     answer:
-      "All of them. We accept results from any registered laboratory or hospital in Nigeria, and from abroad. We have no commercial relationship with any laboratory and take no commission on what they charged you.",
+      "All of them. We accept results from any registered laboratory or hospital in Nigeria, and from abroad. You choose the laboratory and pay it directly; we take no commission on what it charged you.",
   },
   {
     question: "Can a doctor diagnose me from this?",
     answer:
-      "Sometimes a result is clear enough to act on, and often it is not. A doctor reading a report has not examined you, so what you get is an honest reading of the figures and a clear recommendation about what to do next, which is sometimes to book a proper consultation. If that is the answer, we will say so rather than stretch a written note further than it goes.",
+      "Sometimes a result is clear enough to act on, and often it is not. A doctor reading a report has not examined you, so what you get is an honest reading of the figures and a clear recommendation about what to do next, which is sometimes to be seen in person. If that is the answer, we will say so rather than stretch a reading further than it goes.",
   },
   {
     question: "What if something looks serious?",
@@ -81,12 +80,12 @@ const FAQ = [
   {
     question: "What if I would rather talk it through?",
     answer:
-      "A Result Consultation is a fifteen-minute video call with a doctor going through the same result with you, for people who would rather ask questions as they go. It is part of your monthly call with your care team.",
+      "With Membership, bring the result to your monthly video call with your care team, or send it as a written question between calls. Either way a doctor goes through it with you and the answer stays on your record.",
   },
   {
     question: "Do you sell the tests too?",
     answer:
-      "No. We work out which tests you need and write the request, free of charge, and you take it to whichever laboratory you choose and pay the laboratory directly at its price. We add nothing and take no commission. Reading the result with you is part of Membership.",
+      "No. We work out which tests you need and write the request, free of charge, and you take it to whichever laboratory you choose and pay the laboratory directly at its price. We add nothing and take no commission.",
   },
 ];
 
@@ -97,9 +96,9 @@ export default function ResultInterpretationPage() {
         <SectionHeading
           as="h1"
           size="large"
-          eyebrow="Written result interpretation"
+          eyebrow="Understanding your result"
           title="You have your result. What does it mean?"
-          description="Upload a result from any laboratory in Nigeria and a doctor will read it and write back what it means, in plain language, on a record that keeps it."
+          description="Upload a result from any laboratory in Nigeria. Anything abnormal reaches a doctor on every plan, and with Membership a doctor goes through the whole result with you, in plain language, on a record that keeps it."
         />
 
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
@@ -110,21 +109,21 @@ export default function ResultInterpretationPage() {
           </p>
           <p>
             As a result, people photograph the report and send it to a relative who is a nurse, search
-            online and find the worst possible explanation, or file it away and hope for the best. This
-            service provides the missing step.
+            online and find the worst possible explanation, or file it away and hope for the best.
+            Tarragon provides the missing step.
           </p>
         </div>
 
         <div className="mx-auto mt-8 max-w-md rounded-2xl border-2 border-brand-green/30 bg-white px-6 py-5 text-center shadow-sm">
-          <p className="font-heading text-2xl font-bold text-brand-green">Part of Membership</p>
+          <p className="font-heading text-2xl font-bold text-brand-green">Free to upload</p>
           <p className="mt-1 text-sm text-charcoal-ink/65">
-            Your care team reads your results with you on your monthly call. The price is on the pricing page.
+            An abnormal result reaches a doctor on every plan. With Membership, your care team goes through any result with you. Prices are on the pricing page.
           </p>
         </div>
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="Four steps, none of which involve selling you a test" />
+        <SectionHeading eyebrow="How it works" title="Four steps, and we never sell you a test" />
         <ol className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2">
           {STEPS.map((step, index) => (
             <li
@@ -165,10 +164,10 @@ export default function ResultInterpretationPage() {
           <CtaBand
             variant="gradient"
             title="Upload the result you are holding"
-            description="Create a free account, upload it, and a doctor will read it. Nothing else needs setting up, and there is no plan to join."
-            primaryLabel="Create a free account"
+            description="Create a free account and upload it. Anything abnormal reaches a doctor. Join Membership when you want a doctor to go through every result with you."
+            primaryLabel="Create your free account"
             secondaryHref={MARKETING_ROUTES.pricing}
-            secondaryLabel="See all prices"
+            secondaryLabel="See pricing"
           />
         </div>
       </Section>

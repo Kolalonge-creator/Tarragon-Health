@@ -61,10 +61,7 @@
  * difference, each read from versioned config (commerce.membership_ladder; commerce.membership_prices while the ladder is off), and no
  * other naira figure and no volume wording. no-public-prices.test.ts enforces this with the ladder off and on.
  */
-import { paidProductName, renewalCopy } from "@/lib/marketing/membership";
-
-/** The name of the one paid product while the ladder is OFF (W-46). */
-const P = paidProductName();
+import { renewalCopy } from "@/lib/marketing/membership";
 
 export type PricingLabel =
   | "FREE"
@@ -116,7 +113,7 @@ export const PRICING_LABELS: Record<
   "YOU PAY THE LAB": {
     title: "You pay the laboratory",
     description:
-      "We work out what is needed and write the request. You take it to whichever laboratory or pharmacy you choose and pay them directly, at their price. Tarragon adds nothing and takes no cut. We show you roughly what a test costs at a major private laboratory so you can compare before you go; smaller laboratories are often cheaper for the same test.",
+      "We work out what is needed and write the request. You take it to whichever laboratory or pharmacy you choose and pay them directly, at their price. Tarragon adds nothing and takes no cut. We show you roughly what a test costs at a major private laboratory so you can compare before you go; smaller laboratories are often cheaper for the same test. The one exception is the Membership Plus yearly blood panel, which is taken at a testing day Tarragon arranges and which is included in that price.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -127,7 +124,7 @@ export const PRICING_LABELS: Record<
   "PAID SERVICE": {
     title: "Paid service",
     description:
-      `Part of ${P}: a yearly blood test and a video call with your care team every month.`,
+      "Part of Membership or Membership Plus: a year of care with your care team. Membership Plus adds the yearly blood panel.",
     className: "bg-sprout-gold/15 text-charcoal-ink",
   },
 };
@@ -149,7 +146,7 @@ export const pricingPromises = (autoRenews: boolean): string[] => [
   "There are three plans: Free, Membership and Membership Plus. Each paid plan is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
   renewalCopy(autoRenews, 0).promise,
   "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
-  `The ${P} price is reviewed once a year at most, and we will tell you at least 30 days before any change. A ${P} you have already paid for is honoured until it ends.`,
+  "Membership prices are reviewed once a year at most, and we will tell you at least 30 days before any change. A year you have already paid for is honoured until it ends.",
   NAIRA_ONLY_STATEMENT,
 ];
 
@@ -171,7 +168,7 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
     items: [
       "Blood pressure, blood sugar, weight, temperature and oxygen logging",
       "Medication reminders, dose tracking and adherence check-ins",
-      "Connect a wearable, or pair a Bluetooth blood pressure cuff or glucometer",
+      "Bluetooth and wearable connections, as each one is switched on",
       "Your full history, shown as charts, with trends over time",
       "Downloadable Health Passport PDF",
       "Emergency safety net: immediate guidance, notification of your emergency contact, and a check-in afterwards",
@@ -187,7 +184,6 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
       "We work out which tests you need and write the request",
       "Results tracking over time",
       "Your children's vaccination schedules and verified certificates",
-      "The 90-Day Health Reset",
     ],
   },
   {
@@ -204,7 +200,7 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
   {
     id: "lifestyle",
     title: "Nutrition, activity and weight",
-    body: "The complete lifestyle programme, which was previously part of the most expensive plan. None of it requires a doctor's time, so none of it is charged.",
+    body: "The complete lifestyle programme. None of it requires a doctor's time, so none of it is charged.",
     items: [
       "Weight tracking against a goal you set",
       "Steps and activity, logged or synced from a wearable",
@@ -258,13 +254,13 @@ export const HMO_COMPARE_INTRO =
 export const HMO_COMPARE_ROWS: { need: string; hmo: boolean; tarragon: boolean }[] = [
   { need: "Pays your hospital and treatment bills when you fall ill", hmo: true, tarragon: false },
   { need: "Checks your blood pressure and blood sugar readings against care protocols every time you record one, even when you feel well", hmo: false, tarragon: true },
-  { need: "Notices a worrying pattern in your readings and refers it to a doctor before it becomes an emergency", hmo: false, tarragon: true },
+  { need: "Notices a worrying pattern in your readings and refers it to a doctor before it becomes serious", hmo: false, tarragon: true },
   { need: "Reminds you when a test or refill is due, gives you a request to take to any laboratory or pharmacy, and tracks your results over time", hmo: false, tarragon: true },
   { need: "Keeps your whole health history in one record that your family can see (with your consent)", hmo: false, tarragon: true },
 ];
 
 export const HMO_COMPARE_NOTE =
-  "Keep your HMO, because you will still need it if you are admitted to hospital. Tarragon monitors your readings between hospital visits, so that day may come later or not at all. We already work alongside Nigerian HMOs, and if your employer or HMO wants Tarragon for its members, they can contact us directly.";
+  "Keep your HMO, because you will still need it if you are admitted to hospital. Tarragon monitors your readings between hospital visits, so that day may come later or not at all. If your employer or HMO would like Tarragon for its members, they can contact us directly.";
 
 /**
  * "Tarragon vs a one-off checkup": the other comparison people actually make
@@ -298,7 +294,7 @@ export const ALWAYS_FREE: PricingLineItem & { description: string } = {
 };
 
 export const ALWAYS_FREE_NOTE =
-  "The education library, Health Passport and 90-Day Health Reset are free to every patient for as long as you use Tarragon, with no expiry date.";
+  "The education library and your Health Passport are free to every patient for as long as you use Tarragon, with no expiry date.";
 
 /**
  * "Try before you commit" is now structural rather than a promotion: the app
@@ -309,7 +305,7 @@ export const ALWAYS_FREE_NOTE =
  * offer here would have described something the platform cannot do.
  */
 export const FREE_TRIAL_INTRO =
-  `There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is Membership or Membership Plus, one price for a year that you see and confirm first.`;
+  `There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a video call with your care team every month, that is Membership. Membership Plus adds the yearly blood panel. Each is one price for a year that you see and confirm first.`;
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
@@ -332,24 +328,20 @@ export const FREE_TRIAL_TERMS: string[] = freeTrialTerms(false);
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your care team tells you, or you ask",
-    body: "A test, refill or vaccine is due.",
+    title: "Joining Membership: you see the exact price first",
+    body: "In the app, before anything is charged. The price is exact, not an estimate. You pay once, through Paystack, in naira, from wherever you are.",
   },
   {
-    title: "For Membership or Membership Plus, you see the exact price",
-    body: "In the app, before you are charged. The price is exact, not an estimate. Tarragon does not charge for a test, refill or vaccine, so there is no Tarragon price to show for those; see the next step.",
+    title: "A test, refill or vaccine: we write the request",
+    body: "Your care team tells you, or you ask. The request names exactly what is needed and why, so the laboratory or pharmacy knows what to do.",
   },
   {
-    title: "You confirm and pay, or take the request to the provider",
-    body: "For Membership: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
-  },
-  {
-    title: "You get a request to take with you",
-    body: "It names exactly which tests to run and why, so the laboratory knows what is needed. You choose where to go and when.",
+    title: "You take the request to the provider you choose",
+    body: "Any laboratory, pharmacy or provider, and you pay them directly, at their price. Tarragon sets no price on it and takes no cut.",
   },
   {
     title: "Your result comes back in the app",
-    body: "Your result is explained in plain language, and you receive an alert so that you do not miss it. If anything needs attention, your care team calls you. This does not create a new charge.",
+    body: "Your result is explained in plain language, and you receive an alert so that you do not miss it. An abnormal result goes to a doctor, and this does not create a new charge.",
   },
 ];
 

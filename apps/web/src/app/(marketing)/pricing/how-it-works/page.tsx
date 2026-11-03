@@ -76,7 +76,7 @@ export default async function HowPricingWorksPage() {
       <Section>
         <SectionHeading
           eyebrow="Nothing to trial"
-          title="It is simply free until you want a doctor"
+          title="It is simply free until you want a care team of your own"
           description={FREE_TRIAL_INTRO}
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -245,14 +245,14 @@ export default async function HowPricingWorksPage() {
           ))}
         </ol>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          Nothing is ever taken from your card without you confirming that exact transaction first.
+          Nothing is ever taken from your card without you confirming it first, or choosing automatic renewal yourself.
         </p>
       </Section>
 
       <Section variant="navy">
         <SectionHeading
           eyebrow="What we undertake"
-          title="Trust, spelled out"
+          title="What we undertake"
           invert
         />
         <ul className="mx-auto grid max-w-3xl gap-3">

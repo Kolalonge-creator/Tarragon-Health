@@ -41,10 +41,11 @@ function findOffers(text: string): string[] {
 
 /**
  * Files allowed to mention paying a Care Voucher in parts. Care Voucher layaway (payTowardVoucher, voucher-checkout p_instalment_kobo) is
- * still a live feature, separate from the Membership, which has had no instalments since 2026-10-21. Open founder decision, not yet recorded
- * in docs/OPEN-QUESTIONS.md: keep voucher layaway or retire it. When it is decided, delete this allowance or record the question and cite it.
+ * still live code, separate from the Membership, which has had no instalments since 2026-10-21. Since 2026-11-03 the public site no
+ * longer advertises it anywhere (the parent page now describes giving a year of Membership, paid once), so no file is allowed. Whether
+ * to retire the layaway code itself is still an open founder decision, not yet recorded in docs/OPEN-QUESTIONS.md.
  */
-const VOUCHER_LAYAWAY_ALLOWED = ["app/(marketing)/_content/products.ts"];
+const VOUCHER_LAYAWAY_ALLOWED: string[] = [];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -134,19 +135,17 @@ describe("public prices: exactly two member prices plus the upgrade difference, 
       ]) expect(findOffers(t)).toEqual([]);
     });
 
-    it("finds none in the public source, apart from the Care Voucher layaway sentence that is still a live feature", () => {
+    it("finds none in the public source", () => {
       const hits = files
         .flatMap((f) => findOffers(f.text).map((o) => `${f.rel}: ${o}`))
         .filter((h) => !VOUCHER_LAYAWAY_ALLOWED.some((a) => h.startsWith(a)));
       expect(hits).toEqual([]);
     });
 
-    it("the Care Voucher layaway allowance is only valid while layaway really exists", () => {
-      const checkout = readFileSync(join(SRC, "lib", "billing", "voucher-checkout.ts"), "utf8");
-      expect(checkout).toContain("p_instalment_kobo");
+    it("the parent page describes a year of Membership paid once, never a doctor's time bought in parts", () => {
       const products = files.find((f) => f.rel === "app/(marketing)/_content/products.ts")!;
-      // The sentence is about vouchers only, never about the Membership.
-      expect(products.text).toMatch(/or a doctor's time whenever suits you, in one go or in instalments/);
+      expect(products.text).not.toMatch(/instalments?/i);
+      expect(products.text).toMatch(/a year of Membership, paid once/);
     });
   });
 
