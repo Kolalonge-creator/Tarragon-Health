@@ -15,6 +15,11 @@
 
 begin;
 
+-- The community-overdue pg_cron job (migration 20261102135310) really runs on the CI stack, so a replay that crosses a ten-minute
+-- boundary has a fresh heartbeat by the time this proof runs. The checks below reason about a database where the monitor has
+-- not been seen yet, so the heartbeat is cleared first (rolled back with everything else).
+delete from public.community_job_runs where job = 'overdue';
+
 -- COM-27 (2026-11-03) made the live first-post hold 0 (community_config version 2). This proof exercises the hold path, which stays a
 -- supported configuration, so it runs under a rolled-back config version that keeps the hold at one post and everything else as version 1.
 update public.community_config set is_active = false where is_active;
