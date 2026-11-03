@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Annual Health Check",
     subtitle:
-      "Bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. You use any lab you like, and a doctor reads the result with you.",
+      "Eighteen blood tests once a year, taken at a testing day you choose and read with your care team. Included in Membership Plus.",
   });
 }

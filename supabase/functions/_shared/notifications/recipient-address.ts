@@ -33,6 +33,9 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   // so without this every email resolved to "recipient has no email address" (1,018 failures, 13-30 Oct 2026).
   "ops_alert",
   "ops_all_clear",
+  // Community staff pages (COM-27). private.community_alert_staff() queues them with only the reviewer's or moderator's profile id;
+  // found on the first live send (2026-11-03): the email leg failed with "recipient has no email address" until it was listed here.
+  "community_staff_alert",
 ]);
 
 /**

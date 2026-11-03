@@ -9,7 +9,7 @@ import { useState } from "react";
  * screened and how many early findings that could mean, from inputs the
  * visitor controls. They are assumptions, not claims.
  */
-export function RoiCalculator() {
+export function RoiCalculator({ audience = "workforce" }: { audience?: "workforce" | "members" }) {
   const [employees, setEmployees] = useState(200);
   const [screenRate, setScreenRate] = useState(70);
   const [catchPer100, setCatchPer100] = useState(6);
@@ -20,7 +20,7 @@ export function RoiCalculator() {
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 shadow-sm">
       <h3 className="font-heading text-2xl font-semibold text-charcoal-ink">
-        Estimate screening numbers for your workforce
+        {audience === "members" ? "Estimate screening numbers for your members" : "Estimate screening numbers for your workforce"}
       </h3>
       <p className="mt-2 text-charcoal-ink/70">
         Move the sliders to change the figures. Every figure is an assumption that you control, not a promise.
