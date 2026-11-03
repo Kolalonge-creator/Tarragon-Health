@@ -155,7 +155,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     included: [
       "A personal screening calendar covering cancer, metabolic, infectious and reproductive health checks matched to you",
       "A vaccination schedule, booking, and doctor-verified certificates",
-      "The Annual Health Check, up to a full Comprehensive Screen: we tell you which tests you need, you use any laboratory, and a doctor reads the results",
+      "With Membership Plus, a yearly blood panel carried out by Tarragon's own laboratory team and read with your care team; for any other test we write the request and you use any laboratory",
       "Health education matched to you, with short quizzes to check understanding",
       "Doctor follow-up within 24 hours on an abnormal screening result, and within 12 hours if it is critical, on every plan",
       "A direct path into chronic care monitoring if a condition is found, on the same record, with no need to start again",

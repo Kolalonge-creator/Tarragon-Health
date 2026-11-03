@@ -138,9 +138,11 @@ export default async function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
-          price on any test and take no commission. The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> has several levels.
-          You choose how thorough you want it to be, and a doctor reviews every level.
+          price on any test and take no commission. With Membership Plus, the{" "}
+          <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            yearly blood panel
+          </Link>{" "}
+          is carried out by Tarragon&apos;s own laboratory team and read with your care team.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you are not sure which screenings apply to you, follow the{" "}

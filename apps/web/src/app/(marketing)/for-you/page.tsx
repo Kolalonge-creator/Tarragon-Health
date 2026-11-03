@@ -47,7 +47,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A Health Check that matches you",
-      body: "Choose from a Core Screen to a Comprehensive Screen, and request confidential screenings yourself in minutes. We write the test request, you use any laboratory, and a doctor reads the result.",
+      body: "A screening calendar matched to your age and sex, confidential screenings you can request yourself in minutes, and with Membership Plus a yearly blood panel carried out by Tarragon's own team. For any other test we write the request, you use any laboratory, and an abnormal result reaches a doctor.",
     },
   },
   {

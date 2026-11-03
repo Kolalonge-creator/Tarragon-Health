@@ -4,47 +4,41 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PanelTests } from "../_components/panel-tests";
 import { Section, SectionHeading } from "../_components/section";
-import { WhatWeMeasure } from "../_components/what-we-measure";
 import { HowTestingWorks } from "../_components/how-testing-works";
 import { StepsExplorer } from "../_components/steps-explorer";
+import { PLUS_PANEL_WHERE, YEARLY_PANEL_TESTS } from "../_content/pricing-ladder";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI and the screening that fits your age and sex. Use any lab you like, a doctor reads it.",
+    "One blood panel a year, done by Tarragon's own laboratory team and read with your care team, included in Membership Plus. On other plans, use any laboratory.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
 /**
- * The trust block for the page where somebody actually decides to hand over
- * money and a blood sample. Deliberately narrower than the homepage TrustBand:
- * every line below is something the database or the payment integration
- * enforces, checked live before it was written.
+ * The yearly blood panel, as it actually exists.
  *
- *  - Licence check: clinical_staff carries two CHECK constraints,
- *    clinical_staff_active_requires_verification (a record cannot be `active`
- *    unless license_verified_at is set) and clinical_staff_no_self_verification
- *    (verified_by can never equal the record's own profile_id).
- *  - Price: lab_orders are created pending_payment at the bundle's own
- *    price_kobo, and no charge happens until the patient completes hosted
- *    checkout, so "nothing is taken before you confirm" is structurally true.
- *  - Card details: checkout is hosted by Paystack; the platform never
- *    receives or stores a card number.
+ * Founder decision 2026-11-03 (MS-04, docs/DECISIONS.md), on top of TT-4 and
+ * T-3: the Core, Advanced and Comprehensive screens and the old annual
+ * health check bundles are legacy and cannot be sold (a trigger refuses to
+ * make one purchasable again). The one yearly panel that exists is the
+ * Membership Plus panel: the tests in YEARLY_PANEL_TESTS, carried out by
+ * Tarragon's own laboratory team at a Tarragon location (MS-03), with results
+ * uploaded to the account and read with the care team. This page describes
+ * that, and only that. It names no tier, no imaging, no separate doctor
+ * consultation and no price of its own: the price is on the pricing page,
+ * read from versioned config.
  *
- * NOTE: this block intentionally does NOT repeat the "MDCN-registered
- * doctors" wording. The homepage TrustBand carried exactly that claim until
- * 2026-09-05, when it was corrected to describe the verification mechanism
- * instead; per the founder's 2026-09-25 decision a patient never sees an
- * MDCN/NMCN registration number, which Nigerian patients don't recognise as a
- * trust signal anyway — so don't reintroduce a credential-number claim here
- * either. Per the 2026-09-26 narrowing, speciality + years of experience live
- * only on a doctor's profile page (doctor/[staffId]), not inline
- * anywhere, including reviewed-by-doctor.tsx. The two CHECK constraints this
- * block's claims rely on (clinical_staff_active_requires_verification,
- * clinical_staff_no_self_verification) are still live and unchanged.
+ * The trust block is still narrower than the homepage TrustBand on purpose:
+ * every line is something the database or the payment integration enforces.
+ * clinical_staff carries clinical_staff_active_requires_verification and
+ * clinical_staff_no_self_verification; checkout is hosted by Paystack and the
+ * platform never receives a card number. No MDCN/NMCN registration number is
+ * shown anywhere (founder decision 2026-09-25).
  */
 const BOOKING_ASSURANCES = [
   {
@@ -53,7 +47,7 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "You confirm the price first",
-    body: "You choose the laboratory, see its exact price, and confirm before anything is charged. You can stop at any time before then.",
+    body: "Membership Plus is one price for a year, shown to you and confirmed before anything is taken. It does not renew unless you choose that.",
   },
   {
     title: "Your card details stay with Paystack",
@@ -63,24 +57,24 @@ const BOOKING_ASSURANCES = [
 
 const WHATS_INCLUDED = [
   {
-    title: "Blood sugar (HbA1c)",
-    body: "This test shows your average blood sugar over the last three months. It is the earliest reliable warning sign of diabetes, often appearing years before symptoms.",
+    title: "Blood sugar",
+    body: "Fasting glucose and HbA1c, which shows your average blood sugar over the last three months. HbA1c is the earliest reliable warning sign of diabetes, often years before symptoms.",
   },
   {
-    title: "Cholesterol (lipid panel)",
-    body: "This measures total cholesterol, LDL cholesterol, HDL cholesterol and triglycerides, which together indicate your risk of heart attack and stroke.",
+    title: "Cholesterol and fats",
+    body: "Total cholesterol, LDL, HDL and triglycerides, which together indicate your risk of heart attack and stroke.",
   },
   {
-    title: "Your cancer screening",
-    body: "The screening that fits you: cervical screening for women, or prostate-specific antigen (PSA) testing for men aged 45 and over. It is chosen by your age and sex. Included from Advanced Screen up.",
+    title: "Kidneys, liver and blood count",
+    body: "Creatinine, potassium and sodium for your kidneys; ALT and AST for your liver; haemoglobin, white cell count and platelets for your blood. A baseline that next year's check can be compared against.",
   },
   {
-    title: "Blood pressure and BMI",
-    body: "Both are measured carefully and saved to your Tarragon record, so that next year's check has something reliable to compare against.",
+    title: "Infection screening",
+    body: "HIV, hepatitis B and hepatitis C. These infections cause no symptoms for years and do the most damage when nobody is looking for them. The result is treated as confidential.",
   },
   {
-    title: "A doctor walks you through it",
-    body: "A 15-minute video consultation with a doctor, who checks your results against your history and explains them plainly: what is normal, what to watch, and what, if anything, to do next. Included on every tier.",
+    title: "Read with your care team",
+    body: "Your results are uploaded to your account. A result outside the normal range is checked by a clinician first, and your care team goes through all of them with you on your monthly video call.",
   },
   {
     title: "One record, year after year",
@@ -91,23 +85,23 @@ const WHATS_INCLUDED = [
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Book in the app",
-    body: "Take your request to any laboratory you like. You pay them directly, at their price, and we take nothing on it.",
+    title: "Join Membership Plus",
+    body: "One price for a year of care with your care team, including the yearly blood panel. You see the price and confirm it before anything is taken.",
   },
   {
     step: 2,
-    title: "One laboratory visit",
-    body: "Your samples and measurements are taken in a single visit. We do not yet offer home sample collection.",
+    title: "We tell you where and when",
+    body: "The panel is carried out by Tarragon's own laboratory team at a Tarragon location. We tell you where it is and arrange a time that suits you when you join.",
   },
   {
     step: 3,
-    title: "A video consult with a doctor",
-    body: "A doctor reads every result, then you have a 15-minute video call to go through it together. For most people the outcome is that everything is normal and the next check is due in a year.",
+    title: "One visit",
+    body: "Your samples are taken in a single visit by Tarragon's team. Fast for nine to twelve hours beforehand for the cholesterol test; water is fine.",
   },
   {
     step: 4,
-    title: "A plan, if you need one",
-    body: "If something needs attention, a doctor follows up within a day, and within 12 hours if it is critical. The doctor then helps you decide what to do next, using the same record, so you do not start again.",
+    title: "Your results, explained",
+    body: "Your results are uploaded to your account. Anything outside the normal range is checked by a clinician first, and reaches a doctor within 24 hours, or within 12 hours if it is critical. Your care team then goes through everything with you on your monthly call.",
   },
 ];
 
@@ -120,20 +114,21 @@ export default function AnnualHealthCheckPage() {
             One day a year for your health
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
-            The Annual Health Check
+            The yearly blood panel
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            A car is serviced every year, and your health deserves the same regular attention. One
-            laboratory visit covers blood sugar, cholesterol, blood pressure, BMI and the cancer
-            screening that fits your age and sex. A doctor reviews all of it and it is kept on one record.
+            Eighteen blood tests, once a year, carried out by Tarragon&apos;s own laboratory team and
+            read with your care team. It covers blood sugar, cholesterol, your kidneys, liver and
+            blood count, and screening for HIV and hepatitis, and it is kept on one record so that
+            each year builds on the last.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            We take no commission on your tests
-            <span className="text-base font-normal text-charcoal-ink/60"> · you pay the laboratory directly · once a year</span>
+            Included in Membership Plus
+            <span className="text-base font-normal text-charcoal-ink/60"> · one price for the year · no renewal unless you choose it</span>
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href="/signup?intent=health_check">Book your check</Link>
+              <Link href={MARKETING_ROUTES.pricing}>See Membership Plus</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
@@ -143,7 +138,7 @@ export default function AnnualHealthCheckPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            If you are already a member, book from the Prevention section of your dashboard.
+            Already a member? Your panel is arranged from the Membership section of your dashboard.
           </p>
         </div>
       </Section>
@@ -155,19 +150,20 @@ export default function AnnualHealthCheckPage() {
               What is included
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Six checks in one visit
+              Eighteen tests in one visit
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              These checks were chosen because they detect the conditions that quietly cause most
-              avoidable illness in Nigeria: diabetes, heart disease and cancers found late. Blood
-              sugar, cholesterol, blood pressure, BMI and the doctor consultation are included in
-              every tier from Core Screen; cancer screening starts at Advanced Screen.
+              These tests were chosen because they detect the conditions that quietly cause most
+              avoidable illness in Nigeria: diabetes, heart disease, kidney and liver damage, and
+              infections found late. Every one of them is in the panel; there are no levels to
+              choose between.
             </p>
+            <PanelTests groups={YEARLY_PANEL_TESTS} />
           </div>
           <MarketingMediaFrame
             media={{
               illustration: "annual-checklist",
-              imageAlt: "Six checks, reviewed by a doctor, once a year",
+              imageAlt: "Eighteen tests, read with your care team, once a year",
             }}
           />
         </div>
@@ -185,12 +181,9 @@ export default function AnnualHealthCheckPage() {
       </Section>
 
       <Section>
-        <SectionHeading
-          eyebrow="What we measure"
-          title="Every test, explained"
-          description="Each test is listed by what it tells you about your body, with the tier that includes it and how often it is repeated."
-        />
-        <WhatWeMeasure />
+        <SectionHeading eyebrow="How it works" title="Arranged when you join, completed in a morning" />
+        <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">{PLUS_PANEL_WHERE}</p>
       </Section>
 
       <Section variant="sage">
@@ -199,101 +192,44 @@ export default function AnnualHealthCheckPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Pick your level"
-          title="Three levels of check"
-          description="Each level includes everything in the one before it, and every level ends with a doctor going through your results with you."
+          eyebrow="On Free and Membership"
+          title="Any test, any laboratory, no commission"
+          description="The yearly panel is the one test Tarragon carries out itself. Everything else, on every plan, works the same way: we tell you which tests you need and write the request, you take it to Synlab or any laboratory you choose, and you pay the laboratory directly at its price."
         />
-        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
-          {[
-            {
-              name: "Core Screen",
-              price: "You pay the lab, once",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver, kidney and thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
-              highlight: true,
-            },
-            {
-              name: "Advanced Screen",
-              price: "You pay the lab, once",
-              body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
-            },
-            {
-              name: "Comprehensive Screen",
-              price: "You pay the lab, once",
-              body: "Everything in Advanced Screen, plus imaging.",
-            },
-          ].map((tier) => (
-            <div
-              key={tier.name}
-              className={
-                tier.highlight
-                  ? "rounded-xl border-2 border-brand-green bg-white p-6"
-                  : "rounded-xl border border-charcoal-ink/10 bg-white p-6"
-              }
-            >
-              <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{tier.name}</h3>
-              <p className="mt-1 font-heading text-2xl font-bold text-brand-green">{tier.price}</p>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{tier.body}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
-          If you need only one test, the screenings recommended by the World Health Organization
-          (cervical screening, HIV, hepatitis B and hepatitis C) can each be requested on their
-          own and in confidence, as can a blood group and genotype check. Either way, take the
-          request to any laboratory you like and pay them directly at their price. We do not set
-          or quote a price.
+        <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/70">
+          Your screening calendar is free on every plan. The screenings recommended by the World
+          Health Organization (cervical screening, HIV, hepatitis B and hepatitis C) can each be
+          requested on their own and in confidence, as can a blood group and genotype check. We do
+          not set or quote a price for any of them.
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
         </div>
-        <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
-          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
-          <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
-            Full Panel: additional tests on top of any tier
-          </h3>
-          <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-            Vitamin D, vitamin B12 and folate, iron studies, hs-CRP (a marker of inflammation), a
-            coagulation profile (how well your blood clots) and a tumour marker screen suited to
-            your age and sex, added to your next check as a one-time upgrade. We are holding it
-            back until our Chief Medical Officer approves the exact panel.
-          </p>
-          <p className="mt-3 text-sm text-charcoal-ink/60">
-            If you want to look further, see{" "}
-            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-              Advanced diagnostic imaging
-            </Link>{" "}
-            which is on the same waiting list.
-          </p>
-        </div>
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="How it works" title="Booked in minutes, completed in a morning" />
-        <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
-      </Section>
-
-      <Section>
         <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-8">
           <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
             What to expect
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            In most years your check will simply confirm that you are well, and that is its purpose.
+            In most years your panel will simply confirm that you are well, and that is its purpose.
             If something does show up, finding it early usually means simpler and cheaper
             treatment, and a doctor will tell you clearly if it needs further investigation.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            If you want year-round support, <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps
-            your full screening and vaccination schedule running all year. Comprehensive Screen
-            already includes the doctor video consultation that reviews all your results, so
-            there is no separate review to buy.
+            If you want year-round support,{" "}
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+              your free screening calendar
+            </Link>{" "}
+            keeps your full screening and vaccination schedule running all year, on every plan.
           </p>
         </div>
       </Section>
 
       <Section>
         <SectionHeading
-          eyebrow="Before you book"
+          eyebrow="Before you join"
           title="What we promise"
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
@@ -314,10 +250,12 @@ export default function AnnualHealthCheckPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Book this year's check"
-          description="One morning, once a year, and a doctor who explains where your health stands. There is no subscription and nothing renews: you pay once, and the app itself stays free."
-          primaryHref="/signup?intent=health_check"
-          primaryLabel="Book your check"
+          title="This year's panel, with your care team"
+          description="One morning, once a year, and a care team who explain where your health stands. Membership Plus is one price for the year, and the app itself stays free."
+          primaryHref="/signup"
+          primaryLabel="Create your free account"
+          secondaryHref={MARKETING_ROUTES.pricing}
+          secondaryLabel="See pricing"
         />
       </Section>
     </>

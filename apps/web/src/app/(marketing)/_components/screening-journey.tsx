@@ -33,11 +33,12 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
  * Tarragon has no contracted lab, so it doesn't know or set what any
  * laboratory charges for a test — see SELF-ARRANGED FULFILMENT in
  * pricing.ts. Standalone self-booking is only offered for the
- * WHO-priority confidential screens, blood group & genotype, and the
- * Annual Health Check ladder itself; prostate and colorectal screening
- * are part of Advanced Screen, breast imaging is part of Comprehensive
- * Screen, or otherwise ordered by a doctor — never a bare self-service
- * SKU, so their "book it" step says that plainly rather than overclaiming.
+ * WHO-priority confidential screens and blood group & genotype; the yearly
+ * blood panel is part of Membership Plus (decision MS-04, 2026-11-03: the
+ * Core/Advanced/Comprehensive tiers are legacy and unsellable); prostate,
+ * colorectal and breast screening are ordered by a doctor or due on the
+ * screening calendar — never a bare self-service SKU, so their "book it"
+ * step says that plainly rather than overclaiming.
  */
 export const SCREENINGS: ScreeningItem[] = [
   {
@@ -55,7 +56,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Request the Annual Health Check in the app, then take the request to any laboratory you choose. You pay the laboratory directly at its own price, and Tarragon takes no fee from that payment.",
+        body: "With Membership Plus these tests are part of your yearly blood panel, carried out by Tarragon's own team. On any plan, you can also request them in the app and take the request to any laboratory you choose, paying the laboratory directly at its own price.",
       },
       {
         title: "Test day",
@@ -101,7 +102,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
     summary: "Screening matched to your age, because breast cancer found early is much easier to treat.",
-    price: "Included in Comprehensive Screen",
+    price: "You pay the imaging facility",
     steps: [
       {
         title: "Is this for you?",
@@ -109,11 +110,11 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "It is included in Comprehensive Screen, or arranged directly by a doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
+        body: "Your screening calendar tells you when it is due, and a doctor arranges it sooner if your history calls for it. We write the imaging request, rather than sold as a stand-alone booking.",
       },
       {
         title: "Test day",
-        body: "You receive an imaging request (ultrasound if you are under 40, mammography from 40), which you take to any imaging facility near you. You pay the facility directly at its own price and upload the result yourself, as with the rest of Comprehensive Screen.",
+        body: "You receive an imaging request (ultrasound if you are under 40, mammography from 40), which you take to any imaging facility near you. You pay the facility directly at its own price and upload the result yourself.",
       },
       {
         title: "Results & what is next",
@@ -128,7 +129,7 @@ export const SCREENINGS: ScreeningItem[] = [
     ageBands: ["40-49", "50-plus"],
     category: "Cancer screening",
     summary: "A blood test that helps a doctor assess prostate health, and that is discussed with you before it is ordered.",
-    price: "Included in Advanced Screen",
+    price: "Ordered by a doctor",
     steps: [
       {
         title: "Is this for you?",
@@ -136,11 +137,11 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Ordered by a doctor as part of Advanced Screen, not sold as a stand-alone test. PSA is not offered as a self-service booking because it needs that conversation first.",
+        body: "Ordered by a doctor after a conversation with you, not sold as a stand-alone test. PSA is not offered as a self-service booking because it needs that conversation first.",
       },
       {
         title: "Test day",
-        body: "A simple blood sample, taken with your other Advanced Screen samples during the same visit.",
+        body: "A simple blood sample, taken at the laboratory you choose along with any other tests due at the same time.",
       },
       {
         title: "Results & what is next",
@@ -163,7 +164,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "A doctor orders the right first step for you as part of your Advanced Screen or a care-plan review, then coordinates the referral if further investigation is needed.",
+        body: "A doctor orders the right first step for you when your screening calendar says it is due or at a care-plan review, then coordinates the referral if further investigation is needed.",
       },
       {
         title: "Test day",
@@ -376,7 +377,7 @@ export function ScreeningJourney() {
               href={MARKETING_ROUTES.annualHealthCheck}
               className="inline-flex items-center justify-center rounded-full border border-charcoal-ink/15 px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-charcoal-ink/30"
             >
-              See Annual Health Check pricing
+              See the yearly blood panel
             </Link>
           </div>
         </div>
