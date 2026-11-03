@@ -727,6 +727,20 @@ premise already out of date, the decision stands and the build did the smaller t
 | **B-07** | OQ-555/558: staff reads of the five reproductive tables are audited and tied, with no reason typed. | INV-10. | `read_womens_health_record_audited`, tied staff policies, and a three-state `pregnancy_safety_status` so an unreadable status is "unknown", never "not pregnant". #1516 |
 
 
+## CMO decisions, 2026-11-03 (paid consultations safety case v1.0)
+
+Chosen from selectable prompts in chat while reviewing `docs/clinical-safety/consultations-safety-case.md`. The hypertension protocol `htn_rtsl_ng` v1 was already approved (2026-11-02); the safety case is the last condition on the Clinical operations master.
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **CON-01** | One real consultation is run end to end with a known patient before any other patient is booked; the switch may go on for that call. | No Zoom call has ever been placed through the platform; the host user, plan and dial-in number are confirmed on a real visit, not a rehearsal. | Safety case section 5.1; the pre-booking checklist. |
+| **CON-02** | Paid consultations open while `prescribing_enabled` stays closed. | A visit can end in advice, a referral, a downloadable form or a titration proposal under the signed step table. | Safety case HZ-CON-06; follow-up: the booking terms card says what a visit can end in. |
+| **CON-03** | `post_consult_checkins_enabled` is opened in the same sitting. | Its configuration v1 was signed on 2026-10-27; only the feature switch was closed. | Go-live page, one click. |
+| **CON-04** | `checkout_enabled` is opened in the same sitting. | Both attested conditions were recorded on 2026-11-02; without it only Members can book. | Go-live page, admin switch. |
+| **CON-05** | Email plus the in-console alarm is the accepted page path now; push re-subscription and one acknowledged test page follow as soon as possible, not as a blocker. | Both doctors can start working; if no push arrives, email keeps working. | Safety case HZ-CON-10. |
+| **CON-06** | The twelve severity and likelihood ratings are the CMO's own as written. | Sole reviewer. | Safety case section 4. |
+| **CON-07** (2026-11-03, later) | The catalogue placeholder `consultation_single` stays unpriced and off. A consultation is a Membership thing: Membership and Membership Plus include 12 monthly online meetings, and a paid Member can buy an extra online meeting for 5,000 naira (`service_products.video_visit_credit`, live since 2026-10-29, Members only, refused to a Free patient by `private.extra_meeting_members_only`). A Free patient cannot buy a consultation at all. | The Members-only extra meeting already does the job the placeholder was for; a priced `consultation_single` would reopen pay-per-consult for Free patients, which the 2026-10-12 and 2026-10-29 decisions closed. | `catalog_items.consultation_single` active=false, no `prices` row; OQ-400 closes as "default taken: off". |
+
 ## Founder decision, 2026-11-03 (rota cover minimum: two clinicians)
 
 | ID | Decision | Rationale | Unblocks |
