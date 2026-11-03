@@ -81,8 +81,9 @@ begin
 
   -- 2. CONTROL: real patient's alert -> first senior doctor (owner tier), second senior doctor as backup
   v_a := pg_temp.mkalert(v_org, v_real);
-  perform pg_temp.chk('2a CONTROL real patient alert owned by the senior doctor', v_smo::text, (select responsible_clinician_id::text from public.clinician_alerts where id = v_a));
-  perform pg_temp.chk('2b CONTROL real patient alert backed up by the second senior doctor', v_smo_b::text, (select backup_clinician_id::text from public.clinician_alerts where id = v_a));
+  -- The two senior doctors carry equal load, so which one is first is a tie the picker may break either way; the control is that a real alert goes to one senior doctor and is backed up by the other, never to the CMO.
+  perform pg_temp.chk('2a CONTROL real patient alert owned by a senior doctor', 'true', (select (responsible_clinician_id in (v_smo, v_smo_b))::text from public.clinician_alerts where id = v_a));
+  perform pg_temp.chk('2b CONTROL real patient alert backed up by the other senior doctor', 'true', (select (backup_clinician_id in (v_smo, v_smo_b) and backup_clinician_id <> responsible_clinician_id)::text from public.clinician_alerts where id = v_a));
 
   -- 3. sweep: an unowned test-patient alert -> CMO
   v_a := pg_temp.mkalert(v_org, v_test);
