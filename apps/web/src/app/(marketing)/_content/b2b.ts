@@ -61,9 +61,9 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     included: [
       "Staff enrolment and annual health checks",
       "Anonymised risk dashboard by cohort, not by individual",
-      "Screening compliance reporting for HR",
+      "Screening completion reporting for HR",
       "Clinical follow-up on abnormal results, the same as for any Tarragon patient",
-      "Referral to a doctor for staff who need closer care",
+      "A doctor on the care team for staff who need closer care",
     ],
     exampleTitle: "What a workforce report looks like",
     exampleNote: EXAMPLE_DATA_NOTE,
@@ -84,10 +84,10 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
       {
         title: "See the cohort picture",
-        body: "Your HR and benefits team receives an anonymised risk dashboard and screening compliance reporting. No individual health data is shared with them.",
+        body: "Your HR and benefits team receives anonymous totals for the whole workforce and screening completion reporting. No individual health data is shared with them.",
       },
     ],
-    ctaLabel: "Request employer health plan",
+    ctaLabel: "Request an employer health plan",
     metadata: pageMetadata({
       title: "Corporate Health",
       description:
@@ -123,7 +123,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     included: [
       "Population risk stratification, updated as members are monitored",
       "Missed care followed up until it is completed, not only flagged",
-      "Immediate doctor follow-up on abnormal screening results",
+      "Doctor follow-up within 24 hours on an abnormal screening result, and within 12 hours if it is critical",
       "Outcome reporting designed for renewal discussions",
       "The same clinical referral pathway as every TarragonHealth patient",
     ],

@@ -79,7 +79,7 @@ const FAQ = [
   {
     question: "What if I need help right now?",
     answer:
-      "Do not wait for an appointment. If you are thinking about harming yourself, use the emergency guidance in the app or go to the nearest hospital. If you have already told us in a wellbeing check-in, we will have raised it and someone will be in contact; booking a session for a fortnight's time is not the right response to that and the app will not let you.",
+      "Do not wait for an appointment. If you are thinking about harming yourself, use the emergency guidance in the app or go to the nearest hospital. Booking a session for a fortnight's time is not the right response to that, and the app will not let you.",
   },
 ];
 
@@ -108,7 +108,7 @@ export default function TherapyPage() {
             nothing connects the session to the rest of your health.
           </p>
           <p>
-            We already screen for depression, anxiety and hazardous drinking. It was unsatisfactory to
+            We already screen for depression, anxiety and hazardous drinking. Finding a problem and then having nothing to offer was not good enough.
             identify a problem and then have nothing to offer.
           </p>
         </div>
@@ -158,7 +158,7 @@ export default function TherapyPage() {
             variant="gradient"
             title="Start with the free check, book when you are ready"
             description="The wellbeing check, the education library and the AI Health Coach cost nothing. The directory is there when you want to speak to a person."
-            primaryLabel="Create a free account"
+            primaryLabel="Create your free account"
             secondaryHref={MARKETING_ROUTES.mentalWellbeingCheck}
             secondaryLabel="Take the wellbeing check"
           />

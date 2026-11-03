@@ -25,7 +25,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     return {
       kind: "redirect",
       message:
-        "It sounds as though you may already be managing a diagnosed condition. The screening calendar is designed for people who do not have one yet. Tarragon's chronic care programme (hypertension, diabetes, weight management and more) is likely to be a better starting point, with regular doctor review included.",
+        "It sounds as though you may already be managing a diagnosed condition. The screening calendar is designed for people who do not have one yet. Tarragon's chronic care programme (hypertension, diabetes, weight management and more) is likely to be a better starting point, with regular doctor review on Membership.",
     };
   }
 

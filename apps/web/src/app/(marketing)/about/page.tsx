@@ -63,8 +63,8 @@ export default function AboutPage() {
           viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
       <PhotoBannerHero
         eyebrow="About TarragonHealth"
-        title="Built on one conviction: care should not stop when the appointment ends."
-        description="Chronic disease cannot be managed in a fifteen-minute consultation. It is managed in the weeks afterwards, through the dose that is missed, the reading that nobody sees and the follow-up call that never comes. TarragonHealth exists to close that gap."
+        title="Care should not stop when the appointment ends."
+        description="Chronic disease is managed in the weeks after a consultation: the dose that is missed, the reading nobody sees, the follow-up call that never comes. TarragonHealth exists to close that gap."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref="#team"

@@ -45,7 +45,7 @@ export default function MentalWellbeingCheckPage() {
             How are you really doing?
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Mental well-being matters as much as your blood pressure, and is just as worth checking.
+            Mental wellbeing matters as much as your blood pressure, and is just as worth checking.
             This is a free, anonymous check-in. It is not a diagnosis, but it gives you an honest
             starting point.
           </p>
@@ -94,9 +94,9 @@ export default function MentalWellbeingCheckPage() {
         <CtaBand
           variant="gradient"
           title="You do not have to manage this alone"
-          description="A doctor on Tarragon is available by message whenever you are ready."
+          description="With Membership, you can message a doctor on your care team whenever you are ready."
           primaryHref="/signup"
-          primaryLabel="Talk to a doctor"
+          primaryLabel="Create your free account"
           secondaryHref={MARKETING_ROUTES.healthEducation}
           secondaryLabel="Explore Health Education"
         />

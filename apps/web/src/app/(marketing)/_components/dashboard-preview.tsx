@@ -39,6 +39,9 @@ export function DashboardPreview() {
           Once you have named someone as your next of kin, that person can
           follow your care too.
         </p>
+        <p className="mt-4 text-sm text-charcoal-ink/60">
+          Illustrative example with made-up figures, not a real patient.
+        </p>
       </div>
 
       <div className="rounded-3xl border border-charcoal-ink/10 bg-white p-4 shadow-xl shadow-charcoal-ink/10 sm:p-6">
@@ -53,8 +56,11 @@ export function DashboardPreview() {
                 Hypertension and preventive checks
               </p>
             </div>
+            {/* "Example", not "Doctor reviewed": a doctor-review label is only
+                ever shown against a real review record (CLAUDE.md), and this
+                card is an illustration with made-up figures. */}
             <span className="rounded-full bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
-              Doctor reviewed
+              Example
             </span>
           </div>
 

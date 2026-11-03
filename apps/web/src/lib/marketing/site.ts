@@ -20,7 +20,7 @@ export const SITE = {
   legalName: "TarragonHealth",
   tagline: "Care that stays with you.",
   description:
-    "Health monitoring for chronic disease, preventive health, and family care coordination in Nigeria. Track blood pressure, blood sugar, medication, labs, and preventive checks in one secure platform, with clinical review and escalation when closer care is needed.",
+    "Health monitoring for chronic disease and preventive health in Nigeria: readings, medication, tests and screenings in one record, with a doctor when you need one.",
   /** Guard Leaf lockup, used for the Organization logo in structured data. */
   logoPath: "/brand/guard-leaf-lockup.png",
   locale: "en_NG",

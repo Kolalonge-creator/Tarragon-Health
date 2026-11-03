@@ -68,11 +68,10 @@ export default async function CoveragePage() {
             nothing to it.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            We do not deliver medication. When a doctor prescribes you medicine
-            you can download the prescription and collect it from a pharmacy you
-            choose. Collecting a sample from your home still needs a contracted
-            partner in your state, and we state this plainly rather than imply
-            otherwise.
+            We do not deliver medication and we do not collect samples at home. When a
+            doctor prescribes you medicine you can download the prescription and
+            collect it from a pharmacy you choose, and you attend the laboratory
+            you choose for a test.
           </p>
           {liveStates.length > 0 && (
             <p className="mt-4 text-sm text-charcoal-ink/60">
@@ -177,9 +176,9 @@ export default async function CoveragePage() {
 
       <CtaBand
         title="Not sure what anything costs?"
-        description="If you are paying from abroad for a parent at home, you can also fund their care directly and see what every payment bought."
+        description="If you are paying from abroad for a parent at home, you can give them a year of Membership and see that it was accepted."
         primaryHref="/pricing"
-        primaryLabel="See the price list"
+        primaryLabel="See pricing"
         secondaryHref="/contact"
         secondaryLabel="Ask us about your state"
       />
