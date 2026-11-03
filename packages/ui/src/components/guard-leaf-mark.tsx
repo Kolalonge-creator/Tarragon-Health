@@ -1,6 +1,6 @@
 import { cn } from "../utils";
 
-/** Guard Leaf mark: shield (protection) + sprout crown (prevention/growth) + checkmark vein (docs/BRAND_GUIDE.md §4). */
+/** Guard Leaf mark: shield (protection) + sprout crown (prevention/growth) + pulse-line vein (docs/BRAND_GUIDE.md §4). */
 export function GuardLeafMark({ className }: { className?: string }) {
   return (
     <svg
@@ -19,7 +19,7 @@ export function GuardLeafMark({ className }: { className?: string }) {
         className="fill-brand-green"
       />
       <path
-        d="M36 65L46 75L67 50"
+        d="M31 62H40L45 55L50 71L55 45L59 62H71"
         strokeWidth="7"
         strokeLinecap="round"
         strokeLinejoin="round"

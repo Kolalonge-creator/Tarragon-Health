@@ -323,7 +323,7 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 - Comparable platforms referenced for positioning: Helium Health, Wellahealth.
 
 ## Brand (see `docs/BRAND_GUIDE.md` for full system)
-- Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + checkmark vein).
+- Master tagline: **"Care that stays with you."** Wordmark: **TarragonHealth** (camel-case). Mark: **Guard Leaf** (shield + sprout crown + pulse-line vein; the vein was a checkmark until Google Play rejected the app on 2026-09-17 for a "verified"-badge look, so never put a checkmark or tick back in the mark).
 - Tarragon Green `#0E7C52` (brand/primary actions), Clinical Navy `#12324B` (B2B/clinical documents). Clinical dashboard status colours (green/amber/red/blue/grey) are a **separate system** from brand colour — never confuse the two.
 - Voice: warm and personal, not a hospital PA system. No fear-based urgency, no "WARNING:", no clinical jargon in patient-facing copy.
 - **Do not use "doctor-led" as a headline/marketing claim** (retired 2026-07-18 — it reads as over-promising and unprofessional). Describe the actual clinical process instead — "clinical review and escalation", "your care team", "reviewed against care protocols" — and reference doctors concretely in process/explanation ("escalates to a doctor", "the doctors who review every case"), never as a blanket brand adjective. Don't cite a specific doctor:patient ratio in this kind of copy — see the Non-Negotiable Business Rules note above, it's under review. The operating model is unchanged (Tarragon still employs its own doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`); this is a public-copy/positioning rule only.
