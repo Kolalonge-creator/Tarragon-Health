@@ -68,6 +68,19 @@ export function ProductPageTemplate({
   // MarketingHero rather than stretching an illustration across a full-bleed
   // banner it was never designed for.
   const hasPhoto = Boolean(heroMedia.imageSrc);
+  // A short label above the headline, never the campaign line: a sentence
+  // eyebrow over a four-line headline over a six-line intro is what made the
+  // prevention and parentcare heroes read as a wall of text. The campaign
+  // line keeps its place as the pull-quote in the text-beside-a-card layout.
+  const heroEyebrow: Record<string, string> = {
+    hypertension: "Hypertension",
+    diabetes: "Diabetes",
+    obesity: "Weight health",
+    parentcare: "Caring for a parent",
+    prevention: "Preventive health",
+    medication: "Medication",
+    labs: "Laboratory tests",
+  };
 
   return (
     <>
@@ -76,7 +89,7 @@ export function ProductPageTemplate({
         // Rendered outside Section on purpose — full-bleed spans the full
         // viewport width; see marketing-photo-banner-hero.tsx's header comment.
         <PhotoBannerHero
-          eyebrow={content.campaignLine}
+          eyebrow={heroEyebrow[content.slug] ?? content.metadata.title?.toString()}
           title={content.headline}
           description={content.intro}
           primaryHref="/signup"

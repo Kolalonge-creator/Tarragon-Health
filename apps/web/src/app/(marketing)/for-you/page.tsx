@@ -77,7 +77,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A plan built around the cause",
-      body: "Lifestyle coaching alongside medication, regular reviews, and and, where it is safe, coming off a medicine as a real result rather than another refill.",
+      body: "Lifestyle coaching alongside medication, regular reviews and, where it is safe, coming off a medicine as a real result rather than another refill.",
     },
   },
 ];

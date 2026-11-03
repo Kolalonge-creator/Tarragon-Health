@@ -112,10 +112,10 @@ export function PhotoBannerHero({
                 {eyebrow}
               </p>
             ) : null}
-            <h1 className="mt-3 font-heading text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
+            <h1 className="mt-3 text-balance font-heading text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
               {title}
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-relaxed text-white/85 sm:text-lg">
+            <p className="mt-4 max-w-md text-base leading-relaxed text-white/85 sm:text-lg">
               {description}
             </p>
             <div className="mt-7 flex flex-wrap gap-3">

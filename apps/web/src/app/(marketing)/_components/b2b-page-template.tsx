@@ -24,7 +24,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
         // Rendered outside Section on purpose — full-bleed spans the full
         // viewport width; see marketing-photo-banner-hero.tsx's header comment.
         <PhotoBannerHero
-          eyebrow={content.campaignLine}
+          eyebrow={content.slug === "hmo" ? "For HMOs" : "For employers"}
           title={content.headline}
           description={content.intro}
           primaryHref={contactHref}

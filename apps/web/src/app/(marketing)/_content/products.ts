@@ -117,7 +117,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Follow your parent's health, even when you cannot be with them every day.",
     campaignLine: "Your parents cared for you. Help them stay well in return.",
     intro:
-      "Your parent keeps their own free Tarragon account. If they name you as next of kin, you can follow their readings, appointments and results, and we contact you first if something urgent happens. You can give them a year of Membership, paid once in naira, from Lagos or from abroad.",
+      "Your parent keeps their own free account and names you as next of kin. You can then follow their readings, appointments and results, we contact you first if something urgent happens, and you can give them a year of Membership from anywhere, paid once in naira.",
     included: [
       "Their own free account and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
@@ -151,7 +151,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Find health problems early, while they are easiest to treat.",
     campaignLine: "Most health problems are easier to treat when they are found early.",
     intro:
-      "You do not need a diagnosis to use Tarragon. For people who feel well, it gives you a screening and vaccination calendar matched to your age, sex and medical history, a yearly Health Check, and clear explanations of your results. In most years the outcome is simple reassurance. If a check does find something, a doctor follows up within 24 hours, or within 12 hours if the result is critical.",
+      "You do not need a diagnosis to use Tarragon. A screening and vaccination calendar matched to your age, sex and history, a yearly health check, and results explained in plain words. In most years the outcome is reassurance; if a check finds something, a doctor follows up within 24 hours.",
     included: [
       "A personal screening calendar covering cancer, metabolic, infectious and reproductive health checks matched to you",
       "A vaccination schedule, booking, and doctor-verified certificates",
