@@ -1803,3 +1803,5 @@ emergency_sync_contact_rule_skips_test_accounts.sql
 resolve_patient_service_access_membership.sql
 # catalog_items is readable (descriptive columns only) by any signed-in person, so the patient and admin refund lists can name the item. Sabotage: revoking the grant brings the 403 back.
 catalog_items_readable_by_signed_in_people.sql
+# Interaction rule set v2 (S08y ingredient-pair layer): version 2 holds 350 cited rules (79 contraindicated, 271 caution), passes private.interaction_rules_valid and private.interaction_rule_ok rule by rule, repeats no pair or code, and is born unsigned and inactive with v1 untouched and the guard off; while unsigned the door answers closed to a test account and an ordinary account; a patient and a senior doctor cannot sign it; the CMO can (rolled back), after which the test account receives all 350 rules and the ordinary account still nothing. Sabotage: the shape check replaced by false flips the shape check; a door that hands out the newest draft flips the closed-while-unsigned check.
+interaction_rule_set_v2_unsigned.sql

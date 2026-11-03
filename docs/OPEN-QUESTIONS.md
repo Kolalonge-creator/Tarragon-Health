@@ -4325,6 +4325,7 @@ The CMO must sign the question wording, what each answer does and the offsets (c
 ### OQ-S08Y-1 Who writes, reviews and signs the interaction rules and the brand mappings (raised by S08y)
 - Both tables are born empty; the build wrote no rule and no mapping. Needed from the CMO: who is the pharmacist who writes and checks ingredient-pair rules (and which public sources count), and the order of work (pharmacist review, then the CMO signs `medicine_interaction_rule_sets`, then the CMO presses `medicine_interaction_rules`). The existing S53 class dataset (85 rules, unsigned draft) is a separate mechanism; decide whether to keep both or retire one once the ingredient layer has content.
 - Reviewers of a brand mapping are active clinical staff who did not enter the row. A partner-pharmacy `pharmacist` account may not review. Decide whether Tarragon wants a staff pharmacist role that can.
+- 2026-11-03: version 2 of `medicine_interaction_rule_sets` is drafted (350 ingredient-pair rules expanded from the signed S53 class pairs, each cited to a BNF interactions page or an SmPC read that day), unsigned and inactive: `docs/clinical/interaction-rule-set-v2.md`. The pharmacist question stands; the CMO can sign v2 from that document once a pharmacist (or the CMO) has read it.
 - Decision: open (CMO).
 
 ### OQ-S08Y-2 The supporter's "today's doses" reads the `profile_access` model, not Care Circle (S29) (raised by S08y)
