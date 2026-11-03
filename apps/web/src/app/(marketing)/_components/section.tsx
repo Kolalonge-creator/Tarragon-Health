@@ -5,8 +5,11 @@ export function Section({
   className,
   children,
   variant = "default",
+  labelledBy,
 }: {
   id?: string;
+  /** The id of the section's heading, so assistive technology announces the section as a named region. */
+  labelledBy?: string;
   className?: string;
   children: React.ReactNode;
   variant?: "default" | "sage" | "navy";
@@ -19,7 +22,7 @@ export function Section({
         : "bg-white";
 
   return (
-    <section id={id} className={cn("px-4 py-16 sm:px-6 sm:py-20", bg, className)}>
+    <section id={id} aria-labelledby={labelledBy} className={cn("px-4 py-16 sm:px-6 sm:py-20", bg, className)}>
       <div className="marketing-reveal mx-auto max-w-6xl">{children}</div>
     </section>
   );
