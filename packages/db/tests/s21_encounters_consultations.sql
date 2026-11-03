@@ -700,7 +700,7 @@ begin
     (select count(*)::text from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
        and c.relname in ('encounters', 'encounter_rooms', 'encounter_events', 'consultation_scribe_consents', 'consultation_policy_config') and not c.relrowsecurity));
   perform pg_temp.act(v_adult);
-  perform pg_temp.rec('a patient sees the rule and the price before paying', '500000/2/18',
+  perform pg_temp.rec('a patient sees the rule and the price before paying (8,000 naira since 2026-11-03)', '800000/2/18',
     (select (r ->> 'price_kobo') || '/' || (r ->> 'cancel_window_hours') || '/' || (r ->> 'min_age_years') from (select public.my_consultation_rule() as r) x));
   perform pg_temp.back();
 
