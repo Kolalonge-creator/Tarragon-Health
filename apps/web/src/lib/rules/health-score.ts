@@ -191,11 +191,13 @@ export function describeHealthScoreCoverage(components: HealthScoreComponent[]):
   return `${base} Log a blood pressure reading to bring it to life.`;
 }
 
-/** True while the score rests on so little data that its status word ("Stable", "On track") would overstate it. A row with no
- * stored breakdown is not judged (it keeps its status word), only one known to be standing on a thin set of inputs. */
+/** True while the score rests on so little data that its status word ("Stable", "On track") would overstate it: fewer than three
+ * measures (the health profile alone is two). A row with no stored breakdown is not judged (it keeps its status word). The missing
+ * blood pressure reading is asked for in the coverage line, not by hiding the status of a score built on real labs. */
+export const HEALTH_SCORE_THIN_BELOW = 3;
 export function isHealthScoreThin(components: HealthScoreComponent[]): boolean {
   if (components.length === 0) return false;
-  return components.length < 3 || !components.some((c) => c.key === "bp_control");
+  return components.length < HEALTH_SCORE_THIN_BELOW;
 }
 
 /** Joins the coverage line and a caption, dropping the coverage line when there is none. */

@@ -330,5 +330,3 @@ export function bucketActionItems(items: ActionItem[], now: Date = new Date()): 
   return buckets;
 }
 
-/** The shared due-date wording (lib/patient/due-label), re-exported so the page keeps one import. */
-export { daysLabel } from "@/lib/patient/due-label";

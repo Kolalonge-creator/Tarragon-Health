@@ -253,6 +253,14 @@ describe("describeHealthScoreCoverage", () => {
     expect(isHealthScoreThin(full.components)).toBe(false);
   });
 
+  it("keeps the status word for a score built on real labs even without a blood pressure reading", () => {
+    const labs = computeHealthScore({ ...allUnavailable, bmi: 22, smokingStatus: "never", latestHba1cPercent: 6.2 })!;
+    expect(isHealthScoreThin(labs.components)).toBe(false);
+    expect(describeHealthScoreCoverage(labs.components)).toBe(
+      "Built from 3 of 6 measures so far. Log a blood pressure reading to bring it to life.",
+    );
+  });
+
   it("says nothing about a legacy score row with no stored breakdown, and does not call it thin", () => {
     expect(describeHealthScoreCoverage([])).toBe("");
     expect(isHealthScoreThin([])).toBe(false);

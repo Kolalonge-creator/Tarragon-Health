@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: 20261103013500_catalog_items_readable_by_signed_in_people
+-- Verification: 20261103013846_catalog_items_readable_by_signed_in_people
 --
 -- The defect: catalog_items had RLS on, no policy and no grant for
 -- `authenticated`, so the patient's refund list (orders -> catalog_items for
