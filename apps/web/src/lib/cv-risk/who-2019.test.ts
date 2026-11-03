@@ -88,6 +88,17 @@ describe("parseInstrumentConfig", () => {
     expect(parseInstrumentConfig({ bands: [] })).toBeNull();
     expect(parseInstrumentConfig(null)).toBeNull();
   });
+  it("accepts the published two-endpoint recalibrated shape and rejects it when a recalibration is missing", () => {
+    const endpoint = { ...synthetic, recalibration: { intercept: -0.3, slope: 0.9 } };
+    const two = { shape: "two_endpoint_recalibrated", mi: endpoint, stroke: endpoint };
+    const cfg = { ...emptyConfig, coefficientsVerified: true, models: { lab: { male: two, female: two }, non_lab: { male: synthetic, female: synthetic } } };
+    expect(parseInstrumentConfig(cfg)?.models.lab.male).toMatchObject({ shape: "two_endpoint_recalibrated" });
+    const broken = { ...cfg, models: { ...cfg.models, lab: { male: { shape: "two_endpoint_recalibrated", mi: endpoint, stroke: synthetic }, female: two } } };
+    expect(parseInstrumentConfig(broken)).toBeNull();
+    // a hybrid that also carries legacy top-level keys must not be downgraded to the single Cox shape
+    const hybrid = { ...cfg, models: { ...cfg.models, lab: { male: { ...synthetic, shape: "two_endpoint_recalibrated", mi: endpoint, stroke: synthetic }, female: two } } };
+    expect(parseInstrumentConfig(hybrid)).toBeNull();
+  });
 });
 
 describe("assessCvdWho2019", () => {

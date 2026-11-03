@@ -173,7 +173,9 @@ export default async function DashboardLayout({
 
   // "Community" appears in a staff menu only when the database says this person has community duties (cached per request).
   const communityStaff =
-    profile?.role === "clinician" || profile?.role === "care_coordinator" ? await getCommunityStaffContext() : null;
+    profile?.role === "clinician" || profile?.role === "care_coordinator" || profile?.role === "analyst" || profile?.role === "finance"
+      ? await getCommunityStaffContext()
+      : null;
 
   const embedded = await embeddedPromise;
   if (embedded) {

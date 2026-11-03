@@ -3,6 +3,7 @@ import { link } from "./ui";
 
 const ITEMS = [
   { href: "/admin/community", label: "Overview" },
+  { href: "/admin/community/moderation", label: "Moderation desk" },
   { href: "/admin/community/groups", label: "Groups" },
   { href: "/admin/community/topics", label: "Topics" },
   { href: "/admin/community/prompts", label: "Group prompts" },
