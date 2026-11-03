@@ -95,6 +95,9 @@ describe("parseInstrumentConfig", () => {
     expect(parseInstrumentConfig(cfg)?.models.lab.male).toMatchObject({ shape: "two_endpoint_recalibrated" });
     const broken = { ...cfg, models: { ...cfg.models, lab: { male: { shape: "two_endpoint_recalibrated", mi: endpoint, stroke: synthetic }, female: two } } };
     expect(parseInstrumentConfig(broken)).toBeNull();
+    // a hybrid that also carries legacy top-level keys must not be downgraded to the single Cox shape
+    const hybrid = { ...cfg, models: { ...cfg.models, lab: { male: { ...synthetic, shape: "two_endpoint_recalibrated", mi: endpoint, stroke: synthetic }, female: two } } };
+    expect(parseInstrumentConfig(hybrid)).toBeNull();
   });
 });
 

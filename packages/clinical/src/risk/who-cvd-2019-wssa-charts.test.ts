@@ -117,6 +117,18 @@ describe("the published Western sub-Saharan Africa charts", () => {
     }
     expect(mismatches).toBeGreaterThan(100);
   });
+
+  it("would catch the recalibration applied to the wrong endpoint (sabotage: mi and stroke swapped)", () => {
+    const female = v3.models.non_lab.female as CvdTwoEndpointSexModel;
+    const swapped: CvdTwoEndpointSexModel = { ...female, mi: { ...female.mi, recalibration: female.stroke.recalibration }, stroke: { ...female.stroke, recalibration: female.mi.recalibration } };
+    let mismatches = 0;
+    for (const c of fixture.cells.filter((x) => x.kind === "non_lab" && x.sex === "female")) {
+      const p = pointsFor(c);
+      const pct = cvdRiskFraction(swapped, { age: p.age, sbp: p.sbp, smoker: c.smoker, diabetes: 0, total_chol_mmol: 0, bmi: p.col }) * 100;
+      if (Math.round(pct) !== c.value) mismatches += 1;
+    }
+    expect(mismatches).toBeGreaterThan(20);
+  });
 });
 
 /** Cells read directly off the printed charts, chosen well inside a band and inside the engine's scoring range (SBP below 160, no diabetes). */

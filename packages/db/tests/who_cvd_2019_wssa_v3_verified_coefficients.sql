@@ -2,8 +2,8 @@
 -- Proves:
 --   1. v3 exists, is UNSIGNED and INACTIVE, says coefficientsVerified and regionCheckedForNigeria, and every sex model is complete in the
 --      two-endpoint shape; v3 keeps v2's bands, age range, reassessment rules and band actions; the instrument as a whole stays unsigned.
---   2. The completeness check (private.risk_sex_model_complete) accepts both shapes and refuses null, a half-filled two-endpoint model, and one
---      with no terms.
+--   2. The completeness check (private.risk_sex_model_complete) accepts both shapes and refuses null, a half-filled two-endpoint model, one
+--      with no terms, a non-positive slope and a baseline survival outside (0,1), matching the engine's own usability rule.
 --   3. sign_risk_instrument now gets PAST the coefficient checks for v3: the CMO can sign it (inside this rolled-back transaction only), an
 --      ordinary doctor cannot, and v1/v2 are still refused with coefficients_not_verified.
 --   4. SABOTAGE: with the recalibration block stripped from one endpoint, the completeness check flips to false and signing is refused.
@@ -117,6 +117,12 @@ begin
     private.risk_sex_model_complete(jsonb_set(m, '{mi}', (m -> 'mi') - 'recalibration'))::text);
   perform pg_temp.ck('a two-endpoint model whose slope is not a number is not complete', 'false',
     private.risk_sex_model_complete(jsonb_set(m, '{stroke,recalibration,slope}', '"0.6"'::jsonb))::text);
+  perform pg_temp.ck('a two-endpoint model with a zero slope is not complete (the engine would refuse it)', 'false',
+    private.risk_sex_model_complete(jsonb_set(m, '{stroke,recalibration,slope}', '0'::jsonb))::text);
+  perform pg_temp.ck('a two-endpoint model whose baseline survival is 1 is not complete (the engine would refuse it)', 'false',
+    private.risk_sex_model_complete(jsonb_set(m, '{mi,baselineSurvival}', '1'::jsonb))::text);
+  perform pg_temp.ck('the single shape with a baseline survival above 1 is not complete', 'false',
+    private.risk_sex_model_complete('{"baselineSurvival": 1.2, "terms": [{"coef": 0.05, "factors": [{"var": "age", "center": 50}]}]}'::jsonb)::text);
 end $$;
 
 -- 3. signing: v3 passes the coefficient checks, v1/v2 do not, only the CMO -------------------------------------------------------

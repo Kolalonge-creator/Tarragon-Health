@@ -918,32 +918,36 @@ values ('who_cvd_2019_wssa', 3,
 $json$::jsonb);
 -- who-cvd-v3-config-end
 
--- Completeness of one sex entry, shared by the signing function and the proofs. True for either accepted shape. Every branch is coalesced
--- to false: a missing key yields SQL NULL, and `if not NULL` in plpgsql would silently skip the refusal (the proof's sabotage step caught this).
+-- Completeness of one sex entry, shared by the signing function and the proofs. True for either accepted shape, and the same rule the
+-- engine applies (baseline survival strictly between 0 and 1, at least one term, a positive slope), so the database cannot sign a version the
+-- engine would refuse. Every branch is coalesced to false: a missing key yields SQL NULL, and `if not NULL` in plpgsql would silently skip
+-- the refusal (the proof's sabotage step caught this).
+create or replace function private.risk_cox_model_complete(p_model jsonb) returns boolean
+language sql immutable set search_path = ''
+as $$
+  select coalesce(
+    jsonb_typeof(p_model) = 'object'
+    and jsonb_typeof(p_model -> 'baselineSurvival') = 'number'
+    and (p_model ->> 'baselineSurvival')::numeric > 0 and (p_model ->> 'baselineSurvival')::numeric < 1
+    and jsonb_typeof(p_model -> 'terms') = 'array'
+    and (case when jsonb_typeof(p_model -> 'terms') = 'array' then jsonb_array_length(p_model -> 'terms') else 0 end) > 0, false)
+$$;
+revoke all on function private.risk_cox_model_complete(jsonb) from public, anon, authenticated;
+
 create or replace function private.risk_sex_model_complete(p_model jsonb) returns boolean
 language sql immutable set search_path = ''
 as $$
-  with cox as (
-    select m, coalesce(
-      jsonb_typeof(m) = 'object'
-      and jsonb_typeof(m -> 'baselineSurvival') = 'number'
-      and jsonb_typeof(m -> 'terms') = 'array'
-      and (case when jsonb_typeof(m -> 'terms') = 'array' then jsonb_array_length(m -> 'terms') else 0 end) > 0, false) as ok
-    from (values (p_model), (p_model -> 'mi'), (p_model -> 'stroke')) as t(m)
-  )
-  select coalesce(jsonb_typeof(p_model) = 'object', false) and (
-    (select ok from cox where m = p_model limit 1)
-    or coalesce(
+  select coalesce(
+    private.risk_cox_model_complete(p_model)
+    or (
       p_model ->> 'shape' = 'two_endpoint_recalibrated'
       and (select bool_and(coalesce(
-             jsonb_typeof(p_model -> ep) = 'object'
-             and jsonb_typeof(p_model -> ep -> 'baselineSurvival') = 'number'
-             and jsonb_typeof(p_model -> ep -> 'terms') = 'array'
-             and (case when jsonb_typeof(p_model -> ep -> 'terms') = 'array' then jsonb_array_length(p_model -> ep -> 'terms') else 0 end) > 0
+             private.risk_cox_model_complete(p_model -> ep)
              and jsonb_typeof(p_model -> ep -> 'recalibration' -> 'intercept') = 'number'
-             and jsonb_typeof(p_model -> ep -> 'recalibration' -> 'slope') = 'number', false))
-           from unnest(array['mi', 'stroke']) as ep), false)
-  )
+             and jsonb_typeof(p_model -> ep -> 'recalibration' -> 'slope') = 'number'
+             and (p_model -> ep -> 'recalibration' ->> 'slope')::numeric > 0, false))
+           from unnest(array['mi', 'stroke']) as ep)
+    ), false)
 $$;
 revoke all on function private.risk_sex_model_complete(jsonb) from public, anon, authenticated;
 

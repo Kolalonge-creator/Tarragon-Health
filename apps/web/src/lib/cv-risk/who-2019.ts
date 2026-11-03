@@ -20,9 +20,13 @@ const coxModel = z.object({
   terms: z.array(z.object({ coef: z.number(), factors: z.array(z.object({ var: z.enum(["age", "sbp", "smoker", "diabetes", "total_chol_mmol", "bmi"]), center: z.number() })) })),
 });
 const endpointModel = coxModel.extend({ recalibration: z.object({ intercept: z.number(), slope: z.number() }) });
-// The published shape (two recalibrated endpoints) first; the older single Cox shape is still accepted.
+// The published shape (two recalibrated endpoints), or the older single Cox shape. An object that names a shape never falls through to the
+// Cox branch: a half-filled two-endpoint model must fail closed (parse to null), not score as an un-recalibrated single model.
 const sexModel = z
-  .union([z.object({ shape: z.literal("two_endpoint_recalibrated"), mi: endpointModel, stroke: endpointModel }), coxModel])
+  .union([
+    z.object({ shape: z.literal("two_endpoint_recalibrated"), mi: endpointModel, stroke: endpointModel }),
+    coxModel.extend({ shape: z.never().optional() }),
+  ])
   .nullable();
 const modelPair = z.object({ male: sexModel, female: sexModel });
 
