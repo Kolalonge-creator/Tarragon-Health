@@ -739,6 +739,7 @@ Chosen from selectable prompts in chat while reviewing `docs/clinical-safety/con
 | **CON-04** | `checkout_enabled` is opened in the same sitting. | Both attested conditions were recorded on 2026-11-02; without it only Members can book. | Go-live page, admin switch. |
 | **CON-05** | Email plus the in-console alarm is the accepted page path now; push re-subscription and one acknowledged test page follow as soon as possible, not as a blocker. | Both doctors can start working; if no push arrives, email keeps working. | Safety case HZ-CON-10. |
 | **CON-06** | The twelve severity and likelihood ratings are the CMO's own as written. | Sole reviewer. | Safety case section 4. |
+| **CON-07** (2026-11-03, later) | `consultation_single` stays unpriced and off. Checkout is open for Membership only; a consultation is reached through a Membership's visit entitlement, not bought on its own. | Reaffirms the 2026-10-12 two-tier decision (no pay-per-consult credits). | `catalog_items.consultation_single` active=false, no `prices` row; OQ-400 closes as "default taken: off". |
 
 ## Founder decision, 2026-11-03 (rota cover minimum: two clinicians)
 
