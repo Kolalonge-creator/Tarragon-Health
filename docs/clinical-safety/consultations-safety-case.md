@@ -47,16 +47,14 @@ Guard this document supports: **`clinical_operations_enabled`** (a master switch
 | HZ-CON-11 | Zoom is misconfigured in a way that fails quietly | No dedicated host user (`ZOOM_HOST_USER_ID` unset), the web app has no webhook secret, meeting start and end events depend on the edge function's own secret | A clinician cannot host from the app and falls back to the bare link; the consultation never reaches "in progress" or "ended" in the record | Each missing setting fails closed to the link flow and to the safe presence default; nothing is marked present by a webhook the server cannot verify; an event with no participant key is logged, not silently dropped | `zoom-sdk.test.ts`, `presence.test.ts` | The S21 launch checklist (dedicated host user, paid plan with Audio Conferencing, event subscription pointed at the `zoom-webhook` edge function, `ZOOM_WEBHOOK_SECRET_TOKEN` in both places) has not been walked. Run one real consultation end to end, both ways, before a real patient is booked | Moderate / Likely | Founder |
 | HZ-CON-12 | The safety evidence has one reader | The CMO is the author's only reviewer, the signer and the clinician who will take most of the visits | A blind spot in this document is not caught | This document names the live state it was written from so a later reader can re-check it; every switch and attestation is attributed and logged | `s37_go_live_guards.sql` | None available at the current team size. Stated once, gates nothing | Low / Likely | CMO |
 
-## 5. Decisions the CMO is asked to make before signing
+## 5. Decisions recorded 2026-11-03 (CMO, from selectable prompts in chat)
 
-Each is a yes or no; the choice is recorded in the sign-off note and in `docs/DECISIONS.md`.
-
-1. **HZ-CON-02 and HZ-CON-11:** open consultations only after one real call has been run end to end (book, join from a phone, drop to audio, dial in by phone, finish, note signed), **or** open now for Members only and run that call as the first real visit with a known patient. The assistant recommends the first.
-2. **HZ-CON-06:** open paid consultations while prescribing stays closed (a consultation can end in advice, a referral, a downloadable prescription form, or a titration proposal under the signed step table, but not a prescription sent to a pharmacy), **or** wait for `prescribing_enabled`. The assistant recommends opening, with the booking terms card told to say so (a small follow-up).
-3. **HZ-CON-07:** open the post-consultation check-ins (`post_consult_checkins_enabled`, configuration already signed) in the same sitting, **or** accept clinician-recorded follow-up as the control for now. The assistant recommends opening it.
-4. **HZ-CON-08:** open `checkout_enabled` in the same sitting so a Free patient can buy a visit credit, **or** keep consultations to Members until checkout is opened separately.
-5. **HZ-CON-10:** confirm that every on-call device has re-subscribed to push and one test page was acknowledged, **or** accept email plus the in-console alarm as the working path until then.
-6. The severity and likelihood cells above are confirmed or changed by the CMO.
+1. **HZ-CON-02 and HZ-CON-11 (first call):** one real consultation is run end to end (book, join from a phone, drop to audio, dial in by phone, finish, sign the note) with a known patient before any other patient is booked. The switch may go on for that call; it is the first visit, not a rehearsal with test accounts. The Zoom dedicated host user, paid plan and Nigerian dial-in number are confirmed on that call.
+2. **HZ-CON-06 (prescribing):** paid consultations open while `prescribing_enabled` stays closed. A visit can end in advice, a referral, a downloadable prescription form or a titration proposal under the signed step table, not a prescription sent to a pharmacy. Follow-up: the booking terms card is to say so.
+3. **HZ-CON-07 (check-ins):** `post_consult_checkins_enabled` is opened in the same sitting (its configuration v1 is already signed).
+4. **HZ-CON-08 (checkout):** `checkout_enabled` is opened in the same sitting so a Free patient can buy a visit credit.
+5. **HZ-CON-10 (paging):** both. Email plus the in-console alarm is accepted as the working page path now so consultations can open; both doctors also re-enable push on their devices and one test page is acknowledged, as soon as possible rather than as a blocker. If no push arrives, email keeps working.
+6. **Ratings:** the severity and likelihood cells in section 4 are accepted as written and are the CMO's own.
 
 ## 6. First-week check (suggested)
 
@@ -72,8 +70,9 @@ After the first real consultation: read `encounters` and `encounter_events` for 
 
 Reviewed and signed by: ____________________  Role: Chief Medical Officer  Date: __________  Version: v1.0
 
-Decisions taken (1 to 6 above): __________
+Decisions taken (1 to 6 above): as recorded in section 5
 
 ## Change log
 
 - v1.0 draft, 2026-11-03: written by the assistant from the live database, the S21, S37 and S64 design notes and the consultation code; unsigned.
+- v1.0, 2026-11-03: four review corrections; the six decisions recorded from the CMO's answers in chat; ratings accepted. Awaiting the CMO's signature on the hub and the attestation on the go-live page.
