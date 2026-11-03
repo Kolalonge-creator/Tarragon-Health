@@ -101,10 +101,14 @@ export default async function ClinicianPatientsPage({
   let rosterFailed = false;
   let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null }[] = [];
   if (!scopeFailed && (!scopeApplied || (restrictedIds && restrictedIds.length > 0))) {
+    // INV-13: a test account (profiles.is_test) is never a real doctor's
+    // patient. Without this filter "First Patient" and the other QA accounts
+    // sat in the roster next to real people with nothing to tell them apart.
     let query = supabase
       .from("profiles")
       .select("id, full_name, patient_number, phone")
       .eq("role", "patient")
+      .eq("is_test", false)
       .order("full_name", { ascending: true })
       .limit(200);
     if (q?.trim()) {
