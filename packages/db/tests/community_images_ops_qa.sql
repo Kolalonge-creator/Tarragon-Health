@@ -14,6 +14,15 @@
 -- Run: psql -f packages/db/tests/community_images_ops_qa.sql   (against a database where the community migrations are applied)
 
 begin;
+-- The community overdue check also runs inside the database every 10 minutes (20261102135310_community_overdue_check_runs_in_pg_cron.sql),
+-- so a CI replay that crosses a ten-minute boundary already carries a successful 'overdue' heartbeat by the time this script runs,
+-- and the 'fresh database' expectations below would then depend on the clock. Clear it here, inside this rolled-back transaction.
+delete from public.community_job_runs where job = 'overdue';
+
+-- The community-overdue pg_cron job (migration 20261102135310) really runs on the CI stack, so a replay that crosses a ten-minute
+-- boundary has a fresh heartbeat by the time this proof runs. The checks below reason about a database where the monitor has
+-- not been seen yet, so the heartbeat is cleared first (rolled back with everything else).
+delete from public.community_job_runs where job = 'overdue';
 
 -- COM-27 (2026-11-03) made the live first-post hold 0 (community_config version 2). This proof exercises the hold path, which stays a
 -- supported configuration, so it runs under a rolled-back config version that keeps the hold at one post and everything else as version 1.

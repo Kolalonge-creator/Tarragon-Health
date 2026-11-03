@@ -9,7 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  * distinction is defined once and stays consistent, rather than drifting
  * across four independently-worded explanations. Deliberately not a fourth
  * new page or nav item: these three already exist as real, separate
- * mechanisms (a one-off purchasable bundle; an age/sex-driven due-date
+ * mechanisms (the Membership Plus yearly panel; an age/sex-driven due-date
  * engine in screening-recommendations.ts; and care-plan-driven monitoring
  * keyed off drug_monitoring_rules / vitals_reminder_rules / the
  * diabetes complication trackers) — this component just names that
@@ -21,10 +21,10 @@ type Lens = "annual" | "periodic" | "chronic";
 const LENSES: { id: Lens; title: string; body: string; href: string; linkLabel: string }[] = [
   {
     id: "annual",
-    title: "Your Annual Health Check",
-    body: "One bundled laboratory visit each year, covering core blood tests, baseline checks of your organs, and screening for infectious disease in a single trip.",
+    title: "Your yearly blood panel",
+    body: "One visit each year at a testing day you choose, covering blood sugar, cholesterol, your kidneys, liver and blood count, and screening for HIV and hepatitis. Included in Membership Plus.",
     href: MARKETING_ROUTES.annualHealthCheck,
-    linkLabel: "See what is in the bundle",
+    linkLabel: "See what is in the panel",
   },
   {
     id: "periodic",

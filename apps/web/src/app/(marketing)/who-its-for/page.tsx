@@ -63,9 +63,9 @@ export default function WhoItsForPage() {
               One system, not separate products
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You, your family, the sponsoring employer, or the backing HMO all read from the
-              same long-term record, limited to what each of them needs to see, so that nobody
-              has to repeat their history to a new system.
+              You and the family members you choose see your record, so that nobody has to
+              repeat their history to a new system. An employer or HMO that pays for your care
+              sees only anonymous totals, never anything about you.
             </p>
           </div>
           <MarketingMediaFrame
@@ -80,7 +80,7 @@ export default function WhoItsForPage() {
       <Section className="pb-24">
         <CtaBand
           title="See exactly what costs money"
-          description="The app is free. A doctor's time is priced for each piece of work, for individuals, families and organisations."
+          description="The app is free. Membership is one yearly price for a year of care with your care team, for individuals, families and organisations."
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"

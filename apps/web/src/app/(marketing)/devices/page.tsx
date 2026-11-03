@@ -21,11 +21,11 @@ export default function DevicesPage() {
         <SectionHeading
           as="h1"
           eyebrow="Devices"
-          title="Devices that work well with Tarragon"
-          description="You do not need a device, because typing a reading into the app takes seconds. If you would like one anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync is introduced. Tarragon does not make or sell these devices and earns nothing from them."
+          title="Devices and Tarragon"
+          description="You do not need a device, because typing a reading into the app takes seconds. If you would like one, these are the third-party models our Bluetooth pairing is built around. We are still testing that pairing on real devices, so until then their own apps share readings with Apple Health or Health Connect. Tarragon does not make or sell these devices and earns nothing from them."
         />
 
-        <h2 className="sr-only">Suggested devices</h2>
+        <h2 className="sr-only">Devices our pairing is built around</h2>
         <div className="mx-auto mt-10 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {MARKETING_DEVICES.map((device) => (
             <div
@@ -49,7 +49,7 @@ export default function DevicesPage() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                Syncs via Apple Health or Health Connect
+                Pairing in testing
               </span>
               <p className="mt-3 flex-1 text-sm text-charcoal-ink/70">{device.whyWeRecommend}</p>
             </div>
