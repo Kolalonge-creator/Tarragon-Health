@@ -92,6 +92,16 @@ describe("phone sign-up", () => {
     });
   });
 
+  it("marks a supporter sign-up as a supporter-only account, and never marks an ordinary one", async () => {
+    const supporter = fakeAuth();
+    await startPhoneSignUp(supporter.auth, { phone: "+2348031234567", password: "a-long-password", fullName: "Ada Obi", dateOfBirth: "1990-04-02", supporter: true });
+    expect(supporter.calls.signUp?.[0]).toMatchObject({ options: { data: { account_purpose: "support", signup_intent: "support" } } });
+    const patient = fakeAuth();
+    await startPhoneSignUp(patient.auth, { phone: "+2348031234567", password: "a-long-password", fullName: "Ada Obi", dateOfBirth: "1990-04-02" });
+    const data = (patient.calls.signUp?.[0] as { options: { data: Record<string, unknown> } }).options.data;
+    expect(data).not.toHaveProperty("account_purpose");
+  });
+
   it("carries an invite code into the account metadata (invite-only sign-up), and sends none when there is none", async () => {
     const withCode = fakeAuth();
     await startPhoneSignUp(withCode.auth, { phone: "+2348031234567", password: "a-long-password", fullName: "Ada Obi", dateOfBirth: "1990-04-02", inviteCode: "ABCD2345EF" });

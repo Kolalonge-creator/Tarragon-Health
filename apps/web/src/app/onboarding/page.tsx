@@ -4,8 +4,13 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { YourCareTeam } from "@/components/your-care-team";
 import { OnboardingFlow } from "./onboarding-flow";
+import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 
-export default async function OnboardingPage() {
+export const metadata = { referrer: "no-referrer" as const };
+
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ redirect?: string }> }) {
+  // A Care Circle join link carried through sign-up (safeJoinRedirect: that path and nothing else).
+  const joinRedirect = safeJoinRedirect((await searchParams).redirect);
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect("/login");
@@ -14,7 +19,7 @@ export default async function OnboardingPage() {
     redirect("/");
   }
   if (profile.onboarding_completed_at) {
-    redirect("/patient");
+    redirect(joinRedirect ?? "/patient");
   }
 
   const supabase = await createClient();
@@ -71,6 +76,7 @@ export default async function OnboardingPage() {
       <OnboardingFlow
         profile={{ id: profile.id, fullName: profile.full_name }}
         receivesCare={profile.receives_care !== false}
+        joinRedirect={joinRedirect}
         careTeamSlot={<YourCareTeam patientId={profile.id} />}
         existingPlan={
           existingSubscription

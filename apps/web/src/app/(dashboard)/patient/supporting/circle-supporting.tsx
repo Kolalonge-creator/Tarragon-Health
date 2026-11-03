@@ -122,50 +122,64 @@ function UnansweredCard({ item, locale }: { item: UnansweredCheckIn; locale: Loc
   );
 }
 
-/** The Care Circle half of the supporter's home: any open check-in request first, then the people who have shared something. */
-export function CircleSupporting({ locale }: { locale: Locale }) {
+/**
+ * One person's Care Circle details, for their card on the supporter's home: how they are related, until when, the way into what they
+ * share, and (for someone who gets check-in requests) the alert setting and the check-in button. Used on a Care Circle-only card here
+ * and inside the unified card in supported-people.tsx when the same person is also someone the supporter pays for.
+ */
+export function CirclePersonDetails({ person, locale }: { person: SupportedPerson; locale: Locale }) {
+  const alerts = useOpenAlerts();
+  const needsAttention = (alerts.data ?? []).some((a) => a.patient_id === person.patient_id && !a.called);
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          {needsAttention ? (
+            <span className="inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium">{t("circle.supporting.needs_attention", locale)}</span>
+          ) : null}
+          <p className={`text-sm ${MUTED}`}>
+            {t("circle.supporting.relationship", locale, { relationship: person.relationship })} · {t("circle.view.shared_until", locale, { date: formatPatientDate(person.expires_at) })}
+          </p>
+        </div>
+        <Button asChild className="min-h-11">
+          <Link href={`/patient/supporting/circle/${person.patient_id}`} aria-label={`${t("circle.supporting.open", locale)}: ${t("supporterjoin.view.title", locale, { name: person.name })}`}>
+            {t("circle.supporting.open", locale)}
+          </Link>
+        </Button>
+      </div>
+      {person.permissions.includes("red_alerts") ? <AlertMode person={person} locale={locale} /> : null}
+      {person.permissions.includes("red_alerts") ? <CheckInAsk patientId={person.patient_id} locale={locale} /> : null}
+    </div>
+  );
+}
+
+/**
+ * The Care Circle half of the supporter's home: any open check-in request first, then one card per person who shares with them.
+ *
+ * `hidePatientIds` are people who already have a unified card below (they are also someone this supporter pays for), so they are not
+ * listed twice. `null` means that list is still loading: only the requests show until it is known, so nobody flickers in and out.
+ */
+export function CircleSupporting({ locale, hidePatientIds }: { locale: Locale; hidePatientIds?: ReadonlySet<string> | null }) {
   const people = useSupportedPeople();
   const alerts = useOpenAlerts();
   const unanswered = useUnansweredCheckIns();
-  const list = people.data ?? [];
   const open = alerts.data ?? [];
   const missed = unanswered.data ?? [];
+  const list = hidePatientIds === null ? [] : (people.data ?? []).filter((p) => !hidePatientIds?.has(p.patient_id));
   if (people.isSuccess && list.length === 0 && open.length === 0 && missed.length === 0) return null;
 
   return (
     <div className="space-y-4">
       {open.map((a) => <AlertCard key={a.patient_id} alert={a} locale={locale} />)}
       {missed.map((m) => <UnansweredCard key={m.patient_id} item={m} locale={locale} />)}
-      <Card>
-        <CardHeader><CardTitle>{t("circle.supporting.title", locale)}</CardTitle></CardHeader>
-        <CardContent>
-          <ul className="divide-y">
-            {list.map((p) => {
-              const needsAttention = open.some((a) => a.patient_id === p.patient_id && !a.called);
-              return (
-                <li key={p.member_id} className="py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium">
-                        {p.name}
-                        {needsAttention ? <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium">{t("circle.supporting.needs_attention", locale)}</span> : null}
-                      </p>
-                      <p className={`text-sm ${MUTED}`}>
-                        {t("circle.supporting.relationship", locale, { relationship: p.relationship })} · {t("circle.view.shared_until", locale, { date: formatPatientDate(p.expires_at) })}
-                      </p>
-                    </div>
-                    <Button asChild className="min-h-11">
-                      <Link href={`/patient/supporting/circle/${p.patient_id}`}>{t("circle.supporting.open", locale)}</Link>
-                    </Button>
-                  </div>
-                  {p.permissions.includes("red_alerts") ? <AlertMode person={p} locale={locale} /> : null}
-                  {p.permissions.includes("red_alerts") ? <CheckInAsk patientId={p.patient_id} locale={locale} /> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
+      {list.map((p) => (
+        <Card key={p.member_id}>
+          <CardHeader><CardTitle className="text-lg">{p.name}</CardTitle></CardHeader>
+          <CardContent>
+            <CirclePersonDetails person={p} locale={locale} />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

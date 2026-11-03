@@ -57,7 +57,7 @@ describe("phone sign-up with the invite gate", () => {
 
   it("asks the pre-check with the normalised phone and the code, and carries the code into the account metadata", async () => {
     await signUpWithPhone(undefined, phoneForm({ inviteCode: "ABCD2345EF" }));
-    expect(gateMock).toHaveBeenCalledWith({ phone: "+2348031234567", inviteCode: "ABCD2345EF" });
+    expect(gateMock).toHaveBeenCalledWith({ phone: "+2348031234567", inviteCode: "ABCD2345EF", supporter: false });
     expect(signUpMock.mock.calls[0][0].options.data.invite_code).toBe("ABCD2345EF");
   });
 
@@ -78,7 +78,7 @@ describe("email sign-up with the invite gate", () => {
   it("passes only the email and the code to the pre-check, and the code to the account", async () => {
     await signUp(undefined, emailForm({ inviteCode: "ABCD2345EF" }));
     // the unverified phone typed on the email form is deliberately NOT sent to the gate
-    expect(gateMock).toHaveBeenCalledWith({ email: "amaka@example.com", inviteCode: "ABCD2345EF" });
+    expect(gateMock).toHaveBeenCalledWith({ email: "amaka@example.com", inviteCode: "ABCD2345EF", supporter: false });
     expect(signUpMock.mock.calls[0][0].options.data.invite_code).toBe("ABCD2345EF");
   });
 });

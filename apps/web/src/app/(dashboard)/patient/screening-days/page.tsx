@@ -19,7 +19,12 @@ export default async function ScreeningDaysPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        backTo={{ href: "/patient", label: "Dashboard" }}
+        backTo={
+          // a supporter-only account has no dashboard of its own; its home is the people it supports
+          profile.receives_care === false
+            ? { href: "/patient/supporting", label: "People you support" }
+            : { href: "/patient", label: "Dashboard" }
+        }
         title="Group screening days"
         icon={SEMANTIC_ICON.preventive}
         description="Bring a group (a church, a market association, a cooperative, an office) and get a discounted rate on a health check for everyone. One payer covers the whole group upfront; we'll confirm the price and headcount with you first."

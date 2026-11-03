@@ -16,7 +16,7 @@ import { FormError, fieldErrorId } from "@/components/ui/form-error";
  * (see onboarding/page.tsx for existingPlan's source), so this is now purely
  * informational rather than also a second guard against a double charge.
  */
-export function ExistingPlanNotice({ planName, status }: { planName: string; status: string }) {
+export function ExistingPlanNotice({ planName, status, joinRedirect = null }: { planName: string; status: string; joinRedirect?: string | null }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +39,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
           setPending(true);
           setError(null);
           try {
-            await completeOnboarding();
+            await completeOnboarding(joinRedirect ? { redirect: joinRedirect } : undefined);
           } catch (err) {
             // completeOnboarding() ends in redirect(), which Next.js
             // implements by throwing — that's the success path, not a

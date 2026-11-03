@@ -10,6 +10,8 @@ import {
 } from "@/lib/validation/onboarding";
 import { verifyIdentity } from "@/lib/identity/provider";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { z } from "zod";
+import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 import { answersFromRows, focusFromAnswers, validateOnboardingAnswers } from "@tarragon/shared";
 
 export type SaveDemographicsState =
@@ -142,7 +144,15 @@ export async function acceptConsents(
  * action never takes a patientId argument, so it can't be pointed at
  * another account even by mistake).
  */
-export async function completeOnboarding() {
+/** The only thing a caller may pass: where to go next, honoured only when it is a Care Circle join link (safeJoinRedirect). */
+const completeOnboardingInput = z.object({ redirect: z.string().max(200).optional() }).optional();
+
+export async function completeOnboarding(input?: { redirect?: string }) {
+  const parsedInput = completeOnboardingInput.safeParse(input);
+  // A join link opened before onboarding (a relative abroad who just made an account to accept an invite) is where they were going,
+  // so it wins over every other landing. Anything that is not exactly a join link is ignored.
+  const joinRedirect = parsedInput.success ? safeJoinRedirect(parsedInput.data?.redirect) : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -158,7 +168,8 @@ export async function completeOnboarding() {
   // The database refuses to complete onboarding without a date of birth, a sex and the required consents (private.enforce_onboarding_prereqs).
   // That refusal used to be ignored, so the person was sent on to the dashboard and bounced straight back to onboarding with no
   // explanation. Send them back to the step that is missing instead; the page works out which one from what is on file.
-  if (completeError) redirect("/onboarding");
+  if (completeError) redirect(joinRedirect ? `/onboarding?redirect=${encodeURIComponent(joinRedirect)}` : "/onboarding");
+  if (joinRedirect) redirect(joinRedirect);
 
   // Land somebody where they were actually trying to go. `signup_intent` is
   // carried through auth metadata from /signup?intent=..., the same vehicle

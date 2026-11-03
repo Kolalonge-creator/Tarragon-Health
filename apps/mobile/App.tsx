@@ -468,6 +468,7 @@ function AppContent() {
         patientName={identity.fullName}
         patientNumber={identity.patientNumber}
         initials={identity.initials}
+        supporterOnly={identity.receivesCare === false}
       />
       {offerBiometric ? <BiometricOfferScreen onDone={() => setOfferBiometric(false)} /> : null}
     </SafeAreaView>

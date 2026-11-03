@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { parseInviteStatus } from "@/lib/care-circle/join-link";
 import {
   inviteMadeSchema,
   parseAccept,
@@ -285,6 +286,23 @@ export function usePreviewInvite(token: string) {
       const { data, error } = await createClient().rpc("preview_care_circle_invite", { p_token: token });
       if (error) return parsePreview(null);
       return parsePreview(data);
+    },
+    retry: false,
+  });
+}
+
+/**
+ * Why the preview or the accept failed, for the person holding this link (supporter join path): wrong email or phone, expired, already
+ * in, and so on. Asked only after a failure, never counts an attempt, never accepts. A failed read is "not available".
+ */
+export function useInviteStatus(token: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "invite-status", token],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("care_circle_invite_status", { p_token: token });
+      if (error) return parseInviteStatus(null);
+      return parseInviteStatus(data);
     },
     retry: false,
   });

@@ -2,13 +2,15 @@ import { Platform, Pressable, Text, View } from "react-native";
 import { useT } from "@/lib/ui-language";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { PRIMARY_SECTIONS, type SectionId } from "@/lib/sections";
+import { PRIMARY_SECTIONS, type SectionDef, type SectionId } from "@/lib/sections";
 import { useLegacyColors } from "./design";
 
 interface BottomTabBarProps {
   activeSection: SectionId;
   onSelect: (id: SectionId) => void;
   onMore: () => void;
+  /** The tabs to show; the patient tabs unless given (a supporter-only account passes its own, lib/sections.ts). */
+  sections?: readonly SectionDef[];
 }
 
 /**
@@ -33,10 +35,10 @@ const TAB_LABEL_MAX_SCALE = 1.2;
 
 const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 
-export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarProps) {
+export function BottomTabBar({ activeSection, onSelect, onMore, sections = PRIMARY_SECTIONS }: BottomTabBarProps) {
   const tr = useT();
   const colors = useLegacyColors();
-  const moreActive = !PRIMARY_SECTIONS.some((s) => s.id === activeSection);
+  const moreActive = !sections.some((s) => s.id === activeSection);
   const insets = useSafeAreaInsets();
 
   return (
@@ -50,7 +52,7 @@ export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarPr
         paddingTop: 6,
       }}
     >
-      {PRIMARY_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const active = section.id === activeSection;
         return (
           <Tab

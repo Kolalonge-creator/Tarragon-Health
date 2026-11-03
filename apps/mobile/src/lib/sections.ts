@@ -65,7 +65,7 @@ export type SectionId =
   | "emergency"
   | "settings";
 
-interface SectionDef {
+export interface SectionDef {
   id: SectionId;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -412,3 +412,33 @@ export const SECTION_GROUP_ORDER = [
 ] as const;
 
 export const PRIMARY_SECTIONS = SECTIONS.filter((s) => s.primary).slice(0, MAX_PRIMARY_SECTIONS);
+
+/**
+ * A supporter-only account (profiles.receives_care = false) has no health record here, so its app opens on the people it supports
+ * and offers only what such an account is for. Mirrors the web proxy's allow-list for the same accounts (apps/web/src/proxy.ts): the
+ * people they support, their own people, messages, paying and receipts, group screening days, and the account's own settings.
+ */
+export const SUPPORTER_SECTION_IDS: readonly SectionId[] = [
+  "supporting",
+  "messages",
+  "family",
+  "screeningDays",
+  "receipts",
+  "paymentRequests",
+  "notificationSettings",
+  "technicalSupport",
+  "privacy",
+  "myPhones",
+  "settings",
+];
+
+/** The supporter-only bottom tabs: the people they support first, then messages, their own people and receipts. */
+export const SUPPORTER_PRIMARY_SECTIONS: SectionDef[] = (["supporting", "messages", "family", "receipts"] as const)
+  .map((id) => SECTIONS.find((s) => s.id === id))
+  .filter((s): s is SectionDef => s !== undefined)
+  .map((s) => (s.id === "supporting" ? { ...s, shortLabel: "People" } : s));
+
+/** Where a supporter-only account may go; anything else (a notification tap, an old link) lands on the people they support. */
+export function supporterSection(id: SectionId): SectionId {
+  return SUPPORTER_SECTION_IDS.includes(id) ? id : "supporting";
+}
