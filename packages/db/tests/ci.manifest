@@ -1817,3 +1817,5 @@ who_cvd_2019_wssa_v3_verified_coefficients.sql
 consultation_pages_name_the_patient.sql
 # video visit price single source: the older request route quotes exactly what it charges (product price, organisation override, off = null, anon refused). Sabotage: the pre-fix reading of the organisation-less row makes quote and charge disagree.
 video_visit_price_single_source.sql
+# Community rota: an automatic moderator or safety-reviewer grant starts on the rota (every day, 00-24), so coverage is no longer 168 empty hours; an admin's trimmed week is kept, a hand grant and a withdrawn grant are not seeded, nobody can call the seeding function. Sabotage: without the trigger a new finance moderator has no rota.
+community_automatic_moderators_on_the_rota.sql
