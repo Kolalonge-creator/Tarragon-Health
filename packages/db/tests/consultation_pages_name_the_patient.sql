@@ -57,7 +57,8 @@ begin
   v_patient := pg_temp.mkuser(v_org, 'patient', 'patient', 'Adaeze Okonkwo-Test');
 
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, scheduled_at, policy_version, is_test)
-  values (v_org, v_patient, v_docA, 'video', date_trunc('day', now()) + interval '22 hours', 1, true)
+  -- an hour from now: always inside the list's default window (today and tomorrow), whatever the hour, without cutting the clock
+  values (v_org, v_patient, v_docA, 'video', now() + interval '1 hour', 1, true)
   returning id into v_enc;
 
   -- 2. The assigned doctor ------------------------------------------------------------------------------------
@@ -100,7 +101,7 @@ begin
       select e.id as encounter_id, e.type, e.status, e.scheduled_at, e.final_media_mode,
              split_part(coalesce(p.full_name, ''), ' ', 1) as patient_first_name, e.patient_id, null::text as patient_full_name, coalesce(p.is_test, false) as patient_is_test
         from public.encounters e join public.profiles p on p.id = e.patient_id
-       where e.clinician_id = (select auth.uid()) and e.scheduled_at >= coalesce(p_from, date_trunc('day', now())) and e.scheduled_at < coalesce(p_to, date_trunc('day', now()) + interval '2 days')
+       where e.clinician_id = (select auth.uid()) and e.scheduled_at >= coalesce(p_from, now() - interval '1 day') and e.scheduled_at < coalesce(p_to, now() + interval '2 days')
        order by e.scheduled_at limit 200) x $s$;
   perform pg_temp.act(v_docA);
   insert into results values ('sabotaged', 'doctor A: the list names the patient in full, with their id and test flag', v_patient::text || '/Adaeze Okonkwo-Test/true',
