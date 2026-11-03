@@ -36,7 +36,8 @@ function Directions({ text, mapHref }: { text: string | null | undefined; mapHre
 /** A GET form, so the chosen place is in the address and survives a refresh or a shared link. */
 function PlaceFilter({ days, place }: { days: TestingDay[]; place: { state: string; city: string } }) {
   const { states, cities } = placeOptions(days);
-  if (states.length + cities.length <= 1) return null;
+  // Nothing to choose between, unless a filter from the address is active: then it must stay visible so it can be cleared.
+  if (states.length + cities.length <= 1 && !place.state && !place.city) return null;
   return (
     <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Find a testing day near you">
       {states.length > 0 ? (

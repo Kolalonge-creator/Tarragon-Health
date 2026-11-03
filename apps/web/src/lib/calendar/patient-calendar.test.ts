@@ -68,6 +68,19 @@ describe("groupByMonth and parseYear", () => {
     expect(months).toHaveLength(12);
     expect(months[11]).toHaveLength(1);
   });
+  it("hides a booking on a cancelled day and offers no calendar file for a completed one", () => {
+    const entries = buildCalendarEntries(
+      {
+        ...EMPTY,
+        testingBookings: [
+          { booking_id: "x", state: "confirmed", event_date: "2026-02-05", starts_at: null, venue_name: "Hall", city: "Lagos", event_status: "cancelled" },
+          { booking_id: "y", state: "confirmed", event_date: "2026-02-06", starts_at: "09:00:00", venue_name: "Hall", city: "Lagos", event_status: "completed" },
+        ],
+      },
+      2026,
+    );
+    expect(entries.map((e) => [e.id, e.icsHref, e.time])).toEqual([["testing-y", null, "from 09:00"]]);
+  });
   it("keeps the year in range", () => {
     expect(parseYear("2027", 2026)).toBe(2027);
     expect(parseYear("1999", 2026)).toBe(2026);

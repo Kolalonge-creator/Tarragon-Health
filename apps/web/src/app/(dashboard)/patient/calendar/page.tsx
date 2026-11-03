@@ -17,6 +17,7 @@ import {
   lagosDate,
   MONTHS,
   parseYear,
+  yearRange,
   type CalendarEntry,
   type CalendarEntryKind,
 } from "@/lib/calendar/patient-calendar";
@@ -79,6 +80,7 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
   const thisYear = Number(lagosDate(new Date().toISOString()).slice(0, 4));
   const { year: yearParam } = await searchParams;
   const year = parseYear(yearParam, thisYear);
+  const range = yearRange(thisYear);
   const supabase = await createClient();
   const failed: string[] = [];
 
@@ -104,15 +106,20 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
   ]);
 
   if (appointmentsResult === null) failed.push("consultations");
-  const bookings = bookingsResult.error ? (failed.push("testing-day bookings"), []) : myBookingListSchema.catch([]).parse(bookingsResult.data ?? []);
+  // A read error AND a reply in an unexpected shape both count as "could not load", never as an empty list.
+  function rows<T>(label: string, schema: z.ZodType<T[]>, result: { data: unknown; error: unknown }): T[] {
+    const parsed = result.error ? null : schema.safeParse(result.data ?? []);
+    if (!parsed?.success) {
+      failed.push(label);
+      return [];
+    }
+    return parsed.data;
+  }
+  const bookings = rows("testing-day bookings", myBookingListSchema, bookingsResult);
   // Free accounts are refused open days (membership_required); that is not a failure, they simply have none to book.
   const openDays =
-    daysResult.error && daysResult.error.message !== "membership_required"
-      ? (failed.push("open testing days"), [])
-      : testingDayListSchema.catch([]).parse(daysResult.data ?? []);
-  const screenings = screeningsResult.error
-    ? (failed.push("screenings"), [])
-    : z.array(screeningRowSchema).catch([]).parse(screeningsResult.data ?? []);
+    daysResult.error?.message === "membership_required" ? [] : rows("open testing days", testingDayListSchema, daysResult);
+  const screenings = rows("screenings", z.array(screeningRowSchema), screeningsResult);
 
   const entries = buildCalendarEntries(
     {
@@ -143,13 +150,17 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Choose a year" className="flex items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/patient/calendar?year=${year - 1}`}>{year - 1}</Link>
-          </Button>
+          {year - 1 >= range.min ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/patient/calendar?year=${year - 1}`}>{year - 1}</Link>
+            </Button>
+          ) : null}
           <span className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">{year}</span>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/patient/calendar?year=${year + 1}`}>{year + 1}</Link>
-          </Button>
+          {year + 1 <= range.max ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/patient/calendar?year=${year + 1}`}>{year + 1}</Link>
+            </Button>
+          ) : null}
         </nav>
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { buildIcs, icsResponse } from "@/lib/calendar/ics";
+import { buildIcs, icsResponse, requestAppOrigin } from "@/lib/calendar/ics";
 import { appointmentRowSchema, appointmentToEvent, CALENDAR_APPOINTMENT_STATUSES } from "@/lib/calendar/bookings";
 
 /** "Add to my calendar" for one booked consultation, read on the caller's own session (RLS); a held or cancelled slot 404s. */
@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ appo
     .maybeSingle();
   if (error) return new Response("We could not read your appointment. Please try again.", { status: 503 });
   const row = appointmentRowSchema.safeParse(data);
-  const event = row.success ? appointmentToEvent(row.data, new URL(request.url).origin) : null;
+  const event = row.success ? appointmentToEvent(row.data, requestAppOrigin(request)) : null;
   if (!event) return new Response("Not found", { status: 404 });
   return icsResponse(buildIcs([event]), "tarragon-appointment.ics");
 }

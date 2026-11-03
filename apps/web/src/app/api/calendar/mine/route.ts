@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { buildIcs, icsResponse, type CalendarEvent } from "@/lib/calendar/ics";
+import { buildIcs, icsResponse, requestAppOrigin, type CalendarEvent } from "@/lib/calendar/ics";
 import { appointmentToEvent, readMyAppointments, readMyTestingBookings, testingBookingToEvent } from "@/lib/calendar/bookings";
 
 /** Every coming booking (confirmed testing-day places and booked consultations, the next 12 months) in one calendar file. */
@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
   } = await supabase.auth.getUser();
   if (!user) return new Response("Not signed in", { status: 401 });
 
-  const origin = new URL(request.url).origin;
+  const origin = requestAppOrigin(request);
   const now = new Date();
   const yearAhead = new Date(now.getTime() + 366 * 24 * 60 * 60 * 1000);
   const today = now.toISOString().slice(0, 10);

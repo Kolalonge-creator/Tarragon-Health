@@ -148,6 +148,17 @@ export function buildIcs(events: CalendarEvent[], now: Date = new Date()): strin
   return lines.map(foldLine).join("\r\n") + "\r\n";
 }
 
+/**
+ * The address the person reached the app on, for links inside a calendar file. Read from the Host header (what proxy.ts
+ * routes on), not request.url, which Next can normalise to a different host than the one the browser used.
+ */
+export function requestAppOrigin(request: Request): string {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!host) return new URL(request.url).origin;
+  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
+  return `${proto.split(",")[0]!.trim()}://${host.split(",")[0]!.trim()}`;
+}
+
 /** The response every calendar route sends: a download, never cached (it is the person's own schedule). */
 export function icsResponse(body: string, filename: string): Response {
   return new Response(body, {

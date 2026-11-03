@@ -30,6 +30,8 @@ export const ENTRY_KIND_LABEL: Record<CalendarEntryKind, string> = {
 
 export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+import { hoursLabel } from "@/lib/testing-days/model";
+
 const LAGOS_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" });
 const LAGOS_TIME = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false });
 
@@ -38,12 +40,6 @@ export function lagosDate(iso: string): string {
 }
 export function lagosTime(iso: string): string {
   return LAGOS_TIME.format(new Date(iso));
-}
-
-function hours(from: string | null | undefined, to: string | null | undefined): string {
-  const f = from ? from.slice(0, 5) : "";
-  const t = to ? to.slice(0, 5) : "";
-  return f && t ? `${f} to ${t}` : f;
 }
 
 export type CalendarInput = {
@@ -56,6 +52,7 @@ export type CalendarInput = {
     ends_at?: string | null;
     venue_name: string;
     city: string;
+    event_status?: string;
   }[];
   openDays: { id: string; event_date: string; starts_at: string | null; ends_at?: string | null; venue_name: string; city: string; state: string | null; full: boolean }[];
   screenings: { id: string; due_date: string | null; status: string; name: string }[];
@@ -88,18 +85,19 @@ export function buildCalendarEntries(input: CalendarInput, year: number): Calend
 
   const bookedDays = new Set<string>();
   for (const b of input.testingBookings) {
-    if (!inYear(b.event_date) || HIDDEN_TESTING.has(b.state)) continue;
+    if (!inYear(b.event_date) || HIDDEN_TESTING.has(b.state) || b.event_status === "cancelled") continue;
     bookedDays.add(`${b.event_date}|${b.venue_name}`);
     entries.push({
       id: `testing-${b.booking_id}`,
       kind: "testing_booked",
       date: b.event_date,
-      time: hours(b.starts_at, b.ends_at),
+      time: hoursLabel(b.starts_at, b.ends_at),
       title: "Testing day",
       detail: `${b.venue_name}, ${b.city}`,
       status: b.state,
       href: "/patient/testing-days",
-      icsHref: b.state === "confirmed" ? `/api/calendar/testing/${b.booking_id}` : null,
+      // a completed day stays as history but is no longer something to add to a calendar
+      icsHref: b.state === "confirmed" && b.event_status !== "completed" ? `/api/calendar/testing/${b.booking_id}` : null,
     });
   }
 
@@ -109,7 +107,7 @@ export function buildCalendarEntries(input: CalendarInput, year: number): Calend
       id: `open-${d.id}`,
       kind: "testing_open",
       date: d.event_date,
-      time: hours(d.starts_at, d.ends_at),
+      time: hoursLabel(d.starts_at, d.ends_at),
       title: "Testing day you can book",
       detail: `${d.venue_name}, ${d.city}${d.state ? `, ${d.state}` : ""}`,
       status: d.full ? "full" : "open",
@@ -143,8 +141,14 @@ export function groupByMonth(entries: CalendarEntry[]): CalendarEntry[][] {
   return months;
 }
 
-/** A year from the address bar, kept within a sensible range; anything else falls back to this year. */
+/** The years the calendar shows: five back, two ahead. */
+export function yearRange(thisYear: number): { min: number; max: number } {
+  return { min: thisYear - 5, max: thisYear + 2 };
+}
+
+/** A year from the address bar, kept within yearRange; anything else falls back to this year. */
 export function parseYear(raw: string | undefined, thisYear: number): number {
   const n = Number(raw);
-  return Number.isInteger(n) && n >= thisYear - 5 && n <= thisYear + 2 ? n : thisYear;
+  const { min, max } = yearRange(thisYear);
+  return Number.isInteger(n) && n >= min && n <= max ? n : thisYear;
 }
