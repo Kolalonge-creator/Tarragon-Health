@@ -11,17 +11,19 @@ import { postSelectVideoVisitAlternateSlot } from "./api";
 import {
   loadOpenVideoVisitSlots,
   loadVideoVisitPrice,
+  parseVideoVisitPrice,
   loadMyVideoVisitRequests,
   cancelVideoVisitRequest,
   selectVideoVisitAlternateSlot,
 } from "./video-visit-booking";
 
-jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
+jest.mock("./supabase", () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
 jest.mock("./api", () => ({
   postSelectVideoVisitAlternateSlot: jest.fn(),
 }));
 
 const mockFrom = supabase.from as unknown as jest.Mock;
+const mockRpc = supabase.rpc as unknown as jest.Mock;
 const mockSelectAlternate = postSelectVideoVisitAlternateSlot as jest.MockedFunction<
   typeof postSelectVideoVisitAlternateSlot
 >;
@@ -59,32 +61,33 @@ describe("loadOpenVideoVisitSlots", () => {
 });
 
 describe("loadVideoVisitPrice", () => {
-  it("prefers the caller's own org override over the platform default", async () => {
-    seedTables({
-      video_visit_prices: table([
-        { organisation_id: null, amount_minor: 500000, currency: "NGN", is_enabled: true },
-        { organisation_id: "org-1", amount_minor: 300000, currency: "NGN", is_enabled: true },
-      ]),
-    });
-    await expect(loadVideoVisitPrice("org-1")).resolves.toEqual({
-      ok: true,
-      data: { organisation_id: "org-1", amount_minor: 300000, currency: "NGN", is_enabled: true },
-    });
+  it("returns the price the database charges, from my_video_visit_price", async () => {
+    mockRpc.mockResolvedValueOnce({ data: { amount_minor: 800000, currency: "NGN" }, error: null });
+    await expect(loadVideoVisitPrice()).resolves.toEqual({ ok: true, data: { amount_minor: 800000, currency: "NGN" } });
+    expect(mockRpc).toHaveBeenCalledWith("my_video_visit_price");
+    expect(mockFrom).not.toHaveBeenCalledWith("video_visit_prices");
   });
 
-  it("falls back to the platform default when the caller's org has no override", async () => {
-    seedTables({
-      video_visit_prices: table([{ organisation_id: null, amount_minor: 500000, currency: "NGN", is_enabled: true }]),
-    });
-    await expect(loadVideoVisitPrice("org-2")).resolves.toEqual({
-      ok: true,
-      data: { organisation_id: null, amount_minor: 500000, currency: "NGN", is_enabled: true },
-    });
+  it("returns null when no price is set or it is switched off, not an error", async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
+    await expect(loadVideoVisitPrice()).resolves.toEqual({ ok: true, data: null });
   });
 
-  it("returns null when no price is enabled at all, not an error", async () => {
-    seedTables({ video_visit_prices: table([]) });
-    await expect(loadVideoVisitPrice("org-1")).resolves.toEqual({ ok: true, data: null });
+  it("surfaces an error from the function", async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    await expect(loadVideoVisitPrice()).resolves.toEqual({ ok: false, error: "boom" });
+  });
+});
+
+describe("parseVideoVisitPrice", () => {
+  it.each([
+    ["a string", "800000"],
+    ["a missing amount", { currency: "NGN" }],
+    ["a zero amount", { amount_minor: 0, currency: "NGN" }],
+    ["a fractional amount", { amount_minor: 1.5, currency: "NGN" }],
+    ["a missing currency", { amount_minor: 800000 }],
+  ])("treats %s as no price", (_label, value) => {
+    expect(parseVideoVisitPrice(value)).toBeNull();
   });
 });
 

@@ -77,7 +77,7 @@ export function MonthlyMeeting({ patientId, patientName, isMember }: { patientId
         {!isLoading && !isError && !alreadyBooked && offers.length === 0 && (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             No times have been offered yet for {patientName}. Their doctor offers the times, and they appear here as soon as they do. For a meeting
-            now, book an extra meeting below (₦5,000).
+            now, book an extra meeting below (the price is shown there).
           </p>
         )}
         {!alreadyBooked &&

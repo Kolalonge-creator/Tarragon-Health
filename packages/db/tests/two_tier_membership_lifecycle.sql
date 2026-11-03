@@ -92,7 +92,7 @@ begin
     (select count(*)::text from public.service_products where is_active and code not in ('second_opinion_credit', 'video_visit_credit') and code ~ '(_credit$|^verified_document|^chronic_doctor_supported_pack$|^written_result_interpretation$|^preventive_health_check_review$)'));
   perform pg_temp.ck('the doctor-time products are kept, with their prices', 'true',
     (select (count(*) >= 5 and bool_and(price_kobo is not null))::text from public.service_products where code in ('video_visit_credit', 'async_consult_credit', 'second_opinion_credit', 'prescription_renewal_credit', 'result_interpretation_credit')));
-  perform pg_temp.ck('the extra online meeting (video_visit_credit) is on sale at 500000 kobo, Members only (decision 2026-10-29)', '500000/true',
+  perform pg_temp.ck('the extra online meeting (video_visit_credit) is on sale at 800000 kobo, Members only (price decision 2026-11-03; Members-only decision 2026-10-29)', '800000/true',
     (select price_kobo::text || '/' || is_active::text from public.service_products where code = 'video_visit_credit'));
   perform pg_temp.ck('async_consult_credit still cannot be switched on', 'true',
     (pg_temp.owner_try($q$update public.service_products set is_active = true where code = 'async_consult_credit'$q$) like '23514:%')::text);

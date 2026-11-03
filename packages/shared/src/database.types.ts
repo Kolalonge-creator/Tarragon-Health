@@ -51662,6 +51662,7 @@ export type Database = {
         Returns: string
       }
       my_visit_summaries: { Args: { p_patient?: string }; Returns: Json }
+      my_video_visit_price: { Args: never; Returns: Json }
       read_visit_summary_for_review: { Args: { p_note: string }; Returns: Json }
       record_visit_summary_opened: { Args: { p_summary: string }; Returns: undefined }
       save_dose_anchor_times: {
