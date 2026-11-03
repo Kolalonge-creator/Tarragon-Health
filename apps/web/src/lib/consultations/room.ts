@@ -24,6 +24,8 @@ export interface RoomDeps {
   readonly serviceRpc: RpcClient;
   readonly video: VideoProvider;
   readonly now: () => number;
+  /** Operational log for a vendor or database refusal (a code and a vendor message, never a person or a room link). */
+  readonly log?: (message: string) => void;
 }
 
 interface RoomView {
@@ -73,7 +75,12 @@ async function ensureRoom(deps: RoomDeps, view: RoomView, encounterId: string): 
   const existing = view.room?.provider_room_id ?? null;
   if (existing) return existing;
   const created = await deps.video.createRoom({ encounterRef: encounterId, expiresAtMs: Date.parse(view.join_closes_at) });
-  if (!created.ok) return null;
+  // The person only sees "we could not open the room"; the reason has to be somewhere an operator can read it (found the hard way
+  // on the first live consultation, when a vendor refusal left no trace anywhere).
+  if (!created.ok) {
+    deps.log?.(`[consultation] ${deps.video.name} refused to create the room for encounter ${encounterId}: ${created.error.code}: ${created.error.message}`);
+    return null;
+  }
   const opened = await deps.serviceRpc.rpc("service_open_encounter_room", {
     p_encounter: encounterId,
     p_provider: deps.video.name === "zoom" ? "zoom" : "mock",
@@ -81,7 +88,10 @@ async function ensureRoom(deps: RoomDeps, view: RoomView, encounterId: string): 
     p_expires_at: new Date(created.data.expiresAtMs).toISOString(),
   });
   const row = opened.error ? null : (opened.data as { provider_room_id: string; created: boolean } | null);
-  if (!row) return null;
+  if (!row) {
+    deps.log?.(`[consultation] the database refused to record the room for encounter ${encounterId}: ${opened.error?.message ?? "no row"}`);
+    return null;
+  }
   // Two people opened the room at once and the other won: end ours so no orphan meeting is left open.
   if (!row.created) await deps.video.endRoom(created.data.roomId, "clinician");
   return row.provider_room_id;

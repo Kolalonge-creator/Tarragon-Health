@@ -53,6 +53,8 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
   const hostPath = (userId: string): string => `/users/${encodeURIComponent(userId)}`;
   const configuredHost = hostPath(config.hostUserId && config.hostUserId.length > 0 ? config.hostUserId : "me");
   let cached: { token: string; expiresAtMs: number } | null = null;
+  /** Set once Zoom has refused a meeting for asking for Nigerian dial-in numbers; later rooms skip the ask. */
+  let dialInRefused = false;
 
   async function accessToken(): Promise<ProviderResult<string>> {
     if (cached && cached.expiresAtMs > now()) return ok(cached.token);
@@ -92,14 +94,28 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const startMs = now();
       if (!Number.isFinite(input.expiresAtMs) || input.expiresAtMs <= startMs) return fail("invalid_input", "Room expiry must be in the future");
       const duration = Math.max(1, Math.ceil((input.expiresAtMs - startMs) / 60_000));
-      const res = await call("POST", `${configuredHost}/meetings`, {
+      const settings = { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both" };
+      const meetingBody = (dialIn: boolean) => ({
         topic: TOPIC,
         type: 2,
         start_time: new Date(startMs).toISOString().replace(/\.\d{3}Z$/, "Z"),
         duration,
         timezone: "Africa/Lagos",
-        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both", global_dial_in_countries: ["NG"] },
+        settings: dialIn ? { ...settings, global_dial_in_countries: ["NG"] } : settings,
       });
+      // An account without Nigerian dial-in numbers (the Free plan, or no Audio Conferencing add-on) refuses the whole meeting,
+      // not just the numbers ("Country code NG is not available for host"). The room must still open: without the numbers,
+      // dialIn() answers "no number for this country", which the consultation already treats as a plain answer. Found live on
+      // the first real consultation, 2026-11-03. The refusal is remembered for this process so later rooms are asked for once;
+      // after a restart the numbers are asked for again, so an account that gains them is picked up without a code change.
+      let res = await call("POST", `${configuredHost}/meetings`, meetingBody(!dialInRefused));
+      if (!res.ok && !dialInRefused && res.error.code === "vendor_error" && /country code/i.test(res.error.message)) {
+        dialInRefused = true;
+        const refusal = res;
+        res = await call("POST", `${configuredHost}/meetings`, meetingBody(false));
+        // A second failure for another reason still names the refusal: that is the fact an operator has to act on.
+        if (!res.ok) return fail(res.error.code, `${res.error.message} (after: ${refusal.error.message})`, res.error.retryable);
+      }
       if (!res.ok) return res;
       const id = asObject(res.data)?.["id"];
       if (typeof id !== "number" && typeof id !== "string") return fail("bad_response", "Zoom sent an unexpected meeting reply");

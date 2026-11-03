@@ -32,6 +32,7 @@ async function deps(): Promise<RoomDeps | Fail> {
     serviceRpc: service as unknown as RpcClient,
     video: video.data,
     now: () => Date.now(),
+    log: (message) => console.error(message),
   };
 }
 const isFail = (d: RoomDeps | Fail): d is Fail => "ok" in d;
