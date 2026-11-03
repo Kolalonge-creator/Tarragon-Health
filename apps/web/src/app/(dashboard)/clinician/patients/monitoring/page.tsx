@@ -183,6 +183,13 @@ export default async function PatientMonitoringPage({
             Assigned to me
           </Link>
         </div>
+        {/* INV-13: test accounts are off this view by default; the Chief Medical Officer (who covers them) can show them, badged. */}
+        <Link
+          href={queryWith({ test: showTestAccounts ? undefined : "1" })}
+          className="text-xs text-charcoal-ink/60 underline hover:text-charcoal-ink"
+        >
+          {showTestAccounts ? "Hide test accounts" : "Show test accounts"}
+        </Link>
       </form>
 
       {/* Rendered above every branch below, including the empty and failure

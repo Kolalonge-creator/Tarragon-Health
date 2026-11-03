@@ -10,7 +10,9 @@
 -- owner and backup pickers and the escalation router read tier and load only.
 --
 -- Rule, three places, one helper:
---   private.test_patient_cover(org)        the active Chief Medical Officer of the organisation (earliest created), else null.
+--   private.test_patient_cover(org)        the active Chief Medical Officer of the organisation (earliest created) who has a
+--                                           login (clinical_staff.profile_id), else null: a directory-only CMO row cannot
+--                                           oversee anything, and the alert and escalation paths must agree on who covers.
 --   private.classify_and_assign_clinician_alert()   a test patient's alert is owned by the cover, with NO backup. Oversight,
 --                                           not a page: a backup is a second doctor's work and the whole point is that no
 --                                           working doctor carries it.
@@ -19,8 +21,9 @@
 -- An organisation with no active CMO (the synthetic canary organisation has only a canary senior doctor, itself a test
 -- account) falls through to the existing pickers unchanged, so a test patient's case never sits with nobody.
 --
--- Data: open or acknowledged alerts of test patients in an organisation that has a cover are moved to the cover now (one
--- expected live, the First Patient task above; the canary patient's alert stays with the canary clinician because that
+-- Data: open or acknowledged alerts of test patients in an organisation that has a cover are moved to the cover now (the
+-- First Patient task above when this was written; a later rolled-back rehearsal the same day found it already closed, so
+-- the live count at apply time may be zero. The canary patient's alert stays with the canary clinician because that
 -- organisation has no CMO). Open escalations of test patients likewise (none expected live). Counts are raised as notices.
 --
 -- Redefined from the LIVE bodies (pg_get_functiondef, 2026-11-03) of private.classify_and_assign_clinician_alert (after
@@ -38,6 +41,7 @@ as $function$
   from public.clinical_staff cs
   where cs.organisation_id = p_org
     and cs.active
+    and cs.profile_id is not null
     and cs.doctor_tier = 'chief_medical_officer'
   order by cs.created_at asc, cs.id asc
   limit 1;

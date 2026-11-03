@@ -8,8 +8,8 @@
 --   3. The sweep gives a test patient's unowned alert to the CMO.
 --   4. A test patient's escalation is assigned to the CMO's profile; a real patient's (CONTROL) to the senior doctor.
 --   5. An organisation with no CMO falls through: the test patient's alert still gets an owner (the senior doctor).
---   6. SABOTAGE: with private.test_patient_cover returning null, a fresh test-patient alert goes to the senior doctor,
---      so check 1 discriminates.
+--   6. SABOTAGE: with private.test_patient_cover returning null, a fresh test-patient alert goes to one of the senior
+--      doctors (whichever the load-balanced picker prefers), not the CMO, so check 1 discriminates.
 -- Wrapped in BEGIN/ROLLBACK; mints its own organisations, people and rows.
 -- ===========================================================================
 begin;
@@ -101,11 +101,12 @@ begin
   v_a := pg_temp.mkalert(v_org_nocmo, v_test2);
   perform pg_temp.chk('5b test patient alert still owned (senior doctor) where there is no CMO', v_smo2::text, (select responsible_clinician_id::text from public.clinician_alerts where id = v_a));
 
-  -- 6. SABOTAGE: cover returns null -> the picker's choice (senior doctor) wins, so check 1 discriminates
+  -- 6. SABOTAGE: cover returns null -> the picker's choice (a senior doctor) wins, so check 1 discriminates
   v_src := pg_get_functiondef('private.test_patient_cover(uuid)'::regprocedure);
   create or replace function private.test_patient_cover(p_org uuid) returns uuid language sql stable security definer set search_path to '' as 'select null::uuid';
   v_a := pg_temp.mkalert(v_org, v_test);
-  perform pg_temp.chk('6 SABOTAGE without the cover the test patient alert goes to the senior doctor', v_smo::text, (select responsible_clinician_id::text from public.clinician_alerts where id = v_a));
+  perform pg_temp.chk('6 SABOTAGE without the cover the test patient alert goes to a senior doctor, not the CMO', 'true',
+    (select (responsible_clinician_id = any (array[v_smo, v_smo_b]))::text from public.clinician_alerts where id = v_a));
   execute v_src;
   perform pg_temp.chk('6b cover restored', v_cmo::text, private.test_patient_cover(v_org)::text);
 end $$;

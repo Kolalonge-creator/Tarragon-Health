@@ -14,6 +14,7 @@ import {
 import { useEscalateAlert } from "@/lib/queries/escalations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -155,6 +156,7 @@ export function Worklist() {
                         >
                           {alert.patient?.full_name ?? "Unknown patient"}
                         </Link>
+                        {alert.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}
                         : {alert.title}
                       </p>
                       {alert.sla_due_at && (

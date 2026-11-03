@@ -16,6 +16,7 @@ import { StartVirtualReviewButton } from "./start-virtual-review-button";
 import { AlertOverrideControl } from "./alert-override-control";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 
 export default async function EscalationDetailPage({
   params,
@@ -31,7 +32,7 @@ export default async function EscalationDetailPage({
   const { data: escalation } = await supabase
     .from("escalations")
     .select(
-      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone, date_of_birth), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
+      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone, date_of_birth, is_test), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
     )
     .eq("id", escalationId)
     .maybeSingle();
@@ -123,6 +124,7 @@ export default async function EscalationDetailPage({
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
           {escalation.patient?.full_name ?? "Unnamed patient"}
+          {escalation.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}
         </h1>
         {escalation.patient?.phone && (
           <p className="text-charcoal-ink/60">{escalation.patient.phone}</p>
