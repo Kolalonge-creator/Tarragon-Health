@@ -104,7 +104,22 @@ export function zoomDispatcher(db: SupabaseClient): Dispatch {
         case "meeting.ended": {
           const { data: consultation } = await db.from("video_consultations").select("id").eq("zoom_meeting_id", zoomMeetingId).maybeSingle();
           if (!consultation) {
-            await markFailed(`no video_consultations row with zoom_meeting_id=${zoomMeetingId}`);
+            // The S21 encounter flow keeps its room in encounter_rooms, not video_consultations, and the web app owns that room's state
+            // (ensureRoom / finish in apps/web/src/lib/consultations). Until the first live consultation (2026-11-03) every started/ended
+            // event for an encounter room was recorded here as "no video_consultations row", a false error. Such an event is handled:
+            // recorded, linked to the room, nothing written to the encounter.
+            // provider_room_id carries no unique index, so one row is asked for; a failed read is a retryable failure, not "no row".
+            const { data: room, error: roomError } = await db.from("encounter_rooms").select("id").eq("provider", "zoom").eq("provider_room_id", zoomMeetingId).limit(1).maybeSingle();
+            if (roomError) {
+              console.error("zoom-webhook: could not read encounter_rooms", roomError);
+              await markFailed("encounter_rooms read failed");
+              return { ok: false, error: "encounter_rooms read failed" };
+            }
+            if (room) {
+              await markProcessed();
+              return { ok: true, entity: { type: "encounter_room", id: room.id } };
+            }
+            await markFailed(`no video_consultations or encounter_rooms row for zoom meeting ${zoomMeetingId}`);
             return { ok: true };
           }
           if (event.event === "meeting.started") {
