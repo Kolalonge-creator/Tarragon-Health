@@ -107,6 +107,9 @@ begin
   insert into fx values ('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));
   insert into fx values ('coord', pg_temp.mkdoc(v_org, 'coord', 'care_coordinator', v_admin));
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
+  -- A real patient: this proof is about ordinary lab-logistics routing. A test patient's alert goes to the Chief Medical
+  -- Officer instead (20261103023419, covered by test_patient_cases_route_to_cmo.sql).
+  update public.profiles set is_test = false where id = v_pat;
   insert into fx values ('pat', v_pat);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_pat, pg_temp.f('doc'));
 end $$;

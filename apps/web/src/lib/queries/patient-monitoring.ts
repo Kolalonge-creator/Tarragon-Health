@@ -28,6 +28,8 @@ export interface PatientMonitoringRow {
    * must never be drawn as "Normal" with empty tiles: that is "not available to you", not a quiet patient.
    */
   visible: boolean;
+  /** INV-13: `profiles.is_test`. Listed only when the page asks for test accounts, and always badged. */
+  isTest: boolean;
   vitals: {
     bp: { systolic: number | null; diastolic: number | null; level: VitalLevel; takenAt: string | null };
     spo2: { value: number | null; level: VitalLevel; takenAt: string | null };
@@ -68,6 +70,8 @@ export interface LoadPatientMonitoringRosterOptions {
   mineOnly?: boolean;
   callerId?: string | null;
   limit?: number;
+  /** INV-13: test accounts are left out unless the page asks for them (`?test=1`). */
+  includeTestAccounts?: boolean;
 }
 
 /**
@@ -108,7 +112,7 @@ export async function loadPatientMonitoringRoster(
   supabase: SupabaseClient<Database>,
   options: LoadPatientMonitoringRosterOptions
 ): Promise<PatientMonitoringRoster> {
-  const { q, mineOnly, callerId, limit = DEFAULT_ROSTER_LIMIT } = options;
+  const { q, mineOnly, callerId, limit = DEFAULT_ROSTER_LIMIT, includeTestAccounts = false } = options;
 
   let assignedPatientIds: string[] | null = null;
   if (mineOnly) {
@@ -129,10 +133,13 @@ export async function loadPatientMonitoringRoster(
   // the extra row is sliced back off immediately and never rendered.
   let query = supabase
     .from("profiles")
-    .select("id, full_name, patient_number, avatar_url, sex, date_of_birth")
+    .select("id, full_name, patient_number, avatar_url, sex, date_of_birth, is_test")
     .eq("role", "patient")
     .order("full_name", { ascending: true })
     .limit(limit + 1);
+  if (!includeTestAccounts) {
+    query = query.eq("is_test", false);
+  }
   if (q?.trim()) {
     query = query.ilike("full_name", `%${q.trim()}%`);
   }
@@ -169,6 +176,7 @@ export async function loadPatientMonitoringRoster(
       // tie refusal.
       visible: readingsError ? true : (r?.visible ?? false),
       fullName: p.full_name ?? "Unnamed patient",
+      isTest: p.is_test,
       patientNumber: p.patient_number,
       avatarUrl: p.avatar_url,
       sex: p.sex,

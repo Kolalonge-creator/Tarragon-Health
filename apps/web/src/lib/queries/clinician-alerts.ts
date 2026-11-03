@@ -10,7 +10,7 @@ export type AlertTypeCode = Database["public"]["Enums"]["alert_type_code"];
 export type AlertCategory = Database["public"]["Enums"]["alert_category"];
 
 export type ClinicianAlertWithPatient = Tables<"clinician_alerts"> & {
-  patient: { full_name: string | null } | null;
+  patient: { full_name: string | null; is_test: boolean } | null;
   screening_result: { result_status: string } | null;
   responsible_clinician: { full_name: string } | null;
   backup_clinician: { full_name: string } | null;
@@ -41,7 +41,7 @@ export function severityBucket(severity: number): "urgent" | "high" | "routine" 
 }
 
 const ALERT_SELECT =
-  "*, patient:profiles!clinician_alerts_patient_id_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name), case_brief:case_briefs(status, summary_text, suggested_action_text, draft_review_note, generated_at, protocol_version:protocol_versions!case_briefs_protocol_version_id_fkey(title, version_number))";
+  "*, patient:profiles!clinician_alerts_patient_id_fkey(full_name, is_test), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name), case_brief:case_briefs(status, summary_text, suggested_action_text, draft_review_note, generated_at, protocol_version:protocol_versions!case_briefs_protocol_version_id_fkey(title, version_number))";
 
 /**
  * The open worklist, ranked by the triage engine rather than by severity+SLA

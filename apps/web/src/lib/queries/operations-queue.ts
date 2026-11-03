@@ -41,13 +41,13 @@ export const TIER_LABEL: Record<ReturnType<typeof severityBucket>, string> = {
 };
 
 export type OperationsQueueAlert = Tables<"clinician_alerts"> & {
-  patient: { full_name: string | null } | null;
+  patient: { full_name: string | null; is_test: boolean } | null;
   responsible_clinician: { full_name: string } | null;
   backup_clinician: { full_name: string } | null;
 };
 
 const OPERATIONS_QUEUE_ALERT_SELECT =
-  "*, patient:profiles!clinician_alerts_patient_id_fkey(full_name), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)";
+  "*, patient:profiles!clinician_alerts_patient_id_fkey(full_name, is_test), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)";
 
 /** Every open clinician_alerts row, sorted severity-then-SLA within each bucket by the caller. */
 export function useOperationsQueueAlerts() {

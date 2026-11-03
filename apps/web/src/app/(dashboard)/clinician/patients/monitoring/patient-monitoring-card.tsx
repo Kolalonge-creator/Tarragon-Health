@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { VitalTile } from "./vitals-tile";
 import type { PatientMonitoringRow } from "@/lib/queries/patient-monitoring";
 
@@ -29,7 +30,10 @@ export function PatientMonitoringCard({ patient }: { patient: PatientMonitoringR
             <div className="flex min-w-0 items-center gap-3">
               <Avatar fullName={patient.fullName} photoUrl={patient.avatarUrl} size="lg" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-charcoal-ink">{patient.fullName}</p>
+                <p className="truncate text-sm font-medium text-charcoal-ink">
+                  {patient.fullName}
+                  {patient.isTest && <TestAccountBadge className="ml-2 align-middle" />}
+                </p>
                 <p className="truncate text-xs text-charcoal-ink/50">{patient.patientNumber ?? "No patient number"}</p>
               </div>
             </div>
@@ -55,7 +59,10 @@ export function PatientMonitoringCard({ patient }: { patient: PatientMonitoringR
           <div className="flex min-w-0 items-center gap-3">
             <Avatar fullName={patient.fullName} photoUrl={patient.avatarUrl} size="lg" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-charcoal-ink">{patient.fullName}</p>
+              <p className="truncate text-sm font-medium text-charcoal-ink">
+                {patient.fullName}
+                {patient.isTest && <TestAccountBadge className="ml-2 align-middle" />}
+              </p>
               <p className="truncate text-xs text-charcoal-ink/50">
                 {patient.patientNumber ?? "No patient number"}
                 {patient.ageYears != null ? ` · ${patient.ageYears}y` : ""}

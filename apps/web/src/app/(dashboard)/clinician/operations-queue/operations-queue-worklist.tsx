@@ -13,6 +13,7 @@ import {
 import { severityBucket } from "@/lib/queries/clinician-alerts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -85,6 +86,7 @@ function AlertRow({ alert }: { alert: OperationsQueueAlert }) {
           <Link href={`/clinician/patients/${alert.patient_id}`} className="hover:underline">
             {alert.patient?.full_name ?? "Unknown patient"}
           </Link>
+          {alert.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}
           {": "}
           {alert.title}
         </p>
