@@ -11360,4 +11360,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-22",
     source: "S68b, daily child log. Device and display values only; the due window is a proposal for the CMO (OQ-S68B-2).",
   },
+  {
+    key: "rota.cover_policy",
+    // W-03: the rota cover minimum that the red-ladder card (/clinician/chain-health) and the daily sole-CMO sunset sweep judge against.
+    // Live value is the ONE row of `rota_cover_policy`; a mirror test fails if the migrations and this value drift. required_clinicians:
+    // distinct credentialed on-call clinicians that must appear on the rota over window_days (every hour must also have a credentialed
+    // primary). sole_cmo_exception_sunset: the dated end of the sole-CMO on-call exception (Lagos), PROPOSED. v1 is what W-03 shipped.
+    value: { required_clinicians: 5, window_days: 28, sole_cmo_exception_sunset: "2027-01-31" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027192444_w03_red_page_ladder_drilled.sql; docs/DECISIONS.md (Sole-CMO exception end date, W-03)",
+  },
+  {
+    key: "rota.cover_policy",
+    // v2, founder decision 2026-11-03: TWO credentialed on-call clinicians are enough to start 24/7 cover. The real roster is two doctors who
+    // alternate primary and backup and cover every hour of the window; five with two real doctors would have kept the card on "below the
+    // minimum" and raised a daily incident from 30 days before the sunset. required_clinicians is the founder's decision; window_days and
+    // the sunset date are unchanged and the sunset stays PROPOSED. Mirrors *_rota_cover_policy_two_clinicians.sql.
+    value: { required_clinicians: 2, window_days: 28, sole_cmo_exception_sunset: "2027-01-31" },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-03",
+    source: "Founder decision 2026-11-03 (docs/DECISIONS.md, Rota cover minimum); supabase/migrations/*_rota_cover_policy_two_clinicians.sql",
+  },
 ];
