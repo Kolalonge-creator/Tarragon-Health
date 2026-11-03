@@ -22,6 +22,7 @@ import { HomeLadderCompare } from "./_components/home-ladder-compare";
 import { HomePlanCompare } from "./_components/home-plan-compare";
 import { ladderCards } from "./_content/pricing-ladder";
 import { HomeBusinessDoor } from "./_components/home-business-door";
+import { CareCircleAbroad } from "./_components/care-circle-abroad";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
@@ -300,6 +301,10 @@ export default async function MarketingHomePage() {
           )}
         </div>
       </Section>
+
+      {/* 7b. Family abroad: Care Circle, with a labelled illustration of
+          the supporter view. Live features only; see _content/care-circle.ts. */}
+      <CareCircleAbroad variant="sage" />
 
       {/* Same rule the product pages follow (see PRODUCT_VIDEOS in
           _content/media.ts: "empty youtubeId = section not rendered"). */}

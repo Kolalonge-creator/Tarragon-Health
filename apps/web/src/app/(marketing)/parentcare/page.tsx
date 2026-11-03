@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductPageTemplate } from "../_components/product-page-template";
 import { getProductPage } from "../_content/products";
 import { Section } from "../_components/section";
+import { CareCircleAbroad } from "../_components/care-circle-abroad";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export function generateMetadata() {
@@ -15,6 +16,7 @@ export default function ParentCarePage() {
   if (!content) notFound();
   return (
     <ProductPageTemplate content={content}>
+      <CareCircleAbroad variant="sage" />
       <Section>
         <p className="mx-auto max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you fund a parent&apos;s care from abroad and want to give it as a gift, or introduce a
