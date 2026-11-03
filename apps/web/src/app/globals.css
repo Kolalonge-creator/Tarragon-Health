@@ -61,6 +61,30 @@
   }
 }
 
+/*
+ * Care Circle illustration (marketing): the chart lines and the doses ring
+ * draw in once. The SVG carries its finished state as attributes, so with
+ * reduced motion (or no animation support) it is simply complete.
+ */
+@keyframes cc-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cc-draw {
+    animation: cc-draw 1.6s cubic-bezier(0.22, 0.8, 0.24, 1) 0.2s both;
+  }
+  @supports (animation-timeline: view()) {
+    .cc-draw {
+      animation: cc-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 15% cover 45%;
+    }
+  }
+}
+
 @keyframes marketing-marquee-left {
   from {
     transform: translateX(0);

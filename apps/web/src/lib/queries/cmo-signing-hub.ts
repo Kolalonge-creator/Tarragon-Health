@@ -29,6 +29,7 @@ import { readPendingOutcomeDefinitionsSignoff } from "@/lib/queries/pending-outc
 import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
 import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
+import { readPendingBpTargetSignoff } from "@/lib/queries/pending-bp-target-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
@@ -116,6 +117,8 @@ export { MSK_PROGRAMMES_ITEM_KEY };
 export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 /** S80d: the AI monitoring rules (the monthly AI review sample). Nothing is drawn each month until signed. */
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
+/** D-09: the home (135/85) and clinic (140/90) blood pressure targets. Until signed, home averages are judged against 140/90 and the family "on target" view stays off. */
+export const BP_TARGET_ITEM_KEY = "bp_target_config";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
@@ -134,6 +137,7 @@ const CLINICAL_ITEM_KEYS = new Set<string>([
   PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
   GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
   RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies", SCREENING_RULE_SET_ITEM_KEY,
+  BP_TARGET_ITEM_KEY,
 ]);
 export function isClinicalSignoff(key: string): boolean {
   if (key.startsWith(OWED_ITEM_PREFIX)) return true;
@@ -162,7 +166,7 @@ export function isClinicalSignoff(key: string): boolean {
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2, bpTarget] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -199,6 +203,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingOwedSignoffs(supabase),
     readPendingScreeningRuleSet(supabase),
     readPendingStage2Attestation(supabase),
+    readPendingBpTargetSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -652,6 +657,19 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (bpTarget.version !== null) {
+    const v = bpTarget.view;
+    const now = bpTarget.currentDefault;
+    items.push({
+      key: BP_TARGET_ITEM_KEY,
+      title: "Blood pressure targets: home and clinic",
+      detail: `Blood pressure targets version ${bpTarget.version}${v ? ` (home average below ${v.home.systolic}/${v.home.diastolic}, clinic reading below ${v.clinic.systolic}/${v.clinic.diastolic}, and which readings count)` : ""} are waiting for your signature. Until you sign, a monthly home average is judged against ${now ? `${now.systolic}/${now.diastolic}` : "the old default"}, and the "on target" and "better or worse than last month" lines a family member sees stay off.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -685,6 +703,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(owed.failed ? ["the signatures you owe for things already running"] : []),
     ...(screeningRules.failed ? ["the screening rule set drafts"] : []),
     ...(stage2.failed ? ["the Stage 2 launch attestation"] : []),
+    ...(bpTarget.failed ? ["the blood pressure targets"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
