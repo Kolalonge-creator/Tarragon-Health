@@ -31,10 +31,12 @@ type AgeBand = keyof typeof AGE_BANDS;
 export default async function PatientMonitoringPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; mine?: string; status?: string; gender?: string; age?: string }>;
+  searchParams: Promise<{ q?: string; mine?: string; status?: string; gender?: string; age?: string; test?: string }>;
 }) {
-  const { q, mine, status, gender, age } = await searchParams;
+  const { q, mine, status, gender, age, test } = await searchParams;
   const showMineOnly = mine === "1";
+  // INV-13: test accounts are off this view unless asked for, same as the roster list.
+  const showTestAccounts = test === "1";
   const statusFilter = status === "normal" || status === "exception" ? status : "all";
   const genderFilter = gender === "male" || gender === "female" ? gender : "all";
   const ageFilter: AgeBand = age && age in AGE_BANDS ? (age as AgeBand) : "all";
@@ -46,6 +48,7 @@ export default async function PatientMonitoringPage({
     q,
     mineOnly: showMineOnly,
     callerId: currentUser?.id ?? null,
+    includeTestAccounts: showTestAccounts,
   });
 
   const patients = rows.filter((p) => {
@@ -65,8 +68,8 @@ export default async function PatientMonitoringPage({
   // every other filter forward so switching the toggle doesn't reset them —
   // same intent as clinician/patients/page.tsx's search-preserving mine link,
   // extended to this page's extra filters.
-  function queryWith(overrides: Partial<{ q: string; mine: string; status: string; gender: string; age: string }>) {
-    const merged = { q, mine: showMineOnly ? "1" : undefined, status, gender, age, ...overrides };
+  function queryWith(overrides: Partial<{ q: string; mine: string; status: string; gender: string; age: string; test: string }>) {
+    const merged = { q, mine: showMineOnly ? "1" : undefined, status, gender, age, test: showTestAccounts ? "1" : undefined, ...overrides };
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(merged)) {
       if (value) params.set(key, value);

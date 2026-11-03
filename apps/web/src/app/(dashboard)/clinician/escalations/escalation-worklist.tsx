@@ -12,6 +12,7 @@ import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
@@ -215,7 +216,8 @@ export function EscalationWorklist({
                         className="hover:underline"
                       >
                         {escalation.patient?.full_name ?? "Unknown patient"}
-                      </Link>{": "}
+                      </Link>
+                      {escalation.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}{": "}
                       {escalation.reason}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">

@@ -11,6 +11,7 @@ type ProfileRow = {
   avatar_url: string | null;
   sex: Database["public"]["Enums"]["sex"] | null;
   date_of_birth: string | null;
+  is_test: boolean;
 };
 type ProfilesResult = { data: ProfileRow[] | null; error: { message: string } | null };
 type AssignmentsResult = { data: { patient_id: string }[] | null; error: { message: string } | null };
@@ -23,8 +24,12 @@ function makePatients(count: number): ProfileRow[] {
     avatar_url: null,
     sex: null,
     date_of_birth: null,
+    is_test: false,
   }));
 }
+
+/** Every `.eq(column, value)` the profiles query applied, so a test can say what the roster asked the database for. */
+const profileFilters: [string, unknown][] = [];
 
 /**
  * Stub covering exactly the query shapes loadPatientMonitoringRoster issues:
@@ -56,9 +61,13 @@ function stubClient(
       return Promise.resolve({ ...profiles, data }).then(resolve);
     },
   };
-  for (const method of ["select", "eq", "order", "ilike", "in"]) {
+  for (const method of ["select", "order", "ilike", "in"]) {
     profilesBuilder[method] = () => profilesBuilder;
   }
+  profilesBuilder.eq = (column: string, value: unknown) => {
+    profileFilters.push([column, value]);
+    return profilesBuilder;
+  };
   profilesBuilder.limit = (n: number) => {
     requestedLimit = n;
     return profilesBuilder;
@@ -88,6 +97,30 @@ function stubClient(
  * platform. Fetching `limit + 1` and slicing back is what makes `truncated`
  * decidable.
  */
+/**
+ * INV-13: a test account is never a working doctor's patient. The roster asks
+ * the database for `is_test = false` unless the page explicitly asks for test
+ * accounts, and each row carries `isTest` so the card can badge it.
+ */
+describe("loadPatientMonitoringRoster and test accounts", () => {
+  it("asks for real accounts only by default", async () => {
+    profileFilters.length = 0;
+    const client = stubClient({ data: makePatients(1), error: null });
+    await loadPatientMonitoringRoster(client, { limit: 3 });
+    expect(profileFilters).toContainEqual(["is_test", false]);
+  });
+
+  it("lists test accounts only when asked, and marks each row", async () => {
+    profileFilters.length = 0;
+    const rows = makePatients(2);
+    rows[1] = { ...rows[1], is_test: true };
+    const client = stubClient({ data: rows, error: null });
+    const result = await loadPatientMonitoringRoster(client, { limit: 3, includeTestAccounts: true });
+    expect(profileFilters).not.toContainEqual(["is_test", false]);
+    expect(result.rows.map((r) => r.isTest)).toEqual([false, true]);
+  });
+});
+
 describe("loadPatientMonitoringRoster truncation", () => {
   it("does not flag truncation when fewer rows than the cap match", async () => {
     const client = stubClient({ data: makePatients(2), error: null });

@@ -3,6 +3,7 @@ import { formatPatientDate } from "@/lib/format-date";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
@@ -53,7 +54,7 @@ type InboxRow = {
   supersedes_document_id: string | null;
   superseded_by_document_id: string | null;
   source: Database["public"]["Enums"]["lab_result_document_source"];
-  patient: { full_name: string | null } | null;
+  patient: { full_name: string | null; is_test: boolean } | null;
   clinician_alert: { level: EscalationLevel } | null;
 };
 
@@ -64,7 +65,7 @@ type UnmatchedRow = {
   note: string | null;
   created_at: string;
   source: Database["public"]["Enums"]["lab_result_document_source"];
-  patient: { full_name: string | null } | null;
+  patient: { full_name: string | null; is_test: boolean } | null;
 };
 
 type OpenOrderRow = {
@@ -126,7 +127,7 @@ export default async function ResultsInboxPage({
     supabase
       .from("lab_result_documents")
       .select(
-        "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
+        "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name, is_test), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
       )
       .neq("acknowledgement_status", "action_completed")
       .order("created_at", { ascending: true })
@@ -229,7 +230,7 @@ export default async function ResultsInboxPage({
   const { data: unmatchedData, error: unmatchedError } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, patient_id, original_filename, note, created_at, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name)",
+      "id, patient_id, original_filename, note, created_at, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name, is_test)",
     )
     .is("lab_order_id", null)
     .order("created_at", { ascending: true })
@@ -434,6 +435,7 @@ export default async function ResultsInboxPage({
                           >
                             {row.patient?.full_name ?? "Unnamed patient"}
                           </Link>
+                          {row.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}
                         </td>
                         <td className="py-2.5 pr-3 text-charcoal-ink/80">
                           {row.original_filename ?? row.note ?? "Result document"}
@@ -517,6 +519,7 @@ export default async function ResultsInboxPage({
                     >
                       {row.patient?.full_name ?? "Unnamed patient"}
                     </Link>
+                    {row.patient?.is_test && <TestAccountBadge className="ml-2 align-middle" />}
                     <span className="text-xs text-charcoal-ink/50">{formatDate(row.created_at)}</span>
                   </div>
                   <p className="text-sm text-charcoal-ink/80">

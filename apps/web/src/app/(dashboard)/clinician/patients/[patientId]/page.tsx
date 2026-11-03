@@ -10,6 +10,7 @@ import {
 } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
+import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { MaskedCallButton } from "@/components/masked-call-button";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
@@ -101,7 +102,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id, sex, date_of_birth, avatar_url, patient_number")
+    .select("id, full_name, phone, organisation_id, sex, date_of_birth, avatar_url, patient_number, is_test")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -519,6 +520,7 @@ export default async function ClinicianPatientPage({
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
             {patient.full_name ?? "Unnamed patient"}
+            {patient.is_test && <TestAccountBadge className="ml-2 align-middle" />}
           </h1>
           <p className="text-sm text-charcoal-ink/60">
             {patient.patient_number && <span>{patient.patient_number}</span>}

@@ -1803,3 +1803,5 @@ emergency_sync_contact_rule_skips_test_accounts.sql
 resolve_patient_service_access_membership.sql
 # catalog_items is readable (descriptive columns only) by any signed-in person, so the patient and admin refund lists can name the item. Sabotage: revoking the grant brings the 403 back.
 catalog_items_readable_by_signed_in_people.sql
+# A test account's alert, unowned alert (sweep) and escalation go to the Chief Medical Officer with no backup; a real patient's go to the least-loaded doctor at the owner tier; an org with no CMO falls through. Sabotage: a null cover sends the test alert to the senior doctor.
+test_patient_cases_route_to_cmo.sql

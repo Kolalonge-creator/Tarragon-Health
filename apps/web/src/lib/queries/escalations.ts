@@ -6,7 +6,7 @@ import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
-  patient: { full_name: string | null } | null;
+  patient: { full_name: string | null; is_test: boolean } | null;
   clinician_alert:
     | {
         id: string;
@@ -26,7 +26,7 @@ export type EscalationWithDetails = Tables<"escalations"> & {
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name, is_test), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /**
  * Open/under-review escalations — doctor worklist (unclaimed or claimed by
