@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  CONSULTATIONS_LOG_ROW_LIMIT,
   CONSULTATION_STATUSES,
   filtersToQuery,
   lagosTime,
@@ -21,7 +22,8 @@ interface Props {
   /** Where a patient name links: the admin member page or the clinician patient record. */
   patientHref: (patientId: string) => string;
   filters: ConsultationsLogFilters;
-  doctors: readonly DoctorOption[];
+  /** Null when the clinician list could not be read. */
+  doctors: readonly DoctorOption[] | null;
   /** Null when the log could not be read. */
   rows: readonly ConsultationsLogRow[] | null;
 }
@@ -57,7 +59,7 @@ export function ConsultationsLogView({ basePath, backTo, patientHref, filters, d
           Doctor
           <select name="doctor" defaultValue={filters.doctor ?? ""} className="rounded border border-charcoal-ink/20 px-2 py-1">
             <option value="">Any doctor</option>
-            {doctors.map((d) => (
+            {(doctors ?? []).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
               </option>
@@ -89,6 +91,11 @@ export function ConsultationsLogView({ basePath, backTo, patientHref, filters, d
           Download CSV
         </a>
       </form>
+      {doctors === null && (
+        <p role="alert" className="text-sm">
+          The list of doctors could not be loaded, so the doctor filter is empty for now.
+        </p>
+      )}
 
       {rows === null ? (
         <p role="alert" className="text-sm">
@@ -105,6 +112,11 @@ export function ConsultationsLogView({ basePath, backTo, patientHref, filters, d
               <p className="mb-3 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 {totals.calls} {totals.calls === 1 ? "consultation" : "consultations"} · {totals.doctorMinutes.toFixed(1)} doctor minutes ·{" "}
                 {totals.connectedMinutes.toFixed(1)} connected minutes
+              </p>
+            )}
+            {rows.length >= CONSULTATIONS_LOG_ROW_LIMIT && (
+              <p role="alert" className="mb-3 text-sm">
+                Only the latest {CONSULTATIONS_LOG_ROW_LIMIT} consultations are shown, so the totals and the CSV leave some out. Narrow the dates to see the rest.
               </p>
             )}
             <div className="overflow-x-auto">
@@ -145,7 +157,7 @@ export function ConsultationsLogView({ basePath, backTo, patientHref, filters, d
                       <td className="py-2 pr-4 text-right">
                         {fmtMinutes(r.connected_minutes)}
                         {r.zoom_legs > 1 ? ` (${r.zoom_legs} parts)` : ""}
-                        {r.zoom_open_legs > 0 ? " · still connected" : ""}
+                        {r.zoom_open_legs > 0 ? " · a part has no end reported by Zoom" : ""}
                       </td>
                       <td className="py-2 pr-4 text-right">
                         {r.patient_joins} / {r.clinician_joins}

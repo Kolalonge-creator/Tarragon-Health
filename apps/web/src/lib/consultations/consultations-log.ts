@@ -133,6 +133,9 @@ export function parseConsultationsLog(data: unknown): ConsultationsLogRow[] | nu
   return parsed.success ? parsed.data : null;
 }
 
+/** public.consultations_log returns at most this many rows; a full page means some were left out. */
+export const CONSULTATIONS_LOG_ROW_LIMIT = 1000;
+
 export interface ConsultationsLogTotals {
   calls: number;
   doctorMinutes: number;
@@ -151,7 +154,7 @@ export function totalsOf(rows: readonly ConsultationsLogRow[]): ConsultationsLog
 /** A time in Lagos as HH:MM, or empty. */
 export function lagosTime(iso: string | null): string {
   if (!iso) return "";
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 }
 
 /** A cell a spreadsheet would read as a formula gets a leading apostrophe (names are typed by patients). */

@@ -3,6 +3,7 @@ import {
   CSV_COLUMNS,
   consultationsLogCsv,
   filtersToQuery,
+  lagosTime,
   filtersToRpcArgs,
   parseConsultationsLog,
   parseConsultationsLogFilters,
@@ -54,6 +55,10 @@ describe("consultations log CSV", () => {
     expect(line).toBe(
       "2026-11-03,22:00,k boss,ce2bebd5-84d4-448d-8d36-f327c469a921,Kola Longe,c22fc539-23af-46e4-bf73-f799da147f10,completed,,22:05,22:26,21.7,8.7,2,0,5,2,true,c861c6bb-b3e2-4ba8-b8b5-d14e5523e691",
     );
+  });
+
+  it("writes a time just after midnight as 00:xx, never 24:xx", () => {
+    expect(lagosTime("2026-11-03T23:30:00Z")).toBe("00:30");
   });
 
   it("neutralises a name a spreadsheet would run as a formula", () => {

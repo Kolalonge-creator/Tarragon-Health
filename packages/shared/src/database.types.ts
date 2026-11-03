@@ -51751,6 +51751,10 @@ export type Database = {
       // CMO OQ-358 (folio base-table lock): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinical_staff_folio: { Args: { p_staff_ids: string[] }; Returns: { clinical_staff_id: string; credential_number: string }[] }
       search_clinical_staff_by_folio: { Args: { p_term: string }; Returns: { clinical_staff_id: string }[] }
+      log_consultations_log_export: {
+        Args: { p_from?: string | null; p_to?: string | null; p_clinician_id?: string | null; p_status?: string | null; p_include_tests?: boolean; p_rows?: number | null }
+        Returns: undefined
+      }
       consultations_log: {
         Args: { p_from?: string | null; p_to?: string | null; p_clinician_id?: string | null; p_status?: string | null; p_include_tests?: boolean }
         Returns: {

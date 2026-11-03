@@ -68,4 +68,9 @@ describe("/admin/consultations", () => {
     const html = await render();
     expect(html).toContain("could not be loaded");
   });
+
+  it("warns that the totals and CSV leave calls out when the row limit is reached", async () => {
+    rpc.mockResolvedValue({ data: Array.from({ length: 1000 }, (_, i) => ({ ...firstLiveCall, encounter_id: `c861c6bb-b3e2-4ba8-b8b5-${String(i).padStart(12, "0")}` })), error: null });
+    expect(await render({ tests: "1" })).toContain("Only the latest 1000 consultations are shown");
+  });
 });

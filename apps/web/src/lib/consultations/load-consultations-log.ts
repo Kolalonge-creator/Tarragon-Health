@@ -23,14 +23,15 @@ export async function loadConsultationsLog(
   return parseConsultationsLog(data);
 }
 
-/** The organisation's clinicians, for the doctor filter. */
-export async function loadDoctorOptions(supabase: Supabase, organisationId: string): Promise<DoctorOption[]> {
-  const { data } = await supabase
+/** The organisation's clinicians, for the doctor filter. Null when the read failed, so the page can say so. */
+export async function loadDoctorOptions(supabase: Supabase, organisationId: string): Promise<DoctorOption[] | null> {
+  const { data, error } = await supabase
     .from("clinical_staff")
     .select("profile_id, full_name")
     .eq("organisation_id", organisationId)
     .not("profile_id", "is", null)
     .order("full_name");
+  if (error) return null;
   return (data ?? [])
     .filter((d): d is { profile_id: string; full_name: string } => typeof d.profile_id === "string")
     .map((d) => ({ id: d.profile_id, name: d.full_name ?? "Clinician" }));

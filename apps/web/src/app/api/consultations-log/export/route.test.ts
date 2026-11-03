@@ -30,12 +30,23 @@ describe("consultations log CSV download", () => {
 
   it("gives an admin the file with the page's filters", async () => {
     getCurrentProfile.mockResolvedValue({ role: "admin" });
-    rpc.mockResolvedValue({ data: [firstLiveCall], error: null });
+    rpc.mockImplementation(async (name) => (name === "consultations_log" ? { data: [firstLiveCall], error: null } : { data: null, error: null }));
     const res = await GET(req("?tests=1&status=completed"));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("text/csv");
     expect(rpc).toHaveBeenCalledWith("consultations_log", expect.objectContaining({ p_include_tests: true, p_status: "completed" }));
     expect(await res.text()).toContain("k boss");
+    expect(rpc).toHaveBeenCalledWith("log_consultations_log_export", expect.objectContaining({ p_include_tests: true, p_rows: 1 }));
+  });
+
+  it("gives no file when the download cannot be recorded", async () => {
+    getCurrentProfile.mockResolvedValue({ role: "admin" });
+    rpc.mockImplementation(async (name) =>
+      name === "consultations_log" ? { data: [firstLiveCall], error: null } : { data: null, error: { message: "audit down" } },
+    );
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain("k boss");
   });
 
   it("gives the CMO the file too", async () => {

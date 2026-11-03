@@ -8,7 +8,8 @@
 --      same meeting id from before the room existed is ignored. Join counts are per side. A call with no Zoom events
 --      has null connected minutes.
 --   3. A plain clinician, a patient and an admin of ANOTHER organisation get zero rows, not an error; anon cannot execute.
---   4. The status and date filters narrow the rows.
+--   4. The status and date filters narrow the rows; an async written consult (no scheduled_at) never appears.
+--   4b. The CSV download's audit function records an admin's and the CMO's export and refuses anyone else.
 --   5. SABOTAGE, each built from the live body with one clause removed: (a) no admin/CMO gate (a plain clinician then gets
 --      rows); (b) no organisation clause (a foreign admin then gets rows); (c) no room-created bound (the stale leg then
 --      counts). Each check MUST flip.
@@ -99,6 +100,9 @@ begin
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, policy_version, is_test)
   values (v_org, v_pat2, v_doc, 'video', 'scheduled', v_t0 + interval '1 day', 2, true)
   returning id into v_enc_test;
+  -- an async written consult (no scheduled_at) is not a call and must not appear
+  insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, policy_version, is_test)
+  values (v_org, v_pat, v_doc, 'async', 'completed', 2, false);
   insert into public.encounter_rooms (organisation_id, encounter_id, provider, provider_room_id, state, created_at)
   values (v_org, v_enc, 'zoom', '990000111222', 'ended', v_t0 - interval '1 hour');
   insert into public.encounter_events (organisation_id, encounter_id, kind, actor_id, actor_role, created_at) values
@@ -172,6 +176,16 @@ begin
   perform pg_temp.rec('real', '4a the status filter keeps only matching rows', '1', pg_temp.n(v_admin, ', p_include_tests => true, p_status => ''scheduled'''));
   perform pg_temp.rec('real', '4b a date range after both calls finds nothing', '0',
     pg_temp.n(v_admin, ', p_include_tests => true, p_from => current_date + 30'));
+
+  -- 5. the CSV download's audit row: written for an admin and the CMO, refused to anyone else (so the route gives no file)
+  perform pg_temp.rec('real', '5a an admin''s export is recorded', '1',
+    pg_temp.as_val(v_admin, 'authenticated', $q$select count(*)::text from (select public.log_consultations_log_export(p_rows => 2)) x$q$));
+  perform pg_temp.rec('real', '5b the CMO''s export is recorded too', '1',
+    pg_temp.as_val(v_cmo, 'authenticated', $q$select count(*)::text from (select public.log_consultations_log_export()) x$q$));
+  perform pg_temp.rec('real', '5c a plain clinician''s export is refused', 'ERR:42501',
+    pg_temp.as_val(pg_temp.f('doc'), 'authenticated', $q$select count(*)::text from (select public.log_consultations_log_export()) x$q$));
+  perform pg_temp.rec('real', '5d anon cannot record an export', 'ERR:42501',
+    pg_temp.as_val(null, 'anon', $q$select count(*)::text from (select public.log_consultations_log_export()) x$q$));
 end $$;
 
 -- ---------------------------------------------------------------------------
