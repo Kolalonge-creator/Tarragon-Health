@@ -38,11 +38,13 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
     );
   }
   // Who the doctor is about to call: the patient's name and id for the heading, answered to this encounter's clinician only. Not a chart read.
-  const { data: headerData } = await supabase.rpc("consultation_patient_header" as never, { p_encounter: encounterId } as never);
-  const header = parsePatientHeader(headerData);
   // S64 (15.3): what the patient chose to send before the visit. Audited on the database side; null when nothing was sent.
-  // A failed read is shown as an error, never as "nothing was sent".
-  const { data: intakeData, error: intakeError } = await supabase.rpc("clinician_consultation_intake" as never, { p_encounter: encounterId } as never);
+  // A failed read is shown as an error, never as "nothing was sent". The two reads are independent, so they run together.
+  const [{ data: headerData }, { data: intakeData, error: intakeError }] = await Promise.all([
+    supabase.rpc("consultation_patient_header" as never, { p_encounter: encounterId } as never),
+    supabase.rpc("clinician_consultation_intake" as never, { p_encounter: encounterId } as never),
+  ]);
+  const header = parsePatientHeader(headerData);
   const intake = (intakeData ?? null) as unknown as ClinicianIntake | null;
   // PCC: the patient's answers to the check-ins after this visit. Audited on the database side (one audit row per read) and answered only to this
   // consultation's own clinician. A failed read is shown as an error, never as "no check-ins".

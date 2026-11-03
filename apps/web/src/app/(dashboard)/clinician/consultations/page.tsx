@@ -5,18 +5,15 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
-import { parsePatientHeader, PatientRecordLink } from "@/components/consultation/patient-record-link";
+import { parsePatientHeader, PatientRecordLink, type PatientHeader } from "@/components/consultation/patient-record-link";
 
-interface Row {
+interface Row extends PatientHeader {
   encounter_id: string;
   type: string;
   status: string;
   scheduled_at: string;
   final_media_mode: string | null;
   patient_first_name: string;
-  patient_id: string;
-  patient_full_name: string | null;
-  patient_is_test: boolean | null;
 }
 
 const STATUS: Record<string, string> = {
