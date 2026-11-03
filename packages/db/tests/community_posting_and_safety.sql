@@ -434,9 +434,9 @@ begin
   update public.clinical_staff set active = false where profile_id = v_doc;
   perform pg_temp.rec('a note can be unpinned after its author has left', 'ok',
     (pg_temp.asj(v_admin, format('select public.community_admin_unpin(%L)', v_pin)) ->> 'status'));
-  -- grants go only to accounts that have a queue screen
-  perform pg_temp.rec('moderation is not granted to an admin account', '42501',
-    pg_temp.try(format($q$insert into public.community_staff (profile_id, scope, granted_by) values (%L, 'moderator', %L)$q$, v_admin, v_admin)));
+  -- grants go only to internal staff accounts (COM-28: admin, clinician, care coordinator, analyst, finance); never to a partner role
+  perform pg_temp.rec('moderation is not granted to an HMO admin account', '42501',
+    pg_temp.try(format($q$insert into public.community_staff (profile_id, scope, granted_by) values (%L, 'moderator', %L)$q$, pg_temp.mkuser(v_org, 'hmo', 'hmo_admin'), v_admin)));
 
   -- 12b. Review fixes -----------------------------------------------------------------------------------------------------------------------
   v_j := pg_temp.asj(v_admin, 'select public.community_admin_rule_set_create(1)');

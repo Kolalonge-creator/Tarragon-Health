@@ -8,6 +8,8 @@ export interface FakeZoom {
   readonly webhookSecret: string;
   readonly clock: { now: number };
   failNextCall(): void;
+  /** From now on, a meeting asked for with dial-in countries is refused the way Zoom refuses an account that has none. */
+  refuseDialInCountries(): void;
   signedEvent(event: string, meetingId: string, userName?: string, customerKey?: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
   forgedEvent(event: string, meetingId: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
 }
@@ -18,6 +20,7 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
   const calls: FakeZoom["calls"] = [];
   const meetings = new Map<string, { start_time: string; duration: number; host_id: string }>();
   let failNext = false;
+  let refuseDialIn = false;
   let seq = 0;
   const webhookSecret = "zoom-secret-token";
 
@@ -35,6 +38,11 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
     if (!init.headers["Authorization"]?.startsWith("Bearer tok_")) return reply(401, { message: "Invalid access token" });
     const created = /^\/v2\/users\/([^/]+)\/meetings$/.exec(u.pathname);
     if (init.method === "POST" && created) {
+      const countries = (body?.["settings"] as Record<string, unknown> | undefined)?.["global_dial_in_countries"];
+      if (refuseDialIn && Array.isArray(countries) && countries.length > 0) {
+        // Zoom's own wording for an account that carries no dial-in numbers for that country (status 400, code 300).
+        return reply(400, { code: 300, message: `Country code ${String(countries[0])} is not available for host: owner_user.` });
+      }
       seq += 1;
       const id = String(81_000_000_000 + seq);
       // "me" is the app's own user; any other user in the path owns the meeting (a dedicated consultation host)
@@ -59,8 +67,9 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
           pstn_password: "482913",
           password: "pw123",
           settings: {
+            // an account that refuses dial-in countries also lists no numbers for them
             global_dial_in_numbers: [
-              { country: "NG", country_name: "Nigeria", city: "Lagos", number: "+234 1 888 0000", type: "toll" },
+              ...(refuseDialIn ? [] : [{ country: "NG", country_name: "Nigeria", city: "Lagos", number: "+234 1 888 0000", type: "toll" }]),
               { country: "US", country_name: "US", city: "New York", number: "+1 646 000 0000", type: "toll" },
             ],
           },
@@ -89,6 +98,9 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
     calls,
     webhookSecret,
     clock,
+    refuseDialInCountries() {
+      refuseDialIn = true;
+    },
     failNextCall() {
       failNext = true;
     },

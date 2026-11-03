@@ -7411,6 +7411,913 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S41-S45-cmo-signoff-pack.md section A; docs/design/S45.md",
   },
   {
+    key: "risk.who_cvd_2019",
+    // Version 2 (2026-11-03): the same instrument with VERIFIED coefficients, mirroring risk_instrument_versions v3 of who_cvd_2019_wssa
+    // (migration *_who_cvd_2019_wssa_v3_verified_coefficients.sql; a test fails if the two drift). The published charts are two Emerging
+    // Risk Factors Collaboration Cox models (MI, stroke) recalibrated to Western sub-Saharan Africa and combined, so each sex entry has the
+    // 'two_endpoint_recalibrated' shape. Every number was extracted by script from the authors' files and reproduces all 2100 published chart
+    // cells. Still PROPOSED: the CMO signs the database row (sign_risk_instrument), nothing here is a signature.
+    value: {
+      "instrument": "who_cvd_2019_wssa",
+      "regionLabel": "Western sub-Saharan Africa",
+      "regionCheckedForNigeria": true,
+      "coefficientsVerified": true,
+      "ageRange": {
+        "min": 40,
+        "max": 74
+      },
+      "bands": [
+        {
+          "code": "lt5",
+          "lowPct": 0,
+          "highPct": 5,
+          "tier": "low"
+        },
+        {
+          "code": "5to10",
+          "lowPct": 5,
+          "highPct": 10,
+          "tier": "low_moderate"
+        },
+        {
+          "code": "10to20",
+          "lowPct": 10,
+          "highPct": 20,
+          "tier": "moderate"
+        },
+        {
+          "code": "20to30",
+          "lowPct": 20,
+          "highPct": 30,
+          "tier": "high"
+        },
+        {
+          "code": "ge30",
+          "lowPct": 30,
+          "highPct": null,
+          "tier": "very_high"
+        }
+      ],
+      "nonLabFurtherAssessmentAtOrAbovePct": 10,
+      "treatmentAlreadyIndicated": {
+        "systolicAtOrAbove": 160,
+        "diastolicAtOrAbove": 100,
+        "establishedCvd": true
+      },
+      "knownDiabetes": "route_to_diabetes_pathway",
+      "models": {
+        "lab": {
+          "male": {
+            "shape": "two_endpoint_recalibrated",
+            "mi": {
+              "baselineSurvival": 0.9540108,
+              "terms": [
+                {
+                  "coef": 0.0719227,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.2284944,
+                  "factors": [
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0132183,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.6410114,
+                  "factors": [
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.5638109,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0045806,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0001576,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0124966,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0182545,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.3095740079879761,
+                "slope": 0.9497053623199463
+              }
+            },
+            "stroke": {
+              "baselineSurvival": 0.9849257,
+              "terms": [
+                {
+                  "coef": 0.0986578,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.029526,
+                  "factors": [
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0222629,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.6268712,
+                  "factors": [
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.4981217,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.00142,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0004147,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.026302,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0150561,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.8973300457000732,
+                "slope": 0.6761412024497986
+              }
+            }
+          },
+          "female": {
+            "shape": "two_endpoint_recalibrated",
+            "mi": {
+              "baselineSurvival": 0.9894159,
+              "terms": [
+                {
+                  "coef": 0.1020713,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.2050377,
+                  "factors": [
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.015823,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 1.070358,
+                  "factors": [
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": 1.053223,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0051932,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0001378,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0234174,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0332666,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.5290281772613525,
+                "slope": 0.7057502269744873
+              }
+            },
+            "stroke": {
+              "baselineSurvival": 0.9890569,
+              "terms": [
+                {
+                  "coef": 0.1056632,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0257782,
+                  "factors": [
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0206278,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.8581998,
+                  "factors": [
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.7443627,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0021387,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "total_chol_mmol",
+                      "center": 6
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0004897,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0209826,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "diabetes",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0200822,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.8381919264793396,
+                "slope": 0.6357288360595703
+              }
+            }
+          }
+        },
+        "non_lab": {
+          "male": {
+            "shape": "two_endpoint_recalibrated",
+            "mi": {
+              "baselineSurvival": 0.9544258,
+              "terms": [
+                {
+                  "coef": 0.073593,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0337219,
+                  "factors": [
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0133937,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.5954767,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0010432,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0001837,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0200831,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.36387184262275696,
+                "slope": 1.0364793539047241
+              }
+            },
+            "stroke": {
+              "baselineSurvival": 0.984826,
+              "terms": [
+                {
+                  "coef": 0.097674,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0159518,
+                  "factors": [
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0227294,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.4999862,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0003516,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0004374,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0153895,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.9692327976226807,
+                "slope": 0.6512733697891235
+              }
+            }
+          },
+          "female": {
+            "shape": "two_endpoint_recalibrated",
+            "mi": {
+              "baselineSurvival": 0.9887124,
+              "terms": [
+                {
+                  "coef": 0.1049418,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0257616,
+                  "factors": [
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.016726,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 1.093132,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0006537,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0001966,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0343739,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.50197434425354,
+                "slope": 0.7591237425804138
+              }
+            },
+            "stroke": {
+              "baselineSurvival": 0.9885706,
+              "terms": [
+                {
+                  "coef": 0.1046105,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0036406,
+                  "factors": [
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.0216741,
+                  "factors": [
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": 0.7399405,
+                  "factors": [
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                },
+                {
+                  "coef": -1.29e-05,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "bmi",
+                      "center": 25
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0005311,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "sbp",
+                      "center": 120
+                    }
+                  ]
+                },
+                {
+                  "coef": -0.0203997,
+                  "factors": [
+                    {
+                      "var": "age",
+                      "center": 60
+                    },
+                    {
+                      "var": "smoker",
+                      "center": 0
+                    }
+                  ]
+                }
+              ],
+              "recalibration": {
+                "intercept": -0.7182005047798157,
+                "slope": 0.663612961769104
+              }
+            }
+          }
+        }
+      },
+      "modelShape": "Each sex entry: { shape: 'two_endpoint_recalibrated', mi: E, stroke: E } where E = { baselineSurvival, terms: [ { coef, factors: [ { var, center } ] } ], recalibration: { intercept, slope } }. For each endpoint: p = 1 - baselineSurvival ^ exp(sum of coef * product of (var - center)); pcal = 1 - exp(-exp(intercept + slope * ln(-ln(1 - p)))). 10-year CVD risk = 1 - (1 - pcal_mi) * (1 - pcal_stroke). The older single-model shape { baselineSurvival, terms } is still accepted by the engine.",
+      "reassess": {
+        "afterDays": 365,
+        "majorChanges": [
+          "new_chronic_condition",
+          "smoking_status_change",
+          "bp_at_or_above_160_100"
+        ]
+      },
+      "bandActions": {
+        "appPrescribes": false,
+        "thresholdsStatus": "unverified_against_who_pen_hearts",
+        "bands": {
+          "lt5": {
+            "copyKey": "risk.action.lt5",
+            "lifestyleAdvice": true,
+            "reassessMonths": 12
+          },
+          "5to10": {
+            "copyKey": "risk.action.5to10",
+            "lifestyleAdvice": true,
+            "bpCheckEveryMonths": 6
+          },
+          "10to20": {
+            "copyKey": "risk.action.10to20",
+            "careTeamReviewWithinWeeks": 4,
+            "recheckEveryMonths": 3,
+            "doctorDecidesAboutMedicines": true
+          },
+          "20to30": {
+            "copyKey": "risk.action.20to30",
+            "doctorReviewWithinWeeks": 2,
+            "recheckEveryMonths": 3
+          },
+          "ge30": {
+            "copyKey": "risk.action.ge30",
+            "doctorReviewWithinWeeks": 1
+          }
+        }
+      },
+      "provenance": {
+        "paper": "The WHO CVD Risk Chart Working Group. World Health Organization cardiovascular disease risk charts: revised models to estimate risk in 21 global regions. Lancet Glob Health 2019;7:e1332-45. doi:10.1016/S2214-109X(19)30318-3",
+        "paperLicence": "CC BY 4.0 (article copyright line: '(c) 2019 The Author(s). Published by Elsevier Ltd. This is an Open Access article under the CC BY 4.0 license.')",
+        "coreModel": "Pooled Cox log hazard ratios and 10-year baseline survivals from the Emerging Risk Factors Collaboration (appendix 1 Table 1.6 to 7 decimal places; baseline survivals to 7 decimal places from the authors' program, the paper's Table 2 gives them to 3)",
+        "recalibration": "Western sub-Saharan Africa (GBD region 5), target year 2017, region-level ('cal2') intercept and slope per sex, endpoint and model, from the authors' program whocvdrisk (Kaptoge S, Pennells L; Cardiovascular Epidemiology Unit, University of Cambridge), file whocvdrisk_t10_calparms_gbd_sens0.dta, row ccode = A01GBDR_005_WSSA, year = 2017",
+        "sourceFiles": {
+          "appendix1": {
+            "url": "https://ars.els-cdn.com/content/image/1-s2.0-S2214109X19303183-mmc1.pdf",
+            "sha256": "92b52f66f2d7f4f3cb207d7dbedb14975c758a9e97f09e7982f5d4294ec9cf80"
+          },
+          "appendix2Charts": {
+            "url": "https://ars.els-cdn.com/content/image/1-s2.0-S2214109X19303183-mmc2.pdf",
+            "sha256": "68ab741131d86897542a3b8e8598f185c34e2d66234b14ae97881667ddc1ca17"
+          },
+          "whocvdrisk_erfc_score_v03.ado": {
+            "url": "https://raw.githubusercontent.com/skkceu/stata/main/whocvdrisk_erfc_score_v03.ado",
+            "sha256": "e1a395eb4ccb6e25d2a7704862c6fad6a51fed5995fbf1f23417882753db0e16"
+          },
+          "whocvdrisk_t10_calparms_gbd_sens0.dta": {
+            "url": "https://raw.githubusercontent.com/skkceu/stata/main/whocvdrisk_t10_calparms_gbd_sens0.dta",
+            "sha256": "684963c2670993450cb0d8c9cd9a9a7ae5c0bc7681e4430e06f6986a49055910"
+          }
+        },
+        "nigeriaRegion": "Appendix 1 p 39 lists Nigeria under Western Sub-Saharan Africa",
+        "chartReproduction": "All 2100 cells of the published Western sub-Saharan Africa charts (appendix 2 pp 5 and 27) are reproduced exactly, using the cell midpoints age 42.5..72.5, SBP 110/130/150/170/190, total cholesterol 3.5/4.5/5.5/6.5/7.5 mmol/L, BMI 17.5/22.5/27.5/32.5/37.5 kg/m2",
+        "note": "docs/clinical/who-cvd-2019-wssa-coefficients.md"
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-03",
+    source: "docs/clinical/who-cvd-2019-wssa-coefficients.md; Lancet Glob Health 2019;7:e1332-45 appendix 1 Table 1.6 and p 39, appendix 2 pp 5 and 27; whocvdrisk (Kaptoge, Pennells)",
+  },
+  {
     key: "report.settings",
     // Yearly Tarragon Health Report settings (S46, function 3.15). Live value is the `config` of `health_report_config_versions` v1, UNSIGNED. Every
     // number is a placeholder for the CMO (OQ-S46-3); the BP target, margins and windows are not clinical decisions made by an agent. A test fails if
@@ -10452,5 +11359,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-22",
     source: "S68b, daily child log. Device and display values only; the due window is a proposal for the CMO (OQ-S68B-2).",
+  },
+  {
+    key: "rota.cover_policy",
+    // W-03: the rota cover minimum that the red-ladder card (/clinician/chain-health) and the daily sole-CMO sunset sweep judge against.
+    // Live value is the ONE row of `rota_cover_policy`; a mirror test fails if the migrations and this value drift. required_clinicians:
+    // distinct credentialed on-call clinicians that must appear on the rota over window_days (every hour must also have a credentialed
+    // primary). sole_cmo_exception_sunset: the dated end of the sole-CMO on-call exception (Lagos), PROPOSED. v1 is what W-03 shipped.
+    value: { required_clinicians: 5, window_days: 28, sole_cmo_exception_sunset: "2027-01-31" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-27",
+    source: "supabase/migrations/20261027192444_w03_red_page_ladder_drilled.sql; docs/DECISIONS.md (Sole-CMO exception end date, W-03)",
+  },
+  {
+    key: "rota.cover_policy",
+    // v2, founder decision 2026-11-03: TWO credentialed on-call clinicians are enough to start 24/7 cover. The real roster is two doctors who
+    // alternate primary and backup and cover every hour of the window; five with two real doctors would have kept the card on "below the
+    // minimum" and raised a daily incident from 30 days before the sunset. required_clinicians is the founder's decision; window_days and
+    // the sunset date are unchanged and the sunset stays PROPOSED. Mirrors *_rota_cover_policy_two_clinicians.sql.
+    value: { required_clinicians: 2, window_days: 28, sole_cmo_exception_sunset: "2027-01-31" },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-03",
+    source: "Founder decision 2026-11-03 (docs/DECISIONS.md, Rota cover minimum); supabase/migrations/*_rota_cover_policy_two_clinicians.sql",
   },
 ];
