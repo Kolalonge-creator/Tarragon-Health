@@ -160,7 +160,6 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
       <VideoVisitBookingSection
         patientId={patientId}
-        organisationId={organisationId}
         onOpenVideoVisit={onOpenVideoVisit}
       />
       <MembershipSection />

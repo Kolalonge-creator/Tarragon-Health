@@ -746,3 +746,10 @@ Chosen from selectable prompts in chat while reviewing `docs/clinical-safety/con
 | ID | Decision | Rationale | Unblocks |
 |---|---|---|---|
 | **Rota cover minimum** | `rota_cover_policy.required_clinicians` is **2**, not the 5 that W-03 proposed. Two credentialed doctors alternating primary and backup over the 28-day window is enough to start 24/7 cover. `window_days` (28) and the sole-CMO exception sunset (2027-01-31, still PROPOSED) are unchanged. Every hour must still have a credentialed primary. | Checked live 2026-11-03: the real roster is exactly two credentialed doctors covering all 672 hours with a backup; `meets_minimum` was false only because 2 < 5, which kept the red-ladder card on "below the minimum" and would have raised a daily incident from 30 days before the sunset. The founder chose to amend the proposed value rather than staff to it. | Stage 2 exit B1; `*_rota_cover_policy_two_clinicians.sql`; `rota.cover_policy` v2 in proposed-config |
+
+## Founder decision, 2026-11-03 (extra online meeting price)
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **Extra online meeting is 8,000 naira** | A paid Member's extra online meeting costs 8,000 naira (800,000 kobo), up from 5,000. Still Members only; a Free patient still cannot buy one. The monthly meeting included in Membership is unchanged. | Founder's price, set once consultations and checkout were open. The one credit ever sold (5,000, spent) is unaffected; purchases pin their own amount. | `20261103204915_extra_meeting_price_8000.sql`; the coordinator page no longer prints a number, the live terms note does. |
+

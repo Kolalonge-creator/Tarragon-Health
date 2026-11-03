@@ -69,7 +69,6 @@ const REQUEST_STATUS: Record<string, { label: string; tone: "brand" | "neutral";
 
 interface VideoVisitBookingSectionProps {
   patientId: string;
-  organisationId: string;
   /** Pushes the existing native "manage this visit" screen (join link, prep
    * notes, summary) once a request reaches 'accepted' — see
    * video-visit-screen.tsx, already wired for the overview tab's "Details"
@@ -95,7 +94,6 @@ interface VideoVisitBookingSectionProps {
  */
 export function VideoVisitBookingSection({
   patientId,
-  organisationId,
   onOpenVideoVisit,
 }: VideoVisitBookingSectionProps) {
   const colors = useLegacyColors();
@@ -111,13 +109,13 @@ export function VideoVisitBookingSection({
   const refresh = useCallback(async () => {
     const [slotsResult, priceResult, requestsResult] = await Promise.all([
       loadOpenVideoVisitSlots(),
-      loadVideoVisitPrice(organisationId),
+      loadVideoVisitPrice(),
       loadMyVideoVisitRequests(patientId),
     ]);
     if (slotsResult.ok) setSlots(slotsResult.data);
     if (priceResult.ok) setPrice(priceResult.data);
     if (requestsResult.ok) setRequests(requestsResult.data);
-  }, [organisationId, patientId]);
+  }, [patientId]);
 
   useEffect(() => {
     refresh().finally(() => setLoading(false));

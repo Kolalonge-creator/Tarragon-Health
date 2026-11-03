@@ -55,33 +55,25 @@ export function useVideoVisitAcceptanceStats() {
   });
 }
 
-/** The price a video visit costs the caller (org override, else platform default). */
+/** Narrows my_video_visit_price's jsonb answer; anything else is treated as "no price", never a guessed number. */
+export function parseVideoVisitPrice(value: unknown): { amount_minor: number; currency: string } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { amount_minor, currency } = value as Record<string, unknown>;
+  if (typeof amount_minor !== "number" || !Number.isInteger(amount_minor) || amount_minor <= 0) return null;
+  if (typeof currency !== "string" || currency.length === 0) return null;
+  return { amount_minor, currency };
+}
+
+/** The price a video visit costs the caller: exactly what the charge trigger pins (organisation override, else the extra-meeting
+ * product, else the platform row), read from the one database function both use. null when no price is set or it is off. */
 export function useVideoVisitPrice() {
   return useQuery({
     queryKey: consultSlotKeys.price,
     queryFn: async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organisation_id")
-        .eq("id", user.id)
-        .single();
-      const { data, error } = await supabase
-        .from("video_visit_prices")
-        .select("organisation_id, amount_minor, currency, is_enabled")
-        .eq("is_enabled", true);
+      const { data, error } = await supabase.rpc("my_video_visit_price");
       if (error) throw error;
-      const rows = data ?? [];
-      // Caller's own org override wins over the platform default; other orgs'
-      // overrides are ignored (the DB pin trigger applies the same rule).
-      const override = rows.find(
-        (r) => r.organisation_id !== null && r.organisation_id === profile?.organisation_id
-      );
-      return override ?? rows.find((r) => r.organisation_id === null) ?? null;
+      return parseVideoVisitPrice(data);
     },
   });
 }

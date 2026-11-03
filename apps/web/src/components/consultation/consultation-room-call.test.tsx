@@ -23,7 +23,15 @@ jest.mock("@/lib/consultations/actions", () => ({
 }));
 
 const loadSdk = jest.fn();
-jest.mock("@/lib/consultations/zoom-sdk", () => ({ loadZoomEmbedded: (...a: unknown[]) => loadSdk(...a) }));
+let sdkKnownUnavailable = false;
+const markUnavailable = jest.fn(() => {
+  sdkKnownUnavailable = true;
+});
+jest.mock("@/lib/consultations/zoom-sdk", () => ({
+  loadZoomEmbedded: (...a: unknown[]) => loadSdk(...a),
+  zoomSdkKnownUnavailable: () => sdkKnownUnavailable,
+  markZoomSdkUnavailable: () => markUnavailable(),
+}));
 
 const view: RoomView = {
   encounter_id: "7b9c2f0e-5d3a-4c11-9a52-0f6d1e8b7a44",
@@ -66,6 +74,7 @@ function fakeSdk(over: Partial<ZoomEmbeddedClient> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  sdkKnownUnavailable = false;
   window.open = jest.fn(() => null);
   report.mockResolvedValue({ ok: true });
 });
@@ -158,6 +167,48 @@ describe("ConsultationRoom with the in-app call", () => {
       expect(screen.getByTestId("call-root").classList.contains("hidden")).toBe(true);
     });
 
+    it("once the SDK is known to be unavailable on this page, the window opens from the click itself and is pointed at the link when the server answers", async () => {
+      // A window asked for only after the SDK's slow failure is blocked by the browser (the first live consultation, 2026-11-03).
+      sdkKnownUnavailable = true;
+      try {
+        let answer: (v: unknown) => void = () => undefined;
+        join.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+        const early = { opener: {} as unknown, location: { href: "about:blank" }, close: jest.fn() };
+        (window.open as jest.Mock).mockReturnValueOnce(early);
+        render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+        click("Join with video");
+        // opened synchronously, before any server round trip, and never with a reference back to this page
+        expect(window.open).toHaveBeenCalledWith("about:blank", "_blank");
+        expect(early.opener).toBeNull();
+        expect(loadSdk).not.toHaveBeenCalled();
+        expect(early.location.href).toBe("about:blank");
+        await act(async () => {
+          answer({ ok: true, url: "https://zoom.example/j/1", mediaMode: "video", audioOnlyEnforced: false, recorded: true });
+        });
+        await waitFor(() => expect(early.location.href).toBe("https://zoom.example/j/1"));
+        expect(early.close).not.toHaveBeenCalled();
+        // the link stays on the page too, for a browser that refused even the click-time window
+        expect(await screen.findByRole("link", { name: "Open the call" })).toBeTruthy();
+      } finally {
+        sdkKnownUnavailable = false;
+      }
+    });
+
+    it("closes the click-time window rather than leave it blank when the server refuses the link", async () => {
+      sdkKnownUnavailable = true;
+      try {
+        join.mockResolvedValue({ ok: false, reason: "provider" });
+        const early = { opener: {} as unknown, location: { href: "about:blank" }, close: jest.fn() };
+        (window.open as jest.Mock).mockReturnValueOnce(early);
+        render(<ConsultationRoom view={view} locale="en" call={{ policy }} />);
+        click("Join with video");
+        await waitFor(() => expect(early.close).toHaveBeenCalled());
+        expect(screen.getByText(/could not open the room/i)).toBeTruthy();
+      } finally {
+        sdkKnownUnavailable = false;
+      }
+    });
+
     it("when the browser cannot do voice over the web", async () => {
       linkWorks();
       const f = fakeSdk({ checkSystemRequirements: () => ({ audio: false, video: false, screen: false }) });
@@ -168,6 +219,8 @@ describe("ConsultationRoom with the in-app call", () => {
       await expectLink();
       expect(f.client.join).not.toHaveBeenCalled();
       expect(f.sdk.destroyClient).toHaveBeenCalled();
+      // a browser the SDK cannot use is remembered, so the next join opens the link from the click rather than trying the SDK again
+      expect(markUnavailable).toHaveBeenCalled();
     });
 
     it("when Zoom refuses the join (a bad signature, a closed room, no host key)", async () => {

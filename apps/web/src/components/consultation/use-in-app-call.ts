@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import type { MediaMode } from "@tarragon/integrations/client";
 import { prepareSdkJoinAction, reportCallEventAction, reportCaregiverLeftAction } from "@/lib/consultations/actions";
 import { CallController, type CallNotice, type CallPolicy } from "@/lib/consultations/call-controller";
-import { loadZoomEmbedded, type ZoomEmbeddedClient, type ZoomEmbeddedGlobal } from "@/lib/consultations/zoom-sdk";
+import { loadZoomEmbedded, markZoomSdkUnavailable, type ZoomEmbeddedClient, type ZoomEmbeddedGlobal } from "@/lib/consultations/zoom-sdk";
 
 /**
  * The in-app Zoom call for the consultation room (S21 follow-up, OQ-136). `start` answers one of:
@@ -245,6 +245,8 @@ export function useInAppCall(rootRef: RefObject<HTMLDivElement | null>, options:
         // ends here. The attempt is cleaned up; the link takes over only if nobody chose to leave.
         const wasAbandoned = abandoned();
         void end(a);
+        // The SDK was had but could not be used here: the next join goes straight to the link, opened from the click itself.
+        if (!wasAbandoned) markZoomSdkUnavailable();
         return wasAbandoned ? "cancelled" : "fallback";
       }
     },

@@ -191,7 +191,7 @@ begin
   perform pg_temp.rec('priced dietitian visit: bookable at 500000 kobo, refund basis credit', 'true/500000/credit',
     (v_json ->> 'bookable') || '/' || (v_json ->> 'price_kobo') || '/' || (v_json ->> 'refund_basis'));
   select public.my_booking_terms('telemedicine') into v_json;
-  perform pg_temp.rec('extra online meeting terms: 500000 kobo (Members only, decision 2026-10-29), 2 hour window, credit basis', '500000/2/credit',
+  perform pg_temp.rec('extra online meeting terms: 800000 kobo (Members only; price decision 2026-11-03), 2 hour window, credit basis', '800000/2/credit',
     coalesce(v_json ->> 'price_kobo', 'none') || '/' || (v_json ->> 'cancel_window_hours') || '/' || (v_json ->> 'refund_basis'));
   perform pg_temp.rec('an unknown type answers null', 'null', coalesce((select public.my_booking_terms('bogus'))::text, 'null'));
   perform pg_temp.back();
