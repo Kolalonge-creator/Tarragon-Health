@@ -60,7 +60,7 @@ const SCREENING_GROUPS = [
       "A full childhood immunisation record for each of your children, following the same recognised schedule as their paper card, but one that cannot be lost",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
-      "Optional cycle tracking for women, with gentle reminders: an estimated date for your next period (an estimate, not a prediction), a reminder to book antenatal care once you are pregnant, or a prompt to talk to your care team as perimenopause or menopause begins",
+      "Optional cycle tracking for women, with gentle reminders: an estimated date for your next period, a reminder to book antenatal care once you are pregnant, or a prompt to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {
@@ -77,11 +77,11 @@ const ABNORMAL_STEPS = [
   },
   {
     title: "You hear from your care team fast",
-    body: "Your care team contacts you within hours rather than weeks, and explains what the result means in plain language.",
+    body: "A doctor follows up within 24 hours, or within 12 hours if the result is critical, and explains what the result means in plain language.",
   },
   {
     title: "Follow-up until the matter is resolved",
-    body: "If the result needs ongoing attention, your record moves into long-term care monitoring on the same platform, with the same record and the same care team, so you do not start again, and there is no extra charge for the follow-up.",
+    body: "If the result needs ongoing attention, your record moves into long-term care monitoring on the same platform, with the same record and the same care team, so you do not start again. An abnormal screening result always gets doctor follow-up, on every plan; ongoing review is part of Membership.",
   },
 ];
 

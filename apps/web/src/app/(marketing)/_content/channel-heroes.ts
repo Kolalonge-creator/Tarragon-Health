@@ -69,7 +69,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     description:
       "Enrol your staff for hypertension care, diabetes care and preventive screening, and receive a clear, anonymised summary of health risk that HR can act on.",
     primaryHref: MARKETING_ROUTES.corporate,
-    primaryLabel: "Request employer health plan",
+    primaryLabel: "Request an employer health plan",
     secondaryHref: MARKETING_ROUTES.corporate,
     secondaryLabel: "See how it works for employers",
   },
@@ -77,7 +77,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For family abroad",
     title: "You already send money home for healthcare.",
     description:
-      "Give a parent or relative a year of Membership instead: a yearly blood test and a monthly video call with their care team. They choose to accept it, and you are told when they do.",
+      "Give a parent or relative a year of Membership instead: a monthly video call with their care team, and the yearly blood panel with Membership Plus. They choose to accept it, and you are told when they do.",
     primaryHref: MARKETING_ROUTES.gift,
     primaryLabel: "Give a year of Membership",
     secondaryHref: MARKETING_ROUTES.pricing,

@@ -134,7 +134,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
           <p className="text-charcoal-ink/70">{EMPLOYER_HMO_NOTE}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href={`${MARKETING_ROUTES.contact}?source=corporate`}>Request employer health plan</Link>
+              <Link href={`${MARKETING_ROUTES.contact}?source=corporate`}>Request an employer health plan</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={`${MARKETING_ROUTES.contact}?source=hmo`}>Talk to us about HMO partnerships</Link>
@@ -248,7 +248,7 @@ export default async function PricingPage() {
           <p className="text-charcoal-ink/70">{EMPLOYER_HMO_NOTE}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href={`${MARKETING_ROUTES.contact}?source=corporate`}>Request employer health plan</Link>
+              <Link href={`${MARKETING_ROUTES.contact}?source=corporate`}>Request an employer health plan</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={`${MARKETING_ROUTES.contact}?source=hmo`}>Talk to us about HMO partnerships</Link>

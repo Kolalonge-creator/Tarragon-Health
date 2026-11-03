@@ -47,4 +47,4 @@ export const PARTNER_LOGOS: PartnerLogo[] = [
  * soften it into a vaguer "trusted network" claim.
  */
 export const PARTNER_VERIFICATION_PRINCIPLE =
-  "We list a company's name here only once the relationship is signed and current, and the company has agreed to let us use its name. A short list does not mean a small network. It means we do not claim a relationship before it exists.";
+  "We list a company's name here only once the relationship is signed and current, and the company has agreed to let us use its name. A short list means we do not claim a relationship before it exists.";

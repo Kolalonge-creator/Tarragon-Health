@@ -28,7 +28,7 @@ export const metadata: Metadata = pageMetadata({
 const CAPITATION_REASONS = [
   {
     title: "We are paid for the work we do",
-    body: "A doctor's time, priced per piece of work you can see and confirm before it happens. If nothing was done, nothing was charged.",
+    body: "The app is free. Membership is one yearly price for a year of care with your care team, shown to you and confirmed before anything is charged.",
   },
   {
     title: "Nothing to gain by doing less",

@@ -58,7 +58,7 @@ export function ProductPageTemplate({
   // something's wrong" is the actual pitch, not just a closing nudge.
   const ctaDescription =
     content.slug === "prevention"
-      ? "Good health in the future depends on looking after it today. Join TarragonHealth to protect your health."
+      ? "Looking after your health now is what protects it later. Join TarragonHealth to get started."
       : "Join TarragonHealth to keep your care connected over time.";
   // dohealth-style full-bleed photo hero (see marketing-photo-banner-hero.tsx)
   // is the site's primary hero now, same as the homepage — but only once a

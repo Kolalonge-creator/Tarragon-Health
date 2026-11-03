@@ -166,7 +166,7 @@ export default function ResultInterpretationPage() {
             variant="gradient"
             title="Upload the result you are holding"
             description="Create a free account, upload it, and a doctor will read it. Nothing else needs setting up, and there is no plan to join."
-            primaryLabel="Create a free account"
+            primaryLabel="Create your free account"
             secondaryHref={MARKETING_ROUTES.pricing}
             secondaryLabel="See all prices"
           />

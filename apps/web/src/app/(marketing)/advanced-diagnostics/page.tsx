@@ -16,7 +16,7 @@ export const metadata: Metadata = pageMetadata({
 const WHAT_THIS_IS = [
   {
     title: "A referral, not a scanner we own",
-    body: "Tarragon does not buy or run imaging equipment. This will work in the same way as our laboratory network: we tell you which scan suits your question, connect you with an imaging partner, and you pay that partner directly.",
+    body: "Tarragon does not buy or run imaging equipment. This will work in the same way as laboratory tests: we tell you which scan suits your question, you take the request to an imaging provider, and you pay that provider directly.",
   },
   {
     title: "A doctor reads it with you",
@@ -35,7 +35,7 @@ const HONEST_EXPECTATIONS = [
   },
   {
     title: "You will pay the imaging provider, not Tarragon",
-    body: "The same principle applies as in our laboratory network: the cost is set by the imaging partner and is not marked up by Tarragon. Our part is coordination and the doctor's review of the result.",
+    body: "The same principle applies as for laboratory tests: the cost is set by the imaging provider and is not marked up by Tarragon. Our part is coordination and the doctor's review of the result.",
   },
   {
     title: "We will tell you before it is available",

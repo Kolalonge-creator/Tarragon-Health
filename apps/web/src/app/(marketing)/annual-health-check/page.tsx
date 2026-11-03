@@ -255,7 +255,7 @@ export default function AnnualHealthCheckPage() {
             Vitamin D, vitamin B12 and folate, iron studies, hs-CRP (a marker of inflammation), a
             coagulation profile (how well your blood clots) and a tumour marker screen suited to
             your age and sex, added to your next check as a one-time upgrade. We are holding it
-            back until a Clinical Director approves the exact panel.
+            back until our Chief Medical Officer approves the exact panel.
           </p>
           <p className="mt-3 text-sm text-charcoal-ink/60">
             If you want to look further, see{" "}

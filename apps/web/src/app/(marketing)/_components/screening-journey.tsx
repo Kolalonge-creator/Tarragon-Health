@@ -63,7 +63,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what is next",
-        body: "A doctor reviews every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear, and a clear result is still valuable because it gives you a baseline. If something needs attention, a doctor follows up within a day, and within 12 hours if the result is critical.",
+        body: "Your result is added to your Health Passport and checked against the normal range. Most checks come back clear, and a clear result is still valuable because it gives you a baseline. If something needs attention, a doctor follows up within 24 hours, and within 12 hours if the result is critical.",
       },
     ],
   },
@@ -90,7 +90,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what is next",
-        body: "Results go only to you and the reviewing doctor. A normal result means you are on track for your next scheduled screening. If a result is abnormal, a doctor follows up immediately to explain what happens next.",
+        body: "Results go only to you and the reviewing doctor. A normal result means you are on track for your next scheduled screening. If a result is abnormal, a doctor follows up within 24 hours, or within 12 hours if it is critical, to explain what happens next.",
       },
     ],
   },

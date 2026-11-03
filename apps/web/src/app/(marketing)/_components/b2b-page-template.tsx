@@ -187,7 +187,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
           />
           <div className="grid items-start gap-10 lg:grid-cols-2">
             <EligibilityChecker source={content.slug === "hmo" ? "hmo" : "corporate"} />
-            <RoiCalculator />
+            <RoiCalculator audience={content.slug === "hmo" ? "members" : "workforce"} />
           </div>
         </Section>
       )}
