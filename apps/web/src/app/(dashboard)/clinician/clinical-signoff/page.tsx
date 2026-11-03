@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { BP_TARGET_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -54,6 +54,8 @@ import { PostCheckinPanel } from "../_signoff-panels/post-checkin-panel";
 import { CascadeConfigPanel } from "../_signoff-panels/cascade-config-panel";
 import { BaselineLabsRulePanel } from "../_signoff-panels/baseline-labs-rule-panel";
 import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseline-labs-rule-signoff";
+import { BpTargetPanel } from "../_signoff-panels/bp-target-panel";
+import { readPendingBpTargetSignoff } from "@/lib/queries/pending-bp-target-signoff";
 import { AiMonitoringPanel } from "../_signoff-panels/ai-monitoring-panel";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingCascadeConfigSignoff } from "@/lib/queries/pending-cascade-config-signoff";
@@ -322,6 +324,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(BASELINE_LABS_ITEM_KEY)) {
     const pendingBaseline = await readPendingBaselineLabsRuleSignoff(supabase);
     inlinePanels[BASELINE_LABS_ITEM_KEY] = <BaselineLabsRulePanel version={pendingBaseline.version} rule={pendingBaseline.rule} />;
+  }
+  if (keys.has(BP_TARGET_ITEM_KEY)) {
+    const pendingBpTarget = await readPendingBpTargetSignoff(supabase);
+    inlinePanels[BP_TARGET_ITEM_KEY] = <BpTargetPanel version={pendingBpTarget.version} view={pendingBpTarget.view} liveVersion={pendingBpTarget.liveVersion} currentDefault={pendingBpTarget.currentDefault} />;
   }
   if (keys.has(AI_MONITORING_ITEM_KEY)) {
     const pendingAiMonitoring = await readPendingAiMonitoringSignoff(supabase);
