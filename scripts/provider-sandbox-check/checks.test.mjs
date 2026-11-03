@@ -69,8 +69,8 @@ test("Paystack: a wrong key shows FAIL on the calls that need it, not a crash", 
   assert.equal(byName(out.results, "webhook signature").status, "PASS");
 });
 
-test("Zoom: passes against a faithful fake only with the flag, skips without it, and fails when no host user is named", async () => {
-  const env = { ZOOM_ACCOUNT_ID: "a", ZOOM_CLIENT_ID: "c", ZOOM_CLIENT_SECRET: "zoom_client_secret_x", ZOOM_HOST_USER_ID: "consult-host@example.test", ZOOM_SDK_KEY: "k", ZOOM_SDK_SECRET: "x", ZOOM_WEBHOOK_SECRET_TOKEN: "zoom-secret-token" };
+test("Zoom: passes against a faithful fake only with the flag, skips without it, accepts an unset host user and refuses an email", async () => {
+  const env = { ZOOM_ACCOUNT_ID: "a", ZOOM_CLIENT_ID: "c", ZOOM_CLIENT_SECRET: "zoom_client_secret_x", ZOOM_HOST_USER_ID: "ConsultHostUserId01", ZOOM_SDK_KEY: "k", ZOOM_SDK_SECRET: "x", ZOOM_WEBHOOK_SECRET_TOKEN: "zoom-secret-token" };
   const fake = createFakeZoom({ now: Date.now() });
   const full = await runChecks({ env, fetch: fake.fetch, only: ["zoom"], allowZoomMeeting: true });
   assert.deepEqual(full.results.filter((r) => r.status === "FAIL"), []);
@@ -78,8 +78,12 @@ test("Zoom: passes against a faithful fake only with the flag, skips without it,
   assert.ok(byName(full.results, "end and delete").status === "PASS");
   const dry = await runChecks({ env, fetch: createFakeZoom({ now: Date.now() }).fetch, only: ["zoom"] });
   assert.equal(byName(dry.results, "create / join").status, "SKIP");
+  // "me" resolves for a Server-to-Server app (first live consultation, 2026-11-03), so unset is fine; an email 404s under meeting-only scopes.
   const noHost = await runChecks({ env: { ...env, ZOOM_HOST_USER_ID: "" }, fetch: createFakeZoom({ now: Date.now() }).fetch, only: ["zoom"] });
-  assert.equal(byName(noHost.results, "host user is named").status, "FAIL");
+  assert.equal(byName(noHost.results, "host user is").status, "PASS");
+  const byEmail = await runChecks({ env: { ...env, ZOOM_HOST_USER_ID: "consult-host@example.test" }, fetch: createFakeZoom({ now: Date.now() }).fetch, only: ["zoom"] });
+  assert.equal(byName(byEmail.results, "host user is").status, "FAIL");
+  assert.match(byName(byEmail.results, "host user is").detail, /404/);
 });
 
 test("Resend: sends only to resend.dev inboxes, repeats are idempotent, the webhook checks pass", async () => {

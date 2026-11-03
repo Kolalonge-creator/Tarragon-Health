@@ -7,13 +7,26 @@ import { createMemoryInbox } from "../../../packages/integrations/src/support/me
 const SECRET = "zoom-secret-token";
 type Row = Record<string, unknown>;
 
-/** Just enough of a query builder for zoom-webhook: two tables, eq / neq / not filters, insert with a unique key on the audit table. */
-function fakeDb(opts: { consultation?: Row | null; auditInsertError?: boolean } = {}) {
+/** Just enough of a query builder for zoom-webhook: three tables, eq / neq / not filters, insert with a unique key on the audit table. */
+function fakeDb(opts: { consultation?: Row | null; encounterRoom?: Row | null; roomReadError?: boolean; auditInsertError?: boolean } = {}) {
   const audit: Row[] = [];
   const consultation: Row | null = opts.consultation === undefined ? { id: "vc-1", zoom_meeting_id: "999", status: "scheduled" } : opts.consultation;
+  const encounterRoom: Row | null = opts.encounterRoom ?? null;
   const updates: Row[] = [];
+  const roomReads: Row[] = [];
   const db = {
     from(table: string) {
+      if (table === "encounter_rooms") {
+        // select().eq("provider", ...).eq("provider_room_id", ...).maybeSingle(); the filters are recorded so a test can prove the lookup shape
+        const filters: Row = {};
+        const q = { eq: (c: string, v: string) => { filters[c] = v; return q; }, limit: (n: number) => { filters["limit"] = n; return q; }, maybeSingle: () => {
+          roomReads.push(filters);
+          if (opts.roomReadError) return Promise.resolve({ data: null, error: { code: "XX000" } });
+          const hit = encounterRoom && filters["provider"] === encounterRoom["provider"] && filters["provider_room_id"] === encounterRoom["provider_room_id"];
+          return Promise.resolve({ data: hit ? { id: encounterRoom["id"] } : null, error: null });
+        } };
+        return { select: () => q, update: () => { throw new Error("encounter_rooms must never be written by the webhook"); } };
+      }
       if (table === "zoom_webhook_events") {
         return {
           insert(row: Row) {
@@ -38,7 +51,7 @@ function fakeDb(opts: { consultation?: Row | null; auditInsertError?: boolean } 
       };
     },
   } as unknown as SupabaseClient;
-  return { db, audit, consultation, updates };
+  return { db, audit, consultation, updates, roomReads };
 }
 
 async function sign(body: string, ts = "1800000000"): Promise<Record<string, string>> {
@@ -95,6 +108,8 @@ Deno.test("started then ended completes the consultation; a redelivery of ended 
   assertEquals(f.consultation?.["status"], "started");
   assertEquals((await post(ended, deps)).json, { ok: true });
   assertEquals(f.consultation?.["status"], "completed");
+  // the older table answered, so the encounter flow's table is never asked
+  assertEquals(f.roomReads, []);
   const endedAt = f.consultation?.["ended_at"];
   assertEquals((await post(ended, deps)).json, { ok: true, replay: true });
   assertEquals(f.consultation?.["ended_at"], endedAt);
@@ -127,7 +142,8 @@ Deno.test("an unknown meeting, a missing id and an unrelated event type are ackn
   none.f.consultation && (none.f.consultation["zoom_meeting_id"] = "other");
   const f2 = fakeDb({ consultation: null });
   assertEquals((await post(ended, { ...none.deps, db: f2.db })).json, { ok: true });
-  assertEquals(String(f2.audit[0]?.["error"]).startsWith("no video_consultations row"), true);
+  assertEquals(String(f2.audit[0]?.["error"]).startsWith("no video_consultations or encounter_rooms row"), true);
+  assertEquals(f2.roomReads, [{ provider: "zoom", provider_room_id: "999", limit: 1 }]);
   const noId = JSON.stringify({ event: "meeting.ended", payload: { object: {} } });
   const f3 = fakeDb();
   assertEquals((await post(noId, { ...none.deps, db: f3.db, store: createMemoryInbox() })).json, { ok: true });
@@ -136,6 +152,35 @@ Deno.test("an unknown meeting, a missing id and an unrelated event type are ackn
   const f4 = fakeDb();
   assertEquals((await post(other, { ...none.deps, db: f4.db, store: createMemoryInbox() })).json, { ok: true });
   assertEquals(f4.audit[0]?.["processed_at"] !== undefined, true);
+});
+
+Deno.test("an encounter-flow meeting (encounter_rooms, no video_consultations row) is handled, linked to the room, and the encounter is left alone", async () => {
+  // Found on the first live consultation (2026-11-03): every started/ended event for an encounter room was recorded as a false error.
+  const f = fakeDb({ consultation: null, encounterRoom: { id: "room-1", provider: "zoom", provider_room_id: "999" } });
+  const store = createMemoryInbox();
+  const deps = { secret: SECRET, db: f.db, store, appBaseUrl: undefined, fetch: noFetch };
+  assertEquals((await post(started, deps)).json, { ok: true });
+  assertEquals((await post(ended, deps)).json, { ok: true });
+  assertEquals(f.audit.length, 2);
+  for (const row of f.audit) {
+    assertEquals(row["error"], undefined);
+    assertEquals(typeof row["processed_at"], "string");
+    assertEquals(row["video_consultation_id"], null);
+  }
+  assertEquals(store.rows.map((r) => r.status), ["processed", "processed"]);
+  assertEquals(store.rows.map((r) => r.entity), ["encounter_room:room-1", "encounter_room:room-1"]);
+  assertEquals(f.updates, []);
+  // a mock-provider room with the same id is not a Zoom room
+  const mock = fakeDb({ consultation: null, encounterRoom: { id: "room-2", provider: "mock", provider_room_id: "999" } });
+  assertEquals((await post(ended, { ...deps, db: mock.db, store: createMemoryInbox() })).json, { ok: true });
+  assertEquals(String(mock.audit[0]?.["error"]).startsWith("no video_consultations or encounter_rooms row"), true);
+  // a failed read of encounter_rooms is a retryable failure (500 so Zoom resends), never a "no row" verdict
+  const broken = fakeDb({ consultation: null, encounterRoom: { id: "room-1", provider: "zoom", provider_room_id: "999" }, roomReadError: true });
+  const brokenStore = createMemoryInbox();
+  const out = await post(ended, { ...deps, db: broken.db, store: brokenStore });
+  assertEquals(out.status, 500);
+  assertEquals(brokenStore.rows[0]?.status, "failed");
+  assertEquals(broken.audit[0]?.["error"], "encounter_rooms read failed");
 });
 
 Deno.test("participant events are forwarded to the presence route and never stored in the inbox", async () => {

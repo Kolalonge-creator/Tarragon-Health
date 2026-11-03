@@ -30,7 +30,8 @@ export interface ZoomConfig {
   /**
    * The Zoom user that hosts every consultation meeting: a dedicated, low-privilege licensed user used for nothing else (S21, OQ-136).
    * A host key lets its holder start meetings as this user, so keeping it apart from the account owner keeps a leaked key from acting as
-   * the owner. A Zoom user id or email. Unset means "me", the app's own user (the older behaviour).
+   * the owner. A Zoom user ID, never an email: the meeting-only scopes carry no user:read, so Zoom answers 404 for /users/{email}/...
+   * (first live consultation, 2026-11-03). Unset means "me", the app's own user, which a Server-to-Server token does resolve.
    */
   readonly hostUserId?: string;
   readonly fetch: FetchLike;
@@ -41,6 +42,11 @@ export interface ZoomConfig {
 }
 
 const TOPIC = "Tarragon consultation";
+/**
+ * Zoom's wording (code 4711) when the Server-to-Server app was not granted the scope a call needs: the scopes it lists, or null.
+ * The closing bracket is optional because `fail` keeps only the first 200 characters of a vendor message.
+ */
+const missingScopes = (message: string): string | null => /does not contain scopes:\s*\[([^\]]*)\]?/i.exec(message)?.[1]?.trim() ?? null;
 /** A signed webhook older (or newer) than this is refused, so a captured one cannot be replayed later. Zoom advises about five minutes. */
 const WEBHOOK_TOLERANCE_MS = 5 * 60_000;
 
@@ -229,9 +235,19 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       if (!ended.ok && (ended.error.retryable || ended.error.code === "unauthorized")) return ended;
       const removed = await call("DELETE", `/meetings/${roomId}`);
       // Already gone is the same outcome as just deleted, so ending twice is safe.
+      if (removed.ok || removed.error.code === "not_found") return ok({ endedAtMs: now() });
+      // A Zoom app whose scopes do not include ending or deleting a meeting is refused with 400, code 4711, "Invalid access token, does
+      // not contain scopes:[...]" (reproduced 2026-11-03 on the first live consultation's follow-up check). Repeating can never help, and
+      // the room stays joinable, so it is a configuration failure that names the scopes, not success and not "closed yet". Both replies are
+      // named when both were refused: the operator has to add both scopes.
+      const scopeless = (r: ProviderResult<unknown>): string | null => (r.ok ? null : missingScopes(r.error.message));
+      const deleteScopes = scopeless(removed);
+      if (deleteScopes !== null) {
+        const endScopes = scopeless(ended);
+        return fail("not_configured", `Zoom app lacks scopes: ${[deleteScopes, endScopes].filter((s): s is string => s !== null).join("; ")}`, false);
+      }
       // The meeting may still be winding down, so a refused delete is worth repeating: until it succeeds the room can be rejoined.
-      if (!removed.ok && removed.error.code !== "not_found") return fail(removed.error.code, "Meeting ended but could not be closed yet", true);
-      return ok({ endedAtMs: now() });
+      return fail(removed.error.code, "Meeting ended but could not be closed yet", true);
     },
 
     subscribe(roomId, handler) {

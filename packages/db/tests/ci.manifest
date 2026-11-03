@@ -1815,5 +1815,7 @@ interaction_rule_set_v2_unsigned.sql
 who_cvd_2019_wssa_v3_verified_coefficients.sql
 # Consultations log (founder/CMO ask 2026-11-03): consultations_log returns every call in the organisation to an admin and the CMO only (a plain clinician, a patient and a foreign-organisation admin get zero rows; anon refused), hides test calls unless asked, gives doctor minutes (join to Finish) and Zoom connected minutes summed over meeting.ended legs on encounter_rooms.provider_room_id (open leg counted apart, a leg from before the room existed ignored). Sabotage: gate, organisation clause and room-created bound each removed from the live body must flip.
 consultations_log_admin_and_cmo.sql
+# Consultation pages name the patient: my_clinician_encounters carries patient_id, the full name and the test flag for the assigned doctor only; consultation_patient_header answers the same three fields for one encounter to that doctor, null to another doctor and to the patient; anon cannot execute either. Sabotage: the header without its clinician filter lets doctor B read the name; a list without the full name flips doctor A's check.
+consultation_pages_name_the_patient.sql
 # video visit price single source: the older request route quotes exactly what it charges (product price, organisation override, off = null, anon refused). Sabotage: the pre-fix reading of the organisation-less row makes quote and charge disagree.
 video_visit_price_single_source.sql

@@ -5,8 +5,9 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPatientDateTime } from "@/lib/format-date";
+import { parsePatientHeader, PatientRecordLink, type PatientHeader } from "@/components/consultation/patient-record-link";
 
-interface Row {
+interface Row extends PatientHeader {
   encounter_id: string;
   type: string;
   status: string;
@@ -28,7 +29,8 @@ const STATUS: Record<string, string> = {
 
 /**
  * S21: today's and tomorrow's consultations for the signed-in clinician (spec 9.1, "Consultations"). my_clinician_encounters()
- * returns only this clinician's own, with the patient's first name and nothing else (INV-12).
+ * returns only this clinician's own (INV-12), with the patient's full name and id so the doctor knows who they are calling and can
+ * open the record (founder ask, 2026-11-03). Nothing from the chart is read here.
  */
 export default async function ClinicianConsultationsPage() {
   const profile = await getCurrentProfile();
@@ -50,7 +52,7 @@ export default async function ClinicianConsultationsPage() {
                   <div>
                     <p className="font-medium">{formatPatientDateTime(r.scheduled_at, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
                     <p className="text-charcoal-ink/70 dark:text-night-ink/70">
-                      {r.patient_first_name || "Patient"} · {STATUS[r.status] ?? r.status}
+                      <PatientRecordLink header={parsePatientHeader(r)} /> · {STATUS[r.status] ?? r.status}
                       {r.final_media_mode === "audio_only" ? " · audio only" : r.final_media_mode === "phone" ? " · on the phone" : ""}
                     </p>
                   </div>
