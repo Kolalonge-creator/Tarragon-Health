@@ -28,7 +28,7 @@ interface Props {
   rows: readonly ConsultationsLogRow[] | null;
 }
 
-const fmtMinutes = (n: number | null) => (n === null ? "—" : n.toFixed(1));
+const fmtMinutes = (n: number | null) => (n === null ? "Not recorded" : n.toFixed(1));
 
 /**
  * The consultations log table, shared by /admin/consultations and the CMO's /clinician/consultations-log. The filters are a
