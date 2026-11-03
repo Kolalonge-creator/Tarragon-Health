@@ -7,7 +7,7 @@ import { uploadPatientAvatar } from "./actions";
 import { PATIENT_AVATAR_ACCEPT, validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FilePicker } from "@/components/ui/file-picker";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
@@ -85,15 +85,16 @@ export function AvatarUploadForm({
             <Label htmlFor={`${fieldId}-file`} className="text-xs">
               Upload a new photo
             </Label>
-            <Input
+            <FilePicker
               id={`${fieldId}-file`}
-              ref={fileInputRef}
-              type="file"
+              inputRef={fileInputRef}
               accept={PATIENT_AVATAR_ACCEPT}
-              onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
+              label="Choose a photo"
+              hint="JPG, PNG, or WEBP, up to 5 MB."
+              className="items-center [&>div]:justify-center"
+              onFile={handleFileChange}
               {...fieldErrorProps(errorId, Boolean(displayError))}
             />
-            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">JPG, PNG, or WEBP, up to 5 MB.</p>
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
                 {upload.isPending ? "Saving…" : "Save photo"}
