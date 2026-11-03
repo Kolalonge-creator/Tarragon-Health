@@ -1,6 +1,6 @@
 # Paid consultations (clinical operations): clinical safety case and hazard log
 
-**Status: v1.0 DRAFT, UNSIGNED. Prepared by the assistant on 2026-11-03 for the Chief Medical Officer, Dr Kola Longe, who is also the founder and the DPO and the sole reviewer of this platform (no second reader is required; the residual risk of having no independent check is stated once in HZ-CON-12 and gates nothing).** It becomes v1.0 when the CMO reads it, corrects it, signs the block at the end, signs the matching line on the sign-off hub, and records the attestation `clinical_safety_case_current` on the Clinical operations guard. Nothing here claims compliance with a standard; the shape follows a DCB0129-style hazard log as a structure only. Ratings marked `(s)` are the assistant's suggestions and are the CMO's to change.
+**Status: v1.0, SIGNED 2026-11-03 (hub line signed 02:39 UTC, attestation recorded 02:43 UTC, Clinical operations switched on by the admin at 15:05 UTC; see the sign-off block at the end). Prepared by the assistant on 2026-11-03 for the Chief Medical Officer, Dr Kola Longe, who is also the founder and the DPO and the sole reviewer of this platform (no second reader is required; the residual risk of having no independent check is stated once in HZ-CON-12 and gates nothing).** It became v1.0 when the CMO read it, corrected it, signed the matching line on the sign-off hub and recorded the attestation `clinical_safety_case_current` on the Clinical operations guard; those two platform records are the signature, and the block at the end only transcribes them. Nothing here claims compliance with a standard; the shape follows a DCB0129-style hazard log as a structure only. Ratings marked `(s)` are the assistant's suggestions and are the CMO's to change.
 
 Guard this document supports: **`clinical_operations_enabled`** (a master switch, pressed by an admin). It is the only one of its five conditions still unmet on 2026-11-03: the approved hypertension protocol (`htn_rtsl_ng` v1, approved by the CMO from chat on 2026-11-02), the approved blood pressure triage rule set (`bp_care_triage` v8, 2026-10-29) and at least one active senior clinician (2 real) are all read from the data and are met. The same attestation code is also a condition of `prescribing_enabled` (a master); this document does **not** cover prescribing (see HZ-CON-06) and covers the AI scribe only as it runs inside a consultation (`scribe_enabled` is a feature switch, already on, with no condition of its own).
 
@@ -10,7 +10,7 @@ Guard this document supports: **`clinical_operations_enabled`** (a master switch
 
 **Does not open, by design:** the 25 feature switches whose parent is this master (the condition pathways, fasting safety, the therapy programmes, live red-flag prompts, the symptom checker, post-consultation check-ins and the rest) each stay closed until an admin or the CMO opens them one by one from the go-live page. Clinical tasks (live since S16), lab-result consult requests (a live flow) and care pack sales (not built) were never behind it.
 
-**Still closed by their own masters, and this document assumes they stay closed unless the CMO decides otherwise:** `checkout_enabled` (a real patient cannot buy a consultation credit until it is on; its two attested conditions were recorded by the founder on 2026-11-02), `prescribing_enabled` (a doctor cannot sign a prescription or send one to a pharmacy), `on_call_cover_ok` (not wired to consultations).
+**Still closed by their own masters, and this document assumes they stay closed unless the CMO decides otherwise:** `checkout_enabled` (a real patient cannot buy a consultation credit until it is on; its two attested conditions were recorded by the founder on 2026-11-02; **switched on by the admin at 15:15 UTC on 2026-11-03 under CON-04**, with the three Membership items priced and on sale, so a new patient can now buy a Membership and book with its visit entitlement; the single consultation item `consultation_single` is still unpriced and off, because the 2026-10-12 two-tier decision said pay-per-consult credits are not sold), `prescribing_enabled` (a doctor cannot sign a prescription or send one to a pharmacy), `on_call_cover_ok` (not wired to consultations).
 
 ## 2. What the consultation path does (read from the live definitions, the S21, S37 and S64 design notes and the code on 2026-11-03)
 
@@ -66,13 +66,17 @@ After the first real consultation: read `encounters` and `encounter_events` for 
 - The CMO then records the attestation on the go-live page (`/clinician/go-live`, Clinical operations, condition `clinical_safety_case_current`) with a note of at least 25 characters naming this document, its version and the signer, for example: "Paid consultations safety case v1.0 (docs/clinical-safety/consultations-safety-case.md), read and signed by Dr Kola Longe, Chief Medical Officer, 2026-11-03."
 - An admin then presses the Clinical operations switch on `/admin/go-live` with a note. The switch role for this master is `admin`; the CMO's clinician login cannot press it.
 
+**Outcome (read from the live database):** hub line `consultations_safety_case_v1` signed by Kola Longe at 2026-11-03 02:39:18 UTC (note: "read and happy to proceed"); attestation `clinical_safety_case_current` on `clinical_operations_enabled` recorded met by Kola Longe at 02:43:01 UTC (`go_live_attestations` id 1261); `clinical_operations_enabled` switched on by Tarragon Superadmin (admin) at 15:05:04 UTC, note "Conditions are met"; `checkout_enabled` switched on by the same admin at 15:15:54 UTC (`go_live_guard_log` id 489).
+
 ## Sign-off
 
-Reviewed and signed by: ____________________  Role: Chief Medical Officer  Date: __________  Version: v1.0
+Reviewed and signed by: Dr Kola Longe  Role: Chief Medical Officer  Date: 2026-11-03  Version: v1.0
+
+Signature of record: the `owed_signoffs` row `consultations_safety_case_v1`, signed 2026-11-03 02:39:18 UTC on the sign-off hub, and `go_live_attestations` id 1261 (`clinical_safety_case_current`, met, 02:43:01 UTC). This block transcribes those two records; it is not a separate signature.
 
 Decisions taken (1 to 6 above): as recorded in section 5
 
 ## Change log
 
 - v1.0 draft, 2026-11-03: written by the assistant from the live database, the S21, S37 and S64 design notes and the consultation code; unsigned.
-- v1.0, 2026-11-03: four review corrections; the six decisions recorded from the CMO's answers in chat; ratings accepted. Awaiting the CMO's signature on the hub and the attestation on the go-live page.
+- v1.0, 2026-11-03: four review corrections; the six decisions recorded from the CMO's answers in chat; ratings accepted. Signed on the hub (02:39 UTC) and attested (02:43 UTC) by the CMO; Clinical operations switched on by the admin (15:05 UTC) and checkout (15:15 UTC). Sign-off block transcribed from those records the same day.
