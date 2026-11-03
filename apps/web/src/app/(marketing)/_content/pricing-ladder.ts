@@ -38,6 +38,17 @@ export interface LadderPriceLabels {
 export const LADDER_SAME_CARE_STATEMENT =
   "Membership and Membership Plus are the same care: the same care team, the same monthly video call, the same urgent-care guidance. The only difference is the yearly blood panel.";
 
+/**
+ * Founder decision 2026-11-03: the Membership Plus panel is the one test
+ * Tarragon carries out itself, with its own laboratory team, at a Tarragon
+ * location. Every other test, on every plan, is self-arranged: the patient
+ * takes the request to Synlab or any laboratory and pays it directly. No
+ * address is named here (Tarragon publishes none); the location is given
+ * when the member joins.
+ */
+export const PLUS_PANEL_WHERE =
+  "The Membership Plus yearly blood panel is carried out by Tarragon's own laboratory team at a Tarragon location; we tell you where and arrange the time when you join. On Free and Membership, you take any test request to Synlab or to any other laboratory you choose and pay it directly.";
+
 export const LADDER_SAFETY_STATEMENT =
   "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.";
 
@@ -91,6 +102,10 @@ export function ladderFaq(refundDays: number, autoRenews = false): { question: s
       question: "What is the difference between Membership and Membership Plus?",
       answer:
         "One thing: the yearly blood panel. Both are a year of care with your care team, a video call every month and prescriptions your care team signs. Membership Plus adds the yearly blood panel.",
+    },
+    {
+      question: "Where is the yearly blood panel done?",
+      answer: PLUS_PANEL_WHERE,
     },
     {
       question: "Can I move from Membership to Membership Plus later?",

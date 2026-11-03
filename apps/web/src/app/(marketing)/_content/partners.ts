@@ -36,7 +36,7 @@ export const PARTNER_LOGOS: PartnerLogo[] = [
     name: "Synlab",
     logoSrc: "/marketing/logos/partners/synlab.svg",
     summary:
-      "Our contracted diagnostics partner. Patients can have investigations carried out through Synlab under a partner-billing agreement. Every patient can still choose to use any laboratory instead.",
+      "Our contracted laboratory partner. You can take a test request to Synlab or to any other laboratory you choose, and you pay the laboratory directly.",
   },
 ];
 

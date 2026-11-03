@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import { PanelTests } from "../_components/panel-tests";
-import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "../_content/pricing-ladder";
+import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT, PLUS_PANEL_WHERE } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
@@ -107,6 +107,7 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
           ))}
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70">{LADDER_SAFETY_STATEMENT}</p>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-charcoal-ink/70">{PLUS_PANEL_WHERE}</p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
             How paying works, and our no-hidden-cost promise
