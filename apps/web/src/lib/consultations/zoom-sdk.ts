@@ -26,6 +26,30 @@ export const ZOOM_SDK_SCRIPT = `https://source.zoom.us/${ZOOM_SDK_VERSION}/zoom-
  */
 export const ZOOM_SDK_INTEGRITY = "sha384-ImYj+E9pPxFOOyrLY/OLcP6Fke/uY5bNoTGERQFHjrHGtNc3sx3ww9mglTbnkfWe";
 
+/**
+ * The CDN build of the SDK is NOT self-contained: it reads React, ReactDOM, Redux, Redux-Thunk and Lodash from globals that Zoom
+ * publishes next to it (found on the first live consultation, 2026-11-03: the SDK threw "React is not defined" at load, every join
+ * fell back to the link, and the page jolted as the call box showed and hid). They load in this order, each pinned by hash the same
+ * way as the SDK (computed from the 6.5.0 files with the command above), before the SDK itself. They are globals of the page, not
+ * the app's own React 19, which is module-scoped and untouched.
+ */
+export const ZOOM_SDK_VENDOR_SCRIPTS: ReadonlyArray<{ readonly src: string; readonly integrity: string }> = [
+  { src: `https://source.zoom.us/${ZOOM_SDK_VERSION}/lib/vendor/react.min.js`, integrity: "sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" },
+  { src: `https://source.zoom.us/${ZOOM_SDK_VERSION}/lib/vendor/react-dom.min.js`, integrity: "sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" },
+  { src: `https://source.zoom.us/${ZOOM_SDK_VERSION}/lib/vendor/redux.min.js`, integrity: "sha384-rG4GKxh/ojcHqPD0zvAWGoTbdtGOR9jTH1oeTQ5pnRNDgts3oclAi9EI63TxXfMb" },
+  { src: `https://source.zoom.us/${ZOOM_SDK_VERSION}/lib/vendor/redux-thunk.min.js`, integrity: "sha384-W4l2TiN6a5ehGctYQAtP/Y30Inm1F7yySVQXePn9LgMxmr6vtKJdm/R3wgU2+yuI" },
+  { src: `https://source.zoom.us/${ZOOM_SDK_VERSION}/lib/vendor/lodash.min.js`, integrity: "sha384-jC7q3III065vSuJ5pJ5KABQTNoQYM3PkN9JDtaoCro/okpUkD6IKqkYr3D8hXxBp" },
+];
+
+let knownUnavailable = false;
+/**
+ * True once a load of the SDK has failed in this page. The room then opens the link straight from the click (a window opened after
+ * the SDK's own slow failure arrives too late for the browser's popup rule and is blocked silently).
+ */
+export function zoomSdkKnownUnavailable(): boolean {
+  return knownUnavailable;
+}
+
 export interface ZoomSelfUser {
   readonly userId: number;
 }
@@ -59,29 +83,47 @@ declare global {
  * Loads the embedded SDK once and resolves to its global, or null when it cannot be had (blocked, offline, slow, or no `window`).
  * Never throws: the caller treats null as "use the link".
  */
-export function loadZoomEmbedded(document_?: Document | null, timeoutMs = 20_000): Promise<ZoomEmbeddedGlobal | null> {
+export async function loadZoomEmbedded(document_?: Document | null, timeoutMs = 20_000): Promise<ZoomEmbeddedGlobal | null> {
   const doc = document_ === undefined ? (typeof document === "undefined" ? null : document) : document_;
-  if (!doc) return Promise.resolve(null);
+  if (!doc) return null;
   const win = doc.defaultView;
-  if (win?.ZoomMtgEmbedded) return Promise.resolve(win.ZoomMtgEmbedded);
+  if (win?.ZoomMtgEmbedded) return win.ZoomMtgEmbedded;
+  // One clock for the whole chain: the vendor files and the SDK together must arrive within the timeout.
+  const deadline = Date.now() + timeoutMs;
+  for (const vendor of ZOOM_SDK_VENDOR_SCRIPTS) {
+    if (doc.head.querySelector(`script[src="${vendor.src}"]`)) continue;
+    const loaded = await loadScript(doc, vendor.src, vendor.integrity, deadline - Date.now());
+    if (!loaded) {
+      knownUnavailable = true;
+      return null;
+    }
+  }
+  const loaded = await loadScript(doc, ZOOM_SDK_SCRIPT, ZOOM_SDK_INTEGRITY, deadline - Date.now());
+  const sdk = loaded ? (win?.ZoomMtgEmbedded ?? null) : null;
+  if (!sdk) knownUnavailable = true;
+  return sdk;
+}
+
+/** Appends one pinned script and resolves true once it has run, false when it was blocked, failed, or took too long. */
+function loadScript(doc: Document, src: string, integrity: string, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     const script = doc.createElement("script");
     let settled = false;
-    const finish = (value: ZoomEmbeddedGlobal | null) => {
+    const finish = (value: boolean) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       // A script that failed leaves nothing behind that would block a second try.
-      if (value === null) script.remove();
+      if (!value) script.remove();
       resolve(value);
     };
-    const timer = setTimeout(() => finish(null), timeoutMs);
-    script.src = ZOOM_SDK_SCRIPT;
+    const timer = setTimeout(() => finish(false), Math.max(0, timeoutMs));
+    script.src = src;
     script.async = true;
     script.crossOrigin = "anonymous";
-    script.integrity = ZOOM_SDK_INTEGRITY;
-    script.onload = () => finish(win?.ZoomMtgEmbedded ?? null);
-    script.onerror = () => finish(null);
+    script.integrity = integrity;
+    script.onload = () => finish(true);
+    script.onerror = () => finish(false);
     doc.head.appendChild(script);
   });
 }

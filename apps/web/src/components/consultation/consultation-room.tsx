@@ -10,6 +10,7 @@ import type { DialIn } from "@tarragon/integrations";
 import { getProposedConfig } from "@tarragon/shared";
 import type { CallNotice, CallPolicy } from "@/lib/consultations/call-controller";
 import { useInAppCall } from "./use-in-app-call";
+import { zoomSdkKnownUnavailable } from "@/lib/consultations/zoom-sdk";
 import {
   answerScribeConsentAction,
   completeConsultationAction,
@@ -84,8 +85,14 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
 
   function join(media: "video" | "audio_only") {
     setNote(null);
+    // The browser lets a page open a window only right after the person's own click. When the in-app call is known not to work here
+    // (the SDK failed to load earlier on this page), the window is opened NOW, empty, and pointed at the link once the server answers;
+    // a window asked for after the SDK's slow failure arrives too late and is blocked silently (the first live consultation, 2026-11-03).
+    const useLinkDirectly = !call || zoomSdkKnownUnavailable();
+    const early = useLinkDirectly ? window.open("about:blank", "_blank") : null;
+    if (early) early.opener = null;
     startTransition(async () => {
-      if (call) {
+      if (call && !useLinkDirectly) {
         const started = await inApp.start(media);
         if (started === "busy" || started === "cancelled") return;
         if (started === "started") {
@@ -104,9 +111,14 @@ export function ConsultationRoom({ view, locale, call = null }: { view: RoomView
       if (res.ok && "url" in res) {
         setAudioHint(res.mediaMode === "audio_only");
         setCallUrl(res.url);
-        window.open(res.url, "_blank", "noopener,noreferrer");
+        if (early) early.location.href = res.url;
+        else window.open(res.url, "_blank", "noopener,noreferrer");
         refresh();
-      } else if (!res.ok && res.reason === "not_open") {
+        return;
+      }
+      // Nothing to show in the window that was opened for the link: close it rather than leave a blank one behind.
+      early?.close();
+      if (!res.ok && res.reason === "not_open") {
         setNote(t("consult.room.not_open", locale, { when: when(view.join_opens_at) }));
       } else if (!res.ok && res.reason === "not_live") {
         setNote(t("golive.consultations.paused", locale));
