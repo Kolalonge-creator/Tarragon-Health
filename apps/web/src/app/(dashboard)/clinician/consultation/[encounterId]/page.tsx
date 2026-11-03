@@ -11,6 +11,7 @@ import { ConsultCheckinsCard } from "@/components/consultation/consult-checkins-
 import { clinicianCheckinsSchema } from "@/lib/consult-checkin/model";
 import { LiveRedFlagPrompts } from "@/components/consultation/live-redflag-prompts";
 import { ClinicianIntakePanel, type ClinicianIntake } from "@/components/consultation/clinician-intake-panel";
+import { parsePatientHeader, PatientRecordLink } from "@/components/consultation/patient-record-link";
 
 /**
  * S21: the clinician's consultation room. Only the clinician the consultation is assigned to is answered (INV-12);
@@ -36,6 +37,9 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
       </DashboardPlaceholder>
     );
   }
+  // Who the doctor is about to call: the patient's name and id for the heading, answered to this encounter's clinician only. Not a chart read.
+  const { data: headerData } = await supabase.rpc("consultation_patient_header" as never, { p_encounter: encounterId } as never);
+  const header = parsePatientHeader(headerData);
   // S64 (15.3): what the patient chose to send before the visit. Audited on the database side; null when nothing was sent.
   // A failed read is shown as an error, never as "nothing was sent".
   const { data: intakeData, error: intakeError } = await supabase.rpc("clinician_consultation_intake" as never, { p_encounter: encounterId } as never);
@@ -57,6 +61,9 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
 
   return (
     <DashboardPlaceholder greeting="Consultation" roleLabel="Clinician" comingUp={[]}>
+      <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+        With <PatientRecordLink header={header} />
+      </p>
       <div className="flex items-center justify-between gap-2">
         <Link href="/clinician/consultations" className="text-sm font-medium text-brand-green hover:underline">
           ← Back to consultations
