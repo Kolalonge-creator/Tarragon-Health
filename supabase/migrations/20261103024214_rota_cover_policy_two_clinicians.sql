@@ -28,8 +28,8 @@ declare pol public.rota_cover_policy;
 begin
   select * into pol from public.rota_cover_policy;
   if pol.required_clinicians <> 2 then raise exception 'rota_cover_policy.required_clinicians should be 2, is %', pol.required_clinicians; end if;
-  if pol.window_days <> 28 then raise exception 'rota_cover_policy.window_days should still be 28, is %', pol.window_days; end if;
-  if pol.sole_cmo_exception_sunset <> date '2027-01-31' then raise exception 'sole_cmo_exception_sunset should still be 2027-01-31, is %', pol.sole_cmo_exception_sunset; end if;
+  -- window_days and sole_cmo_exception_sunset are deliberately NOT asserted: this migration does not touch them, and a CMO change made live
+  -- before it is applied must not abort it.
   if (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'rota_cover_policy' and column_name = 'required_clinicians') <> '2' then
     raise exception 'rota_cover_policy.required_clinicians default should be 2';
   end if;

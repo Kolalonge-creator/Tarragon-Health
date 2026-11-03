@@ -449,7 +449,8 @@ begin
   -- SABOTAGE (j): W-03's original five put back -> the two-doctor roster fails again (the check flips from true to false)
   update public.rota_cover_policy set required_clinicians = 5;
   insert into results values ('sabotaged', 'with five required the two-doctor roster still meets the minimum', 'true', (private.rota_coverage(v_org5, true, now()) ->> 'meets_minimum'));
-  -- the sunset proofs below were also written at five; the policy stays at five for the rest of this rolled-back transaction
+  -- the sunset proofs below were also written at five; set it explicitly (not by way of the sabotage above) so reordering cannot break them
+  update public.rota_cover_policy set required_clinicians = 5;
 
   -- SUNSET BITES: in a REAL (non-test) world, five credentialed clinicians where one holds on_call only because they granted it to themselves
   -- real (non-test) clinicians need a recorded primary-source verification to count as eligible; this proof is about rota cover, not credentialing,
