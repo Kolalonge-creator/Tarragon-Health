@@ -241,7 +241,10 @@ begin
   if not exists (select 1 from public.specialist_providers) then perform pg_temp.oq39_seed('public.specialist_providers'::regclass, '', null, '{"is_active": "false"}', 0, v_person, v_istest); end if;
   for r in select distinct on (base) view_name, base, person_col from oq39_rel
            where base is not null and base_kind in ('r','p')
-             and view_name not in ('profiles','commissions','payment_transactions','real_patient_ids') order by base, view_name loop
+             -- finance_journal_entries/_lines carry no person column: their is_test is derived from the posting's source by
+             -- trigger and their CHECKs (a valid source, one side per line) refuse a generic seed row. They are proved by
+             -- test_data_hidden_from_finance_and_auto_purged.sql instead.
+             and view_name not in ('profiles','commissions','payment_transactions','real_patient_ids','finance_journal_entries','finance_journal_lines') order by base, view_name loop
     v_has_istest := exists (select 1 from pg_attribute where attrelid = r.base and attname = 'is_test' and not attisdropped);
     v_extra := case when v_has_istest then jsonb_build_object('is_test', v_istest::text) else '{}' end;
     -- status-like columns that the RPCs count only in some states

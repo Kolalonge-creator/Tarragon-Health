@@ -112,7 +112,8 @@ declare
   v_kind text; v_id text; v_uuid uuid;
   c_uuid constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 begin
-  if p_source = 'platform_credit' then return true; end if;   -- retired feature; every live entry was an E2E run (S01b)
+  -- (the retired platform-credit entries are marked once, by name, in the backfill below: the two removal proofs scan every
+  -- function body for the retired features' names, so this function must not spell them)
   if p_source_ref is not null then
     if p_source_ref ~ c_uuid then
       v_kind := 'payment_transaction'; v_id := p_source_ref;
@@ -127,8 +128,6 @@ begin
         when 'order' then
           if coalesce((select o.is_test or exists (select 1 from public.profiles p where p.id in (o.buyer_profile_id, o.beneficiary_patient_id) and p.is_test)
                          from public.orders o where o.id = v_uuid), false) then return true; end if;
-        when 'orderpart' then
-          if coalesce((select pay.is_test from public.payments pay where pay.id = v_uuid), false) then return true; end if;
         when 'reversal', 'correction' then
           if coalesce((select e.is_test from public.finance_journal_entries e where e.id = v_uuid), false) then return true; end if;
         when 'refund_deferred_release', 'refund' then
@@ -160,6 +159,9 @@ revoke all on function private.stamp_finance_entry_is_test() from public, anon, 
 drop trigger if exists finance_journal_entries_00_stamp_is_test on public.finance_journal_entries;
 create trigger finance_journal_entries_00_stamp_is_test before insert or update of reversal_of on public.finance_journal_entries
   for each row execute function private.stamp_finance_entry_is_test();
+
+-- Retired feature (S01b, F-01): every live entry of this source was an E2E run; nothing can post one again.
+update public.finance_journal_entries set is_test = true where source = 'platform_credit' and not is_test;
 
 -- Backfill in entry order so a reversal sees its parent's flag; two passes because a correction can reference a later entry.
 do $$
