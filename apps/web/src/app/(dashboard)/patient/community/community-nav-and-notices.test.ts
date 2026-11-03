@@ -22,15 +22,18 @@ describe("patient navigation", () => {
 
 describe("community inbox notices", () => {
   it.each([
-    ["community_reply", "New reply in Community. Someone replied to your post. Open Community to read it.", "/patient/community"],
-    ["community_post_removed", "A post was removed. A moderator removed one of your posts. Please read the group rules.", "/patient/community"],
-    ["community_sanction_notice", "A change to your Community access. A moderator has made a change to your access. Open Community for more.", "/patient/community"],
-    ["community_digest", "Something new in Community. There are new conversations in your groups. Open Community to read them.", "/patient/community"],
-    ["community_appeal_result", "Your request has an answer. A moderator has looked at your request for a second look. Open Community to see it.", "/patient/community/appeals"],
-    ["community_qa_answer", "A doctor answered your question. Open Community to read the answer.", "/patient/community"],
-    ["community_overdue", "Community work is waiting. Something in the Community queue has waited longer than it should. Please open the queue.", "/dashboard/care-coordinator/community"],
-    ["community_unmask_notice", "A community name was looked up. An admin looked up who is behind a community name. The reason is in the audit log.", "/clinician"],
-  ])("%s", (template, text, href) => {
-    expect(describeNotice({ template, payload: { group: "secret", handle: "Quiet Heron" } })).toEqual({ text, href });
+    ["community_reply", "New reply in Community. Someone replied to your post. Open Community to read it.", "/patient/community", {}],
+    ["community_post_removed", "A post was removed. A moderator removed one of your posts. Please read the group rules.", "/patient/community", {}],
+    ["community_sanction_notice", "A change to your Community access. A moderator has made a change to your access. Open Community for more.", "/patient/community", {}],
+    ["community_digest", "Something new in Community. There are new conversations in your groups. Open Community to read them.", "/patient/community", {}],
+    ["community_appeal_result", "Your request has an answer. A moderator has looked at your request for a second look. Open Community to see it.", "/patient/community/appeals", {}],
+    ["community_qa_answer", "A doctor answered your question. Open Community to read the answer.", "/patient/community", {}],
+    ["community_overdue", "Community work is waiting. Something in the Community queue has waited longer than it should. Please open the queue.", "/clinician/community/moderation?tab=moderation", {}],
+    ["community_staff_alert", "A Community post needs a safety reviewer now. Open the Community safety queue.", "/clinician/community/moderation?tab=safety", { kind: "safety" }],
+    ["community_staff_alert", "Community moderation queue has new items. Open the queue when you can.", "/dashboard/care-coordinator/community?tab=moderation", { kind: "queue", area: "coordinator" }],
+    ["community_unmask_notice", "A community name was looked up. An admin looked up who is behind a community name. The reason is in the audit log.", "/clinician", {}],
+  ] as Array<[string, string, string, Record<string, string>]>)("%s", (template, text, href, extra) => {
+    // The payload carries a group and a handle on purpose: no notice may ever echo them. Staff alerts add only the kind and the reader's area.
+    expect(describeNotice({ template, payload: { group: "secret", handle: "Quiet Heron", ...extra } })).toEqual({ text, href });
   });
 });

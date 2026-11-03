@@ -4000,10 +4000,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
     // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
     // A change is a NEW version here AND a new community_config row; the old one is never edited.
+    // Version 2 (2026-11-03, decision COM-27, migration 20261103011027_community_live_polish.sql): new_member_premoderated_posts 0. Ordinary
+    // first posts publish at once; the filters, the safety rules and the report threshold are unchanged.
     value: {
       post_max_chars: 2000,
       edit_window_minutes: 15,
-      new_member_premoderated_posts: 1,
+      new_member_premoderated_posts: 0,
       appeal_window_days: 14,
       quality_sample_pct: 10,
       image_max_bytes: 4194304,
@@ -4030,9 +4032,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "Founder and counsel",
     status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-09",
-    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
+    version: 2,
+    effectiveFrom: "2026-11-03",
+    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql; supabase/migrations/20261103011027_community_live_polish.sql",
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
   {

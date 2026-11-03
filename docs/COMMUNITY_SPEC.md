@@ -656,3 +656,18 @@ Known and accepted, not fixed here:
 - **Welcome and reminder (COM-25).** `welcome_days` (14) and `return_nudge_days` (3) are in the versioned configuration. The reminder runs inside the daily housekeeping job.
 - **Starter safety rules (COM-21).** `community_cmo_load_starter_safety_rules()` (CMO only) loads the approved wording into a new draft; activating it is the CMO's signature.
 - **Drill and rota.** `docs/community/DRILL_AND_ROTA_PACK.md`.
+
+
+## 18. Live polish (2026-11-03)
+
+Live rehearsal with two test accounts and the named moderator's grants: every member and staff step worked. Changed after it (decision COM-27,
+migration `20261103011027_community_live_polish.sql`, proof `packages/db/tests/community_live_polish.sql`):
+
+- **Staff are paged.** `private.community_alert_staff('safety', group)` runs when a safety signal is written (the submit path, a moderator's
+  hand-off, a danger report): push, email and inbox to every safety reviewer and the Chief Medical Officer, priority critical, never throttled.
+  `community_alert_staff('queue', group)` runs on a held post and on a report: push and inbox to the group's moderators, one per ten minutes.
+  Template `community_staff_alert`, fixed wording, no excerpt, handle or group. Section 4.4 step 4 is now true in code, not only in the spec.
+- **First posts publish at once** (`new_member_premoderated_posts` 0 in config version 2). Section 4.2's new-member hold stays available as
+  configuration; it is off because it was the one gate that needed a person awake.
+- The overdue notice and the staff alerts link to the reader's own console area (`payload.area`, stamped from the role).
+- Join form: rules not repeated, consent text one tap away, same version recorded.

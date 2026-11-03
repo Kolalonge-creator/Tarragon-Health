@@ -8,19 +8,19 @@ import { MUTED, TOUCH } from "./styles";
 import { joinGroup } from "./community-actions";
 
 /**
- * Joining a group: the rules, an explanation of the made-up name, and two ticks the person must give themselves (the rules, and the
+ * Joining a group: an explanation of the made-up name, the consent text one tap away, and two ticks the person must give themselves (the rules, and the
  * safety consent counsel approves). Nothing is sent until both are ticked. The group's own rules version goes with the request, so rules that
  * changed while the person was reading are caught by the database rather than silently agreed to.
  */
 export function JoinSection({
   groupId,
-  rulesText,
   rulesVersion,
   locale,
   onJoined,
 }: {
   groupId: string;
-  rulesText: string;
+  /** Kept for callers; the rules are shown on the page above the form, so the form no longer repeats them. */
+  rulesText?: string;
   rulesVersion: number;
   locale: Locale;
   onJoined: (handle: string, avatarCode: string) => void;
@@ -68,10 +68,8 @@ export function JoinSection({
       <h2 id={`${uid}-title`} className="font-heading text-lg font-semibold">
         {t("community.join.title", locale)}
       </h2>
-      <div className="space-y-1">
-        <h3 className="text-sm font-medium">{t("community.group.rules_title", locale)}</h3>
-        <p className="whitespace-pre-line text-sm leading-relaxed">{rulesText}</p>
-      </div>
+      {/* The rules are already on the page above this form; repeating them here only made joining feel like paperwork. The database still
+          records the exact rules version the member agreed to. */}
       <p className={`text-sm ${MUTED}`}>{t("community.join.handle_explainer", locale)}</p>
       <div className={`flex items-start gap-3 ${TOUCH}`}>
         <input id={`${uid}-rules`} type="checkbox" className="mt-1 h-5 w-5" checked={rulesOk} onChange={(e) => setRulesOk(e.target.checked)} required />
@@ -81,7 +79,11 @@ export function JoinSection({
       </div>
       <div className="space-y-2">
         <h3 className="text-sm font-medium">{t("community.join.consent_title", locale)}</h3>
-        <p className="whitespace-pre-line text-sm leading-relaxed">{t("community.join.consent", locale)}</p>
+        {/* The agreed consent text (version v1-2026-10-12-founder-cmo) is unchanged and one tap away; it no longer pushes the join button below the fold. */}
+        <details className="rounded-md border border-charcoal-ink/10 bg-white/60 p-3 text-sm dark:bg-white/5">
+          <summary className="cursor-pointer font-medium">{t("community.join.consent_summary", locale)}</summary>
+          <p className="mt-2 whitespace-pre-line leading-relaxed">{t("community.join.consent", locale)}</p>
+        </details>
         <div className={`flex items-start gap-3 ${TOUCH}`}>
           <input id={`${uid}-consent`} type="checkbox" className="mt-1 h-5 w-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
           <Label htmlFor={`${uid}-consent`} className="font-normal leading-snug">

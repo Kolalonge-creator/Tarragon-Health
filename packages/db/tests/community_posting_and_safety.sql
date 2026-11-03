@@ -23,6 +23,12 @@
 
 begin;
 
+-- COM-27 (2026-11-03) made the live first-post hold 0 (community_config version 2). This proof exercises the hold path, which stays a
+-- supported configuration, so it runs under a rolled-back config version that keeps the hold at one post and everything else as version 1.
+update public.community_config set is_active = false where is_active;
+insert into public.community_config (version, is_active, params)
+select 998, true, c.params || jsonb_build_object('new_member_premoderated_posts', 1) from public.community_config c where c.version = 1;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
@@ -330,8 +336,10 @@ begin
   perform pg_temp.rec('a banned member cannot post', 'banned', (pg_temp.sub(v_p1, v_g, 'trying anyway') ->> 'reason'));
   delete from public.community_sanctions where profile_id = v_p1;
   perform pg_temp.rec('a lifted sanction restores posting', 'published', (pg_temp.sub(v_p1, v_g, 'back again') ->> 'status'));
+  -- A member notice carries nothing; a staff notice (overdue, staff alert) carries only the reader's console area and the alert kind (COM-27).
   perform pg_temp.rec('every member notice is fixed text', 'true',
-    (select bool_and(payload = '{}'::jsonb)::text from public.notifications where template like 'community\_%'));
+    (select bool_and(case when template in ('community_overdue', 'community_staff_alert') then payload - 'area' - 'kind' else payload end = '{}'::jsonb)::text
+       from public.notifications where template like 'community\_%'));
 
   -- 11. Limits ------------------------------------------------------------------------------------------------------------------------------------
   perform pg_temp.rec('a very long post is refused', 'too_long', (pg_temp.sub(v_p2, v_g, repeat('word ', 500)) ->> 'reason'));

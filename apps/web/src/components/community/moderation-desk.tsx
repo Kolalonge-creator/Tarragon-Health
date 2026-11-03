@@ -76,8 +76,9 @@ export async function ModerationDesk({ requestedTab, basePath }: { requestedTab:
       <section aria-label="On duty" className="rounded-lg border border-charcoal-ink/15 bg-warm-ivory p-4 text-sm text-charcoal-ink">
         <p className="font-medium">On duty</p>
         <p>
-          The moderation team covers every hour of the week, so someone is always on duty. Items that members have reported come first. After
-          that, new items are listed oldest first, so the one that has waited longest is near the top. Pictures are checked here before the group sees them.
+          Items that members have reported come first. After that, new items are listed oldest first, so the one that has waited longest is near the
+          top. A post that suggests someone may be in danger pages every safety reviewer at once; a held post or a report sends you a notice. Pictures
+          are checked here before the group sees them.
         </p>
       </section>
       {tabs.length > 1 && (
