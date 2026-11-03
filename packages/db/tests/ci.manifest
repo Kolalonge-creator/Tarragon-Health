@@ -1803,3 +1803,5 @@ emergency_sync_contact_rule_skips_test_accounts.sql
 resolve_patient_service_access_membership.sql
 # catalog_items is readable (descriptive columns only) by any signed-in person, so the patient and admin refund lists can name the item. Sabotage: revoking the grant brings the 403 back.
 catalog_items_readable_by_signed_in_people.sql
+# who_cvd_2019_wssa v3: verified WHO 2019 coefficients (two recalibrated endpoints) shipped UNSIGNED and inactive; the completeness check accepts both model shapes and refuses null or half-filled ones; the CMO can now sign v3 (rolled back), v1/v2 are still refused, a doctor cannot. Sabotage: stripping one recalibration flips completeness and signing to refused.
+who_cvd_2019_wssa_v3_verified_coefficients.sql

@@ -15,11 +15,14 @@ import { readPatientVitalsAudited } from "@/lib/clinical/vitals-audited";
  * `not_scored_instrument_off` and that is what is recorded. Results are bands, never a percentage.
  */
 
+const coxModel = z.object({
+  baselineSurvival: z.number(),
+  terms: z.array(z.object({ coef: z.number(), factors: z.array(z.object({ var: z.enum(["age", "sbp", "smoker", "diabetes", "total_chol_mmol", "bmi"]), center: z.number() })) })),
+});
+const endpointModel = coxModel.extend({ recalibration: z.object({ intercept: z.number(), slope: z.number() }) });
+// The published shape (two recalibrated endpoints) first; the older single Cox shape is still accepted.
 const sexModel = z
-  .object({
-    baselineSurvival: z.number(),
-    terms: z.array(z.object({ coef: z.number(), factors: z.array(z.object({ var: z.enum(["age", "sbp", "smoker", "diabetes", "total_chol_mmol", "bmi"]), center: z.number() })) })),
-  })
+  .union([z.object({ shape: z.literal("two_endpoint_recalibrated"), mi: endpointModel, stroke: endpointModel }), coxModel])
   .nullable();
 const modelPair = z.object({ male: sexModel, female: sexModel });
 

@@ -6,8 +6,11 @@
  * a coefficient typed from memory is a clinical error waiting to happen. With no verified coefficients the engine refuses with
  * `not_scored_instrument_off` and never invents a number.
  *
- * The model shape is the one the paper uses: risk = 1 - S0 ^ exp(LP), where LP is a sum of coefficient times product of
- * (variable - centre) terms (the interaction terms with age are just terms with two factors).
+ * Two model shapes are accepted. The one the published charts are built from (`CvdTwoEndpointSexModel`): for each of myocardial
+ * infarction and stroke, risk = 1 - S0 ^ exp(LP) from the pooled Cox model, recalibrated to the region on the complementary log-log
+ * scale, then combined as 1 - (1 - p_mi) * (1 - p_stroke). And the older single Cox model (`CvdSexModel`), risk = 1 - S0 ^ exp(LP), kept
+ * for the mechanics tests. LP is a sum of coefficient times product of (variable - centre) terms (an interaction with age is a term
+ * with two factors).
  */
 export type CvdSex = "male" | "female";
 export type CvdVariable = "age" | "sbp" | "smoker" | "diabetes" | "total_chol_mmol" | "bmi";
@@ -21,6 +24,20 @@ export interface CvdSexModel {
   readonly baselineSurvival: number;
   readonly terms: readonly CvdTerm[];
 }
+/**
+ * One endpoint (myocardial infarction or stroke) of the published model: the Emerging Risk Factors Collaboration Cox model, then the
+ * region recalibration on the complementary log-log scale, pcal = 1 - exp(-exp(intercept + slope * ln(-ln(1 - p)))).
+ */
+export interface CvdEndpointModel extends CvdSexModel {
+  readonly recalibration: { readonly intercept: number; readonly slope: number };
+}
+/** The shape the WHO 2019 charts are actually built from: two recalibrated endpoints combined as 1 - (1 - p_mi) * (1 - p_stroke). */
+export interface CvdTwoEndpointSexModel {
+  readonly shape: "two_endpoint_recalibrated";
+  readonly mi: CvdEndpointModel;
+  readonly stroke: CvdEndpointModel;
+}
+export type CvdAnySexModel = CvdSexModel | CvdTwoEndpointSexModel;
 export interface CvdBand {
   readonly code: string;
   readonly lowPct: number;
@@ -33,7 +50,7 @@ export interface CvdInstrumentConfig {
   readonly bands: readonly CvdBand[];
   readonly nonLabFurtherAssessmentAtOrAbovePct: number;
   readonly treatmentAlreadyIndicated: { readonly systolicAtOrAbove: number; readonly diastolicAtOrAbove: number; readonly establishedCvd: boolean };
-  readonly models: Readonly<Record<CvdModelKind, Readonly<Record<CvdSex, CvdSexModel | null>>>>;
+  readonly models: Readonly<Record<CvdModelKind, Readonly<Record<CvdSex, CvdAnySexModel | null>>>>;
 }
 
 export interface CvdInputs {
@@ -60,7 +77,18 @@ export type CvdOutcome =
   | { readonly status: CvdNotScoredStatus };
 
 /** Raw 10-year risk as a fraction. Exported for the validation harness only; callers show bands, never this number. */
-export function cvdRiskFraction(model: CvdSexModel, values: Readonly<Record<CvdVariable, number>>): number {
+export function cvdRiskFraction(model: CvdAnySexModel, values: Readonly<Record<CvdVariable, number>>): number {
+  if (isTwoEndpoint(model)) {
+    return 1 - (1 - recalibratedEndpointRisk(model.mi, values)) * (1 - recalibratedEndpointRisk(model.stroke, values));
+  }
+  return coxRisk(model, values);
+}
+
+function isTwoEndpoint(model: CvdAnySexModel): model is CvdTwoEndpointSexModel {
+  return "shape" in model && model.shape === "two_endpoint_recalibrated";
+}
+
+function coxRisk(model: CvdSexModel, values: Readonly<Record<CvdVariable, number>>): number {
   let lp = 0;
   for (const term of model.terms) {
     let product = term.coef;
@@ -70,6 +98,12 @@ export function cvdRiskFraction(model: CvdSexModel, values: Readonly<Record<CvdV
   return 1 - Math.pow(model.baselineSurvival, Math.exp(lp));
 }
 
+function recalibratedEndpointRisk(endpoint: CvdEndpointModel, values: Readonly<Record<CvdVariable, number>>): number {
+  const p = coxRisk(endpoint, values);
+  const { intercept, slope } = endpoint.recalibration;
+  return 1 - Math.exp(-Math.exp(intercept + slope * Math.log(-Math.log(1 - p))));
+}
+
 export function bandFor(config: CvdInstrumentConfig, riskPct: number): CvdBand | null {
   for (const b of config.bands) {
     if (riskPct >= b.lowPct && (b.highPct === null || riskPct < b.highPct)) return b;
@@ -77,8 +111,18 @@ export function bandFor(config: CvdInstrumentConfig, riskPct: number): CvdBand |
   return null;
 }
 
-function modelIsUsable(m: CvdSexModel | null): m is CvdSexModel {
-  return m !== null && Number.isFinite(m.baselineSurvival) && m.baselineSurvival > 0 && m.baselineSurvival < 1 && m.terms.length > 0;
+function coxModelIsUsable(m: CvdSexModel): boolean {
+  return Number.isFinite(m.baselineSurvival) && m.baselineSurvival > 0 && m.baselineSurvival < 1 && m.terms.length > 0;
+}
+
+function modelIsUsable(m: CvdAnySexModel | null): m is CvdAnySexModel {
+  if (m === null) return false;
+  if (isTwoEndpoint(m)) {
+    return [m.mi, m.stroke].every(
+      (e) => coxModelIsUsable(e) && Number.isFinite(e.recalibration.intercept) && Number.isFinite(e.recalibration.slope) && e.recalibration.slope > 0
+    );
+  }
+  return coxModelIsUsable(m);
 }
 
 export function scoreCvdWho2019(input: CvdInputs, config: CvdInstrumentConfig): CvdOutcome {
