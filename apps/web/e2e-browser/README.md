@@ -70,6 +70,61 @@ own comment) rather than failing the run.
   `funding_programme`/NGO cohort model actually built; what exists is an
   employer/HMO eligibility-roster match.
 
+## Paystack test mode, locally (a real payment, end to end)
+
+The hosted checkout runs in the deployed `order-checkout` edge function, which reads the
+live key from Supabase secrets, so a Paystack test-mode payment cannot be made against
+production from a local app. The whole round trip works on the local stack instead, and
+`scripts/local-paystack-e2e.sh` (repo root) does the forty-odd manual steps:
+
+```bash
+supabase start
+supabase db reset
+PAYSTACK_SECRET_KEY=sk_test_... scripts/local-paystack-e2e.sh   # refuses sk_live_ and any non-local Supabase URL
+```
+
+It reads the stack's URL and keys from `supabase status -o env`, then seeds what a fresh
+reset lacks (none of it is sellable otherwise): the three membership `catalog_items`
+switched active with one open `prices` row each (129,000 / 84,000 / 45,000 naira, the
+2026-10-21 prices, `valid_from = now()` because of the tstzrange exclusion), a 10% test
+discount code `LOCALTEST10` (a fresh reset has none), the
+`checkout_enabled` and `membership_billing_enabled` guards and the `v5_checkout` and
+`membership_two_member_tiers` modules switched on with their attribution columns filled
+(the guard triggers are skipped with `session_replication_role = replica`; the attribution
+columns are CHECK constraints, so they cannot be). It creates a test patient and a test
+doctor through the admin auth API: the doctor is a senior medical officer, employed,
+credentialing level 2, indemnity-exempt by another profile (self-exemption is a CHECK),
+with the `lead_clinician` and `hypertension` competencies, so `private.lead_candidates`
+returns a row and `create_order` does not raise `no_capacity`. The patient's email is on
+`tarragonhealth.ng`, never `@tarragon.test`: Paystack rejects that TLD with "email must be
+a valid email" and the checkout answers `payment_unavailable`.
+
+It then writes a chmod-600 env file for the functions in a temp dir (the test key,
+`PAYSTACK_WEBHOOK_SECRET` set to the same key because the webhook fails closed without it,
+`ORDER_RETURN_URL` pointing at `http://localhost:3100/patient/membership/paid`, random
+`PROCESS_EVENTS_SECRET` and `ORDER_RECONCILE_SECRET`; no Supabase URL or keys, the CLI
+injects those), starts `supabase functions serve --env-file … --no-verify-jwt` and
+`next dev -p 3100` with the local Supabase env exported, and prints the test login, the
+URL, and curl one-liners for `process-events` (assigns the lead clinician; a queue, not a
+trigger) and `order-reconcile` (closes a declined attempt and releases a single-use code).
+
+Then by hand: sign in at `http://localhost:3100/login`, open `/patient/membership`, apply
+`LOCALTEST10` to check quoting (84,000 becomes 75,600), pay, choose the **Success** radio on
+Paystack's hosted test page (no card number needed), and land on "Payment received". The
+return page calls `order-verify` locally; Paystack's webhook never reaches a laptop, so
+the verify path is what marks the order paid. Check `orders.state = 'paid'` and an
+`active` `patient_memberships` row with the psql lines the script prints. Declined stays
+`created` until `order-reconcile` runs. `scripts/local-paystack-e2e.sh --teardown` stops
+both processes; `supabase db reset` clears the data.
+
+Proven once on 2026-11-03 against a freshly reset stack: `orders.state = 'paid'`, an
+`active` `patient_memberships` row, one `discount_redemptions` row, and `process-events`
+assigned the lead clinician.
+
+Two gotchas: shell env beats `.env.local`, which is why the script exports the local
+values rather than editing a file; and a Next 16 dev server in another git worktree holds
+a lock that stops this one starting (the script says so if `/login` never answers).
+
 ## What this does NOT do
 
 Neither spec drives Paystack's actual hosted checkout page to completion —
