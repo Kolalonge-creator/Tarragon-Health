@@ -2154,7 +2154,12 @@ export const TEMPLATE_MAP: Record<
     const safety = payload.kind === "safety";
     const area = String(payload.area ?? "clinician");
     const tab = safety ? "safety" : "moderation";
-    const url = area === "coordinator" ? `/dashboard/care-coordinator/community?tab=${tab}` : area === "admin" ? "/admin/community" : `/clinician/community/moderation?tab=${tab}`;
+    const url =
+      area === "coordinator" ? `/dashboard/care-coordinator/community?tab=${tab}`
+      : area === "analyst" ? `/analytics/community?tab=${tab}`
+      : area === "finance" ? `/finance/community?tab=${tab}`
+      : area === "admin" ? `/admin/community/moderation?tab=${tab}`
+      : `/clinician/community/moderation?tab=${tab}`;
     const message = safety
       ? "A Community post needs a safety reviewer now. Open the Community safety queue in Tarragon Health."
       : "New items are waiting in the Community moderation queue. Open it in Tarragon Health when you can.";
