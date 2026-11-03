@@ -107,7 +107,7 @@ export default async function ChronicCarePage() {
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Living with a long-term condition can also affect your mental health. You can try our free two-minute{" "}
           <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-            mental well-being check
+            mental wellbeing check
           </Link>
           . No sign-up is required.
         </p>
@@ -125,7 +125,7 @@ export default async function ChronicCarePage() {
       <Section className="pb-24">
         <CtaBand
           title="Manage a long-term condition with support"
-          description="Start monitoring today, with doctor review built in."
+          description="Start monitoring today. With Membership, a doctor on your care team reviews your trends."
           primaryHref="/signup"
           primaryLabel="Start monitoring"
           secondaryHref={MARKETING_ROUTES.pricing}

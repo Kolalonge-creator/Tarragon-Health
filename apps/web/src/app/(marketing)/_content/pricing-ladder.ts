@@ -38,6 +38,20 @@ export interface LadderPriceLabels {
 export const LADDER_SAME_CARE_STATEMENT =
   "Membership and Membership Plus are the same care: the same care team, the same monthly video call, the same urgent-care guidance. The only difference is the yearly blood panel.";
 
+/**
+ * Founder decision 2026-11-03 (MS-03, corrected the same day): the
+ * Membership Plus panel is taken at a testing day (testing_events, kind
+ * public_day): when the member's panel is due, the app shows the open days
+ * and venues, the member picks one, Tarragon's team takes the samples there
+ * and the partner laboratory on that day tests them. Tarragon runs no
+ * laboratory, clinic or collection site of its own. Every other test, on
+ * every plan, is self-arranged: the patient takes the request to Synlab or
+ * any laboratory and pays it directly. No venue is named here; venues and
+ * dates are shown in the app when the panel is due.
+ */
+export const PLUS_PANEL_WHERE =
+  "The Membership Plus yearly blood panel is taken at a testing day. When yours is due, we show you the dates and locations available and you choose the one that suits you; Tarragon's team takes your samples there and our partner laboratory tests them. On Free and Membership, you take any test request to Synlab or to any other laboratory you choose and pay it directly.";
+
 export const LADDER_SAFETY_STATEMENT =
   "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.";
 
@@ -91,6 +105,10 @@ export function ladderFaq(refundDays: number, autoRenews = false): { question: s
       question: "What is the difference between Membership and Membership Plus?",
       answer:
         "One thing: the yearly blood panel. Both are a year of care with your care team, a video call every month and prescriptions your care team signs. Membership Plus adds the yearly blood panel.",
+    },
+    {
+      question: "Where is the yearly blood panel done?",
+      answer: PLUS_PANEL_WHERE,
     },
     {
       question: "Can I move from Membership to Membership Plus later?",

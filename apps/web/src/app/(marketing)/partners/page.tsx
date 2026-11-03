@@ -9,6 +9,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import { TIER_COPY } from "@/lib/marketing/accountability-data";
 import { PARTNER_LOGOS, PARTNER_VERIFICATION_PRINCIPLE } from "../_content/partners";
+import { PLUS_PANEL_WHERE } from "../_content/pricing-ladder";
 import { NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
@@ -28,7 +29,7 @@ export const metadata: Metadata = pageMetadata({
 const CAPITATION_REASONS = [
   {
     title: "We are paid for the work we do",
-    body: "A doctor's time, priced per piece of work you can see and confirm before it happens. If nothing was done, nothing was charged.",
+    body: "The app is free. Membership is one yearly price for a year of care with your care team, shown to you and confirmed before anything is charged.",
   },
   {
     title: "Nothing to gain by doing less",
@@ -118,6 +119,9 @@ export default function PartnersPage() {
               ))}
             </div>
             <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
+              {PLUS_PANEL_WHERE}
+            </p>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
               {PARTNER_VERIFICATION_PRINCIPLE}
             </p>
           </>

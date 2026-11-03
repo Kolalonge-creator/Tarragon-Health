@@ -37,7 +37,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A team that keeps watching",
-      body: "Message your care team at any time, receive a doctor's written answer within 72 hours, and, with Membership, have a video call with your care team every month.",
+      body: "With Membership, message your care team at any time, receive a doctor's written answer within 72 hours, and have a video call with your care team every month.",
     },
   },
   {
@@ -47,7 +47,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A Health Check that matches you",
-      body: "Choose from a Core Screen to a Comprehensive Screen, and request confidential screenings yourself in minutes. We write the test request, you use any laboratory, and a doctor reads the result.",
+      body: "A screening calendar matched to your age and sex, confidential screenings you can request yourself in minutes, and with Membership Plus a yearly blood panel carried out by Tarragon's own team. For any other test we write the request, you use any laboratory, and an abnormal result reaches a doctor.",
     },
   },
   {
@@ -77,7 +77,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A plan built around the cause",
-      body: "Lifestyle coaching alongside medication, regular reviews, and the ability to stop a drug recorded as a real outcome, rather than another refill.",
+      body: "Lifestyle coaching alongside medication, regular reviews and, where it is safe, coming off a medicine as a real result rather than another refill.",
     },
   },
 ];
@@ -93,7 +93,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "A doctor reviews your readings",
-    body: "On the 12-week doctor-supported programme, a doctor sets your care plan and reviews your trends on a regular schedule, even when you feel well. This is the difference between owning a blood pressure monitor and having your blood pressure monitored.",
+    body: "With Membership, a doctor on your care team sets your care plan and reviews your trends on a regular schedule, even when you feel well. This is the difference between owning a blood pressure monitor and having your blood pressure monitored.",
   },
   {
     title: "Laboratory tests and refills are arranged for you",
@@ -123,7 +123,7 @@ export default function ForYouPage() {
               Your readings and your health risks are personal to you, so your care should be planned around them.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Many people only discover a health problem when it becomes an emergency. Tarragon gives you
+              Many people only discover a health problem late, once it is harder to treat. Tarragon gives you
               what a well-run clinic gives its most closely followed patients: someone who monitors your
               readings between visits, through your phone, at a fraction of the cost of a hospital admission.
             </p>
@@ -240,15 +240,15 @@ export default function ForYouPage() {
             calendar, read the whole education library and use the AI Health Coach, with no time limit
             and no payment card required. If you want your care team to review your readings, rather
             than only store them, there is Membership. With Membership, a dangerous reading reaches a
-            doctor on your care team instead of sitting on your record, and you also receive a yearly
-            blood test and a video call with your care team every month.
+            doctor on your care team instead of sitting on your record, and you have a video call
+            with your care team every month. Membership Plus adds the yearly blood panel.
           </p>
           <p>
-            There are two plans, Free and Membership, and the{" "}
+            There are three plans, Free, Membership and Membership Plus, and the{" "}
             <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               pricing page
             </Link>{" "}
-            shows both. If you are looking after a parent instead, see{" "}
+            shows all three. If you are looking after a parent instead, see{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
