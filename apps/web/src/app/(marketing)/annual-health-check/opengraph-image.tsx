@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Annual Health Check",
     subtitle:
-      "Eighteen blood tests once a year, done by Tarragon's own laboratory team and read with your care team. Included in Membership Plus.",
+      "Eighteen blood tests once a year, taken at a testing day you choose and read with your care team. Included in Membership Plus.",
   });
 }

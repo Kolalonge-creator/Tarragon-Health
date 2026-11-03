@@ -155,7 +155,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     included: [
       "A personal screening calendar covering cancer, metabolic, infectious and reproductive health checks matched to you",
       "A vaccination schedule, booking, and doctor-verified certificates",
-      "With Membership Plus, a yearly blood panel carried out by Tarragon's own laboratory team and read with your care team; for any other test we write the request and you use any laboratory",
+      "With Membership Plus, a yearly blood panel taken at a testing day you choose and read with your care team; for any other test we write the request and you use any laboratory",
       "Health education matched to you, with short quizzes to check understanding",
       "Doctor follow-up within 24 hours on an abnormal screening result, and within 12 hours if it is critical, on every plan",
       "A direct path into chronic care monitoring if a condition is found, on the same record, with no need to start again",
@@ -216,7 +216,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "labs",
     headline: "Know which tests are due, use any laboratory, and have every result followed up.",
     intro:
-      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a written request you can take to Synlab or any other laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, and we take no commission. The one exception is the Membership Plus yearly blood panel, which Tarragon's own laboratory team carries out at a Tarragon location and which is included in that price.",
+      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a written request you can take to Synlab or any other laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, and we take no commission. The one exception is the Membership Plus yearly blood panel, which is taken at a testing day Tarragon arranges and which is included in that price.",
     included: [
       "A test calendar linked to your chronic care and screening record",
       "A written request you can take to any laboratory near you",

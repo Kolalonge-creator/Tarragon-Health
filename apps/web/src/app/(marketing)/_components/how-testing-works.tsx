@@ -22,7 +22,7 @@ const LENSES: { id: Lens; title: string; body: string; href: string; linkLabel: 
   {
     id: "annual",
     title: "Your yearly blood panel",
-    body: "One visit each year with Tarragon's own laboratory team, covering blood sugar, cholesterol, your kidneys, liver and blood count, and screening for HIV and hepatitis. Included in Membership Plus.",
+    body: "One visit each year at a testing day you choose, covering blood sugar, cholesterol, your kidneys, liver and blood count, and screening for HIV and hepatitis. Included in Membership Plus.",
     href: MARKETING_ROUTES.annualHealthCheck,
     linkLabel: "See what is in the panel",
   },

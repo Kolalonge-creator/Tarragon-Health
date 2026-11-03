@@ -142,7 +142,7 @@ export default async function PreventionPage() {
           <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             yearly blood panel
           </Link>{" "}
-          is carried out by Tarragon&apos;s own laboratory team and read with your care team.
+          is taken at a testing day you choose and read with your care team.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you are not sure which screenings apply to you, follow the{" "}

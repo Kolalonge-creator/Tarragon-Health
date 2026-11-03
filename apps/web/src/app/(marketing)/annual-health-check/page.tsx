@@ -15,7 +15,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One blood panel a year, done by Tarragon's own laboratory team and read with your care team, included in Membership Plus. On other plans, use any laboratory.",
+    "One blood panel a year, taken at a testing day you choose and read with your care team, included in Membership Plus. On other plans, use any laboratory.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
@@ -26,9 +26,10 @@ export const metadata: Metadata = pageMetadata({
  * T-3: the Core, Advanced and Comprehensive screens and the old annual
  * health check bundles are legacy and cannot be sold (a trigger refuses to
  * make one purchasable again). The one yearly panel that exists is the
- * Membership Plus panel: the tests in YEARLY_PANEL_TESTS, carried out by
- * Tarragon's own laboratory team at a Tarragon location (MS-03), with results
- * uploaded to the account and read with the care team. This page describes
+ * Membership Plus panel: the tests in YEARLY_PANEL_TESTS, taken at a testing
+ * day the member chooses from the open dates and venues (MS-03; Tarragon runs
+ * no laboratory or clinic of its own), with results uploaded to the account
+ * and read with the care team. This page describes
  * that, and only that. It names no tier, no imaging, no separate doctor
  * consultation and no price of its own: the price is on the pricing page,
  * read from versioned config.
@@ -90,13 +91,13 @@ const HOW_IT_WORKS = [
   },
   {
     step: 2,
-    title: "We tell you where and when",
-    body: "The panel is carried out by Tarragon's own laboratory team at a Tarragon location. We tell you where it is and arrange a time that suits you when you join.",
+    title: "Choose a date and location",
+    body: "When your panel is due, the app shows you the testing days available, with their dates and locations. You pick the one that suits you, and we remind you before the day.",
   },
   {
     step: 3,
     title: "One visit",
-    body: "Your samples are taken in a single visit by Tarragon's team. Fast for nine to twelve hours beforehand for the cholesterol test; water is fine.",
+    body: "Tarragon's team takes your samples in a single visit, and our partner laboratory tests them. Fast for nine to twelve hours beforehand for the cholesterol test; water is fine.",
   },
   {
     step: 4,
@@ -117,8 +118,8 @@ export default function AnnualHealthCheckPage() {
             The yearly blood panel
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Eighteen blood tests, once a year, carried out by Tarragon&apos;s own laboratory team and
-            read with your care team. It covers blood sugar, cholesterol, your kidneys, liver and
+            Eighteen blood tests, once a year, taken at a testing day you choose and read with
+            your care team. It covers blood sugar, cholesterol, your kidneys, liver and
             blood count, and screening for HIV and hepatitis, and it is kept on one record so that
             each year builds on the last.
           </p>
@@ -181,7 +182,7 @@ export default function AnnualHealthCheckPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="How it works" title="Arranged when you join, completed in a morning" />
+        <SectionHeading eyebrow="How it works" title="Booked when it is due, completed in a morning" />
         <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">{PLUS_PANEL_WHERE}</p>
       </Section>
@@ -194,7 +195,7 @@ export default function AnnualHealthCheckPage() {
         <SectionHeading
           eyebrow="On Free and Membership"
           title="Any test, any laboratory, no commission"
-          description="The yearly panel is the one test Tarragon carries out itself. Everything else, on every plan, works the same way: we tell you which tests you need and write the request, you take it to Synlab or any laboratory you choose, and you pay the laboratory directly at its price."
+          description="The yearly panel is the one test Tarragon arranges for you. Everything else, on every plan, works the same way: we tell you which tests you need and write the request, you take it to Synlab or any laboratory you choose, and you pay the laboratory directly at its price."
         />
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/70">
           Your screening calendar is free on every plan. The screenings recommended by the World
