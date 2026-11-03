@@ -165,7 +165,7 @@ begin
   perform pg_temp.rec('exactly one consultation policy is active (v2 since S21g, which adds the chart access cap)', '1/2', (select count(*)::text || '/' || max(version)::text from public.consultation_policy_config where is_active));
   perform pg_temp.rec('the policy has a 2 hour window and a minimum age of 18', '2/18',
     (select (config ->> 'cancelWindowHours') || '/' || (config ->> 'minAgeYears') from public.consultation_policy_config where is_active));
-  perform pg_temp.rec('an extra online meeting costs NGN 5,000 (500,000 kobo; decision 2026-10-29, was NGN 10,000 under OQ-130)', '500000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
+  perform pg_temp.rec('an extra online meeting costs NGN 8,000 (800,000 kobo; decision 2026-11-03, was NGN 5,000 from 2026-10-29 and NGN 10,000 under OQ-130)', '800000', (select price_kobo::text from public.service_products where code = 'video_visit_credit'));
   perform pg_temp.rec('five S21 encounter event types exist', '5', (select count(*)::text from public.event_types where owner_section = 'S21' and event_type like 'encounter.%'));
 
   -- 2. Adults only --------------------------------------------------------------------------------------------

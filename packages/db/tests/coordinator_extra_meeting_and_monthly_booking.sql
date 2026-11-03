@@ -138,7 +138,7 @@ begin
   select id into v_prod from public.service_products where code = 'video_visit_credit';
 
   -- ===== A. the product =====
-  perform pg_temp.rec('A1 the extra meeting is on sale at 500000 kobo as "Extra online meeting"', 'true/500000/Extra online meeting',
+  perform pg_temp.rec('A1 the extra meeting is on sale at 800000 kobo as "Extra online meeting" (decision 2026-11-03, was 500000)', 'true/800000/Extra online meeting',
     (select is_active::text || '/' || price_kobo::text || '/' || name from public.service_products where code = 'video_visit_credit'));
   perform pg_temp.rec('A2 it is not on the public price list (members only)', '0',
     (select count(*)::text from public.public_price_list() where code = 'video_visit_credit'));
@@ -146,7 +146,7 @@ begin
     pg_temp.try($q$update public.service_products set is_active = true where code = 'async_consult_credit'$q$));
   v_id := pg_temp.q_as(v_pm, format($q$select public.record_service_purchase_intent(%L, 'video_visit_credit')::text$q$, v_pm));
   perform pg_temp.rec('A4 a Member can start buying one', 'true', (v_id !~ '^ERR:')::text);
-  perform pg_temp.rec('A5 at 500000 kobo', '500000',
+  perform pg_temp.rec('A5 at 800000 kobo', '800000',
     (select amount_kobo::text from public.service_purchases where patient_id = v_pm and service_product_id = v_prod order by created_at desc limit 1));
   v_id := pg_temp.q_as(v_pf, format($q$select public.record_service_purchase_intent(%L, 'video_visit_credit')::text$q$, v_pf));
   perform pg_temp.rec('A6 a Free patient is refused with the Membership message', 'true',
