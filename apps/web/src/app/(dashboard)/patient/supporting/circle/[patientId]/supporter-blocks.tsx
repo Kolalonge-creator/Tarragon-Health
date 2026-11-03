@@ -77,9 +77,10 @@ export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "a
  * True when at least one health block above would render. A view with only check-in requests or paying shared has none. A block
  * added above must be added here too, or its page would also show the empty state.
  */
-export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly">, locale: Locale): boolean {
+export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly" | "doctor_note">, locale: Locale): boolean {
   const monthly = parseCircleMonthly(view.monthly).filter((r) => circleMonthlyLines(r, locale).length > 0);
-  return Boolean(view.adherence || view.bp_trend || view.appointments || monthly.length > 0);
+  // a doctor's note the patient released counts too, or a page whose only shared item is that note would show the empty state
+  return Boolean(view.adherence || view.bp_trend || view.appointments || monthly.length > 0 || view.doctor_note != null);
 }
 
 /**

@@ -9,6 +9,7 @@ const SEES: Readonly<Record<CirclePreview["sees"][number], MessageKey>> = {
   bp: "supporterjoin.sees.bp",
   appointments: "supporterjoin.sees.appointments",
   digest: "supporterjoin.sees.digest",
+  doctor_note: "supporterjoin.sees.doctor_note",
 };
 const CAN: Readonly<Record<CirclePreview["can"][number], MessageKey>> = {
   alert: "supporterjoin.can.alert",

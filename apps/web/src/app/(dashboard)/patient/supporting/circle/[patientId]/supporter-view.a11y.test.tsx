@@ -116,6 +116,15 @@ describe("SupporterView", () => {
     expect(screen.getByTestId("supporter-blocks-empty").textContent).toMatch(/You can still pay for their care/);
   });
 
+  it("a released doctor's note on its own is shown, never the empty state", () => {
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "Reviewed today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: null, author_name: null } },
+    } as typeof view;
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByTestId("supporter-blocks-empty")).toBeNull();
+  });
+
   it("does not show the empty state when a block is shared", () => {
     render(<SupporterView patientId="p1" locale="en" />);
     expect(screen.queryByTestId("supporter-blocks-empty")).toBeNull();
