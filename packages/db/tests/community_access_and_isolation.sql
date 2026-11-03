@@ -21,6 +21,12 @@
 
 begin;
 
+-- COM-27 (2026-11-03) made the live first-post hold 0 (community_config version 2). This proof exercises the hold path, which stays a
+-- supported configuration, so it runs under a rolled-back config version that keeps the hold at one post and everything else as version 1.
+update public.community_config set is_active = false where is_active;
+insert into public.community_config (version, is_active, params)
+select 998, true, c.params || jsonb_build_object('new_member_premoderated_posts', 1) from public.community_config c where c.version = 1;
+
 
 -- S04b-1: this proof models an under-18 patient account, which registration no longer allows (adults 18 and over only;
 -- children exist only as dependants limited to immunisation and preventive tracking). The behaviour it proves still

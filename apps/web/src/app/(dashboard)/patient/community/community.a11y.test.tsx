@@ -91,7 +91,8 @@ describe("GroupList", () => {
   ];
   it("shows count, membership and the empty state, and is axe-clean", async () => {
     render(<GroupList groups={groups} locale="en" />);
-    expect(screen.getByText(/^1 member/).textContent).toMatch(/You are in this group/);
+    // the count and the membership badge sit in the same line; an empty group invites instead of showing a zero
+    expect(screen.getByText(/^1 member/).parentElement?.textContent).toMatch(/You are in this group/);
     expect(screen.getByText("12 members")).toBeTruthy();
     cleanup();
     await expectNoA11yViolations(<GroupList groups={groups} locale="en" />);
@@ -190,7 +191,7 @@ describe("JoinSection", () => {
     render(<JoinSection groupId="g1" rulesText="Be kind." rulesVersion={3} locale="en" onJoined={onJoined} />);
     const join = screen.getByRole("button", { name: "Join group" }) as HTMLButtonElement;
     expect(join.disabled).toBe(true);
-    fireEvent.click(screen.getByLabelText("I have read the group rules and agree to follow them"));
+    fireEvent.click(screen.getByLabelText("I have read the group rules above and agree to follow them"));
     expect(join.disabled).toBe(true);
     fireEvent.click(screen.getByLabelText("I understand and agree"));
     expect(join.disabled).toBe(false);
@@ -203,7 +204,7 @@ describe("JoinSection", () => {
   it("shows the refusal message and is axe-clean", async () => {
     actions.joinGroup.mockResolvedValue({ ok: false, key: "community.join.refused.rules_changed" });
     render(<JoinSection groupId="g1" rulesText="Be kind." rulesVersion={3} locale="en" onJoined={() => undefined} />);
-    fireEvent.click(screen.getByLabelText("I have read the group rules and agree to follow them"));
+    fireEvent.click(screen.getByLabelText("I have read the group rules above and agree to follow them"));
     fireEvent.click(screen.getByLabelText("I understand and agree"));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Join group" })));
     expect(screen.getByText("The group rules just changed. Please read them again and then join.")).toBeTruthy();

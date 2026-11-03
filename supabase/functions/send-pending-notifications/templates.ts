@@ -2147,6 +2147,31 @@ export const TEMPLATE_MAP: Record<
       text: "An operations alert needs attention.\n\nOpen the operations wall in Tarragon Health to see what it is.\n\nTarragon Health",
     },
   }),
+  // Community staff alerts (docs/COMMUNITY_SPEC.md section 4.4). Fixed wording by kind: a safety signal pages the safety reviewers and the
+  // Chief Medical Officer; a held post or a report tells the moderators. Nothing from the post reaches a phone or an inbox: no excerpt, no
+  // handle, no group name. The link opens the console area the reader works in (payload.area is stamped by the database from their role).
+  community_staff_alert: (payload) => {
+    const safety = payload.kind === "safety";
+    const area = String(payload.area ?? "clinician");
+    const tab = safety ? "safety" : "moderation";
+    const url = area === "coordinator" ? `/dashboard/care-coordinator/community?tab=${tab}` : area === "admin" ? "/admin/community" : `/clinician/community/moderation?tab=${tab}`;
+    const message = safety
+      ? "A Community post needs a safety reviewer now. Open the Community safety queue in Tarragon Health."
+      : "New items are waiting in the Community moderation queue. Open it in Tarragon Health when you can.";
+    return {
+      smsText: message,
+      pushUrl: url,
+      email: {
+        subject: safety ? "A Community post needs a safety reviewer now" : "Community moderation queue has new items",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${message}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${message}\n\nTarragon Health`,
+      },
+    };
+  },
   ops_all_clear: () => ({
     smsText: "An operations alert has cleared. Tarragon Health",
     pushUrl: "/admin/ops/wall",

@@ -15,6 +15,12 @@
 
 begin;
 
+-- COM-27 (2026-11-03) made the live first-post hold 0 (community_config version 2). This proof exercises the hold path, which stays a
+-- supported configuration, so it runs under a rolled-back config version that keeps the hold at one post and everything else as version 1.
+update public.community_config set is_active = false where is_active;
+insert into public.community_config (version, is_active, params)
+select 998, true, c.params || jsonb_build_object('new_member_premoderated_posts', 1) from public.community_config c where c.version = 1;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as

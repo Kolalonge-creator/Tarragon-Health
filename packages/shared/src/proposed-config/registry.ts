@@ -4036,6 +4036,45 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
   {
+    key: "community.rules",
+    // Version 2 (2026-11-03, decision COM-27, migration 20261103011027_community_live_polish.sql): new_member_premoderated_posts 0, so a new
+    // member's ordinary first post publishes at once. Everything else is version 1. The live row is community_config version 2.
+    value: {
+      post_max_chars: 2000,
+      edit_window_minutes: 15,
+      new_member_premoderated_posts: 0,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
+      image_max_bytes: 4194304,
+      qa_questions_per_member: 3,
+      qa_answer_grace_minutes: 60,
+      overdue_safety_minutes: 30,
+      overdue_queue_minutes: 60,
+      rate_posts_per_hour: 6,
+      rate_posts_per_day: 30,
+      block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
+      auto_hide_report_threshold: 3,
+      removed_body_retention_days: 90,
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
+      consent_version: "v1-2026-10-12-founder-cmo",
+      feed_page_size: 20,
+      max_page_size: 50,
+      welcome_days: 14,
+      return_nudge_days: 3,
+      avatars: ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
+      handle_words: {
+        adjectives: ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],
+        nouns: ["river", "hill", "leaf", "sparrow", "baobab", "palm", "harbour", "lantern", "meadow", "pebble", "breeze", "cedar", "comet", "dune", "ember", "falcon", "garden", "heron", "island", "jasmine", "kestrel", "lagoon", "maple", "orchid", "plateau", "quartz", "reed", "savanna", "thistle", "willow"],
+      },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-03",
+    source: "docs/DECISIONS.md COM-27; supabase/migrations/20261103011027_community_live_polish.sql",
+    guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
+  },
+  {
     key: "privacy.deletion_grace",
     // S04b-2 (OQ-50): how long a patient has to change their mind after asking to close their account and erase what the law
     // allows to be erased. Nothing is approved or completed before it ends and the patient can cancel until then. The database

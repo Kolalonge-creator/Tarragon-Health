@@ -43,8 +43,16 @@ interface CommunityRules {
 describe("community.rules mirrors the migration seed", () => {
   const rules = getProposedConfig("community.rules").value as unknown as CommunityRules;
 
-  it("v1 is identical to the community_config v1 seed", () => {
-    expect(seed("_community_guard_and_seed.sql", "community-rules")).toEqual(getProposedConfig("community.rules").value);
+  it("the registry mirrors the community_config v2 seed", () => {
+    expect(seed("_community_live_polish.sql", "community-rules-v2")).toEqual(getProposedConfig("community.rules").value);
+  });
+
+  it("v2 differs from the v1 seed only in the first-post hold (COM-27)", () => {
+    const v1 = seed("_community_guard_and_seed.sql", "community-rules") as Record<string, unknown>;
+    const v2 = seed("_community_live_polish.sql", "community-rules-v2") as Record<string, unknown>;
+    expect(v1.new_member_premoderated_posts).toBe(1);
+    expect(v2.new_member_premoderated_posts).toBe(0);
+    expect({ ...v1, new_member_premoderated_posts: 0 }).toEqual(v2);
   });
 
   it("the handle words can only make the handle shape the database accepts", () => {
@@ -70,7 +78,8 @@ describe("community.rules mirrors the migration seed", () => {
   it("the limits are sane and fail safe", () => {
     expect(rules.post_max_chars).toBeGreaterThan(0);
     expect(rules.post_max_chars).toBeLessThanOrEqual(5000); // the table's own CHECK is the ceiling
-    expect(rules.new_member_premoderated_posts).toBeGreaterThanOrEqual(1); // pre-moderation can be tuned, never silently switched off
+    // 0 since COM-27 (2026-11-03): ordinary first posts publish at once; the filters and safety rules still hold risky ones. Never negative.
+    expect(rules.new_member_premoderated_posts).toBeGreaterThanOrEqual(0);
     expect(rules.auto_hide_report_threshold).toBeGreaterThanOrEqual(2); // one angry member cannot hide a post
     expect(rules.rate_posts_per_hour).toBeLessThanOrEqual(rules.rate_posts_per_day);
     expect(rules.block_cooldown.max_blocks).toBeGreaterThanOrEqual(2);

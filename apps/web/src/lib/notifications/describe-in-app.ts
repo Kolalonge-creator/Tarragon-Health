@@ -1161,8 +1161,23 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "community_digest") return communityNotice("community.notice.digest.title", "community.notice.digest.body", "/patient/community");
   if (n.template === "community_appeal_result") return communityNotice("community.notice.appeal.title", "community.notice.appeal.body", "/patient/community/appeals");
   if (n.template === "community_qa_answer") return communityNotice("community.notice.qa.title", "community.notice.qa.body", "/patient/community");
-  if (n.template === "community_overdue") return communityNotice("community.notice.overdue.title", "community.notice.overdue.body", "/dashboard/care-coordinator/community");
+  if (n.template === "community_overdue") return communityNotice("community.notice.overdue.title", "community.notice.overdue.body", communityStaffHref(payload.area, "queue"));
+  if (n.template === "community_staff_alert") {
+    const safety = payload.kind === "safety";
+    return communityNotice(
+      safety ? "community.notice.staff_safety.title" : "community.notice.staff_queue.title",
+      safety ? "community.notice.staff_safety.body" : "community.notice.staff_queue.body",
+      communityStaffHref(payload.area, safety ? "safety" : "queue"),
+    );
+  }
   return { text: "You have an update", href: "/patient" };
+}
+
+/** The console page a staff reader opens for Community work. `area` is stamped by the database from the reader's role; a clinician is the default. */
+function communityStaffHref(area: unknown, kind: "safety" | "queue"): string {
+  if (area === "coordinator") return `/dashboard/care-coordinator/community?tab=${kind === "safety" ? "safety" : "moderation"}`;
+  if (area === "admin") return "/admin/community";
+  return `/clinician/community/moderation?tab=${kind === "safety" ? "safety" : "moderation"}`;
 }
 
 function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {
