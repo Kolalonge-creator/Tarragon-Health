@@ -161,6 +161,32 @@ describe("zoom adapter", () => {
     expect(await z.joinToken({ roomId: "123456789", role: "patient", identity: dashes, ttlSeconds: 60 })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
   });
 
+  it("still opens the room when the account has no Nigerian dial-in numbers: asks once with them, then once without", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    fake.refuseDialInCountries();
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    expect(room.ok).toBe(true);
+    const creates = fake.calls.filter((c) => c.method === "POST" && c.path === "/v2/users/me/meetings");
+    expect(creates).toHaveLength(2);
+    expect((creates[0]!.body!["settings"] as Record<string, unknown>)["global_dial_in_countries"]).toEqual(["NG"]);
+    expect((creates[1]!.body!["settings"] as Record<string, unknown>)["global_dial_in_countries"]).toBeUndefined();
+    expect(creates[1]!.body!["settings"]).toMatchObject({ waiting_room: true, join_before_host: false, audio: "both" });
+    if (!room.ok) throw new Error("room");
+    // and the phone path then answers "no number", not an error that would stop the call
+    expect(await z.dialIn({ roomId: room.data.roomId, country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found", retryable: false } });
+  });
+
+  it("still asks for Nigerian dial-in numbers first, so an account that has them gets them", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    expect(room.ok).toBe(true);
+    const creates = fake.calls.filter((c) => c.method === "POST" && c.path === "/v2/users/me/meetings");
+    expect(creates).toHaveLength(1);
+    expect((creates[0]!.body!["settings"] as Record<string, unknown>)["global_dial_in_countries"]).toEqual(["NG"]);
+  });
+
   it("creates a scheduled meeting with a neutral topic, the waiting room on and join-before-host off", async () => {
     const fake = createFakeZoom({ now: 1_800_000_000_000 });
     const z = zoomFor(fake);

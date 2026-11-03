@@ -92,14 +92,23 @@ export function createZoomVideo(config: ZoomConfig): VideoProvider {
       const startMs = now();
       if (!Number.isFinite(input.expiresAtMs) || input.expiresAtMs <= startMs) return fail("invalid_input", "Room expiry must be in the future");
       const duration = Math.max(1, Math.ceil((input.expiresAtMs - startMs) / 60_000));
-      const res = await call("POST", `${configuredHost}/meetings`, {
+      const settings = { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both" };
+      const meetingBody = (dialIn: boolean) => ({
         topic: TOPIC,
         type: 2,
         start_time: new Date(startMs).toISOString().replace(/\.\d{3}Z$/, "Z"),
         duration,
         timezone: "Africa/Lagos",
-        settings: { join_before_host: false, waiting_room: true, host_video: true, participant_video: true, mute_upon_entry: false, auto_recording: "none", audio: "both", global_dial_in_countries: ["NG"] },
+        settings: dialIn ? { ...settings, global_dial_in_countries: ["NG"] } : settings,
       });
+      let res = await call("POST", `${configuredHost}/meetings`, meetingBody(true));
+      // An account without Nigerian dial-in numbers (the Free plan, or no Audio Conferencing add-on) refuses the whole meeting,
+      // not just the numbers ("Country code NG is not available for host"). The room must still open: without the numbers,
+      // dialIn() answers "no number for this country", which the consultation already treats as a plain answer. Found live on
+      // the first real consultation, 2026-11-03.
+      if (!res.ok && res.error.code === "vendor_error" && /country code/i.test(res.error.message)) {
+        res = await call("POST", `${configuredHost}/meetings`, meetingBody(false));
+      }
       if (!res.ok) return res;
       const id = asObject(res.data)?.["id"];
       if (typeof id !== "number" && typeof id !== "string") return fail("bad_response", "Zoom sent an unexpected meeting reply");
