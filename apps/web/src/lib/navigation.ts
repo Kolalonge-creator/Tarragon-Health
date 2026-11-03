@@ -620,6 +620,8 @@ export function getNavSections(
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: every consultation in the organisation, the same log as /admin/consultations.
+                { label: "Consultations log", href: "/clinician/consultations-log", icon: "booking" },
                 // Chief Medical Officer only: minutes of doctor time per Member per month, for planning and pricing (W-01).
                 { label: "Care team time", href: "/clinician/time", icon: "analytics" },
                 // Chief Medical Officer only: sign the AI Health Coach risk acceptance and see its dated re-evaluation (W-10).
@@ -795,6 +797,8 @@ export function getNavSections(
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Directory queues", href: "/admin/directory-queues", icon: "review" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
+            // Every consultation: time, doctor, patient, doctor and Zoom connected minutes, CSV (founder/CMO ask 2026-11-03).
+            { label: "Consultations log", href: "/admin/consultations", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
