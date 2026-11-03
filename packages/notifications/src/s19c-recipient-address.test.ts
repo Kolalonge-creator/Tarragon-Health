@@ -25,11 +25,13 @@ function fakeAuth(users: Record<string, AuthEmailUser>) {
 const ACK_TIMEOUT_TEMPLATES = ["clinician_alert_ack_timeout_backup", "clinician_alert_ack_timeout_senior", "clinician_alert_ack_timeout_admin"];
 // Queued by private.ops_alert_notify() with only the contact's profile id (no address in the payload).
 const OPS_ALERT_TEMPLATES = ["ops_alert", "ops_all_clear"];
+// Community staff pages are queued by private.community_alert_staff() with only the staff member's profile id (COM-27).
+const COMMUNITY_STAFF_TEMPLATES = ["community_staff_alert"];
 const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired", "on_call_ops_desk", "on_call_ops_desk_uncovered", "on_call_ops_desk_roster", "on_call_ops_desk_dead_letter"];
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {
-    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...OPS_ALERT_TEMPLATES, ...ACK_TIMEOUT_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
+    for (const t of [...PAGE_TEMPLATES, "credential_notice", "care_team_notice", "care_message_safety_flag", ...OPS_ALERT_TEMPLATES, ...ACK_TIMEOUT_TEMPLATES, ...COMMUNITY_STAFF_TEMPLATES]) expect(addressRuleFor(t)).toBe("own_only");
     expect(OWN_ADDRESS_ONLY_TEMPLATES.size).toBe(PAGE_TEMPLATES.length + 3 + OPS_ALERT_TEMPLATES.length + ACK_TIMEOUT_TEMPLATES.length);
   });
   it("security notices keep payload first, everything else the payload only", () => {
