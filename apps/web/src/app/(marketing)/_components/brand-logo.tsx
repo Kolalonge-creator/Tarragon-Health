@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
-/** Guard Leaf mark: shield (protection) + sprout crown (prevention/growth) + checkmark vein (docs/BRAND_GUIDE.md §4). */
+/** Guard Leaf mark: shield (protection) + sprout crown (prevention/growth) + pulse-line vein (docs/BRAND_GUIDE.md §4). */
 
 type Tone = "brand" | "on-navy";
 
 export function GuardLeafMark({ className, tone = "brand" }: { className?: string; tone?: Tone }) {
   const shieldClass = tone === "on-navy" ? "fill-warm-ivory" : "fill-brand-green";
-  const checkClass = tone === "on-navy" ? "stroke-clinical-navy" : "stroke-warm-ivory";
+  const veinClass = tone === "on-navy" ? "stroke-clinical-navy" : "stroke-warm-ivory";
 
   return (
     <svg
@@ -25,11 +25,11 @@ export function GuardLeafMark({ className, tone = "brand" }: { className?: strin
         className={shieldClass}
       />
       <path
-        d="M36 65L46 75L67 50"
+        d="M31 62H40L45 55L50 71L55 45L59 62H71"
         strokeWidth="7"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={checkClass}
+        className={veinClass}
       />
     </svg>
   );

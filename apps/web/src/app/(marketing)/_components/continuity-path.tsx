@@ -1,6 +1,6 @@
 "use client";
 
-/** Signature continuity visual, echoes Guard Leaf checkmark vein (docs/MARKETING_SITE_SPEC.md §1).
+/** Signature continuity visual, echoes the Guard Leaf pulse-line vein (docs/MARKETING_SITE_SPEC.md §1).
  * Starts at "Screening" deliberately; the loop begins before anything is
  * wrong, so healthy visitors see themselves in it (prevention-first, 2026-07-23).
  * Interactive: clicking a moment (or a slow auto-advance until someone does)
