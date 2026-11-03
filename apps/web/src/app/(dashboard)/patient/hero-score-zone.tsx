@@ -1,7 +1,12 @@
 "use client";
 
 import { useLatestHealthScore } from "@/lib/queries/health-score";
-import type { HealthScoreRiskLevel } from "@/lib/rules/health-score";
+import {
+  healthScoreCaption,
+  isHealthScoreThin,
+  type HealthScoreComponent,
+  type HealthScoreRiskLevel,
+} from "@/lib/rules/health-score";
 import { HEALTH_STATUS_WORD, HEALTH_STATUS_METER } from "@/components/health-status-banner";
 
 /**
@@ -18,8 +23,12 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
   const { data, isLoading, isError } = useLatestHealthScore(patientId);
 
   const hasScore = !isLoading && !isError && !!data && typeof data.score === "number";
+  const components = (data?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
+  // A score standing on the health profile alone (no reading yet) keeps its number but not a status word: "Stable" over a
+  // 100 built from "never smoked" and a normal BMI would promise something nobody has measured.
+  const thin = isHealthScoreThin(components);
   const riskLevel =
-    hasScore && data?.risk_level ? (data.risk_level as HealthScoreRiskLevel) : null;
+    hasScore && !thin && data?.risk_level ? (data.risk_level as HealthScoreRiskLevel) : null;
   const status = riskLevel ? HEALTH_STATUS_WORD[riskLevel] : null;
   const meter = riskLevel ? HEALTH_STATUS_METER[riskLevel] : null;
 
@@ -85,7 +94,7 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
             </div>
           )}
           <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-            A summary of your recent numbers, not a diagnosis.
+            {healthScoreCaption(components, "A summary of your numbers, not a diagnosis.")}
           </p>
         </>
       )}

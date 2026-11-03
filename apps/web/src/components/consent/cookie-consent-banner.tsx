@@ -31,25 +31,26 @@ export function CookieConsentBanner() {
     <div
       role="region"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-charcoal-ink/10 bg-white px-4 py-5 shadow-[0_-4px_24px_rgba(18,50,75,0.12)] sm:px-6"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-charcoal-ink/10 bg-white px-4 py-4 shadow-[0_-4px_24px_rgba(18,50,75,0.12)] sm:px-6 sm:py-5"
     >
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Kept short on purpose: on a phone this banner sits over the hero,
+          so every extra line here is a line of the page a visitor cannot
+          see. The full reasoning lives on the Cookie Policy page. */}
+      <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <p className="text-sm leading-relaxed text-charcoal-ink/80">
-          We use one required cookie to keep you securely signed in. We also collect
-          anonymous, first-party analytics, to see which pages help people find care,
-          unless you tell us not to: no ads, no third-party tracker, and no session
-          recording, ever. Read our{" "}
+          One required cookie keeps you signed in. We also collect anonymous,
+          first-party analytics unless you say no: no ads, no third-party
+          trackers, no session recording.{" "}
           <Link href="/cookies" className="underline hover:text-deep-forest">
             Cookie Policy
-          </Link>{" "}
-          for the full detail, or choose below.
+          </Link>
         </p>
         <div className="flex shrink-0 gap-3">
-          <Button variant="outline" size="sm" onClick={() => choose("rejected")}>
-            Reject Non-Essential
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => choose("rejected")}>
+            Reject non-essential
           </Button>
-          <Button size="sm" onClick={() => choose("accepted")}>
-            Accept All
+          <Button size="sm" className="flex-1 sm:flex-none" onClick={() => choose("accepted")}>
+            Accept all
           </Button>
         </div>
       </div>

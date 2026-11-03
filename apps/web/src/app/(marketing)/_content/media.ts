@@ -105,20 +105,18 @@ export const MARKETING_MEDIA = {
       imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      // A real, unedited screenshot of the patient app's "Your health, by
-      // area" card (apps/web/src/app/(dashboard)/patient/health-domains-card.tsx),
-      // captured on a real iOS Simulator against a QA fixture account
-      // (patient.complete.test@tarragon.test, temporarily renamed to a
-      // placeholder Nigerian name for the screenshot, reverted immediately
-      // after) — never a mockup or a generated image, per the standing
+      // A real screenshot of the patient dashboard (the Health Score card and
+      // the "next best step" that follows it), captured on a real iOS
+      // Simulator against a QA fixture account with a placeholder Nigerian
+      // name; never a mockup or a generated image, per the standing
       // "anatomically-wrong prevention hero clip" lesson on this codebase.
-      imageSrc: "/marketing/photos/app/how-it-works-health-domains.jpg",
-      // Only names domains lib/health-domains/domains.ts can actually
-      // populate today (RISK_SCORE_TO_DOMAIN/BIOMARKER_CATEGORY_TO_DOMAIN) —
-      // Fitness/Mind/Hormones/Inflammation/Brain have no feeding signal yet
-      // and always render "Not tracked yet", so naming them here as an
-      // example would describe a capability the shipped feature lacks.
-      imageAlt: "The Tarragon app's health domains screen, showing readings grouped into areas like Rhythm & recovery, Cardiovascular and Metabolic health",
+      // The only edit is a crop below the simulator's status bar (the
+      // original is kept beside it as how-it-works-health-score.jpg).
+      // Swapped 2026-11-03 from the health-domains capture, which showed
+      // four "Not tracked yet / Nothing logged here yet" empty states: an
+      // empty app is the wrong thing to put in the homepage phone.
+      imageSrc: "/marketing/photos/app/how-it-works-health-score-cropped.jpg",
+      imageAlt: "The Tarragon app's dashboard, showing a stable Health Score and the next step, a blood pressure check that is due",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {
@@ -186,7 +184,7 @@ export const MARKETING_MEDIA = {
     parentcare: { illustration: "parentcare" } satisfies MarketingMediaSlot,
     prevention: { illustration: "prevention" } satisfies MarketingMediaSlot,
     medication: { illustration: "connected-care" } satisfies MarketingMediaSlot,
-    labs: { illustration: "prevention" } satisfies MarketingMediaSlot,
+    labs: { illustration: "annual-checklist" } satisfies MarketingMediaSlot,
   },
   gift: {
     hero: {

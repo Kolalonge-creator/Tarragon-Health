@@ -701,7 +701,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "If cost or access is the real reason",
         paragraphs: [
-          "Tell your care team. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that delivers, rather than a plan quietly falling apart in silence.",
+          "Tell your care team. There is almost always a cheaper, equally effective alternative on the market, and a doctor who knows the real reason can actually solve it, switch drugs, simplify the dosing schedule, connect you with a pharmacy that stocks it, rather than a plan quietly falling apart in silence.",
         ],
       },
     ],

@@ -14,9 +14,9 @@ import { membershipPriceLabel, paidProductName } from "@/lib/marketing/membershi
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Give the Gift of Health",
+  title: "Give the gift of health",
   description:
-    "Give a parent or family member a year of Membership: a yearly blood test and a monthly video call with their care team, paid for by you and theirs to accept.",
+    "Give a parent or family member a year of Membership: a monthly video call with their care team, paid once by you and theirs to accept.",
   path: MARKETING_ROUTES.gift,
 });
 
@@ -37,7 +37,7 @@ function givingSummary(price: string): string {
 const WAYS_TO_GIVE = [
   {
     title: "Give them a year of Membership",
-    body: "For a parent, spouse or family member: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. You pay once, in naira, wherever you are paying from. It does not renew by itself.",
+    body: "For a parent, spouse or family member: a video call with their care team every month, written questions between calls and prescriptions their care team signs. Membership Plus adds the yearly blood panel. You pay once, in naira, wherever you are paying from. It does not renew by itself.",
   },
   {
     title: "They choose to accept it",
@@ -114,7 +114,7 @@ export default function GiftPage() {
           viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
       <PhotoBannerHero
         eyebrow="Care that stays with them"
-        title="Give the Gift of Health"
+        title="Give the gift of health"
         description={ladderIsPublic()
           ? `${givingSummary(price)}. A video call with their care team every month. They choose whether to accept it, and it does not renew.`
           : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. They choose whether to accept it, and it does not renew.`}

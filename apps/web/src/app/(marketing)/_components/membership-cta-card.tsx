@@ -10,7 +10,7 @@ export function MembershipCtaCard({ className = "" }: { className?: string }) {
     <div className={`rounded-2xl border-2 border-brand-green/30 bg-soft-sage p-6 ${className}`}>
       <h3 className="font-heading text-lg font-semibold text-charcoal-ink">Membership</h3>
       <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/75">
-        A yearly blood test and a video call with your care team every month, so a doctor looks at this with you.
+        A video call with your care team every month, and written questions between calls, so a doctor looks at this with you.
       </p>
       <Link
         href="/pricing"

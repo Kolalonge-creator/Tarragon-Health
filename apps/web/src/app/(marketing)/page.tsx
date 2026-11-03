@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     // enforces MAX_DESCRIPTION = 160 as a hard stop across every marketing
     // page (Google truncates a listing there).
     description:
-      "Free to join. Tarragon watches your blood pressure, sugar, medication and screenings between doctor visits, and brings in a doctor when a result needs one.",
+      "Free to join. Tarragon watches your blood pressure, blood sugar, medication and screenings between visits, and brings in a doctor when a result needs one.",
     path: "/",
   }),
   title: { absolute: HOME_TITLE },
@@ -178,8 +178,8 @@ export default async function MarketingHomePage() {
       <Section variant="sage">
         <StoryPanel
           eyebrow="The gap"
-          title="Between hospital visits, nobody is watching your health"
-          description="After a diagnosis you usually leave with a prescription and an appointment in three months. In between, your readings can drift, your medication can run out, and a test you were asked to do can be forgotten. Because nobody is watching, problems are often found late."
+          title="Between hospital visits, small changes are easy to miss"
+          description="After a diagnosis you usually leave with a prescription and an appointment in three months. In between, your readings can drift, your medication can run out, and a test you were asked to do can be forgotten. Without someone keeping track, problems are often found late."
           media={homepage.problem}
         />
       </Section>
@@ -189,8 +189,8 @@ export default async function MarketingHomePage() {
       <Section>
         <SectionHeading
           eyebrow="How it works"
-          title="Setting up takes about five minutes, then we keep watch"
-          description="You record the readings that are easy for you to take. Each reading is checked against your care protocols, you receive a reminder when something is due, and a doctor reviews your case when a result needs it."
+          title="Setting up takes a few minutes, then we keep watch"
+          description="You record the readings that are easy for you to take. Each reading is checked against care protocols, you receive a reminder when something is due, and a doctor reviews your case when a result needs it."
         />
         <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
           <StepsExplorer

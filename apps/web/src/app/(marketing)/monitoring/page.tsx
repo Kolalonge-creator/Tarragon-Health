@@ -175,9 +175,9 @@ export default async function MonitoringPage() {
             variant="gradient"
             title="Start free, and join when you want a doctor to follow your readings"
             description="The app, your readings, your screening calendar and the education library are free and will stay free. Membership is available when you want your care team to follow your readings with you."
-            primaryLabel="Create a free account"
+            primaryLabel="Create your free account"
             secondaryHref={MARKETING_ROUTES.pricing}
-            secondaryLabel="See the two plans"
+            secondaryLabel="See the plans"
           />
         </div>
       </Section>

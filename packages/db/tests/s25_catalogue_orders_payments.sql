@@ -434,8 +434,12 @@ begin
     (pg_temp.q_as(v_p2, 'select jsonb_array_length(public.my_orders())::text')::int = (select count(*) from public.orders where buyer_profile_id = v_p2))::text);
   perform pg_temp.ck('staff in the same organisation can read orders', 'true', (pg_temp.q_as(v_admin, 'select count(*)::text from public.orders')::int > 0)::text);
   perform pg_temp.ck('anon reads nothing', '42501', pg_temp.try_anon('select count(*) from public.orders'));
-  perform pg_temp.ck('a patient cannot read the catalogue table directly (internal notes)', 'true',
-    (pg_temp.q_as(v_pat, 'select count(*)::text from public.catalog_items') like '%permission denied%')::text);
+  -- Since 20261103013846 a signed-in person may read an item's descriptive columns (the refund lists name the item through
+  -- them); the internal note stays refused, which is what this check always protected.
+  perform pg_temp.ck('a patient can read a catalogue item''s name directly', 'true',
+    (pg_temp.q_as(v_pat, 'select count(*)::text from public.catalog_items where name_key is not null') not like 'ERR:%')::text);
+  perform pg_temp.ck('a patient cannot read the catalogue''s internal notes', 'true',
+    (pg_temp.q_as(v_pat, 'select count(note)::text from public.catalog_items') like '%permission denied%')::text);
   perform pg_temp.ck('a patient cannot read the price table directly (reasons, staff ids)', 'true',
     (pg_temp.q_as(v_pat, 'select count(*)::text from public.prices') like '%permission denied%')::text);
   perform pg_temp.ck('a patient cannot write the catalogue directly', 'true',

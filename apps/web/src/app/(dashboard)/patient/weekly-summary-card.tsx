@@ -88,7 +88,7 @@ export function WeeklySummaryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your week</CardTitle>
+        <CardTitle>Your readings this week</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}

@@ -1,6 +1,5 @@
 import type { MarketingRouteKey } from "@/lib/marketing/routes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { paidProductName } from "@/lib/marketing/membership";
 import { EXAMPLE_DATA_NOTE } from "./b2b";
 
 export type ServiceCard = {
@@ -51,7 +50,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
     key: "medication",
     href: MARKETING_ROUTES.medication,
     title: "Medication",
-    description: "Take your medication on time and never run out.",
+    description: "Take your medication on time, with a reminder before your supply runs low.",
     built: true,
   },
   {
@@ -92,7 +91,7 @@ export const PROOF_STATS = [
   {
     value: "Free",
     label: "to join",
-    detail: `The app is free, with no time limit. ${paidProductName()} includes a yearly blood test, with results uploaded to your account and talked through by your care team, and a monthly video call with your care team.`,
+    detail: "The app is free, with no time limit. Membership adds a year of care with your care team and a video call every month. Membership Plus adds the yearly blood panel.",
   },
   {
     value: "12 hrs",
@@ -181,7 +180,7 @@ export const HOW_IT_WORKS_STEPS = [
 export const HOME_HOW_IT_WORKS = [
   {
     title: "Tell us about your health",
-    body: "Add your conditions, your medication and your age. It takes about five minutes, for yourself or for a parent.",
+    body: "Add your conditions, your medication and your age. It takes a few minutes, for yourself or for a parent.",
   },
   {
     title: "Record your readings",
@@ -226,8 +225,9 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Blood pressure", value: "124 / 79", pill: { text: "In range", tone: "green" } },
       { label: "Medication adherence", value: "92%" },
       { label: "Next lab due", value: "HbA1c · 3 wks" },
-      { label: "Care gap", value: "", pill: { text: "1 overdue", tone: "amber" } },
+      { label: "Overdue checks", value: "", pill: { text: "1 overdue", tone: "amber" } },
     ],
+    statsNote: EXAMPLE_DATA_NOTE,
     cta: { label: "See what Tarragon does for you", href: MARKETING_ROUTES.forYou },
   },
   {
@@ -246,6 +246,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Last Health Check", value: "All clear" },
       { label: "Education completed", value: "3 of 5 topics" },
     ],
+    statsNote: EXAMPLE_DATA_NOTE,
     cta: { label: "Explore preventive health", href: MARKETING_ROUTES.prevention },
   },
   {
@@ -259,11 +260,12 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       "Is anything overdue, such as tests, refills or a review?",
     ],
     stats: [
-      { label: "Dad: today's status", value: "", pill: { text: "Stable", tone: "green" } },
+      { label: "Your father, today", value: "", pill: { text: "Stable", tone: "green" } },
       { label: "Medication", value: "Taken, 8:02am" },
       { label: "This week's readings", value: "Stable trend" },
       { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
     ],
+    statsNote: EXAMPLE_DATA_NOTE,
     cta: { label: "Caring for a parent", href: MARKETING_ROUTES.parentcare },
   },
   {
@@ -317,19 +319,19 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What is TarragonHealth?",
     answer:
-      "TarragonHealth is a health monitoring platform in Nigeria for chronic disease (hypertension, diabetes and weight management), preventive health and family care coordination. Every reading is checked against clinical protocols, and a doctor reviews anything that needs attention.",
+      "TarragonHealth is a health monitoring platform in Nigeria for chronic disease (hypertension, diabetes and weight management), preventive health and family care coordination. Every reading is checked against care protocols. An abnormal screening result goes to a doctor on every plan, and with Membership a doctor on your care team reviews anything that needs attention.",
   },
   {
     category: "general",
     question: "I am healthy. Is Tarragon for me?",
     answer:
-      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free. Your yearly check is included in Membership Plus, or you can take our request to any laboratory and pay them directly. In most years the result is reassurance. If a check does find something, a doctor follows up within a day, or within 12 hours if the result is critical.",
+      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free. Your yearly check is included in Membership Plus, or you can take our request to any laboratory and pay them directly. In most years the result is reassurance. If a check does find something, a doctor follows up within 24 hours, or within 12 hours if the result is critical.",
   },
   {
     category: "general",
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own free Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent happens. You can pay for their health checks and their doctor's time from anywhere. Tests and refills are still paid directly to the laboratory or pharmacy they use in Nigeria, at its own price.",
+      "Yes. Your relative holds their own free Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent happens. You can give them a year of Membership from anywhere, paid once in naira. Tests and refills are still paid directly to the laboratory or pharmacy they use in Nigeria, at its own price.",
   },
   {
     category: "general",
@@ -341,7 +343,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How much does it cost?",
     answer:
-      `The app is free, with no time limit. ${paidProductName()} is one price for a year and includes a yearly blood test, with results uploaded to your account and talked through by your care team, and a video call with your care team every month. You pay pharmacies directly for medicines. See the pricing page for the ${paidProductName()} price.`,
+      "The app is free, with no time limit. Membership and Membership Plus are each one price for a year of care with your care team, including a video call every month. Membership Plus adds the yearly blood panel. You pay pharmacies directly for medicines. See the pricing page for the prices.",
   },
   {
     category: "general",
@@ -353,13 +355,13 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Can I connect a fitness tracker, smartwatch, or Bluetooth device?",
     answer:
-      "Yes, this is part of the platform, and we are bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP and Dexcom. Manual entry works today for everyone and takes only seconds, so you do not need to wait for a connection to keep your record current.",
+      "We are bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP and Dexcom. Manual entry works today for everyone and takes only seconds, so you do not need to wait for a connection to keep your record current.",
   },
   {
     category: "general",
     question: "Do I need a smartphone?",
     answer:
-      "Yes, you need a smartphone or a computer. Your health record, your care actions and your messages with your care team are all in the app and on the web dashboard, and reminders and alerts arrive there too.",
+      "You need a smartphone or a computer with internet access. Your health record, your care actions and your messages with your care team are all in the app and on the web dashboard, and reminders and alerts arrive there too.",
   },
   {
     category: "general",
@@ -377,7 +379,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What if I am not comfortable with health technology?",
     answer:
-      "You do not need to be. Signing up takes about a minute, recording a reading takes seconds, and the app reminds you when something is due. If you get stuck, you can message your care team in the app and a person will reply.",
+      "You do not need to be. Signing up takes a few minutes, recording a reading takes seconds, and the app reminds you when something is due. If you get stuck, you can message your care team in the app and a person will reply.",
   },
   {
     category: "general",
@@ -389,13 +391,13 @@ export const HOMEPAGE_FAQS = [
     category: "clinical",
     question: "What happens when readings are high?",
     answer:
-      "Your readings are reviewed against clinical protocols. If they need attention, your care team contacts you and refers you to a doctor when closer care is needed.",
+      "Every reading is checked against care protocols. A dangerous reading brings you clear guidance straight away, on every plan. With Membership, a doctor on your care team contacts you when a trend needs attention and arranges closer care if it is needed.",
   },
   {
     category: "clinical",
     question: "What is the difference between my Health Score and my Annual Health Check?",
     answer:
-      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your Annual Health Check (or Comprehensive Screen) is a fuller yearly panel that covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within a day, or within 12 hours if the result is critical.",
+      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your yearly blood panel, with Membership Plus, is a fuller set of eighteen tests that covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within 24 hours, or within 12 hours if the result is critical.",
   },
   {
     category: "clinical",

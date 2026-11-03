@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Ongoing chronic-condition monitoring, as distinct from the one-off
- * Annual Health Check (see what-we-measure.tsx). Every cadence here is
+ * Annual Health Check. Every cadence here is
  * read from real, live schema — never invented — checked 2026-08-19:
  *   - vitals_reminder_rules / rules-manager.tsx: 3-day BP/glucose logging
  *     default (admin-editable)

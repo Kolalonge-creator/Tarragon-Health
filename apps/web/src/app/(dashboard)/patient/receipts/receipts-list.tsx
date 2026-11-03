@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   usePatientReceipts,
   type PatientReceipt,
@@ -7,6 +8,7 @@ import {
   type PatientReceiptStatus,
 } from "@/lib/queries/receipts";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { APP_ICON } from "@/lib/icons";
 import {
@@ -145,8 +147,20 @@ export function ReceiptsList() {
   if (!receipts || receipts.length === 0) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
-          You have no receipts yet. Receipts for your payments will appear here.
+        <CardContent>
+          <EmptyState
+            icon={APP_ICON.receipts}
+            title="No receipts yet"
+            body="Every payment you make here gets a receipt you can download or share with an employer or insurer."
+            action={
+              <Link
+                href="/patient/membership"
+                className="inline-flex min-h-11 items-center rounded-md border border-charcoal-ink/15 px-4 text-sm font-medium text-charcoal-ink hover:bg-charcoal-ink/[0.03] dark:border-night-ink/20 dark:text-night-ink"
+              >
+                See Membership and services
+              </Link>
+            }
+          />
         </CardContent>
       </Card>
     );

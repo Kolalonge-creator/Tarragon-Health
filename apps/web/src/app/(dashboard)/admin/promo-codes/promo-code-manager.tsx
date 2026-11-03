@@ -9,7 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-const ORDER_TYPES = ["lab", "pharmacy", "referral"] as const;
+/** Mirrors the database CHECK on promo_codes.applicable_order_types (20260901174915_promo_codes_service_purchases.sql).
+ * service_purchase is the pay-per-item doctor time on /patient/subscription (Ask a doctor, video visit credits and the rest). */
+const ORDER_TYPES = ["lab", "pharmacy", "referral", "service_purchase"] as const;
+const ORDER_TYPE_LABEL: Record<(typeof ORDER_TYPES)[number], string> = {
+  lab: "Laboratory orders",
+  pharmacy: "Pharmacy orders",
+  referral: "Referral orders",
+  service_purchase: "Doctor-time purchases (Ask a doctor, video visit and the other per-item services)",
+};
+/** What a new code applies to before the admin touches the boxes: the three order kinds this page always covered. Doctor-time
+ * purchases are opted into on purpose, so a code meant for the laboratory does not quietly discount a senior case review. */
+const DEFAULT_ORDER_TYPES: readonly string[] = ["lab", "pharmacy", "referral"];
+function orderTypeLabel(t: string): string {
+  return (ORDER_TYPE_LABEL as Record<string, string>)[t] ?? t;
+}
 
 interface PromoCodeRow {
   id: string;
@@ -51,7 +65,7 @@ export function PromoCodeManager() {
   const { data: codes } = usePromoCodes();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [orderTypes, setOrderTypes] = useState<string[]>([...ORDER_TYPES]);
+  const [orderTypes, setOrderTypes] = useState<string[]>([...DEFAULT_ORDER_TYPES]);
 
   const create = useMutation({
     mutationFn: async (input: {
@@ -101,9 +115,9 @@ export function PromoCodeManager() {
         <CardHeader>
           <CardTitle>New promo code</CardTitle>
           <CardDescription>
-            Applies only to one-off laboratory, pharmacy, and referral orders, not subscriptions or
-            video visits, which are billed as recurring provider objects and cannot take a
-            per-order discount this way.
+            Applies to one-off laboratory, pharmacy and referral orders, and to the doctor-time services a
+            patient buys per item. The Membership and the other items sold at Membership checkout take a
+            different kind of code, managed on the <a href="/admin/discount-codes" className="underline">Membership discount codes</a> page.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -127,7 +141,7 @@ export function PromoCodeManager() {
                 expiresAt: expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null,
               });
               e.currentTarget.reset();
-              setOrderTypes([...ORDER_TYPES]);
+              setOrderTypes([...DEFAULT_ORDER_TYPES]);
             }}
           >
             <label className="block text-sm">
@@ -163,9 +177,9 @@ export function PromoCodeManager() {
             </label>
             <fieldset className="sm:col-span-2">
               <legend className="text-sm text-charcoal-ink">Applies to</legend>
-              <div className="mt-1 flex gap-4">
+              <div className="mt-1 flex flex-col gap-2">
                 {ORDER_TYPES.map((t) => (
-                  <Label key={t} className="flex items-center gap-2 text-sm font-normal capitalize">
+                  <Label key={t} className="flex items-center gap-2 text-sm font-normal">
                     <input
                       type="checkbox"
                       checked={orderTypes.includes(t)}
@@ -175,7 +189,7 @@ export function PromoCodeManager() {
                         )
                       }
                     />
-                    {t}
+                    {orderTypeLabel(t)}
                   </Label>
                 ))}
               </div>
@@ -217,7 +231,7 @@ export function PromoCodeManager() {
                   <tr key={row.id} className="border-b border-charcoal-ink/5">
                     <td className="py-2 pr-4 font-mono">{row.code}</td>
                     <td className="py-2 pr-4">{describeValue(row)}</td>
-                    <td className="py-2 pr-4 capitalize">{row.applicable_order_types.join(", ")}</td>
+                    <td className="py-2 pr-4">{row.applicable_order_types.map(orderTypeLabel).join(", ")}</td>
                     <td className="py-2 pr-4">
                       {row.per_profile_limit}/patient
                       {row.max_redemptions ? `, ${row.max_redemptions} total` : ""}
