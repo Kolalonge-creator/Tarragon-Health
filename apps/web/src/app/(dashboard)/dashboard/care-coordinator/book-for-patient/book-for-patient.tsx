@@ -106,7 +106,7 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
             {selected.membershipTier ? "" : ". This patient is on the Free plan, so a meeting needs them to join Membership first."}
           </p>
           <MonthlyMeeting key={`monthly-${selected.patientId}`} patientId={selected.patientId} patientName={selected.fullName} isMember={selected.membershipTier !== null} />
-          <h2 className="pt-2 text-base font-semibold text-charcoal-ink dark:text-night-ink">Extra meeting (₦5,000, paid Members only)</h2>
+          <h2 className="pt-2 text-base font-semibold text-charcoal-ink dark:text-night-ink">Extra meeting (paid Members only; the price is in the note below)</h2>
           <BookAppointment
             key={selected.patientId}
             organisationId={organisationId}

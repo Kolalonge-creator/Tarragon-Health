@@ -48,17 +48,22 @@ export async function loadOpenVideoVisitSlots(): Promise<QueryResult<ConsultSlot
   return { ok: true, data: data as ConsultSlotWithClinician[] };
 }
 
-/** The price a video visit costs the caller — org override if one exists and
- * is enabled, else the platform default. Mirrors web's useVideoVisitPrice. */
-export async function loadVideoVisitPrice(organisationId: string): Promise<QueryResult<VideoVisitPrice | null>> {
-  const { data, error } = await supabase
-    .from("video_visit_prices")
-    .select("organisation_id, amount_minor, currency, is_enabled")
-    .eq("is_enabled", true);
+/** Narrows my_video_visit_price's jsonb answer; anything else is treated as "no price", never a guessed number. */
+export function parseVideoVisitPrice(value: unknown): VideoVisitPrice | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { amount_minor, currency } = value as Record<string, unknown>;
+  if (typeof amount_minor !== "number" || !Number.isInteger(amount_minor) || amount_minor <= 0) return null;
+  if (typeof currency !== "string" || currency.length === 0) return null;
+  return { amount_minor, currency };
+}
+
+/** The price a video visit costs the caller: exactly what the charge trigger pins (organisation override, else the extra-meeting
+ * product, else the platform row), read from the one database function both use, so the screen cannot show a different number from
+ * the one charged. null when no price is set or it is switched off. Mirrors web's useVideoVisitPrice. */
+export async function loadVideoVisitPrice(): Promise<QueryResult<VideoVisitPrice | null>> {
+  const { data, error } = await supabase.rpc("my_video_visit_price");
   if (error) return { ok: false, error: error.message };
-  const rows = data ?? [];
-  const override = rows.find((r) => r.organisation_id !== null && r.organisation_id === organisationId);
-  return { ok: true, data: override ?? rows.find((r) => r.organisation_id === null) ?? null };
+  return { ok: true, data: parseVideoVisitPrice(data) };
 }
 
 /** proposed_slot_ids is a plain uuid[], not something PostgREST can
