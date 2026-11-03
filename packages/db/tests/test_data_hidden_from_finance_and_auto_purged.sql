@@ -79,6 +79,12 @@ begin
   v_canary := pg_temp.mint('td-proof-canary-' || gen_random_uuid() || '@example.invalid', 'patient', v_canary_org, true, now() - interval '30 days');
   update public.profiles set test_keep_reason = 'proof: keep me' where id = v_keep;
 
+  -- baseline for check 2c: deferred revenue (account 2000) as the finance console shows it before either purchase
+  perform set_config('request.jwt.claims', json_build_object('sub', v_fin, 'role', 'authenticated')::text, true);
+  select coalesce((select (x->>'credit_minor')::bigint - (x->>'debit_minor')::bigint
+    from jsonb_array_elements(public.finance_trial_balance(private.lagos_today(), 'NGN')) x where x->>'code' = '2000'), 0) into v_before;
+  perform set_config('request.jwt.claims', '', true);
+
   -- 1. the same purchase, paid by a test patient and by a real patient
   v_txn_t := pg_temp.pay_for(v_test, v_org, 'test');
   v_txn_r := pg_temp.pay_for(v_real, v_org, 'real');
@@ -93,6 +99,12 @@ begin
     (select bool_and(s.is_test)::text from public.revenue_recognition_schedules s where s.payment_transaction_id = v_txn_t));
   perform pg_temp.chk('1g the real purchase''s schedule is not', 'false',
     (select bool_or(s.is_test)::text from public.revenue_recognition_schedules s where s.payment_transaction_id = v_txn_r));
+  -- 1h. the webhook's later UPDATE: a bare charge nobody can attribute at insert, whose card-holder e-mail arrives afterwards
+  insert into public.payment_transactions (organisation_id, provider, provider_event_id, event_type, amount_minor, currency, raw_payload)
+  values (v_org, 'paystack', 'td-proof-late-' || v_test::text, 'charge.success', 1000, 'NGN', '{}'::jsonb) returning id into v_rev;
+  perform pg_temp.chk('1h a bare charge with no payer is not marked at insert', 'false', (select is_test::text from public.payment_transactions where id = v_rev));
+  update public.payment_transactions set raw_payload = jsonb_build_object('data', jsonb_build_object('customer', jsonb_build_object('email', (select email from auth.users where id = v_test)))) where id = v_rev;
+  perform pg_temp.chk('1i the enrichment UPDATE marks it once the payer is a test account', 'true', (select is_test::text from public.payment_transactions where id = v_rev));
 
   -- 2. the finance console sees the real money only
   select amount_minor into v_amount from public.payment_transactions where id = v_txn_r;
@@ -100,13 +112,12 @@ begin
   v_list := public.finance_ledger_entries(private.lagos_today() - 1, private.lagos_today() + 1, null, 'payment', 500, 0);
   perform pg_temp.chk('2a finance_ledger_entries lists the real entry', 'true',  (v_list @> jsonb_build_array(jsonb_build_object('id', v_entry_r)))::text);
   perform pg_temp.chk('2b finance_ledger_entries does not list the test entry', 'false', (v_list @> jsonb_build_array(jsonb_build_object('id', v_entry_t)))::text);
-  -- trial balance: the deferred-revenue account (2000) carries exactly one purchase's worth more than the base ledger minus test
-  select coalesce(sum(l.credit_minor - l.debit_minor), 0) into v_before
-    from public.finance_journal_lines l join public.finance_journal_entries e on e.id = l.entry_id
-   where l.account_code = '2000' and l.currency = 'NGN' and not e.is_test and e.entry_date <= private.lagos_today();
+  -- trial balance: deferred revenue (2000) moved by exactly ONE purchase (the real one), measured against the pre-purchase
+  -- baseline taken above, not against a sum computed with the same predicate the view uses. Both purchases are the same
+  -- product, so a leaking test entry would double the movement.
   select (x->>'credit_minor')::bigint - (x->>'debit_minor')::bigint into v_after
     from jsonb_array_elements(public.finance_trial_balance(private.lagos_today(), 'NGN')) x where x->>'code' = '2000';
-  perform pg_temp.chk('2c finance_trial_balance account 2000 equals the ledger without test entries', v_before::text, v_after::text);
+  perform pg_temp.chk('2c finance_trial_balance deferred revenue moved by the real purchase only', v_amount::text, (v_after - v_before)::text);
   perform set_config('request.jwt.claims', '', true);
 
   -- 3. a reversal of a test entry is a test entry

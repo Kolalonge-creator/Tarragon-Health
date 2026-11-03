@@ -21,7 +21,7 @@
 --   2. Two new analytics_clean views (finance_journal_entries, finance_journal_lines, WHERE NOT is_test) and a tightened
 --      analytics_clean.payment_transactions; every finance READER rpc is re-created from its LIVE body with the public
 --      relation text-replaced by the clean view, the same way OQ-39 did for analytics_*. Writers are untouched.
---   3. profiles.test_keep_reason (admin/service only). private.purge_stale_test_accounts() runs nightly (04:25) and
+--   3. profiles.test_keep_reason (admin/service only). private.purge_stale_test_accounts() runs nightly (04:25 UTC, 05:25 Lagos) and
 --      calls purge_test_account for every is_test account older than 7 days with no keep reason. The synthetic canary
 --      organisation (organisations.metadata->>'canary') is never purged whatever the column says; the App Store review
 --      accounts and the canary people get a keep reason here. A failed purge opens one ops incident and the rest continue.
@@ -56,7 +56,12 @@ begin
 end $$;
 revoke all on function private.stamp_payment_transaction_is_test() from public, anon, authenticated;
 drop trigger if exists payment_transactions_00_stamp_is_test on public.payment_transactions;
-create trigger payment_transactions_00_stamp_is_test before insert on public.payment_transactions
+-- INSERT and the enrichment UPDATE both: the webhook inserts a bare charge first and only later writes subscription_id /
+-- booking_order_id / processed_at (finance_post_from_payment's own header says so), and a payer that resolves only through
+-- those columns must still be caught before that UPDATE's AFTER triggers post the ledger entry.
+create trigger payment_transactions_00_stamp_is_test
+  before insert or update of subscription_id, subscription_add_on_id, booking_order_id, booking_order_type, processed_at, raw_payload
+  on public.payment_transactions
   for each row execute function private.stamp_payment_transaction_is_test();
 
 update public.payment_transactions pt set is_test = true where not pt.is_test and private.payment_transaction_is_test(pt);
@@ -192,10 +197,12 @@ declare
   -- readers only: every writer (finance_post_manual_journal, finance_reverse_journal, finance_approve_request, the private
   -- posters) keeps writing to the base tables. finance_unified_ledger keeps public.payment_transactions because it passes
   -- the row to private.resolve_payment_payer(payment_transactions); its entries side is filtered, which is what hides test money.
+  -- finance_pending_approvals / finance_approval_history are a work queue, not a total: an approval request on a test entry
+  -- must stay visible so it can be decided, so they keep reading the base tables.
   v_readers text[] := array['finance_trial_balance','finance_income_statement','finance_balance_sheet','finance_dashboard_summary',
     'finance_kpi_summary','finance_ledger_entries','finance_unified_ledger','finance_cash_flow_statement','finance_pnl_by_cost_center',
     'finance_budget_variance','finance_revenue_by_funding_source','finance_tax_summary','finance_compliance_suggested_amount',
-    'finance_pending_approvals','finance_approval_history','finance_reconciliation_summary','finance_risk_flags'];
+    'finance_reconciliation_summary','finance_risk_flags'];
   v_pt_readers text[] := array['finance_dashboard_summary','finance_reconciliation_summary','finance_risk_flags'];
 begin
   foreach v_name in array v_readers loop
