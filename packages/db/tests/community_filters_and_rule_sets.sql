@@ -20,6 +20,11 @@ begin;
 -- and the 'fresh database' expectations below would then depend on the clock. Clear it here, inside this rolled-back transaction.
 delete from public.community_job_runs where job = 'overdue';
 
+-- The community-overdue pg_cron job (migration 20261102135310) really runs on the CI stack, so a replay that crosses a ten-minute
+-- boundary has a fresh heartbeat by the time this proof runs. The checks below reason about a database where the monitor has
+-- not been seen yet, so the heartbeat is cleared first (rolled back with everything else).
+delete from public.community_job_runs where job = 'overdue';
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
