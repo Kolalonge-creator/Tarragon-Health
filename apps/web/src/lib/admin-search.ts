@@ -173,6 +173,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/providers", "provider providers paystack zoom resend webhook webhooks inbox replay settlement reconciliation reconcile break breaks ledger mismatch circuit breaker health outage payment video email"],
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher lab pharmacy referral service purchase doctor time"],
+  ["/admin/consultations", "consultations log calls video zoom call history time doctor patient duration minutes connected joined finished no show csv download export encounters"],
+  ["/clinician/consultations-log", "consultations log calls video zoom call history time doctor patient duration minutes connected joined finished no show csv download export encounters"],
   ["/admin/discount-codes", "discount code coupon membership checkout percent fixed amount off campaign cohort"],
   ["/admin/leads", "enquiries prospects contact form"],
   ["/admin/front-desk", "front desk dashboard kill switch assistant off on weekly report friday numbers metrics funnel enquiries topics handoffs spend cost review sample incidents receptionist chat"],
@@ -213,6 +215,7 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
 export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "Consultations log", href: "/clinician/consultations-log", group: "Clinical governance", hint: "Every consultation in the organisation: time, doctor, patient, status, doctor minutes and Zoom connected minutes, with a CSV download (consultations_log)." },
   { label: "AI monitoring", href: "/clinician/ai-monitoring", group: "Clinical governance", hint: "The monthly AI review sample, answers patients reported as wrong, and how often doctors agreed with the automatic grade." },
   { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", group: "Clinical governance", hint: "What changed between two versions of the symptom triage rules, and the same cases replayed against both. Read only." },
   { label: "Support tickets", href: "/clinician/support-tickets", group: "Clinical queue", hint: "The support queue: log an email or a phone call as a ticket, see what is past its target and what looks like an emergency." },
