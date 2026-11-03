@@ -175,6 +175,32 @@ describe("zoom adapter", () => {
     if (!room.ok) throw new Error("room");
     // and the phone path then answers "no number", not an error that would stop the call
     expect(await z.dialIn({ roomId: room.data.roomId, country: "NG" })).toMatchObject({ ok: false, error: { code: "not_found", retryable: false } });
+    // the refusal is remembered: the next room is asked for once, without the numbers
+    const before = fake.calls.length;
+    expect((await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 })).ok).toBe(true);
+    const later = fake.calls.slice(before).filter((c) => c.method === "POST" && c.path === "/v2/users/me/meetings");
+    expect(later).toHaveLength(1);
+    expect((later[0]!.body!["settings"] as Record<string, unknown>)["global_dial_in_countries"]).toBeUndefined();
+  });
+
+  it("names the dial-in refusal when the second ask fails for another reason", async () => {
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    fake.refuseDialInCountries();
+    const z = zoomFor(fake);
+    // the first ask is refused for the numbers; the second never reaches the vendor
+    const originalFetch = fake.fetch;
+    let posts = 0;
+    const flaky: typeof originalFetch = async (url, init) => {
+      if (init.method === "POST" && /\/meetings$/.test(new URL(url).pathname) && (posts += 1) === 2) throw new TypeError("fetch failed");
+      return originalFetch(url, init);
+    };
+    const z2 = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", fetch: flaky, now: () => fake.clock.now });
+    void z;
+    const room = await z2.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+    expect(room.ok).toBe(false);
+    if (room.ok) throw new Error("room");
+    expect(room.error.code).toBe("network");
+    expect(room.error.message).toMatch(/Country code NG is not available/);
   });
 
   it("still asks for Nigerian dial-in numbers first, so an account that has them gets them", async () => {
