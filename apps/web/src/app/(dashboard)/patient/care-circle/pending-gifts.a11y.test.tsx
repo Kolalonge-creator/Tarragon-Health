@@ -18,6 +18,7 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useRespondToGift: () => ({ mutateAsync, isPending: false }),
   useGiftPayers: () => payers,
   useShareWithGiftPayer: () => ({ mutateAsync: share, isPending: false }),
+  useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
 const GIFT = { entitlement_id: "e1", name_key: "catalog.membership_annual.name", paid_at: "2026-10-06T10:00:00Z", decide_by: "2026-11-05T10:00:00Z" };

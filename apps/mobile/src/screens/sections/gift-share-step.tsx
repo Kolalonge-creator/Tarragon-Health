@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadGiftPayers, shareWithGiftPayer } from "@/lib/care-circle/api";
+import { dismissGiftPayer, loadGiftPayers, shareWithGiftPayer } from "@/lib/care-circle/api";
 import { GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, mergeKeepingShown, permissionKey, type GiftPayer, type GiftSharePermission } from "@/lib/care-circle/parse";
 import { MIN_TARGET, radii, space, useTheme } from "@/ui/design";
 import { AppText } from "@/ui/kit/AppText";
@@ -92,7 +92,11 @@ export function GiftShareStep({ payer }: { payer: GiftPayer }) {
       ) : null}
       <View style={{ gap: space.sm }}>
         <Button title={busy ? t("giftshare.saving", locale) : t("giftshare.share", locale)} loading={busy} onPress={() => void submit()} />
-        <Button title={t("giftshare.not_now", locale)} variant="ghost" disabled={busy} onPress={() => setOutcome("not_now")} />
+        <Button title={t("giftshare.not_now", locale)} variant="ghost" disabled={busy} onPress={() => {
+            // remembered for this payer (never asked again); a failed save shares nothing either way
+            void dismissGiftPayer(payer.payerId);
+            setOutcome("not_now");
+          }} />
       </View>
     </Card>
   );

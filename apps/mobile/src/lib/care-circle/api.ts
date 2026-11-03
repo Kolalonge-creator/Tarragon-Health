@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog, parseGiftPayers, validGiftShare,
-  type GiftPayer, type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog, parseGiftPayers, parseMyFamilyNotes, validGiftShare, isUuid,
+  type GiftPayer, type MyFamilyNote, type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -190,6 +190,23 @@ export async function loadNudges(): Promise<CircleNudge[]> {
 export async function loadGiftPayers(): Promise<GiftPayer[]> {
   const { data, error } = await supabase.rpc("circle_gift_payers");
   return error ? [] : parseGiftPayers(data);
+}
+/** "Not now", remembered per payer: the offer never comes back for that payer. A failed save shares nothing either way. */
+export async function dismissGiftPayer(payerId: string): Promise<boolean> {
+  if (!isUuid(payerId)) return false;
+  const { data, error } = await supabase.rpc("dismiss_gift_payer_offer", { p_payer: payerId });
+  return !error && data === true;
+}
+/** The patient's own notes from the doctor (latest first). A failed read is "none": nothing is shared by not showing it. */
+export async function loadMyFamilyNotes(): Promise<MyFamilyNote[]> {
+  const { data, error } = await supabase.rpc("my_family_notes");
+  return error ? [] : parseMyFamilyNotes(data);
+}
+/** Share or un-share one note. Only the patient can (the database checks). Null means it was not saved. */
+export async function setFamilyNoteShared(noteId: string, share: boolean): Promise<boolean | null> {
+  if (!isUuid(noteId)) return null;
+  const { data, error } = await supabase.rpc("set_family_note_shared", { p_note: noteId, p_share: share });
+  return error || typeof data !== "boolean" ? null : data;
 }
 export type GiftShareAnswer = { ok: true } | { ok: false; reason: "invalid" | "full" | "failed" };
 /**

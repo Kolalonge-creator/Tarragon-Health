@@ -19193,6 +19193,52 @@ export type Database = {
           },
         ]
       }
+      care_circle_gift_payer_dismissals: {
+        Row: {
+          dismissed_at: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          payer_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          payer_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          payer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_doctor_notes: {
         Row: {
           appointment_id: string | null
@@ -19204,6 +19250,9 @@ export type Database = {
           is_test: boolean
           organisation_id: string
           patient_id: string
+          released_at: string | null
+          released_by: string | null
+          share_decided_at: string | null
         }
         Insert: {
           appointment_id?: string | null
@@ -19215,6 +19264,9 @@ export type Database = {
           is_test?: boolean
           organisation_id?: string
           patient_id: string
+          released_at?: string | null
+          released_by?: string | null
+          share_decided_at?: string | null
         }
         Update: {
           appointment_id?: string | null
@@ -19226,6 +19278,9 @@ export type Database = {
           is_test?: boolean
           organisation_id?: string
           patient_id?: string
+          released_at?: string | null
+          released_by?: string | null
+          share_decided_at?: string | null
         }
         Relationships: [
           {
@@ -58201,6 +58256,9 @@ export type Database = {
       circle_gift_payers: { Args: never; Returns: Json };
       share_circle_with_gift_payer: { Args: { p_payer: string; p_permissions: string[]; p_monthly_report?: boolean }; Returns: Json };
       write_family_note: { Args: { p_encounter: string; p_body: string }; Returns: string };
+      set_family_note_shared: { Args: { p_note: string; p_share: boolean }; Returns: boolean };
+      my_family_notes: { Args: never; Returns: Json };
+      dismiss_gift_payer_offer: { Args: { p_payer: string }; Returns: boolean };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
       circle_checkin_window_enabled: { Args: never; Returns: boolean };

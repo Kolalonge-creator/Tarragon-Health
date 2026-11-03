@@ -11,6 +11,9 @@
 --   6. anon has no execute; the payer test is not callable by a signed-in user.
 --   7. SABOTAGE (each must flip): the payer test always true (a stranger is added); the minor test always false (the under-18 patient is
 --      allowed); attend_consultation added to the gift-share list (it is accepted).
+--   8. "Not now" is remembered per payer: a stranger or the payer cannot write a dismissal, nobody inserts one directly, only the patient
+--      reads it, a later accepted gift from the same payer does not re-open the offer, and the patient can still share deliberately.
+--      SABOTAGE: circle_gift_payers without the dismissal clause offers the dismissed payer again.
 -- BEGIN/ROLLBACK; mints its own fixtures. Fixture orders and entitlements are written with triggers off (session_replication_role) so
 -- the proof does not depend on the checkout path, which has its own proofs.
 -- ===========================================================================
@@ -73,7 +76,7 @@ $$ select count(*)::integer from public.notifications where recipient_id = p_sup
 
 do $$
 declare
-  pt uuid; py uuid; st uuid; mn uuid; py2 uuid; ent uuid; r text; v_view text; v_payers jsonb; v_perms text;
+  pt uuid; py uuid; st uuid; mn uuid; py2 uuid; py3 uuid; ent uuid; r text; v_view text; v_payers jsonb; v_perms text;
   v_usual text[] := array['weekly_bp_trend', 'adherence_summary', 'appointments', 'red_alerts'];
 begin
   pt := pg_temp.mkuser('Gs Patient Adaeze'); py := pg_temp.mkuser('Chinedu Okafor'); st := pg_temp.mkuser('Gs Stranger');
@@ -172,14 +175,73 @@ begin
   exception when sqlstate 'P0099' then null;
   end;
   perform pg_temp.ck('7c SABOTAGE list widened: attend_consultation IS accepted (flips 3c)', 'true', coalesce((r like '{%')::text, 'false'));
+
+  -- 8. "Not now" is remembered per payer
+  py3 := pg_temp.mkuser('Ifeoma Nwosu');
+  ent := pg_temp.gift(pt, py3, 'accepted');
+  perform pg_temp.ck('8a a new payer is offered', 'Ifeoma', pg_temp.q_as(pt, 'select public.circle_gift_payers()::text')::jsonb -> 0 ->> 'first_name');
+  perform pg_temp.ck('8b a stranger cannot be dismissed (nothing to remember)', 'false/0',
+    pg_temp.q_as(pt, format('select public.dismiss_gift_payer_offer(%L::uuid)::text', st)) || '/' || (select count(*)::text from public.care_circle_gift_payer_dismissals where patient_id = pt));
+  perform pg_temp.ck('8c the payer cannot dismiss themself from the patient''s offers', 'false/0',
+    pg_temp.q_as(py3, format('select public.dismiss_gift_payer_offer(%L::uuid)::text', py3)) || '/' || (select count(*)::text from public.care_circle_gift_payer_dismissals));
+  perform pg_temp.ck('8d the patient says Not now', 'true', pg_temp.q_as(pt, format('select public.dismiss_gift_payer_offer(%L::uuid)::text', py3)));
+  perform pg_temp.ck('8e ... and is not asked again', '[]', pg_temp.q_as(pt, 'select public.circle_gift_payers()::text'));
+  ent := pg_temp.gift(pt, py3, 'accepted');
+  perform pg_temp.ck('8f a later accepted gift from the same payer does NOT re-open the offer', '[]', pg_temp.q_as(pt, 'select public.circle_gift_payers()::text'));
+  perform pg_temp.ck('8g Not now shares nothing', '0', pg_temp.members(pt, py3)::text);
+  perform pg_temp.ck('8h the dismissal is the patient''s alone to read', '1/0/0',
+    pg_temp.q_as(pt, 'select count(*)::text from public.care_circle_gift_payer_dismissals') || '/' ||
+    pg_temp.q_as(py3, 'select count(*)::text from public.care_circle_gift_payer_dismissals') || '/' ||
+    pg_temp.q_as(st, 'select count(*)::text from public.care_circle_gift_payer_dismissals'));
+  perform pg_temp.ck('8i nobody writes a dismissal directly', 'ERR:42501',
+    pg_temp.q_as(pt, format('insert into public.care_circle_gift_payer_dismissals (patient_id, payer_id, organisation_id) values (%L, %L, %L) returning ''ok''',
+                             pt, st, (select organisation_id from public.profiles where id = pt))));
+  begin
+    create or replace function public.circle_gift_payers() returns jsonb
+    language plpgsql stable security definer set search_path = ''
+    as $f$
+    declare v_uid uuid := (select auth.uid());
+    begin
+      if v_uid is null or private.circle_patient_is_minor(v_uid) then return '[]'::jsonb; end if;
+      return coalesce((
+        select jsonb_agg(jsonb_build_object('payer_id', g.payer, 'first_name', g.first_name, 'entitlement_ids', to_jsonb(g.ents),
+                                            'last_gift_at', g.last_at, 'is_member', g.is_member) order by g.last_at desc)
+          from (
+            select o.buyer_profile_id as payer,
+                   nullif(split_part(btrim(coalesce(bp.full_name, '')), ' ', 1), '') as first_name,
+                   array_agg(e.id order by e.decided_at) as ents,
+                   max(e.decided_at) as last_at,
+                   exists (select 1 from public.care_circle_members m where m.patient_id = v_uid and m.supporter_id = o.buyer_profile_id
+                              and m.state = 'active' and m.expires_at > now()) as is_member
+              from public.entitlements e
+              join public.orders o on o.id = e.order_id
+              join public.profiles bp on bp.id = o.buyer_profile_id and bp.is_active
+             where e.patient_id = v_uid and e.acceptance = 'accepted' and o.state = 'paid'
+               and o.beneficiary_patient_id = v_uid and o.buyer_profile_id <> v_uid
+             group by o.buyer_profile_id, bp.full_name
+          ) g
+         where not exists (select 1 from public.care_circle_members m
+                            where m.patient_id = v_uid and m.supporter_id = g.payer and m.state = 'active' and m.expires_at > now()
+                              and not (m.permissions <@ array['pay_for_care', 'attend_consultation']::text[]))
+      ), '[]'::jsonb);
+    end $f$;
+    r := pg_temp.q_as(pt, 'select public.circle_gift_payers()::text');
+    raise exception using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  perform pg_temp.ck('8k SABOTAGE dismissal ignored: the dismissed payer IS offered again (flips 8f)', 'true', (r like '%' || py3::text || '%')::text);
+  perform pg_temp.ck('8j the patient can still choose to share later, deliberately', 'true',
+    (pg_temp.share(pt, py3, array['appointments']) like '{%')::text);
 end $$;
 
-select verdict, check_name, observed, expected from gs_results order by verdict, check_name;
+-- only failing checks are printed (a passing run prints none), plus the count of checks that held
+select check_name, observed, expected from gs_results where verdict <> 'PASS' order by check_name;
+select count(*) as checks_held from gs_results where verdict = 'PASS';
 do $$
 declare n integer;
 begin
   select count(*) into n from gs_results where verdict <> 'PASS';
-  if n > 0 then raise exception 'circle_share_with_gift_payer: % check(s) FAILED', n; end if;
-  if (select count(*) from gs_results) < 30 then raise exception 'circle_share_with_gift_payer: fewer checks ran than expected'; end if;
+  if n > 0 then raise exception 'circle_share_with_gift_payer: % check(s) did not hold', n; end if;
+  if (select count(*) from gs_results) < 45 then raise exception 'circle_share_with_gift_payer: fewer checks ran than expected'; end if;
 end $$;
 rollback;

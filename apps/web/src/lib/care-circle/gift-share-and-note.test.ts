@@ -3,7 +3,8 @@
  * the database checks it again), what it reads back, and the null-gated note shape.
  */
 import {
-  CIRCLE_PERMISSIONS, GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, giftShareInputSchema, parseGiftPayers, parseSupporterView, payerForEntitlement,
+  CIRCLE_PERMISSIONS, GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, familyNoteShareInputSchema, giftShareInputSchema, parseGiftPayers, parseMyFamilyNotes,
+  parseSupporterView, payerForEntitlement,
 } from "./model";
 
 const PAYER_ID = "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11";
@@ -35,6 +36,19 @@ describe("gift payers", () => {
   it("finds the payer of the gift just accepted, or none", () => {
     expect(payerForEntitlement([row], "e2")?.payer_id).toBe(PAYER_ID);
     expect(payerForEntitlement([row], "e9")).toBeNull();
+  });
+});
+
+describe("the patient's own notes (patient first)", () => {
+  const row = { note_id: "6a1f0c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b", body: "Well done.", written_at: "2026-11-03T10:00:00Z", author_staff_id: null, author_name: null, shared: false, decided: false };
+  it("parses rows and drops a malformed one", () => {
+    expect(parseMyFamilyNotes([row, { ...row, shared: "yes" }])).toEqual([row]);
+    expect(parseMyFamilyNotes(undefined)).toEqual([]);
+  });
+  it("the share input needs a real note id and a yes or no", () => {
+    expect(familyNoteShareInputSchema.safeParse({ noteId: row.note_id, share: true }).success).toBe(true);
+    expect(familyNoteShareInputSchema.safeParse({ noteId: "x", share: true }).success).toBe(false);
+    expect(familyNoteShareInputSchema.safeParse({ noteId: row.note_id }).success).toBe(false);
   });
 });
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-error";
 import { GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, permissionKey, type GiftPayer, type GiftSharePermission } from "@/lib/care-circle/model";
-import { useShareWithGiftPayer } from "@/lib/queries/care-circle";
+import { useDismissGiftPayer, useShareWithGiftPayer } from "@/lib/queries/care-circle";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 // 44px touch targets everywhere a finger lands; colour changes only, and only when the person has not asked for reduced motion
@@ -35,6 +35,7 @@ export function GiftShareStep({
 }) {
   const id = useId();
   const share = useShareWithGiftPayer();
+  const dismiss = useDismissGiftPayer();
   const [ticked, setTicked] = useState<GiftSharePermission[]>([]);
   const [monthly, setMonthly] = useState(false);
   const [problem, setProblem] = useState<"nothing" | "full" | "failed" | null>(null);
@@ -58,6 +59,12 @@ export function GiftShareStep({
     setProblem(null);
     setTicked((cur) => [...new Set([...cur, ...GIFT_SHARE_USUAL])]);
     setMonthly(true);
+  }
+  /** "Not now" is remembered for this payer (never asked again). If saving the choice fails, nothing was shared either way, so the
+   * screen still says so; the offer may simply appear once more next time. */
+  function notNow() {
+    dismiss.mutate(payer.payer_id);
+    finish("not_now");
   }
   function finish(o: GiftShareOutcome) {
     setOutcome(o);
@@ -116,7 +123,7 @@ export function GiftShareStep({
         <FormError id={`${id}-error`} message={problemText} />
 
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-          <Button type="button" variant="ghost" className="min-h-11" disabled={share.isPending} onClick={() => finish("not_now")}>
+          <Button type="button" variant="ghost" className="min-h-11" disabled={share.isPending} onClick={notNow}>
             {t("giftshare.not_now", locale)}
           </Button>
           <Button type="button" className="min-h-11 sm:ml-auto" disabled={share.isPending} aria-busy={share.isPending} onClick={() => void submit()}>

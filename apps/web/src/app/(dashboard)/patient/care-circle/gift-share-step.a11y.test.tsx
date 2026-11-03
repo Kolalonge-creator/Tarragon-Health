@@ -10,9 +10,11 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { GiftShareStep } from "./gift-share-step";
 
 const share = jest.fn();
+const dismiss = jest.fn();
 let pending = false;
 jest.mock("@/lib/queries/care-circle", () => ({
   useShareWithGiftPayer: () => ({ mutateAsync: share, isPending: pending }),
+  useDismissGiftPayer: () => ({ mutate: dismiss, isPending: false }),
 }));
 
 const PAYER = { payer_id: "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11", first_name: "Chinedu", entitlement_ids: ["e1"], last_gift_at: null, is_member: false };
@@ -20,6 +22,7 @@ const box = (name: RegExp) => screen.getByRole("checkbox", { name }) as HTMLInpu
 
 beforeEach(() => {
   share.mockReset();
+  dismiss.mockReset();
   pending = false;
 });
 
@@ -68,13 +71,22 @@ describe("GiftShareStep", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/Tick at least one thing/);
   });
 
-  it("'Not now' shares nothing and says so", async () => {
+  it("'Not now' shares nothing, remembers the choice for this payer, and says so", async () => {
     const onDone = jest.fn();
     render(<GiftShareStep payer={PAYER} locale="en" onDone={onDone} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Not now" })));
     expect(share).not.toHaveBeenCalled();
+    expect(dismiss).toHaveBeenCalledWith(PAYER.payer_id);
     expect(onDone).toHaveBeenCalledWith("not_now");
-    expect(screen.getByRole("status").textContent).toMatch(/Nothing was shared/);
+    expect(screen.getByRole("status").textContent).toMatch(/Nothing was shared, and we will not ask again/);
+  });
+
+  it("sharing never records a dismissal", async () => {
+    share.mockResolvedValue({ ok: true, member_id: "m1", created: true, changed: true });
+    render(<GiftShareStep payer={PAYER} locale="en" />);
+    await act(async () => fireEvent.click(box(/next appointment/)));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Share what I ticked" })));
+    expect(dismiss).not.toHaveBeenCalled();
   });
 
   it("explains a full circle and a failure plainly", async () => {

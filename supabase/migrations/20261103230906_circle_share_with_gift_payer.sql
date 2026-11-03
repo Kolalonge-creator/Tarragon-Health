@@ -17,6 +17,9 @@
 --     second tap with the same choice changes nothing and is not re-logged. A new membership respects max_members and lasts
 --     default_grant_days. Every change writes a care_access_events row through private.log_care_access; the payer is told in-app once
 --     per membership with the neutral template circle_shared_with_you (private.circle_notify dedupes on the member row).
+--   * "Not now" is remembered per payer (public.care_circle_gift_payer_dismissals, written by dismiss_gift_payer_offer, patient-only RLS,
+--     registered in data_registry reviewed=false and staff_read_scope): circle_gift_payers never offers that payer again, even after a
+--     later accepted gift from them.
 --   * Changing or removing it later is the existing Care Circle settings (update_care_circle_member, set_circle_monthly_report_share,
 --     revoke_care_circle_member). No new table, no guard, no module.
 -- Row counts at writing (live, read-only): care_circle_members 0, entitlements accepted 0. No data is converted.
@@ -37,6 +40,52 @@ as $$
        and o.beneficiary_patient_id = p_patient and o.buyer_profile_id = p_payer and o.state = 'paid')
 $$;
 revoke all on function private.circle_is_accepted_gift_payer(uuid, uuid) from public, anon, authenticated;
+
+-- "Not now" is remembered per payer (review fix): one row per (patient, payer), written only by dismiss_gift_payer_offer, read only by the
+-- patient. A later accepted gift from the same payer does NOT bring the offer back; the patient can still invite them from the normal Care
+-- Circle settings (an invite) or call share_circle_with_gift_payer directly, which is unaffected.
+create table public.care_circle_gift_payer_dismissals (
+  patient_id       uuid not null references public.profiles (id) on delete cascade,
+  payer_id         uuid not null references public.profiles (id) on delete cascade,
+  organisation_id  uuid not null references public.organisations (id) on delete restrict,
+  is_test          boolean not null default false,
+  dismissed_at     timestamptz not null default now(),
+  primary key (patient_id, payer_id),
+  check (patient_id <> payer_id)
+);
+comment on table public.care_circle_gift_payer_dismissals is
+  'The patient said "Not now" to sharing with someone who paid for their care. Never asked again about that payer. Patient-only.';
+alter table public.care_circle_gift_payer_dismissals enable row level security;
+-- written fresh for this table: the patient reads their own rows; nobody writes directly
+create policy care_circle_gift_payer_dismissals_patient_read on public.care_circle_gift_payer_dismissals for select to authenticated
+  using (patient_id = (select auth.uid()));
+revoke all on public.care_circle_gift_payer_dismissals from public, anon, authenticated;
+grant select on public.care_circle_gift_payer_dismissals to authenticated;
+
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('care_circle_gift_payer_dismissals', 'patient_id', 'consent', 'review', true, false,
+        'The patient chose not to be asked again about sharing with a person who paid for their care. Class assigned by the migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('care_circle_gift_payer_dismissals', 'tied', 'patient_id', 'medical_history', null)
+on conflict (table_name) do nothing;
+
+create function public.dismiss_gift_payer_offer(p_payer uuid) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+declare v_uid uuid := (select auth.uid()); pr public.profiles%rowtype;
+begin
+  if v_uid is null then raise exception 'circle_not_authorised' using errcode = '42501'; end if;
+  -- only a real payer of an accepted gift can be dismissed; anything else is a quiet false (nothing to remember)
+  if not private.circle_is_accepted_gift_payer(v_uid, p_payer) then return false; end if;
+  select * into pr from public.profiles where id = v_uid;
+  insert into public.care_circle_gift_payer_dismissals (patient_id, payer_id, organisation_id, is_test)
+  values (v_uid, p_payer, pr.organisation_id, coalesce(pr.is_test, false))
+  on conflict (patient_id, payer_id) do nothing;
+  return true;
+end $$;
+revoke all on function public.dismiss_gift_payer_offer(uuid) from public, anon;
+grant execute on function public.dismiss_gift_payer_offer(uuid) to authenticated;
 
 create function public.circle_gift_payers() returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -64,6 +113,8 @@ begin
      where not exists (select 1 from public.care_circle_members m
                         where m.patient_id = v_uid and m.supporter_id = g.payer and m.state = 'active' and m.expires_at > now()
                           and not (m.permissions <@ array['pay_for_care', 'attend_consultation']::text[]))
+       -- "Not now" is remembered: a dismissed payer is never offered again, whatever they pay for later
+       and not exists (select 1 from public.care_circle_gift_payer_dismissals d where d.patient_id = v_uid and d.payer_id = g.payer)
   ), '[]'::jsonb);
 end $$;
 
@@ -148,6 +199,12 @@ begin
   if has_function_privilege('anon', 'public.circle_gift_payers()', 'EXECUTE')
      or has_function_privilege('anon', 'public.share_circle_with_gift_payer(uuid, text[], boolean)', 'EXECUTE') then
     raise exception 'gift share: anon can execute a function';
+  end if;
+  if has_function_privilege('anon', 'public.dismiss_gift_payer_offer(uuid)', 'EXECUTE')
+     or has_table_privilege('anon', 'public.care_circle_gift_payer_dismissals', 'SELECT')
+     or has_table_privilege('authenticated', 'public.care_circle_gift_payer_dismissals', 'INSERT')
+     or not (select relrowsecurity from pg_class where oid = 'public.care_circle_gift_payer_dismissals'::regclass) then
+    raise exception 'gift share: the dismissal table or function is reachable by the wrong role';
   end if;
   if has_function_privilege('authenticated', 'private.circle_is_accepted_gift_payer(uuid, uuid)', 'EXECUTE') then
     raise exception 'gift share: the payer test is callable directly';

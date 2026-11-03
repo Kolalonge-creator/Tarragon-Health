@@ -50,6 +50,7 @@ jest.mock("@/lib/queries/care-circle", () => {
     useRespondToGift: () => ({ mutateAsync: jest.fn(), isPending: false }),
     useGiftPayers: () => ({ data: [], isLoading: false }),
     useShareWithGiftPayer: () => ({ mutateAsync: jest.fn(), isPending: false }),
+    useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
   };
 });
 

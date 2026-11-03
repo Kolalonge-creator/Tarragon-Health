@@ -134,6 +134,22 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   return v;
 }
 
+/** The patient's own notes (my_family_notes): every note reaches the patient first; family sees one only after the patient shares it. */
+export interface MyFamilyNote extends DoctorNote { noteId: string; shared: boolean; decided: boolean }
+export function parseMyFamilyNotes(data: unknown): MyFamilyNote[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((n) =>
+    isObj(n) && str(n["note_id"]) && str(n["body"]) && n["body"].length >= 1 && n["body"].length <= 280 && str(n["written_at"])
+      && typeof n["shared"] === "boolean" && typeof n["decided"] === "boolean"
+      ? [{
+          noteId: n["note_id"], body: n["body"], writtenAt: n["written_at"],
+          authorStaffId: str(n["author_staff_id"]) ? n["author_staff_id"] : null, authorName: str(n["author_name"]) ? n["author_name"] : null,
+          shared: n["shared"], decided: n["decided"],
+        }]
+      : [],
+  );
+}
+
 /** The name to show for a family note: only when the database sent both the author's id and name (null-gated, never invented). */
 export function familyNoteAuthor(n: Pick<DoctorNote, "authorStaffId" | "authorName">): string | null {
   return n.authorStaffId && n.authorName ? n.authorName : null;
@@ -148,6 +164,7 @@ export type GiftSharePermission = (typeof GIFT_SHARE_PERMISSIONS)[number];
 export const GIFT_SHARE_USUAL: readonly GiftSharePermission[] = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts"];
 export interface GiftPayer { payerId: string; firstName: string | null; entitlementIds: string[] }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (x: string): boolean => UUID.test(x);
 export function parseGiftPayers(data: unknown): GiftPayer[] {
   if (!Array.isArray(data)) return [];
   return data.flatMap((r) =>

@@ -252,6 +252,29 @@ export function payerForEntitlement(payers: readonly GiftPayer[], entitlementId:
   return payers.find((p) => p.entitlement_ids.includes(entitlementId)) ?? null;
 }
 
+/**
+ * The patient's own notes from the doctor (my_family_notes): every note reaches the patient first, and family sees one only after the
+ * patient shares it. `decided` means the patient has answered (share or don't share). The author is null-gated by the database.
+ */
+export const myFamilyNoteSchema = z.object({
+  note_id: z.string().uuid(),
+  body: z.string().min(1).max(280),
+  written_at: z.string(),
+  author_staff_id: z.string().nullable(),
+  author_name: z.string().nullable(),
+  shared: z.boolean(),
+  decided: z.boolean(),
+});
+export type MyFamilyNote = z.infer<typeof myFamilyNoteSchema>;
+export function parseMyFamilyNotes(data: unknown): MyFamilyNote[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = myFamilyNoteSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+export const familyNoteShareInputSchema = z.object({ noteId: z.string().uuid(), share: z.boolean() });
+
 /** What the share call takes. Validated before anything is sent: at least one permission, none outside the offered list, no repeats. */
 export const giftShareInputSchema = z.object({
   payerId: z.string().uuid(),

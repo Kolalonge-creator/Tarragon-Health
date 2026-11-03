@@ -3,12 +3,12 @@
  * call), what is read back, the null-gated author, and that a re-read never drops a step already on screen.
  */
 import {
-  GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, CIRCLE_PERMISSIONS, familyNoteAuthor, mergeKeepingShown, parseGiftPayers, parseSupporterView, validGiftShare,
+  GIFT_SHARE_PERMISSIONS, GIFT_SHARE_USUAL, CIRCLE_PERMISSIONS, familyNoteAuthor, mergeKeepingShown, parseGiftPayers, parseMyFamilyNotes, parseSupporterView, validGiftShare,
 } from "./parse";
 
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { loadGiftPayers, shareWithGiftPayer } from "./api";
+import { dismissGiftPayer, loadGiftPayers, loadMyFamilyNotes, setFamilyNoteShared, shareWithGiftPayer } from "./api";
 
 const PAYER = "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11";
 beforeEach(() => mockRpc.mockReset());
@@ -50,6 +50,35 @@ describe("gift share", () => {
     const a = { payerId: PAYER, firstName: "Chinedu", entitlementIds: ["e1"] };
     expect(mergeKeepingShown([a], [])).toEqual([a]);
     expect(mergeKeepingShown([a], [{ ...a, entitlementIds: ["e2"] }])[0]!.entitlementIds).toEqual(["e1", "e2"]);
+  });
+});
+
+describe("Not now, and the patient's own notes (patient first)", () => {
+  const NOTE = "6a1f0c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b";
+  it("Not now is remembered for a real payer id only", async () => {
+    await expect(dismissGiftPayer("x")).resolves.toBe(false);
+    expect(mockRpc).not.toHaveBeenCalled();
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    await expect(dismissGiftPayer(PAYER)).resolves.toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith("dismiss_gift_payer_offer", { p_payer: PAYER });
+  });
+  it("reads the patient's notes and drops a malformed one; a failed read is none", async () => {
+    const row = { note_id: NOTE, body: "Well done.", written_at: "2026-11-03T10:00:00Z", author_staff_id: null, author_name: null, shared: false, decided: false };
+    mockRpc.mockResolvedValueOnce({ data: [row, { ...row, shared: "no" }], error: null });
+    const out = await loadMyFamilyNotes();
+    expect(out).toHaveLength(1);
+    expect(out[0]!.shared).toBe(false);
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    await expect(loadMyFamilyNotes()).resolves.toEqual([]);
+    expect(parseMyFamilyNotes("x")).toEqual([]);
+  });
+  it("share or un-share sends the patient's choice; a failure is null, never a guess", async () => {
+    mockRpc.mockResolvedValueOnce({ data: true, error: null });
+    await expect(setFamilyNoteShared(NOTE, true)).resolves.toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith("set_family_note_shared", { p_note: NOTE, p_share: true });
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "family_note_not_found" } });
+    await expect(setFamilyNoteShared(NOTE, false)).resolves.toBeNull();
+    await expect(setFamilyNoteShared("bad", true)).resolves.toBeNull();
   });
 });
 
