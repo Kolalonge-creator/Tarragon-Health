@@ -6,7 +6,7 @@ import type { MessageKey } from "@tarragon/i18n";
  * treated as "nothing to show" rather than rendered half-wrong. The supporter view is the only thing a supporter can read about a
  * patient; the database sends a block only when the matching permission is held, so a missing block means "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation"] as const;
+export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const permissionSchema = z.enum(CIRCLE_PERMISSIONS);
 
@@ -18,6 +18,8 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   pay_for_care: "circle.perm.pay_for_care",
   // CGJ: lives outside the `circle` namespace on purpose (the reviewed-strings ledger covers `circle.*`); see OQ-CGJ-5
   attend_consultation: "consult.cg.perm",
+  // 2026-11-03: the doctor's line for the family; outside the `circle` namespace for the same reason (pending CMO review)
+  doctor_note: "familynote.perm",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
@@ -86,6 +88,15 @@ export function parseSupported(data: unknown): SupportedPerson[] {
   });
 }
 
+/** One short line a doctor wrote for the family. `author_name` is sent only when the author is an active, named clinician. */
+export const doctorNoteSchema = z.object({
+  body: z.string().min(1).max(280),
+  written_at: z.string(),
+  author_staff_id: z.string().nullable(),
+  author_name: z.string().nullable(),
+});
+export type DoctorNote = z.infer<typeof doctorNoteSchema>;
+
 export const supporterViewSchema = z.object({
   patient_id: z.string(),
   name: z.string(),
@@ -103,6 +114,8 @@ export const supporterViewSchema = z.object({
   // S38d: monthly summary, parts present only with the matching tick; parsed field by field in @tarragon/i18n (parseCircleMonthly).
   monthly: z.array(z.unknown()).optional(),
   can_pay: z.boolean().optional(),
+  /** The doctor's line for the family: absent = not shared; null = shared but none written yet. The author is null-gated by the database. */
+  doctor_note: doctorNoteSchema.nullable().optional(),
 });
 export type SupporterView = z.infer<typeof supporterViewSchema>;
 
@@ -209,6 +222,47 @@ export function parseGiftResult(data: unknown): "accepted" | "declined" | "other
   const r = giftResultSchema.safeParse(data);
   return r.success && (r.data.result === "accepted" || r.data.result === "declined") ? r.data.result : "other";
 }
+
+/**
+ * Sharing with the person who paid (2026-11-03). The permissions offered at gift acceptance: every circle permission except the per-call
+ * attend_consultation invitation (the database refuses it on this path too). NOTHING is pre-ticked; "Share the usual" ticks exactly
+ * GIFT_SHARE_USUAL plus the monthly report.
+ */
+export const GIFT_SHARE_PERMISSIONS = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts", "doctor_note", "pay_for_care"] as const satisfies readonly CirclePermission[];
+export type GiftSharePermission = (typeof GIFT_SHARE_PERMISSIONS)[number];
+export const GIFT_SHARE_USUAL: readonly GiftSharePermission[] = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts"];
+
+export const giftPayerSchema = z.object({
+  payer_id: z.string().uuid(),
+  first_name: z.string().nullable(),
+  entitlement_ids: z.array(z.string()),
+  last_gift_at: z.string().nullable(),
+  is_member: z.boolean(),
+});
+export type GiftPayer = z.infer<typeof giftPayerSchema>;
+export function parseGiftPayers(data: unknown): GiftPayer[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = giftPayerSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+/** The payer of one accepted gift, if they are still waiting for the patient's choice. */
+export function payerForEntitlement(payers: readonly GiftPayer[], entitlementId: string): GiftPayer | null {
+  return payers.find((p) => p.entitlement_ids.includes(entitlementId)) ?? null;
+}
+
+/** What the share call takes. Validated before anything is sent: at least one permission, none outside the offered list, no repeats. */
+export const giftShareInputSchema = z.object({
+  payerId: z.string().uuid(),
+  permissions: z
+    .array(z.enum(GIFT_SHARE_PERMISSIONS))
+    .min(1)
+    .refine((ps) => new Set(ps).size === ps.length, { message: "duplicate" }),
+  monthlyReport: z.boolean(),
+});
+export type GiftShareInput = z.infer<typeof giftShareInputSchema>;
+export const giftShareResultSchema = z.object({ ok: z.literal(true), member_id: z.string(), created: z.boolean(), changed: z.boolean() });
 
 /** S29e: a supporter's non-emergency check-in request. `reason` is only ever one of these two (the database says nothing else). */
 export const checkInRequestSchema = z.union([

@@ -6,6 +6,7 @@
  *   Can see            = adherence_summary, weekly_bp_trend, appointments, red_alerts
  *   Can see and help   = the above plus pay_for_care (the supporter may also pay for care and take on the small shared tasks)
  *
+ * `doctor_note` (the doctor's line for the family, 2026-11-03) is in neither preset either: the patient ticks it on its own.
  * `attend_consultation` (CGJ) is deliberately in neither preset: it is a separate, per-call invitation. A set that includes it, or any
  * other mix, is "custom".
  *
@@ -41,7 +42,7 @@ export function presetOfPermissions(perms: readonly string[]): CirclePresetChoic
 /** What the person is told they will get, as codes. `sees` and `can` come only from the permissions held. */
 export interface CirclePreview {
   preset: CirclePresetChoice;
-  sees: Array<"adherence" | "bp" | "appointments" | "digest">;
+  sees: Array<"adherence" | "bp" | "appointments" | "digest" | "doctor_note">;
   can: Array<"alert" | "pay" | "tasks" | "call">;
 }
 
@@ -53,6 +54,8 @@ export function previewForPermissions(perms: readonly string[]): CirclePreview {
   if (has("appointments")) sees.push("appointments");
   // the weekly summary is built only from the three above, so it appears only when at least one is held
   if (sees.length > 0) sees.push("digest");
+  // the doctor's line for the family is its own permission, never part of a preset, and not part of the weekly summary
+  if (has("doctor_note")) sees.push("doctor_note");
   const can: CirclePreview["can"] = [];
   if (has("red_alerts")) can.push("alert");
   if (has("pay_for_care")) can.push("pay", "tasks");

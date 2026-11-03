@@ -25,6 +25,10 @@ import {
   parseSupported,
   parseSupporterView,
   parseViewLog,
+  parseGiftPayers,
+  giftShareInputSchema,
+  giftShareResultSchema,
+  type GiftShareInput,
   type CirclePermission,
 } from "@/lib/care-circle/model";
 
@@ -327,6 +331,8 @@ export function useRespondToGift() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: circleKeys.gifts });
       void qc.invalidateQueries({ queryKey: ["commerce"] });
+      // an accepted gift may bring a payer into the "would you like them to see" offer
+      void qc.invalidateQueries({ queryKey: ["care-circle", "gift-payers"] });
     },
   });
 }
@@ -533,6 +539,54 @@ export function useWeeklyDigest(patientId: string, enabled: boolean) {
       const { data, error } = await createClient().rpc("circle_weekly_digest", { p_patient: patientId });
       if (error) throw new CircleError(error.message);
       return parseDigest(data);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-03: sharing with the person who paid for a gift the patient accepted
+// ---------------------------------------------------------------------------
+export const giftPayersKey = ["care-circle", "gift-payers"] as const;
+
+/** Payers of accepted gifts who do not see anything yet. First name only. A missing function (app ahead of its migration) is "none". */
+export function useGiftPayers(enabled = true) {
+  return useQuery({
+    queryKey: giftPayersKey,
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_gift_payers");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseGiftPayers(data);
+    },
+  });
+}
+
+/**
+ * The patient's tap. Input is checked with Zod before anything is sent; the database checks it again (auth.uid() is the patient, the
+ * payer must have paid for a gift this patient accepted, the list is limited, under 18 is refused). Nothing is shared without this call.
+ */
+export function useShareWithGiftPayer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: GiftShareInput) => {
+      const parsed = giftShareInputSchema.safeParse(input);
+      if (!parsed.success) throw new CircleError("invite_permissions_invalid");
+      const { data, error } = await createClient().rpc("share_circle_with_gift_payer", {
+        p_payer: parsed.data.payerId,
+        p_permissions: [...parsed.data.permissions],
+        p_monthly_report: parsed.data.monthlyReport,
+      });
+      if (error) throw new CircleError(error.message);
+      const r = giftShareResultSchema.safeParse(data);
+      if (!r.success) throw new CircleError("unknown");
+      return r.data;
+    },
+    // the circle list changes; the offer list is left alone on purpose so the step that was just answered stays on screen with its
+    // confirmation (it drops off on the next visit)
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.mine });
+      void qc.invalidateQueries({ queryKey: ["care-circle", "preview-member"] });
     },
   });
 }

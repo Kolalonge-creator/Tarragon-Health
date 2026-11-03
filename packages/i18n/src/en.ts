@@ -1,6 +1,7 @@
 import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { circleToolsCopy } from "./care-circle-tools-copy";
+import { familyCircleCopy } from "./family-circle-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -4958,6 +4959,8 @@ export const en = {
   ...cycleCopy,
   // S69b: Care Circle presets, preview, shared jobs, digest, nudge (proposed copy, CMO and DPO review pending: see care-circle-tools-copy.ts)
   ...circleToolsCopy,
+  // 2026-11-03: share with the person who paid, and the doctor's line for the family (proposed copy, CMO and DPO review pending: see family-circle-copy.ts)
+  ...familyCircleCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

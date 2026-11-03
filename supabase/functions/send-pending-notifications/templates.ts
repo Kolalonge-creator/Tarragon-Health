@@ -1769,6 +1769,22 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has paid for care for you.\n\nOpen Tarragon Health to accept it. Nothing starts until you say yes.\n\nTarragon Health",
     },
   }),
+  // 2026-11-03: a patient chose to share a little of how they are doing with the person who paid for their care. In-app only from the
+  // database. Fixed neutral copy: no name, no condition, nothing about what is shared (INV-07); the payload is never echoed.
+  circle_shared_with_you: () => ({
+    smsText: "Someone has added you to their Care Circle. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone has added you to their Care Circle",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone you paid for care for has added you to their Care Circle.</p>` +
+        `<p>Open Tarragon Health to see what they chose to share.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone you paid for care for has added you to their Care Circle.\n\nOpen Tarragon Health to see what they chose to share.\n\nTarragon Health",
+    },
+  }),
   // S38c: the monthly progress summary is ready. Fixed neutral copy: no condition, reading, number or name (INV-07); the payload is never echoed.
   monthly_report_ready: () => ({
     smsText: "Your monthly summary is ready. Open Tarragon Health. Tarragon Health",

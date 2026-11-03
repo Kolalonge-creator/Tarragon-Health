@@ -19193,6 +19193,78 @@ export type Database = {
           },
         ]
       }
+      family_doctor_notes: {
+        Row: {
+          appointment_id: string | null
+          author_staff_id: string
+          body: string
+          created_at: string
+          encounter_id: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          author_staff_id: string
+          body: string
+          created_at?: string
+          encounter_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id: string
+        }
+        Update: {
+          appointment_id?: string | null
+          author_staff_id?: string
+          body?: string
+          created_at?: string
+          encounter_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_doctor_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_author_staff_id_fkey"
+            columns: ["author_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_encounter_id_fkey"
+            columns: ["encounter_id"]
+            isOneToOne: false
+            referencedRelation: "encounters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_waitlist: {
         Row: {
           created_at: string
@@ -58126,6 +58198,9 @@ export type Database = {
       circle_weekly_digest: { Args: { p_patient: string }; Returns: Json };
       circle_recent_nudges: { Args: never; Returns: Json };
       circle_check_in_pending: { Args: never; Returns: Json };
+      circle_gift_payers: { Args: never; Returns: Json };
+      share_circle_with_gift_payer: { Args: { p_payer: string; p_permissions: string[]; p_monthly_report?: boolean }; Returns: Json };
+      write_family_note: { Args: { p_encounter: string; p_body: string }; Returns: string };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
       circle_checkin_window_enabled: { Args: never; Returns: boolean };

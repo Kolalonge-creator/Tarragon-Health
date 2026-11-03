@@ -12,7 +12,7 @@
  */
 
 /** The codes @tarragon/shared previewForPermissions returns (declared here because this package does not depend on shared; a test in the web app keeps them equal). */
-export type CircleSeesCode = "adherence" | "bp" | "appointments" | "digest";
+export type CircleSeesCode = "adherence" | "bp" | "appointments" | "digest" | "doctor_note";
 export type CircleCanCode = "alert" | "pay" | "tasks" | "call";
 
 export const circleToolsCopy = {
@@ -36,6 +36,7 @@ export const circleToolsCopy = {
   "cctools.preview.sees.bp": "A weekly blood pressure trend, as averages only. Never a single reading.",
   "cctools.preview.sees.appointments": "The next appointment, and whether any were missed. Never the reason.",
   "cctools.preview.sees.digest": "A short weekly note, for example how many days readings were logged.",
+  "cctools.preview.sees.doctor_note": "A short line from the doctor for the family after a consultation. Never results, diagnoses or medicine names.",
   "cctools.preview.can.alert": "Be asked to check in when your care team sees something urgent. They see only a name, never what happened.",
   "cctools.preview.can.pay": "Pay for care. Paying shows no health information.",
   "cctools.preview.can.tasks": "Take on small shared jobs, like a lift to the lab or collecting medicines.",
@@ -118,6 +119,7 @@ const SEES_KEYS: Readonly<Record<CircleSeesCode, CircleToolsCopyKey>> = {
   bp: "cctools.preview.sees.bp",
   appointments: "cctools.preview.sees.appointments",
   digest: "cctools.preview.sees.digest",
+  doctor_note: "cctools.preview.sees.doctor_note",
 };
 const CAN_KEYS: Readonly<Record<CircleCanCode, CircleToolsCopyKey>> = {
   alert: "cctools.preview.can.alert",

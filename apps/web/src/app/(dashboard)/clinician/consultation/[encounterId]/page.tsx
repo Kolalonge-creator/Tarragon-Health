@@ -12,6 +12,8 @@ import { clinicianCheckinsSchema } from "@/lib/consult-checkin/model";
 import { LiveRedFlagPrompts } from "@/components/consultation/live-redflag-prompts";
 import { ClinicianIntakePanel, type ClinicianIntake } from "@/components/consultation/clinician-intake-panel";
 import { parsePatientHeader, PatientRecordLink } from "@/components/consultation/patient-record-link";
+import { FamilyNoteForm } from "@/components/consultation/family-note-form";
+import { savedFamilyNoteSchema, type SavedFamilyNote } from "@/lib/consultations/family-note";
 
 /**
  * S21: the clinician's consultation room. Only the clinician the consultation is assigned to is answered (INV-12);
@@ -61,6 +63,21 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
   // read renders nothing (the guard stays off by default and the server refuses a record while it is off).
   const { data: livePromptsOpen } = await supabase.rpc("go_live_guard_is_open" as never, { p_key: "live_redflag_prompts_enabled" } as never);
 
+  // 2026-11-03: once the consultation is finished, the doctor may leave one short line for the family. The latest line this doctor
+  // saved is read under the author's own RLS policy; a failed read just shows an empty form (saving is still checked by the database).
+  let latestFamilyNote: SavedFamilyNote | null = null;
+  if (view.status === "completed") {
+    const { data: noteRow } = await supabase
+      .from("family_doctor_notes")
+      .select("body, created_at")
+      .eq("encounter_id", encounterId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const parsedNote = savedFamilyNoteSchema.safeParse(noteRow);
+    latestFamilyNote = parsedNote.success ? parsedNote.data : null;
+  }
+
   return (
     <DashboardPlaceholder greeting="Consultation" roleLabel="Clinician" comingUp={[]}>
       <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
@@ -88,6 +105,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
       <ConsultCheckinsCard checkins={checkinParsed.success ? checkinParsed.data : null} failed={checkinFailed} />
       {livePromptsOpen === true && <LiveRedFlagPrompts encounterId={encounterId} />}
       <ConsultationRoom view={view} locale="en" call={callPolicy ? { policy: callPolicy } : null} />
+      {view.status === "completed" && <FamilyNoteForm encounterId={encounterId} latest={latestFamilyNote} locale="en" />}
     </DashboardPlaceholder>
   );
 }

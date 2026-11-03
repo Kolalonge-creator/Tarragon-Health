@@ -44,6 +44,19 @@ describe("SupporterView", () => {
     await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
   });
 
+  it("shows the doctor's line for the family only when it was sent, with the name null-gated", async () => {
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByText("A note from the doctor")).toBeNull();
+    cleanup();
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "She did well today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: "s1", author_name: "Dr Amara Eze" } },
+    };
+    await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByText("She did well today.")).toBeTruthy();
+    expect(screen.getByText("From Dr Amara Eze")).toBeTruthy();
+  });
+
   it("shows weekly averages and a direction, never a single reading", () => {
     view = {
       isPending: false,

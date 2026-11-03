@@ -5,7 +5,7 @@ import { parseCircleMonthly, type CircleMonthlyRow, type MessageKey } from "@tar
  * that is not what was expected means "nothing to show". The supporter view is the only thing a supporter can read about a
  * patient; a block that is absent is "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation"] as const;
+export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const GRANT_DAY_CHOICES = [30, 90, 365] as const;
 
@@ -16,6 +16,8 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   red_alerts: "circle.perm.red_alerts",
   pay_for_care: "circle.perm.pay_for_care",
   attend_consultation: "consult.cg.perm",
+  // 2026-11-03: the doctor's line for the family (outside `circle.` on purpose: pending CMO review)
+  doctor_note: "familynote.perm",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
@@ -39,7 +41,10 @@ export interface SupporterView {
   /** S38d: month by month, each part only with the matching tick. */
   monthly?: CircleMonthlyRow[];
   canPay: boolean;
+  /** The doctor's line for the family: absent = not shared; null = shared but none written yet. The author is null-gated by the database. */
+  doctorNote?: DoctorNote | null;
 }
+export interface DoctorNote { body: string; writtenAt: string; authorStaffId: string | null; authorName: string | null }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const str = (x: unknown): x is string => typeof x === "string";
@@ -119,7 +124,53 @@ export function parseSupporterView(data: unknown): SupporterView | null {
   if (Array.isArray(data["monthly"])) v.monthly = parseCircleMonthly(data["monthly"]);
   const p = data["appointments"];
   if (isObj(p) && num(p["missed_30d"])) v.appointments = { nextAt: str(p["next_at"]) ? p["next_at"] : null, missed30d: p["missed_30d"] };
+  if (Object.prototype.hasOwnProperty.call(data, "doctor_note")) {
+    const n = data["doctor_note"];
+    if (n === null) v.doctorNote = null;
+    else if (isObj(n) && str(n["body"]) && n["body"].length >= 1 && n["body"].length <= 280 && str(n["written_at"])) {
+      v.doctorNote = { body: n["body"], writtenAt: n["written_at"], authorStaffId: str(n["author_staff_id"]) ? n["author_staff_id"] : null, authorName: str(n["author_name"]) ? n["author_name"] : null };
+    }
+  }
   return v;
+}
+
+/** The name to show for a family note: only when the database sent both the author's id and name (null-gated, never invented). */
+export function familyNoteAuthor(n: Pick<DoctorNote, "authorStaffId" | "authorName">): string | null {
+  return n.authorStaffId && n.authorName ? n.authorName : null;
+}
+
+/**
+ * Sharing with the person who paid (2026-11-03). Every circle permission except the per-call attend_consultation invitation (the
+ * database refuses it here too). NOTHING is pre-ticked; "Share the usual" ticks exactly GIFT_SHARE_USUAL plus the monthly report.
+ */
+export const GIFT_SHARE_PERMISSIONS = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts", "doctor_note", "pay_for_care"] as const satisfies readonly CirclePermission[];
+export type GiftSharePermission = (typeof GIFT_SHARE_PERMISSIONS)[number];
+export const GIFT_SHARE_USUAL: readonly GiftSharePermission[] = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts"];
+export interface GiftPayer { payerId: string; firstName: string | null; entitlementIds: string[] }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function parseGiftPayers(data: unknown): GiftPayer[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r) =>
+    isObj(r) && str(r["payer_id"]) && UUID.test(r["payer_id"]) && Array.isArray(r["entitlement_ids"]) && r["entitlement_ids"].every(str)
+      ? [{ payerId: r["payer_id"], firstName: str(r["first_name"]) ? r["first_name"] : null, entitlementIds: r["entitlement_ids"] as string[] }]
+      : [],
+  );
+}
+/** A re-read adds newly eligible payers but never drops one already on screen, so an answered step keeps its confirmation in view. */
+export function mergeKeepingShown(shown: readonly GiftPayer[], next: readonly GiftPayer[]): GiftPayer[] {
+  const out = [...shown];
+  for (const p of next) {
+    const i = out.findIndex((x) => x.payerId === p.payerId);
+    const cur = i === -1 ? undefined : out[i];
+    if (cur === undefined) out.push(p);
+    else out[i] = { ...cur, entitlementIds: [...new Set([...cur.entitlementIds, ...p.entitlementIds])] };
+  }
+  return out;
+}
+/** What the share call may send: at least one permission, only offered ones, no repeats, a real payer id. Checked before sending. */
+export function validGiftShare(payerId: string, permissions: readonly string[]): permissions is GiftSharePermission[] {
+  return UUID.test(payerId) && permissions.length > 0 && new Set(permissions).size === permissions.length
+    && permissions.every((p) => (GIFT_SHARE_PERMISSIONS as readonly string[]).includes(p));
 }
 
 /** True when the access ends within `days` days (the first notice window, 14 by default) and has not already ended. */

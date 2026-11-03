@@ -3,8 +3,9 @@ import {
   CIRCLE_PRESET_IDS, CIRCLE_PRESET_PERMISSIONS, CIRCLE_TASK_KINDS, permissionsForPreset, presetOfPermissions, previewForPermissions, withoutCrossOrganisation,
 } from "./care-circle-presets";
 
-// The names the database check accepts today (private.circle_permissions_valid): the five of S29 plus CGJ's attend_consultation.
-const DATABASE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation"];
+// The names the database check accepts today (private.circle_permissions_valid): the five of S29, CGJ's attend_consultation and the
+// doctor's line for the family (doctor_note, 2026-11-03).
+const DATABASE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"];
 
 describe("Care Circle presets (S69b)", () => {
   it("maps onto permissions the database already knows, and adds no new name", () => {
@@ -20,6 +21,12 @@ describe("Care Circle presets (S69b)", () => {
 
   it("neither preset includes the per-call consultation permission", () => {
     for (const id of CIRCLE_PRESET_IDS) expect(CIRCLE_PRESET_PERMISSIONS[id]).not.toContain("attend_consultation");
+  });
+
+  it("neither preset includes the doctor's line for the family; ticking it alone shows only that, with no weekly summary", () => {
+    for (const id of CIRCLE_PRESET_IDS) expect(CIRCLE_PRESET_PERMISSIONS[id]).not.toContain("doctor_note");
+    expect(previewForPermissions(["doctor_note"])).toEqual({ preset: "custom", sees: ["doctor_note"], can: [] });
+    expect(previewForPermissions([...permissionsForPreset("see"), "doctor_note"]).sees).toEqual(["adherence", "bp", "appointments", "digest", "doctor_note"]);
   });
 
   it("recognises a preset in any order, and anything else is custom", () => {
