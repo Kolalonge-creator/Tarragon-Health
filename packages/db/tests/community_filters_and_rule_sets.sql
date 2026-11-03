@@ -15,6 +15,10 @@
 --   psql -f packages/db/tests/community_filters_and_rule_sets.sql   (against a database where the community migrations are applied)
 
 begin;
+-- The community overdue check also runs inside the database every 10 minutes (20261102135310_community_overdue_check_runs_in_pg_cron.sql),
+-- so a CI replay that crosses a ten-minute boundary already carries a successful 'overdue' heartbeat by the time this script runs,
+-- and the 'fresh database' expectations below would then depend on the clock. Clear it here, inside this rolled-back transaction.
+delete from public.community_job_runs where job = 'overdue';
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
