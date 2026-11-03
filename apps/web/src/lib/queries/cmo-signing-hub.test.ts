@@ -99,6 +99,10 @@ const readPendingBaselineLabsRuleSignoff = jest.fn<(...args: unknown[]) => Promi
 jest.mock("@/lib/queries/pending-baseline-labs-rule-signoff", () => ({
   readPendingBaselineLabsRuleSignoff: (...args: unknown[]) => readPendingBaselineLabsRuleSignoff(...args),
 }));
+const readPendingBpTargetSignoff = jest.fn<(...args: unknown[]) => Promise<{ version: number | null; view: unknown; liveVersion: number | null; currentDefault?: unknown; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-bp-target-signoff", () => ({
+  readPendingBpTargetSignoff: (...args: unknown[]) => readPendingBpTargetSignoff(...args),
+}));
 const readBaselineLabsOverrideAttention = jest.fn<(...args: unknown[]) => Promise<{ overdue: number; used30d: number; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-baseline-labs-override-attention", () => ({
   ...jest.requireActual<object>("@/lib/queries/pending-baseline-labs-override-attention"),
@@ -242,6 +246,8 @@ beforeEach(() => {
   readPendingCareGapConfigSignoff.mockResolvedValue(noPostCheckin);
   readPendingBaselineLabsRuleSignoff.mockReset();
   readPendingBaselineLabsRuleSignoff.mockResolvedValue({ version: null, rule: null, failed: false });
+  readPendingBpTargetSignoff.mockReset();
+  readPendingBpTargetSignoff.mockResolvedValue({ version: null, view: null, liveVersion: null, failed: false });
   readBaselineLabsOverrideAttention.mockReset();
   readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 0, used30d: 0, failed: false });
   readPendingSymptomUxSignoff.mockReset();
@@ -417,6 +423,30 @@ describe("readCmoSigningHub: care gap rules (S90)", () => {
     const hub = await hubAll(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the care gap rules");
+  });
+});
+
+describe("readCmoSigningHub: blood pressure targets (D-09)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one clinical line on the hub, under /clinician, for an unsigned version", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingBpTargetSignoff.mockResolvedValue({ version: 1, view: null, liveVersion: null, currentDefault: { systolic: 140, diastolic: 90 }, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === "bp_target_config");
+    expect(line?.count).toBe(1);
+    expect(line?.href).toBe("/clinician/clinical-signoff");
+    // the "before" figure comes from the database, never a literal in the copy
+    expect(line?.detail).toMatch(/judged against 140\/90/);
+    expect(hub.operational.find((i) => i.key === "bp_target_config")).toBeUndefined();
+  });
+  it("adds no line once signed, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingBpTargetSignoff.mockResolvedValue({ version: null, view: null, liveVersion: 1, failed: false });
+    expect((await hubAll(supabase)).items.find((i) => i.key === "bp_target_config")).toBeUndefined();
+    readPendingBpTargetSignoff.mockResolvedValue({ version: null, view: null, liveVersion: null, failed: true });
+    const hub = await hubAll(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the blood pressure targets");
   });
 });
 
@@ -1089,6 +1119,7 @@ describe("readCmoSigningHub: G-01, clinical protocols versus operational setting
     expect(isClinicalSignoff(CLINICAL_RULES_ITEM_KEY)).toBe(true);
     expect(isClinicalSignoff(PROTOCOL_DRAFTS_ITEM_KEY)).toBe(true);
     expect(isClinicalSignoff("ai_governance")).toBe(true);
+    expect(isClinicalSignoff("bp_target_config")).toBe(true);
     expect(isClinicalSignoff(OPS_DESK_CONFIG_ITEM_KEY)).toBe(false);
     expect(isClinicalSignoff(PAGING_DELIVERY_CONFIG_ITEM_KEY)).toBe(false);
     expect(isClinicalSignoff(TASK_LAYER_CONFIG_ITEM_KEY)).toBe(false);

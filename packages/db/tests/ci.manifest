@@ -1819,3 +1819,5 @@ consultations_log_admin_and_cmo.sql
 consultation_pages_name_the_patient.sql
 # video visit price single source: the older request route quotes exactly what it charges (product price, organisation override, off = null, anon refused). Sabotage: the pre-fix reading of the organisation-less row makes quote and charge disagree.
 video_visit_price_single_source.sql
+# D-09 BP targets: only the active CMO can sign bp_target_config (senior doctor, admin, patient refused; anon has no execute); the hub reader is CMO/admin only and reports the current default; out-of-range or unknown-context drafts refused; signing activates v1 with the signer's clinical_staff id and an audit row; once signed the monthly report judges a home average against 135/85 (140/90 before) while risk scoring and the Membership offer keep 140/90; a personal target still wins. Sabotage: the CMO check made always true lets a senior doctor sign.
+bp_target_config_signing.sql
