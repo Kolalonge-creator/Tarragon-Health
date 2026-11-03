@@ -32,7 +32,7 @@ export default async function HypertensionPage() {
         <ConditionRiskNote
           eyebrow="Why this matters"
           statement="Most complications of hypertension do not come from one high reading. They come from months of gradual rise that nobody was monitoring."
-          support="A blood pressure cuff only shows you your blood pressure at the moment you use it. Tarragon's care team follows the trend between your visits, so a slow rise leads to a call from us instead of a surprise."
+          support="A blood pressure cuff only shows you your blood pressure at the moment you use it. With Membership, a doctor on your care team follows the trend between your visits, so a slow rise leads to a call instead of a surprise."
         />
       }
     >

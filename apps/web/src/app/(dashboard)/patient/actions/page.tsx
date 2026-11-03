@@ -6,25 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON, NAV_ICON, APP_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-import {
-  resolveActionCentreItems,
-  bucketActionItems,
-  daysLabel,
-  type ActionItem,
-} from "./actions-data";
+import { resolveActionCentreItems, bucketActionItems, type ActionItem } from "./actions-data";
+import { daysLabel, isOverdue } from "@/lib/patient/due-label";
 
 /** Shared list rendering for every bucket below — same icon + type label +
  * title-as-Link + trailing days shape as CareScheduleCard's list items, so
  * the Action Centre reads as the same design system, just the full list
  * instead of the nearest-one summary. */
 function ActionList({ items }: { items: ActionItem[] }) {
-  const today = new Date().toISOString().slice(0, 10);
-
   return (
     <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
       {items.map((item, i) => {
         const Icon = APP_ICON[item.icon] ?? SEMANTIC_ICON.carePlan;
-        const isOverdue = item.dueDate !== null && item.dueDate < today;
+        const overdue = item.dueDate !== null && isOverdue(item.dueDate, item.graceDays ?? 0);
         return (
           <li key={i} className="flex items-start gap-3 py-2.5">
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50 dark:text-night-ink/55" aria-hidden />
@@ -40,10 +34,10 @@ function ActionList({ items }: { items: ActionItem[] }) {
               <span
                 className={cn(
                   "shrink-0 whitespace-nowrap text-xs",
-                  isOverdue ? "font-medium text-red-700 dark:text-red-300" : "text-charcoal-ink/50 dark:text-night-ink/55"
+                  overdue ? "font-medium text-red-700 dark:text-red-300" : "text-charcoal-ink/50 dark:text-night-ink/55"
                 )}
               >
-                {daysLabel(item.dueDate)}
+                {daysLabel(item.dueDate, item.graceDays ?? 0)}
               </span>
             ) : (
               <Badge variant="amber" className="shrink-0">
@@ -111,11 +105,11 @@ export default async function PatientActionsPage() {
         </Card>
       )}
 
-      {/* Due today always renders — Today's doses is the one working,
-          separately-fetched piece of "due today" that already exists, so it
+      {/* Due now always renders — Today's doses is the one working,
+          separately-fetched piece of "due now" that already exists, so it
           composes here rather than being re-derived into the merged list. */}
       <div className="space-y-4">
-        <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Due today</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Due now</h2>
         <TodaysDoses patientId={subjectId} />
         {buckets.dueToday.length > 0 && (
           <Card>

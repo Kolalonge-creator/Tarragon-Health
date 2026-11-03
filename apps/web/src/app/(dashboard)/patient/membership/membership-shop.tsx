@@ -425,7 +425,9 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           </select>
         </fieldset>
       ) : null}
-      {catalogue.isSuccess && items.length === 0 ? (
+      {/* "Not open yet, join the list" is for someone who cannot buy yet. A person already holding a Membership (granted, or bought
+          while checkout was on) is told what they have above; offering them a waiting list for the thing they hold reads as broken. */}
+      {catalogue.isSuccess && items.length === 0 && !membership.data?.is_member ? (
         <div className="space-y-3">
           <p>{t("shop.not_open", locale)}</p>
           <JoinWaitlist feature="membership" />

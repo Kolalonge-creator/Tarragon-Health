@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Physical Activity Intensity Calculator",
   description:
-    "Free physical activity intensity calculator. Estimate calories burned and see how a session counts towards Who is weekly activity guideline. No sign-up.",
+    "Free physical activity intensity calculator. Estimate calories burned and see how a session counts towards the WHO weekly activity guideline. No sign-up.",
   path: MARKETING_ROUTES.activityCalculator,
 });
 

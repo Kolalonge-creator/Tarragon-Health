@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
@@ -24,7 +24,24 @@ export default async function HeartAgePage() {
   const supabase = await createClient();
   const { data: flags } = await supabase.rpc("my_feature_flags");
   const isEnabled = (flags as Record<string, boolean> | null)?.heart_age_card === true;
-  if (!isEnabled) notFound();
+  // Off until a Clinical Director signs the estimate off. A plain notice rather than a 404: the address is on the Home card's
+  // link and in old notifications, and a "page not found" reads as a broken app.
+  if (!isEnabled) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Heart age"
+          icon={SEMANTIC_ICON.preventive}
+          backTo={{ href: "/patient", label: "Overview" }}
+          description="An estimate of how your heart's risk compares with your actual age."
+        />
+        <p className="rounded-2xl border border-charcoal-ink/10 bg-white p-5 text-sm text-charcoal-ink/70 dark:border-night-ink/15 dark:bg-night-card dark:text-night-ink/70">
+          Heart age is not switched on for your account yet. Your Health Score on the Overview covers the same everyday numbers in
+          the meantime.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -689,6 +689,17 @@ Design note: `docs/design/GATE-MODEL.md`. Migration `20261029223751_gate_model_m
 The migration switches nothing on. Opening the standalone features live is the founder's act from the go-live page (one click each,
 attributed and logged), chosen over a migration flip so the audit trail names a person and the CI replay keeps its meaning.
 
+## Founder decisions, 2026-11-03 (public site wording, PR #1644)
+
+Chosen from selectable prompts during the marketing-site pass. Copy only; no catalogue row, price or database object changed.
+
+| ID | Decision | Rationale | Where it landed |
+|---|---|---|---|
+| **MS-01** | Reading a laboratory result with a doctor is part of Membership, never a product of its own. The Written Result Interpretation and Result Consultation catalogue rows stay inactive. | Nobody ever bought one, and the page contradicted itself three ways. On every plan an abnormal result reaches a doctor; Membership adds a doctor going through the whole result on the monthly call or as a written question. | `/result-interpretation` rewritten. |
+| **MS-02** | Synlab Nigeria is described as the contracted laboratory partner; a patient on Free or Membership can take a test request to Synlab or to any other laboratory and pays the laboratory directly. "Partner-billing agreement" is dropped from public copy. | Every laboratory order to date is self-arranged, and every other page says you pay the laboratory. | `_content/partners.ts`, `/partners`. |
+| **MS-04** | `/annual-health-check` describes the one yearly panel that exists, the Membership Plus panel (the YEARLY_PANEL_TESTS list), and no longer offers Core, Advanced or Comprehensive screens, an included doctor consultation, imaging, or a "Full Panel" upgrade. The screening-journey, prevention, for-you and services copy that pointed at those tiers follows. | TT-4 and T-3 already made those bundles legacy and unsellable; the page was still selling them "you pay the lab, once". | `annual-health-check/page.tsx` rewritten; `what-we-measure.tsx` (the tier-badged test list) removed. |
+| **MS-03** | The Membership Plus yearly blood panel is taken at a testing day: when a member's panel is due, the app shows the open testing days (date and venue), the member chooses the one that suits them, Tarragon's team takes the samples there and the partner laboratory for that day tests them. It is included in the Membership Plus price. Tarragon runs no laboratory, clinic or collection site of its own, so no address is published; venues and dates are shown in the app when the panel is due. **Corrected the same day:** the first wording said "Tarragon's own laboratory team at a Tarragon location", which contradicted CLAUDE.md's "no owned clinics" rule; the founder confirmed Tarragon runs no lab location. | Founder instruction in chat, 2026-11-03, corrected in chat the same day. Matches the shipped model: `testing_events` of kind `public_day` (venue, date, capacity, `lab_provider_id`), booked from `/patient/testing-days`. | `PLUS_PANEL_WHERE` in `_content/pricing-ladder.ts` (pricing page, pricing FAQ, `/partners`), the labs page intro, the "You pay the laboratory" label, and the catalogue strings `catalog.membership_annual.incl.1` / `catalog.membership_upgrade_plus.incl.1`. |
+
 ## Founder decision, 2026-10-30 (TSH is not part of the yearly blood panel)
 
 | ID | Decision | Rationale | Where it landed |

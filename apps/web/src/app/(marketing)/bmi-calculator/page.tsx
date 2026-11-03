@@ -98,7 +98,7 @@ export default async function BmiCalculatorPage() {
                 Weight Health programme
               </Link>{" "}
               offers support that begins with lifestyle changes and without judgement. A doctor reviews
-              your progress and adjusts medication or guidance as needed.
+              your progress and adjusts your plan as needed.
             </p>
           </div>
         </div>

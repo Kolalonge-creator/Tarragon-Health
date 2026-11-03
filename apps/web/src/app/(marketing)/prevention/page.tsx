@@ -60,7 +60,7 @@ const SCREENING_GROUPS = [
       "A full childhood immunisation record for each of your children, following the same recognised schedule as their paper card, but one that cannot be lost",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
-      "Optional cycle tracking for women, with gentle reminders: an estimated date for your next period (an estimate, not a prediction), a reminder to book antenatal care once you are pregnant, or a prompt to talk to your care team as perimenopause or menopause begins",
+      "Optional cycle tracking for women, with gentle reminders: an estimated date for your next period, a reminder to book antenatal care once you are pregnant, or a prompt to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {
@@ -77,11 +77,11 @@ const ABNORMAL_STEPS = [
   },
   {
     title: "You hear from your care team fast",
-    body: "Your care team contacts you within hours rather than weeks, and explains what the result means in plain language.",
+    body: "A doctor follows up within 24 hours, or within 12 hours if the result is critical, and explains what the result means in plain language.",
   },
   {
     title: "Follow-up until the matter is resolved",
-    body: "If the result needs ongoing attention, your record moves into long-term care monitoring on the same platform, with the same record and the same care team, so you do not start again, and there is no extra charge for the follow-up.",
+    body: "If the result needs ongoing attention, your record moves into long-term care monitoring on the same platform, with the same record and the same care team, so you do not start again. An abnormal screening result always gets doctor follow-up, on every plan; ongoing review is part of Membership.",
   },
 ];
 
@@ -138,9 +138,11 @@ export default async function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
-          price on any test and take no commission. The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> has several levels.
-          You choose how thorough you want it to be, and a doctor reviews every level.
+          price on any test and take no commission. With Membership Plus, the{" "}
+          <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            yearly blood panel
+          </Link>{" "}
+          is taken at a testing day you choose and read with your care team.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you are not sure which screenings apply to you, follow the{" "}

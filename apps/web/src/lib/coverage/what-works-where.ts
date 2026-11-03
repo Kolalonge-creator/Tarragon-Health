@@ -148,7 +148,8 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
   {
     key: "home_visit",
     label: "Home sample collection",
-    detail: "Someone comes to the house to draw a sample.",
+    detail:
+      "Not offered at the moment. Tarragon does not collect samples at home; you attend the laboratory you choose, and it would only ever be offered in a state with a contracted partner.",
     locality: "in_nigeria",
     gatedBy: "home_visit",
   },
