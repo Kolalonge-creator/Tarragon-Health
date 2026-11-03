@@ -1,0 +1,2454 @@
+{
+  "rules": [
+    {
+      "code": "p01_lisinopril_losartan",
+      "ingredientA": "lisinopril",
+      "ingredientB": "losartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lisinopril page, entry \"losartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p01_lisinopril_valsartan",
+      "ingredientA": "lisinopril",
+      "ingredientB": "valsartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lisinopril page, entry \"valsartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p01_lisinopril_telmisartan",
+      "ingredientA": "lisinopril",
+      "ingredientB": "telmisartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lisinopril page, entry \"telmisartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p01_lisinopril_irbesartan",
+      "ingredientA": "lisinopril",
+      "ingredientB": "irbesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lisinopril page, entry \"irbesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p01_lisinopril_candesartan",
+      "ingredientA": "lisinopril",
+      "ingredientB": "candesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lisinopril page, entry \"candesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p01_ramipril_losartan",
+      "ingredientA": "ramipril",
+      "ingredientB": "losartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, ramipril page, entry \"losartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p01_ramipril_valsartan",
+      "ingredientA": "ramipril",
+      "ingredientB": "valsartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, ramipril page, entry \"valsartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p01_ramipril_telmisartan",
+      "ingredientA": "ramipril",
+      "ingredientB": "telmisartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, ramipril page, entry \"telmisartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p01_ramipril_irbesartan",
+      "ingredientA": "ramipril",
+      "ingredientB": "irbesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, ramipril page, entry \"irbesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p01_ramipril_candesartan",
+      "ingredientA": "ramipril",
+      "ingredientB": "candesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, ramipril page, entry \"candesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p01_enalapril_losartan",
+      "ingredientA": "enalapril",
+      "ingredientB": "losartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enalapril page, entry \"losartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p01_enalapril_valsartan",
+      "ingredientA": "enalapril",
+      "ingredientB": "valsartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enalapril page, entry \"valsartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p01_enalapril_telmisartan",
+      "ingredientA": "enalapril",
+      "ingredientB": "telmisartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enalapril page, entry \"telmisartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p01_enalapril_irbesartan",
+      "ingredientA": "enalapril",
+      "ingredientB": "irbesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enalapril page, entry \"irbesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p01_enalapril_candesartan",
+      "ingredientA": "enalapril",
+      "ingredientB": "candesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enalapril page, entry \"candesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p01_perindopril_losartan",
+      "ingredientA": "perindopril",
+      "ingredientB": "losartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, perindopril page, entry \"losartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p01_perindopril_valsartan",
+      "ingredientA": "perindopril",
+      "ingredientB": "valsartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, perindopril page, entry \"valsartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p01_perindopril_telmisartan",
+      "ingredientA": "perindopril",
+      "ingredientB": "telmisartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, perindopril page, entry \"telmisartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p01_perindopril_irbesartan",
+      "ingredientA": "perindopril",
+      "ingredientB": "irbesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, perindopril page, entry \"irbesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p01_perindopril_candesartan",
+      "ingredientA": "perindopril",
+      "ingredientB": "candesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, perindopril page, entry \"candesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p01_captopril_losartan",
+      "ingredientA": "captopril",
+      "ingredientB": "losartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, captopril page, entry \"losartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p01_captopril_valsartan",
+      "ingredientA": "captopril",
+      "ingredientB": "valsartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, captopril page, entry \"valsartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p01_captopril_telmisartan",
+      "ingredientA": "captopril",
+      "ingredientB": "telmisartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, captopril page, entry \"telmisartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p01_captopril_irbesartan",
+      "ingredientA": "captopril",
+      "ingredientB": "irbesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, captopril page, entry \"irbesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p01_captopril_candesartan",
+      "ingredientA": "captopril",
+      "ingredientB": "candesartan",
+      "severity": "contraindicated",
+      "source": "BNF interactions, captopril page, entry \"candesartan\" (Severe: increases the risk of renal impairment; manufacturer advises avoid or monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p18_atenolol_diltiazem",
+      "ingredientA": "atenolol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, atenolol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/atenolol/"
+    },
+    {
+      "code": "p18_atenolol_verapamil",
+      "ingredientA": "atenolol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, atenolol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/atenolol/"
+    },
+    {
+      "code": "p18_bisoprolol_diltiazem",
+      "ingredientA": "bisoprolol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, bisoprolol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/bisoprolol/"
+    },
+    {
+      "code": "p18_bisoprolol_verapamil",
+      "ingredientA": "bisoprolol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, bisoprolol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/bisoprolol/"
+    },
+    {
+      "code": "p18_metoprolol_diltiazem",
+      "ingredientA": "metoprolol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, metoprolol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/metoprolol/"
+    },
+    {
+      "code": "p18_metoprolol_verapamil",
+      "ingredientA": "metoprolol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, metoprolol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/metoprolol/"
+    },
+    {
+      "code": "p18_propranolol_diltiazem",
+      "ingredientA": "propranolol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, propranolol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/propranolol/"
+    },
+    {
+      "code": "p18_propranolol_verapamil",
+      "ingredientA": "propranolol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, propranolol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/propranolol/"
+    },
+    {
+      "code": "p18_carvedilol_diltiazem",
+      "ingredientA": "carvedilol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, carvedilol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/carvedilol/"
+    },
+    {
+      "code": "p18_carvedilol_verapamil",
+      "ingredientA": "carvedilol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, carvedilol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/carvedilol/"
+    },
+    {
+      "code": "p18_nebivolol_diltiazem",
+      "ingredientA": "nebivolol",
+      "ingredientB": "diltiazem",
+      "severity": "contraindicated",
+      "source": "BNF interactions, nebivolol page, entry \"diltiazem\" (Severe: cardiodepression; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/nebivolol/"
+    },
+    {
+      "code": "p18_nebivolol_verapamil",
+      "ingredientA": "nebivolol",
+      "ingredientB": "verapamil",
+      "severity": "contraindicated",
+      "source": "BNF interactions, nebivolol page, entry \"verapamil\" (Severe: cardiovascular adverse effects; also bradycardia and hypotension), read 2026-11-03: https://bnf.nice.org.uk/interactions/nebivolol/"
+    },
+    {
+      "code": "p26_lithium_ibuprofen",
+      "ingredientA": "lithium",
+      "ingredientB": "ibuprofen",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lithium page, entry \"ibuprofen\" (Severe: increases the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p26_lithium_diclofenac",
+      "ingredientA": "lithium",
+      "ingredientB": "diclofenac",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lithium page, entry \"diclofenac\" (Severe: increases the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p26_lithium_naproxen",
+      "ingredientA": "lithium",
+      "ingredientB": "naproxen",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lithium page, entry \"naproxen\" (Severe: increases the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p26_lithium_meloxicam",
+      "ingredientA": "lithium",
+      "ingredientB": "meloxicam",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lithium page, entry \"meloxicam\" (Severe: increases the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p26_lithium_piroxicam",
+      "ingredientA": "lithium",
+      "ingredientB": "piroxicam",
+      "severity": "contraindicated",
+      "source": "BNF interactions, lithium page, entry \"piroxicam\" (Severe: increases the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p30_methotrexate_trimethoprim",
+      "ingredientA": "methotrexate",
+      "ingredientB": "trimethoprim",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"trimethoprim\" (Severe: haematological side-effects, sometimes fatal), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p30_methotrexate_sulfamethoxazole",
+      "ingredientA": "methotrexate",
+      "ingredientB": "sulfamethoxazole",
+      "severity": "contraindicated",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"methotrexate\" (Severe: increases the exposure to methotrexate), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p30_methotrexate_co_trimoxazole",
+      "ingredientA": "methotrexate",
+      "ingredientB": "co trimoxazole",
+      "severity": "contraindicated",
+      "source": "BNF interactions, trimethoprim page, entry \"methotrexate\" (Severe: co-trimoxazole is trimethoprim with sulfamethoxazole; haematological side-effects, sometimes fatal), read 2026-11-03: https://bnf.nice.org.uk/interactions/trimethoprim/"
+    },
+    {
+      "code": "p31_methotrexate_ibuprofen",
+      "ingredientA": "methotrexate",
+      "ingredientB": "ibuprofen",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"ibuprofen\" (Severe: increases the risk of methotrexate toxicity, particularly high-dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p31_methotrexate_diclofenac",
+      "ingredientA": "methotrexate",
+      "ingredientB": "diclofenac",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"diclofenac\" (Severe: increases the risk of methotrexate toxicity, particularly high-dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p31_methotrexate_naproxen",
+      "ingredientA": "methotrexate",
+      "ingredientB": "naproxen",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"naproxen\" (Severe: increases the risk of methotrexate toxicity, particularly high-dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p31_methotrexate_meloxicam",
+      "ingredientA": "methotrexate",
+      "ingredientB": "meloxicam",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"meloxicam\" (Severe: increases the risk of methotrexate toxicity, particularly high-dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p31_methotrexate_piroxicam",
+      "ingredientA": "methotrexate",
+      "ingredientB": "piroxicam",
+      "severity": "contraindicated",
+      "source": "BNF interactions, methotrexate page, entry \"piroxicam\" (Severe: increases the risk of methotrexate toxicity, particularly high-dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/methotrexate/"
+    },
+    {
+      "code": "p32_ibuprofen_warfarin",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "warfarin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, warfarin page, entry \"ibuprofen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p32_ibuprofen_rivaroxaban",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "rivaroxaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, rivaroxaban page, entry \"ibuprofen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p32_ibuprofen_apixaban",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "apixaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, apixaban page, entry \"ibuprofen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p32_ibuprofen_dabigatran",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "dabigatran",
+      "severity": "contraindicated",
+      "source": "BNF interactions, dabigatran page, entry \"ibuprofen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p32_ibuprofen_enoxaparin",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "enoxaparin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enoxaparin page, entry \"ibuprofen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p32_diclofenac_warfarin",
+      "ingredientA": "diclofenac",
+      "ingredientB": "warfarin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, warfarin page, entry \"diclofenac\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p32_diclofenac_rivaroxaban",
+      "ingredientA": "diclofenac",
+      "ingredientB": "rivaroxaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, rivaroxaban page, entry \"diclofenac\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p32_diclofenac_apixaban",
+      "ingredientA": "diclofenac",
+      "ingredientB": "apixaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, apixaban page, entry \"diclofenac\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p32_diclofenac_dabigatran",
+      "ingredientA": "diclofenac",
+      "ingredientB": "dabigatran",
+      "severity": "contraindicated",
+      "source": "BNF interactions, dabigatran page, entry \"diclofenac\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p32_diclofenac_enoxaparin",
+      "ingredientA": "diclofenac",
+      "ingredientB": "enoxaparin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enoxaparin page, entry \"diclofenac\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p32_naproxen_warfarin",
+      "ingredientA": "naproxen",
+      "ingredientB": "warfarin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, warfarin page, entry \"naproxen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p32_naproxen_rivaroxaban",
+      "ingredientA": "naproxen",
+      "ingredientB": "rivaroxaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, rivaroxaban page, entry \"naproxen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p32_naproxen_apixaban",
+      "ingredientA": "naproxen",
+      "ingredientB": "apixaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, apixaban page, entry \"naproxen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p32_naproxen_dabigatran",
+      "ingredientA": "naproxen",
+      "ingredientB": "dabigatran",
+      "severity": "contraindicated",
+      "source": "BNF interactions, dabigatran page, entry \"naproxen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p32_naproxen_enoxaparin",
+      "ingredientA": "naproxen",
+      "ingredientB": "enoxaparin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enoxaparin page, entry \"naproxen\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p32_meloxicam_warfarin",
+      "ingredientA": "meloxicam",
+      "ingredientB": "warfarin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, warfarin page, entry \"meloxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p32_meloxicam_rivaroxaban",
+      "ingredientA": "meloxicam",
+      "ingredientB": "rivaroxaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, rivaroxaban page, entry \"meloxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p32_meloxicam_apixaban",
+      "ingredientA": "meloxicam",
+      "ingredientB": "apixaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, apixaban page, entry \"meloxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p32_meloxicam_dabigatran",
+      "ingredientA": "meloxicam",
+      "ingredientB": "dabigatran",
+      "severity": "contraindicated",
+      "source": "BNF interactions, dabigatran page, entry \"meloxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p32_meloxicam_enoxaparin",
+      "ingredientA": "meloxicam",
+      "ingredientB": "enoxaparin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enoxaparin page, entry \"meloxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p32_piroxicam_warfarin",
+      "ingredientA": "piroxicam",
+      "ingredientB": "warfarin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, warfarin page, entry \"piroxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p32_piroxicam_rivaroxaban",
+      "ingredientA": "piroxicam",
+      "ingredientB": "rivaroxaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, rivaroxaban page, entry \"piroxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p32_piroxicam_apixaban",
+      "ingredientA": "piroxicam",
+      "ingredientB": "apixaban",
+      "severity": "contraindicated",
+      "source": "BNF interactions, apixaban page, entry \"piroxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p32_piroxicam_dabigatran",
+      "ingredientA": "piroxicam",
+      "ingredientB": "dabigatran",
+      "severity": "contraindicated",
+      "source": "BNF interactions, dabigatran page, entry \"piroxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p32_piroxicam_enoxaparin",
+      "ingredientA": "piroxicam",
+      "ingredientB": "enoxaparin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, enoxaparin page, entry \"piroxicam\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p40_simvastatin_clarithromycin",
+      "ingredientA": "simvastatin",
+      "ingredientB": "clarithromycin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, simvastatin page, entry \"clarithromycin\" (Severe: increases the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p40_simvastatin_erythromycin",
+      "ingredientA": "simvastatin",
+      "ingredientB": "erythromycin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, simvastatin page, entry \"erythromycin\" (Severe: markedly increases the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p40_atorvastatin_clarithromycin",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "clarithromycin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, atorvastatin page, entry \"clarithromycin\" (Severe: increases the exposure to atorvastatin; manufacturer advises avoid or adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p40_atorvastatin_erythromycin",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "erythromycin",
+      "severity": "contraindicated",
+      "source": "BNF interactions, atorvastatin page, entry \"erythromycin\" (Severe: increases the exposure to atorvastatin; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p02_lisinopril_ibuprofen",
+      "ingredientA": "lisinopril",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"ibuprofen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p02_lisinopril_diclofenac",
+      "ingredientA": "lisinopril",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"diclofenac\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p02_lisinopril_naproxen",
+      "ingredientA": "lisinopril",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"naproxen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p02_lisinopril_meloxicam",
+      "ingredientA": "lisinopril",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"meloxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p02_lisinopril_piroxicam",
+      "ingredientA": "lisinopril",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"piroxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p02_ramipril_ibuprofen",
+      "ingredientA": "ramipril",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"ibuprofen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p02_ramipril_diclofenac",
+      "ingredientA": "ramipril",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"diclofenac\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p02_ramipril_naproxen",
+      "ingredientA": "ramipril",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"naproxen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p02_ramipril_meloxicam",
+      "ingredientA": "ramipril",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"meloxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p02_ramipril_piroxicam",
+      "ingredientA": "ramipril",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"piroxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p02_enalapril_ibuprofen",
+      "ingredientA": "enalapril",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"ibuprofen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p02_enalapril_diclofenac",
+      "ingredientA": "enalapril",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"diclofenac\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p02_enalapril_naproxen",
+      "ingredientA": "enalapril",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"naproxen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p02_enalapril_meloxicam",
+      "ingredientA": "enalapril",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"meloxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p02_enalapril_piroxicam",
+      "ingredientA": "enalapril",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"piroxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p02_perindopril_ibuprofen",
+      "ingredientA": "perindopril",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"ibuprofen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p02_perindopril_diclofenac",
+      "ingredientA": "perindopril",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"diclofenac\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p02_perindopril_naproxen",
+      "ingredientA": "perindopril",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"naproxen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p02_perindopril_meloxicam",
+      "ingredientA": "perindopril",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"meloxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p02_perindopril_piroxicam",
+      "ingredientA": "perindopril",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"piroxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p02_captopril_ibuprofen",
+      "ingredientA": "captopril",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"ibuprofen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p02_captopril_diclofenac",
+      "ingredientA": "captopril",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"diclofenac\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p02_captopril_naproxen",
+      "ingredientA": "captopril",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"naproxen\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p02_captopril_meloxicam",
+      "ingredientA": "captopril",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"meloxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p02_captopril_piroxicam",
+      "ingredientA": "captopril",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"piroxicam\" (unranked: both increase the risk of nephrotoxicity and of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p03_lisinopril_spironolactone",
+      "ingredientA": "lisinopril",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p03_lisinopril_eplerenone",
+      "ingredientA": "lisinopril",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p03_lisinopril_amiloride",
+      "ingredientA": "lisinopril",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p03_ramipril_spironolactone",
+      "ingredientA": "ramipril",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p03_ramipril_eplerenone",
+      "ingredientA": "ramipril",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p03_ramipril_amiloride",
+      "ingredientA": "ramipril",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p03_enalapril_spironolactone",
+      "ingredientA": "enalapril",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p03_enalapril_eplerenone",
+      "ingredientA": "enalapril",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p03_enalapril_amiloride",
+      "ingredientA": "enalapril",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p03_perindopril_spironolactone",
+      "ingredientA": "perindopril",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p03_perindopril_eplerenone",
+      "ingredientA": "perindopril",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p03_perindopril_amiloride",
+      "ingredientA": "perindopril",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p03_captopril_spironolactone",
+      "ingredientA": "captopril",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p03_captopril_eplerenone",
+      "ingredientA": "captopril",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p03_captopril_amiloride",
+      "ingredientA": "captopril",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p04_lisinopril_potassium_chloride",
+      "ingredientA": "lisinopril",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p04_ramipril_potassium_chloride",
+      "ingredientA": "ramipril",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p04_enalapril_potassium_chloride",
+      "ingredientA": "enalapril",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p04_perindopril_potassium_chloride",
+      "ingredientA": "perindopril",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p04_captopril_potassium_chloride",
+      "ingredientA": "captopril",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p06_amiodarone_moxifloxacin",
+      "ingredientA": "amiodarone",
+      "ingredientB": "moxifloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, amiodarone page, entry \"moxifloxacin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/amiodarone/"
+    },
+    {
+      "code": "p07_amiodarone_simvastatin",
+      "ingredientA": "amiodarone",
+      "ingredientB": "simvastatin",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"amiodarone\" (Severe: increases the exposure to simvastatin; adjust simvastatin dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p07_amiodarone_atorvastatin",
+      "ingredientA": "amiodarone",
+      "ingredientB": "atorvastatin",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"amiodarone\" (Moderate: predicted to increase the exposure to atorvastatin; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p08_warfarin_aspirin",
+      "ingredientA": "warfarin",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p08_warfarin_clopidogrel",
+      "ingredientA": "warfarin",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p08_rivaroxaban_aspirin",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p08_rivaroxaban_clopidogrel",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p08_apixaban_aspirin",
+      "ingredientA": "apixaban",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p08_apixaban_clopidogrel",
+      "ingredientA": "apixaban",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p08_dabigatran_aspirin",
+      "ingredientA": "dabigatran",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p08_dabigatran_clopidogrel",
+      "ingredientA": "dabigatran",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p08_enoxaparin_aspirin",
+      "ingredientA": "enoxaparin",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p08_enoxaparin_clopidogrel",
+      "ingredientA": "enoxaparin",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p09_warfarin_fluconazole",
+      "ingredientA": "warfarin",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"fluconazole\" (Severe: increases the anticoagulant effect; monitor INR and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p09_warfarin_itraconazole",
+      "ingredientA": "warfarin",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"itraconazole\" (Severe: potentially increases the anticoagulant effect), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p09_warfarin_ketoconazole",
+      "ingredientA": "warfarin",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"ketoconazole\" (Severe: potentially increases the anticoagulant effect; monitor INR), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p09_warfarin_voriconazole",
+      "ingredientA": "warfarin",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"voriconazole\" (Moderate: increases the anticoagulant effect; monitor INR and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p09_rivaroxaban_itraconazole",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"itraconazole\" (Severe: increases the exposure to rivaroxaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p09_rivaroxaban_ketoconazole",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"ketoconazole\" (Severe: increases the exposure to rivaroxaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p09_rivaroxaban_voriconazole",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"voriconazole\" (Severe: increases the exposure to rivaroxaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p09_apixaban_itraconazole",
+      "ingredientA": "apixaban",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"itraconazole\" (Severe: increases the exposure to apixaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p09_apixaban_ketoconazole",
+      "ingredientA": "apixaban",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"ketoconazole\" (Severe: increases the exposure to apixaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p09_apixaban_voriconazole",
+      "ingredientA": "apixaban",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"voriconazole\" (Severe: increases the exposure to apixaban; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p09_dabigatran_itraconazole",
+      "ingredientA": "dabigatran",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"itraconazole\" (Severe: predicted to increase the exposure to dabigatran; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p09_dabigatran_ketoconazole",
+      "ingredientA": "dabigatran",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"ketoconazole\" (Severe: predicted to increase the exposure to dabigatran; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p09_dabigatran_fluconazole",
+      "ingredientA": "dabigatran",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"fluconazole\" (Severe: predicted to increase the exposure to dabigatran), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p10_warfarin_ciprofloxacin",
+      "ingredientA": "warfarin",
+      "ingredientB": "ciprofloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"ciprofloxacin\" (Severe: increases the anticoagulant effect of warfarin; monitor INR), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p10_warfarin_levofloxacin",
+      "ingredientA": "warfarin",
+      "ingredientB": "levofloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"levofloxacin\" (Severe: increases the anticoagulant effect of warfarin; monitor INR), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p10_warfarin_moxifloxacin",
+      "ingredientA": "warfarin",
+      "ingredientB": "moxifloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"moxifloxacin\" (Severe: increases the anticoagulant effect of warfarin; monitor INR), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p10_warfarin_ofloxacin",
+      "ingredientA": "warfarin",
+      "ingredientB": "ofloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"ofloxacin\" (Severe: increases the anticoagulant effect of warfarin; monitor INR), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p11_warfarin_clarithromycin",
+      "ingredientA": "warfarin",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"clarithromycin\" (Severe: increases the anticoagulant effect; monitor INR and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p11_warfarin_erythromycin",
+      "ingredientA": "warfarin",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"erythromycin\" (Severe: increases the anticoagulant effect; monitor INR and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p11_warfarin_azithromycin",
+      "ingredientA": "warfarin",
+      "ingredientB": "azithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"azithromycin\" (Severe: might increase the risk of bleeding events), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p11_rivaroxaban_clarithromycin",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"clarithromycin\" (Moderate: increases the exposure to rivaroxaban; caution in renal impairment), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p11_rivaroxaban_erythromycin",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"erythromycin\" (Moderate: increases the exposure to rivaroxaban; caution in renal impairment), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p11_rivaroxaban_azithromycin",
+      "ingredientA": "rivaroxaban",
+      "ingredientB": "azithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"azithromycin\" (Moderate: increases the exposure to rivaroxaban; caution in renal impairment), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p11_apixaban_clarithromycin",
+      "ingredientA": "apixaban",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"clarithromycin\" (Moderate: increases the exposure to apixaban), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p11_apixaban_erythromycin",
+      "ingredientA": "apixaban",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"erythromycin\" (Moderate: increases the exposure to apixaban), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p11_apixaban_azithromycin",
+      "ingredientA": "apixaban",
+      "ingredientB": "azithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"azithromycin\" (Moderate: increases the exposure to apixaban), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p11_dabigatran_clarithromycin",
+      "ingredientA": "dabigatran",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"clarithromycin\" (Moderate: increases the exposure to dabigatran; monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p11_dabigatran_erythromycin",
+      "ingredientA": "dabigatran",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"erythromycin\" (Severe: predicted to increase the exposure to dabigatran), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p11_dabigatran_azithromycin",
+      "ingredientA": "dabigatran",
+      "ingredientB": "azithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"azithromycin\" (Severe: predicted to increase the exposure to dabigatran), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p12_warfarin_metronidazole",
+      "ingredientA": "warfarin",
+      "ingredientB": "metronidazole",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"metronidazole\" (Severe: increases the anticoagulant effect; monitor INR and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p13_haloperidol_moxifloxacin",
+      "ingredientA": "haloperidol",
+      "ingredientB": "moxifloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, haloperidol page, entry \"moxifloxacin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/haloperidol/"
+    },
+    {
+      "code": "p13_chlorpromazine_moxifloxacin",
+      "ingredientA": "chlorpromazine",
+      "ingredientB": "moxifloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, chlorpromazine page, entry \"moxifloxacin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/chlorpromazine/"
+    },
+    {
+      "code": "p13_olanzapine_ciprofloxacin",
+      "ingredientA": "olanzapine",
+      "ingredientB": "ciprofloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, olanzapine page, entry \"ciprofloxacin\" (Moderate: predicted to increase the exposure to olanzapine), read 2026-11-03: https://bnf.nice.org.uk/interactions/olanzapine/"
+    },
+    {
+      "code": "p13_chlorpromazine_ciprofloxacin",
+      "ingredientA": "chlorpromazine",
+      "ingredientB": "ciprofloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, chlorpromazine page, entry \"ciprofloxacin\" (Moderate: predicted to increase the exposure to chlorpromazine), read 2026-11-03: https://bnf.nice.org.uk/interactions/chlorpromazine/"
+    },
+    {
+      "code": "p14_haloperidol_erythromycin",
+      "ingredientA": "haloperidol",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, haloperidol page, entry \"erythromycin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/haloperidol/"
+    },
+    {
+      "code": "p14_chlorpromazine_erythromycin",
+      "ingredientA": "chlorpromazine",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, chlorpromazine page, entry \"erythromycin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/chlorpromazine/"
+    },
+    {
+      "code": "p14_quetiapine_clarithromycin",
+      "ingredientA": "quetiapine",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, quetiapine page, entry \"clarithromycin\" (Severe: predicted to increase the exposure to quetiapine; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/quetiapine/"
+    },
+    {
+      "code": "p14_quetiapine_erythromycin",
+      "ingredientA": "quetiapine",
+      "ingredientB": "erythromycin",
+      "severity": "caution",
+      "source": "BNF interactions, quetiapine page, entry \"erythromycin\" (Moderate: predicted to increase the exposure to quetiapine; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/quetiapine/"
+    },
+    {
+      "code": "p14_risperidone_clarithromycin",
+      "ingredientA": "risperidone",
+      "ingredientB": "clarithromycin",
+      "severity": "caution",
+      "source": "BNF interactions, risperidone page, entry \"clarithromycin\" (Moderate: predicted to increase the exposure to risperidone), read 2026-11-03: https://bnf.nice.org.uk/interactions/risperidone/"
+    },
+    {
+      "code": "p15_losartan_ibuprofen",
+      "ingredientA": "losartan",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"ibuprofen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p15_losartan_diclofenac",
+      "ingredientA": "losartan",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"diclofenac\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p15_losartan_naproxen",
+      "ingredientA": "losartan",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"naproxen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p15_losartan_meloxicam",
+      "ingredientA": "losartan",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"meloxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p15_losartan_piroxicam",
+      "ingredientA": "losartan",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"piroxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p15_valsartan_ibuprofen",
+      "ingredientA": "valsartan",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"ibuprofen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p15_valsartan_diclofenac",
+      "ingredientA": "valsartan",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"diclofenac\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p15_valsartan_naproxen",
+      "ingredientA": "valsartan",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"naproxen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p15_valsartan_meloxicam",
+      "ingredientA": "valsartan",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"meloxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p15_valsartan_piroxicam",
+      "ingredientA": "valsartan",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"piroxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p15_telmisartan_ibuprofen",
+      "ingredientA": "telmisartan",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"ibuprofen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p15_telmisartan_diclofenac",
+      "ingredientA": "telmisartan",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"diclofenac\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p15_telmisartan_naproxen",
+      "ingredientA": "telmisartan",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"naproxen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p15_telmisartan_meloxicam",
+      "ingredientA": "telmisartan",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"meloxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p15_telmisartan_piroxicam",
+      "ingredientA": "telmisartan",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"piroxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p15_irbesartan_ibuprofen",
+      "ingredientA": "irbesartan",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"ibuprofen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p15_irbesartan_diclofenac",
+      "ingredientA": "irbesartan",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"diclofenac\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p15_irbesartan_naproxen",
+      "ingredientA": "irbesartan",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"naproxen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p15_irbesartan_meloxicam",
+      "ingredientA": "irbesartan",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"meloxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p15_irbesartan_piroxicam",
+      "ingredientA": "irbesartan",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"piroxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p15_candesartan_ibuprofen",
+      "ingredientA": "candesartan",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"ibuprofen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p15_candesartan_diclofenac",
+      "ingredientA": "candesartan",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"diclofenac\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p15_candesartan_naproxen",
+      "ingredientA": "candesartan",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"naproxen\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p15_candesartan_meloxicam",
+      "ingredientA": "candesartan",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"meloxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p15_candesartan_piroxicam",
+      "ingredientA": "candesartan",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"piroxicam\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p16_losartan_spironolactone",
+      "ingredientA": "losartan",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p16_losartan_eplerenone",
+      "ingredientA": "losartan",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p16_losartan_amiloride",
+      "ingredientA": "losartan",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p16_valsartan_spironolactone",
+      "ingredientA": "valsartan",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p16_valsartan_eplerenone",
+      "ingredientA": "valsartan",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p16_valsartan_amiloride",
+      "ingredientA": "valsartan",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p16_telmisartan_spironolactone",
+      "ingredientA": "telmisartan",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p16_telmisartan_eplerenone",
+      "ingredientA": "telmisartan",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p16_telmisartan_amiloride",
+      "ingredientA": "telmisartan",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p16_irbesartan_spironolactone",
+      "ingredientA": "irbesartan",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p16_irbesartan_eplerenone",
+      "ingredientA": "irbesartan",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p16_irbesartan_amiloride",
+      "ingredientA": "irbesartan",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p16_candesartan_spironolactone",
+      "ingredientA": "candesartan",
+      "ingredientB": "spironolactone",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"spironolactone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p16_candesartan_eplerenone",
+      "ingredientA": "candesartan",
+      "ingredientB": "eplerenone",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"eplerenone\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p16_candesartan_amiloride",
+      "ingredientA": "candesartan",
+      "ingredientB": "amiloride",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"amiloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p17_losartan_potassium_chloride",
+      "ingredientA": "losartan",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, losartan page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/losartan/"
+    },
+    {
+      "code": "p17_valsartan_potassium_chloride",
+      "ingredientA": "valsartan",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, valsartan page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/valsartan/"
+    },
+    {
+      "code": "p17_telmisartan_potassium_chloride",
+      "ingredientA": "telmisartan",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, telmisartan page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/telmisartan/"
+    },
+    {
+      "code": "p17_irbesartan_potassium_chloride",
+      "ingredientA": "irbesartan",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, irbesartan page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/irbesartan/"
+    },
+    {
+      "code": "p17_candesartan_potassium_chloride",
+      "ingredientA": "candesartan",
+      "ingredientB": "potassium chloride",
+      "severity": "caution",
+      "source": "BNF interactions, candesartan page, entry \"potassium chloride\" (unranked: both increase the risk of hyperkalaemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/candesartan/"
+    },
+    {
+      "code": "p19_digoxin_amiodarone",
+      "ingredientA": "digoxin",
+      "ingredientB": "amiodarone",
+      "severity": "caution",
+      "source": "BNF interactions, digoxin page, entry \"amiodarone\" (Severe: moderately increases the exposure to digoxin; monitor and adjust dose; also bradycardia), read 2026-11-03: https://bnf.nice.org.uk/interactions/digoxin/"
+    },
+    {
+      "code": "p20_digoxin_verapamil",
+      "ingredientA": "digoxin",
+      "ingredientB": "verapamil",
+      "severity": "caution",
+      "source": "BNF interactions, digoxin page, entry \"verapamil\" (Severe: increases the concentration of digoxin; monitor and adjust dose; also bradycardia), read 2026-11-03: https://bnf.nice.org.uk/interactions/digoxin/"
+    },
+    {
+      "code": "p20_digoxin_diltiazem",
+      "ingredientA": "digoxin",
+      "ingredientB": "diltiazem",
+      "severity": "caution",
+      "source": "BNF interactions, digoxin page, entry \"diltiazem\" (Severe: increases the concentration of digoxin; monitor and adjust dose; also bradycardia), read 2026-11-03: https://bnf.nice.org.uk/interactions/digoxin/"
+    },
+    {
+      "code": "p21_digoxin_furosemide",
+      "ingredientA": "digoxin",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, digoxin page, entry \"furosemide\" (Severe: predicted to increase the risk of digoxin toxicity), read 2026-11-03: https://bnf.nice.org.uk/interactions/digoxin/"
+    },
+    {
+      "code": "p21_digoxin_bumetanide",
+      "ingredientA": "digoxin",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, digoxin page, entry \"bumetanide\" (Severe: predicted to increase the risk of digoxin toxicity), read 2026-11-03: https://bnf.nice.org.uk/interactions/digoxin/"
+    },
+    {
+      "code": "p22_moxifloxacin_artemether",
+      "ingredientA": "moxifloxacin",
+      "ingredientB": "artemether",
+      "severity": "caution",
+      "source": "BNF interactions, moxifloxacin page, entry \"artemether\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/moxifloxacin/"
+    },
+    {
+      "code": "p23_levothyroxine_calcium_carbonate",
+      "ingredientA": "levothyroxine",
+      "ingredientB": "calcium carbonate",
+      "severity": "caution",
+      "source": "BNF interactions, levothyroxine page, entry \"calcium carbonate\" (Moderate: decreases the absorption of oral levothyroxine; separate administration), read 2026-11-03: https://bnf.nice.org.uk/interactions/levothyroxine/"
+    },
+    {
+      "code": "p23_levothyroxine_ferrous_sulfate",
+      "ingredientA": "levothyroxine",
+      "ingredientB": "ferrous sulfate",
+      "severity": "caution",
+      "source": "BNF interactions, levothyroxine page, entry \"iron\" (Moderate: oral iron decreases the absorption of oral levothyroxine; separate administration by at least 4 hours), read 2026-11-03: https://bnf.nice.org.uk/interactions/levothyroxine/"
+    },
+    {
+      "code": "p23_levothyroxine_ferrous_fumarate",
+      "ingredientA": "levothyroxine",
+      "ingredientB": "ferrous fumarate",
+      "severity": "caution",
+      "source": "BNF interactions, levothyroxine page, entry \"iron\" (Moderate: oral iron decreases the absorption of oral levothyroxine; separate administration by at least 4 hours), read 2026-11-03: https://bnf.nice.org.uk/interactions/levothyroxine/"
+    },
+    {
+      "code": "p23_levothyroxine_ferrous_gluconate",
+      "ingredientA": "levothyroxine",
+      "ingredientB": "ferrous gluconate",
+      "severity": "caution",
+      "source": "BNF interactions, levothyroxine page, entry \"iron\" (Moderate: oral iron decreases the absorption of oral levothyroxine; separate administration by at least 4 hours), read 2026-11-03: https://bnf.nice.org.uk/interactions/levothyroxine/"
+    },
+    {
+      "code": "p25_lithium_lisinopril",
+      "ingredientA": "lithium",
+      "ingredientB": "lisinopril",
+      "severity": "caution",
+      "source": "BNF interactions, lisinopril page, entry \"lithium\" (Severe: predicted to increase the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/lisinopril/"
+    },
+    {
+      "code": "p25_lithium_ramipril",
+      "ingredientA": "lithium",
+      "ingredientB": "ramipril",
+      "severity": "caution",
+      "source": "BNF interactions, ramipril page, entry \"lithium\" (Severe: predicted to increase the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/ramipril/"
+    },
+    {
+      "code": "p25_lithium_enalapril",
+      "ingredientA": "lithium",
+      "ingredientB": "enalapril",
+      "severity": "caution",
+      "source": "BNF interactions, enalapril page, entry \"lithium\" (Severe: predicted to increase the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/enalapril/"
+    },
+    {
+      "code": "p25_lithium_perindopril",
+      "ingredientA": "lithium",
+      "ingredientB": "perindopril",
+      "severity": "caution",
+      "source": "BNF interactions, perindopril page, entry \"lithium\" (Severe: predicted to increase the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/perindopril/"
+    },
+    {
+      "code": "p25_lithium_captopril",
+      "ingredientA": "lithium",
+      "ingredientB": "captopril",
+      "severity": "caution",
+      "source": "BNF interactions, captopril page, entry \"lithium\" (Severe: predicted to increase the concentration of lithium; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/captopril/"
+    },
+    {
+      "code": "p27_lithium_hydrochlorothiazide",
+      "ingredientA": "lithium",
+      "ingredientB": "hydrochlorothiazide",
+      "severity": "caution",
+      "source": "BNF interactions, lithium page, entry \"hydrochlorothiazide\" (Severe: increases the concentration of lithium; avoid or adjust dose and monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p27_lithium_bendroflumethiazide",
+      "ingredientA": "lithium",
+      "ingredientB": "bendroflumethiazide",
+      "severity": "caution",
+      "source": "BNF interactions, lithium page, entry \"bendroflumethiazide\" (Severe: increases the concentration of lithium; avoid or adjust dose and monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p27_lithium_indapamide",
+      "ingredientA": "lithium",
+      "ingredientB": "indapamide",
+      "severity": "caution",
+      "source": "BNF interactions, lithium page, entry \"indapamide\" (Severe: increases the concentration of lithium; avoid or adjust dose and monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p27_lithium_chlortalidone",
+      "ingredientA": "lithium",
+      "ingredientB": "chlortalidone",
+      "severity": "caution",
+      "source": "BNF interactions, lithium page, entry \"chlortalidone\" (Severe: increases the concentration of lithium; avoid or adjust dose and monitor), read 2026-11-03: https://bnf.nice.org.uk/interactions/lithium/"
+    },
+    {
+      "code": "p28_erythromycin_artemether",
+      "ingredientA": "erythromycin",
+      "ingredientB": "artemether",
+      "severity": "caution",
+      "source": "BNF interactions, erythromycin page, entry \"artemether\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/erythromycin/"
+    },
+    {
+      "code": "p28_erythromycin_dihydroartemisinin",
+      "ingredientA": "erythromycin",
+      "ingredientB": "dihydroartemisinin",
+      "severity": "caution",
+      "source": "BNF interactions, erythromycin page, entry \"artenimol\" (Severe: artenimol is the BNF name for dihydroartemisinin; both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/erythromycin/"
+    },
+    {
+      "code": "p28_erythromycin_piperaquine",
+      "ingredientA": "erythromycin",
+      "ingredientB": "piperaquine",
+      "severity": "caution",
+      "source": "BNF interactions, erythromycin page, entry \"piperaquine\" (Severe: predicted to increase the concentration of piperaquine), read 2026-11-03: https://bnf.nice.org.uk/interactions/erythromycin/"
+    },
+    {
+      "code": "p28_clarithromycin_piperaquine",
+      "ingredientA": "clarithromycin",
+      "ingredientB": "piperaquine",
+      "severity": "caution",
+      "source": "BNF interactions, clarithromycin page, entry \"piperaquine\" (Severe: predicted to increase the concentration of piperaquine), read 2026-11-03: https://bnf.nice.org.uk/interactions/clarithromycin/"
+    },
+    {
+      "code": "p29_erythromycin_moxifloxacin",
+      "ingredientA": "erythromycin",
+      "ingredientB": "moxifloxacin",
+      "severity": "caution",
+      "source": "BNF interactions, moxifloxacin page, entry \"erythromycin\" (Severe: both prolong the QT interval), read 2026-11-03: https://bnf.nice.org.uk/interactions/moxifloxacin/"
+    },
+    {
+      "code": "p33_ibuprofen_aspirin",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p33_ibuprofen_clopidogrel",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p33_diclofenac_aspirin",
+      "ingredientA": "diclofenac",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p33_diclofenac_clopidogrel",
+      "ingredientA": "diclofenac",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p33_naproxen_aspirin",
+      "ingredientA": "naproxen",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p33_naproxen_clopidogrel",
+      "ingredientA": "naproxen",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p33_meloxicam_aspirin",
+      "ingredientA": "meloxicam",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p33_meloxicam_clopidogrel",
+      "ingredientA": "meloxicam",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p33_piroxicam_aspirin",
+      "ingredientA": "piroxicam",
+      "ingredientB": "aspirin",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"aspirin\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p33_piroxicam_clopidogrel",
+      "ingredientA": "piroxicam",
+      "ingredientB": "clopidogrel",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"clopidogrel\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p34_ibuprofen_furosemide",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"furosemide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p34_ibuprofen_bumetanide",
+      "ingredientA": "ibuprofen",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"bumetanide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p34_diclofenac_furosemide",
+      "ingredientA": "diclofenac",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"furosemide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p34_diclofenac_bumetanide",
+      "ingredientA": "diclofenac",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"bumetanide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p34_naproxen_furosemide",
+      "ingredientA": "naproxen",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"furosemide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p34_naproxen_bumetanide",
+      "ingredientA": "naproxen",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"bumetanide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p34_meloxicam_furosemide",
+      "ingredientA": "meloxicam",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"furosemide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p34_meloxicam_bumetanide",
+      "ingredientA": "meloxicam",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"bumetanide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p34_piroxicam_furosemide",
+      "ingredientA": "piroxicam",
+      "ingredientB": "furosemide",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"furosemide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p34_piroxicam_bumetanide",
+      "ingredientA": "piroxicam",
+      "ingredientB": "bumetanide",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"bumetanide\" (Moderate: ototoxicity at high NSAID dose; both increase the risk of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p35_fluoxetine_warfarin",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "warfarin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p35_fluoxetine_rivaroxaban",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "rivaroxaban",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p35_fluoxetine_apixaban",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "apixaban",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p35_fluoxetine_dabigatran",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "dabigatran",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p35_fluoxetine_enoxaparin",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "enoxaparin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p35_sertraline_warfarin",
+      "ingredientA": "sertraline",
+      "ingredientB": "warfarin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"sertraline\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p35_sertraline_rivaroxaban",
+      "ingredientA": "sertraline",
+      "ingredientB": "rivaroxaban",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"sertraline\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p35_sertraline_apixaban",
+      "ingredientA": "sertraline",
+      "ingredientB": "apixaban",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"sertraline\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p35_sertraline_dabigatran",
+      "ingredientA": "sertraline",
+      "ingredientB": "dabigatran",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"sertraline\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p35_sertraline_enoxaparin",
+      "ingredientA": "sertraline",
+      "ingredientB": "enoxaparin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"sertraline\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p35_paroxetine_warfarin",
+      "ingredientA": "paroxetine",
+      "ingredientB": "warfarin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"paroxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p35_paroxetine_rivaroxaban",
+      "ingredientA": "paroxetine",
+      "ingredientB": "rivaroxaban",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"paroxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p35_paroxetine_apixaban",
+      "ingredientA": "paroxetine",
+      "ingredientB": "apixaban",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"paroxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p35_paroxetine_dabigatran",
+      "ingredientA": "paroxetine",
+      "ingredientB": "dabigatran",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"paroxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p35_paroxetine_enoxaparin",
+      "ingredientA": "paroxetine",
+      "ingredientB": "enoxaparin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"paroxetine\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p35_citalopram_warfarin",
+      "ingredientA": "citalopram",
+      "ingredientB": "warfarin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"citalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p35_citalopram_rivaroxaban",
+      "ingredientA": "citalopram",
+      "ingredientB": "rivaroxaban",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"citalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p35_citalopram_apixaban",
+      "ingredientA": "citalopram",
+      "ingredientB": "apixaban",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"citalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p35_citalopram_dabigatran",
+      "ingredientA": "citalopram",
+      "ingredientB": "dabigatran",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"citalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p35_citalopram_enoxaparin",
+      "ingredientA": "citalopram",
+      "ingredientB": "enoxaparin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"citalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p35_escitalopram_warfarin",
+      "ingredientA": "escitalopram",
+      "ingredientB": "warfarin",
+      "severity": "caution",
+      "source": "BNF interactions, warfarin page, entry \"escitalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/warfarin/"
+    },
+    {
+      "code": "p35_escitalopram_rivaroxaban",
+      "ingredientA": "escitalopram",
+      "ingredientB": "rivaroxaban",
+      "severity": "caution",
+      "source": "BNF interactions, rivaroxaban page, entry \"escitalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/rivaroxaban/"
+    },
+    {
+      "code": "p35_escitalopram_apixaban",
+      "ingredientA": "escitalopram",
+      "ingredientB": "apixaban",
+      "severity": "caution",
+      "source": "BNF interactions, apixaban page, entry \"escitalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/apixaban/"
+    },
+    {
+      "code": "p35_escitalopram_dabigatran",
+      "ingredientA": "escitalopram",
+      "ingredientB": "dabigatran",
+      "severity": "caution",
+      "source": "BNF interactions, dabigatran page, entry \"escitalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/dabigatran/"
+    },
+    {
+      "code": "p35_escitalopram_enoxaparin",
+      "ingredientA": "escitalopram",
+      "ingredientB": "enoxaparin",
+      "severity": "caution",
+      "source": "BNF interactions, enoxaparin page, entry \"escitalopram\" (Severe: both increase the risk of bleeding), read 2026-11-03: https://bnf.nice.org.uk/interactions/enoxaparin/"
+    },
+    {
+      "code": "p36_fluoxetine_ibuprofen",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p36_fluoxetine_diclofenac",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p36_fluoxetine_naproxen",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p36_fluoxetine_meloxicam",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p36_fluoxetine_piroxicam",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"fluoxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p36_sertraline_ibuprofen",
+      "ingredientA": "sertraline",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"sertraline\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p36_sertraline_diclofenac",
+      "ingredientA": "sertraline",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"sertraline\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p36_sertraline_naproxen",
+      "ingredientA": "sertraline",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"sertraline\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p36_sertraline_meloxicam",
+      "ingredientA": "sertraline",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"sertraline\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p36_sertraline_piroxicam",
+      "ingredientA": "sertraline",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"sertraline\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p36_paroxetine_ibuprofen",
+      "ingredientA": "paroxetine",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"paroxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p36_paroxetine_diclofenac",
+      "ingredientA": "paroxetine",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"paroxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p36_paroxetine_naproxen",
+      "ingredientA": "paroxetine",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"paroxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p36_paroxetine_meloxicam",
+      "ingredientA": "paroxetine",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"paroxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p36_paroxetine_piroxicam",
+      "ingredientA": "paroxetine",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"paroxetine\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p36_citalopram_ibuprofen",
+      "ingredientA": "citalopram",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"citalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p36_citalopram_diclofenac",
+      "ingredientA": "citalopram",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"citalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p36_citalopram_naproxen",
+      "ingredientA": "citalopram",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"citalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p36_citalopram_meloxicam",
+      "ingredientA": "citalopram",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"citalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p36_citalopram_piroxicam",
+      "ingredientA": "citalopram",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"citalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p36_escitalopram_ibuprofen",
+      "ingredientA": "escitalopram",
+      "ingredientB": "ibuprofen",
+      "severity": "caution",
+      "source": "BNF interactions, ibuprofen page, entry \"escitalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/ibuprofen/"
+    },
+    {
+      "code": "p36_escitalopram_diclofenac",
+      "ingredientA": "escitalopram",
+      "ingredientB": "diclofenac",
+      "severity": "caution",
+      "source": "BNF interactions, diclofenac page, entry \"escitalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/diclofenac/"
+    },
+    {
+      "code": "p36_escitalopram_naproxen",
+      "ingredientA": "escitalopram",
+      "ingredientB": "naproxen",
+      "severity": "caution",
+      "source": "BNF interactions, naproxen page, entry \"escitalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/naproxen/"
+    },
+    {
+      "code": "p36_escitalopram_meloxicam",
+      "ingredientA": "escitalopram",
+      "ingredientB": "meloxicam",
+      "severity": "caution",
+      "source": "BNF interactions, meloxicam page, entry \"escitalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/meloxicam/"
+    },
+    {
+      "code": "p36_escitalopram_piroxicam",
+      "ingredientA": "escitalopram",
+      "ingredientB": "piroxicam",
+      "severity": "caution",
+      "source": "BNF interactions, piroxicam page, entry \"escitalopram\" (Severe: both increase the risk of bleeding; also hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/piroxicam/"
+    },
+    {
+      "code": "p37_fluoxetine_tramadol",
+      "ingredientA": "fluoxetine",
+      "ingredientB": "tramadol",
+      "severity": "caution",
+      "source": "BNF interactions, fluoxetine page, entry \"tramadol\" (Severe: predicted to decrease the efficacy of tramadol; both might increase the risk of serotonin toxicity), read 2026-11-03: https://bnf.nice.org.uk/interactions/fluoxetine/"
+    },
+    {
+      "code": "p37_paroxetine_tramadol",
+      "ingredientA": "paroxetine",
+      "ingredientB": "tramadol",
+      "severity": "caution",
+      "source": "BNF interactions, paroxetine page, entry \"tramadol\" (Severe: predicted to decrease the efficacy of tramadol; both might increase the risk of serotonin toxicity), read 2026-11-03: https://bnf.nice.org.uk/interactions/paroxetine/"
+    },
+    {
+      "code": "p37_sertraline_tramadol",
+      "ingredientA": "sertraline",
+      "ingredientB": "tramadol",
+      "severity": "caution",
+      "source": "BNF interactions, sertraline page, entry \"tramadol\" (unranked: both might increase the risk of serotonin toxicity and of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/sertraline/"
+    },
+    {
+      "code": "p37_citalopram_tramadol",
+      "ingredientA": "citalopram",
+      "ingredientB": "tramadol",
+      "severity": "caution",
+      "source": "BNF interactions, citalopram page, entry \"tramadol\" (unranked: both might increase the risk of serotonin toxicity and of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/citalopram/"
+    },
+    {
+      "code": "p37_escitalopram_tramadol",
+      "ingredientA": "escitalopram",
+      "ingredientB": "tramadol",
+      "severity": "caution",
+      "source": "BNF interactions, escitalopram page, entry \"tramadol\" (unranked: both might increase the risk of serotonin toxicity and of hyponatraemia), read 2026-11-03: https://bnf.nice.org.uk/interactions/escitalopram/"
+    },
+    {
+      "code": "p38_simvastatin_fluconazole",
+      "ingredientA": "simvastatin",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"fluconazole\" (Severe: predicted to increase the exposure to simvastatin; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p38_simvastatin_itraconazole",
+      "ingredientA": "simvastatin",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"itraconazole\" (Severe: predicted to increase the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p38_simvastatin_ketoconazole",
+      "ingredientA": "simvastatin",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"ketoconazole\" (Severe: predicted to increase the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p38_simvastatin_voriconazole",
+      "ingredientA": "simvastatin",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"voriconazole\" (Severe: predicted to increase the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p38_atorvastatin_fluconazole",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"fluconazole\" (Severe: predicted to increase the exposure to atorvastatin; monitor and adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p38_atorvastatin_itraconazole",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "itraconazole",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"itraconazole\" (Severe: predicted to increase the exposure to atorvastatin; manufacturer advises avoid or adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p38_atorvastatin_ketoconazole",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "ketoconazole",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"ketoconazole\" (Severe: predicted to increase the exposure to atorvastatin; manufacturer advises avoid or adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p38_atorvastatin_voriconazole",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"voriconazole\" (Severe: predicted to increase the exposure to atorvastatin; manufacturer advises avoid or adjust dose), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p39_simvastatin_gemfibrozil",
+      "ingredientA": "simvastatin",
+      "ingredientB": "gemfibrozil",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"gemfibrozil\" (Severe: increases the exposure to simvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p39_simvastatin_fenofibrate",
+      "ingredientA": "simvastatin",
+      "ingredientB": "fenofibrate",
+      "severity": "caution",
+      "source": "BNF interactions, simvastatin page, entry \"fenofibrate\" (Severe: increases the risk of rhabdomyolysis with simvastatin), read 2026-11-03: https://bnf.nice.org.uk/interactions/simvastatin/"
+    },
+    {
+      "code": "p39_atorvastatin_gemfibrozil",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "gemfibrozil",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"gemfibrozil\" (Severe: increases the exposure to atorvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p39_atorvastatin_fenofibrate",
+      "ingredientA": "atorvastatin",
+      "ingredientB": "fenofibrate",
+      "severity": "caution",
+      "source": "BNF interactions, atorvastatin page, entry \"fenofibrate\" (Severe: increases the risk of rhabdomyolysis with atorvastatin), read 2026-11-03: https://bnf.nice.org.uk/interactions/atorvastatin/"
+    },
+    {
+      "code": "p39_rosuvastatin_gemfibrozil",
+      "ingredientA": "rosuvastatin",
+      "ingredientB": "gemfibrozil",
+      "severity": "caution",
+      "source": "BNF interactions, rosuvastatin page, entry \"gemfibrozil\" (Severe: increases the exposure to rosuvastatin; manufacturer advises avoid), read 2026-11-03: https://bnf.nice.org.uk/interactions/rosuvastatin/"
+    },
+    {
+      "code": "p39_rosuvastatin_fenofibrate",
+      "ingredientA": "rosuvastatin",
+      "ingredientB": "fenofibrate",
+      "severity": "caution",
+      "source": "BNF interactions, rosuvastatin page, entry \"fenofibrate\" (Severe: increases the risk of rhabdomyolysis with rosuvastatin), read 2026-11-03: https://bnf.nice.org.uk/interactions/rosuvastatin/"
+    },
+    {
+      "code": "p41_gliclazide_voriconazole",
+      "ingredientA": "gliclazide",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, gliclazide page, entry \"voriconazole\" (Moderate: predicted to increase the concentration of gliclazide), read 2026-11-03: https://bnf.nice.org.uk/interactions/gliclazide/"
+    },
+    {
+      "code": "p41_glibenclamide_voriconazole",
+      "ingredientA": "glibenclamide",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, glibenclamide page, entry \"voriconazole\" (Moderate: predicted to increase the concentration of glibenclamide), read 2026-11-03: https://bnf.nice.org.uk/interactions/glibenclamide/"
+    },
+    {
+      "code": "p41_glimepiride_voriconazole",
+      "ingredientA": "glimepiride",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, glimepiride page, entry \"voriconazole\" (Moderate: predicted to increase the concentration of glimepiride), read 2026-11-03: https://bnf.nice.org.uk/interactions/glimepiride/"
+    },
+    {
+      "code": "p41_glipizide_voriconazole",
+      "ingredientA": "glipizide",
+      "ingredientB": "voriconazole",
+      "severity": "caution",
+      "source": "BNF interactions, glipizide page, entry \"voriconazole\" (Moderate: predicted to increase the concentration of glipizide), read 2026-11-03: https://bnf.nice.org.uk/interactions/glipizide/"
+    },
+    {
+      "code": "p41_gliclazide_fluconazole",
+      "ingredientA": "gliclazide",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "Diflucan 150 mg hard capsules (fluconazole), Pfizer SmPC section 4.5 (fluconazole prolongs the half-life of oral sulfonylureas, e.g. glibenclamide and glipizide; frequent blood glucose monitoring and sulfonylurea dose reduction recommended; gliclazide is covered by the class statement, not named), read 2026-11-03: https://www.medicines.org.uk/emc/product/1065/smpc"
+    },
+    {
+      "code": "p41_glibenclamide_fluconazole",
+      "ingredientA": "glibenclamide",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "Diflucan 150 mg hard capsules (fluconazole), Pfizer SmPC section 4.5 (fluconazole prolongs the half-life of oral sulfonylureas, e.g. glibenclamide and glipizide; frequent blood glucose monitoring and sulfonylurea dose reduction recommended), read 2026-11-03: https://www.medicines.org.uk/emc/product/1065/smpc"
+    },
+    {
+      "code": "p41_glimepiride_fluconazole",
+      "ingredientA": "glimepiride",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "Diflucan 150 mg hard capsules (fluconazole), Pfizer SmPC section 4.5 (fluconazole prolongs the half-life of oral sulfonylureas, e.g. glibenclamide and glipizide; frequent blood glucose monitoring and sulfonylurea dose reduction recommended; glimepiride is covered by the class statement, not named), read 2026-11-03: https://www.medicines.org.uk/emc/product/1065/smpc"
+    },
+    {
+      "code": "p41_glipizide_fluconazole",
+      "ingredientA": "glipizide",
+      "ingredientB": "fluconazole",
+      "severity": "caution",
+      "source": "Diflucan 150 mg hard capsules (fluconazole), Pfizer SmPC section 4.5 (fluconazole prolongs the half-life of oral sulfonylureas, e.g. glibenclamide and glipizide; frequent blood glucose monitoring and sulfonylurea dose reduction recommended), read 2026-11-03: https://www.medicines.org.uk/emc/product/1065/smpc"
+    },
+    {
+      "code": "p42_gliclazide_sulfamethoxazole",
+      "ingredientA": "gliclazide",
+      "ingredientB": "sulfamethoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"gliclazide\" (Moderate: predicted to increase the exposure to gliclazide; manufacturer advises caution), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_gliclazide_co_trimoxazole",
+      "ingredientA": "gliclazide",
+      "ingredientB": "co trimoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"gliclazide\" (Moderate: co-trimoxazole contains sulfamethoxazole, which is predicted to increase the exposure to gliclazide), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glibenclamide_sulfamethoxazole",
+      "ingredientA": "glibenclamide",
+      "ingredientB": "sulfamethoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glibenclamide\" (Moderate: predicted to increase the exposure to glibenclamide; manufacturer advises caution), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glibenclamide_co_trimoxazole",
+      "ingredientA": "glibenclamide",
+      "ingredientB": "co trimoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glibenclamide\" (Moderate: co-trimoxazole contains sulfamethoxazole, which is predicted to increase the exposure to glibenclamide), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glimepiride_sulfamethoxazole",
+      "ingredientA": "glimepiride",
+      "ingredientB": "sulfamethoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glimepiride\" (Moderate: predicted to increase the exposure to glimepiride; manufacturer advises caution), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glimepiride_co_trimoxazole",
+      "ingredientA": "glimepiride",
+      "ingredientB": "co trimoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glimepiride\" (Moderate: co-trimoxazole contains sulfamethoxazole, which is predicted to increase the exposure to glimepiride), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glipizide_sulfamethoxazole",
+      "ingredientA": "glipizide",
+      "ingredientB": "sulfamethoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glipizide\" (Moderate: predicted to increase the exposure to glipizide; manufacturer advises caution), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    },
+    {
+      "code": "p42_glipizide_co_trimoxazole",
+      "ingredientA": "glipizide",
+      "ingredientB": "co trimoxazole",
+      "severity": "caution",
+      "source": "BNF interactions, sulfamethoxazole page, entry \"glipizide\" (Moderate: co-trimoxazole contains sulfamethoxazole, which is predicted to increase the exposure to glipizide), read 2026-11-03: https://bnf.nice.org.uk/interactions/sulfamethoxazole/"
+    }
+  ]
+}

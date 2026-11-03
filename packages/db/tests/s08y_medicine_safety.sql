@@ -392,6 +392,10 @@ begin
 end
 $f$;
 
+-- The v2 draft shipped later (*_interaction_rule_set_v2_unsigned.sql, its own proof) is removed inside this rolled-back transaction so
+-- this proof keeps exercising the born-empty state it was written for; the sabotage phase's reset below already does the same.
+delete from public.medicine_interaction_rule_sets where version > 1;
+
 select pg_temp.run_checks('real');
 
 -- Put the shipped state back so the second phase starts where the first did.
