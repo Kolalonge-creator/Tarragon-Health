@@ -2,7 +2,8 @@
 -- Proof: S75 A4 (CMO decision S-6): a risk score never gates care.
 --
 -- Claiming, ordering and eligibility of clinical_tasks through public.queue_next and private.queue_candidates are IDENTICAL with
--- and without risk_scores / risk_predictions rows for the same patients.
+-- and without risk_scores / risk_predictions rows for the same patients. The counts are scoped to the fixture's own patients: the CI
+-- stack runs pg_cron, so a scheduled risk computation can add today's rows for other test patients while a long replay runs.
 --   1. The scenario (one clinician, five tasks of mixed class and due date, one clinician-eligible set) is run twice in isolated
 --      sub-transactions: once with no risk rows, once with HIGH risk rows (risk_scores and risk_predictions) deliberately placed on
 --      the patient of the LEAST urgent task, so any consultation of risk would reorder or filter. The eligible set and the full
@@ -97,7 +98,7 @@ begin
     end loop;
     reset role;
     perform set_config('request.jwt.claims', '', true);
-    raise exception 'S75A4RESULT:eligible=%|order=%|risk=%/%', v_elig, v_order, (select count(*) from public.risk_scores where is_test and computed_on = current_date), (select count(*) from public.risk_predictions where influenced_care);
+    raise exception 'S75A4RESULT:eligible=%|order=%|risk=%/%', v_elig, v_order, (select count(*) from public.risk_scores where patient_id = any(v_pat) and computed_on = current_date), (select count(*) from public.risk_predictions where patient_id = any(v_pat) and influenced_care);
   exception when others then
     reset role;
     if sqlerrm like 'S75A4RESULT:%' then return substr(sqlerrm, 13); end if;
