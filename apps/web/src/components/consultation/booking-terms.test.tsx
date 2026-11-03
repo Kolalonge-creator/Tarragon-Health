@@ -27,7 +27,7 @@ describe("BookingTermsView", () => {
     render(<BookingTermsView terms={terms()} included />);
     const text = screen.getByTestId("booking-terms").textContent ?? "";
     expect(text).toContain("advice, a referral, a plan to change your medicine, or a prescription");
-    expect(text).toContain("form you download here and take to your nearest pharmacy");
+    expect(text).toContain("form you download in the app and take to your nearest pharmacy");
   });
 
   it("leaves the outcome line off a dietitian or pharmacist visit", () => {
