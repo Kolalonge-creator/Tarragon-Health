@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buildPrecallView, callLengthLimits, precallSchema, remainingExtension, uuidSchema } from "@/lib/followups/followups";
 import { ExtendCallForm } from "./extend-form";
+import { parsePatientHeader, PatientRecordLink } from "@/components/consultation/patient-record-link";
 
 export const metadata = { title: "Before the call" };
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ export const dynamic = "force-dynamic";
 /**
  * The pre-call summary (two-tier item 4): what changed since the last call, shown to the doctor before every follow-up. It is ONE call
  * to public.precall_summary, which wraps the audited clinician_patient_summary (INV-10) and is open only to the doctor the consultation
- * is assigned to (INV-12); anyone else gets the same 404 as an unknown id. No other read of the patient happens on this page.
+ * is assigned to (INV-12); anyone else gets the same 404 as an unknown id. The only other read is consultation_patient_header, the
+ * patient's name and id for the heading (not a chart read), answered to the same clinician only.
  */
 export default async function PrecallPage({ params }: { params: Promise<{ encounterId: string }> }) {
   const { encounterId } = await params;
@@ -26,6 +28,8 @@ export default async function PrecallPage({ params }: { params: Promise<{ encoun
   const res = await supabase.rpc("precall_summary", { p_encounter: encounterId });
   if (res.error?.code === "42501") notFound();
   const parsed = res.error ? null : precallSchema.safeParse(res.data);
+  const { data: headerData } = await supabase.rpc("consultation_patient_header", { p_encounter: encounterId });
+  const header = parsePatientHeader(headerData);
 
   return (
     <div className="space-y-6">
@@ -40,6 +44,9 @@ export default async function PrecallPage({ params }: { params: Promise<{ encoun
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{t("precall.title", "en")}</h1>
         <p className="text-sm text-charcoal-ink/60">{t("precall.subtitle", "en")}</p>
+        <p className="mt-1 text-sm text-charcoal-ink/80">
+          With <PatientRecordLink header={header} />
+        </p>
       </div>
 
       {!parsed?.success && <p role="alert" className="text-sm text-red-600">{t("precall.load_error", "en")}</p>}
