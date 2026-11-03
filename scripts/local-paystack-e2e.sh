@@ -46,7 +46,8 @@ teardown() {
     pid="$(cat "$f")"
     if kill -0 "$pid" 2>/dev/null; then
       kill_tree "$pid"
-      echo "stopped $(basename "$f" .pid) (pid $pid)"
+      local i; for i in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done   # the CLI stops its container first
+      if kill -0 "$pid" 2>/dev/null; then echo "$(basename "$f" .pid) (pid $pid) is still shutting down"; else echo "stopped $(basename "$f" .pid) (pid $pid)"; fi
     else
       echo "$(basename "$f" .pid) (pid $pid) was not running"
     fi
@@ -54,6 +55,7 @@ teardown() {
   done
   rm -f "$STATE_DIR"/functions.env
   echo "Logs kept in $STATE_DIR (functions.log, next.log). The local database is untouched; \`supabase db reset\` clears it."
+  echo "Stopping functions serve also removes the stack's edge-runtime container; \`supabase start\` brings the default one back."
 }
 if [ "${1:-}" = "--teardown" ]; then teardown; exit 0; fi
 [ -z "${1:-}" ] || die "unknown argument: $1 (only --teardown is accepted)"
@@ -90,9 +92,8 @@ sql() { psql "$DB_URL" -v ON_ERROR_STOP=1 -X -q -At "$@"; }
 # ---------- 2. seed the catalogue, prices, guards, modules ----------
 say "2/5 Seeding the catalogue, prices, guards and modules"
 # session_replication_role = replica skips the guard triggers that block direct writes to these tables.
-# The attribution columns (changed_by, enabled_by, ...) are CHECK constraints, so they are filled.
-# Attribution points at the first profile in the database; if there is none yet the doctor created in
-# step 3 is used instead (see the second seed block).
+# The attribution columns (changed_by, enabled_by, ...) are CHECK constraints, so they are filled; that happens in
+# step 3, once the test patient exists to point them at.
 sql <<'SQL'
 set session_replication_role = replica;
 begin;
@@ -133,7 +134,7 @@ admin_user() { # email full_name -> user id (creates, or finds an existing one)
           '{email:$e, password:$p, email_confirm:true, user_metadata:{full_name:$n}, app_metadata:{signup_exempt:"true"}}')")"
   id="$(printf '%s' "$resp" | jq -r '.id // empty')"
   if [ -z "$id" ]; then
-    id="$(sql -c "select id from auth.users where email = '$email'")"
+    id="$(printf "select id from auth.users where email = :'e'" | sql -v e="$email")"   # :'e' expands on stdin, not with -c
     [ -n "$id" ] || die "could not create $email: $resp"
     echo "  $email already exists ($id)" >&2
   else
@@ -204,6 +205,7 @@ if [ -f "$STATE_DIR/functions.pid" ] || [ -f "$STATE_DIR/next.pid" ]; then
   echo "  a previous run left pid files; stopping it first"; teardown
 fi
 ENV_FILE="$STATE_DIR/functions.env"
+OLD_UMASK="$(umask)"
 umask 077
 # SUPABASE_URL / keys are deliberately absent: the CLI injects the local stack's own.
 # PAYSTACK_WEBHOOK_SECRET is the same key: the webhook function fails closed without it.
@@ -215,7 +217,7 @@ PROCESS_EVENTS_SECRET=$(openssl rand -hex 24)
 ORDER_RECONCILE_SECRET=$(openssl rand -hex 24)
 ENV
 chmod 600 "$ENV_FILE"
-umask 022
+umask "$OLD_UMASK"
 PROCESS_EVENTS_SECRET="$(sed -n 's/^PROCESS_EVENTS_SECRET=//p' "$ENV_FILE")"
 ORDER_RECONCILE_SECRET="$(sed -n 's/^ORDER_RECONCILE_SECRET=//p' "$ENV_FILE")"
 
@@ -230,12 +232,14 @@ echo $! > "$STATE_DIR/functions.pid"
  exec pnpm exec next dev -p "$APP_PORT") >"$STATE_DIR/next.log" 2>&1 < /dev/null &
 echo $! > "$STATE_DIR/next.pid"
 
+# `supabase start` already runs an edge runtime WITHOUT this env file, and the gateway answers from it until
+# `functions serve` has swapped it out, so an HTTP probe would pass too early; wait for the serve log instead
 echo -n "  waiting for the functions"
-for i in $(seq 1 60); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API_URL/functions/v1/order-reconcile" -H "x-order-reconcile-secret: wrong")"
-  case "$code" in 2*|4*) break ;; esac
+for i in $(seq 1 90); do
+  grep -q "Serving functions on" "$STATE_DIR/functions.log" 2>/dev/null && break
   sleep 1; echo -n .
 done; echo
+grep -q "Serving functions on" "$STATE_DIR/functions.log" 2>/dev/null || echo "  functions serve has not reported ready; tail $STATE_DIR/functions.log"
 echo -n "  waiting for the app on $APP_URL"
 for i in $(seq 1 120); do
   case "$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/login")" in 2*|3*) break ;; esac
