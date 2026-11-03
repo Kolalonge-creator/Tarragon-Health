@@ -1,5 +1,5 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { SectionGreeting } from "@/app/(dashboard)/patient/(sections)/section-greeting";
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { FreeGuidance } from "@/app/(dashboard)/patient/free-guidance";
@@ -64,14 +64,16 @@ export default async function PatientSectionsLayout({
   }
 
   return (
-    <DashboardPlaceholder
-      greeting={
-        acting
-          ? `${acting.fullName ?? "Their"}'s account`
-          : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
-      }
-      roleLabel={acting ? "Acting for them" : "Patient"}
-    >
+    <div className="space-y-6">
+      {/* The greeting draws on the Overview only; every other section opens on its own header (see section-greeting.tsx). */}
+      <SectionGreeting
+        greeting={
+          acting
+            ? `${acting.fullName ?? "Their"}'s account`
+            : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
+        }
+        roleLabel={acting ? "Acting for them" : "Patient"}
+      />
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
       {!acting && handoverState?.pending === true && <HandoverCard guardians={handoverState.guardians ?? []} />}
 
@@ -102,6 +104,6 @@ export default async function PatientSectionsLayout({
           <div className="space-y-6 pb-20">{children}</div>
         </MeasurementUnitsProvider>
       </GlucoseUnitProvider>
-    </DashboardPlaceholder>
+    </div>
   );
 }

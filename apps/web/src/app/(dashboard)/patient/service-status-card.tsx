@@ -2,13 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
 
-export type ServiceAccessStatus = "monitoring_active" | "service_active" | "self_tracking";
+export type ServiceAccessStatus = "membership_active" | "monitoring_active" | "service_active" | "self_tracking";
 
 export type ServiceAccess = {
   status: ServiceAccessStatus;
   monitoringExpiresAt: string | null;
+  /** Set only for membership_active: the Membership tier ("plus" carries the yearly blood panel) and when it ends. */
+  membershipTier?: string | null;
+  membershipEndsAt?: string | null;
   resolvedAt: string;
 };
+
+/** What a Membership tier is called on screen. Mirrors catalog.membership_annual.name / membership_annual_no_panel in packages/i18n. */
+function membershipTierLabel(tier: string | null | undefined): string {
+  return tier === "plus" ? "Membership Plus" : "Membership";
+}
 
 /**
  * A founder-commissioned launch-scope audit's boundary rule (a local
@@ -42,6 +50,14 @@ const COPY: Record<
   ServiceAccessStatus,
   { icon: keyof typeof SEMANTIC_ICON; title: string; body: (access: ServiceAccess) => string }
 > = {
+  membership_active: {
+    icon: "clinicianFollowUp",
+    title: "Your Membership is active",
+    body: (access) =>
+      access.membershipEndsAt
+        ? `${membershipTierLabel(access.membershipTier)} runs until ${formatPatientDate(access.membershipEndsAt)}. A doctor on your care team is told when one of your readings is dangerous.`
+        : `${membershipTierLabel(access.membershipTier)} is active. A doctor on your care team is told when one of your readings is dangerous.`,
+  },
   monitoring_active: {
     icon: "preventive",
     title: "Monitoring active",

@@ -11,6 +11,8 @@ import {
   getPriorityHealthScoreTip,
   computeHealthScoreTrend,
   describeHealthScoreTrend,
+  healthScoreCaption,
+  isHealthScoreThin,
   type HealthScoreComponent,
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
@@ -80,11 +82,14 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
                   out of 100
                 </span>
               </ScoreRing>
-              <Badge variant={badgeStyle.variant}>{badgeStyle.label}</Badge>
+              {!isHealthScoreThin(components) && <Badge variant={badgeStyle.variant}>{badgeStyle.label}</Badge>}
             </div>
             <p className="text-center text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              A non-diagnostic summary of a few everyday habits and numbers we already have on
-              file, not a medical diagnosis. Updated {formatPatientDate(data.computed_at)}.
+              {healthScoreCaption(
+                components,
+                "A non-diagnostic summary of a few everyday habits and numbers we already have on file, not a medical diagnosis.",
+              )}{" "}
+              Updated {formatPatientDate(data.computed_at)}.
             </p>
             {trend && (
               <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">

@@ -29,6 +29,8 @@ import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { BuyServiceDialog } from "./buy-service-dialog";
+import Link from "next/link";
+import { useMyMembership } from "@/lib/queries/commerce";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -113,6 +115,9 @@ export function SubscriptionManager() {
     refetch: refetchPurchases,
   } = useMyServicePurchases();
   const { data: catalogue } = useActiveServiceProducts();
+  // A Member sees their Membership named here too: this page lists what they pay for, and "Nothing active yet" over an active
+  // Membership Plus is the kind of contradiction that makes a patient doubt the app.
+  const membership = useMyMembership();
   const [buyState, buyAction, buyPending] = useActionState(
     buyServiceProduct,
     undefined,
@@ -175,10 +180,20 @@ export function SubscriptionManager() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {membership.data?.is_member && (
+              <p className="mb-3 rounded-lg bg-soft-sage/60 px-3 py-2 text-sm text-deep-forest dark:bg-brand-green/15 dark:text-brand-green-bright">
+                {membership.data.tier === "plus" ? "Membership Plus" : "Membership"} is active
+                {membership.data.ends_at ? ` until ${formatPatientDate(membership.data.ends_at)}` : ""}.{" "}
+                <Link href="/patient/membership" className="font-medium underline">
+                  See your Membership
+                </Link>
+              </p>
+            )}
             {active.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                Nothing active yet. The app itself is free; you only ever pay
-                for a doctor&apos;s time. Buy a service when you want one.
+                {membership.data?.is_member
+                  ? "No one-off services on top of your Membership. Buy one when you want it."
+                  : "Nothing active yet. The app itself is free; you only ever pay for a doctor's time. Buy a service when you want one."}
               </p>
             ) : (
               <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">

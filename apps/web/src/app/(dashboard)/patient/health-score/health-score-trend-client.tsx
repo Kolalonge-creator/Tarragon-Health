@@ -7,6 +7,8 @@ import {
   describeHealthScoreTrend,
   getHealthScoreTips,
   getPriorityHealthScoreTip,
+  healthScoreCaption,
+  isHealthScoreThin,
   type HealthScoreComponent,
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
@@ -80,10 +82,10 @@ export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
           label="Health Score"
           value={isLoading ? "…" : latest ? latest.score : null}
           unit={latest ? "out of 100" : undefined}
-          status={badgeStyle ?? undefined}
+          status={badgeStyle && !isHealthScoreThin(components) ? badgeStyle : undefined}
           caption={
             latest
-              ? (trendLine ?? "This is your first score. It moves as you log new readings.")
+              ? healthScoreCaption(components, trendLine ?? "This is your first score. It moves as you log new readings.")
               : undefined
           }
           meta={latest ? `Updated ${formatPatientDate(latest.computed_at)}` : undefined}

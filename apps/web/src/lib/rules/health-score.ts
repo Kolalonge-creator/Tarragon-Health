@@ -169,6 +169,40 @@ export function computeHealthScore(inputs: HealthScoreInputs): ComputedHealthSco
   return { score, riskLevel: riskLevelFor(score), components: available };
 }
 
+/** Every component the score can draw on, in the order the breakdown shows them. */
+export const HEALTH_SCORE_COMPONENT_COUNT = 6;
+
+/**
+ * How much of the score is actually standing on data. The compute above
+ * redistributes the weights of whatever is missing, so a brand-new patient
+ * whose only inputs are "never smoked" and a normal BMI from the health
+ * profile reads 100/100 before logging a single reading. That number is
+ * honest arithmetic and a dishonest headline. Every surface that shows the
+ * score shows this line under it, and the line names the one reading that
+ * would add the most (blood pressure carries the largest weight).
+ */
+export function describeHealthScoreCoverage(components: HealthScoreComponent[]): string {
+  const n = components.length;
+  // A score row from before the breakdown was stored: nothing honest to say about its coverage.
+  if (n === 0) return "";
+  const hasBp = components.some((c) => c.key === "bp_control");
+  const base = `Built from ${n} of ${HEALTH_SCORE_COMPONENT_COUNT} measures so far.`;
+  if (hasBp) return base;
+  return `${base} Log a blood pressure reading to bring it to life.`;
+}
+
+/** True while the score rests on so little data that its status word ("Stable", "On track") would overstate it. A row with no
+ * stored breakdown is not judged (it keeps its status word), only one known to be standing on a thin set of inputs. */
+export function isHealthScoreThin(components: HealthScoreComponent[]): boolean {
+  if (components.length === 0) return false;
+  return components.length < 3 || !components.some((c) => c.key === "bp_control");
+}
+
+/** Joins the coverage line and a caption, dropping the coverage line when there is none. */
+export function healthScoreCaption(components: HealthScoreComponent[], caption: string): string {
+  return [describeHealthScoreCoverage(components), caption].filter(Boolean).join(" ");
+}
+
 const TIP_THRESHOLD = 80;
 
 const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {

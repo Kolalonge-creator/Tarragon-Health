@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { AppIconName } from "@/lib/icons";
+import { isDueNow, isOverdue, SCREENING_GRACE_DAYS } from "@/lib/patient/due-label";
 
 export type ActionItem = {
   icon: AppIconName;
@@ -18,7 +19,13 @@ export type ActionItem = {
    * video-call slot, an open medicines check-in) — these have no due date to
    * sort by and read as urgent regardless of what any date would say. */
   alwaysHighPriority?: boolean;
+  /** Days after `dueDate` during which the item still reads "due now" rather than overdue. Screenings and vaccinations are
+   * scheduled from the day of the risk assessment, so without this a four-day-old account showed seventeen red "overdue" rows. */
+  graceDays?: number;
 };
+
+/** How many due screenings it takes before the Action Centre folds them into one "book your Health Check" row. */
+const SCREENING_GROUP_THRESHOLD = 3;
 
 // A sane cap per source so a patient with a very long history can't turn this
 // into a runaway query — this is a fuller list than the Overview cards'
@@ -202,18 +209,36 @@ export async function resolveActionCentreItems(patientId: string): Promise<Actio
       title: vaccineName ? `${vaccineName} is due` : "A vaccination is due",
       dueDate: row.due_date,
       href: "/patient/prevention",
+      graceDays: SCREENING_GRACE_DAYS,
     });
   }
 
-  for (const row of screenings.data ?? []) {
-    const screenName = (row.screen_type as { name?: string } | null)?.name ?? "screening";
+  // A risk assessment schedules every recommended screening at once (seventeen for a typical adult). Listed one by one they
+  // bury everything else, so from the third onwards they become one row pointing at the Health Check, which is where they are
+  // booked together. Fewer than that stay as named rows, since each is then a specific thing to do.
+  const screeningRows = screenings.data ?? [];
+  if (screeningRows.length >= SCREENING_GROUP_THRESHOLD) {
+    const earliest = screeningRows.reduce((min, row) => (row.due_date < min ? row.due_date : min), screeningRows[0]!.due_date);
     items.push({
       icon: "preventive",
-      type: "Screening",
-      title: `Your ${screenName} is due`,
-      dueDate: row.due_date,
-      href: "/patient/prevention",
+      type: "Screenings",
+      title: `${screeningRows.length} screening tests are due: book them together in your Health Check`,
+      dueDate: earliest,
+      href: "/patient/health-check",
+      graceDays: SCREENING_GRACE_DAYS,
     });
+  } else {
+    for (const row of screeningRows) {
+      const screenName = (row.screen_type as { name?: string } | null)?.name ?? "screening";
+      items.push({
+        icon: "preventive",
+        type: "Screening",
+        title: `Your ${screenName} is due`,
+        dueDate: row.due_date,
+        href: "/patient/prevention",
+        graceDays: SCREENING_GRACE_DAYS,
+      });
+    }
   }
 
   const consultCount = consults.data?.length ?? 0;
@@ -269,14 +294,14 @@ function byDueDateAscending(a: ActionItem, b: ActionItem): number {
 }
 
 /**
- * Buckets the merged list into High priority / Due today / Due this week /
+ * Buckets the merged list into High priority / Due now / Due this week /
  * Upcoming per spec §76.5. High priority is either an always-urgent item
- * (awaiting the patient's response) or anything already overdue; the other
- * three buckets are pure due-date windows.
+ * (awaiting the patient's response) or anything genuinely overdue, i.e. past
+ * its grace window; an item due today or inside its grace window is "due
+ * now"; the other two buckets are pure due-date windows.
  */
-export function bucketActionItems(items: ActionItem[]): BucketedActionItems {
-  const today = new Date().toISOString().slice(0, 10);
-  const weekFromToday = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+export function bucketActionItems(items: ActionItem[], now: Date = new Date()): BucketedActionItems {
+  const weekFromToday = new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
 
   const buckets: BucketedActionItems = {
     highPriority: [],
@@ -286,9 +311,10 @@ export function bucketActionItems(items: ActionItem[]): BucketedActionItems {
   };
 
   for (const item of items) {
-    if (item.alwaysHighPriority || (item.dueDate !== null && item.dueDate < today)) {
+    const grace = item.graceDays ?? 0;
+    if (item.alwaysHighPriority || (item.dueDate !== null && isOverdue(item.dueDate, grace, now))) {
       buckets.highPriority.push(item);
-    } else if (item.dueDate === today) {
+    } else if (item.dueDate !== null && isDueNow(item.dueDate, grace, now)) {
       buckets.dueToday.push(item);
     } else if (item.dueDate !== null && item.dueDate <= weekFromToday) {
       buckets.dueThisWeek.push(item);
@@ -304,14 +330,5 @@ export function bucketActionItems(items: ActionItem[]): BucketedActionItems {
   return buckets;
 }
 
-/** "in 5 days" / "today" / "5 days overdue" — same shape as
- * CareScheduleCard's daysLabel, copied rather than imported since that file
- * doesn't export it. */
-export function daysLabel(dateStr: string): string {
-  const today = new Date(new Date().toDateString());
-  const target = new Date(new Date(dateStr).toDateString());
-  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
-  if (days > 0) return `in ${days} day${days === 1 ? "" : "s"}`;
-  if (days === 0) return "today";
-  return `${-days} day${days === -1 ? "" : "s"} overdue`;
-}
+/** The shared due-date wording (lib/patient/due-label), re-exported so the page keeps one import. */
+export { daysLabel } from "@/lib/patient/due-label";
