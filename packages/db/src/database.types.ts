@@ -13545,6 +13545,7 @@ export type Database = {
           entry_no: number
           id: string
           is_reversed: boolean
+          is_test: boolean
           memo: string | null
           period_month: string
           reversal_of: string | null
@@ -13559,6 +13560,7 @@ export type Database = {
           entry_no?: number
           id?: string
           is_reversed?: boolean
+          is_test?: boolean
           memo?: string | null
           period_month: string
           reversal_of?: string | null
@@ -13573,6 +13575,7 @@ export type Database = {
           entry_no?: number
           id?: string
           is_reversed?: boolean
+          is_test?: boolean
           memo?: string | null
           period_month?: string
           reversal_of?: string | null
@@ -26952,6 +26955,7 @@ export type Database = {
           error: string | null
           event_type: Database["public"]["Enums"]["payment_transaction_type"]
           id: string
+          is_test: boolean
           organisation_id: string | null
           processed_at: string | null
           provider: Database["public"]["Enums"]["payment_provider"]
@@ -26971,6 +26975,7 @@ export type Database = {
           error?: string | null
           event_type?: Database["public"]["Enums"]["payment_transaction_type"]
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           processed_at?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"]
@@ -26990,6 +26995,7 @@ export type Database = {
           error?: string | null
           event_type?: Database["public"]["Enums"]["payment_transaction_type"]
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           processed_at?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"]
@@ -28984,6 +28990,7 @@ export type Database = {
           sex: Database["public"]["Enums"]["sex"] | null
           staff_number: string | null
           state: string | null
+          test_keep_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -29036,6 +29043,7 @@ export type Database = {
           sex?: Database["public"]["Enums"]["sex"] | null
           staff_number?: string | null
           state?: string | null
+          test_keep_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -29088,6 +29096,7 @@ export type Database = {
           sex?: Database["public"]["Enums"]["sex"] | null
           staff_number?: string | null
           state?: string | null
+          test_keep_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -31768,6 +31777,7 @@ export type Database = {
           currency: Database["public"]["Enums"]["currency"]
           deferred_account_code: string
           id: string
+          is_test: boolean
           organisation_id: string | null
           payment_transaction_id: string | null
           period_end: string
@@ -31785,6 +31795,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           payment_transaction_id?: string | null
           period_end: string
@@ -31802,6 +31813,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
           id?: string
+          is_test?: boolean
           organisation_id?: string | null
           payment_transaction_id?: string | null
           period_end?: string

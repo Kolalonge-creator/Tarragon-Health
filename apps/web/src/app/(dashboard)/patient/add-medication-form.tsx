@@ -15,6 +15,7 @@ import {
   canSubmitAddForm,
   checkIngredientsOnAdd,
   checkMedicineOnAdd,
+  mergeAddFindings,
   nafdacNumberToStore,
   prefillFromCatalogue,
   type AddCheckFinding,
@@ -383,8 +384,11 @@ export function AddMedicationForm({
             }).findings,
           );
         }
-        if (found.length > 0) {
-          setAddFindings(found);
+        // One warning per pair: once both checks are signed and open they fire on the same pair (an ACE inhibitor with an ARB is
+        // S53 class pair 1 and a v2 ingredient rule), and nobody should read the same warning twice.
+        const merged = mergeAddFindings(found, parsed.data.drug_name);
+        if (merged.length > 0) {
+          setAddFindings(merged);
           return;
         }
       }

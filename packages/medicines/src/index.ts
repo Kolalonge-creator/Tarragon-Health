@@ -19,6 +19,7 @@ export * from "./ingredients";
 export * from "./brand-map";
 export * from "./interaction-rules";
 export * from "./add-check-ingredients";
+export * from "./add-check-merge";
 export * from "./nafdac-verify";
 export * from "./supporter-doses";
 export * from "./refill-handoff";

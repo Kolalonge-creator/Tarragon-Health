@@ -671,3 +671,12 @@ migration `20261103011027_community_live_polish.sql`, proof `packages/db/tests/c
   configuration; it is off because it was the one gate that needed a person awake.
 - The overdue notice and the staff alerts link to the reader's own console area (`payload.area`, stamped from the role).
 - Join form: rules not repeated, consent text one tap away, same version recorded.
+
+## 19. Internal staff moderate automatically (2026-11-03, COM-28)
+
+Migration `20261103152430_community_internal_staff_moderate_automatically.sql`, proof `community_internal_staff_auto_moderators.sql`.
+`private.community_internal_staff_role()` (admin, clinician, care_coordinator, analyst, finance) replaces the role list that section 5.4
+and the 2026-10-31 clinician-accounts change carried in six functions. `private.community_auto_grant()` runs from triggers on `profiles`
+and `clinical_staff`: a global moderator grant for every active, non-test internal account, plus safety reviewer for a working doctor;
+`community_staff.source` says `automatic` or `admin`, `revoked_by` says who withdrew it, and a withdrawn grant is never re-given by the
+trigger. Staff alerts and the overdue notice route to the reader's console (`area`: clinician, coordinator, admin, analyst, finance).

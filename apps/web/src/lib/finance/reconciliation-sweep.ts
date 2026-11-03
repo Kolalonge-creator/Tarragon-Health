@@ -105,6 +105,8 @@ export async function runReconciliationSweep(supabase: SupabaseClient<Database>)
         .from("payment_transactions")
         .select("id, organisation_id, amount_minor, currency, processed_at, error, provider_event_id")
         .eq("provider", "paystack")
+        // INV-13: a test account's charge is never a reconciliation problem for finance to chase
+        .eq("is_test", false)
         .in("provider_event_id", references)
     : { data: [] as (LocalTxnRow & { provider_event_id: string })[] };
   const byRef = new Map((localRows ?? []).map((r) => [r.provider_event_id, r as LocalTxnRow]));

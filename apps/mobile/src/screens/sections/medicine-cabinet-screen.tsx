@@ -9,6 +9,7 @@ import {
   catalogueLabel,
   checkIngredientsOnAdd,
   checkMedicineOnAdd,
+  mergeAddFindings,
   nafdacNumberToStore,
   NAFDAC_GREENBOOK_URL,
   NAFDAC_VERIFY_STEP_KEYS,
@@ -998,8 +999,10 @@ function AddMedicationSection({ patientId, existing, onAdded }: { patientId: str
         }).findings,
       );
     }
-    if (found.length > 0) {
-      setFindings(found);
+    // One warning per pair: the S53 class check and the v2 ingredient rules fire on the same common pairs once both are open.
+    const merged = mergeAddFindings(found, name);
+    if (merged.length > 0) {
+      setFindings(merged);
       setPending(false);
       return;
     }
