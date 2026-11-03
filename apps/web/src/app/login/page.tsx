@@ -4,19 +4,24 @@ import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { pickRedirectTarget } from "@/lib/auth/redirect";
 import { passkeysAvailable } from "@/lib/passkeys/server";
+import { safeJoinRedirect } from "@/lib/care-circle/join-link";
+import { signupHrefFor } from "@/lib/auth/signup-href";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; next?: string }>;
+  searchParams: Promise<{ redirect?: string; next?: string; intent?: string }>;
 }) {
-  const { redirect, next } = await searchParams;
+  const { redirect, next, intent } = await searchParams;
   const locale = await getAuthLocale();
   const passkeysEnabled = await passkeysAvailable();
   // S69 (OQ-220): a join link opened while signed out must survive "Create an account" and the email-verification round trip, so the
   // sanitised destination rides along to /signup, which already threads it into emailRedirectTo.
   const safe = pickRedirectTarget({ redirect, next });
-  const signupHref = safe ? `/signup?redirect=${encodeURIComponent(safe)}` : "/signup";
+  // Someone sent here by a Care Circle link is joining as a supporter: "Create an account" must stay a supporter sign-up, or they are
+  // walked through patient onboarding (goals, telehealth consent, date of birth and sex) for care they never asked for.
+  const supporter = intent === "support" || safeJoinRedirect(safe) !== null;
+  const signupHref = signupHrefFor(safe, supporter);
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">

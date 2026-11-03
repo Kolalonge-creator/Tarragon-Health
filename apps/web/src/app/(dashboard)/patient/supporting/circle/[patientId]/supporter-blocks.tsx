@@ -72,3 +72,28 @@ export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "a
     </>
   );
 }
+
+/**
+ * True when at least one health block above would render. A view with only check-in requests or paying shared has none. A block
+ * added above must be added here too, or its page would also show the empty state.
+ */
+export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly">, locale: Locale): boolean {
+  const monthly = parseCircleMonthly(view.monthly).filter((r) => circleMonthlyLines(r, locale).length > 0);
+  return Boolean(view.adherence || view.bp_trend || view.appointments || monthly.length > 0);
+}
+
+/**
+ * The empty state for a person who shared only check-in requests or paying: a calm sentence that nothing health-related is shown
+ * here, and what still holds, so an empty page never reads as "something is wrong".
+ */
+export function SupporterBlocksEmpty({ view, locale }: { view: Pick<SupporterView, "name" | "permissions">; locale: Locale }) {
+  return (
+    <Card>
+      <CardContent className="space-y-1 pt-6" data-testid="supporter-blocks-empty">
+        <p>{t("supporterjoin.view.empty", locale, { name: view.name })}</p>
+        {view.permissions.includes("red_alerts") ? <p className={MUTED}>{t("supporterjoin.view.empty_alerts", locale)}</p> : null}
+        {view.permissions.includes("pay_for_care") ? <p className={MUTED}>{t("supporterjoin.view.empty_pay", locale)}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}

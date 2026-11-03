@@ -52121,6 +52121,8 @@ export type Database = {
       baseline_labs_override_attention: { Args: Record<PropertyKey, never>; Returns: Json };
       record_baseline_labs_override: { Args: { p_category: string; p_drug: string; p_patient: string; p_reason: string }; Returns: string };
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
+      sign_bp_target_config: { Args: { p_version: number }; Returns: undefined };
+      bp_target_config_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
       clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };
@@ -58322,6 +58324,9 @@ export type Database = {
       submit_facility_rating: { Args: { p_booking?: string; p_comment?: string; p_facility: string; p_lab_order?: string; p_patient?: string; p_rating: number }; Returns: Json };
       my_supported_people: { Args: never; Returns: Json };
       preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      care_circle_invite_landing: { Args: { p_token: string }; Returns: Json };
+      care_circle_invite_status: { Args: { p_token: string }; Returns: Json };
+      signup_gate_status_supporter: { Args: { p_email: string | null; p_invite_code: string | null; p_phone: string | null }; Returns: boolean };
       revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
       update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
       complete_symptom_review: {

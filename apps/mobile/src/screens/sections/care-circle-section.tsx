@@ -388,7 +388,7 @@ function InviteForm({ onMade }: { onMade: () => void }) {
         <AppText variant="body">{t("circle.invite.made", locale)}</AppText>
         <AppText variant="body" selectable>{made.link}</AppText>
         <MutedText>{`${t("circle.invite.once", locale)} ${t("circle.invite.expires", locale, { date: lagosDateTime(made.expiresAt) })}`}</MutedText>
-        <PrimaryButton title={t("circle.invite.share", locale)} onPress={() => { void Share.share({ message: t("circle.invite.share_text", locale, { link: made.link }) }).catch(() => undefined); }} />
+        <PrimaryButton title={t("circle.invite.share", locale)} onPress={() => { void Share.share({ message: t("supporterjoin.share_text", locale, { link: made.link }) }).catch(() => undefined); }} />
         <SecondaryButton
           title={t("circle.invite.done", locale)}
           onPress={() => {
