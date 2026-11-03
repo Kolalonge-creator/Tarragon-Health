@@ -1803,3 +1803,5 @@ emergency_sync_contact_rule_skips_test_accounts.sql
 resolve_patient_service_access_membership.sql
 # catalog_items is readable (descriptive columns only) by any signed-in person, so the patient and admin refund lists can name the item. Sabotage: revoking the grant brings the 403 back.
 catalog_items_readable_by_signed_in_people.sql
+# Test money is marked, not shown: a service purchase paid by an is_test patient stamps payment_transactions, the ledger entry and its revenue schedule is_test; finance_ledger_entries/finance_trial_balance read the analytics_clean views and leave it out while a real purchase shows. The nightly purge_stale_test_accounts removes a disposable test account after the grace, keeps one with test_keep_reason, a fresh one, a real one and the canary org, and reports a failed purge as an ops incident. Sabotage: an unfiltered view lets the test entry through.
+test_data_hidden_from_finance_and_auto_purged.sql
