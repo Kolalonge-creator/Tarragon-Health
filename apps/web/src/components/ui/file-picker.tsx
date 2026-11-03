@@ -20,6 +20,7 @@ export function FilePicker({
   hint,
   onFile,
   inputRef,
+  fileName,
   className,
   variant = "outline",
   ...rest
@@ -34,11 +35,14 @@ export function FilePicker({
   onFile?: (file: File | null) => void;
   /** The real input, for a form that clears the choice after a save. */
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** A form that already tracks the chosen file passes its name (null once cleared), so the two never disagree. */
+  fileName?: string | null;
   variant?: "default" | "outline";
 }) {
   const own = React.useRef<HTMLInputElement | null>(null);
   const input = inputRef ?? own;
-  const [chosen, setChosen] = React.useState<string | null>(null);
+  const [ownChosen, setChosen] = React.useState<string | null>(null);
+  const chosen = fileName !== undefined ? fileName : ownChosen;
   return (
     <div className={cn("space-y-1.5", className)}>
       <input

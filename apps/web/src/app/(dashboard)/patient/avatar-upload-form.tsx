@@ -93,6 +93,7 @@ export function AvatarUploadForm({
               hint="JPG, PNG, or WEBP, up to 5 MB."
               className="items-center [&>div]:justify-center"
               onFile={handleFileChange}
+              fileName={file?.name ?? null}
               {...fieldErrorProps(errorId, Boolean(displayError))}
             />
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
