@@ -38,6 +38,8 @@ begin
   return exists (
     select 1 from public.care_circle_invites i
      where i.state = 'pending' and i.expires_at > now()
+       -- a test patient's invite never opens real sign-up
+       and not coalesce(i.is_test, false)
        and i.attempts < coalesce((private.circle_rules() ->> 'max_attempts')::integer, 0)
        and ((i.invitee_kind = 'email' and v_email is not null and i.invitee_hash = private.circle_contact_hash(v_email))
          or (i.invitee_kind = 'phone' and v_phone is not null and i.invitee_hash = private.circle_contact_hash(v_phone))));

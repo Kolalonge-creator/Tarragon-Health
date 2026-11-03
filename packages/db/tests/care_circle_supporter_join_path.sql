@@ -1,11 +1,11 @@
 -- Care Circle supporter join path proof (migration *_care_circle_supporter_join_path.sql). One rolled-back transaction.
 -- Proves: with invite-only sign-up ON, a contact holding a valid pending Care Circle invite may sign up ONLY as a supporter-only account
 -- (email, or the phone GoTrue holds; never a phone typed into metadata), a patient sign-up on the same contact is still refused, a stranger
--- and an expired invite are refused, the invite is not consumed; a supporter sign-up is receives_care = false from the first row (control:
+-- an expired invite and a TEST patient's invite are refused, the invite is not consumed; a supporter sign-up is receives_care = false from the first row (control:
 -- an ordinary sign-up still receives care); the kind pre-check agrees; the signed-out landing answers only for a valid invite, says only the
 -- first name, the view permissions and the masked contact, counts no attempt and is service role only; the signed-in status names the
 -- reason (wrong contact, own invite, expired, already a member). SABOTAGE (each must flip a check): the carve-out without its
--- supporter-only test lets a patient sign-up through; the default trigger dropped leaves a supporter receiving care.
+-- supporter-only test and test-invite filter lets a patient sign-up and the test invite through; the default trigger dropped leaves a supporter receiving care.
 begin;
 
 create temp table fx(k text primary key, v text) on commit drop;
@@ -52,12 +52,13 @@ begin
   perform pg_temp.setf('last', v::text);
   return 'ok';
 end $f$;
-create function pg_temp.mkuser(p_org uuid, p_label text) returns uuid language plpgsql as
+create function pg_temp.mkuser(p_org uuid, p_label text, p_test boolean default false) returns uuid language plpgsql as
 $f$ declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 'ccj-' || p_label || '-' || substr(v::text, 1, 8) || '@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = p_org, role = 'patient', full_name = 'Adaeze ' || p_label || ' Okafor', is_test = true, is_active = true where id = v;
+  update public.profiles set organisation_id = p_org, role = 'patient', full_name = 'Adaeze ' || p_label || ' Okafor', is_active = true where id = v;
+  if p_test then update public.profiles set is_test = true where id = v; end if;
   return v;
 end $f$;
 create function pg_temp.invite(p_pat uuid, p_kind text, p_contact text, p_label text) returns void language plpgsql as
@@ -72,22 +73,29 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_pat uuid; v_stranger uuid; v_sup uuid; r text; j jsonb; v_n int;
+  v_org uuid; v_pat uuid; v_test_pat uuid; v_stranger uuid; v_sup uuid; r text; j jsonb; v_n int;
   sfx text := substr(gen_random_uuid()::text, 1, 8);
   e1 text := 'ccj-aunty-' || sfx || '@example.invalid';
   e2 text := 'ccj-brother-' || sfx || '@example.invalid';
   e3 text := 'ccj-expired-' || sfx || '@example.invalid';
+  e4 text := 'ccj-testinv-' || sfx || '@example.invalid';
   ph text := '+23480' || lpad((random() * 99999999)::int::text, 8, '0');
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture missing: organisation'; end if;
   v_pat := pg_temp.mkuser(v_org, 'patient');
   v_stranger := pg_temp.mkuser(v_org, 'stranger');
+  v_test_pat := pg_temp.mkuser(v_org, 'testpatient', true);
 
   perform pg_temp.invite(v_pat, 'email', e1, 'e1');
   perform pg_temp.invite(v_pat, 'email', e2, 'e2');
   perform pg_temp.invite(v_pat, 'email', e3, 'e3');
   perform pg_temp.invite(v_pat, 'phone', ph, 'ph');
+  perform pg_temp.invite(v_test_pat, 'email', e4, 'e4');
+  if (select is_test from public.care_circle_invites where id = pg_temp.f('inv-e1')::uuid)
+     or not (select is_test from public.care_circle_invites where id = pg_temp.f('inv-e4')::uuid) then
+    raise exception 'fixture: the real and test invites are not marked as expected';
+  end if;
   update public.care_circle_invites set expires_at = now() - interval '1 minute' where id = pg_temp.f('inv-e3')::uuid;
 
   -- invite-only ON, open guard OFF (control: the switch really is the gate)
@@ -120,6 +128,11 @@ begin
   end if;
   if pg_temp.signup(e3, null, '{"account_purpose":"support"}') not like 'ERR:%signup_invite_required%' then
     raise exception 'FAIL: an expired Care Circle invite let a sign-up through';
+  end if;
+
+  -- 3b. a TEST patient's pending invite never opens real sign-up, even as a supporter
+  if pg_temp.signup(e4, null, '{"account_purpose":"support"}') not like 'ERR:%signup_invite_required%' then
+    raise exception 'HOLE: a test patient''s Care Circle invite let a real supporter sign up';
   end if;
 
   -- 4. a phone invite: the phone GoTrue holds (stored without the +) counts; a phone typed into metadata never does
@@ -178,7 +191,6 @@ begin
   end if;
   -- the supporter confirms their email, accepts, and the same link now says they are already in
   update auth.users set email_confirmed_at = now() where id = v_sup;
-  update public.profiles set is_test = true where id = v_sup;
   r := pg_temp.q_as(v_sup, format('select public.accept_care_circle_invite(%L)::text', pg_temp.f('tok-e1')));
   if (r::jsonb ->> 'ok') <> 'true' then raise exception 'FAIL: the new supporter could not accept: %', r; end if;
   r := pg_temp.q_as(v_sup, format('select public.care_circle_invite_status(%L)::text', pg_temp.f('tok-e1')));
@@ -205,6 +217,10 @@ begin
   end $s$;
   if pg_temp.signup(e2, null, '{}') like 'ERR:%' then
     raise exception 'VACUOUS: with the supporter-only test removed, the patient sign-up was still refused';
+  end if;
+  -- the same sabotaged body has no test-invite filter either: the test patient's invite must now let the sign-up through (3b flips)
+  if pg_temp.signup(e4, null, '{"account_purpose":"support"}') like 'ERR:%' then
+    raise exception 'VACUOUS: with the test-invite filter removed, the test invite still did not admit the sign-up';
   end if;
 
   -- SABOTAGE 2: without the default trigger a supporter sign-up receives care (the check in 1 must flip)
