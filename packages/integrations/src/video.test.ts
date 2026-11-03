@@ -323,6 +323,22 @@ describe("zoom adapter", () => {
     expect(fake.calls.map((c) => `${c.method} ${c.path}`).slice(-2)).toEqual([`PUT /v2/meetings/${room.data.roomId}/status`, `DELETE /v2/meetings/${room.data.roomId}`]);
   });
 
+  it("names the missing Zoom scopes when an app cannot end or delete a meeting, and the room is not reported closed", async () => {
+    // Reproduced 2026-11-03 with the sandbox check: PUT status and DELETE both answered 400 code 4711 and the meeting stayed readable.
+    const fake = createFakeZoom({ now: 1_800_000_000_000 });
+    fake.lackEndAndDeleteScopes();
+    const z = zoomFor(fake);
+    const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 600_000 });
+    if (!room.ok) throw new Error("room");
+    const ended = await z.endRoom(room.data.roomId, "clinician");
+    expect(ended).toMatchObject({ ok: false, error: { code: "not_configured", retryable: false } });
+    if (ended.ok) throw new Error("ended");
+    expect(ended.error.message).toContain("meeting:delete:meeting:admin");
+    expect(ended.error.message).toContain("meeting:update:status:admin");
+    // the meeting is still there, exactly as Zoom left it
+    expect((await z.joinLink({ roomId: room.data.roomId, role: "patient", mediaMode: "video" })).ok).toBe(true);
+  });
+
   it("fails without leaking credentials when Zoom rejects the account", async () => {
     const fake = createFakeZoom();
     const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "the-client-secret", sdkKey: "k", sdkSecret: "s", fetch: async () => ({ status: 401, ok: false, text: async () => '{"reason":"Invalid client"}' }), now: () => fake.clock.now });
@@ -343,19 +359,28 @@ describe("zoom adapter", () => {
   });
 
   it("surfaces a retryable failure from ending a meeting, and a vendor failure from deleting it", async () => {
-    const mk = (putStatus: number, deleteStatus: number) =>
+    const mk = (putStatus: number, deleteStatus: number, body = "{}") =>
       createZoomVideo({
         accountId: "a", clientId: "c", clientSecret: "s", sdkKey: "k", sdkSecret: "s", now: () => 1,
         fetch: async (u, init) => {
           if (u.includes("oauth")) return { status: 200, ok: true, text: async () => '{"access_token":"t"}' };
           const status = init.method === "PUT" ? putStatus : deleteStatus;
-          return { status, ok: status < 300, text: async () => "{}" };
+          return { status, ok: status < 300, text: async () => body };
         },
       });
     expect(await mk(503, 204).endRoom("123456789", "clinician")).toMatchObject({ ok: false, error: { retryable: true } });
     expect(await mk(204, 500).endRoom("123456789", "clinician")).toMatchObject({ ok: false, error: { code: "vendor_error" } });
     // A refused delete after a successful end is worth repeating, because the room can be rejoined until it works.
     expect(await mk(204, 400).endRoom("123456789", "clinician")).toMatchObject({ ok: false, error: { retryable: true } });
+    // Scopes: a plain 400 is "closed yet"; Zoom's "does not contain scopes" (code 4711) is configuration, never retried, never success.
+    const noScopes = mk(400, 400, '{"code":4711,"message":"Invalid access token, does not contain scopes:[meeting:delete:meeting:admin, meeting:delete:meeting]."}');
+    expect(await noScopes.endRoom("123456789", "clinician")).toMatchObject({ ok: false, error: { code: "not_configured", retryable: false } });
+    // end allowed, delete not: only the delete scopes are named
+    const deleteOnly = await mk(204, 400, '{"code":4711,"message":"Invalid access token, does not contain scopes:[meeting:delete:meeting:admin, meeting:delete:meeting]."}').endRoom("123456789", "clinician");
+    expect(deleteOnly).toMatchObject({ ok: false, error: { code: "not_configured", message: "Zoom app lacks scopes: meeting:delete:meeting:admin, meeting:delete:meeting" } });
+    // a scope list long enough to be cut at 200 characters by fail() is still recognised as a scope refusal
+    const longList = `{"code":4711,"message":"Invalid access token, does not contain scopes:[${Array.from({ length: 12 }, (_, i) => `meeting:scope_${i}:admin`).join(", ")}]."}`;
+    expect(await mk(204, 400, longList).endRoom("123456789", "clinician")).toMatchObject({ ok: false, error: { code: "not_configured", retryable: false } });
     expect((await mk(400, 204).endRoom("123456789", "clinician")).ok).toBe(true);
     expect((await mk(404, 404).endRoom("123456789", "clinician")).ok).toBe(true);
   });

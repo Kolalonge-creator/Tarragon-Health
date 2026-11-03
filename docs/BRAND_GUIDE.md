@@ -37,7 +37,7 @@ Personality pillars: **Trustworthy** (we earn trust, don't claim it) · **Warm**
 **Written English: plain but educated (founder decision 2026-10-30).** "Warm" never means chatty or childlike. Write in complete, precise sentences with everyday words, the correct medical term explained once, and the reason behind each claim, as the NHS and Ada Health do. No fragments used as sentences, slogans as body copy, slang ("Mum", "BP" in prose), or internal jargon (escalate, care gap) in patient text. Full rules and before/after examples: `docs/design/COPY-VOICE.md`. Apply to every user-facing string, marketing and app, before it ships.
 
 ## 4. Logo — "Guard Leaf"
-Shield silhouette (protection, continuous monitoring) + sprout crown (two leaflets at the apex — prevention and growth) + checkmark vein (the leaf's midrib drawn as a checkmark — a completed reading, a closed care gap). Assets: `Tarragon_Health_Logo_Mark.png` (mark alone), `Tarragon_Health_Logo_Lockup.png` (mark + wordmark + tagline).
+Shield silhouette (protection, continuous monitoring) + sprout crown (two leaflets at the apex — prevention and growth) + pulse-line vein (the leaf's midrib drawn as a heart-rate pulse line: continuous monitoring, a reading taken). **Changed 2026-11-03:** the vein was a checkmark until Google Play rejected the Android app under its Impersonation policy because the shield plus checkmark read as a "verified" badge; never reintroduce a checkmark, tick or badge shape into the mark. Assets: `Tarragon_Health_Logo_Mark.png` (mark alone), `Tarragon_Health_Logo_Lockup.png` (mark + wordmark + tagline).
 
 **Wordmark:** `TarragonHealth` — single word, camel-case. "Tarragon" in Charcoal Ink, "Health" in Tarragon Green.
 
@@ -45,7 +45,7 @@ Shield silhouette (protection, continuous monitoring) + sprout crown (two leafle
 - Primary lockup (mark + wordmark + tagline) → website header, decks, letterheads, corporate proposals, app landing pages
 - Wordmark alone → where space is limited or brand is already familiar
 - Mark alone → app icon, favicon, social avatar, dashboard sidebar, watermark
-- Clear space = height of the sprout crown, on all sides. Min size: 120px (full lockup), 32px (mark alone) — checkmark vein disappears below this
+- Clear space = height of the sprout crown, on all sides. Min size: 120px (full lockup), 32px (mark alone) — pulse-line vein disappears below this
 - Backgrounds: white, Warm Ivory, Soft Sage, or Deep Navy only
 - **Never:** stretch, skew, rotate, add shadows, place over busy images, recolour the shield outside the palette (no blue, no red medical-cross styling)
 
@@ -174,7 +174,7 @@ Single master brand — **no independent sub-brands**. Product names are descrip
 | Master tagline | Care that stays with you. |
 | Descriptor (live, corrected 2026-09-03) | Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed. |
 | Campaign line | Well within reach. |
-| Logo | Guard Leaf — shield + sprout crown + checkmark vein |
+| Logo | Guard Leaf — shield + sprout crown + pulse-line vein |
 | Wordmark | TarragonHealth (camel-case, Ink + Green) |
 | Primary colour | Tarragon Green `#0E7C52` · B2B: Clinical Navy `#12324B` |
 | Fonts | Sora (headlines) · Inter (UI/body) |

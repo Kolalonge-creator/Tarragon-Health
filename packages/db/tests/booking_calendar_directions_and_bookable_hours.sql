@@ -184,7 +184,10 @@ begin
   if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of the 2 checks that should flip', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
+-- a sabotaged check is meant to differ; the runner reads any FAIL in the output as a failed proof
+select phase, check_name, expected, actual,
+       case when phase = 'sabotaged' then case when expected is distinct from actual then 'CAUGHT' else 'MISSED' end
+            when expected = actual then 'PASS' else 'FAIL' end as result
 from results order by phase, check_name;
 
 rollback;

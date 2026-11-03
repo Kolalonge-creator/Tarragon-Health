@@ -174,8 +174,12 @@ export async function checkZoom(env, fetchImpl, results, { allowZoomMeeting }) {
     need(!forged.ok && forged.error.code === "invalid_signature", "a forged signature was accepted");
     need((await hmacHex("SHA-256", secret, "abc")) === zoomChallenge(secret, "abc"), "the challenge answer differs from an independent HMAC");
   });
-  await step(results, "zoom", "a host user is named (Server-to-Server OAuth cannot use \"me\")", async () => {
-    need(env.ZOOM_HOST_USER_ID, "ZOOM_HOST_USER_ID is not set. Zoom's account-level token cannot resolve \"me\", so creating a room will be refused. Set it to the dedicated host user's id or email.");
+  // "me" DOES resolve for a Server-to-Server app (proved on the first live consultation, 2026-11-03: it is the app's own user). What
+  // fails is an EMAIL: with meeting-only scopes the token has no user:read, so /users/{email}/meetings answers 404.
+  await step(results, "zoom", "host user is \"me\" or a Zoom user id (an email 404s under meeting-only scopes)", async () => {
+    if (!env.ZOOM_HOST_USER_ID) return { detail: "ZOOM_HOST_USER_ID unset: rooms are made under \"me\", the Server-to-Server app's own user" };
+    need(!env.ZOOM_HOST_USER_ID.includes("@"), "ZOOM_HOST_USER_ID looks like an email. Zoom answers 404 for /users/{email}/... when the token lacks user:read, so set the dedicated host user's Zoom id, or leave it unset for \"me\".");
+    return { detail: "a dedicated host user id is set" };
   });
   if (!allowZoomMeeting) return void results.push({ provider: "zoom", capability: "create / join / dial-in / end a room", status: "SKIP", detail: "Zoom has no sandbox: pass --allow-zoom-meeting to create and delete one short real meeting under the test host user" });
 

@@ -10,6 +10,8 @@ export interface FakeZoom {
   failNextCall(): void;
   /** From now on, a meeting asked for with dial-in countries is refused the way Zoom refuses an account that has none. */
   refuseDialInCountries(): void;
+  /** From now on, ending and deleting a meeting are refused the way Zoom refuses an app without those scopes (400, code 4711; seen live 2026-11-03). */
+  lackEndAndDeleteScopes(): void;
   signedEvent(event: string, meetingId: string, userName?: string, customerKey?: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
   forgedEvent(event: string, meetingId: string): Promise<{ rawBody: string; headers: Record<string, string> }>;
 }
@@ -21,6 +23,7 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
   const meetings = new Map<string, { start_time: string; duration: number; host_id: string }>();
   let failNext = false;
   let refuseDialIn = false;
+  let noEndScopes = false;
   let seq = 0;
   const webhookSecret = "zoom-secret-token";
 
@@ -76,6 +79,9 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
           ...meeting,
         });
       }
+      // Zoom's exact replies, captured 2026-11-03 from an app whose token lacked the end and delete scopes.
+      if (init.method === "PUT" && noEndScopes) return reply(400, { code: 4711, message: "Invalid access token, does not contain scopes:[meeting:update:status, meeting:update:status:admin]." });
+      if (init.method === "DELETE" && noEndScopes) return reply(400, { code: 4711, message: "Invalid access token, does not contain scopes:[meeting:delete:meeting:admin, meeting:delete:meeting]." });
       if (init.method === "PUT") return reply(204, undefined);
       if (init.method === "DELETE") {
         meetings.delete(id);
@@ -100,6 +106,9 @@ export function createFakeZoom(clock = { now: 1_800_000_000_000 }): FakeZoom {
     clock,
     refuseDialInCountries() {
       refuseDialIn = true;
+    },
+    lackEndAndDeleteScopes() {
+      noEndScopes = true;
     },
     failNextCall() {
       failNext = true;
