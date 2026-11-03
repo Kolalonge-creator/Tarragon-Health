@@ -714,3 +714,9 @@ premise already out of date, the decision stands and the build did the smaller t
 | **B-06** | OQ-S98-7: hide sensitive-bundle orders from caregivers and guardians entirely. | A caregiver could read the bundle id and order number of a sensitive screening request. | `lab_orders_select` and six other doors closed. The sensitive flag covers 14 of 32 active bundles, so caregivers also lose routine ones; narrowing is a change to the S98b flag. #1512 |
 | **B-07** | OQ-555/558: staff reads of the five reproductive tables are audited and tied, with no reason typed. | INV-10. | `read_womens_health_record_audited`, tied staff policies, and a three-state `pregnancy_safety_status` so an unreadable status is "unknown", never "not pregnant". #1516 |
 
+
+## Founder decision, 2026-11-03 (rota cover minimum: two clinicians)
+
+| ID | Decision | Rationale | Unblocks |
+|---|---|---|---|
+| **Rota cover minimum** | `rota_cover_policy.required_clinicians` is **2**, not the 5 that W-03 proposed. Two credentialed doctors alternating primary and backup over the 28-day window is enough to start 24/7 cover. `window_days` (28) and the sole-CMO exception sunset (2027-01-31, still PROPOSED) are unchanged. Every hour must still have a credentialed primary. | Checked live 2026-11-03: the real roster is exactly two credentialed doctors covering all 672 hours with a backup; `meets_minimum` was false only because 2 < 5, which kept the red-ladder card on "below the minimum" and would have raised a daily incident from 30 days before the sunset. The founder chose to amend the proposed value rather than staff to it. | Stage 2 exit B1; `*_rota_cover_policy_two_clinicians.sql`; `rota.cover_policy` v2 in proposed-config |

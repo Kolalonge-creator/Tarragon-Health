@@ -11,8 +11,10 @@
 --      person once one is on duty); a second sweep does nothing new; a non-red
 --      subscriber and a test event are ignored; a requeued delivery closes the alarm; the sweep is inert while its switch is off.
 --   4. ROTA COVERAGE: the report counts credentialed clinicians and uncovered hours for the window; with no rota every hour is uncovered and the
---      minimum is not met; with five credentialed on-call clinicians covering all 28 days (primary and backup) the minimum IS met; a cancelled
---      shift or a revoked competency drops it again; non-admins are refused.
+--      minimum is not met; the policy in force asks for TWO clinicians (founder decision 2026-11-03, *_rota_cover_policy_two_clinicians.sql);
+--      two credentialed doctors alternating primary and backup over 28 days (the real roster's shape) MEET it; the five-clinician mechanics
+--      proofs below run with the policy set back to W-03's original five inside the transaction, so a cancelled shift or a revoked competency
+--      still drops it; non-admins are refused. SABOTAGE (j): the old five restored -> the two-doctor roster must fail again.
 --   5. SOLE-CMO EXPIRY: a new real exception is capped to the dated end; none can be signed after it; the active check refuses after it; the
 --      sweep closes a lapsed exception; test rows are exempt.
 --   6. PHONE FALLBACKS: a call logged on the ops desk for an expired-page incident is mirrored once; log_page_phone_fallback through a real
@@ -154,7 +156,7 @@ declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_plain uuid; v_s public.chain_canary_subjects;
   v_a uuid; v_b uuid; v_c uuid; v_ev uuid; v_dl uuid; v_dl2 uuid; v_dl3 uuid; v_tick jsonb; v_inc uuid; v_n integer; v_cov jsonb; v_exc uuid; v_pat uuid;
   v_ref text; v_end timestamptz; v_org2 uuid; v_cmo2 uuid;
-  v_ops uuid; v_dep uuid; v_ct uuid; v_ct2 uuid; v_dl5 uuid; v_org4 uuid; v_before integer; v_cn integer; v_r jsonb; v_dl4 uuid; v_inc4 uuid; v_asg uuid; v_org3 uuid; v_docs uuid[] := '{}'; v_d uuid; i integer; v_cadm uuid; v_cplain uuid; v_pg uuid; v_rota uuid;
+  v_ops uuid; v_dep uuid; v_ct uuid; v_ct2 uuid; v_dl5 uuid; v_org4 uuid; v_before integer; v_cn integer; v_r jsonb; v_dl4 uuid; v_inc4 uuid; v_asg uuid; v_org3 uuid; v_org5 uuid; v_docs uuid[] := '{}'; v_docs5 uuid[] := '{}'; v_d uuid; i integer; v_cadm uuid; v_cplain uuid; v_pg uuid; v_rota uuid;
 begin
   select id into v_org from public.organisations where not coalesce((metadata ->> 'canary')::boolean, false) order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -385,9 +387,13 @@ begin
   v_cov := private.rota_coverage(v_org, true, now());
   perform pg_temp.res('with no test rota every hour of the window is uncovered and the minimum is not met', 'false,672,0',
     (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'hours_uncovered') || ',' || (v_cov ->> 'hours_covered'));
-  perform pg_temp.res('the report carries the required number and window from the policy', '5,28', (v_cov ->> 'required_clinicians') || ',' || (v_cov ->> 'window_days'));
-  perform pg_temp.res('the synthetic canary rota shows its clinician but one is not five', 'false,true', (private.rota_coverage(v_s.organisation_id, true, now()) ->> 'meets_minimum') ||
+  perform pg_temp.res('the report carries the required number and window from the policy in force: two clinicians (founder 2026-11-03), 28 days', '2,28', (v_cov ->> 'required_clinicians') || ',' || (v_cov ->> 'window_days'));
+  perform pg_temp.res('the live row agrees: required_clinicians 2, default 2', '2,2',
+    (select required_clinicians::text from public.rota_cover_policy) || ',' || (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'rota_cover_policy' and column_name = 'required_clinicians'));
+  perform pg_temp.res('the synthetic canary rota shows its clinician but one is not two', 'false,true', (private.rota_coverage(v_s.organisation_id, true, now()) ->> 'meets_minimum') ||
     ',' || ((private.rota_coverage(v_s.organisation_id, true, now()) ->> 'distinct_on_rota')::int >= 1)::text);
+  -- the mechanics proofs below were written against W-03's original PROPOSED five; they run at five inside this rolled-back transaction
+  update public.rota_cover_policy set required_clinicians = 5;
   -- positive: five credentialed on-call clinicians cover all 28 days, each with a credentialed backup
   insert into public.organisations (name, type) values ('W03 proof org three', 'clinic') returning id into v_org3;
   for i in 1..5 loop
@@ -417,6 +423,33 @@ begin
   v_cov := private.rota_coverage(v_org3, true, now());
   perform pg_temp.res('revoking one clinician''s on_call competency drops the credentialed count to four and the minimum fails', 'false,4',
     (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota'));
+
+  -- THE POLICY IN FORCE (two): the real roster's shape, two credentialed doctors alternating primary and backup over all 28 days, meets it
+  update public.rota_cover_policy set required_clinicians = 2;
+  insert into public.organisations (name, type) values ('W03 proof org five', 'clinic') returning id into v_org5;
+  for i in 1..2 loop
+    v_docs5 := v_docs5 || pg_temp.mkoncall(v_org5, v_admin, 'pair' || i);
+  end loop;
+  perform set_config('tarragon.lead_write', 'on', true);
+  for i in 0..29 loop
+    insert into public.on_call_rota (organisation_id, starts_at, ends_at, primary_clinician_id, backup_clinician_id, is_test)
+    values (v_org5, date_trunc('hour', now()) + make_interval(hours => 24 * i), date_trunc('hour', now()) + make_interval(hours => 24 * (i + 1)),
+            v_docs5[1 + (i % 2)], v_docs5[1 + ((i + 1) % 2)], true);
+  end loop;
+  perform set_config('tarragon.lead_write', 'off', true);
+  v_cov := private.rota_coverage(v_org5, true, now());
+  perform pg_temp.res('two credentialed doctors alternating primary and backup over 28 days meet the minimum in force', 'true,2,0,0,672,2',
+    (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota') || ',' || (v_cov ->> 'hours_uncovered') || ',' || (v_cov ->> 'hours_without_backup') || ',' ||
+    (v_cov ->> 'hours_covered') || ',' || (v_cov ->> 'eligible_on_call_staff'));
+  update public.clinician_competencies set revoked_at = now() where clinical_staff_id = (select id from public.clinical_staff where profile_id = v_docs5[2]) and competency_code = 'on_call';
+  v_cov := private.rota_coverage(v_org5, true, now());
+  perform pg_temp.res('one credentialed doctor is not enough even at two: half the hours lack a credentialed primary', 'false,1,336',
+    (v_cov ->> 'meets_minimum') || ',' || (v_cov ->> 'distinct_credentialed_on_rota') || ',' || (v_cov ->> 'hours_uncovered'));
+  update public.clinician_competencies set revoked_at = null where clinical_staff_id = (select id from public.clinical_staff where profile_id = v_docs5[2]) and competency_code = 'on_call';
+  -- SABOTAGE (j): W-03's original five put back -> the two-doctor roster fails again (the check flips from true to false)
+  update public.rota_cover_policy set required_clinicians = 5;
+  insert into results values ('sabotaged', 'with five required the two-doctor roster still meets the minimum', 'true', (private.rota_coverage(v_org5, true, now()) ->> 'meets_minimum'));
+  -- the sunset proofs below were also written at five; the policy stays at five for the rest of this rolled-back transaction
 
   -- SUNSET BITES: in a REAL (non-test) world, five credentialed clinicians where one holds on_call only because they granted it to themselves
   -- real (non-test) clinicians need a recorded primary-source verification to count as eligible; this proof is about rota cover, not credentialing,
@@ -552,8 +585,8 @@ begin
   if v_bad > 0 then
     raise exception 'W-03 proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
-  if (select count(*) from results where phase = 'sabotaged' and expected <> actual) < 8 then
-    raise exception 'VACUOUS TEST: not every sabotage changed its outcome (% of 8): %', (select count(*) from results where phase = 'sabotaged' and expected <> actual),
+  if (select count(*) from results where phase = 'sabotaged' and expected <> actual) < 9 then
+    raise exception 'VACUOUS TEST: not every sabotage changed its outcome (% of 9): %', (select count(*) from results where phase = 'sabotaged' and expected <> actual),
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'sabotaged' and expected = actual);
   end if;
 end $$;
