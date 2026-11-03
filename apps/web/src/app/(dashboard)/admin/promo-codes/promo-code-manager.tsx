@@ -18,6 +18,9 @@ const ORDER_TYPE_LABEL: Record<(typeof ORDER_TYPES)[number], string> = {
   referral: "Referral orders",
   service_purchase: "Doctor-time purchases (Ask a doctor, video visit and the other per-item services)",
 };
+/** What a new code applies to before the admin touches the boxes: the three order kinds this page always covered. Doctor-time
+ * purchases are opted into on purpose, so a code meant for the laboratory does not quietly discount a senior case review. */
+const DEFAULT_ORDER_TYPES: readonly string[] = ["lab", "pharmacy", "referral"];
 function orderTypeLabel(t: string): string {
   return (ORDER_TYPE_LABEL as Record<string, string>)[t] ?? t;
 }
@@ -62,7 +65,7 @@ export function PromoCodeManager() {
   const { data: codes } = usePromoCodes();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [orderTypes, setOrderTypes] = useState<string[]>([...ORDER_TYPES]);
+  const [orderTypes, setOrderTypes] = useState<string[]>([...DEFAULT_ORDER_TYPES]);
 
   const create = useMutation({
     mutationFn: async (input: {
@@ -138,7 +141,7 @@ export function PromoCodeManager() {
                 expiresAt: expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null,
               });
               e.currentTarget.reset();
-              setOrderTypes([...ORDER_TYPES]);
+              setOrderTypes([...DEFAULT_ORDER_TYPES]);
             }}
           >
             <label className="block text-sm">

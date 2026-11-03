@@ -53,7 +53,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   discount_code_invalid: "That code is not valid: 4 to 24 letters or digits, dates in order, and a cohort of your organisation.",
   unknown_item: "One of the chosen items is not in the catalogue.",
   discount_code_immutable: "What a code gives cannot change once it exists. End it and create a new one.",
-  discount_codes_check: "Those limits are outside what is allowed.",
+  "violates check constraint": "Those values are outside what is allowed: percent 1 to 100, amounts above zero, uses 1 to 1,000,000 in all and 1 to 100 per person.",
 };
 function describe(error: { message: string }): string {
   for (const [k, v] of Object.entries(MESSAGES)) if (error.message.includes(k)) return v;

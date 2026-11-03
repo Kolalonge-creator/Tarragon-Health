@@ -21,8 +21,10 @@ const overview = z.object({ codes: z.array(codeRow) });
 const catalogue = z.object({ checkout_open: z.boolean(), items: z.array(z.object({ code: z.string(), audience: z.string().default("patient"), active: z.boolean() })) });
 const cohorts = z.array(z.object({ id: z.string().uuid(), name: z.string(), sponsor: z.string(), status: z.string() }));
 
-/** Today in Lagos (UTC+1, no daylight saving), read once outside the render. */
-const lagosToday = (): string => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
+/** The clock, read once per request outside the JSX so the page is a pure function of its data and this one reading. */
+const clockMs = (): number => Date.now();
+/** A date in Lagos (UTC+1, no daylight saving) as YYYY-MM-DD. */
+const lagosDay = (ms: number): string => new Date(ms + 60 * 60 * 1000).toISOString().slice(0, 10);
 
 export default async function AdminDiscountCodesPage() {
   const profile = await getCurrentProfile();
@@ -40,6 +42,8 @@ export default async function AdminDiscountCodesPage() {
   const coh = cohorts.safeParse(cohortData);
   const openCohorts = coh.success ? coh.data.filter((c) => c.status === "active") : [];
   const cohortName = new Map((coh.success ? coh.data : []).map((c) => [c.id, c.name]));
+  const now = clockMs();
+  const today = lagosDay(now);
 
   return (
     <div className="space-y-6">
@@ -48,6 +52,11 @@ export default async function AdminDiscountCodesPage() {
       <p>
         Codes for one-off laboratory, pharmacy, referral and doctor-time orders are a different thing and live on the <a href="/admin/promo-codes" className="underline">Promo codes</a> page.
       </p>
+      <p>
+        A code made from a real admin account works for real patients only, and one made from a test admin account works for test patients only and is not listed here. To rehearse a code with a test patient, create it while signed in as the test admin.
+      </p>
+      {!cat.success ? <p role="alert">The catalogue items could not be loaded, so a new code cannot be limited to items right now.</p> : null}
+      {!coh.success ? <p role="alert">Sponsor cohorts could not be loaded, so a new code cannot be limited to a cohort right now.</p> : null}
       {cat.success ? (
         <p role="status">
           Catalogue checkout is <strong>{cat.data.checkout_open ? "open" : "closed"}</strong>. A code can be created while it is closed, but no real patient can use one until a superadmin opens checkout (Catalogue and prices page).
@@ -56,7 +65,7 @@ export default async function AdminDiscountCodesPage() {
       <Card>
         <CardHeader><CardTitle>New code</CardTitle></CardHeader>
         <CardContent>
-          <CreateDiscountCodeForm items={items} cohorts={openCohorts} today={lagosToday()} />
+          <CreateDiscountCodeForm items={items} cohorts={openCohorts} today={today} />
         </CardContent>
       </Card>
       {error || !parsed.success ? (
@@ -64,11 +73,17 @@ export default async function AdminDiscountCodesPage() {
       ) : parsed.data.codes.length === 0 ? (
         <p>No discount codes yet.</p>
       ) : (
-        parsed.data.codes.map((c) => (
+        parsed.data.codes.map((c) => {
+          // The pricing engine only honours a code between its first and last day; a paused code resumed after its last day is 'active' in the
+          // database but can never be used, so the list says so rather than showing 'active'.
+          const expired = new Date(c.valid_to).getTime() <= now;
+          const notYet = new Date(c.valid_from).getTime() > now;
+          const shown = c.status === "ended" ? "ended" : expired ? "expired" : c.status === "active" && notYet ? "starts later" : c.status;
+          return (
           <Card key={c.id}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <span className="font-mono">{c.code}</span> <Badge>{c.status}</Badge>
+                <span className="font-mono">{c.code}</span> <Badge>{shown}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -80,10 +95,11 @@ export default async function AdminDiscountCodesPage() {
                 {c.item_codes.length === 0 ? "Any item." : `Only: ${c.item_codes.join(", ")}.`}
                 {c.cohort_id ? ` Only cohort ${cohortName.get(c.cohort_id) ?? c.cohort_id}.` : ""}
               </p>
-              <DiscountCodeStatusForm id={c.id} status={c.status} />
+              {expired && c.status !== "ended" ? <p>Its last day has passed, so it cannot be used again. Create a new code to run it again.</p> : <DiscountCodeStatusForm id={c.id} status={c.status} />}
             </CardContent>
           </Card>
-        ))
+          );
+        })
       )}
     </div>
   );
