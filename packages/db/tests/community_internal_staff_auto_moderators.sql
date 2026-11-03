@@ -123,7 +123,8 @@ begin
   select id into v_org from public.organisations order by id limit 1;
   drop trigger community_auto_grant_profile on public.profiles;
   v_fin2 := pg_temp.mkreal(v_org, 'fin2', 'finance');
-  insert into results values ('sabotage', 'without the trigger a new finance account is not a moderator', 'moderator:automatic', pg_temp.grants(v_fin2));
+  -- expected is the SABOTAGED outcome (nothing granted), so the row reads PASS and the runner, which treats any FAIL row as a failure, stays green
+  insert into results values ('sabotage', 'without the trigger a new finance account is not a moderator', '', pg_temp.grants(v_fin2));
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase desc, check_name;
@@ -132,7 +133,8 @@ do $$
 declare v_fail integer; v_sab integer;
 begin
   select count(*) into v_fail from results where phase = 'real' and expected is distinct from actual;
-  select count(*) into v_sab from results where phase = 'sabotage' and expected is distinct from actual;
+  -- the sabotage row must show the trigger mattered: with it gone the new account holds nothing (the real check above saw 'moderator:automatic')
+  select count(*) into v_sab from results where phase = 'sabotage' and actual = '';
   if v_fail > 0 then raise exception 'community_internal_staff_auto_moderators: % real check(s) failed', v_fail; end if;
   if v_sab <> 1 then raise exception 'community_internal_staff_auto_moderators: sabotage did not flip'; end if;
 end $$;
