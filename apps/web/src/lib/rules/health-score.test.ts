@@ -4,6 +4,9 @@ import {
   getHealthScoreTips,
   computeHealthScoreTrend,
   describeHealthScoreTrend,
+  describeHealthScoreCoverage,
+  healthScoreCaption,
+  isHealthScoreThin,
   type HealthScoreInputs,
   type HealthScoreTrendPoint,
 } from "./health-score";
@@ -231,5 +234,36 @@ describe("describeHealthScoreTrend", () => {
       bmiSubScoreDelta: null,
     });
     expect(steady).toBe("Since your first check, your Health Score has held steady at 60.");
+  });
+});
+
+describe("describeHealthScoreCoverage", () => {
+  it("names how many measures the score stands on and asks for a blood pressure reading while none is in it", () => {
+    const thin = computeHealthScore({ ...allUnavailable, bmi: 22, smokingStatus: "never" })!;
+    expect(thin.score).toBe(100);
+    expect(describeHealthScoreCoverage(thin.components)).toBe(
+      "Built from 2 of 6 measures so far. Log a blood pressure reading to bring it to life.",
+    );
+    expect(isHealthScoreThin(thin.components)).toBe(true);
+  });
+
+  it("stops asking once blood pressure is part of the score", () => {
+    const full = computeHealthScore({ ...allUnavailable, bmi: 22, smokingStatus: "never", bpControlPercent: 80 })!;
+    expect(describeHealthScoreCoverage(full.components)).toBe("Built from 3 of 6 measures so far.");
+    expect(isHealthScoreThin(full.components)).toBe(false);
+  });
+
+  it("keeps the status word for a score built on real labs even without a blood pressure reading", () => {
+    const labs = computeHealthScore({ ...allUnavailable, bmi: 22, smokingStatus: "never", latestHba1cPercent: 6.2 })!;
+    expect(isHealthScoreThin(labs.components)).toBe(false);
+    expect(describeHealthScoreCoverage(labs.components)).toBe(
+      "Built from 3 of 6 measures so far. Log a blood pressure reading to bring it to life.",
+    );
+  });
+
+  it("says nothing about a legacy score row with no stored breakdown, and does not call it thin", () => {
+    expect(describeHealthScoreCoverage([])).toBe("");
+    expect(isHealthScoreThin([])).toBe(false);
+    expect(healthScoreCaption([], "A summary, not a diagnosis.")).toBe("A summary, not a diagnosis.");
   });
 });

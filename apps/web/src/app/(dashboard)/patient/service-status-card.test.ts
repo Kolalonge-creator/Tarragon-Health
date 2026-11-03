@@ -37,6 +37,19 @@ describe("resolveServiceAccess", () => {
     expect(mockRpc).toHaveBeenCalledWith("resolve_patient_service_access", { p_patient_id: "patient-1" });
   });
 
+  it("passes a Membership through with its tier and end date (the Home card must agree with the Membership page)", async () => {
+    const access: ServiceAccess = {
+      status: "membership_active",
+      monitoringExpiresAt: null,
+      membershipTier: "plus",
+      membershipEndsAt: "2027-10-30T00:00:00.000Z",
+      resolvedAt: "2026-11-03T00:00:00.000Z",
+    };
+    mockRpc.mockResolvedValue({ data: access, error: null });
+
+    await expect(resolveServiceAccess("patient-1")).resolves.toEqual(access);
+  });
+
   it("fails closed to null rather than throwing or defaulting to an active status when the RPC errors", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: "permission denied" } });
 

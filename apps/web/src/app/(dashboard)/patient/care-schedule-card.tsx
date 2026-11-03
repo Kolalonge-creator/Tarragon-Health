@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
 import { EmptyHint } from "@/components/ui/empty-hint";
+import { daysLabel, isOverdue, SCREENING_GRACE_DAYS } from "@/lib/patient/due-label";
 
 type ScheduleItem = {
   icon: AppIconName;
@@ -14,27 +15,11 @@ type ScheduleItem = {
   title: string;
   dueDate: string;
   href: string;
+  /** See lib/patient/due-label: a vaccination scheduled from the assessment date is "due now" for a while, not overdue. */
+  graceDays?: number;
 };
 
 const MAX_ITEMS = 6;
-
-/** "· 5 days left" style label, shared shape with the medicines-cabinet one. */
-function daysLabel(dateStr: string): string {
-  const today = new Date(new Date().toDateString());
-  const target = new Date(new Date(dateStr).toDateString());
-  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
-  if (days > 0) return `in ${days} day${days === 1 ? "" : "s"}`;
-  if (days === 0) return "today";
-  return `${-days} day${days === -1 ? "" : "s"} overdue`;
-}
-
-/** Same day-boundary arithmetic as daysLabel, so the two can never disagree
- * about whether an item is overdue. */
-function isOverdue(dateStr: string): boolean {
-  const today = new Date(new Date().toDateString());
-  const target = new Date(new Date(dateStr).toDateString());
-  return target.getTime() < today.getTime();
-}
 
 function formatLabel(value: string): string {
   return value.split("_").join(" ");
@@ -172,6 +157,7 @@ async function resolveUpcomingSchedule(patientId: string): Promise<ScheduleItem[
       title: vaccineName ? `${vaccineName} is due` : "A vaccination is due",
       dueDate: vaccination.data.due_date,
       href: "#prevention",
+      graceDays: SCREENING_GRACE_DAYS,
     });
   }
 
@@ -219,12 +205,12 @@ export async function CareScheduleCard({
                     muted so the two states read differently at a glance. */}
                 <span
                   className={
-                    isOverdue(item.dueDate)
+                    isOverdue(item.dueDate, item.graceDays ?? 0)
                       ? "shrink-0 whitespace-nowrap text-xs font-medium text-amber-700 dark:text-amber-300"
                       : "shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50 dark:text-night-ink/55"
                   }
                 >
-                  {daysLabel(item.dueDate)}
+                  {daysLabel(item.dueDate, item.graceDays ?? 0)}
                 </span>
               </li>
             );

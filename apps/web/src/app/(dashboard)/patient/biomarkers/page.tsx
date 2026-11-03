@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { NAV_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
 import { t, type MessageKey } from "@tarragon/i18n";
@@ -116,7 +117,21 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
       <ReportedValuesConfirm drafts={drafts} uiLanguage={uiLanguage} />
 
       {list.length === 0 ? (
-        drafts.length === 0 && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("biomarkers.none", uiLanguage)}</p>
+        drafts.length === 0 && (
+          <EmptyState
+            icon={NAV_ICON.analytics}
+            title={t("biomarkers.none", uiLanguage)}
+            body="Once a laboratory result with numbers is on your record, each test is charted here against its range."
+            action={
+              <Link
+                href="/patient/labs"
+                className="inline-flex min-h-11 items-center rounded-md bg-brand-green px-4 text-sm font-medium text-white hover:bg-deep-forest"
+              >
+                Add a result you already have
+              </Link>
+            }
+          />
+        )
       ) : (
         <>
           <section aria-label={t("biomarkers.pick", uiLanguage)} className="grid gap-3 sm:grid-cols-2">

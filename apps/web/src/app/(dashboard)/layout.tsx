@@ -42,7 +42,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language, onboarding_completed_at"
+      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language, onboarding_completed_at, sex"
     )
     .eq("id", user.id)
     .single();
@@ -149,6 +149,12 @@ export default async function DashboardLayout({
   const hiddenPatientHrefs = isPatient
     ? await readHiddenPatientHrefs(supabase, user.id, [...navHrefs(patientMenu), ...PATIENT_EXTRA_PAGES.map((e) => e.href)])
     : new Set<string>();
+  // Women's Health (cycle, contraception, pregnancy, menopause) is built around female patients and says so on the page; a man
+  // tapping it from the menu lands on a notice that it does not apply to him. Only a recorded "male" hides it: unrecorded sex
+  // keeps the entry, the same fail-open rule shouldOfferCycleTracking uses.
+  if (isPatient && profile?.sex === "male") {
+    hiddenPatientHrefs.add("/patient/womens-health");
+  }
   // Admin only. The admin role is the super admin and holds every capability, so every settings page is visible to it
   // (no per-page check to repeat here); delegated members do not get the box.
   const adminSearchEntries =
