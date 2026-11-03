@@ -31,7 +31,10 @@ export async function declareHours(fd: FormData): Promise<void> {
   await runAndRedirect(fd, "/clinician/rota", async () => {
     const kind = z.enum(["queue", "on_call", "bookable_consultations"]).parse(text(fd, "kind"));
     await call("declare_availability", { p_kind: kind, p_starts: isoOrThrow(fd, "starts"), p_ends: isoOrThrow(fd, "ends") });
-    return kind === "on_call" ? "On-call hours sent for approval." : "Hours declared.";
+    if (kind === "on_call") return "On-call hours sent for approval.";
+    // slot_is_open only offers confirmed bookable hours, so say patients will not see them yet.
+    if (kind === "bookable_consultations") return "Bookable hours sent for approval. Patients can pick a time once an admin or the CMO confirms them.";
+    return "Hours declared.";
   });
 }
 
@@ -107,7 +110,7 @@ export async function cancelShift(fd: FormData): Promise<void> {
 export async function confirmHours(fd: FormData): Promise<void> {
   await runAndRedirect(fd, REVIEW_FALLBACK, async () => {
     await call("confirm_availability_block", { p_block: uuid.parse(text(fd, "blockId")) });
-    return "On-call hours confirmed.";
+    return text(fd, "kind") === "bookable_consultations" ? "Bookable hours confirmed. Patients can now pick a time in them." : "On-call hours confirmed.";
   });
 }
 

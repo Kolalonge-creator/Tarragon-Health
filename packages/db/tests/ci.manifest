@@ -1815,3 +1815,5 @@ interaction_rule_set_v2_unsigned.sql
 who_cvd_2019_wssa_v3_verified_coefficients.sql
 # video visit price single source: the older request route quotes exactly what it charges (product price, organisation override, off = null, anon refused). Sabotage: the pre-fix reading of the organisation-less row makes quote and charge disagree.
 video_visit_price_single_source.sql
+# booking calendar: testing-day directions (admin only, trimmed, audited, shown to Members with the closing time on the listing and their booking); a doctor's declared bookable consultation hours reach the reviewers' confirm list and can be confirmed. Sabotage: the old on-call-only list hides bookable hours; an unguarded setter lets a Member write directions.
+booking_calendar_directions_and_bookable_hours.sql

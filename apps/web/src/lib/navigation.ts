@@ -265,6 +265,8 @@ export function getNavSections(
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
             // Two-tier model: the Member's yearly check happens at a listed testing day.
             { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
+            // The year at a glance: consultations, testing days (booked and open) and screenings due.
+            { label: "My calendar", href: "/patient/calendar", icon: "booking" },
           ],
         },
         {

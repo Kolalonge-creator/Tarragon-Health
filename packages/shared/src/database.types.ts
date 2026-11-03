@@ -52269,6 +52269,7 @@ export type Database = {
         Returns: undefined;
       };
       set_testing_event_status: { Args: { p_event: string; p_status: string }; Returns: undefined };
+      set_testing_event_directions: { Args: { p_event: string; p_directions: string }; Returns: undefined };
       list_testing_days: { Args: { p_city?: string }; Returns: Json };
       book_testing_day: { Args: { p_event: string }; Returns: Json };
       cancel_testing_booking: { Args: { p_booking: string; p_reason?: string }; Returns: undefined };

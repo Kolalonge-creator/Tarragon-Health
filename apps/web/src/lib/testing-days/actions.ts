@@ -37,7 +37,7 @@ export async function createTestingEvent(_prev: TestingActionState, formData: Fo
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   const d = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase.rpc("create_testing_event", {
+  const { data: eventId, error } = await supabase.rpc("create_testing_event", {
     p_kind: d.kind,
     p_event_date: d.eventDate,
     p_starts_at: d.startsAt || null,
@@ -55,7 +55,25 @@ export async function createTestingEvent(_prev: TestingActionState, formData: Fo
   });
   if (error) return oops(error.message);
   revalidatePath(STAFF_PATH);
+  if (d.directions && typeof eventId === "string") {
+    const dir = await supabase.rpc("set_testing_event_directions", { p_event: eventId, p_directions: d.directions });
+    // The event exists either way; say plainly that the directions did not save so the admin can add them from the list.
+    if (dir.error) return { error: `The testing event was created, but the directions were not saved: ${testingDayErrorText(dir.error.message)}` };
+  }
   return { message: "Testing event created." };
+}
+
+const directionsSchema = z.object({ eventId: uuid, directions: z.string().trim().max(500) });
+/** Directions are saved on their own (an empty box clears them), so editing them never touches capacity or times. */
+export async function saveTestingEventDirections(_prev: TestingActionState, formData: FormData): Promise<TestingActionState> {
+  const parsed = directionsSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_testing_event_directions", { p_event: parsed.data.eventId, p_directions: parsed.data.directions });
+  if (error) return oops(error.message);
+  revalidatePath(STAFF_PATH);
+  revalidatePath("/patient/testing-days");
+  return { message: "Directions saved." };
 }
 
 export async function approveVenue(_prev: TestingActionState, formData: FormData): Promise<TestingActionState> {
