@@ -263,12 +263,12 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
   );
 }
 
-export function ClinicianMessagesWorklist() {
+export function ClinicianMessagesWorklist({ initialView = "all" }: { initialView?: InboxView } = {}) {
   const { data: threads, isLoading, isError } = useOrgCareThreads();
   const [showTemplates, setShowTemplates] = useState(false);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
-  const [view, setView] = useState<InboxView>("all");
+  const [view, setView] = useState<InboxView>(initialView);
   const { data: me } = useCurrentUserId();
   const { data: myThreadIds } = useMyOwnedThreadIds(me);
   const [focusedId, setFocusedId] = useState<string | null>(null);

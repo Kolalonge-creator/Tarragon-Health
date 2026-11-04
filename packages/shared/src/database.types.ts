@@ -52483,6 +52483,10 @@ export type Database = {
       }
     }
     Functions: {
+      care_operations_summary: {
+        Args: { p_lookback_days?: number; p_target_hours?: number }
+        Returns: Json
+      }
       flag_care_thread_for_doctor: {
         Args: { p_reason: string; p_thread: string }
         Returns: string

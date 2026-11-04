@@ -20,6 +20,12 @@ export interface QueuedThread {
   needs_doctor: boolean;
 }
 
+/** The ?view= value from a care operations tile link; anything unknown falls back to "all". */
+export function parseInboxView(raw: string | string[] | undefined): InboxView {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "support" || v === "clinical" || v === "needs_doctor" ? v : "all";
+}
+
 export function inView(thread: QueuedThread, view: InboxView): boolean {
   if (view === "all") return true;
   if (view === "needs_doctor") return thread.needs_doctor;
