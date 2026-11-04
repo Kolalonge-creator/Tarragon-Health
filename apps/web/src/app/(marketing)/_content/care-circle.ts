@@ -7,14 +7,16 @@
  *   and remove anyone (circle.member.remove);
  * - shared items: weekly blood pressure averages, never single readings (circle.perm.weekly_bp_trend); doses taken out
  *   of doses due with no medicine names (circle.view.adherence.line); next appointment and missed ones
- *   (circle.perm.appointments); a monthly summary (circle.monthly.*); a check-in request when the care team sees
+ *   (circle.perm.appointments); test progress, doctor-reviewed results with sensitive tests never shared, weekly weight
+ *   and yearly check-ups (Care Circle Phase 2); the care-team note the person reads first (Phase 1); a monthly summary
+ *   (circle.monthly.*); requests for help (Phase 3, help requests); a check-in request when the care team sees
  *   something urgent or the person taps for help, which names the person and never what happened (circle.preview.alert,
  *   circle.help.*);
  * - family can pay for a Membership, which the person accepts (circle.gift.*);
  * - every look is recorded and the person sees who looked (circle.log.*).
  *
  * Deliberately NOT claimed: whether blood pressure is "on target" or "controlled", any doctor:patient ratio, any
- * response time, WhatsApp. The doctor's monthly note is not live yet and appears only as "Coming soon".
+ * response time, WhatsApp.
  * The section quotes no price; the gift link goes to /gift, which reads the price from versioned config.
  */
 
@@ -30,7 +32,7 @@ export interface CareCircleItem {
   readonly body: string;
 }
 
-/** What a family member may see, item by item, once the person has allowed it. */
+/** What a family member may see, item by item, once the person has allowed it (wording approved by the founder 2026-11-04). */
 export const CARE_CIRCLE_SHARED: readonly CareCircleItem[] = [
   {
     title: "Blood pressure, as weekly averages",
@@ -42,15 +44,35 @@ export const CARE_CIRCLE_SHARED: readonly CareCircleItem[] = [
   },
   {
     title: "Appointments",
-    body: "The date of the next appointment, and any appointments missed in the last 30 days.",
+    body: "The next one, and any missed in the last 30 days.",
+  },
+  {
+    title: "Tests",
+    body: "Where each everyday test in their plan has got to, from requested to reviewed by a doctor.",
+  },
+  {
+    title: "Results a doctor has reviewed",
+    body: "If they choose, shown against the lab's usual range. Sensitive tests are never shared.",
+  },
+  {
+    title: "Weight and yearly check-ups",
+    body: "Weekly weight averages, and how many check-ups are done or still to do.",
+  },
+  {
+    title: "A note from their care team",
+    body: "They read it first and choose whether to share it.",
   },
   {
     title: "A monthly summary",
-    body: "A short month-by-month report of the items already shared, if they choose to send it.",
+    body: "A short summary of the items already shared.",
+  },
+  {
+    title: "Requests for help",
+    body: "They can ask chosen family for a lift, help paying for a test or medicines, or a call, and you can answer.",
   },
   {
     title: "A request to check on them",
-    body: "If their care team sees something urgent, or they tap to ask for help, you receive a message straight away asking you to call them. It tells you that they need a call, not what happened.",
+    body: "If their care team sees something urgent, or they tap for help, you get a message asking you to call. It never says what happened.",
   },
 ];
 
@@ -75,10 +97,6 @@ export const CARE_CIRCLE_GIFT = {
   body: "Pay once, from abroad, and they decide whether to accept it. Paying for their care does not give you any extra access to their health information.",
   linkLabel: "See how giving a Membership works",
 } as const;
-
-/** The only not-yet-live item this section may mention, and only with this label. */
-export const CARE_CIRCLE_COMING_SOON =
-  "Coming soon: a short note from their care team after each monthly video call.";
 
 /**
  * Illustrative data for the supporter-view mock. Obviously an example (a made-up name, a labelled "Illustration"),

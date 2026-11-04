@@ -35,6 +35,7 @@ import {
   parseShareOffers,
   parseSharingHistory,
   parseTimeline,
+  parseGiftsPaid,
   respondOfferInputSchema,
   respondOfferResultSchema,
   type GiftShareInput,
@@ -706,6 +707,19 @@ export function useSharingHistory(enabled: boolean) {
 // ---------------------------------------------------------------------------
 // Care Circle P4: main/backup family contact, and the family timeline
 // ---------------------------------------------------------------------------
+/** P5: gifts the signed-in person paid for someone else (billing facts only). A missing function is "none". */
+export function useGiftsPaid() {
+  return useQuery({
+    queryKey: ["care-circle", "gifts-paid"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_gifts_paid");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseGiftsPaid(data);
+    },
+  });
+}
+
 /** The patient names (or clears) a main or backup family contact. A label only: it grants nothing. */
 export function useSetContactRole() {
   const qc = useQueryClient();

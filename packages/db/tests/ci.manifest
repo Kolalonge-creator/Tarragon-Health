@@ -1865,3 +1865,5 @@ care_circle_p3_help_requests.sql
 d5_pregnancy_sti_sensitive_access.sql
 # Care Circle Phase 4 (2026-11-04): main/backup family contact (patient-only, one each, moving a label, grants nothing, visible to that person, in the sharing history); family timeline (released doctor's note, attended/missed appointment, everyday test requested/reviewed, help request asked/done, newest first with a source, no value; never a sensitive appointment or test or someone else's request; strangers and a paused circle refused). Sabotage x3: allow-list opened, appointment filter opened, contact setter without the patient check.
 care_circle_p4_timeline_contacts.sql
+# Care Circle Phase 5 (2026-11-04): my_gifts_paid shows the payer their own paid gifts (first name, state word, Membership dates only once accepted, billing keys only) and nothing to the recipient or a stranger; admin_care_circle_metrics is admin only, counts only, excludes test accounts, and its counts match the fixtures. Sabotage x3: buyer filter removed, admin check removed, test filter removed.
+care_circle_p5_payer_view_and_metrics.sql
