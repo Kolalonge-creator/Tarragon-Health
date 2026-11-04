@@ -58395,6 +58395,8 @@ export type Database = {
       decline_circle_task: { Args: { p_task: string }; Returns: boolean };
       set_circle_contact_role: { Args: { p_member: string; p_role: string | null }; Returns: boolean };
       circle_supporter_timeline: { Args: { p_patient: string }; Returns: Json };
+      my_gifts_paid: { Args: never; Returns: Json };
+      admin_care_circle_metrics: { Args: never; Returns: Json };
       release_circle_task: { Args: { p_task: string }; Returns: boolean };
       complete_circle_task: { Args: { p_task: string }; Returns: boolean };
       cancel_circle_task: { Args: { p_task: string }; Returns: boolean };

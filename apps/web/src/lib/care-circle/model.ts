@@ -186,6 +186,33 @@ export const supporterViewSchema = z.object({
   contact_role: z.enum(["primary", "backup"]).nullable().optional(),
 });
 
+/** P5: one gift the signed-in person paid for someone else. Billing facts only; paying grants no access. */
+export const giftPaidSchema = z.object({
+  order_id: z.string(),
+  name: z.string(),
+  name_key: z.string().nullable(),
+  paid_at: z.string().nullable(),
+  state: z.enum(["waiting", "accepted", "declined", "not_answered", "not_accepted"]),
+  starts_at: z.string().nullable(),
+  ends_at: z.string().nullable(),
+  refund_state: z.string().nullable(),
+});
+export type GiftPaid = z.infer<typeof giftPaidSchema>;
+export function parseGiftsPaid(data: unknown): GiftPaid[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = giftPaidSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+/** P5: an accepted Membership ending within this many days shows "give another year". */
+export const RENEW_SOON_DAYS = 30;
+export function endsSoonForRenewal(endsAt: string | null, nowMs: number): boolean {
+  if (!endsAt) return false;
+  const left = new Date(endsAt).getTime() - nowMs;
+  return left > 0 && left <= RENEW_SOON_DAYS * 86_400_000;
+}
+
 /** P4: one event on the family timeline. Never a value or free text; `code` is a test code or a help-request kind. */
 export const TIMELINE_KINDS = [
   "doctor_note_shared", "appointment_attended", "appointment_missed", "test_requested", "test_reviewed", "help_requested", "help_done",

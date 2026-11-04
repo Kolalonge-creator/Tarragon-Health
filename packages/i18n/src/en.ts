@@ -3,6 +3,7 @@ import { cycleCopy } from "./cycle-copy";
 import { circleToolsCopy } from "./care-circle-tools-copy";
 import { familyCircleCopy } from "./family-circle-copy";
 import { circleP4Copy } from "./care-circle-p4-copy";
+import { circleP5Copy } from "./care-circle-p5-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -5019,6 +5020,8 @@ export const en = {
   ...familyCircleCopy,
   // 2026-11-04: Care Circle Phase 4, family contact and timeline (approved by the CMO and DPO 2026-11-04: see care-circle-p4-copy.ts)
   ...circleP4Copy,
+  // 2026-11-04: Care Circle Phase 5, payer view and admin metrics (proposed copy, CMO and DPO review pending: see care-circle-p5-copy.ts)
+  ...circleP5Copy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

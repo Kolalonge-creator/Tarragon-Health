@@ -4,7 +4,6 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { cn } from "@/lib/utils";
 import {
   CARE_CIRCLE_ABROAD,
-  CARE_CIRCLE_COMING_SOON,
   CARE_CIRCLE_CONTROL,
   CARE_CIRCLE_GIFT,
   CARE_CIRCLE_ILLUSTRATION,
@@ -83,7 +82,6 @@ export function CareCircleAbroad({ variant = "default", id = "care-circle" }: { 
             </div>
           </div>
 
-          <p className="mt-6 text-sm text-charcoal-ink/65">{CARE_CIRCLE_COMING_SOON}</p>
         </div>
       </div>
     </Section>
