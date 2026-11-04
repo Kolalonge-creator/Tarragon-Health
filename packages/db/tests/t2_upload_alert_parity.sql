@@ -16,9 +16,13 @@
 --      follow, and the row is marked not to page (lab_result_id set). A normal screen type (liver) gets nothing.
 --      A released correction of an already-mirrored result is not mirrored again.
 --   5. Privacy: before release the patient reads no screening row for it; another patient reads none after.
---   6. A filing with only off-panel tests submits nothing; a writer's own lab range is never replaced.
+--   6. A filing with only off-panel tests submits nothing; a writer's own lab range is never replaced; a partial filing whose
+--      values are all in range is released by the filing clinician with no second task (T2-10), an abnormal one is not; the patient
+--      cannot read their own reactive or equivocal HIV/hepatitis reading.
 --   7. SABOTAGE (automatic): with the filing trigger dropped, a filing creates no S27 result, so 2 to 4 prove the trigger.
 --   Sabotage by hand: drop trigger lab_reading_fill_signed_range before the do block; step 1 must fail.
+--   Sabotage by hand (T2-10): re-create private.raise_abnormal_results_from_filed_upload from 20261104025509 before the do block;
+--   step 6c must fail (checked 2026-11-04).
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/t2_upload_alert_parity.sql
 
@@ -31,6 +35,7 @@ declare
   v_patient uuid := gen_random_uuid();
   v_other uuid := gen_random_uuid();
   v_third uuid := gen_random_uuid();
+  v_fourth uuid := gen_random_uuid();
   v_doctor uuid := gen_random_uuid();
   v_cmo uuid := gen_random_uuid();
   v_staff uuid;
@@ -94,9 +99,10 @@ begin
     (v_patient, 't2-parity-patient@example.invalid', 'x', now(), '{}', '{}'),
     (v_other, 't2-parity-other@example.invalid', 'x', now(), '{}', '{}'),
     (v_third, 't2-parity-third@example.invalid', 'x', now(), '{}', '{}'),
+    (v_fourth, 't2-parity-fourth@example.invalid', 'x', now(), '{}', '{}'),
     (v_doctor, 't2-parity-doctor@example.invalid', 'x', now(), '{}', '{}');
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'T2 Parity Patient',
-         sex = 'female', date_of_birth = date '1980-01-15', is_test = true where id in (v_patient, v_other, v_third);
+         sex = 'female', date_of_birth = date '1980-01-15', is_test = true where id in (v_patient, v_other, v_third, v_fourth);
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'T2 Parity Doctor', is_test = true where id = v_doctor;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
@@ -106,7 +112,7 @@ begin
   insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
   values (v_org, v_staff, 'result_review', v_verifier, true);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
-  select v_org, p, v_doctor, now() from unnest(array[v_patient, v_other, v_third]) p
+  select v_org, p, v_doctor, now() from unnest(array[v_patient, v_other, v_third, v_fourth]) p
   on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
 
   -- the patient uploads the report; the reader's draft is written directly (it is a server-side step); the doctor files it
@@ -274,6 +280,38 @@ begin
   perform set_config('request.jwt.claims', null, true);
   select count(*) into v_n from public.lab_results where patient_id = v_other;
   if v_n <> 1 then raise exception 'FAIL 6: an off-panel-only filing created an S27 result (% now for this patient)', v_n; end if;
+
+  -- 6c. T2-10: a partial filing whose values are all in range is released by the filing clinician, with no second review task
+  insert into public.lab_result_documents (organisation_id, patient_id, file_path, original_filename, mime_type, file_size_bytes, source)
+  values (v_org, v_fourth, v_fourth::text || '/t2-normal.pdf', 'n.pdf', 'application/pdf', 1000, 'patient') returning id into v_doc;
+  insert into public.lab_report_extractions (organisation_id, patient_id, document_id, status, rows, report_date)
+  values (v_org, v_fourth, v_doc, 'extracted', '[]', date '2026-09-15') returning id into v_ext;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.confirm_lab_report_extraction(v_ext, '[{"code":"hba1c","value":5.1,"unit":"%"},{"code":"alt","value":25,"unit":"U/L"}]', date '2026-09-15');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  select id into v_lr from public.lab_results where patient_id = v_fourth;
+  if v_lr is null or (select release_state from public.lab_results where id = v_lr) <> 'released' then
+    raise exception 'FAIL 6c: a normal partial filing was not released by the filing clinician (%)',
+      (select to_jsonb(l) - 'review_note' from public.lab_results l where id = v_lr);
+  end if;
+  if exists (select 1 from public.clinical_tasks where dedup_key like 'lab_result:' || v_lr::text || '%'
+             and state in ('created', 'offered_to_lead', 'open', 'escalated', 'claimed')) then
+    raise exception 'FAIL 6c: a second review task is still open for a result the filing clinician already reviewed';
+  end if;
+  -- ...and a held abnormal one is NOT released that way (the upload in step 2 is still held for disclosure)
+  if (select release_state from public.lab_results where id = v_lr_upload) <> 'clinician_disclosure_required' then
+    raise exception 'FAIL 6c: an abnormal or sensitive filing was released without review';
+  end if;
+
+  -- 6d. the patient cannot read their own positive or equivocal HIV / hepatitis reading before a doctor (existing restrictive policy)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.lab_analyte_readings where patient_id = v_patient and code in ('hiv_screen', 'hcv_ab');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if v_n <> 0 then raise exception 'FAIL 6d: the patient can read a reactive or equivocal HIV/hepatitis reading (% rows)', v_n; end if;
 
   -- 6b. a writer's own lab range is kept
   insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, reference_range_low, reference_range_high, range_source)
