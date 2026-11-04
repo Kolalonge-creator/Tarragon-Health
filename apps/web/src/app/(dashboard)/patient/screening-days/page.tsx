@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { MyOutreachChecks } from "./my-outreach-checks";
 import { ScreeningDaysPanel } from "./screening-days-panel";
 
 /**
@@ -25,6 +26,7 @@ export default async function ScreeningDaysPage() {
         description="Bring a group (a church, a market association, a cooperative, an office) and get a discounted rate on a health check for everyone. One payer covers the whole group upfront; we'll confirm the price and headcount with you first."
       />
 
+      <MyOutreachChecks />
       <ScreeningDaysPanel />
     </div>
   );

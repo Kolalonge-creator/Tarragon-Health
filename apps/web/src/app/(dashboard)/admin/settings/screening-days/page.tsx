@@ -18,7 +18,7 @@ export default async function ScreeningDaysSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Group screening days"
-        description="Confirm a discounted price for a church, market association, cooperative, or SME's bulk booking, then issue each attendee their own named voucher once the group has paid in full. Getting the phlebotomist to the venue on the day stays a manual call to Synlab. This only tracks the booking and the money."
+        description="Run outreach health checks for churches, companies and associations: a free community check (readings on the day and a lab form for any laboratory) or a paid check that adds one results consultation. Enrol each attendee to their own account, then save their readings. Older test-bundle days still confirm a discounted price and issue each attendee a voucher once the group has paid."
       />
       <ScreeningDaysDashboard />
     </div>

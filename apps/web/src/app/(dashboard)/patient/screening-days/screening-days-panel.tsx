@@ -12,6 +12,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   SCREENING_DAYS_QUERY_KEY,
+  screeningDayKind,
+  screeningDayReadyForAttendees,
   useScreeningDays,
   useScreeningDaySlots,
   useSelfBookablePanelBundles,
@@ -147,9 +149,7 @@ function AddSlotForm({ day }: { day: ScreeningDay }) {
   const [state, action, pending] = useActionState(addScreeningDaySlot, undefined);
   const { data: slots } = useScreeningDaySlots(day.id);
   const remaining = (day.slots_confirmed ?? 0) - (slots?.filter((s) => s.status !== "removed").length ?? 0);
-  const fullyPaid = (day.total_kobo ?? 0) > 0 && day.amount_paid_kobo >= (day.total_kobo ?? 0);
-
-  if (!fullyPaid) return null;
+  if (!screeningDayReadyForAttendees(day)) return null;
 
   return (
     <div className="mt-4 space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
@@ -161,7 +161,7 @@ function AddSlotForm({ day }: { day: ScreeningDay }) {
           <li key={slot.id} className="flex items-center gap-2">
             <span>{slot.full_name ?? "Unnamed"}</span>
             <Badge variant={slot.status === "issued" ? "green" : "grey"}>
-              {slot.status === "issued" ? "Voucher issued" : "Registered"}
+              {slot.status !== "issued" ? "Registered" : slot.outreach_enrolled ? "Enrolled" : "Voucher issued"}
             </Badge>
           </li>
         ))}
@@ -209,12 +209,13 @@ function ScreeningDayCard({ day }: { day: ScreeningDay }) {
           {day.slots_confirmed ? ` · ${day.slots_confirmed} confirmed` : ""}
           {day.price_per_head_kobo ? ` at ${naira(day.price_per_head_kobo)} each` : ""}
         </p>
-        {day.status === "confirmed" ? (
+        {/* A free outreach check has nothing to pay. */}
+        {day.status === "confirmed" && screeningDayKind(day) !== "outreach_free" ? (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {naira(day.amount_paid_kobo)} paid of {naira(day.total_kobo ?? 0)}
           </p>
         ) : null}
-        {day.status === "confirmed" ? <PayForm day={day} /> : null}
+        {day.status === "confirmed" && screeningDayKind(day) !== "outreach_free" ? <PayForm day={day} /> : null}
         {day.status === "confirmed" ? <AddSlotForm day={day} /> : null}
       </CardContent>
     </Card>
