@@ -44,9 +44,14 @@ describe("P1 payer offers", () => {
     await expect(respondToShareOffer(M1, true)).resolves.toEqual({ accepted: true });
     expect(mockRpc).toHaveBeenCalledWith("respond_to_circle_share_offer", { p_member: M1, p_accept: true });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "offer_not_open" } });
-    await expect(respondToShareOffer(M1, false)).resolves.toBeNull();
+    await expect(respondToShareOffer(M1, false)).resolves.toEqual({ failed: "error" });
+    // a full circle is told apart (CC-COPY-P5b): trying again cannot help, so the screen says so instead of "try again"
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "circle_full" } });
+    await expect(respondToShareOffer(M1, true)).resolves.toEqual({ failed: "full" });
+    mockRpc.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    await expect(respondToShareOffer(M1, true)).resolves.toEqual({ failed: "error" });
     mockRpc.mockClear();
-    await expect(respondToShareOffer("bad", true)).resolves.toBeNull();
+    await expect(respondToShareOffer("bad", true)).resolves.toEqual({ failed: "error" });
     expect(mockRpc).not.toHaveBeenCalled();
   });
   it("the patient's waiting offers come with my_care_circle, tolerant of unknown permissions", () => {

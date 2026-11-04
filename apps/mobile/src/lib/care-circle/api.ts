@@ -251,11 +251,15 @@ export async function loadShareOffers(): Promise<ShareOffer[]> {
   const { data, error } = await supabase.rpc("my_circle_share_offers");
   return error ? [] : parseShareOffers(data);
 }
-/** Yes or no. null: not saved (the database checks the caller is the person asked and the offer is still open). */
-export async function respondToShareOffer(memberId: string, accept: boolean): Promise<{ accepted: boolean } | null> {
-  if (!isUuid(memberId)) return null;
+/**
+ * Yes or no. `{ failed: "full" }`: the person's circle filled up before this answer, so trying again cannot help (CC-COPY-P5b);
+ * `{ failed: "error" }`: not saved for any other reason (the database checks the caller is the person asked and the offer is still open).
+ */
+export async function respondToShareOffer(memberId: string, accept: boolean): Promise<{ accepted: boolean } | { failed: "full" | "error" }> {
+  if (!isUuid(memberId)) return { failed: "error" };
   const { data, error } = await supabase.rpc("respond_to_circle_share_offer", { p_member: memberId, p_accept: accept });
-  return error ? null : parseRespondOffer(data);
+  if (error) return { failed: error.message.includes("circle_full") ? "full" : "error" };
+  return parseRespondOffer(data) ?? { failed: "error" };
 }
 /** The patient takes back an offer nobody has answered yet. */
 export async function withdrawShareOffer(memberId: string): Promise<boolean> {

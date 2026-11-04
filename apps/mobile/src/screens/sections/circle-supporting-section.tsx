@@ -186,14 +186,14 @@ function ShareOffers({ refreshKey, onAnswered }: { refreshKey: number; onAnswere
 function OfferCard({ offer, answer, onAnswer }: { offer: ShareOffer; answer: "accepted" | "declined" | null; onAnswer: (a: "accepted" | "declined") => void }) {
   const locale = asLocale(useUiLanguage());
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<"full" | "error" | null>(null);
   async function answerWith(accept: boolean) {
     setBusy(true);
-    setFailed(false);
+    setFailed(null);
     const r = await respondToShareOffer(offer.memberId, accept);
     setBusy(false);
-    if (!r) {
-      setFailed(true);
+    if ("failed" in r) {
+      setFailed(r.failed);
       return;
     }
     onAnswer(r.accepted ? "accepted" : "declined");
@@ -214,7 +214,7 @@ function OfferCard({ offer, answer, onAnswer }: { offer: ShareOffer; answer: "ac
       {/* what they would see, in the same words the patient chose from; anything unrecognised was already dropped when parsed */}
       {offer.permissions.map((p) => <AppText variant="body" key={p}>{`• ${t(permissionKey(p), locale)}`}</AppText>)}
       <MutedText>{t("circlep1.offer.answer_by", locale, { date: lagosDate(offer.answerBy) })}</MutedText>
-      {failed ? <ErrorText>{t("circlep1.offer.error", locale)}</ErrorText> : null}
+      {failed ? <ErrorText>{failed === "full" ? t("circlep5.offer.full", locale, { name: offer.name }) : t("circlep1.offer.error", locale)}</ErrorText> : null}
       <PrimaryButton title={t("circlep1.offer.accept", locale)} disabled={busy} onPress={() => void answerWith(true)} />
       <SecondaryButton title={t("circlep1.offer.decline", locale)} disabled={busy} onPress={() => void answerWith(false)} />
     </Card>
