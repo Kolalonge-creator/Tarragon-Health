@@ -7,6 +7,7 @@ import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
 import { requestPhoneCode, signInWithPhonePassword } from "@/lib/auth/auth-flow";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
 import { lightPalette } from "@/ui/design/tokens";
@@ -54,7 +55,7 @@ type PhoneStep = "form" | "verify-confirm" | "verify-code";
 
 export function LoginScreen() {
   const locale = DEFAULT_LOCALE;
-  const [method, setMethod] = useState<SignInMethod>("phone");
+  const [method, setMethod] = useState<SignInMethod>(TEXT_CODES_ENABLED ? "phone" : "email");
   const [phoneMode, setPhoneMode] = useState<PhoneMode>("password");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("form");
   // Nigeria is the default; any other country can be typed with its +code in the number field.
@@ -174,6 +175,7 @@ export function LoginScreen() {
         </Text>
         <View
           style={{
+            display: TEXT_CODES_ENABLED ? "flex" : "none",
             flexDirection: "row",
             backgroundColor: inkAlpha(0.05),
             borderRadius: radius.control,

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
 import { startPhoneSignUp } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
 import appIcon from "../../assets/icon.png";
@@ -153,7 +154,7 @@ type SignUpMethod = "phone" | "email";
 
 export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const locale = DEFAULT_LOCALE;
-  const [method, setMethod] = useState<SignUpMethod>("phone");
+  const [method, setMethod] = useState<SignUpMethod>(TEXT_CODES_ENABLED ? "phone" : "email");
   const [purpose, setPurpose] = useState<SignUpPurpose>("care");
   const supporter = purpose === "support";
   // Phone method: after signUp the account exists but is unconfirmed; this
@@ -394,6 +395,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
 
         <View
           style={{
+            display: TEXT_CODES_ENABLED ? "flex" : "none",
             flexDirection: "row",
             backgroundColor: inkAlpha(0.05),
             borderRadius: radius.control,
