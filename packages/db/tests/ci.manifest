@@ -1869,3 +1869,5 @@ care_circle_p4_timeline_contacts.sql
 care_circle_p5_payer_view_and_metrics.sql
 # Diagnostic directory Phase 1 (2026-11-04): search_investigations resolves standard, abbreviation, lay and misspelt terms (mammogram, abdo USS, HbA1c, kidney function); ambiguous terms (breast scan, pelvic scan, heart scan, MRI) return choices instead of a guess; a loose word does not pick a parent; anon cannot search; screen_types cannot link an ambiguous concept. Sabotage x2: ambiguity flag removed, link trigger dropped.
 diag_p1_investigation_search.sql
+# Diagnostic directory Phase 2a (2026-11-04): a patient cannot call admin_dx_* or read directory tables; a listed lab branch's HbA1c service is eligible only with a verified, unexpired MLSCN credential; expiry, a serious incident, unavailability, a stale location check and an unknown outsourced performer each make it ineligible; ISO 15189 needs a scope; a lab branch cannot list mammography; the audit trail is append-only; a partner imaging order needs a contracted provider. Sabotage x2: requirement retired, imaging guard dropped.
+diag_p2_listings_eligibility.sql

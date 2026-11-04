@@ -11489,4 +11489,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104225509_diag_p1_investigation_catalogue_and_search.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §7",
   },
+  {
+    key: "directory.diagnostic_cadence",
+    // Diagnostic directory Phase 2a: how often a branch's services and contact details must be re-confirmed, how far past
+    // that a listing is hidden (stale_multiple, as in S65), and how early credential expiry shows on the admin queue.
+    // Live value is the active row of public.diagnostic_directory_settings; a mirror test pins the seed to this entry.
+    value: { service_confirm_days: 90, contact_confirm_days: 90, stale_multiple: 2, credential_due_soon_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
+  },
 ];
