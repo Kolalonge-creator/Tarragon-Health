@@ -6,9 +6,20 @@ import type { MessageKey } from "@tarragon/i18n";
  * treated as "nothing to show" rather than rendered half-wrong. The supporter view is the only thing a supporter can read about a
  * patient; the database sends a block only when the matching permission is held, so a missing block means "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"] as const;
+export const CIRCLE_PERMISSIONS = [
+  "adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note",
+  // Care Circle P2 (2026-11-04)
+  "investigation_status", "investigation_values", "weekly_weight_trend", "care_plan_progress",
+] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const permissionSchema = z.enum(CIRCLE_PERMISSIONS);
+/**
+ * A permission list from the database. A name this app does not know (a newer database, an older app) is dropped rather than failing the
+ * whole row: one unknown tick must never make a member or a supported person vanish from the screen.
+ */
+export const permissionListSchema = z
+  .array(z.string())
+  .transform((ps) => ps.filter((p): p is CirclePermission => (CIRCLE_PERMISSIONS as readonly string[]).includes(p)));
 
 const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   adherence_summary: "circle.perm.adherence_summary",
@@ -20,6 +31,11 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   attend_consultation: "consult.cg.perm",
   // 2026-11-03: the doctor's line for the family; outside the `circle` namespace for the same reason (pending CMO review)
   doctor_note: "familynote.perm",
+  // Care Circle P2: pending CMO/DPO review (family-circle-copy.ts)
+  investigation_status: "circlep2.perm.investigation_status",
+  investigation_values: "circlep2.perm.investigation_values",
+  weekly_weight_trend: "circlep2.perm.weekly_weight_trend",
+  care_plan_progress: "circlep2.perm.care_plan_progress",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
@@ -30,13 +46,15 @@ export const memberSchema = z.object({
   member_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   since: z.string(),
   /** S75 A5: the patient chose to share the monthly report with this supporter. Absent means off. */
   monthly_report_shared: z.boolean().optional().default(false),
   /** S69b: the patient chose to let this supporter be nudged. Absent means off. */
   missed_dose_alert: z.boolean().optional().default(false),
+  /** P4: main or backup family contact. A label only: it grants nothing. */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional().default(null),
 });
 export type CircleMember = z.infer<typeof memberSchema>;
 
@@ -45,7 +63,7 @@ export const pendingInviteSchema = z.object({
   hint: z.string(),
   kind: z.enum(["phone", "email"]),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   /** S69b: always "waiting" for the sender, whether the other person has not answered or quietly said not now. */
   state: z.string().optional(),
@@ -56,9 +74,25 @@ export type PendingInvite = z.infer<typeof pendingInviteSchema>;
 export const pauseSchema = z.object({ paused_until: z.string(), pause_alerts: z.boolean() });
 export type CirclePause = z.infer<typeof pauseSchema>;
 
-export const myCircleSchema = z.object({ members: z.array(memberSchema), invites: z.array(pendingInviteSchema), pause: pauseSchema.nullable().optional(), pause_days: z.number().optional() });
+/** Care Circle P1 (D3): a share with a person who paid, waiting for them to say yes. It grants nothing until they do. */
+export const pendingOfferSchema = z.object({
+  member_id: z.string(),
+  name: z.string(),
+  permissions: permissionListSchema,
+  answer_by: z.string(),
+});
+export type PendingOffer = z.infer<typeof pendingOfferSchema>;
+
+export const myCircleSchema = z.object({
+  members: z.array(memberSchema),
+  invites: z.array(pendingInviteSchema),
+  /** P1: absent on a database without the migration, so it defaults to none. */
+  offers: z.array(pendingOfferSchema).optional().default([]),
+  pause: pauseSchema.nullable().optional(),
+  pause_days: z.number().optional(),
+});
 export type MyCircle = z.infer<typeof myCircleSchema>;
-export const EMPTY_CIRCLE: MyCircle = { members: [], invites: [] };
+export const EMPTY_CIRCLE: MyCircle = { members: [], invites: [], offers: [] };
 
 export function parseMyCircle(data: unknown): MyCircle {
   const r = myCircleSchema.safeParse(data);
@@ -74,7 +108,7 @@ export const supportedPersonSchema = z.object({
   member_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   alert_mode: z.enum(ALERT_MODES).catch("push_and_app"),
 });
@@ -97,11 +131,33 @@ export const doctorNoteSchema = z.object({
 });
 export type DoctorNote = z.infer<typeof doctorNoteSchema>;
 
+/** Care Circle P2: where one test has got to. Never a value. */
+export const INVESTIGATION_STAGES = ["due", "overdue", "requested", "awaiting_result", "result_received", "awaiting_review", "reviewed", "done"] as const;
+export const investigationRowSchema = z.object({
+  code: z.string(),
+  stage: z.enum(INVESTIGATION_STAGES),
+  due_date: z.string().nullable(),
+  follow_up: z.boolean(),
+});
+export type InvestigationRow = z.infer<typeof investigationRowSchema>;
+/** Care Circle P2 (D2): one reviewed, released value. `in_range` is null when the lab gave no range. */
+export const resultRowSchema = z.object({
+  code: z.string(),
+  at: z.string(),
+  value: z.number().nullable(),
+  value_text: z.string().nullable(),
+  unit: z.string(),
+  ref_low: z.number().nullable(),
+  ref_high: z.number().nullable(),
+  in_range: z.boolean().nullable(),
+});
+export type ResultRow = z.infer<typeof resultRowSchema>;
+
 export const supporterViewSchema = z.object({
   patient_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   shared_until: z.string(),
   adherence: z.object({ days: z.number(), taken: z.number(), due: z.number(), percent: z.number().nullable() }).optional(),
   bp_trend: z
@@ -116,7 +172,65 @@ export const supporterViewSchema = z.object({
   can_pay: z.boolean().optional(),
   /** The doctor's line for the family: absent = not shared; null = shared but none written yet. The author is null-gated by the database. */
   doctor_note: doctorNoteSchema.nullable().optional(),
+  // Care Circle P2: each absent = not shared. Everyday tests only; the database never sends a sensitive test or value.
+  investigations: z.array(investigationRowSchema).optional(),
+  results: z.array(resultRowSchema).optional(),
+  weight_trend: z
+    .object({
+      weeks: z.array(z.object({ week_start: z.string(), kg: z.number().nullable(), readings: z.number() })),
+      direction: z.enum(["higher", "lower", "steady"]).nullable(),
+    })
+    .optional(),
+  plan_progress: z.object({ done: z.number(), due: z.number(), overdue: z.number(), next_due: z.string().nullable() }).optional(),
+  /** P4: this supporter is the patient's main or backup family contact (a label only). */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional(),
 });
+
+/** P5: one gift the signed-in person paid for someone else. Billing facts only; paying grants no access. */
+export const giftPaidSchema = z.object({
+  order_id: z.string(),
+  name: z.string(),
+  name_key: z.string().nullable(),
+  paid_at: z.string().nullable(),
+  state: z.enum(["waiting", "accepted", "declined", "not_answered", "not_accepted"]),
+  starts_at: z.string().nullable(),
+  ends_at: z.string().nullable(),
+  refund_state: z.string().nullable(),
+});
+export type GiftPaid = z.infer<typeof giftPaidSchema>;
+export function parseGiftsPaid(data: unknown): GiftPaid[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = giftPaidSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+/** P5: an accepted Membership ending within this many days shows "give another year". */
+export const RENEW_SOON_DAYS = 30;
+export function endsSoonForRenewal(endsAt: string | null, nowMs: number): boolean {
+  if (!endsAt) return false;
+  const left = new Date(endsAt).getTime() - nowMs;
+  return left > 0 && left <= RENEW_SOON_DAYS * 86_400_000;
+}
+
+/** P4: one event on the family timeline. Never a value or free text; `code` is a test code or a help-request kind. */
+export const TIMELINE_KINDS = [
+  "doctor_note_shared", "appointment_attended", "appointment_missed", "test_requested", "test_reviewed", "help_requested", "help_done",
+] as const;
+export const timelineEventSchema = z.object({
+  at: z.string(),
+  kind: z.enum(TIMELINE_KINDS),
+  code: z.string().optional(),
+  source: z.enum(["clinician", "patient", "system"]),
+});
+export type TimelineEvent = z.infer<typeof timelineEventSchema>;
+export function parseTimeline(data: unknown): TimelineEvent[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = timelineEventSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
 export type SupporterView = z.infer<typeof supporterViewSchema>;
 
 /** Null means the access has ended or never existed: the screen shows one neutral message either way. */
@@ -168,6 +282,7 @@ export const previewSchema = z.union([
     ok: z.literal(true),
     inviter_first_name: z.string(),
     relationship: z.string(),
+    // strict on purpose: the person is agreeing to exactly these, so an unknown one fails the preview rather than showing a shorter list
     permissions: z.array(permissionSchema),
     grant_days: z.number(),
     expires_at: z.string(),
@@ -238,6 +353,8 @@ export const giftPayerSchema = z.object({
   entitlement_ids: z.array(z.string()),
   last_gift_at: z.string().nullable(),
   is_member: z.boolean(),
+  /** P1 (D3): the patient already asked this payer to join and is waiting for their answer. */
+  offer_pending: z.boolean().optional().default(false),
 });
 export type GiftPayer = z.infer<typeof giftPayerSchema>;
 export function parseGiftPayers(data: unknown): GiftPayer[] {
@@ -285,7 +402,85 @@ export const giftShareInputSchema = z.object({
   monthlyReport: z.boolean(),
 });
 export type GiftShareInput = z.infer<typeof giftShareInputSchema>;
-export const giftShareResultSchema = z.object({ ok: z.literal(true), member_id: z.string(), created: z.boolean(), changed: z.boolean() });
+export const giftShareResultSchema = z.object({
+  ok: z.literal(true),
+  member_id: z.string(),
+  created: z.boolean(),
+  changed: z.boolean(),
+  /** P1 (D3): true when the share is an offer the payer must accept (no active membership yet). */
+  offered: z.boolean().optional().default(false),
+});
+
+/** P1 (D3): an offer to join someone's Care Circle, as the payer sees it. First name only. */
+export const shareOfferSchema = z.object({
+  member_id: z.string().uuid(),
+  patient_id: z.string().uuid(),
+  name: z.string(),
+  permissions: z.array(z.string()),
+  monthly_report: z.boolean(),
+  offered_at: z.string(),
+  answer_by: z.string(),
+});
+export type ShareOffer = z.infer<typeof shareOfferSchema>;
+export function parseShareOffers(data: unknown): ShareOffer[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = shareOfferSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+export const respondOfferInputSchema = z.object({ memberId: z.string().uuid(), accept: z.boolean() });
+export const respondOfferResultSchema = z.object({ ok: z.literal(true), accepted: z.boolean() });
+
+/** P1: one change in the patient's history of who may see what. Written only by the database. */
+export const SHARING_CHANGES = [
+  "added", "offered", "accepted", "declined", "withdrawn", "offer_lapsed", "permissions_changed", "renewed", "revoked", "expired",
+  "monthly_report_on", "monthly_report_off", "missed_dose_alert_on", "missed_dose_alert_off",
+  "paused", "resumed", "doctor_note_shared", "doctor_note_withdrawn",
+] as const;
+export type SharingChange = (typeof SHARING_CHANGES)[number];
+export const sharingHistoryRowSchema = z.object({
+  at: z.string(),
+  changes: z.array(z.enum(SHARING_CHANGES)).min(1),
+  by: z.enum(["patient", "supporter", "system"]),
+  supporter: z.string().nullable(),
+});
+export type SharingHistoryRow = z.infer<typeof sharingHistoryRowSchema>;
+export function parseSharingHistory(data: unknown): SharingHistoryRow[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = sharingHistoryRowSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+const SHARING_CHANGE_KEYS = {
+  added: "circlep1.history.added",
+  offered: "circlep1.history.offered",
+  accepted: "circlep1.history.accepted",
+  declined: "circlep1.history.declined",
+  withdrawn: "circlep1.history.withdrawn",
+  offer_lapsed: "circlep1.history.offer_lapsed",
+  permissions_changed: "circlep1.history.permissions_changed",
+  renewed: "circlep1.history.renewed",
+  revoked: "circlep1.history.revoked",
+  expired: "circlep1.history.expired",
+  monthly_report_on: "circlep1.history.monthly_report_on",
+  monthly_report_off: "circlep1.history.monthly_report_off",
+  missed_dose_alert_on: "circlep1.history.missed_dose_alert_on",
+  missed_dose_alert_off: "circlep1.history.missed_dose_alert_off",
+  paused: "circlep1.history.paused",
+  resumed: "circlep1.history.resumed",
+  doctor_note_shared: "circlep1.history.doctor_note_shared",
+  doctor_note_withdrawn: "circlep1.history.doctor_note_withdrawn",
+} as const satisfies Record<SharingChange, string>;
+/**
+ * The copy key for one change. A removal made by the supporter themself is "left"; everything else reads the same whoever did it
+ * (the patient sees their own history, so "you" is implied where the patient acted).
+ */
+export function sharingChangeKey(change: SharingChange, by: SharingHistoryRow["by"]): (typeof SHARING_CHANGE_KEYS)[SharingChange] | "circlep1.history.left" {
+  if (change === "revoked" && by === "supporter") return "circlep1.history.left";
+  return SHARING_CHANGE_KEYS[change];
+}
 
 /** S29e: a supporter's non-emergency check-in request. `reason` is only ever one of these two (the database says nothing else). */
 export const checkInRequestSchema = z.union([
@@ -353,6 +548,12 @@ export const taskSchema = z.object({
   needed_by: z.string().nullable(),
   state: z.enum(["open", "claimed", "done"]),
   claimed_by_name: z.string().nullable().optional(),
+  // Care Circle P3: the patient's note (D4), whether it was addressed, and (patient only) who it went to and their answers
+  note: z.string().nullable().optional(),
+  addressed: z.boolean().catch(false),
+  recipients: z.array(z.object({ name: z.string(), answer: z.enum(["can_help", "cannot_help"]).nullable() })).nullable().optional(),
+  my_answer: z.enum(["can_help", "cannot_help"]).nullable().optional(),
+  can_decline: z.boolean().catch(false),
   mine: z.boolean().catch(false),
   posted_by_me: z.boolean().catch(false),
   can_claim: z.boolean().catch(false),

@@ -2,6 +2,8 @@ import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { circleToolsCopy } from "./care-circle-tools-copy";
 import { familyCircleCopy } from "./family-circle-copy";
+import { circleP4Copy } from "./care-circle-p4-copy";
+import { circleP5Copy } from "./care-circle-p5-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -5016,6 +5018,10 @@ export const en = {
   ...circleToolsCopy,
   // 2026-11-03: share with the person who paid, and the doctor's line for the family (proposed copy, CMO and DPO review pending: see family-circle-copy.ts)
   ...familyCircleCopy,
+  // 2026-11-04: Care Circle Phase 4, family contact and timeline (approved by the CMO and DPO 2026-11-04: see care-circle-p4-copy.ts)
+  ...circleP4Copy,
+  // 2026-11-04: Care Circle Phase 5, payer view and admin metrics (proposed copy, CMO and DPO review pending: see care-circle-p5-copy.ts)
+  ...circleP5Copy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",
@@ -5927,6 +5933,30 @@ export const en = {
   "community.search.label": "Search words",
   "community.search.button": "Search",
   "community.search.link": "Search posts in my groups",
+  "community.saved.link": "Saved posts",
+  "community.saved.title": "Saved posts",
+  "community.saved.help": "Posts you saved to find again. Only you can see this list. A post leaves the list while you are not in its group.",
+  "community.saved.empty": "You have not saved any posts yet. Choose Save on a post to keep it here.",
+  "community.saved.no_more": "There are no more saved posts.",
+  "community.saved.save": "Save",
+  "community.saved.saved": "Saved",
+  "community.saved.remove": "Remove from saved",
+  "community.saved.done": "Saved. Find it again under Saved posts.",
+  "community.saved.undone": "Removed from your saved posts.",
+  "community.saved.too_many": "You have saved 500 posts, the most we keep. Remove one to save another.",
+  "community.saved.waiting": "This post is waiting for a moderator.",
+  "community.sort.label": "Order of posts",
+  "community.sort.latest": "Latest",
+  "community.sort.discussed": "Most discussed",
+  "community.sort.discussed_note": "Posts from the last 30 days with the most replies.",
+  "community.sort.discussed_empty": "No posts from the last 30 days have replies yet.",
+  "community.group.care_title": "For your own health",
+  "community.group.care_body": "Something about your own health? Rather than posting it here, message your care team privately. Lab results and hospital letters belong in your private record.",
+  "community.group.care_messages": "Message your care team",
+  "community.group.care_documents": "Upload to your private record",
+  "community.group.reading_title": "Reading for this group",
+  "community.group.reading_all": "All health reading",
+  "community.image.records": "Please do not post lab results, prescriptions or hospital letters here.",
   "community.search.mine": "(you)",
   "community.search.none": "No posts matched. Try different words.",
   "community.search.too_short": "Please type at least 3 letters.",

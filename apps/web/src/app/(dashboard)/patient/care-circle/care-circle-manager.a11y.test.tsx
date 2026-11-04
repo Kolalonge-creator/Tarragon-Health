@@ -7,12 +7,16 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { expectNoA11yViolations } from "@/test/a11y";
 import { CircleError } from "@/lib/queries/care-circle";
 import { CareCircleManager } from "./care-circle-manager";
+import { t } from "@tarragon/i18n";
 
 const MEMBER = { member_id: "m1", name: "Ngozi Eze", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "2027-06-01T00:00:00Z", since: "2026-10-01T00:00:00Z", monthly_report_shared: false };
 const INVITE = { invite_id: "i1", hint: "+234•••••4567", kind: "phone", relationship: "Son", permissions: ["pay_for_care"], expires_at: "2026-10-10T00:00:00Z" };
 
 let circle: { data: unknown; isSuccess: boolean };
 let log: { data: unknown[]; isSuccess: boolean };
+let history: { data: unknown[]; isSuccess: boolean; isError: boolean };
+const withdraw = jest.fn();
+const setContact = jest.fn();
 const create = jest.fn();
 const update = jest.fn();
 const revoke = jest.fn();
@@ -51,6 +55,9 @@ jest.mock("@/lib/queries/care-circle", () => {
     useGiftPayers: () => ({ data: [], isLoading: false }),
     useShareWithGiftPayer: () => ({ mutateAsync: jest.fn(), isPending: false }),
     useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
+    useWithdrawShareOffer: () => ({ mutate: withdraw, isPending: false }),
+    useSharingHistory: () => history,
+    useSetContactRole: () => ({ mutate: setContact, isPending: false, isError: false }),
   };
 });
 
@@ -61,6 +68,8 @@ beforeEach(() => {
   previewMember = { data: undefined, isPending: true, isError: false };
   previewPerms = { data: undefined, isPending: true, isError: false };
   log = { data: [{ viewer: "Ngozi Eze", at: "2026-10-06T10:00:00Z" }], isSuccess: true };
+  history = { data: [], isSuccess: true, isError: false };
+  withdraw.mockReset();
   [create, update, revoke, cancel, renew, pause, resume, setShare].forEach((f) => f.mockReset());
 });
 
@@ -277,5 +286,45 @@ describe("CareCircleManager", () => {
   it("S69b: is axe-clean with the presets, the preview and the nudge switch on screen", async () => {
     tools = { digest: true, tasks: true, missed_dose: true, grace_minutes: 30 };
     await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
+  });
+
+  it("Care Circle P1 (D3): a share with a person who paid is listed as waiting, and can be withdrawn", async () => {
+    circle = {
+      data: { members: [], invites: [], offers: [{ member_id: "m-offer-1", name: "Chinedu", permissions: ["appointments"], answer_by: "2026-11-18T10:00:00Z" }], pause: null, pause_days: 7 },
+      isSuccess: true,
+    };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText("Waiting for a reply")).toBeTruthy();
+    expect(screen.getByText(/Chinedu, until/)).toBeTruthy();
+    expect(screen.queryByText(t("circle.invites.empty", "en"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    expect(withdraw).toHaveBeenCalledWith("m-offer-1");
+    cleanup();
+    await expectNoA11yViolations(<CareCircleManager locale="en" origin="https://app.example" />);
+  });
+
+  it("Care Circle P1: the history of sharing changes reads in plain words, and a supporter leaving reads as leaving", () => {
+    history = {
+      data: [
+        { at: "2026-11-04T10:00:00Z", changes: ["revoked"], by: "supporter", supporter: "Ngozi" },
+        { at: "2026-11-03T10:00:00Z", changes: ["permissions_changed", "monthly_report_on"], by: "patient", supporter: "Ngozi" },
+        { at: "2026-11-02T10:00:00Z", changes: ["paused"], by: "patient", supporter: null },
+      ],
+      isSuccess: true,
+      isError: false,
+    };
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    expect(screen.getByText(/Ngozi left your Care Circle/)).toBeTruthy();
+    expect(screen.getByText(/What Ngozi can see was changed/)).toBeTruthy();
+    expect(screen.getByText(/Ngozi can see your monthly summary/)).toBeTruthy();
+    expect(screen.getByText(/You paused sharing/)).toBeTruthy();
+  });
+
+  it("Care Circle P4: the patient can name a member as main family contact; the hint says it grants nothing", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    const select = screen.getAllByLabelText("Family contact")[0] as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "primary" } });
+    expect(setContact).toHaveBeenCalledWith({ memberId: expect.any(String), role: "primary" });
+    expect(screen.getAllByText(/does not let them see anything more/).length).toBeGreaterThan(0);
   });
 });

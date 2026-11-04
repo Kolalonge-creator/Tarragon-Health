@@ -14,8 +14,10 @@ describe("Family circle copy (gift share and the doctor's line for the family)",
     }
   });
 
-  it("is marked pending CMO review, and its prefixes are outside the reviewed-strings ledger namespaces", () => {
-    expect(FAMILY_CIRCLE_COPY_REVIEW.status).toBe("pending_cmo_review");
+  it("carries the CMO and DPO approval (2026-11-04), and its prefixes are outside the reviewed-strings ledger namespaces", () => {
+    expect(FAMILY_CIRCLE_COPY_REVIEW.status).toBe("cmo_reviewed");
+    expect(FAMILY_CIRCLE_COPY_REVIEW.reviewer).toMatch(/Chief Medical Officer/);
+    expect(FAMILY_CIRCLE_COPY_REVIEW.reviewedOn).toBe("2026-11-04");
     for (const k of keys) expect(inScope(k, ledger)).toBe(false);
   });
 

@@ -7,7 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 export type SetModuleState = { error?: string; message?: string } | undefined;
 
 const schema = z.object({
-  key: z.enum(["payer_platform", "provider_org_platform"]),
+  // Any well-formed module key. This used to be an enum of the first two modules (payer_platform, provider_org_platform), so every
+  // module added later (Care Circle digest, tasks, nudge, and the rest) was listed on the page but refused here, with the error shown at the
+  // top of a long page. public.set_platform_module is the authority: it refuses a key that is not in platform_modules, refuses anyone who
+  // is not a superadmin, demands a note to switch on, and audit-logs the change.
+  key: z.string().regex(/^[a-z][a-z0-9_]{1,62}$/, "Unknown module"),
   enabled: z.enum(["true", "false"]),
   note: z.string().trim().max(2000).optional(),
 });

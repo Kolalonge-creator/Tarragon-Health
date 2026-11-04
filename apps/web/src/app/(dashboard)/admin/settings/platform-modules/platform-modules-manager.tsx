@@ -11,7 +11,8 @@ import type { PlatformModuleRow } from "@/lib/platform-modules";
 import { setPlatformModuleAction } from "./actions";
 
 export function PlatformModulesManager({ modules }: { modules: PlatformModuleRow[] }) {
-  const [feedback, setFeedback] = useState<{ error?: string; message?: string } | null>(null);
+  // the result is shown at the top AND on the module's own card, so it is visible wherever the admin has scrolled to
+  const [feedback, setFeedback] = useState<{ key: string; error?: string; message?: string } | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState<{ module: PlatformModuleRow; enabled: boolean } | null>(
@@ -30,7 +31,7 @@ export function PlatformModulesManager({ modules }: { modules: PlatformModuleRow
     formData.set("note", notes[key] ?? "");
     startTransition(async () => {
       const result = await setPlatformModuleAction(undefined, formData);
-      setFeedback(result ?? null);
+      setFeedback(result ? { key, ...result } : null);
       if (!result?.error) setNotes((prev) => ({ ...prev, [key]: "" }));
       router.refresh();
     });
@@ -60,6 +61,12 @@ export function PlatformModulesManager({ modules }: { modules: PlatformModuleRow
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            {feedback?.key === m.key && feedback.error ? (
+              <p role="alert" className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{feedback.error}</p>
+            ) : null}
+            {feedback?.key === m.key && feedback.message ? (
+              <p role="status" className="rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">{feedback.message}</p>
+            ) : null}
             {m.is_enabled ? (
               <>
                 {m.activation_note && (

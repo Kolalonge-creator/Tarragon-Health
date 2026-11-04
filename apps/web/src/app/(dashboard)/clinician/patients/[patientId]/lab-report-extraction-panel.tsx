@@ -23,6 +23,12 @@ export interface ExtractionView {
   errorMessage: string | null;
   confirmedAt: string | null;
   confirmedCodes: string[];
+  /** CDE-02: 'manual' when a Care Coordinator typed the values in by hand; then who, from what source, and per-row lab details. */
+  entryMethod?: "ai" | "manual";
+  enteredByName?: string | null;
+  enteredAt?: string | null;
+  sourceDescription?: string | null;
+  manualDetails?: ({ labFlag: string; specimen: string | null; comment: string | null } | null)[] | null;
 }
 
 interface Props {
@@ -218,12 +224,44 @@ export function LabReportExtractionPanel({
     );
   }
 
+  const isManual = extraction.entryMethod === "manual";
+  // The laboratory's own flag, the specimen and the comment, as the coordinator typed them, shown under the matching row.
+  const manualDetailByCode = new Map<string, string>();
+  // Also keyed by the row object, for rows with no catalogue code (an unlisted test) that land in the "could not be filed" list.
+  const manualDetailByRow = new Map<ExtractedRow, string>();
+  if (isManual) {
+    extraction.rows.forEach((row, i) => {
+      const d = extraction.manualDetails?.[i];
+      if (!d) return;
+      const parts = [
+        d.labFlag && d.labFlag !== "none" ? `Lab flag: ${d.labFlag}` : null,
+        d.specimen ? `Specimen: ${d.specimen}` : null,
+        d.comment ? `Comment: ${d.comment}` : null,
+      ].filter(Boolean);
+      if (!parts.length) return;
+      manualDetailByRow.set(row, parts.join(" · "));
+      if (row.code) manualDetailByCode.set(row.code, parts.join(" · "));
+    });
+  }
+
   return (
     <div className="space-y-3 rounded-lg border border-charcoal-ink/15 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-charcoal-ink">Check before filing</p>
-        <AiLabel variant="unfiled" tone="amber" />
+        {isManual ? (
+          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Typed in by hand, not yet checked</span>
+        ) : (
+          <AiLabel variant="unfiled" tone="amber" />
+        )}
       </div>
+
+      {isManual ? (
+        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+          These values were typed in by {extraction.enteredByName ?? "a care coordinator"}
+          {extraction.enteredAt ? ` on ${formatDate(extraction.enteredAt)}` : ""} from: {extraction.sourceDescription ?? "a source not recorded"}.
+          They were not read from the report by the computer. Check each one against the source before filing.
+        </p>
+      ) : null}
 
       {extraction.unreadableReason ? (
         <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
@@ -387,6 +425,10 @@ export function LabReportExtractionPanel({
                         {interpretation.note}
                       </p>
                     ) : null}
+
+                    {manualDetailByCode.get(code) ? (
+                      <p className="mt-1 pl-6 text-[0.65rem] text-charcoal-ink/60">{manualDetailByCode.get(code)}</p>
+                    ) : null}
                   </li>
                 );
               })}
@@ -404,6 +446,7 @@ export function LabReportExtractionPanel({
                   <li key={`${row.reportedLabel}-${i}`}>
                     {row.reportedLabel}: {row.valueText ?? row.value ?? "—"}{" "}
                     {row.unit ?? ""} ({STATUS_COPY[row.status].label})
+                    {manualDetailByRow.get(row) ? <span className="block pl-3 text-charcoal-ink/60">{manualDetailByRow.get(row)}</span> : null}
                   </li>
                 ))}
               </ul>

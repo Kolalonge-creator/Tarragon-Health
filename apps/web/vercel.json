@@ -1,5 +1,7 @@
 {
-  "regions": ["dub1"],
+  "regions": [
+    "dub1"
+  ],
   "crons": [
     {
       "path": "/api/cron/fraud-sweep",
@@ -124,6 +126,10 @@
     {
       "path": "/api/cron/learning-expiry-alerts",
       "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/clinical-document-retry",
+      "schedule": "15 7 * * *"
     }
   ]
 }

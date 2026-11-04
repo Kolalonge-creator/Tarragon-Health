@@ -53,7 +53,7 @@ describe("applyCardFieldChoices", () => {
   it("the sensitive-condition lists are identical on the web, on the phone and in the database function", () => {
     const here = (re: RegExp) => re.source;
     const mobile = readFileSync(join(__dirname, "..", "..", "..", "..", "mobile", "src", "lib", "emergency.ts"), "utf8");
-    const sql = readFileSync(join(__dirname, "..", "..", "..", "..", "..", "supabase", "migrations", "20261008035104_s47_emergency_card_defaults.sql"), "utf8");
+    const sql = readFileSync(join(__dirname, "..", "..", "..", "..", "..", "supabase", "migrations", "20261104194246_d5_pregnancy_sti_sensitive_access.sql"), "utf8");
     for (const re of [REPRODUCTIVE_PATTERN, MENTAL_HEALTH_PATTERN]) {
       const body = here(re);
       expect(mobile).toContain(body);

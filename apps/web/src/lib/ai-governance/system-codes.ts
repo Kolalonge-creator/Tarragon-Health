@@ -170,6 +170,13 @@ export const AI_SYSTEMS = {
     // closed like AI-003: the fallback (a contact form and an alert to the team) costs nothing. Registered DISABLED, not runtime_governed.
     failClosedIfGovernanceUnavailable: true,
   },
+  documentClassifier: {
+    code: "AI-024",
+    // Clinical document engine step 4: suggests the type of a health document a patient uploaded without saying what it is. Moderate
+    // risk (a wrong type sends a document to the wrong reader, whose own human review still applies), but it routes a clinical
+    // document, so it fails closed: the fallback (the patient picks the type from a list) costs one tap. Registered DISABLED.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

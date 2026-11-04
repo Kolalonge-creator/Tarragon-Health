@@ -13,6 +13,8 @@ import {
   staffEcgUploadSchema,
   validateEcgDocFile,
 } from "@/lib/validation/ecg-report-documents";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 type DocumentSource = Database["public"]["Enums"]["ecg_report_document_source"];
 export type EcgUploadResult = { error?: string; success?: boolean };
@@ -128,6 +130,8 @@ export async function uploadEcgReportForPatient(formData: FormData): Promise<Ecg
       original_filename: file.name,
       mime_type: file.type,
       file_size_bytes: file.size,
+      // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
+      content_sha256: await fileSha256(file),
       source,
       uploaded_by: user.id,
       note: note ?? null,
@@ -136,6 +140,7 @@ export async function uploadEcgReportForPatient(formData: FormData): Promise<Ecg
     .single();
   if (insertError || !inserted) {
     await service.storage.from(ECG_REPORT_BUCKET).remove([path]);
+    if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }
 
@@ -220,6 +225,8 @@ export async function uploadEcgReportAsPatient(formData: FormData): Promise<EcgU
       original_filename: file.name,
       mime_type: file.type,
       file_size_bytes: file.size,
+      // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
+      content_sha256: await fileSha256(file),
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
@@ -228,6 +235,7 @@ export async function uploadEcgReportAsPatient(formData: FormData): Promise<EcgU
     .single();
   if (insertError || !inserted) {
     await supabase.storage.from(ECG_REPORT_BUCKET).remove([path]);
+    if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }
 

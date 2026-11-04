@@ -208,7 +208,7 @@ do $$
 declare
   v_def text; v_p uuid := pg_temp.f('p'); v_org uuid := pg_temp.f('org'); v_doc uuid; v_alert uuid; v_new text; v_status text;
 begin
-  select pg_get_functiondef('public.replace_my_result_document(uuid,text,text,text,bigint,text)'::regprocedure) into v_def;
+  select pg_get_functiondef('public.replace_my_result_document(uuid,text,text,text,bigint,text,text)'::regprocedure) into v_def;
   v_def := replace(v_def, 'set status = ''resolved'',', 'set status = status,');
   execute v_def;
   insert into public.lab_result_documents (organisation_id, patient_id, file_path, source, uploaded_by) values (v_org, v_p, v_p::text || '/s1.pdf', 'patient', v_p) returning id, clinician_alert_id into v_doc, v_alert;

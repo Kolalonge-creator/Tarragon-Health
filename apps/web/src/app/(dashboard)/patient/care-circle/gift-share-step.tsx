@@ -14,7 +14,8 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const ROW = "flex min-h-11 items-start gap-3 rounded-lg px-2 py-2 motion-safe:transition-colors hover:bg-charcoal-ink/[0.03] dark:hover:bg-night-ink/5";
 const BOX = "mt-0.5 h-5 w-5 shrink-0 accent-brand-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2";
 
-export type GiftShareOutcome = "shared" | "not_now";
+/** shared: an invitation the payer must accept (P1, D3). widened: an existing member now sees more, at once. */
+export type GiftShareOutcome = "shared" | "widened" | "not_now";
 
 /**
  * The next step after a patient accepts a gift someone else paid for (2026-11-03): "Would you like [first name] to see how you are
@@ -46,7 +47,11 @@ export function GiftShareStep({
   if (outcome) {
     return (
       <p role="status" className="rounded-xl border border-brand-green/30 bg-soft-sage/60 p-4 text-sm dark:bg-brand-green/15">
-        {outcome === "shared" ? t("giftshare.done", locale, { name }) : t("giftshare.not_now_done", locale)}
+        {outcome === "shared"
+          ? t("giftshare.done", locale, { name })
+          : outcome === "widened"
+            ? t("giftshare.done_member", locale, { name })
+            : t("giftshare.not_now_done", locale)}
       </p>
     );
   }
@@ -77,8 +82,8 @@ export function GiftShareStep({
     }
     setProblem(null);
     try {
-      await share.mutateAsync({ payerId: payer.payer_id, permissions: ticked, monthlyReport: monthly });
-      finish("shared");
+      const r = await share.mutateAsync({ payerId: payer.payer_id, permissions: ticked, monthlyReport: monthly });
+      finish(r.offered ? "shared" : "widened");
     } catch (e) {
       setProblem(e instanceof Error && e.message.includes("circle_full") ? "full" : "failed");
     }

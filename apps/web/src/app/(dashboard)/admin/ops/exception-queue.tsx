@@ -17,7 +17,8 @@ export type OpsExceptionRow = {
     | "support"
     | "payments"
     | "incidents"
-    | "providers";
+    | "providers"
+    | "documents";
   entity_id: string;
   entity_type: string;
   severity: "critical" | "urgent" | "high";
@@ -42,6 +43,7 @@ const DOMAIN_LABEL: Record<OpsExceptionRow["domain"], string> = {
   payments: "Payments",
   incidents: "Incidents",
   providers: "Providers",
+  documents: "Documents",
 };
 
 const SEVERITY_VARIANT: Record<OpsExceptionRow["severity"], "red" | "amber" | "blue"> = {

@@ -30,12 +30,12 @@ describe("gift share input", () => {
 describe("gift payers", () => {
   const row = { payer_id: PAYER_ID, first_name: "Chinedu", entitlement_ids: ["e1", "e2"], last_gift_at: "2026-11-03T10:00:00Z", is_member: false };
   it("parses rows and drops a malformed one", () => {
-    expect(parseGiftPayers([row, { payer_id: 1 }])).toEqual([row]);
+    expect(parseGiftPayers([row, { payer_id: 1 }])).toEqual([{ ...row, offer_pending: false }]);
     expect(parseGiftPayers(null)).toEqual([]);
   });
   it("finds the payer of the gift just accepted, or none", () => {
-    expect(payerForEntitlement([row], "e2")?.payer_id).toBe(PAYER_ID);
-    expect(payerForEntitlement([row], "e9")).toBeNull();
+    expect(payerForEntitlement([{ ...row, offer_pending: false }], "e2")?.payer_id).toBe(PAYER_ID);
+    expect(payerForEntitlement([{ ...row, offer_pending: false }], "e9")).toBeNull();
   });
 });
 

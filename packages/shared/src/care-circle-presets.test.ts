@@ -62,6 +62,7 @@ describe("Care Circle presets (S69b)", () => {
   });
 
   it("task kinds are a fixed list with no free text", () => {
-    expect(CIRCLE_TASK_KINDS).toEqual(["take_to_appointment", "take_to_lab", "collect_medicines", "visit", "phone_call", "errand"]);
+    expect(CIRCLE_TASK_KINDS).toEqual(["take_to_appointment", "take_to_lab", "collect_medicines", "visit", "phone_call", "errand",
+      "transport", "help_paying_test", "help_paying_medicines", "consultation_help", "other"]);
   });
 });
