@@ -138,11 +138,11 @@ export default async function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
-          price on any test and take no commission. With Membership Plus, the{" "}
+          price on any test and take no commission. Contact the laboratory for current pricing. Your{" "}
           <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
-            yearly blood panel
+            yearly health check
           </Link>{" "}
-          is taken at a testing day you choose and read with your care team.
+          works the same way: you upload the report, and on Membership a doctor reviews it.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you are not sure which screenings apply to you, follow the{" "}

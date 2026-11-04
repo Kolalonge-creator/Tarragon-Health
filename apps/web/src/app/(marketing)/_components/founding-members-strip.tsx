@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { loadFoundingOffer, type FoundingOffer } from "@/lib/marketing/founding-offer";
-import { foundingLadderPriceLabels, membershipLadderPriceLabels, membershipLadderPublic } from "@/lib/marketing/membership";
+import { foundingPriceLabel, membershipPriceLabel } from "@/lib/marketing/membership";
 import { cn } from "@/lib/utils";
 
 /**
  * The founding member offer on /pricing and the homepage (founder decision 2026-11-04).
  *
  * Everything it says comes from the live founding code through `founding_offer_status()` (the percent, the code, the places) and from
- * versioned config (the two Membership prices). It renders NOTHING when the offer is closed, full, or the read fails: never a stale
+ * versioned config (the Membership price, commerce.membership_prices). It renders NOTHING when the offer is closed, full, or the read fails: never a stale
  * or invented number of places. The code is shown, never applied for anyone: the visitor types it at checkout.
  *
  * Calm on purpose: no countdown, no animation, no "hurry". The places bar is decoration; the sentence beside it carries the figure.
@@ -15,15 +15,15 @@ import { cn } from "@/lib/utils";
 export async function FoundingMembersStrip({ className }: { className?: string }) {
   const offer = await loadFoundingOffer();
   if (!offer) return null;
-  return <FoundingMembersPanel offer={offer} ladder={membershipLadderPublic()} className={className} />;
+  return <FoundingMembersPanel offer={offer} className={className} />;
 }
 
 /** The panel itself, a pure function of the offer, so it can be rendered and tested without a database. */
-export function FoundingMembersPanel({ offer, ladder, className }: { offer: FoundingOffer; ladder: boolean; className?: string }) {
+export function FoundingMembersPanel({ offer, className }: { offer: FoundingOffer; className?: string }) {
   const taken = offer.placesTotal - offer.placesLeft;
   const takenPct = Math.min(100, Math.max(0, Math.round((taken / offer.placesTotal) * 100)));
-  const founding = ladder ? foundingLadderPriceLabels(offer.percent) : null;
-  const list = ladder ? membershipLadderPriceLabels() : null;
+  const founding = foundingPriceLabel(offer.percent);
+  const list = membershipPriceLabel();
   return (
     <section
       aria-labelledby="founding-members-title"
@@ -41,20 +41,13 @@ export function FoundingMembersPanel({ offer, ladder, className }: { offer: Foun
               Be one of the first people to join Tarragon. Founding members get a lower price for their first year and a Founding member
               badge in the app.
             </p>
-            {founding && list ? (
-              <dl className="mt-6 grid max-w-md gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-white/10 px-4 py-3">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-white/70">Membership</dt>
-                  <dd className="mt-1 font-heading text-xl font-semibold">{founding.evergreen}</dd>
-                  <dd className="text-xs text-white/70">{`First year, usually ${list.evergreen}`}</dd>
-                </div>
-                <div className="rounded-2xl bg-white/10 px-4 py-3">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-white/70">Membership Plus</dt>
-                  <dd className="mt-1 font-heading text-xl font-semibold">{founding.evergreenPlus}</dd>
-                  <dd className="text-xs text-white/70">{`First year, usually ${list.evergreenPlus}`}</dd>
-                </div>
-              </dl>
-            ) : null}
+            <dl className="mt-6 max-w-xs">
+              <div className="rounded-2xl bg-white/10 px-4 py-3">
+                <dt className="text-xs font-medium uppercase tracking-wide text-white/70">Membership</dt>
+                <dd className="mt-1 font-heading text-xl font-semibold">{"\u20A6" + founding}</dd>
+                <dd className="text-xs text-white/70">{"First year, usually \u20A6" + list}</dd>
+              </div>
+            </dl>
           </div>
 
           <div className="rounded-2xl bg-white p-6 text-charcoal-ink">
@@ -66,7 +59,7 @@ export function FoundingMembersPanel({ offer, ladder, className }: { offer: Foun
             </div>
             <h3 className="mt-5 text-sm font-semibold">How to use it</h3>
             <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/75">
-              Sign up, choose Membership or Membership Plus, and enter this code at checkout:
+              Sign up, choose Membership, and enter this code at checkout:
             </p>
             <p className="mt-3">
               <span className="inline-block select-all rounded-lg border border-dashed border-brand-green/50 bg-soft-sage px-4 py-2 font-mono text-lg font-semibold tracking-widest text-deep-forest">
@@ -82,7 +75,7 @@ export function FoundingMembersPanel({ offer, ladder, className }: { offer: Foun
           </div>
         </div>
         <p className="border-t border-white/10 px-6 py-4 text-xs leading-relaxed text-white/70 sm:px-10">
-          {`For the first year of Membership or Membership Plus only. One use per person. Open while places last. If you buy a year for someone else, you can use the code for them, and they become the founding member. The code takes ${offer.percent}% off the price shown at checkout; it does not apply to the upgrade from Membership to Membership Plus.`}
+          {`For the first year of Membership only. One use per person. Open while places last. If you buy a year for someone else, you can use the code for them, and they become the founding member. The code takes ${offer.percent}% off the price shown at checkout.`}
         </p>
       </div>
     </section>

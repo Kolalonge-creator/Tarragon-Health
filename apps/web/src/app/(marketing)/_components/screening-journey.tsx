@@ -34,8 +34,8 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
  * laboratory charges for a test — see SELF-ARRANGED FULFILMENT in
  * pricing.ts. Standalone self-booking is only offered for the
  * WHO-priority confidential screens and blood group & genotype; the yearly
- * blood panel is part of Membership Plus (decision MS-04, 2026-11-03: the
- * Core/Advanced/Comprehensive tiers are legacy and unsellable); prostate,
+ * check is self-arranged at any laboratory like every other test (T2-01,
+ * 2026-11-04: Membership Plus and its panel are retired); prostate,
  * colorectal and breast screening are ordered by a doctor or due on the
  * screening calendar — never a bare self-service SKU, so their "book it"
  * step says that plainly rather than overclaiming.
@@ -56,7 +56,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "With Membership Plus these tests are part of your yearly blood panel, carried out by Tarragon's own team. On any plan, you can also request them in the app and take the request to any laboratory you choose, paying the laboratory directly at its own price.",
+        body: "Request them in the app and download the request form. Take it to any reputable laboratory you choose and pay the laboratory directly; contact the laboratory for current pricing. Then upload the report to the app.",
       },
       {
         title: "Test day",
@@ -377,7 +377,7 @@ export function ScreeningJourney() {
               href={MARKETING_ROUTES.annualHealthCheck}
               className="inline-flex items-center justify-center rounded-full border border-charcoal-ink/15 px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-charcoal-ink/30"
             >
-              See the yearly blood panel
+              See how the yearly check works
             </Link>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { MemoryStore } from "./support/memory-store.ts";
 
 const FIRST = "tho_0123456789abcdef0123456789abcdef";
 const RENEWAL_REF = "ren_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const PRICE = 12_900_000;
+const PRICE = 10_000_000;
 const CARD = { code: "AUTH_card_1", reusable: true, signature: "SIG_1", brand: "visa", last4: "4081", expMonth: "12", expYear: "2030", channel: "card" } as const;
 
 async function renewable(orderAmount: number) {
@@ -68,13 +68,13 @@ describe("supabaseRenewalStore", () => {
     const c = rpc((fn) => {
       if (fn === "service_due_membership_renewals") return { data: [{ membership_id: "m-1" }, { nope: 1 }], error: null };
       if (fn === "service_renewal_open_references") return { data: [{ reference: "ren_x1234567" }, { nope: 1 }], error: null };
-      if (fn === "service_prepare_membership_renewal") return { data: { order_id: "o-2", reference: "ren_y1234567", amount_kobo: 12_900_000, email: "p@example.com", authorization_code: "AUTH_1", attempt_no: 2 }, error: null };
+      if (fn === "service_prepare_membership_renewal") return { data: { order_id: "o-2", reference: "ren_y1234567", amount_kobo: 10_000_000, email: "p@example.com", authorization_code: "AUTH_1", attempt_no: 2 }, error: null };
       return { data: {}, error: null };
     });
     const s = supabaseRenewalStore(c);
     expect(await s.due(5)).toEqual({ ok: true, data: ["m-1"] });
     expect(await s.openReferences("m-1")).toEqual({ ok: true, data: ["ren_x1234567"] });
-    expect(await s.prepare("m-1")).toEqual({ ok: true, data: { prepared: { orderId: "o-2", reference: "ren_y1234567", amountKobo: 12_900_000, email: "p@example.com", authorizationCode: "AUTH_1", attemptNo: 2 } } });
+    expect(await s.prepare("m-1")).toEqual({ ok: true, data: { prepared: { orderId: "o-2", reference: "ren_y1234567", amountKobo: 10_000_000, email: "p@example.com", authorizationCode: "AUTH_1", attemptNo: 2 } } });
     expect(await s.recordAttempt("ren_y1234567", "failed", "declined")).toEqual({ ok: true, data: true });
     expect(c.calls[0]).toEqual(["service_due_membership_renewals", { p_limit: 5 }]);
     expect(c.calls[3]).toEqual(["service_record_renewal_attempt", { p_reference: "ren_y1234567", p_outcome: "failed", p_error: "declined" }]);

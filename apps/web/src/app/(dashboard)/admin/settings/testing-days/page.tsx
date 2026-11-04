@@ -60,14 +60,19 @@ export default async function TestingDaysSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Testing days and employer visits"
-        description="Schedule the days Members book, approve each venue, open a day to Members, and run the stations on the day. A day cannot open until its venue is approved and it has a laboratory that is switched on."
+        description="Run the testing days already scheduled and employer visits: approve each venue, open a day, and run the stations on the day. A day cannot open until its venue is approved and it has a laboratory that is switched on."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>New testing day</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {/* T2-02 (2026-11-04): the database refuses a new public day with testing_public_days_closed; the form stays so a reopening needs no code. */}
+          <p role="note" className="text-sm text-charcoal-ink/80" data-testid="public-days-closed">
+            Public testing days are closed to new bookings (founder decision T2-02, 4 November 2026), so a new one cannot be created. Days
+            already scheduled below are still honoured for the people who booked them.
+          </p>
           <ActionForm action={createTestingEvent} submitLabel="Create testing day" hidden={{ kind: "public_day" }}>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">

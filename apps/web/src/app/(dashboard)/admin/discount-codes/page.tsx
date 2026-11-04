@@ -49,7 +49,7 @@ export default async function AdminDiscountCodesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Membership discount codes" backTo={{ href: "/admin", label: "Admin" }}
-        description="A percentage or a fixed amount off any catalogue item a patient buys at Membership checkout (the Membership, Membership Plus, and the items sold beside them). What a code gives is fixed when it is created; only its status can change. A code never takes the price below the third-party cost or the minimum payable." />
+        description="A percentage or a fixed amount off any catalogue item a patient buys at Membership checkout (the Membership and the items sold beside it). What a code gives is fixed when it is created; only its status can change. A code never takes the price below the third-party cost or the minimum payable." />
       <p>
         Codes for one-off laboratory, pharmacy, referral and doctor-time orders are a different thing and live on the <a href="/admin/promo-codes" className="underline">Promo codes</a> page.
       </p>

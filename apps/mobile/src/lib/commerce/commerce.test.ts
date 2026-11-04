@@ -7,6 +7,7 @@ const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
 import { loadCatalogue, loadFoundingOffer, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, setMyPlusState, startCheckout, verifyOrder } from "./api";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "./plus-state-setup";
+import { offeredItems } from "./offered";
 
 const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
 
@@ -240,15 +241,23 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     expect((await loadPriceChangeNotices()).ok).toBe(false);
   });
 
-  it("a member in the 14 day grace is shown both tier cards on the phone (the screen passes the parsed state to arrangeItems)", () => {
+  it("one Membership (T2-01): Plus and the upgrade are never offered, even when a stale catalogue still returns them", () => {
+    const items = [{ code: "membership_annual" }, { code: "membership_annual_no_panel" }, { code: "membership_upgrade_plus" }, { code: "bp_care_pack_3m" }];
+    const offered = offeredItems(items);
+    expect(offered.map((i) => i.code)).toEqual(["membership_annual_no_panel", "bp_care_pack_3m"]);
+    // a Free person sees the one Membership card
+    expect(arrangeItems(offered, { tier: null, isMember: false, inGrace: false, forSomeoneElse: false }).tierCards.map((i) => i.code)).toEqual(["membership_annual_no_panel"]);
+    // a Plus member in the 14 day grace renews only into the Membership (the screen passes the parsed state to arrangeItems)
     const grace = parseMembership({ is_member: true, in_grace: true, tier: "plus", ends_at: "2026-10-20T00:00:00Z", grace_ends_at: "2026-11-03T00:00:00Z" });
-    const items = [{ code: "membership_annual" }, { code: "membership_annual_no_panel" }, { code: "membership_upgrade_plus" }];
-    const arranged = arrangeItems(items, { tier: grace.isMember ? (grace.tier ?? null) : null, isMember: grace.isMember, inGrace: false, forSomeoneElse: false });
-    expect(arranged.tierCards.map((i) => i.code)).toEqual(["membership_annual_no_panel", "membership_annual"]);
+    const arranged = arrangeItems(offered, { tier: grace.isMember ? (grace.tier ?? null) : null, isMember: grace.isMember, inGrace: false, forSomeoneElse: false });
+    expect(arranged.tierCards.map((i) => i.code)).toEqual(["membership_annual_no_panel"]);
     expect(arranged.upgrade).toBeNull();
-    // a current Plus member sees no card to buy
+    // a current Membership member is not offered the upgrade, and a current Plus member sees no card to buy
+    expect(arrangeItems(offered, { tier: "evergreen", isMember: true, inGrace: false, forSomeoneElse: false }).upgrade).toBeNull();
     const current = parseMembership({ is_member: true, tier: "plus", ends_at: "2027-08-01T00:00:00Z" });
-    expect(arrangeItems(items, { tier: current.tier ?? null, isMember: current.isMember, inGrace: false, forSomeoneElse: false }).tierCards).toEqual([]);
+    expect(arrangeItems(offered, { tier: current.tier ?? null, isMember: current.isMember, inGrace: false, forSomeoneElse: false }).tierCards).toEqual([]);
+    // sabotage: without the filter the retired items would come back
+    expect(arrangeItems(items, { tier: null, isMember: false, inGrace: false, forSomeoneElse: false }).tierCards.map((i) => i.code)).toContain("membership_annual");
   });
 
   it("keeps when a queued year starts, and ignores a malformed value", () => {
@@ -270,10 +279,8 @@ describe("S72 api: entitlements, quote with points, refunds, payment requests", 
     }
   });
 
-  it("Plus: the chosen state is sent with the order only when there is one, and a failed read of the states is null, not an empty list", async () => {
-    mockInvoke.mockResolvedValue({ data: { order_id: "o", reference: "r", amount_kobo: 12900000, checkout_url: "https://checkout.paystack.com/x" }, error: null });
-    await startCheckout("membership_annual", "k1", undefined, { collectionState: "Lagos" });
-    expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).toMatchObject({ code: "membership_annual", collection_state: "Lagos" });
+  it("Plus is not sold, so no collection state is ever sent with an order, and a failed read of the states is null, not an empty list", async () => {
+    mockInvoke.mockResolvedValue({ data: { order_id: "o", reference: "r", amount_kobo: 10000000, checkout_url: "https://checkout.paystack.com/x" }, error: null });
     await startCheckout("membership_annual_no_panel", "k2");
     expect((mockInvoke.mock.calls.at(-1)![1] as { body: Record<string, unknown> }).body).not.toHaveProperty("collection_state");
     mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });

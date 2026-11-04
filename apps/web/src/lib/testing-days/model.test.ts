@@ -106,7 +106,10 @@ describe("ECG files", () => {
 
 describe("plain words", () => {
   it("turns a database code into a sentence and never passes an unknown message through", () => {
-    expect(testingDayErrorText("membership_required")).toBe("Testing days are part of Membership.");
+    expect(testingDayErrorText("membership_required")).toBe("We are not taking new bookings for Tarragon testing days.");
+    // T2-02: the database refuses a new public testing day with this code; staff see a plain sentence, never the code
+    expect(testingDayErrorText("testing_public_days_closed")).toMatch(/^Public testing days are closed/);
+    expect(testingDayErrorText(" testing_public_days_closed ")).not.toContain("testing_public_days_closed");
     expect(testingDayErrorText('duplicate key value violates unique constraint "x"')).toBe("Something went wrong. Please try again.");
     expect(testingDayErrorText(null)).toBe("Something went wrong. Please try again.");
   });

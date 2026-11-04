@@ -7,6 +7,7 @@
 --   * the admin grant with a tier choice
 -- SABOTAGE: the extension patch is reversed; an Membership holder paying Plus must then stay Membership (the check above would flip).
 begin;
+\ir _fixtures/pre_t2_organisation_pricing.sql
 
 create function pg_temp.mkuser(p_label text, p_role text) returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid();
