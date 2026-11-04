@@ -131,7 +131,7 @@ describe("GroupView", () => {
     actions.loadFeed.mockResolvedValue({ ok: true, posts: [{ ...POST, id: "p9", author_handle: "Old Owl" }], has_more: false });
     render(<GroupView view={view(MEMBER)} initialPosts={[POST]} initialHasMore feedFailed={false} locale="en" />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Show older posts" })));
-    expect(actions.loadFeed).toHaveBeenCalledWith({ groupId: "g1", before: NOW });
+    expect(actions.loadFeed).toHaveBeenCalledWith({ groupId: "g1", before: NOW, sort: "latest" });
     expect(screen.getByText("Old Owl")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Show older posts" })).toBeNull();
   });

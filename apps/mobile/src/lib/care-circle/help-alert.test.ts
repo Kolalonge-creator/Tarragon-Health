@@ -16,7 +16,7 @@ beforeEach(() => {
 
 describe("parseHelpAlert", () => {
   it("reads the function's answer", () => {
-    expect(parseHelpAlert({ already_sent: false, recipients_told: 2, location_shared: false })).toEqual({ alreadySent: false, recipientsTold: 2, locationShared: false });
+    expect(parseHelpAlert({ already_sent: false, recipients_told: 2, location_shared: false })).toEqual({ alreadySent: false, recipientsTold: 2, locationShared: false, circlePaused: false });
   });
   it("never turns something unexpected into a success", () => {
     expect(parseHelpAlert(null)).toBeNull();
@@ -24,7 +24,7 @@ describe("parseHelpAlert", () => {
     expect(parseHelpAlert({ recipients_told: 3 })).toBeNull();
   });
   it("reads a missing count as nobody told, and only true as shared", () => {
-    expect(parseHelpAlert({ already_sent: true, location_shared: "yes" })).toEqual({ alreadySent: true, recipientsTold: 0, locationShared: false });
+    expect(parseHelpAlert({ already_sent: true, location_shared: "yes" })).toEqual({ alreadySent: true, recipientsTold: 0, locationShared: false, circlePaused: false });
   });
 });
 
@@ -33,7 +33,7 @@ describe("sendHelpAlert", () => {
     mockRpc.mockResolvedValue({ data: { already_sent: false, recipients_told: 1, location_shared: false }, error: null });
     const out = await sendHelpAlert();
     expect(mockRpc).toHaveBeenCalledWith("send_circle_help_alert", {});
-    expect(out).toEqual({ ok: true, result: { alreadySent: false, recipientsTold: 1, locationShared: false } });
+    expect(out).toEqual({ ok: true, result: { alreadySent: false, recipientsTold: 1, locationShared: false, circlePaused: false } });
   });
   it("tells a closed guard from a daily limit from a failure", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { code: "55000" } });
