@@ -62,6 +62,23 @@ describe("Content-Security-Policy for the in-app call", () => {
     expect(list.findIndex((r) => r.source.includes("consultation"))).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)"));
   });
 
+  it("lets every page load the Google Maps JavaScript API, because a CSP survives client-side navigation", async () => {
+    const list = await rules();
+    const general = csp(list.find((r) => r.source === "/(.*)")!);
+    // the 2026-11-04 bug: script-src lacked maps.googleapis.com, so the /coverage map and the admin Geocode button never worked.
+    // It must be in the general policy, not on the map pages alone: a page reached by next/link keeps the policy of the first page loaded.
+    expect(general).toMatch(/script-src 'self' 'unsafe-inline' https:\/\/maps\.googleapis\.com https:\/\/\*\.gstatic\.com(;|$)/);
+    expect(general).toMatch(/connect-src [^;]*https:\/\/\*\.googleapis\.com/);
+    expect(general).toMatch(/img-src [^;]*https:\/\/\*\.gstatic\.com/);
+    // no per-path Maps rule that would only work on a full page load
+    expect(list.filter((r) => r.source !== "/(.*)" && csp(r).includes("maps.googleapis.com"))).toEqual([]);
+    // still strict otherwise: no eval, no blob scripts, nothing from Google framed
+    expect(general).not.toMatch(/unsafe-eval/);
+    expect(general).not.toMatch(/frame-src[^;]*google/);
+    // the consultation rooms carry Zoom only, not Maps
+    expect(csp(list.find((r) => r.source.includes("consultation"))!)).not.toMatch(/google|gstatic/);
+  });
+
   it("still allows the camera and microphone the call needs", async () => {
     const all = (await rules()).find((r) => r.source === "/(.*)");
     expect(all?.headers.find((h) => h.key === "Permissions-Policy")?.value).toContain("camera=(self)");
