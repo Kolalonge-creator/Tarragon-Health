@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { geocodeAddress } from "@/lib/maps/geocode-address";
+import { AddressAutocompleteInput } from "@/components/maps/address-autocomplete-input";
 
 /**
  * Shared across home_visit_providers/logistics_partners — same pattern as
  * partner-license-fields.tsx. Address + geocoded lat/long, powering the
  * public /coverage partner map (public.public_partner_locations()). Address
  * drives the pin by default (via the "Geocode" button, when the map API is
- * loaded), but latitude/longitude stay directly editable so a wrong or
+ * loaded) or by picking one of the address suggestions shown while typing (Places API, which
+ * fills the coordinates directly), but latitude/longitude stay directly editable so a wrong or
  * imprecise geocode result can be corrected by hand.
  */
 export type PartnerLocationValues = {
@@ -103,10 +105,18 @@ export function PartnerLocationEditor({
       <div className="space-y-1 sm:col-span-3">
         <Label>Address</Label>
         <div className="flex gap-2">
-          <Input
-            placeholder="e.g. 12 Adeola Odeku St, Victoria Island, Lagos"
+          <AddressAutocompleteInput
+            aria-label="Address"
+            placeholder="Start typing, e.g. 12 Adeola Odeku St, Victoria Island"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={setAddress}
+            onSelect={(picked) => {
+              setGeocodeError(null);
+              if (picked.latitude !== null && picked.longitude !== null) {
+                setLatitude(String(picked.latitude));
+                setLongitude(String(picked.longitude));
+              }
+            }}
           />
           <Button
             type="button"
