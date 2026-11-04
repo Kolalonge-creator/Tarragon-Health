@@ -142,7 +142,7 @@ export const DEFAULT_EMERGENCY_FIELD_CHOICES: Required<EmergencyFieldChoicesRow>
 };
 
 /** Mirrors private.emergency_card_sensitive_condition; a web Jest test fails if these drift from the migration. */
-export const EMERGENCY_REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
+export const EMERGENCY_REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec|syphil|chlamyd|gonorrh|treponem|sexually transmitted)/i;
 export const EMERGENCY_MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
 
 /** Removes what the person chose not to show (S43, spec 2.7). The web card and the live link apply the same choices. */
