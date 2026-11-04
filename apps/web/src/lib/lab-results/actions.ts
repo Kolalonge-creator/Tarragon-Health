@@ -444,7 +444,13 @@ export async function replaceResultDocumentAsPatient(
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
     ...(note ? { p_note: note } : {}),
+    p_content_sha256: await fileSha256(file),
   });
+  if (isDuplicateDocumentError(replaceError)) {
+    // The database refused before writing anything: this file is already in the record.
+    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return { error: DUPLICATE_DOCUMENT_MESSAGE };
+  }
   if (replaceError || !newDocumentId) {
     // Remove the object just uploaded only when the database clearly refused (not yours, reviewed or already replaced, bad path). On any
     // other failure (a timeout, a dropped response) the replace may have committed, and deleting the file would leave a document row

@@ -578,6 +578,81 @@ export type Database = {
           },
         ]
       }
+      staff_lab_assignments: {
+        Row: {
+          active_from: string
+          active_to: string | null
+          assigned_by: string | null
+          created_at: string
+          id: string
+          lab_provider_id: string
+          note: string | null
+          organisation_id: string
+          staff_profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          active_from?: string
+          active_to?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          lab_provider_id: string
+          note?: string | null
+          organisation_id: string
+          staff_profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          active_from?: string
+          active_to?: string | null
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          lab_provider_id?: string
+          note?: string | null
+          organisation_id?: string
+          staff_profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_lab_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_lab_assignments_lab_provider_id_fkey"
+            columns: ["lab_provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_provider_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_lab_assignments_lab_provider_id_fkey"
+            columns: ["lab_provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_lab_assignments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_lab_assignments_staff_profile_id_fkey"
+            columns: ["staff_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_plans: {
         Row: {
           audio_clip_ids: string[]
@@ -12162,13 +12237,16 @@ export type Database = {
       clinical_documents: {
         Row: {
           access_category: Database["public"]["Enums"]["care_access_category"]
+          admin_note: string | null
           content_sha256: string | null
           created_at: string
           extraction_attempts: number
           failed_attempts: number
           file_count: number
           id: string
+          identity_check: Json | null
           investigation_date: string | null
+          is_superseded: boolean
           is_test: boolean
           kind_code: string
           kind_source: string
@@ -12190,13 +12268,16 @@ export type Database = {
         }
         Insert: {
           access_category: Database["public"]["Enums"]["care_access_category"]
+          admin_note?: string | null
           content_sha256?: string | null
           created_at?: string
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
           id?: string
+          identity_check?: Json | null
           investigation_date?: string | null
+          is_superseded?: boolean
           is_test?: boolean
           kind_code: string
           kind_source: string
@@ -12218,13 +12299,16 @@ export type Database = {
         }
         Update: {
           access_category?: Database["public"]["Enums"]["care_access_category"]
+          admin_note?: string | null
           content_sha256?: string | null
           created_at?: string
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
           id?: string
+          identity_check?: Json | null
           investigation_date?: string | null
+          is_superseded?: boolean
           is_test?: boolean
           kind_code?: string
           kind_source?: string
@@ -52192,7 +52276,11 @@ export type Database = {
       // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
-      replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string }; Returns: string }
+      replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string; p_content_sha256?: string }; Returns: string }
+      // CDE step 2 (clinical document engine): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      find_patient_for_upload: { Args: { p_query: string; p_date_of_birth?: string }; Returns: { patient_id: string; patient_number: string | null; full_name: string | null; birth_year: number | null; sex: string | null; state: string | null; phone_last4: string | null }[] }
+      coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
+      correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }

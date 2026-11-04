@@ -9,6 +9,7 @@ const TABS = [
   { href: "/dashboard/care-coordinator/outreach", label: "Outreach worklist", exact: false },
   { href: "/dashboard/care-coordinator/support-requests", label: "Support requests", exact: false },
   { href: "/dashboard/care-coordinator/book-for-patient", label: "Book for a patient", exact: false },
+  { href: "/dashboard/care-coordinator/lab-reports", label: "Lab reports", exact: false },
   { href: "/dashboard/care-coordinator/follow-ups", label: "Follow-ups", exact: false },
   { href: "/dashboard/care-coordinator/programme-tasks", label: "Programme tasks", exact: false },
   { href: "/dashboard/care-coordinator/contact-log", label: "Contact log", exact: false },

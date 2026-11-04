@@ -230,3 +230,16 @@ Migration `20261104160432_cde1_clinical_document_intake.sql`, proof `packages/db
 - Duplicate refusal on the server-computed SHA-256: the patient web and mobile upload paths and every S27 file path compute it; `team_submit_lab_result` carries it to the file insert. Not yet fingerprinted (so not duplicate-checked): a patient's replacement upload (`replace_my_result_document`) and a patient-added or partner S27 file, whose functions do not pass it on. These close in step 2, when the upload entry point becomes one function.
 - A failed or stuck read is on the ops exception queue (domain `documents`) immediately. A daily Vercel cron (`/api/cron/clinical-document-retry`) re-runs the reader on a patient's own upload, at most 3 attempts in all. Sub-daily retries would need pg_cron calling the route through pg_net with a stored secret; not done, because the ops queue already puts every failure in front of a person.
 - Care Coordinator uploads (CDE-03) have their own channel value now; giving the coordinator the upload screen and permissions is step 2.
+
+## 14. Step 2 as built (2026-11-04)
+
+Migration `20261104162557_cde2_coordinator_lab_uploads.sql`, proof `packages/db/tests/cde2_coordinator_lab_uploads.sql`, screen `/dashboard/care-coordinator/lab-reports` (tab "Lab reports").
+
+- Liaison work is the Care Coordinator's (CDE-03). The legacy `lab_liaison` role can use the same two functions; no account holds it.
+- `find_patient_for_upload`: patient number, phone (any Nigerian form, matched on the last 10 digits), email, or name with date of birth. Never a name alone. Returns patient number, name, year of birth, sex, state and the last 4 phone digits. Own organisation only; each search audited by kind and count, never its text.
+- `coordinator_submit_lab_report`: the name on the report must share two words with the record, plus the date of birth or the patient number; a date of birth or patient number that does not match refuses the upload outright. Fingerprint and laboratory (a directory lab or a typed name) are required. The file becomes a held S27 result, so the clinician release machine and INV-03 are unchanged. The intake row records what matched, who confirmed it, the laboratory, the test date and the coordinator's note.
+- `correct_clinical_document_metadata`: the uploader fixes test date, laboratory or note, with a reason, until a clinician has dealt with it; the old values go to the audit log.
+- `staff_lab_assignments`: which laboratories a coordinator handles (admin-managed; the admin screen for it comes with the admin statistics, a later step).
+- Step 1's fingerprint gaps are closed: `replace_my_result_document` takes `p_content_sha256` (dropped and re-created, one definition), `patient_add_lab_result` passes the fingerprint on.
+- Lab reports only. Uploading an ECG, scan or other report for a patient arrives with step 5, when those kinds route through the intake record.
+- Not done, by decision: a care-team upload does not notify the patient (INV-03 stands; OQ-CDE-08).

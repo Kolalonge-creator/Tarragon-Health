@@ -6,6 +6,8 @@ import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { replaceResultDocumentSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 /** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
 const REPLACE_REFUSAL_CODES: ReadonlySet<string> = new Set(["28000", "42501", "55000", "22023"]);
@@ -109,7 +111,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
     ...(note ? { p_note: note } : {}),
+    p_content_sha256: await fileSha256(file),
   });
+  if (isDuplicateDocumentError(replaceError)) {
+    // The database refused before writing anything: this file is already in the record.
+    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
+  }
   if (replaceError || !newDocumentId) {
     // Delete the new object only on a clear database refusal; after a timeout the replace may have committed (see
     // replaceResultDocumentAsPatient), and an orphaned object is the harmless side to err on.
