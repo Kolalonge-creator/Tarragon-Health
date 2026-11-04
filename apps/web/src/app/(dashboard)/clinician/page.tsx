@@ -24,6 +24,7 @@ import { AttestationCard } from "./attestation-card";
 import { HtnAttestationCard } from "./htn-attestation-card";
 import { NextActionHero } from "./next-action-hero";
 import { TodayStrip } from "./today-strip";
+import { loadWorklist } from "@/lib/security/worklists";
 import {
   escalationsForDoctor,
   figure,
@@ -137,7 +138,7 @@ export default async function ClinicianPage() {
   const now = new Date();
   const todayBounds = lagosDayBounds(now);
   const testPatientIds = await getTestPatientIdsForRequest();
-  const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes] = await Promise.all([
+  const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes, uploadsToReviewRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -170,6 +171,16 @@ export default async function ClinicianPage() {
           .gte("scheduled_for", todayBounds.startIso)
           .lt("scheduled_for", todayBounds.endIso)
           .not("status", "in", "(cancelled,no_show,held)")
+      : Promise.resolve(null),
+    // CDE step 6: uploaded ECGs, scans, letters and pathology reports waiting for a doctor, read from the same shared queue the tile
+    // opens (organisation-wide, real patients only), so the number and the list always agree.
+    // A care coordinator has no clinical worklist (the function refuses them), so no tile for them.
+    staff?.doctor_tier && staff.doctor_tier !== "care_coordinator"
+      ? loadWorklist(supabase).then((r) =>
+          r.ok
+            ? { count: r.groups.find((g) => g.kind === "uploaded_documents")?.total ?? 0, error: null }
+            : { count: null, error: { message: r.message } },
+        )
       : Promise.resolve(null),
   ]);
 
@@ -318,6 +329,9 @@ export default async function ClinicianPage() {
           { label: "Notes to complete", figure: notesFigure, href: "#notes-to-complete", note: "to review and sign" },
           { label: "Medicine reviews due", figure: medReviewsFigure, href: "/clinician/medication-reviews", note: "to review" },
           { label: "Care plan reviews due", figure: carePlanReviewsFigure, href: "/clinician/care-plan-review", note: "to review" },
+          ...(uploadsToReviewRes
+            ? [{ label: "Uploaded reports", figure: figure(uploadsToReviewRes.count, uploadsToReviewRes.error !== null), href: "/clinician/worklists", note: "waiting for a doctor" }]
+            : []),
         ]}
       />
 

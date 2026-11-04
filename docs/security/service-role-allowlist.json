@@ -135,6 +135,10 @@
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
     {
+      "file": "apps/web/src/app/(dashboard)/patient/unsorted-documents-actions.ts",
+      "category": "Clinical document engine step 4 (2026-11-04): after the patient's own session stored the file and recorded it (RLS, own folder), the service role runs the classifier (record_document_classification is service-role only) and starts the AI-005 lab reader on a document routed into the lab path, exactly as the existing patient lab upload does."
+    },
+    {
       "file": "apps/web/src/app/(dashboard)/patient/video-visit-actions.ts",
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
@@ -204,6 +208,10 @@
     },
     {
       "file": "apps/web/src/app/api/cron/assistant-silence/route.ts",
+      "category": "cron or webhook route (no user session)"
+    },
+    {
+      "file": "apps/web/src/app/api/cron/clinical-document-retry/route.ts",
       "category": "cron or webhook route (no user session)"
     },
     {
@@ -475,6 +483,10 @@
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
     {
+      "file": "apps/web/src/lib/ai-governance/run-classifier-eval-suites.ts",
+      "category": "AI-024 evaluation harness (2026-11-04): reads the registered suites, cases and the kind list (admin-scoped governance tables); runs only from the admin AI governance console, same as the AI-016 and AI-018 harnesses."
+    },
+    {
       "file": "apps/web/src/lib/ai-governance/run-coach-eval-suites.ts",
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
@@ -645,6 +657,10 @@
     {
       "file": "apps/web/src/lib/lab-results/actions.ts",
       "category": "app server code (baselined 2026-10-27; owner to justify)"
+    },
+    {
+      "file": "apps/web/src/lib/lab-results/store-file.ts",
+      "category": "S27 lab result file storage (CDE step 2, 2026-11-04): moved out of the structured-actions server-action module so it cannot be called from a browser. Writes the file under the patient's folder with the service role; every caller checks who may upload for whom first, and the database function it calls next is the real gate."
     },
     {
       "file": "apps/web/src/lib/lab-results/structured-actions.ts",
@@ -897,9 +913,12 @@
     "apps/web/src/lib/auth/signup-gate.ts",
     "apps/web/src/lib/protocol-api/check-quota.ts",
     "apps/web/src/lib/protocol-api/log-usage.ts",
-    "apps/web/src/lib/notifications/queue-risk-signal-attention.ts"
+    "apps/web/src/lib/notifications/queue-risk-signal-attention.ts",
+    "apps/web/src/lib/lab-results/store-file.ts"
   ],
   "wrapper_callers": [
+    "apps/web/src/app/(dashboard)/clinician/patients/[patientId]/unsorted-documents-section.tsx",
+    "apps/web/src/app/(dashboard)/dashboard/care-coordinator/lab-reports/actions.ts",
     "apps/web/src/app/(dashboard)/clinician/outside-records/[documentId]/page.tsx",
     "apps/web/src/app/(dashboard)/clinician/referrals/[referralId]/page.tsx",
     "apps/web/src/app/(dashboard)/clinician/vaccinations/page.tsx",
@@ -910,6 +929,8 @@
     "apps/web/src/app/api/protocol-api/v1/diabetes-risk/route.ts",
     "apps/web/src/app/signup/actions.ts",
     "apps/web/src/app/signup/page.tsx",
+    "apps/web/src/lib/clinical-documents/classify-run.ts",
+    "apps/web/src/lib/clinical-documents/record-items.ts",
     "apps/web/src/lib/ecg-reports/documents.ts",
     "apps/web/src/lib/imaging-reports/extraction-actions.ts",
     "apps/web/src/lib/lab-results/documents.ts",

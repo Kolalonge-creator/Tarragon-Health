@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
 
@@ -215,6 +216,7 @@ const MESSAGES: Record<string, string> = {
 
 export function describeLabError(error: { message?: string } | null | undefined, fallback = "That did not work. Please try again."): string {
   const m = error?.message ?? "";
+  if (isDuplicateDocumentError(error)) return DUPLICATE_DOCUMENT_MESSAGE;
   for (const [code, text] of Object.entries(MESSAGES)) if (m.includes(code)) return text;
   if (m.includes("Not permitted") || m.includes("Order not found")) return "You do not have access to that.";
   if (m.includes("A reason is required")) return "Please give a reason.";

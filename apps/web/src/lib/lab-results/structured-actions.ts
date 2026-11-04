@@ -1,6 +1,5 @@
 "use server";
 
-import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import type { Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -11,7 +10,6 @@ import {
   describeLabError,
   disclosureSchema,
   LAB_RESULT_BUCKET,
-  LAB_RESULT_EXT,
   refusalOf,
   releaseSchema,
   releasedResultsSchema,
@@ -20,32 +18,14 @@ import {
   type ReviewResult,
   resultEntrySchema,
   toPanelUnits,
-  validateLabResultFile,
   withholdSchema,
 } from "@/lib/lab-results/structured";
 import { loose } from "@/lib/clinician/loose-client";
-import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
+import { removeFile, storeFile, type StoredFile } from "@/lib/lab-results/store-file";
 import { getLabResultsSource } from "@/lib/lab-results/results-source";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
 
-type StoredFile = { file_path: string; original_filename: string; mime_type: string; file_size_bytes: number };
-
-/** Stores the file in the private bucket under the patient's folder. Only the server ever reads or signs it. */
-async function storeFile(patientId: string, file: File): Promise<StoredFile | { error: string }> {
-  const bad = validateLabResultFile(file);
-  if (bad) return { error: bad };
-  const signatureError = await verifyResultDocSignature(file);
-  if (signatureError) return { error: signatureError };
-  const path = `${patientId}/${randomUUID()}.${LAB_RESULT_EXT[file.type] ?? "bin"}`;
-  const { error } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-  if (error) return { error: "The file could not be stored. Please try again." };
-  return { file_path: path, original_filename: file.name.slice(0, 200), mime_type: file.type, file_size_bytes: file.size };
-}
-
-async function removeFile(path: string): Promise<void> {
-  await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).remove([path]);
-}
 
 /** A partner lab marks the sample collected (own provider's orders only; the database checks). */
 export async function markOrderCollected(orderId: string): Promise<LabActionState> {

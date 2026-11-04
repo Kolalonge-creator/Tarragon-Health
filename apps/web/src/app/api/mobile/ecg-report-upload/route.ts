@@ -5,6 +5,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { ECG_REPORT_BUCKET } from "@/lib/ecg-reports/documents";
 import { runEcgReportExtraction } from "@/lib/ecg-reports/extraction-actions";
 import { patientEcgUploadSchema, validateEcgDocFile } from "@/lib/validation/ecg-report-documents";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -115,6 +117,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       original_filename: file.name,
       mime_type: file.type,
       file_size_bytes: file.size,
+      // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
+      content_sha256: await fileSha256(file),
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
@@ -123,6 +127,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .single();
   if (insertError || !inserted) {
     await supabase.storage.from(ECG_REPORT_BUCKET).remove([path]);
+    if (isDuplicateDocumentError(insertError)) return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
     return NextResponse.json(
       { error: insertError?.message ?? "Could not save that upload." },
       { status: 500 }

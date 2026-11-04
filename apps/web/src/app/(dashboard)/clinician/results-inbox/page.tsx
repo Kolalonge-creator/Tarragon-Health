@@ -523,7 +523,7 @@ export default async function ResultsInboxPage({
                     <span className="text-xs text-charcoal-ink/50">{formatDate(row.created_at)}</span>
                   </div>
                   <p className="text-sm text-charcoal-ink/80">
-                    {row.original_filename ?? row.note ?? `${row.source} upload`}
+                    {row.source === "care_coordinator" ? "Results typed in by the care team" : (row.original_filename ?? row.note ?? `${row.source} upload`)}
                   </p>
                   <MatchResultToOrder
                     documentId={row.id}
