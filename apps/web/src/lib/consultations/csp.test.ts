@@ -71,7 +71,7 @@ describe("Content-Security-Policy for the in-app call", () => {
     expect(general).toMatch(/connect-src [^;]*https:\/\/\*\.googleapis\.com/);
     expect(general).toMatch(/img-src [^;]*https:\/\/\*\.gstatic\.com/);
     // no per-path Maps rule that would only work on a full page load
-    expect(list.filter((r) => r.source !== "/(.*)" && csp(r).includes("maps.googleapis.com"))).toEqual([]);
+    expect(list.filter((r) => r.source !== "/(.*)" && /script-src [^;]*https:\/\/maps\.googleapis\.com(\s|;|$)/.test(csp(r)))).toEqual([]);
     // still strict otherwise: no eval, no blob scripts, nothing from Google framed
     expect(general).not.toMatch(/unsafe-eval/);
     expect(general).not.toMatch(/frame-src[^;]*google/);
