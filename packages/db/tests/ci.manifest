@@ -1825,3 +1825,5 @@ bp_target_config_signing.sql
 outreach_screening_days.sql
 # Group screening day payments reach the ledger: a paid outreach day's verified charge pays the day AND posts one balanced entry (Dr 1020 / Cr 4100) under the day's organisation; a test-bundle day posts as a voucher prepayment (Dr 1020 / Cr 2100); an unknown reference or a failed charge posts nothing and records no failure. Sabotage: the new trigger dropped leaves the day paid but the ledger empty.
 screening_day_payments_ledger.sql
+# OD-05 free outreach results, abnormal only: a free attendee's own upload raises no alert and waits, a paid attendee's is reviewed at upload; all rows clean, confirmed and in the signed range screens normal; out of range, an HIV result, an unconfirmed row, a suspected critical value (at once, urgent) and a test not on the panel each go to a doctor with a linked alert; the 7-day sweep sends what is still waiting and leaves younger rows; the patient reads their own rows, another patient none. Sabotage: the free-order test forced false, the not-confirmed check removed.
+outreach_free_results_abnormal_only.sql

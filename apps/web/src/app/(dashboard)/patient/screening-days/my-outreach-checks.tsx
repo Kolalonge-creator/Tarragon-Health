@@ -46,8 +46,17 @@ export function MyOutreachChecks() {
               <p>
                 Your readings from the day are in your record. For your yearly blood tests, take this lab form to any
                 laboratory you choose and pay the laboratory there. When you get your results, upload them in the app with
-                this request, and the care team will look at them.
+                this request.
               </p>
+              {e.kind === "outreach_free" ? (
+                <p>
+                  We read the numbers from your report and ask you to check them. If anything is outside the usual range,
+                  or the report includes HIV or hepatitis tests, a doctor looks at it. If you have not checked the numbers
+                  within 7 days, a doctor looks at it anyway.
+                </p>
+              ) : (
+                <p>A doctor looks at your results, and you can talk them through in your included consultation.</p>
+              )}
               <a
                 href={`/api/patient/lab-order/${e.lab_order_id}/request`}
                 className="inline-block font-medium text-brand-green hover:underline dark:text-brand-green-bright"
