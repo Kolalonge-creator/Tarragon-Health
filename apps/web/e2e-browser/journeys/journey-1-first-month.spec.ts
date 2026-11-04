@@ -122,14 +122,18 @@ test.describe("Journey 1: a new user's first month", () => {
     // ------------------------------------------------------------------ 6 and 7: an order for a screen (real RPC), then checkout
     const item = sqlRows<{ code: string }>(
       `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
-        where ci.active order by ci.code limit 1`,
+        where ci.active
+          and coalesce((select m.is_enabled from public.platform_modules m where m.key = 'v5_checkout'), false)
+          and coalesce((select g.is_on from public.go_live_guards g where g.key = 'checkout_enabled'), false)
+        order by ci.code limit 1`,
     )[0];
     if (!item) {
-      // Checkout is dormant on a fresh stack: the one catalogue item (membership_annual) ships inactive until its go-live guard is met.
+      // Checkout is dormant on a fresh stack: the Membership (membership_annual_no_panel, on sale since T2-09) is active, but create_order
+      // refuses with checkout_not_open until v5_checkout and the checkout_enabled master are on, which a fresh database never has.
       run.pending(
         "order-created-for-screen",
         "FOUNDER go-live of the membership catalogue",
-        "the catalogue item membership_annual is inactive on a fresh database (checkout is dormant until its go-live guard is satisfied), so there is nothing the patient may order",
+        "checkout is dormant on a fresh database (v5_checkout and the checkout_enabled master are off), so there is nothing the patient may order yet",
       );
     } else {
       await run.step("order-created-for-screen", async () => {
@@ -266,7 +270,8 @@ test.describe("Journey 1: a new user's first month", () => {
       }
       const after = await me.rpc("my_membership_offer");
       expect(after.error, JSON.stringify(after.error)).toBeNull();
-      expect(after.data).toMatchObject({ status: "offer", catalog_item: "membership_annual" });
+      // T2-09 (2026-11-04): the offer is the Membership; Membership Plus is no longer sold
+      expect(after.data).toMatchObject({ status: "offer", catalog_item: "membership_annual_no_panel" });
       // a signed-out client cannot ask
       const signedOut = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).rpc("my_membership_offer");
       expect(signedOut.error, "a signed-out client reached the offer").not.toBeNull();
