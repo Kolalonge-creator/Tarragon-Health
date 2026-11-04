@@ -246,6 +246,11 @@ begin
   end if;
 
   if v_day.kind = 'outreach_paid' then
+    -- The payer pays from their own patient account in the app; never default to the staff member who created the day.
+    if p_payer_profile_id is null
+       or not exists (select 1 from public.profiles where id = p_payer_profile_id and role = 'patient' and is_active) then
+      raise exception 'name the person who will pay: their own Tarragon account' using errcode = '22023';
+    end if;
     select price_per_head_kobo into v_base_price from public.outreach_day_prices where is_active;
     if v_base_price is null then
       raise exception 'no price is set for a paid outreach check' using errcode = '22023';
@@ -574,6 +579,7 @@ declare
   v_day public.screening_days%rowtype;
   v_org uuid;
   v_role text;
+  v_phone text;
   v_order uuid;
   v_product uuid;
   v_purchase uuid;
@@ -595,20 +601,26 @@ begin
     raise exception 'this outreach check has not been paid for in full yet' using errcode = '22023';
   end if;
 
-  select organisation_id, role::text into v_org, v_role from public.profiles where id = p_patient_id;
+  select organisation_id, role::text, phone into v_org, v_role, v_phone from public.profiles where id = p_patient_id;
   if v_org is null or v_role <> 'patient' then
     raise exception 'that person needs their own Tarragon account first' using errcode = '22023';
+  end if;
+  -- Wrong-patient guard: readings and a lab order are about to land in this record, so a slot registered with a phone number
+  -- may only be linked to the account holding that number.
+  if v_slot.phone is not null and v_phone is distinct from v_slot.phone then
+    raise exception 'that account''s phone number does not match the one this attendee registered with' using errcode = '22023';
   end if;
   if exists (select 1 from public.outreach_enrolments where screening_day_id = v_day.id and patient_id = p_patient_id) then
     raise exception 'that person is already enrolled at this check' using errcode = '22023';
   end if;
 
-  -- The lab form: one self-arranged yearly panel. If they already have one in flight (from Membership Plus or an earlier check),
-  -- reuse it rather than give them a second form for the same tests.
+  -- The lab form: one self-arranged yearly panel. If they already hold an open one that nobody has acted on yet (an earlier
+  -- outreach check), reuse it rather than give them a second form for the same tests. A panel already taken or resulted is not
+  -- reused: they get a fresh form for this check.
   perform pg_advisory_xact_lock(hashtextextended('annual_bundle:' || p_patient_id::text, 0));
   select o.id into v_order from public.lab_orders o
    where o.patient_id = p_patient_id and o.panel_code = 'membership_annual'
-     and o.status not in ('cancelled', 'sample_rejected') and o.ordered_at > now() - interval '330 days'
+     and o.fulfilment = 'self_arranged' and o.status = 'ordered' and o.ordered_at > now() - interval '330 days'
    order by o.ordered_at desc limit 1;
   if v_order is null then
     perform set_config('tarragon.outreach_enrol', 'on', true);
@@ -621,7 +633,9 @@ begin
   end if;
 
   -- Paid place: one results consultation, already paid for by the group (OD-04). Active on grant, so the Members-only
-  -- purchase trigger (pending_payment only) does not apply; it is used once and lapses after 60 days.
+  -- purchase trigger (pending_payment only) does not apply; it is used once and lapses after 60 days. amount_kobo is 0: the
+  -- money was the group's payment, so the attendee's purchase history must not show a charge they never made, and nothing
+  -- may count the same naira twice.
   if v_day.kind = 'outreach_paid' then
     select id into v_product from public.service_products where code = 'video_visit_credit';
     if v_product is null then raise exception 'the consultation product is missing' using errcode = '22023'; end if;
@@ -629,14 +643,15 @@ begin
                                           amount_kobo, currency, voucher_covered_kobo, purchased_at, expires_at,
                                           scoped_entity_type, scoped_entity_id)
     values (v_org, p_patient_id, v_day.payer_profile_id, v_product, 'active',
-            v_day.price_per_head_kobo, 'NGN', 0, now(), now() + interval '60 days',
+            0, 'NGN', 0, now(), now() + interval '60 days',
             'screening_day_slot', p_slot_id)
     returning id into v_purchase;
   end if;
 
   insert into public.outreach_enrolments (slot_id, screening_day_id, organisation_id, patient_id, kind, lab_order_id,
                                           consult_purchase_id, enrolled_by)
-  values (p_slot_id, v_day.id, v_org, p_patient_id, v_day.kind, v_order, v_purchase, v_caller);
+  -- The day's organisation, so the staff who run the day can see who they enrolled (the patient reads it by patient_id).
+  values (p_slot_id, v_day.id, v_day.organisation_id, p_patient_id, v_day.kind, v_order, v_purchase, v_caller);
 
   update public.screening_day_slots
      set status = 'issued', beneficiary_profile_id = p_patient_id, outreach_enrolled = true
@@ -680,6 +695,11 @@ begin
   if e.vitals_recorded_at is not null then raise exception 'vitals_already_recorded' using errcode = '22023'; end if;
   if jsonb_typeof(v_bp) <> 'array' or jsonb_array_length(v_bp) > 5 then
     raise exception 'bp_readings must be a list of at most 5' using errcode = '22023';
+  end if;
+  -- Plausibility only (a typo like 54 for 5.4), never a clinical band: the red-flag rules on vitals_readings judge the value.
+  if (v_glu is not null and v_glu not between 0.5 and 50) or (v_w is not null and v_w not between 2 and 400)
+     or (v_pulse is not null and v_pulse not between 20 and 300) or (v_spo2 is not null and v_spo2 not between 50 and 100) then
+    raise exception 'reading_out_of_range' using errcode = '22023';
   end if;
 
   for r in select * from jsonb_array_elements(v_bp) loop
@@ -728,6 +748,43 @@ begin
   return jsonb_build_object('vitals_rows', array_length(v_ids, 1));
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 10. An outreach lab form nobody has acted on must not block a Member's own yearly panel
+-- ---------------------------------------------------------------------------
+-- start_annual_bundle and check_in_testing_booking each refuse a patient who already has a yearly-panel order in the last
+-- 330 days. Without this, an attendee who took the outreach lab form home and later bought Membership Plus could not start
+-- the panel their Membership pays for. An outreach order still at 'ordered' with no result uploaded is skipped by that check;
+-- one the patient has acted on (a result uploaded, or any later status) still counts, so a real yearly panel is never repeated.
+create function private.is_untouched_outreach_panel_order(p_order uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.outreach_enrolments e
+      join public.lab_orders o on o.id = e.lab_order_id
+     where e.lab_order_id = p_order and o.status = 'ordered' and o.fulfilment = 'self_arranged'
+       and not exists (select 1 from public.lab_result_documents d where d.lab_order_id = o.id)
+  );
+$$;
+revoke all on function private.is_untouched_outreach_panel_order(uuid) from public, anon, authenticated;
+
+-- Both functions are rewritten from their LIVE bodies by an exact, counted text replacement (the pattern
+-- 20261102090647_finance_dates_use_lagos_not_utc.sql uses): the window line gains one clause and nothing else changes.
+do $$
+declare
+  v_fn text;
+  v_def text;
+  v_old constant text := $o$o.ordered_at > now() - interval '330 days'$o$;
+  v_new constant text := $o$o.ordered_at > now() - interval '330 days' and not private.is_untouched_outreach_panel_order(o.id)$o$;
+begin
+  foreach v_fn in array array['public.start_annual_bundle(uuid,uuid)', 'public.check_in_testing_booking(uuid)'] loop
+    v_def := pg_get_functiondef(v_fn::regprocedure);
+    if (length(v_def) - length(replace(v_def, v_old, ''))) / length(v_old) <> 1 then
+      raise exception 'outreach: % expected exactly 1 match of the 330-day window', v_fn;
+    end if;
+    execute replace(v_def, v_old, v_new);
+  end loop;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Grants

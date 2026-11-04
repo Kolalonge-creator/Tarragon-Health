@@ -142,11 +142,13 @@ function CreateOutreachForm() {
 function PhoneLookup({
   label,
   onFound,
+  initialPhone = "",
 }: {
   label: string;
   onFound: (profile: { id: string; full_name: string | null } | null) => void;
+  initialPhone?: string;
 }) {
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialPhone);
   const lookup = useFindProfileByPhone();
   const [found, setFound] = useState<{ id: string; full_name: string | null } | null | undefined>(undefined);
 
@@ -281,13 +283,14 @@ function IssueVoucherRow({ day, slotId }: { day: ScreeningDay; slotId: string })
   );
 }
 
-function EnrolRow({ day, slotId }: { day: ScreeningDay; slotId: string }) {
+function EnrolRow({ day, slotId, registeredPhone }: { day: ScreeningDay; slotId: string; registeredPhone: string | null }) {
   const enrol = useEnrolOutreachAttendee();
   const [found, setFound] = useState<{ id: string; full_name: string | null } | null>(null);
 
+  // A slot registered with a phone number can only be linked to the account holding that number (checked in the database).
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <PhoneLookup label="Their phone number" onFound={setFound} />
+      <PhoneLookup label="Their phone number" onFound={setFound} initialPhone={registeredPhone ?? ""} />
       {found ? (
         <Button
           type="button"
@@ -402,7 +405,7 @@ function SlotsList({ day }: { day: ScreeningDay }) {
               ) : !outreach ? (
                 slot.status === "issued" ? <Badge variant="green">Voucher issued</Badge> : <IssueVoucherRow day={day} slotId={slot.id} />
               ) : !enrolment ? (
-                <EnrolRow day={day} slotId={slot.id} />
+                <EnrolRow day={day} slotId={slot.id} registeredPhone={slot.phone} />
               ) : (
                 <>
                   <Badge variant="green">Enrolled</Badge>

@@ -11,9 +11,14 @@
 --      note); a second recording, a recording before enrolment and a patient caller are all refused.
 --   F. Privacy (I9): the attendee reads their own enrolment; another patient and the paying contact read none, though the payer still
 --      sees the slot list.
+--   H. Fixes from review: a paid day cannot be confirmed without a named patient payer; a slot registered with a phone number
+--      links only to the account holding that number; an implausible reading (54 for 5.4) is refused; the consultation credit
+--      carries no amount (the group's payment is the money); an untouched outreach lab form does not stop a later Member
+--      starting their own yearly panel, while one already acted on still does.
 --   G. SABOTAGE: the enrolment policy opened (the payer now reads the enrolment, so F was the policy); the on-site permission check
 --      forced true (a patient can enrol someone, so A/E refusals were that check); the outreach flag removed from the lab-order origin
---      rule (enrolment can no longer create the order, so C relied on that exact exception).
+--      rule (enrolment can no longer create the order, so C relied on that exact exception); the untouched-outreach exclusion
+--      removed from start_annual_bundle (the form blocks the panel again, so H5 was that exclusion).
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -56,7 +61,7 @@ $$ select has_function_privilege('anon', p_sig, 'EXECUTE')::text $$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_runner uuid; v_payer uuid; v_p1 uuid; v_p2 uuid; v_p3 uuid; v_other uuid;
-  v_free uuid; v_paid uuid; v_s1 uuid; v_s2 uuid; v_s3 uuid; v_s4 uuid; v_r text; v_order uuid; v_order2 uuid;
+  v_free uuid; v_paid uuid; v_s1 uuid; v_s2 uuid; v_s3 uuid; v_s4 uuid; v_s5 uuid; v_r text; v_order uuid; v_order2 uuid;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then
@@ -69,11 +74,12 @@ begin
   v_p2 := pg_temp.mkuser(v_org, 'attendee-2', 'patient');
   v_p3 := pg_temp.mkuser(v_org, 'attendee-3', 'patient');
   v_other := pg_temp.mkuser(v_org, 'bystander', 'patient');
+  update public.profiles set phone = '+2348011111111' where id = v_p1;
   -- the on-site runner holds only screening_days.run, not the commercial permission
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values (v_runner, 'screening_days.run', v_admin);
 
   -- ===== A. Creating =====
-  v_r := pg_temp.q_as(v_admin, format($q$select (public.create_outreach_day('outreach_free', 'Proof Church', '+2348012345678', 'Surulere', %L, 3) ->> 'screening_day_id')$q$, current_date + 7));
+  v_r := pg_temp.q_as(v_admin, format($q$select (public.create_outreach_day('outreach_free', 'Proof Church', '+2348012345678', 'Surulere', %L, 5) ->> 'screening_day_id')$q$, current_date + 7));
   v_free := v_r::uuid;
   v_r := pg_temp.q_as(v_admin, format($q$select (public.create_outreach_day('outreach_paid', 'Proof Ltd', null, 'Ikeja', %L, 2) ->> 'screening_day_id')$q$, current_date + 7));
   v_paid := v_r::uuid;
@@ -91,7 +97,11 @@ begin
     pg_temp.anon_can('public.record_outreach_vitals(uuid,jsonb)'));
 
   -- ===== B. Confirming =====
-  v_r := pg_temp.q_as(v_admin, format($q$select public.confirm_screening_day(%L, 3, null)::text$q$, v_free));
+  v_r := pg_temp.q_as(v_admin, format($q$select public.confirm_screening_day(%L, 5, null)::text$q$, v_free));
+  v_r := pg_temp.q_as(v_admin, format($q$select public.confirm_screening_day(%L, 2, 0)::text$q$, v_paid));
+  perform pg_temp.rec('H1 a paid day cannot be confirmed without a named payer', 'true', (v_r like 'ERR 22023:%name the person who will pay%')::text);
+  v_r := pg_temp.q_as(v_admin, format($q$select public.confirm_screening_day(%L, 2, 0, %L)::text$q$, v_paid, v_runner));
+  perform pg_temp.rec('H2 ...and the payer must be a patient account', 'true', (v_r like 'ERR 22023:%name the person who will pay%')::text);
   perform pg_temp.rec('B1 a free day confirms with no price, total or payer', 'confirmed|||',
     (select status || '|' || coalesce(price_per_head_kobo::text, '') || '|' || coalesce(total_kobo::text, '') || '|' || coalesce(payer_profile_id::text, '')
        from public.screening_days where id = v_free));
@@ -115,6 +125,9 @@ begin
   perform pg_temp.rec('C1 on-site staff register an attendee on a free day with no payment', 'true', (v_s1 is not null)::text);
   v_r := pg_temp.q_as(v_runner, format($q$select public.record_outreach_vitals(%L, '{"weight_kg": 70}'::jsonb)::text$q$, v_s1));
   perform pg_temp.rec('C2 vitals cannot be recorded before enrolment', 'true', (v_r like 'ERR 22023:%enrol the attendee%')::text);
+  v_r := pg_temp.q_as(v_runner, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s1, v_p2));
+  perform pg_temp.rec('H3 a slot registered with a phone number links only to the account holding it', 'true',
+    (v_r like 'ERR 22023:%does not match%')::text);
   v_r := pg_temp.q_as(v_runner, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s1, v_p1));
   v_order := (select lab_order_id from public.outreach_enrolments where slot_id = v_s1);
   perform pg_temp.rec('C3 enrolment makes one self-arranged yearly-panel order, unbilled, with no lab named', 'membership_annual|self_arranged|patient_initiated|0||ordered',
@@ -140,7 +153,7 @@ begin
   v_s2 := pg_temp.q_as(v_runner, format($q$select public.add_screening_day_slot(%L, 'Paid One', null)::text$q$, v_paid))::uuid;
   v_s3 := pg_temp.q_as(v_runner, format($q$select public.add_screening_day_slot(%L, 'Paid Two', null)::text$q$, v_paid))::uuid;
   v_r := pg_temp.q_as(v_runner, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s2, v_p2));
-  perform pg_temp.rec('D2 the paid attendee gets one active extra-meeting credit, expiring in 60 days, paid by the group', 'video_visit_credit|active|1500000|60|true',
+  perform pg_temp.rec('D2 the paid attendee gets one active extra-meeting credit, expiring in 60 days, paid by the group', 'video_visit_credit|active|0|60|true',
     (select prod.code || '|' || sp.status || '|' || sp.amount_kobo || '|' || round(extract(epoch from (sp.expires_at - sp.purchased_at)) / 86400) || '|' ||
             (sp.purchaser_profile_id = v_payer)::text
        from public.outreach_enrolments e join public.service_purchases sp on sp.id = e.consult_purchase_id
@@ -163,6 +176,8 @@ begin
     (select coalesce(array_length(vitals_reading_ids, 1), 0)::text from public.outreach_enrolments where slot_id = v_s2));
   v_r := pg_temp.q_as(v_runner, format($q$select public.record_outreach_vitals(%L, '{"weight_kg": 73}'::jsonb)::text$q$, v_s2));
   perform pg_temp.rec('E2 a second recording is refused', 'true', (v_r like 'ERR 22023:vitals_already_recorded%')::text);
+  v_r := pg_temp.q_as(v_runner, format($q$select public.record_outreach_vitals(%L, '{"glucose_mmol_l": 54}'::jsonb)::text$q$, v_s3));
+  perform pg_temp.rec('H4 an implausible reading (54 for 5.4) is refused', 'true', (v_r like 'ERR 22023:reading_out_of_range%')::text);
   v_r := pg_temp.q_as(v_p1, format($q$select public.record_outreach_vitals(%L, '{"weight_kg": 73}'::jsonb)::text$q$, v_s1));
   perform pg_temp.rec('E3 a patient cannot record vitals', 'true', (v_r like 'ERR 42501:%')::text);
   v_r := pg_temp.q_as(v_p1, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s4, v_other));
@@ -178,7 +193,22 @@ begin
   perform pg_temp.rec('F4 ...though they still see the slot list they paid for', '2',
     pg_temp.q_as(v_payer, format($q$select count(*)::text from public.screening_day_slots where screening_day_id = %L$q$, v_paid)));
 
+  -- ===== H. The yearly panel after an outreach lab form =====
+  -- attendee three has an untouched outreach lab form from the free day
+  v_s5 := pg_temp.q_as(v_runner, format($q$select public.add_screening_day_slot(%L, 'Attendee Three', null)::text$q$, v_free))::uuid;
+  v_r := pg_temp.q_as(v_runner, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s5, v_p3));
+  v_r := pg_temp.q_as(v_p2, $q$select public.start_annual_bundle()::text$q$);
+  perform pg_temp.rec('H5 an untouched outreach lab form does not stop the patient starting their own yearly panel', 'true', (v_r !~ '^ERR')::text);
+  update public.lab_orders set status = 'sample_collected' where id = v_order;   -- attendee one acted on theirs
+  v_r := pg_temp.q_as(v_p1, $q$select public.start_annual_bundle()::text$q$);
+  perform pg_temp.rec('H6 one already acted on still counts as this year''s panel', 'true', (v_r like 'ERR 22023:annual_bundle_already_started%')::text);
+
   -- ===== G. SABOTAGE =====
+  execute replace(pg_get_functiondef('public.start_annual_bundle(uuid,uuid)'::regprocedure),
+                  ' and not private.is_untouched_outreach_panel_order(o.id)', '');
+  v_r := pg_temp.q_as(v_p3, $q$select public.start_annual_bundle()::text$q$);
+  perform pg_temp.rec('G4 SABOTAGE exclusion removed: the untouched outreach form blocks the panel again (so H5 was the exclusion)', 'true',
+    (v_r like 'ERR 22023:annual_bundle_already_started%')::text);
   execute 'drop policy outreach_enrolments_select on public.outreach_enrolments';
   execute 'create policy outreach_enrolments_select on public.outreach_enrolments for select to authenticated using (true)';
   perform pg_temp.rec('G1 SABOTAGE enrolment policy opened: the payer now reads enrolments (so F3 was the policy)', '2',
@@ -189,7 +219,9 @@ begin
   execute replace(pg_get_functiondef('private.enforce_lab_order_origin()'::regprocedure),
                   $x$or (coalesce(current_setting('tarragon.outreach_enrol', true), '') = 'on' and new.fulfilment = 'self_arranged')$x$, '');
   v_r := pg_temp.q_as(v_admin, format($q$select public.add_screening_day_slot(%L, 'Late', null)::text$q$, v_free));
-  v_r := pg_temp.q_as(v_admin, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_r::uuid, v_p3));
+  -- a fresh attendee with no lab order of any kind, so the enrolment really has to create one
+  v_r := pg_temp.q_as(v_admin, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_r::uuid,
+                                      pg_temp.mkuser(v_org, 'attendee-4', 'patient')));
   perform pg_temp.rec('G3 SABOTAGE outreach flag removed from the origin rule: enrolment can no longer make the order (so C3 used that exception)', 'true',
     (v_r like 'ERR 23514:%')::text);
 
