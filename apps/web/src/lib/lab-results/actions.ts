@@ -16,6 +16,7 @@ import {
   staffResultUploadSchema,
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
+import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 
 type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
 /** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
@@ -87,6 +88,8 @@ export async function uploadResultDocumentForPatient(
   }
   const fileError = validateResultDocFile(file);
   if (fileError) return { error: fileError };
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) return { error: signatureError };
 
   const parsed = staffResultUploadSchema.safeParse({
     patient_id: formData.get("patient_id"),
@@ -199,6 +202,8 @@ export async function uploadResultDocumentAsPatient(
   }
   const fileError = validateResultDocFile(file);
   if (fileError) return { error: fileError };
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) return { error: signatureError };
 
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
@@ -387,6 +392,8 @@ export async function replaceResultDocumentAsPatient(
   }
   const fileError = validateResultDocFile(file);
   if (fileError) return { error: fileError };
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) return { error: signatureError };
 
   const parsed = replaceResultDocumentSchema.safeParse({
     document_id: formData.get("document_id"),
