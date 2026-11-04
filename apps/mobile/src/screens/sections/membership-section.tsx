@@ -10,7 +10,7 @@ import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "@/lib/commerce/plus-state-setup";
-import { loadAutoRenewEnabled, loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
+import { loadAutoRenewEnabled, loadCatalogue, loadFoundingBadge, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { RefundRuleBlock } from "./refund-blocks";
 import { RenewalSection } from "./renewal-section";
@@ -18,6 +18,7 @@ import { checkoutErrorKey, keepsRetryKey, orderStateKey, type CatalogueItem, typ
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { Badge } from "@/ui/kit/Badge";
 
 const naira = (kobo: number) => `₦${formatNaira(kobo)}`;
 
@@ -66,6 +67,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [entKey, setEntKey] = useState(0);
   // Automatic renewal: offered only while the platform switch is on, only for the person's OWN Membership (never a gift), never when they already hold one.
   const [renewSwitch, setRenewSwitch] = useState(false);
+  // The person's own founding member badge; never shown while paying for someone else.
+  const [founding, setFounding] = useState(false);
   const [renew, setRenew] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
@@ -77,8 +80,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const keys = useRef(new Map<string, string>());
 
   const refresh = useCallback(async () => {
-    const [c, o, m, ni, pn, ps, rs] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadPlusStates(), loadAutoRenewEnabled()]);
+    const [c, o, m, ni, pn, ps, rs, fb] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadPlusStates(), loadAutoRenewEnabled(), beneficiary ? Promise.resolve(false) : loadFoundingBadge()]);
     setRenewSwitch(rs);
+    setFounding(fb);
     setPlusStates(ps);
     setPlusStatesFailed(ps === null);
     // these two only add information; a failed read shows nothing extra, never a guess
@@ -193,6 +197,12 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const visible = [...arranged.tierCards, ...(arranged.upgrade ? [arranged.upgrade] : []), ...arranged.others];
   return (
     <View style={{ gap: 12 }}>
+      {!beneficiary && founding ? (
+        <View style={{ gap: 4 }} testID="founding-member-badge">
+          <Badge label={tr("founding.badge")} tone="positive" />
+          <MutedText>{tr("founding.badge.detail")}</MutedText>
+        </View>
+      ) : null}
       {beneficiary ? null : <EntitlementsSection refreshKey={entKey} />}
       {beneficiary ? null : <RenewalSection refreshKey={entKey} />}
       <AppText variant="title">{beneficiary ? tr("circle.pay.who", { name: beneficiary.name }) : tr("shop.title")}</AppText>

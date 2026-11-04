@@ -25,7 +25,7 @@ describe("createDiscountCode", () => {
     expect(r?.message).toBe("Code WELCOME10 created.");
     expect(rpc).toHaveBeenCalledWith("admin_create_discount_code", {
       p_code: "WELCOME10", p_kind: "percent", p_percent: 10, p_fixed_kobo: null, p_max_discount_kobo: null, p_item_codes: ["membership_annual"],
-      p_cohort_id: null, p_max_total_uses: 100, p_max_per_person: 1, p_valid_from: "2026-11-02T23:00:00.000Z", p_valid_to: "2026-12-31T22:59:59.000Z", p_note: null,
+      p_cohort_id: null, p_max_total_uses: 100, p_max_per_person: 1, p_valid_from: "2026-11-02T23:00:00.000Z", p_valid_to: "2026-12-31T22:59:59.000Z", p_note: null, p_badge: null,
     });
   });
   it("converts a fixed amount and its cap from whole naira to integer kobo exactly", async () => {
@@ -38,6 +38,20 @@ describe("createDiscountCode", () => {
     const r = await createDiscountCode(undefined, form({ ...base, code: "" }));
     expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_code: null });
     expect(r?.message).toBe("Code K7Q2M9 created.");
+  });
+  it("sends the founding member badge only when it is ticked", async () => {
+    rpc.mockResolvedValue({ data: { id: "d1", code: "FOUNDING10" }, error: null });
+    await createDiscountCode(undefined, form({ ...base, code: "FOUNDING10", badge: "founding_member", item: ["membership_annual_no_panel", "membership_annual"] }));
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_badge: "founding_member", p_item_codes: ["membership_annual_no_panel", "membership_annual"] });
+  });
+  it("refuses a badge it does not know without calling the database", async () => {
+    const r = await createDiscountCode(undefined, form({ ...base, badge: "vip" }));
+    expect(r?.error).toBeDefined();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("says plainly when a founding code is already active", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "founding_offer_exists" } });
+    expect((await createDiscountCode(undefined, form({ ...base, badge: "founding_member" })))?.error).toMatch(/already active/);
   });
   it("refuses bad input without calling the database", async () => {
     const cases: Record<string, string | string[]>[] = [

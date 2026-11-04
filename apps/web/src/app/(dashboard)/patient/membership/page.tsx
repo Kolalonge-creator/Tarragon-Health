@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { HubLinks } from "@/components/ui/hub-links";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
+import { FoundingMemberBadge } from "@/components/founding-member-badge";
+import { parseFoundingOffer } from "@/lib/marketing/founding-offer";
 import { EntitlementsCard } from "./entitlements-card";
 import { HmoEligibilityCard } from "./hmo-eligibility-card";
 import { FundSupportCard } from "./fund-support-card";
@@ -22,16 +24,25 @@ export default async function MembershipPage() {
   const fee = getProposedConfig<ConfigValue>("commerce.processing_fee_estimate").value as unknown as FeeEstimateSchedule;
   // What each item does not include, and any price change for something the person holds. A failed read shows nothing extra, never a wrong figure.
   const supabase = await createClient();
-  const [notIncluded, notices] = await Promise.all([supabase.rpc("catalogue_not_included"), supabase.rpc("my_price_change_notices")]);
+  // The founding member offer (founder decision 2026-11-04): the person's own badge, and while the offer is open its code as a hint at
+  // checkout (never applied for them). A failed read shows neither.
+  const [notIncluded, notices, badge, offer] = await Promise.all([
+    supabase.rpc("catalogue_not_included"),
+    supabase.rpc("my_price_change_notices"),
+    supabase.rpc("my_founding_badge"),
+    supabase.rpc("founding_offer_status"),
+  ]);
+  const founding = parseFoundingOffer(offer.data);
   return (
     <div className="space-y-6">
       <PageHeader title="Membership" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient", label: "Dashboard" }} />
+      {badge.data === true ? <FoundingMemberBadge locale={uiLanguage} withDetail /> : null}
       <HubLinks label="Related to Membership" links={[{ href: "/patient/payment-requests", label: "Ask someone to pay" }, { href: "/patient/receipts", label: "Receipts" }]} />
       <EntitlementsCard locale={uiLanguage} />
       <RenewalCard locale={uiLanguage} />
       <RefundStatusCard locale={uiLanguage} />
       <FundSupportCard locale={uiLanguage} />
-      <MembershipShop locale={uiLanguage} fee={fee} notIncluded={parseNotIncluded(notIncluded.data)} priceNotices={parsePriceChangeNotices(notices.data)} showMonthly={showMonthlyEquivalent()} />
+      <MembershipShop locale={uiLanguage} fee={fee} notIncluded={parseNotIncluded(notIncluded.data)} priceNotices={parsePriceChangeNotices(notices.data)} showMonthly={showMonthlyEquivalent()} foundingOffer={founding ? { code: founding.code, percent: founding.percent } : null} />
       <HmoEligibilityCard locale={uiLanguage} />
     </div>
   );

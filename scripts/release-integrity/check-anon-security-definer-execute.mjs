@@ -95,6 +95,9 @@ const ALLOWLIST = new Set([
   // and the mobile app can follow the platform switch; returns a single boolean, no patient data
   // (packages/db/tests/membership_auto_renew.sql).
   "public.membership_auto_renew_enabled()",
+  // The founding member offer on the public site: whether it is open, how many places are left, and while open its public code and
+  // percent. No patient data, no order detail (packages/db/tests/founding_member_offer.sql).
+  "public.founding_offer_status()",
 ]);
 
 const QUERY = `

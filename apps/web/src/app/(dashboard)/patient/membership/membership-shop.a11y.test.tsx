@@ -52,6 +52,27 @@ beforeEach(() => {
 });
 
 describe("MembershipShop", () => {
+  it("shows the founding member code as a hint while the offer is open, and never applies it", async () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} foundingOffer={{ code: "FOUNDING10", percent: 10 }} />);
+    const hint = screen.getByTestId("founding-hint");
+    expect(hint.textContent).toMatch(/Founding member code available/);
+    expect(hint.textContent).toMatch(/Enter FOUNDING10 in the Discount code box to take 10% off the first year/);
+    // never auto-applied: the code box is empty and every quote asked for carries no code
+    expect((screen.getByLabelText("Discount code") as HTMLInputElement).value).toBe("");
+    expect(useQuoteSpy.mock.calls.every(([input]) => (input as { discountCode: string | null }).discountCode === null)).toBe(true);
+    cleanup();
+    await expectNoA11yViolations(<MembershipShop locale="en" fee={FEE} go={assign} foundingOffer={{ code: "FOUNDING10", percent: 10 }} />);
+  });
+
+  it("shows no founding hint when the offer is closed, or to someone who already holds a Membership", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.queryByTestId("founding-hint")).toBeNull();
+    cleanup();
+    membership = { data: { is_member: true, ends_at: "2027-10-01T00:00:00Z", source: "purchase" } };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} foundingOffer={{ code: "FOUNDING10", percent: 10 }} />);
+    expect(screen.queryByTestId("founding-hint")).toBeNull();
+  });
+
   it("shows the item, what is included, the price and an estimated fee labelled as an estimate", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Membership Plus")).toBeTruthy();

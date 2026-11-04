@@ -52947,6 +52947,7 @@ export type Database = {
         Args: {
           p_code: string; p_cohort_id: string; p_fixed_kobo: number; p_item_codes: string[]; p_kind: string; p_max_discount_kobo: number
           p_max_per_person: number; p_max_total_uses: number; p_note: string; p_percent: number; p_valid_from: string; p_valid_to: string
+          p_badge?: string | null
         }
         Returns: Json
       };
@@ -53115,6 +53116,8 @@ export type Database = {
       my_membership_renewal: { Args: never; Returns: Json };
       cancel_membership_renewal: { Args: never; Returns: Json };
       membership_auto_renew_enabled: { Args: never; Returns: boolean };
+      founding_offer_status: { Args: never; Returns: Json };
+      my_founding_badge: { Args: never; Returns: boolean };
       set_order_renewal_consent: { Args: { p_consent: boolean; p_order: string }; Returns: boolean };
       my_orders: { Args: never; Returns: Json };
       my_pending_auto_drafted_notes: {

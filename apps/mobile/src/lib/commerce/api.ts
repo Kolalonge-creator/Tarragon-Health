@@ -145,6 +145,11 @@ export async function loadAutoRenewEnabled(): Promise<boolean> {
   const { data, error } = await supabase.rpc("membership_auto_renew_enabled");
   return !error && data === true;
 }
+/** The signed-in person's own "Founding member" badge (founder decision 2026-11-04). A failed read is no badge, never a wrong one. */
+export async function loadFoundingBadge(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("my_founding_badge");
+  return !error && data === true;
+}
 /** The signed-in Member's renewal status. */
 export async function loadMyRenewal(): Promise<QueryResult<RenewalState | null>> {
   const { data, error } = await supabase.rpc("my_membership_renewal");

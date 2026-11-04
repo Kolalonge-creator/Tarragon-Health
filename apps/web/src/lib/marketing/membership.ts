@@ -99,3 +99,14 @@ export function membershipLadderPriceLabels(): { evergreen: string; evergreenPlu
   const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
   return { evergreen: "\u20A6" + formatNaira(v.evergreen_kobo), evergreenPlus: "\u20A6" + formatNaira(v.evergreen_plus_kobo) };
 }
+
+/**
+ * The two ladder prices with a founding member percent taken off, for the founding member strip. The list prices are the same
+ * commerce.membership_ladder figures as above; the percent comes from the live founding code (lib/marketing/founding-offer.ts), never
+ * typed. The pricing engine rounds a discount DOWN (private.price_quote_calc), so the price is the list less the rounded-down share.
+ */
+export function foundingLadderPriceLabels(percent: number): { evergreen: string; evergreenPlus: string } {
+  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
+  const off = (kobo: number): number => kobo - Math.floor((kobo * percent) / 100);
+  return { evergreen: "\u20A6" + formatNaira(off(v.evergreen_kobo)), evergreenPlus: "\u20A6" + formatNaira(off(v.evergreen_plus_kobo)) };
+}

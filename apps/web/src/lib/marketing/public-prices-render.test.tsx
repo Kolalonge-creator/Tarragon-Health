@@ -21,6 +21,12 @@ jest.mock("@tarragon/shared", () => {
         : actual.getProposedConfig(key, ...rest),
   };
 });
+// The founding member offer (2026-11-04) is closed unless a test opens it; when open its two first-year prices are the only extra figures.
+let foundingOpen = false;
+jest.mock("./founding-offer", () => {
+  const actual = jest.requireActual("./founding-offer");
+  return { ...actual, loadFoundingOffer: async () => (foundingOpen ? { placesTotal: 100, placesLeft: 42, code: "FOUNDING10", percent: 10 } : null) };
+});
 jest.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => "/", useRouter: () => ({ push: jest.fn() }) }));
 
 /** Every naira figure in a text, as digits only: "₦129,000", "NGN 5,000", "5,000 naira". */
@@ -64,6 +70,26 @@ describe("naira figures a visitor can read", () => {
       expect(figures.filter((f) => !allowed.has(f))).toEqual([]);
       expect(text).not.toMatch(/\b(?:volume|bulk) (?:price|pricing|discount)\b/i);
     });
+  });
+
+  it.each([
+    ["pricing", () => import("../../app/(marketing)/pricing/page")],
+    ["home", () => import("../../app/(marketing)/page")],
+  ] as const)("%s, founding offer open: the only extra figures are the two founding first-year prices, computed from config", async (_name, load) => {
+    ladderPublic = true;
+    foundingOpen = true;
+    try {
+      const page = (await load()).default as () => Promise<React.ReactNode>;
+      const l = ladder();
+      const off = (k: number) => k - Math.floor((k * 10) / 100);
+      const allowed = new Set([kobo(l.evergreen_kobo), kobo(l.evergreen_plus_kobo), kobo(l.upgrade_kobo), kobo(off(l.evergreen_kobo)), kobo(off(l.evergreen_plus_kobo))]);
+      const text = await renderPageText(page);
+      expect(text).toMatch(/42 of 100 places left/);
+      expect(text).toContain(formatNaira(off(l.evergreen_kobo)));
+      expect(nairaFigures(text).filter((f) => !allowed.has(f))).toEqual([]);
+    } finally {
+      foundingOpen = false;
+    }
   });
 
   it("sabotage: a stray figure would be caught", () => {

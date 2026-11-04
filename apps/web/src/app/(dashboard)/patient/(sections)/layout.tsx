@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { ProxyConfirmationCard } from "@/app/(dashboard)/patient/family/proxy-confirmation-card";
 import { HandoverCard, type HandoverGuardian } from "@/app/(dashboard)/patient/family/handover-card";
+import { FoundingMemberBadge } from "@/components/founding-member-badge";
 
 /**
  * Shared chrome for the patient dashboard's routed sections (Overview,
@@ -48,11 +49,14 @@ export default async function PatientSectionsLayout({
     { data: pendingProxySetups, error: proxySetupsError },
     { data: handover, error: handoverError },
     locale,
+    { data: foundingBadge },
   ] = await Promise.all([
     getPatientDashboardContext(),
     supabase.rpc("my_pending_proxy_setups"),
     supabase.rpc("my_handover"),
     getAuthLocale(),
+    // The signed-in person's own "Founding member" badge (founder decision 2026-11-04). A failed read shows no badge, never a wrong one.
+    supabase.rpc("my_founding_badge"),
   ]);
   if (handoverError) {
     Sentry.captureMessage("my_handover failed", { level: "warning", tags: { pg_code: handoverError.code ?? "none" } });
@@ -73,6 +77,7 @@ export default async function PatientSectionsLayout({
             : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
         }
         roleLabel={acting ? "Acting for them" : "Patient"}
+        badge={!acting && foundingBadge === true ? <FoundingMemberBadge locale={locale} /> : null}
       />
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
       {!acting && handoverState?.pending === true && <HandoverCard guardians={handoverState.guardians ?? []} />}

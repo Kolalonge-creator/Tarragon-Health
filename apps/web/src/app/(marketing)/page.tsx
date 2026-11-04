@@ -22,6 +22,7 @@ import { HomeLadderCompare } from "./_components/home-ladder-compare";
 import { HomePlanCompare } from "./_components/home-plan-compare";
 import { ladderCards } from "./_content/pricing-ladder";
 import { HomeBusinessDoor } from "./_components/home-business-door";
+import { FoundingMembersStrip } from "./_components/founding-members-strip";
 import { CareCircleAbroad } from "./_components/care-circle-abroad";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
@@ -238,6 +239,9 @@ export default async function MarketingHomePage() {
           <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
         )}
       </Section>
+
+      {/* The founding member offer, under the plans: renders nothing unless it is open (see the component). */}
+      <FoundingMembersStrip />
 
       {/* 7. Two ways in, then the three programmes as cards. */}
       <Section>

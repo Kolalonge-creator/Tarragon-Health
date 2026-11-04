@@ -22,6 +22,8 @@ $f$
        'verify_prescription_public', 'record_prescription_supply_public', 'learn_shared_article', 'verify_payer_board_report',
        'public_price_list', 'public_service_coverage', 'public_response_commitments', 'public_partner_locations',
        'platform_switch_is_on', 'membership_auto_renew_enabled',
+       -- the founding member offer's public figure: open, places, code, percent; no patient data (founding_member_offer.sql)
+       'founding_offer_status',
        -- extension event-trigger helpers (present where pgaudit is installed)
        'pgaudit_ddl_command_end', 'pgaudit_sql_drop'
      ]);

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import { PanelTests } from "../_components/panel-tests";
+import { FoundingMembersStrip } from "../_components/founding-members-strip";
 import { ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT, PLUS_PANEL_WHERE } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
@@ -125,6 +126,8 @@ function LadderPricing({ refundDays, autoRenews }: { refundDays: number; autoRen
           </Button>
         </div>
       </Section>
+      {/* The founding member offer: renders nothing unless it is open (see the component). */}
+      <FoundingMembersStrip />
       <Section variant="sage">
         <SectionHeading eyebrow="Questions" title="Frequently asked questions" />
         <FaqAccordion items={faq} variant="minimal" />
@@ -223,6 +226,8 @@ export default async function PricingPage() {
           </p>
         </div>
       </Section>
+
+      <FoundingMembersStrip />
 
       <Section>
         <SectionHeading eyebrow="Always free" title="Free through other providers" />

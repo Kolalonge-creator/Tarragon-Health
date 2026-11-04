@@ -28,7 +28,11 @@ export function marketingAnonKey(): string | undefined {
 
 export const MARKETING_FETCH_TIMEOUT_MS = 10_000;
 
-export function marketingAnonClient(): SupabaseClient | null {
+/**
+ * `revalidateSeconds` gives every read through this client Next's data cache for that many seconds, for a loader whose figure must be
+ * fresher than its page's own revalidate window (the founding offer's places left). Left out, nothing changes for existing loaders.
+ */
+export function marketingAnonClient(options: { revalidateSeconds?: number } = {}): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = marketingAnonKey();
   if (!url || !key) return null;
@@ -41,7 +45,11 @@ export function marketingAnonClient(): SupabaseClient | null {
     // soft, so a call that gives up costs a section its live data, not a build.
     global: {
       fetch: (input, init) =>
-        fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(MARKETING_FETCH_TIMEOUT_MS) }),
+        fetch(input, {
+          ...init,
+          signal: init?.signal ?? AbortSignal.timeout(MARKETING_FETCH_TIMEOUT_MS),
+          ...(options.revalidateSeconds !== undefined ? { next: { revalidate: options.revalidateSeconds } } : {}),
+        }),
     },
   });
 }
