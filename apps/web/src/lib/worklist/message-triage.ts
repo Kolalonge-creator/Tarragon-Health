@@ -23,6 +23,14 @@ export interface TriageableThread {
   last_message_author_role: string | null;
   /** When a staff member last opened the thread (mark_care_message_thread_read). */
   care_team_last_read_at: string | null;
+  /** MSG-3: the first patient or supporter message since the last care-team reply. A later patient message does not move it, so the
+   * wait and the reply target count from when the patient first asked. Absent on rows read before MSG-3; then last_message_at is used. */
+  awaiting_reply_since?: string | null;
+}
+
+/** When the patient's side started waiting: the MSG-3 reply clock if there is one, else the last message. */
+export function waitStartedAt(thread: Pick<TriageableThread, "last_message_at" | "awaiting_reply_since">): string {
+  return thread.awaiting_reply_since ?? thread.last_message_at;
 }
 
 /**
@@ -43,7 +51,7 @@ export function isAwaitingCareTeam(thread: TriageableThread): boolean {
  * is owed — an answered or closed thread has no wait time to display. */
 export function waitingMs(thread: TriageableThread, now: number = Date.now()): number | null {
   if (!isAwaitingCareTeam(thread)) return null;
-  return now - new Date(thread.last_message_at).getTime();
+  return now - new Date(waitStartedAt(thread)).getTime();
 }
 
 /** "4h" / "2d" / "just now" — a wait, phrased as a duration rather than a clock time. */
@@ -66,8 +74,8 @@ export function compareThreads(a: TriageableThread, b: TriageableThread): number
   const bWaiting = isAwaitingCareTeam(b);
   if (aWaiting !== bWaiting) return aWaiting ? -1 : 1;
   if (aWaiting && bWaiting) {
-    // Oldest unanswered message first.
-    return a.last_message_at.localeCompare(b.last_message_at);
+    // Longest wait first, counted from when the patient first asked.
+    return waitStartedAt(a).localeCompare(waitStartedAt(b));
   }
   const aClosed = a.status !== "open";
   const bClosed = b.status !== "open";
@@ -81,14 +89,14 @@ export function compareThreads(a: TriageableThread, b: TriageableThread): number
  * because the target is about the patient being answered, not about the message being seen.
  */
 export function isPastReplyTarget(
-  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role">,
+  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role" | "awaiting_reply_since">,
   targetHours: number,
   now: number = Date.now(),
   lookbackDays: number = REPLY_LOOKBACK_DAYS,
 ): boolean {
   if (thread.status !== "open") return false;
   if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
-  const waited = now - new Date(thread.last_message_at).getTime();
+  const waited = now - new Date(waitStartedAt(thread)).getTime();
   // Older than the lookback is not flagged: it shows in the quiet "older" count instead, so an old thread whose author role
   // was only just filled in cannot suddenly raise a wave of red badges.
   return waited > targetHours * 3_600_000 && waited <= lookbackDays * 86_400_000;
@@ -96,11 +104,11 @@ export function isPastReplyTarget(
 
 /** Open conversations where the patient's side spoke last, past the lookback. Counted quietly, never badged. */
 export function isOlderUnanswered(
-  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role">,
+  thread: Pick<TriageableThread, "status" | "last_message_at" | "last_message_author_role" | "awaiting_reply_since">,
   now: number = Date.now(),
   lookbackDays: number = REPLY_LOOKBACK_DAYS,
 ): boolean {
   if (thread.status !== "open") return false;
   if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
-  return now - new Date(thread.last_message_at).getTime() > lookbackDays * 86_400_000;
+  return now - new Date(waitStartedAt(thread)).getTime() > lookbackDays * 86_400_000;
 }

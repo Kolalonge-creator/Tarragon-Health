@@ -9,8 +9,10 @@ import {
   useCareStaff,
   useSetThreadOwner,
   useMyOwnedThreadIds,
+  useFlagThreadForDoctor,
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
+import { INBOX_VIEW_LABEL, QUEUE_LABEL, inView, isNeedsDoctorCloseError, type InboxView } from "@/lib/worklist/care-thread-queue";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { TimeCapture } from "@/components/clinician/time-capture";
 import { AgpDisclosure } from "@/components/agp-disclosure";
@@ -66,6 +68,7 @@ function ThreadOwnerBar({ threadId, organisationId }: { threadId: string; organi
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-charcoal-ink/70">
           {owner ? (mine ? "You own this conversation" : `Owned by ${owner.owner?.full_name ?? "a colleague"}`) : "Nobody owns this conversation yet"}
+          {owner && owner.assigned_by === null ? " (assigned automatically)" : ""}
         </span>
         {!mine && me && (
           <Button type="button" size="sm" variant="outline" disabled={setOwner.isPending} onClick={() => assign(me)}>
@@ -110,6 +113,63 @@ function ThreadOwnerBar({ threadId, organisationId }: { threadId: string; organi
   );
 }
 
+/** MSG-3: hand a conversation to a doctor with a reason. Anyone on the care team can; only a doctor's reply clears it. */
+function NeedsDoctorControl({ thread }: { thread: CareThreadWithPatient }) {
+  const flag = useFlagThreadForDoctor();
+  const [openForm, setOpenForm] = useState(false);
+  const [reason, setReason] = useState("");
+
+  if (thread.needs_doctor) {
+    return (
+      <p className="rounded-md bg-red-50 p-2 text-xs text-red-900">
+        Needs a doctor (the reason is in the hand-over note above). A doctor&apos;s reply clears this, and only a doctor can close the
+        conversation until then.
+      </p>
+    );
+  }
+  if (thread.status !== "open") return null;
+  return (
+    <div className="space-y-2 text-xs">
+      {!openForm ? (
+        <Button type="button" size="sm" variant="outline" onClick={() => setOpenForm(true)}>
+          Needs a doctor
+        </Button>
+      ) : (
+        <div className="flex flex-wrap items-start gap-2">
+          <input
+            aria-label="What the doctor needs to look at"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="What the doctor needs to look at (staff only)"
+            maxLength={1000}
+            className="h-8 min-w-48 flex-1 rounded-md border border-charcoal-ink/15 bg-white px-2"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={reason.trim().length < 10 || flag.isPending}
+            onClick={() =>
+              flag.mutate(
+                { threadId: thread.id, reason },
+                { onSuccess: () => { setOpenForm(false); setReason(""); } }
+              )
+            }
+          >
+            Send to a doctor
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setOpenForm(false)}>
+            Cancel
+          </Button>
+        </div>
+      )}
+      {openForm && reason.trim().length > 0 && reason.trim().length < 10 && (
+        <p className="text-charcoal-ink/60">Say in a sentence what the doctor needs to look at.</p>
+      )}
+      {flag.isError && <p role="alert" className="text-red-600">Could not send this to a doctor. Please try again.</p>}
+    </div>
+  );
+}
+
 function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatient; focusedId: string | null; onFocus: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const close = useCloseThread();
@@ -149,6 +209,8 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
               Unread{waited === null ? "" : ` · waiting ${formatWait(waited)}`}
             </Badge>
           )}
+          {thread.needs_doctor && <Badge variant="red">Needs a doctor</Badge>}
+          <Badge variant="grey">{QUEUE_LABEL[thread.queue]}</Badge>
           <Badge variant="grey">{CATEGORY_LABEL[thread.category]}</Badge>
           <Badge variant={thread.status === "open" ? "amber" : "grey"}>
             {thread.status === "open" ? "Open" : "Closed"}
@@ -161,6 +223,7 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
           {/* W-01: with several threads expanded, only the one in focus is timed */}
           <TimeCapture source="message" sourceRef={thread.id} patientId={thread.patient_id} showNotice={false} active={focusedId === thread.id} />
           <ThreadOwnerBar threadId={thread.id} organisationId={thread.organisation_id} />
+          <NeedsDoctorControl thread={thread} />
           <AgpDisclosure patientId={thread.patient_id} />
           <CareMessageThread
             threadId={thread.id}
@@ -180,6 +243,13 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
               {close.isPending ? "Closing…" : "Close conversation"}
             </Button>
           )}
+          {close.isError && (
+            <p role="alert" className="text-xs text-red-600">
+              {isNeedsDoctorCloseError(close.error)
+                ? "A doctor needs to look at this conversation before it is closed."
+                : "Could not close the conversation. Please try again."}
+            </p>
+          )}
         </div>
       )}
     </li>
@@ -191,12 +261,14 @@ export function ClinicianMessagesWorklist() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
+  const [view, setView] = useState<InboxView>("all");
   const { data: me } = useCurrentUserId();
   const { data: myThreadIds } = useMyOwnedThreadIds(me);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // useOrgCareThreads already returns threads ranked longest-waiting first;
   // splitting open from closed preserves that order inside each group.
-  const visible = (threads ?? []).filter((t) => !mineOnly || (myThreadIds?.has(t.id) ?? false));
+  const visible = (threads ?? []).filter((t) => (!mineOnly || (myThreadIds?.has(t.id) ?? false)) && inView(t, view));
+  const viewCount = (v: InboxView) => (threads ?? []).filter((t) => t.status === "open" && inView(t, v)).length;
   const allOpen = visible.filter((t) => t.status === "open");
   const myPastTarget = (threads ?? []).filter((t) => (myThreadIds?.has(t.id) ?? false) && isPastReplyTarget(t, REPLY_TARGET_HOURS)).length;
   const awaitingCount = allOpen.filter(isAwaitingCareTeam).length;
@@ -218,6 +290,20 @@ export function ClinicianMessagesWorklist() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Queue" className="flex flex-wrap gap-1">
+            {(Object.keys(INBOX_VIEW_LABEL) as InboxView[]).map((v) => (
+              <Button
+                key={v}
+                type="button"
+                size="sm"
+                variant={view === v ? "default" : "outline"}
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+              >
+                {INBOX_VIEW_LABEL[v]} ({viewCount(v)})
+              </Button>
+            ))}
+          </div>
           <Button
             type="button"
             variant="outline"

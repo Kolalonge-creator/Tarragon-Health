@@ -7683,6 +7683,7 @@ export type Database = {
       }
       care_message_threads: {
         Row: {
+          awaiting_reply_since: string | null
           care_plan_id: string | null
           care_team_last_read_at: string | null
           category: Database["public"]["Enums"]["care_message_category"]
@@ -7691,21 +7692,27 @@ export type Database = {
           created_by: string | null
           escalation_id: string | null
           id: string
+          last_care_team_reply_at: string | null
           last_message_at: string
           last_message_author_role:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor: boolean
+          needs_doctor_at: string | null
+          needs_doctor_by: string | null
           organisation_id: string
           patient_id: string
           patient_last_read_at: string | null
           patient_last_reminded_at: string | null
           patient_reminder_count: number
+          queue: Database["public"]["Enums"]["care_thread_queue"]
           status: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id: string | null
           updated_at: string
         }
         Insert: {
+          awaiting_reply_since?: string | null
           care_plan_id?: string | null
           care_team_last_read_at?: string | null
           category?: Database["public"]["Enums"]["care_message_category"]
@@ -7714,21 +7721,27 @@ export type Database = {
           created_by?: string | null
           escalation_id?: string | null
           id?: string
+          last_care_team_reply_at?: string | null
           last_message_at?: string
           last_message_author_role?:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor?: boolean
+          needs_doctor_at?: string | null
+          needs_doctor_by?: string | null
           organisation_id: string
           patient_id: string
           patient_last_read_at?: string | null
           patient_last_reminded_at?: string | null
           patient_reminder_count?: number
+          queue?: Database["public"]["Enums"]["care_thread_queue"]
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id?: string | null
           updated_at?: string
         }
         Update: {
+          awaiting_reply_since?: string | null
           care_plan_id?: string | null
           care_team_last_read_at?: string | null
           category?: Database["public"]["Enums"]["care_message_category"]
@@ -7737,15 +7750,20 @@ export type Database = {
           created_by?: string | null
           escalation_id?: string | null
           id?: string
+          last_care_team_reply_at?: string | null
           last_message_at?: string
           last_message_author_role?:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor?: boolean
+          needs_doctor_at?: string | null
+          needs_doctor_by?: string | null
           organisation_id?: string
           patient_id?: string
           patient_last_read_at?: string | null
           patient_last_reminded_at?: string | null
           patient_reminder_count?: number
+          queue?: Database["public"]["Enums"]["care_thread_queue"]
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject?: string
           unread_alert_id?: string | null
@@ -51846,6 +51864,10 @@ export type Database = {
       }
     }
     Functions: {
+      flag_care_thread_for_doctor: {
+        Args: { p_reason: string; p_thread: string }
+        Returns: string
+      }
       list_annual_bundle_labs: {
         Args: { p_state: string; p_town?: string }
         Returns: {
@@ -58905,6 +58927,7 @@ export type Database = {
         | "monitoring_reminder"
         | "general"
       care_message_thread_status: "open" | "closed"
+      care_thread_queue: "support" | "clinical"
       curbside_consult_status: "open" | "closed"
       care_management_barrier_category:
         | "financial"
@@ -61230,6 +61253,7 @@ export const Constants = {
         "general",
       ],
       care_message_thread_status: ["open", "closed"],
+      care_thread_queue: ["support", "clinical"],
       curbside_consult_status: ["open", "closed"],
       care_management_barrier_category: [
         "financial",
