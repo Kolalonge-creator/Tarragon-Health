@@ -25,11 +25,14 @@ import {
 } from "@/lib/lab-results/structured";
 import { loose } from "@/lib/clinician/loose-client";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
 import { getLabResultsSource } from "@/lib/lab-results/results-source";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
 
-type StoredFile = { file_path: string; original_filename: string; mime_type: string; file_size_bytes: number };
+// content_sha256: computed on the server from the bytes it stored (never from the browser). team_submit_lab_result hands it to the
+// intake record, which refuses a file already in this patient's record (clinical document engine step 1).
+type StoredFile = { file_path: string; original_filename: string; mime_type: string; file_size_bytes: number; content_sha256: string };
 
 /** Stores the file in the private bucket under the patient's folder. Only the server ever reads or signs it. */
 async function storeFile(patientId: string, file: File): Promise<StoredFile | { error: string }> {
@@ -40,7 +43,13 @@ async function storeFile(patientId: string, file: File): Promise<StoredFile | { 
   const path = `${patientId}/${randomUUID()}.${LAB_RESULT_EXT[file.type] ?? "bin"}`;
   const { error } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
   if (error) return { error: "The file could not be stored. Please try again." };
-  return { file_path: path, original_filename: file.name.slice(0, 200), mime_type: file.type, file_size_bytes: file.size };
+  return {
+    file_path: path,
+    original_filename: file.name.slice(0, 200),
+    mime_type: file.type,
+    file_size_bytes: file.size,
+    content_sha256: await fileSha256(file),
+  };
 }
 
 async function removeFile(path: string): Promise<void> {

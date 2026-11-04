@@ -220,3 +220,13 @@ Steps 1 to 3 can start now. Steps 4 to 6 depend on the open questions below for 
 ## 12. Coordination
 
 Other sessions are working on T2 today (`t2-phase4`, `t2-trend`, `t2-release` worktrees) and the lab upload path was changed by #1676, #1678, #1681 and #1683. Step 1 touches the same upload actions, so it starts from current `main-dev` after those land and does not run in parallel with another change to `lib/lab-results/actions.ts`.
+
+## 13. Step 1 as built (2026-11-04)
+
+Migration `20261104160432_cde1_clinical_document_intake.sql`, proof `packages/db/tests/cde1_clinical_document_intake.sql`.
+
+- `clinical_document_kinds` (40 nodes seeded from the spec taxonomy, admin-editable, audited), `clinical_documents`, `clinical_document_jobs`.
+- Intake rows are opened by triggers on `lab_result_documents` and `lab_result_files`, so every current lab upload path is covered without changing its code. Status is derived by one function (`private.cde_refresh`) from the extraction, review, release and supersession facts.
+- Duplicate refusal on the server-computed SHA-256: the patient web and mobile upload paths and every S27 file path compute it; `team_submit_lab_result` carries it to the file insert. Not yet fingerprinted (so not duplicate-checked): a patient's replacement upload (`replace_my_result_document`) and a patient-added or partner S27 file, whose functions do not pass it on. These close in step 2, when the upload entry point becomes one function.
+- A failed or stuck read is on the ops exception queue (domain `documents`) immediately. A daily Vercel cron (`/api/cron/clinical-document-retry`) re-runs the reader on a patient's own upload, at most 3 attempts in all. Sub-daily retries would need pg_cron calling the route through pg_net with a stored secret; not done, because the ops queue already puts every failure in front of a person.
+- Care Coordinator uploads (CDE-03) have their own channel value now; giving the coordinator the upload screen and permissions is step 2.

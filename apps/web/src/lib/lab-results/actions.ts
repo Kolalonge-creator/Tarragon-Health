@@ -17,6 +17,8 @@ import {
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
 /** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
@@ -285,6 +287,9 @@ export async function uploadResultDocumentAsPatient(
     console.error("lab-results: could not claim a consult-fee credit (non-blocking)", error);
   }
 
+  // Computed here, never sent by the browser: the database refuses the same file twice in one record.
+  const contentSha256 = await fileSha256(file);
+
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // The leading folder MUST be the caller's uid: that is exactly what the
   // storage own-folder policy checks.
@@ -321,6 +326,7 @@ export async function uploadResultDocumentAsPatient(
       uploaded_by: user.id,
       note: note ?? null,
       test_code: testCode ?? null,
+      content_sha256: contentSha256,
     })
     .select("id")
     .single();
@@ -334,6 +340,7 @@ export async function uploadResultDocumentAsPatient(
         p_document_id: null as unknown as string,
       });
     }
+    if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }
 
