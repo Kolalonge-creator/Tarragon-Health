@@ -6,6 +6,7 @@ import { CtaBand } from "../../_components/cta-band";
 import { RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "../../_content/resources";
 import { loadResourceArticle, loadResourceArticles } from "@/lib/marketing/resources-data";
 import { absoluteUrl, SITE, SITE_URL } from "@/lib/marketing/site";
+import { resourceFaqJsonLd } from "@/lib/marketing/resource-faq";
 import { ResourceCarousel } from "../../_components/resource-carousel";
 import { ResourceThumbnail, resourceThumbnailIcon } from "../../_components/resource-thumbnail";
 import { ShareArticleButton } from "../../_components/share-article-button";
@@ -102,6 +103,8 @@ export default async function ResourceArticlePage({
       : {}),
     disclaimer: RESOURCE_DISCLAIMER,
   };
+  // Sections written as questions also go to Google as an FAQ, answered with the same visible text (resource-faq.ts).
+  const faqLd = resourceFaqJsonLd(url, article.sections);
 
   return (
     <>
@@ -111,6 +114,13 @@ export default async function ResourceArticlePage({
         // no user input reaches this string, safe to inline.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {faqLd ? (
+        <script
+          type="application/ld+json"
+          // Same provenance as jsonLd above: built from the article's own published sections.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+      ) : null}
       <Section className="pt-20">
         <article className="mx-auto max-w-2xl">
           <Link href="/resources" className="text-sm text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
