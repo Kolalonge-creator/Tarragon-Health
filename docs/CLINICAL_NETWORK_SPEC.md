@@ -241,6 +241,9 @@ analytics, not patient-facing matching — see §4 for why that keeps it outside
 
 ## 3. The guardrail — read this before writing any matching/ranking code
 
+> **Reconciliation 2026-11-04 (DIR-1):** for the diagnostic (lab and imaging) directory only, the founder decided that eligible preferred partners near the patient may be badged and listed first. See `docs/DECISIONS.md` DIR-1 and `docs/plans/diagnostic-directory-design-2026-11-04.md` §10. Everything else in this section still stands.
+
+
 `CLAUDE.md` is explicit, twice:
 
 > "Never build functional code (not just schema scaffolding) for the full referral-matching
