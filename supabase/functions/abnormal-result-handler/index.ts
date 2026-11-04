@@ -48,7 +48,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { withSentry } from "../_shared/observability/sentry.ts";
-import { type AlertLevel, pageClinicians } from "./clinician-page.ts";
+import { type AlertLevel, type PageOutcome, pageClinicians } from "./clinician-page.ts";
 import { checkJobsSecret } from "./auth.ts";
 
 type UpgradeCondition = "hypertension" | "diabetes" | "cancer_referral" | "other";
@@ -65,6 +65,10 @@ interface RequestBody {
   // trigger sets this so the patient auto-message is suppressed (AHC pathway
   // §10/§18.3/§23). Optional for backward-compatibility with older callers.
   sensitive?: boolean;
+  // T2-07: false for a screening row that mirrors a released S27 lab result. The S27 critical call (or the clinician who released
+  // it) already has that result, so the care plan or referral is still drafted but the org's clinicians are not paged again.
+  // Optional; anything other than an explicit false pages, as before.
+  page_clinicians?: boolean;
 }
 
 const CONDITION_LABEL: Record<UpgradeCondition, string> = {
@@ -108,6 +112,7 @@ Deno.serve(withSentry("abnormal-result-handler", async (req) => {
     abnormal_flags: abnormalFlags,
     result_summary: resultSummary,
     sensitive,
+    page_clinicians: pageClinicianFlag,
   } = body;
 
   if (!screeningResultId || !organisationId || !patientId || !condition) {
@@ -270,14 +275,22 @@ Deno.serve(withSentry("abnormal-result-handler", async (req) => {
   const audit = (action: string, entityType: string, entityId: string | null, event: Record<string, unknown>) =>
     auditEvent(action, entityType, entityId, event);
 
-  const pageOutcome = await pageClinicians(supabase, openIncident, audit, {
-    organisationId,
-    screeningResultId,
-    clinicianIds: (clinicians ?? []).map((c) => c.id),
-    alert: alert ?? null,
-    patientName,
-    conditionLabel,
-  });
+  const skipPage = pageClinicianFlag === false;
+  if (skipPage) {
+    await auditEvent("abnormal_result.page_skipped_released_lab_result", "screening_results", screeningResultId, {
+      reason: "mirrors a released S27 lab result; its critical call or releasing clinician already has it",
+    });
+  }
+  const pageOutcome: PageOutcome = skipPage
+    ? { queued: 0, failed: 0, incidentOpened: false, incidentFailed: false }
+    : await pageClinicians(supabase, openIncident, audit, {
+      organisationId,
+      screeningResultId,
+      clinicianIds: (clinicians ?? []).map((c) => c.id),
+      alert: alert ?? null,
+      patientName,
+      conditionLabel,
+    });
   const clinicianAlertsQueued = pageOutcome.queued;
   const clinicianAlertsFailed = pageOutcome.failed;
 
@@ -297,7 +310,10 @@ Deno.serve(withSentry("abnormal-result-handler", async (req) => {
   // returned ok: the patient was told nothing at all and nothing recorded
   // that. The in-app row below is the patient's copy.
   let patientInAppQueued = false;
-  if (sensitive) {
+  if (skipPage) {
+    // T2-07: the S27 release already sent the patient their "result ready" notice; one notice per release, not two.
+    await auditEvent("abnormal_result.patient_notification_skipped_released_lab_result", "profiles", patientId, {});
+  } else if (sensitive) {
     await auditEvent("abnormal_result.patient_notification_suppressed_sensitive", "profiles", patientId, {
       reason: "sensitive result — doctor-delivered per AHC pathway §23",
       condition,
