@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { signStoragePaths } from "@/lib/supabase/sign-storage-paths";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { UnsortedDocumentReviewForm } from "./unsorted-document-review-form";
+import { PathologyReportForm } from "./pathology-report-form";
 
 /**
  * Documents the patient uploaded through "Not sure what a document is?" that are not a lab result (clinical document engine step 4):
@@ -25,10 +26,11 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
   if (!rows || rows.length === 0) return null;
 
   const [{ data: kinds }, signed] = await Promise.all([
-    supabase.from("clinical_document_kinds").select("code, label"),
+    supabase.from("clinical_document_kinds").select("code, label, pipeline"),
     signStoragePaths(RESULT_DOC_BUCKET, rows.flatMap((r) => (r.file_path ? [r.file_path] : [])), 300),
   ]);
   const label = new Map((kinds ?? []).map((k) => [k.code, k.label]));
+  const pipelineOf = new Map((kinds ?? []).map((k) => [k.code, k.pipeline]));
   const SOURCE: Record<string, string> = { confirmed: "type chosen by the patient", ai: "type suggested by AI-024", rules: "type from the file name" };
 
   return (
@@ -63,6 +65,9 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
                 )}
                 {r.reviewed_at ? (
                   <p className="mt-1 text-sm">Review: {r.review_note}</p>
+                ) : pipelineOf.get(r.kind_code ?? "") === "pathology" || pipelineOf.get(r.kind_code ?? "") === "cervical" ? (
+                  // Step 5b: a pathology or cervical result is filed as printed; filing records the review.
+                  <PathologyReportForm documentId={r.id} patientId={patientId} pipeline={pipelineOf.get(r.kind_code ?? "") as "pathology" | "cervical"} />
                 ) : (
                   <UnsortedDocumentReviewForm documentId={r.id} patientId={patientId} />
                 )}

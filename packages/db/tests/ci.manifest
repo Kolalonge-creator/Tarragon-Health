@@ -1853,6 +1853,7 @@ t2_one_membership.sql
 cde3_hand_entered_lab_results.sql
 cde4_document_classifier.sql
 cde5_ecg_imaging_through_intake.sql
+cde6_pathology_cervical_mammography.sql
 # Care Circle Phase 1 privacy (2026-11-04): S42 sharing consent applied to the monthly block, the weekly digest (read and send) and the missed-dose nudge (sweep and list); therapy and confidential-reason appointments never shown; a help alert sent while paused can be opened; a removed supporter cannot read their own row; every sharing change recorded with the true actor (two in an hour kept, pause, removal, note release), patient-only and append-only; inactive supporter accounts dropped from list readers; the patient told a doctor's note is waiting only when someone could receive it. Sabotage x5: consent helper passes all, appointment filter passes all, help-alert fallback removed, old supporter policy restored, history trigger dropped.
 care_circle_p1_privacy.sql
 # Care Circle Phase 2 (2026-11-04): investigation status per everyday test (due/overdue/requested/result_received/awaiting_review/reviewed/done, follow-up flag, never a value; HIV and antenatal never listed; an unreviewed upload never 'reviewed'); D2 values only from released+reviewed results, never HIV analytes, pregnancy hormone or held results; weekly weight trend gone without sharing consent; yearly-plan counts of everyday tests only; no new block without the new permission. Sabotage x3: allow-list opened, analyte filter opened, unreviewed upload labelled reviewed.

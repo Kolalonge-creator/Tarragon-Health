@@ -446,6 +446,110 @@ export type Database = {
         }
         Relationships: []
       }
+      pathology_reports: {
+        Row: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
+          clinical_document_id: string
+          created_at: string
+          cytology_category_as_printed: string | null
+          diagnosis_as_printed: string | null
+          filed_at: string
+          filed_by: string
+          grade_as_printed: string | null
+          hpv_genotypes_as_printed: string | null
+          hpv_result_as_printed: string | null
+          id: string
+          is_test: boolean
+          laboratory_name: string | null
+          organisation_id: string
+          pathologist_name: string | null
+          patient_id: string
+          recommendation_as_printed: string | null
+          report_kind: string
+          reported_on: string | null
+          site: string | null
+          specimen: string | null
+          stage_as_printed: string | null
+        }
+        Insert: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
+          clinical_document_id: string
+          created_at?: string
+          cytology_category_as_printed?: string | null
+          diagnosis_as_printed?: string | null
+          filed_at?: string
+          filed_by: string
+          grade_as_printed?: string | null
+          hpv_genotypes_as_printed?: string | null
+          hpv_result_as_printed?: string | null
+          id?: string
+          is_test?: boolean
+          laboratory_name?: string | null
+          organisation_id: string
+          pathologist_name?: string | null
+          patient_id: string
+          recommendation_as_printed?: string | null
+          report_kind: string
+          reported_on?: string | null
+          site?: string | null
+          specimen?: string | null
+          stage_as_printed?: string | null
+        }
+        Update: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
+          clinical_document_id?: string
+          created_at?: string
+          cytology_category_as_printed?: string | null
+          diagnosis_as_printed?: string | null
+          filed_at?: string
+          filed_by?: string
+          grade_as_printed?: string | null
+          hpv_genotypes_as_printed?: string | null
+          hpv_result_as_printed?: string | null
+          id?: string
+          is_test?: boolean
+          laboratory_name?: string | null
+          organisation_id?: string
+          pathologist_name?: string | null
+          patient_id?: string
+          recommendation_as_printed?: string | null
+          report_kind?: string
+          reported_on?: string | null
+          site?: string | null
+          specimen?: string | null
+          stage_as_printed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pathology_reports_clinical_document_id_fkey"
+            columns: ["clinical_document_id"]
+            isOneToOne: true
+            referencedRelation: "clinical_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pathology_reports_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pathology_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pathology_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_day_shifts: {
         Row: {
           cancelled_from: string | null
@@ -23516,7 +23620,11 @@ export type Database = {
         Row: {
           access_category: Database["public"]["Enums"]["care_access_category"]
           ai_assisted: boolean
+          birads_left_as_printed: string | null
+          birads_overall_as_printed: string | null
+          birads_right_as_printed: string | null
           body_region: string
+          breast_density_as_printed: string | null
           clinician_alert_id: string | null
           created_at: string
           dicom_accession_number: string | null
@@ -23548,7 +23656,11 @@ export type Database = {
         Insert: {
           access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_assisted?: boolean
+          birads_left_as_printed?: string | null
+          birads_overall_as_printed?: string | null
+          birads_right_as_printed?: string | null
           body_region: string
+          breast_density_as_printed?: string | null
           clinician_alert_id?: string | null
           created_at?: string
           dicom_accession_number?: string | null
@@ -23580,7 +23692,11 @@ export type Database = {
         Update: {
           access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_assisted?: boolean
+          birads_left_as_printed?: string | null
+          birads_overall_as_printed?: string | null
+          birads_right_as_printed?: string | null
           body_region?: string
+          breast_density_as_printed?: string | null
           clinician_alert_id?: string | null
           created_at?: string
           dicom_accession_number?: string | null
@@ -52385,6 +52501,7 @@ export type Database = {
       confirm_clinical_document_kind: { Args: { p_document: string; p_kind: string }; Returns: string }
       route_clinical_document: { Args: { p_document: string; p_file_path: string }; Returns: string }
       review_clinical_document: { Args: { p_document: string; p_note: string }; Returns: undefined }
+      file_pathology_report: { Args: { p_document: string; p_fields: Json; p_note: string }; Returns: string }
       record_document_classification: { Args: { p_document: string; p_suggested_kind: string; p_confidence: number; p_source: string; p_system: string; p_apply: boolean; p_error?: string }; Returns: string }
       submit_unsorted_document: { Args: { p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_content_sha256: string; p_note?: string }; Returns: string }
       coordinator_submit_manual_results: { Args: { p_patient: string; p_identity: Json; p_file: Json; p_original_attached: boolean; p_rows: Json; p_manual_details: Json; p_report_date: string; p_source_description: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
