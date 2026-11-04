@@ -34,7 +34,7 @@ export async function loadMembership(): Promise<QueryResult<MembershipState>> {
   return error ? { ok: false, error: error.message } : { ok: true, data: parseMembership(data) };
 }
 
-/** The states where Membership Plus blood collection is approved. A failed read is `null` (so the screen can say "could not load" and offer a retry), never an empty list, which means "none approved". */
+/** The states where Membership Plus blood collection is approved (read only for an existing Plus holder choosing a state; Plus is no longer sold). A failed read is `null` (so the screen can say "could not load" and offer a retry), never an empty list, which means "none approved". */
 export async function loadPlusStates(): Promise<PlusState[] | null> {
   const { data, error } = await supabase.rpc("plus_collection_states");
   return error ? null : parsePlusStates(data);
@@ -61,7 +61,7 @@ export async function errorCodeOf(error: unknown): Promise<string> {
 }
 
 /** `beneficiary` is set only when paying for someone in the caller's Care Circle (S29); the database decides whether that is allowed. */
-export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; autoRenew?: boolean; collectionState?: string; discountCode?: string }): Promise<CheckoutResult> {
+export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; autoRenew?: boolean; discountCode?: string }): Promise<CheckoutResult> {
   // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment, and only when the person chose. The total they were shown is sent so the
   // database refuses the order if it now works out a different one.
   const body = {
@@ -69,8 +69,6 @@ export async function startCheckout(code: string, clientKey: string, beneficiary
     ...(extras?.usePoints ? { use_points: true } : {}), ...(extras?.expectedAmountKobo !== undefined ? { expected_amount_kobo: extras.expectedAmountKobo } : {}),
     // the person's own tick, sent only when given; the database ignores it for anything but their own Membership
     ...(extras?.autoRenew === true ? { auto_renew: true } : {}),
-    // Membership Plus only: the approved state chosen for blood collection
-    ...(extras?.collectionState ? { collection_state: extras.collectionState } : {}),
     // a discount code the database already accepted in the quote; the server checks it again
     ...(extras?.discountCode ? { discount_code: extras.discountCode } : {}),
   };

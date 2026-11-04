@@ -9,14 +9,14 @@ import { MembershipShop } from "./membership-shop";
 
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 };
 const YEAR = {
-  code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1"], duration_days: 365, uses: null, amount_kobo: 8_400_000, components: {},
+  code: "membership_annual_no_panel", kind: "membership", name_key: "catalog.membership_annual_no_panel.name", description_key: "catalog.membership_annual_no_panel.description",
+  included_keys: ["catalog.membership_annual_no_panel.incl.1"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
 };
 const line = (rule: string, amount: number, running: number) => ({ rule, label_key: `quote.line.${rule}`, amount_kobo: amount, running_kobo: running, applied: true, reason_key: null });
-const plain = parseQuote({ item_code: "membership_annual", list_kobo: 8_400_000, amount_due_kobo: 8_400_000, lines: [line("list", 8_400_000, 8_400_000)] });
+const plain = parseQuote({ item_code: "membership_annual_no_panel", list_kobo: 10_000_000, amount_due_kobo: 10_000_000, lines: [line("list", 10_000_000, 10_000_000)] });
 const covered = parseQuote({
-  item_code: "membership_annual", list_kobo: 8_400_000, amount_due_kobo: 0, sponsor_share_kobo: 8_400_000, sponsor_name: "Acme",
-  lines: [line("list", 8_400_000, 8_400_000), line("sponsor", -8_400_000, 0)],
+  item_code: "membership_annual_no_panel", list_kobo: 10_000_000, amount_due_kobo: 0, sponsor_share_kobo: 10_000_000, sponsor_name: "Acme",
+  lines: [line("list", 10_000_000, 10_000_000), line("sponsor", -10_000_000, 0)],
 });
 
 let quote: unknown;
@@ -39,7 +39,7 @@ beforeEach(() => { quote = plain; });
 afterEach(cleanup);
 
 const NOT_INCLUDED = {
-  membership_annual: [
+  membership_annual_no_panel: [
     { labelKey: "catalog.notincl.medicines", extraCode: null, amountKobo: null },
     { labelKey: "catalog.consultation_single.name", extraCode: "consultation_single", amountKobo: 1_500_000 },
     { labelKey: "catalog.lab_panel_standard.name", extraCode: "lab_panel_standard", amountKobo: null },
@@ -56,7 +56,7 @@ describe("the plan card", () => {
 
   it("shows about a twelfth a month with the plain statement that it is billed once a year", () => {
     render(<MembershipShop locale="en" fee={FEE} showMonthly />);
-    expect(screen.getByText("About ₦7,000 a month. Billed once a year, not monthly.")).toBeTruthy();
+    expect(screen.getByText("About ₦8,333 a month. Billed once a year, not monthly.")).toBeTruthy();
     // the only button pays the whole year: there is no monthly option anywhere
     expect(screen.queryByText(/per month|monthly payment|instal/i)).toBeNull();
   });
@@ -80,7 +80,7 @@ describe("the plan card", () => {
 });
 
 describe("the price-change card", () => {
-  const notice = { itemCode: "membership_annual", nameKey: "catalog.membership_annual.name", paidListKobo: 8_400_000, newKobo: 12_900_000, newFrom: "2026-12-01T00:00:00Z", endsAt: "2027-03-10T10:00:00Z" };
+  const notice = { itemCode: "membership_annual_no_panel", nameKey: "catalog.membership_annual_no_panel.name", paidListKobo: 10_000_000, newKobo: 12_000_000, newFrom: "2026-12-01T00:00:00Z", endsAt: "2027-03-10T10:00:00Z" };
 
   it("appears for the signed-in person's own item", () => {
     render(<MembershipShop locale="en" fee={FEE} priceNotices={[notice]} />);

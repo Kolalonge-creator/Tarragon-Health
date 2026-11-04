@@ -356,7 +356,7 @@ export const SECTIONS: SectionDef[] = [
     icon: "people-circle-outline",
     group: "Support",
   },
-  // Two-tier model: a Member's yearly check happens at a listed testing day.
+  // Testing days are closed to new bookings (T2-02); the screen shows a place someone already holds and where yearly tests happen now.
   { id: "testingDays", label: "Testing days", icon: "calendar-outline", group: "Support" },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },

@@ -2,7 +2,8 @@ import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
 /**
- * Testing days for Members (the Care flow). Mirrors apps/web/src/lib/testing-days/model.ts and the patient page: every rule lives in
+ * Testing days (the Care flow). Closed to new bookings since 2026-11-04 (T2-02); kept so a place someone already holds can be seen,
+ * moved or cancelled. Mirrors apps/web/src/lib/testing-days/model.ts and the patient page: every rule lives in
  * the database functions (membership, capacity, waitlist, one place at a time), so this file only calls them and words the errors.
  */
 
@@ -42,7 +43,8 @@ export type PocReleased = {
 };
 
 const ERROR_TEXT: Record<string, string> = {
-  membership_required: "Testing days are part of Membership.",
+  // T2-02 (2026-11-04): Tarragon testing days are closed to new bookings and are no longer part of Membership.
+  membership_required: "We are not taking new bookings for Tarragon testing days.",
   testing_day_not_available: "That day is no longer available.",
   already_booked_use_reschedule: "You already hold a place. Use Change day to move it.",
   new_day_full_keep_current: "That day is full, so we kept your current place.",
@@ -77,12 +79,6 @@ export async function loadReleasedPocResults(): Promise<QueryResult<PocReleased>
   const { data, error } = await supabase.rpc("my_poc_results");
   if (error) return { ok: false, error: testingDayErrorText(error.message) };
   return { ok: true, data: (data ?? { results: [], ecgs: [] }) as unknown as PocReleased };
-}
-
-export async function bookTestingDay(eventId: string): Promise<QueryResult<{ state: string }>> {
-  const { data, error } = await supabase.rpc("book_testing_day", { p_event: eventId });
-  if (error) return { ok: false, error: testingDayErrorText(error.message) };
-  return { ok: true, data: { state: String((data as { state?: string } | null)?.state ?? "confirmed") } };
 }
 
 export async function cancelTestingBooking(bookingId: string): Promise<QueryResult<null>> {

@@ -10,8 +10,8 @@ import { MembershipShop } from "./membership-shop";
 
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 };
 const ITEM = {
-  code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1"], duration_days: 365, uses: null, amount_kobo: 12_900_000, components: {},
+  code: "membership_annual_no_panel", kind: "membership", name_key: "catalog.membership_annual_no_panel.name", description_key: "catalog.membership_annual_no_panel.description",
+  included_keys: ["catalog.membership_annual_no_panel.incl.1"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
 };
 
 let switchOn: boolean;
@@ -42,7 +42,7 @@ beforeEach(() => {
   catalogue = { data: [ITEM], isSuccess: true };
   membership = { data: { is_member: false, ends_at: null, source: null } };
   mutateAsync.mockReset();
-  mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_900_000, checkout_url: "https://checkout.paystack.com/abc" });
+  mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
   go.mockReset();
 });
 afterEach(cleanup);
@@ -62,7 +62,7 @@ describe("MembershipShop: automatic renewal", () => {
     const box = screen.getByRole("checkbox", { name: /Renew my Membership automatically each year/ }) as HTMLInputElement;
     expect(box.checked).toBe(false);
     const hint = document.getElementById(box.getAttribute("aria-describedby")!)!.textContent!;
-    expect(hint).toMatch(/₦129,000 today/);
+    expect(hint).toMatch(/₦100,000 today/);
     expect(hint).toMatch(/up to 3 days before your year ends/);
     expect(hint).toMatch(/unless you cancel/);
     expect(hint).toMatch(/If the price has gone up since we last told you, we do not charge you/);
@@ -78,7 +78,7 @@ describe("MembershipShop: automatic renewal", () => {
     expect((mutateAsync.mock.calls[0]![0] as Record<string, unknown>).autoRenew).toBeUndefined();
     fireEvent.click(screen.getByRole("checkbox", { name: /Renew my Membership automatically/ }));
     await pay();
-    expect(mutateAsync.mock.calls[1]![0]).toMatchObject({ code: "membership_annual", autoRenew: true });
+    expect(mutateAsync.mock.calls[1]![0]).toMatchObject({ code: "membership_annual_no_panel", autoRenew: true });
   });
 
   it("paying for someone else offers no renewal (a gift never renews on the giver's card)", () => {

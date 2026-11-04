@@ -1,66 +1,43 @@
 /**
- * The three equal cards on the pricing page once the Membership ladder is public (founder decision 2026-10-21,
- * docs/DECISIONS.md). Free, Membership and Membership Plus. Prices are never typed here: the page formats them from the versioned
- * config (commerce.membership_ladder) and passes the labels in. The one difference between the two paid cards is the annual blood
- * panel, and it is stated in the first line of every card. Both paid cards are a Member for every safety purpose, so the page also says
- * that the care itself is the same.
+ * The two plans on the pricing page and the homepage (Tarragon Health 2.0, decisions T2-01, T2-02, T2-05 and T2-09, 2026-11-04): Free
+ * and Membership. Membership Plus is retired: it is no longer sold, there is no upgrade, and the public site never offers it. Laboratory
+ * tests are not included in the Membership; the member uses any reputable laboratory and pays it directly. Prices are never typed here:
+ * the page formats them from versioned config (commerce.membership_prices) and passes the labels in.
  *
  * Voice rules (docs/BRAND_GUIDE.md and the build brief): warm, no countdowns or scarcity, no strikethroughs, no "doctor-led", no ratios,
- * no em dashes, no Basic / Lite / Standard / Premium / Gold, no stronger visual weight on one card.
+ * no em dashes, no Basic / Lite / Standard / Premium / Gold, no doctor review turnaround time, no laboratory price.
  */
 import { t } from "@tarragon/i18n";
-import { renewalCopy } from "@/lib/marketing/membership";
-import { YEARLY_PANEL_TESTS, type PanelTestGroup } from "@/lib/commerce/yearly-panel-tests";
+import { LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, renewalCopy } from "@/lib/marketing/membership";
 
-export interface LadderCard {
-  id: "free" | "evergreen" | "evergreen_plus";
+export interface PlanCard {
+  id: "free" | "membership";
   name: string;
-  /** First line of the card: the single difference, "Annual blood panel: no" or "yes". */
-  difference: string;
   priceLine: string;
   summary: string;
   includes: readonly string[];
-  /** The tests in the yearly blood panel, grouped for reading. Only the card that includes the panel sets it. */
-  panelTests?: readonly PanelTestGroup[];
 }
 
-// The list of tests itself lives in @/lib/commerce/yearly-panel-tests, so the signed-in Membership screen reads the very same data without
-// pulling this marketing module (and its anonymous database client) into a patient page. It is re-exported here so every import of it
-// from the pricing content still works, and the registry check in pricing-ladder.test.ts still covers the one list.
-export { YEARLY_PANEL_TESTS };
-export type { PanelTestGroup };
-
-export interface LadderPriceLabels {
-  evergreen: string;
-  evergreenPlus: string;
+export interface PlanPriceLabels {
+  /** The Membership price, with the currency symbol. */
+  membership: string;
 }
-
-export const LADDER_SAME_CARE_STATEMENT =
-  "Membership and Membership Plus are the same care: the same care team, the same monthly video call, the same urgent-care guidance. The only difference is the yearly blood panel.";
 
 /**
- * Founder decision 2026-11-03 (MS-03, corrected the same day): the
- * Membership Plus panel is taken at a testing day (testing_events, kind
- * public_day): when the member's panel is due, the app shows the open days
- * and venues, the member picks one, Tarragon's team takes the samples there
- * and the partner laboratory on that day tests them. Tarragon runs no
- * laboratory, clinic or collection site of its own. Every other test, on
- * every plan, is self-arranged: the patient takes the request to Synlab or
- * any laboratory and pays it directly. No venue is named here; venues and
- * dates are shown in the app when the panel is due.
+ * How laboratory tests work on every plan. Tarragon runs no laboratory, no testing day open to the public and no sample collection of
+ * its own: the member takes the request form to any reputable laboratory, pays it directly, and uploads the report.
  */
-export const PLUS_PANEL_WHERE =
-  "The Membership Plus yearly blood panel is taken at a testing day. When yours is due, we show you the dates and locations available and you choose the one that suits you; Tarragon's team takes your samples there and our partner laboratory tests them. On Free and Membership, you take any test request to Synlab or to any other laboratory you choose and pay it directly.";
+export const LAB_TESTS_WHERE =
+  "For any test, you download a request form in the app and take it to any reputable laboratory you choose. You pay the laboratory directly; contact the laboratory for current pricing. Then upload the report to the app: a doctor reviews it, and it goes into your health record and your trends.";
 
-export const LADDER_SAFETY_STATEMENT =
+export const SAFETY_STATEMENT =
   "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.";
 
-export function ladderCards(price: LadderPriceLabels): LadderCard[] {
+export function planCards(price: PlanPriceLabels): PlanCard[] {
   return [
     {
       id: "free",
       name: "Free",
-      difference: "Annual blood panel: no",
       priceLine: "No cost, no card, no time limit",
       summary: "The app, including health tracking, reminders, education and guidance.",
       includes: [
@@ -71,49 +48,20 @@ export function ladderCards(price: LadderPriceLabels): LadderCard[] {
       ],
     },
     {
-      id: "evergreen",
+      id: "membership",
       name: t("catalog.membership_annual_no_panel.name", "en"),
-      difference: "Annual blood panel: no",
-      priceLine: `${price.evergreen} a year, paid once`,
-      summary: t("catalog.membership_annual_no_panel.description", "en"),
-      includes: [
-        t("catalog.membership_annual_no_panel.incl.1", "en"),
-        t("catalog.membership_annual_no_panel.incl.2", "en"),
-        t("catalog.membership_annual_no_panel.incl.3", "en"),
-      ],
-    },
-    {
-      id: "evergreen_plus",
-      name: "Membership Plus",
-      difference: "Annual blood panel: yes",
-      priceLine: `${price.evergreenPlus} a year, paid once`,
-      summary: t("catalog.membership_annual.description", "en"),
-      includes: [
-        t("catalog.membership_annual.incl.1", "en"),
-        t("catalog.membership_annual.incl.2", "en"),
-        t("catalog.membership_annual.incl.3", "en"),
-        t("catalog.membership_annual.incl.4", "en"),
-      ],
-      panelTests: YEARLY_PANEL_TESTS,
+      priceLine: `${price.membership} a year, paid once`,
+      summary: "A year of care with your care team, on your phone. Laboratory tests and medicines are not included: you pay the laboratory or the pharmacy directly.",
+      includes: MEMBERSHIP_INCLUDES,
     },
   ];
 }
 
-export function ladderFaq(refundDays: number, autoRenews = false): { question: string; answer: string }[] {
+export function planFaq(refundDays: number, autoRenews = false): { question: string; answer: string }[] {
   return [
     {
-      question: "What is the difference between Membership and Membership Plus?",
-      answer:
-        "One thing: the yearly blood panel. Both are a year of care with your care team, a video call every month and prescriptions your care team signs. Membership Plus adds the yearly blood panel.",
-    },
-    {
-      question: "Where is the yearly blood panel done?",
-      answer: PLUS_PANEL_WHERE,
-    },
-    {
-      question: "Can I move from Membership to Membership Plus later?",
-      answer:
-        "Yes, at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way can only happen when your year ends, at renewal.",
+      question: "Are laboratory tests included?",
+      answer: `No. ${LAB_TESTS_WHERE}`,
     },
     {
       question: "Does it renew by itself?",
@@ -128,9 +76,15 @@ export function ladderFaq(refundDays: number, autoRenews = false): { question: s
       answer: "No. Your care team signs a prescription and you take it to any pharmacy and pay there.",
     },
     {
+      question: "Can I give a Membership to someone else?",
+      answer: "Yes. You can buy a year of Membership for a parent or relative. It is theirs to accept, and you never see their results.",
+    },
+    {
       question: "Can my employer pay for me?",
       answer:
-        "Yes. An employer can cover its employees. If your employer pays you do not pay anything yourself, and your employer only ever sees counts, never anything about you.",
+        "Yes. An employer can buy the same Membership for each employee. If your employer pays you do not pay anything yourself, and your employer only ever sees counts, never anything about you.",
     },
   ];
 }
+
+export { LAB_TESTS_NOT_INCLUDED };

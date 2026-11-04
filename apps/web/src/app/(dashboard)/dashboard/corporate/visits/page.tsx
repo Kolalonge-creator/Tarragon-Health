@@ -35,8 +35,9 @@ export default async function CorporateVisitsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-charcoal-ink/70">
-            Our team comes to your site for the yearly health check for the employees who hold a Membership through you. Choose a date
-            at least a week away. We will confirm the date, the team and what we need on site.
+            Our team can come to your site for a health check for the employees who hold a Membership through you. An on-site visit is a
+            separately costed service, not part of a Membership seat: we will confirm the cost with you before anything is booked. Choose a
+            date at least a week away. We will confirm the date, the team and what we need on site.
           </p>
           <ActionForm action={requestEmployerVisit} submitLabel="Send request">
             <div className="grid gap-3 sm:grid-cols-3">

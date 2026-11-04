@@ -11,7 +11,7 @@ jest.mock("@/lib/queries/commerce", () => ({ useMyMembership: () => ({ data: moc
 jest.mock("@/lib/queries/emergency", () => ({ useActiveEmergency: () => ({ data: mockEmergency() }) }));
 jest.mock("@/lib/queries/free-red-checkin", () => ({ useFreeGuidance: () => ({ data: mockGuidance() }) }));
 
-const ui = <FollowWithDoctorCard patientId="p1" priceLabel="84,000" refundDays={21} />;
+const ui = <FollowWithDoctorCard patientId="p1" priceLabel="100,000" refundDays={21} />;
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -25,7 +25,7 @@ describe("FollowWithDoctorCard (W-53 calm-screen Membership offer)", () => {
   it("shows the price and the refund window beside the link for a Free person on a calm screen", () => {
     const { container } = render(ui);
     expect(screen.getByText("A doctor can follow this with you")).toBeTruthy();
-    expect(container.textContent).toContain("84,000");
+    expect(container.textContent).toContain("100,000");
     expect(container.textContent).toContain("21 days");
     expect(screen.getByRole("link", { name: "See Membership" }).getAttribute("href")).toBe("/patient/membership");
     expect(container.textContent).not.toMatch(/hurry|limited|expires|—|–/i);

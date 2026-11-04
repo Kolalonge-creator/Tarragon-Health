@@ -10,6 +10,12 @@ import {
 const id = "11111111-1111-4111-8111-111111111111";
 
 describe("grantMembershipSchema", () => {
+  it("T2-01: a grant with no tier is the Membership, and a Membership Plus grant is refused", () => {
+    const r = grantMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "Staff trial run" });
+    expect(r.success && r.data.tier).toBe("evergreen");
+    const plus = grantMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "Staff trial run", tier: "plus" });
+    expect(plus.success).toBe(false);
+  });
   it("accepts a reason of 10 characters with no end date", () => {
     const r = grantMembershipSchema.safeParse({ base: "/admin/memberships", patientId: id, reason: "Staff trial run" });
     expect(r.success).toBe(true);

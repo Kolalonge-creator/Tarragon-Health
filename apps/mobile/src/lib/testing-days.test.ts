@@ -4,7 +4,7 @@ jest.mock("./supabase", () => ({ supabase: { rpc: jest.fn() } }));
 
 describe("testing days (mobile)", () => {
   it("turns a database code into a sentence and never shows an unknown message raw", () => {
-    expect(testingDayErrorText("membership_required")).toBe("Testing days are part of Membership.");
+    expect(testingDayErrorText("membership_required")).toBe("We are not taking new bookings for Tarragon testing days.");
     expect(testingDayErrorText("new_day_full_keep_current")).toMatch(/kept your current place/);
     expect(testingDayErrorText('permission denied for table "testing_events"')).toBe("Something went wrong. Please try again.");
     expect(testingDayErrorText(undefined)).toBe("Something went wrong. Please try again.");

@@ -191,7 +191,9 @@ export function seatsLabel(day: Pick<TestingDay, "seats_left" | "full">): string
 }
 
 const DB_ERROR_TEXT: Record<string, string> = {
-  membership_required: "Testing days are part of Membership.",
+  // T2-02 (2026-11-04): testing days are no longer part of Membership and take no new bookings.
+  membership_required: "We are not taking new bookings for Tarragon testing days.",
+  testing_public_days_closed: "Public testing days are closed, so a new one cannot be created. An employer visit can still be scheduled.",
   testing_day_not_available: "That day is no longer available.",
   already_booked_use_reschedule: "You already hold a place. Use Change day to move it.",
   new_day_full_keep_current: "That day is full, so we kept your current place.",

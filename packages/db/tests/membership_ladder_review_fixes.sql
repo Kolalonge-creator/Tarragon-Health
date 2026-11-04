@@ -8,6 +8,7 @@
 --   E. Renewal in the grace creates a new membership at the tier of the item bought (a Plus holder who renews on Membership becomes Membership).
 --   F. The voucher guard refuses a membership catalogue code, and does not refuse a name that merely mentions membership.
 begin;
+\ir _fixtures/pre_t2_membership_catalogue.sql
 
 create function pg_temp.mkuser(p_label text, p_role text) returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid();

@@ -16,7 +16,7 @@ import {
   type MyBooking,
   type TestingDay,
 } from "@/lib/testing-days/model";
-import { bookTestingDay, cancelTestingBooking, rescheduleTestingBooking, type TestingDayActionState } from "./actions";
+import { cancelTestingBooking, rescheduleTestingBooking, type TestingDayActionState } from "./actions";
 
 function dateLabel(iso: string): string {
   return new Date(`${iso}T12:00:00`).toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -77,19 +77,6 @@ function Feedback({ state }: { state: TestingDayActionState }) {
     <p role={state.error ? "alert" : "status"} className={state.error ? "text-sm text-status-red" : "text-sm text-brand-green"}>
       {state.error ?? state.message}
     </p>
-  );
-}
-
-function BookForm({ day, label }: { day: TestingDay; label: string }) {
-  const [state, action, pending] = useActionState(bookTestingDay, undefined);
-  return (
-    <form action={action} className="space-y-2">
-      <input type="hidden" name="eventId" value={day.id} />
-      <Button type="submit" disabled={pending}>
-        {pending ? "Working..." : label}
-      </Button>
-      <Feedback state={state} />
-    </form>
   );
 }
 
@@ -174,38 +161,41 @@ export function TestingDaysPanel({
         </Card>
       ) : null}
 
-      <section aria-labelledby="upcoming-days" className="space-y-3">
-        <h2 id="upcoming-days" className="font-heading text-lg font-semibold text-charcoal-ink">
-          {live ? "Other days" : "Upcoming testing days"}
-        </h2>
-        <PlaceFilter days={days.filter((d) => d.my_state === null)} place={place} />
-        {others.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">
-            {filtered ? "No open days in that place yet. Try another state or city." : "No other days are open right now. Please check back soon."}
-          </p>
-        ) : (
-          others.map((d) => (
-            <Card key={d.id}>
-              <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="font-medium text-charcoal-ink">
-                    {dateLabel(d.event_date)}
-                    {hoursLabel(d.starts_at, d.ends_at) ? `, ${hoursLabel(d.starts_at, d.ends_at)}` : ""}
-                  </p>
-                  <p className="text-sm text-charcoal-ink/70">
-                    {d.venue_name}, {d.address}, {d.city}
-                    {d.lga ? ` (${d.lga})` : ""}
-                    {d.state ? `, ${d.state}` : ""}
-                  </p>
-                  <Directions text={d.directions} mapHref={mapLink(d)} />
-                  <p className="text-xs text-charcoal-ink/60">{seatsLabel(d)}</p>
-                </div>
-                {live ? <MoveForm booking={live} day={d} /> : <BookForm day={d} label={d.full ? "Join waiting list" : "Hold my place"} />}
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </section>
+      {/* T2-02: no new bookings. Someone who already holds a place may move it to another day that is still scheduled. */}
+      {live ? (
+        <section aria-labelledby="upcoming-days" className="space-y-3">
+          <h2 id="upcoming-days" className="font-heading text-lg font-semibold text-charcoal-ink">
+            Move your place to another day
+          </h2>
+          <PlaceFilter days={days.filter((d) => d.my_state === null)} place={place} />
+          {others.length === 0 ? (
+            <p className="text-sm text-charcoal-ink/60">
+              {filtered ? "No other days in that place. Try another state or city." : "There are no other days to move to."}
+            </p>
+          ) : (
+            others.map((d) => (
+              <Card key={d.id}>
+                <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="font-medium text-charcoal-ink">
+                      {dateLabel(d.event_date)}
+                      {hoursLabel(d.starts_at, d.ends_at) ? `, ${hoursLabel(d.starts_at, d.ends_at)}` : ""}
+                    </p>
+                    <p className="text-sm text-charcoal-ink/70">
+                      {d.venue_name}, {d.address}, {d.city}
+                      {d.lga ? ` (${d.lga})` : ""}
+                      {d.state ? `, ${d.state}` : ""}
+                    </p>
+                    <Directions text={d.directions} mapHref={mapLink(d)} />
+                    <p className="text-xs text-charcoal-ink/60">{seatsLabel(d)}</p>
+                  </div>
+                  <MoveForm booking={live} day={d} />
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -28,8 +28,8 @@ export const grantMembershipSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Please choose a valid end date.")
     .optional(),
   reason: reasonSchema,
-  // Membership has no annual blood panel; Membership Plus has it. Absent means plus, as before the ladder.
-  tier: z.enum(["evergreen", "plus"]).default("plus"),
+  // T2-01 (2026-11-04): Membership Plus is retired, so a grant is always the Membership ("evergreen"); a Plus grant is refused here.
+  tier: z.enum(["evergreen"], { message: "Membership Plus is no longer offered. Grant the Membership." }).default("evergreen"),
   // Membership Plus blood collection is arranged in one approved state; the database requires it while Plus is limited by state.
   collectionState: z.string().trim().max(80).optional(),
 });

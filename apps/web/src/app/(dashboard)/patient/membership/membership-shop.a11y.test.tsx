@@ -7,12 +7,13 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { CheckoutError } from "@/lib/queries/commerce";
+import { t } from "@tarragon/i18n";
 import { MembershipShop } from "./membership-shop";
 
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 };
 const ITEM = {
-  code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 12_000_000, components: {},
+  code: "membership_annual_no_panel", kind: "membership", name_key: "catalog.membership_annual_no_panel.name", description_key: "catalog.membership_annual_no_panel.description",
+  included_keys: ["catalog.membership_annual_no_panel.incl.1", "catalog.membership_annual_no_panel.incl.2"], duration_days: 365, uses: null, amount_kobo: 12_000_000, components: {},
 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
@@ -75,8 +76,8 @@ describe("MembershipShop", () => {
 
   it("shows the item, what is included, the price and an estimated fee labelled as an estimate", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("Membership Plus")).toBeTruthy();
-    expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
+    expect(screen.getByText(t("catalog.membership_annual_no_panel.name", "en"))).toBeTruthy();
+    expect(screen.getByText(t("catalog.membership_annual_no_panel.incl.1", "en"))).toBeTruthy();
     expect(screen.getByText("₦120,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);
     expect(screen.getByText(/estimate/i)).toBeTruthy();
@@ -93,7 +94,7 @@ describe("MembershipShop", () => {
     const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
     // a purchase for oneself passes `beneficiary: undefined`; only defined fields are sent over the wire
     expect(Object.keys(arg).filter((k) => arg[k] !== undefined).sort()).toEqual(["clientKey", "code"]);
-    expect(arg.code).toBe("membership_annual");
+    expect(arg.code).toBe("membership_annual_no_panel");
     expect(assign).toHaveBeenCalledWith("https://checkout.paystack.com/abc");
   });
 
@@ -103,7 +104,7 @@ describe("MembershipShop", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "p-mum" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
-    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual", beneficiary: "p-mum" });
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual_no_panel", beneficiary: "p-mum" });
   });
 
   it("keeps the same retry key after a network failure so a retry is the same order, and makes a new one after a refusal", async () => {
@@ -151,7 +152,7 @@ describe("MembershipShop", () => {
     rule, labelKey: `quote.line.${rule}`, amountKobo, runningKobo, applied: true, reasonKey: null, ...extra,
   });
   const QUOTE = {
-    itemCode: "membership_annual", listKobo: 10_000_000, amountDueKobo: 9_000_000, sponsorShareKobo: 0, discountKobo: 1_000_000, pointsApplied: 0,
+    itemCode: "membership_annual_no_panel", listKobo: 10_000_000, amountDueKobo: 9_000_000, sponsorShareKobo: 0, discountKobo: 1_000_000, pointsApplied: 0,
     pointsReductionKobo: 0, discountCodeOk: true, rateLimited: false,
     lines: [line("list", 10_000_000, 10_000_000), line("discount_code", -1_000_000, 9_000_000)],
   };
@@ -171,7 +172,7 @@ describe("MembershipShop", () => {
     mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 9_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
-    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual", expectedAmountKobo: 9_000_000 });
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual_no_panel", expectedAmountKobo: 9_000_000 });
   });
 
   it("S73: applying a code asks for a new quote with it, and sends it with the order", async () => {
@@ -179,7 +180,7 @@ describe("MembershipShop", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     fireEvent.change(screen.getByLabelText("Discount code"), { target: { value: "WELCOME26" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply code" }));
-    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ code: "membership_annual", discountCode: "WELCOME26" }));
+    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ code: "membership_annual_no_panel", discountCode: "WELCOME26" }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ discountCode: "WELCOME26" });
     fireEvent.click(screen.getByRole("button", { name: "Remove code" }));
@@ -200,7 +201,7 @@ describe("MembershipShop", () => {
 
   it("S73: links each item to its own what-is-included page", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByRole("link", { name: "See what is included" }).getAttribute("href")).toBe("/patient/membership/membership_annual");
+    expect(screen.getByRole("link", { name: "See what is included" }).getAttribute("href")).toBe("/patient/membership/membership_annual_no_panel");
   });
 
   // S29: pay for a loved one

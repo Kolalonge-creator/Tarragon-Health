@@ -207,12 +207,15 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
       <CardContent className="space-y-4">
         {seats.data?.price_kobo ? (
           <p className="text-sm text-charcoal-ink/80" role="status">
-            A {t("catalog.membership_annual.name", "en")} seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
+            A {t("catalog.membership_annual_no_panel.name", "en")} seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
             active {seats.data.active_seats === 1 ? "seat" : "seats"}.{" "}
             {seats.data.module_open ? "" : "Organisation-paid Membership is not open yet, so a package cannot grant it."}
             {seats.data.already_member_count > 0
               ? ` ${seats.data.already_member_count} ${seats.data.already_member_count === 1 ? "employee already has" : "employees already have"} their own Membership, so you are not billed for them until it ends.`
-              : ""}
+              : ""}{" "}
+            {/* T2-05 (2026-11-04): a seat is the one Membership. Laboratory tests and on-site visits are not part of it. */}
+            Laboratory tests are not included: employees test at any laboratory and pay it directly. An on-site visit is a separately costed
+            service, not part of a seat. You never see an employee&apos;s individual results.
           </p>
         ) : null}
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
@@ -226,7 +229,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
               <option value="">Select…</option>
               {seats.data?.module_open && seats.data.price_kobo ? (
                 <option value={MEMBERSHIP_OPTION}>
-                  {t("catalog.membership_annual.name", "en")} (₦{formatNaira(seats.data.price_kobo)} per member per year, billed to your organisation)
+                  {t("catalog.membership_annual_no_panel.name", "en")} (₦{formatNaira(seats.data.price_kobo)} per member per year, billed to your organisation)
                 </option>
               ) : null}
               {(plans.data ?? []).map((p) => (

@@ -2,10 +2,38 @@ import { arrangeItems, EVERGREEN_CODE, EVERGREEN_PLUS_CODE, isTier, ladderActive
 
 interface CatalogueItem { code: string; amount_kobo: number }
 const item = (code: string, amount: number): CatalogueItem => ({ code, amount_kobo: amount });
-const PLUS = item(EVERGREEN_PLUS_CODE, 12_900_000);
-const EG = item(EVERGREEN_CODE, 8_400_000);
+// Membership Plus and the upgrade are retired (T2-01, T2-09, 2026-11-04) and inactive in the catalogue; their fixtures stay only to prove the
+// screen copes with a catalogue that still returns them. The Membership price is the live one, from the versioned config.
+const PLUS = item(EVERGREEN_PLUS_CODE, 12_000_000);
+const EG = item(EVERGREEN_CODE, 10_000_000);
 const UP = item(UPGRADE_CODE, 4_500_000);
 const FREE = { tier: null, isMember: false, inGrace: false, forSomeoneElse: false } as const;
+
+describe("one Membership (T2-01, T2-09): the catalogue the database now serves holds only the Membership", () => {
+  it("a Free person sees exactly one card, the Membership, and no upgrade", () => {
+    const a = arrangeItems([EG], FREE);
+    expect(ladderActive([EG])).toBe(true);
+    expect(a.tierCards.map((i) => i.code)).toEqual([EVERGREEN_CODE]);
+    expect(a.upgrade).toBeNull();
+  });
+
+  it("a Membership member and a Plus member still in their year have nothing to buy and are never offered an upgrade", () => {
+    for (const tier of ["evergreen", "plus"] as const) {
+      const a = arrangeItems([EG], { tier, isMember: true, inGrace: false, forSomeoneElse: false });
+      expect(a.tierCards).toEqual([]);
+      expect(a.upgrade).toBeNull();
+    }
+  });
+
+  it("a Plus member in the grace after their year renews into the Membership only, and a gift is the Membership", () => {
+    expect(arrangeItems([EG], { tier: "plus", isMember: true, inGrace: true, forSomeoneElse: false }).tierCards.map((i) => i.code)).toEqual([EVERGREEN_CODE]);
+    expect(arrangeItems([EG], { tier: "plus", isMember: true, inGrace: false, forSomeoneElse: true }).tierCards.map((i) => i.code)).toEqual([EVERGREEN_CODE]);
+  });
+
+  it("the Membership card never carries the yearly blood panel", () => {
+    expect(panelIncluded(EVERGREEN_CODE)).toBe(false);
+  });
+});
 
 describe("the Membership ladder on the Membership screen", () => {
   it("before the ladder is on, the screen is the single-Membership screen and the upgrade never shows", () => {
@@ -68,8 +96,8 @@ describe("the Membership ladder on the Membership screen", () => {
   });
 
   it("the monthly framing is a rounded whole-naira figure in integer kobo, framing only", () => {
-    expect(monthlyFramingKobo(8_400_000)).toBe(700_000);
-    expect(monthlyFramingKobo(12_900_000)).toBe(1_075_000);
-    expect(Number.isInteger(monthlyFramingKobo(12_900_000))).toBe(true);
+    expect(monthlyFramingKobo(10_000_000)).toBe(833_300);
+    expect(monthlyFramingKobo(9_000_000)).toBe(750_000);
+    expect(Number.isInteger(monthlyFramingKobo(10_000_000))).toBe(true);
   });
 });

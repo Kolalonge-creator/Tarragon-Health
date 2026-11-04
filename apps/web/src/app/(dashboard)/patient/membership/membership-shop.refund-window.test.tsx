@@ -8,8 +8,8 @@ import { MembershipShop } from "./membership-shop";
 
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 };
 const MEMBERSHIP = {
-  code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1"], duration_days: 365, uses: null, amount_kobo: 12_900_000, components: {},
+  code: "membership_annual_no_panel", kind: "membership", name_key: "catalog.membership_annual_no_panel.name", description_key: "catalog.membership_annual_no_panel.description",
+  included_keys: ["catalog.membership_annual_no_panel.incl.1"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
 };
 const CONSULT = {
   code: "proof_consult", kind: "consultation", name_key: "catalog.consultation_single.name", description_key: "catalog.consultation_single.description",
@@ -19,7 +19,7 @@ const CONSULT = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number): string => new Date(Date.now() - n * DAY_MS).toISOString();
 const order = (over: Record<string, unknown>) => ({
-  order_id: "o1", state: "paid", amount_kobo: 12_900_000, fee_kobo: 0, total_kobo: 12_900_000, code: "membership_annual", name_key: "catalog.membership_annual.name",
+  order_id: "o1", state: "paid", amount_kobo: 10_000_000, fee_kobo: 0, total_kobo: 10_000_000, code: "membership_annual_no_panel", name_key: "catalog.membership_annual_no_panel.name",
   created_at: daysAgo(1), paid_at: daysAgo(1), sponsor_share_kobo: 0, sponsor_name: null, is_buyer: true, refund_state: null, ...over,
 });
 

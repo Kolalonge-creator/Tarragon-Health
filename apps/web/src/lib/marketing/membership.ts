@@ -33,21 +33,48 @@ export function refundWindowDays(): number {
   return v.window_days;
 }
 
-/**
- * The name of the one paid product on sale while the ladder is OFF. The single product is the catalogue's membership_annual, which
- * includes the yearly blood panel, so it is "Membership Plus" (W-46). Ladder-OFF pages take its name from here, never a typed word.
- */
-export function paidProductName(): string {
-  return t("catalog.membership_annual.name", "en");
+/** The employer seat price in kobo (commerce.membership_prices): the same Membership, bought by an employer for each employee. */
+export function employerSeatPriceKobo(): number {
+  const v = getProposedConfig("commerce.membership_prices").value as { organisation_member_kobo: number };
+  return v.organisation_member_kobo;
 }
 
-/** What a Membership includes, in the words the catalogue itself uses. */
+/** The employer seat price formatted for display, without the currency symbol (callers add it). */
+export function employerSeatPriceLabel(): string {
+  return formatNaira(employerSeatPriceKobo());
+}
+
+/**
+ * The name of the one paid plan (decisions T2-01 and T2-09, 2026-11-04): "Membership". Membership Plus is retired and is no longer
+ * sold, so the public site never names it. The name comes from the catalogue, never a typed word.
+ */
+export function paidProductName(): string {
+  return t("catalog.membership_annual_no_panel.name", "en");
+}
+
+/**
+ * What a Membership includes, stated plainly and honestly (T2-01, 2026-11-04). Laboratory tests are NOT included: the member uses any
+ * reputable laboratory and pays it directly. No doctor review turnaround is promised. Every public page that lists the inclusions reads
+ * this one list, so the pages cannot disagree.
+ */
 export const MEMBERSHIP_INCLUDES = [
-  t("catalog.membership_annual.incl.1", "en"),
-  t("catalog.membership_annual.incl.2", "en"),
-  t("catalog.membership_annual.incl.3", "en"),
-  t("catalog.membership_annual.incl.4", "en"),
+  "A personalised preventive plan and test schedule, based on your age, history and conditions",
+  "Laboratory request forms you can download and take to any reputable laboratory",
+  "Upload your laboratory report: a doctor reviews it, and it goes into your health record",
+  "Your health record and trends over time, all in one place",
+  "One online meeting with a doctor from your care team each month, and you can buy an extra meeting if you need one",
+  "Reminders when a test, a check or a reading is due",
+  "Care Circle: someone you trust can follow your care, with your consent",
 ] as const;
+
+/** Laboratory tests are paid to the laboratory, never through Tarragon, and no laboratory price is ever quoted on the public site. */
+export const LAB_TESTS_NOT_INCLUDED =
+  "Laboratory tests are not included in the Membership. You choose any reputable laboratory and pay the laboratory directly. Contact the laboratory for current pricing.";
+
+/** The employer line, with the seat price passed in (employerSeatPriceLabel(), from commerce.membership_prices). */
+export function employerSeatLine(seatPrice: string): string {
+  return `Employers can buy the same Membership for each employee at ₦${seatPrice} per person per year. An employer only ever sees counts, never anyone's results. Visits to a workplace are a separate service, costed on their own, and are not part of a seat.`;
+}
 
 /**
  * Does Membership renew automatically? The answer is the platform switch `membership_auto_renew` (public.membership_auto_renew_enabled),
@@ -89,24 +116,12 @@ export function renewalCopy(autoRenews: boolean, refundDays: number) {
       };
 }
 
-/** Whether the three-plan ladder (Free, Membership, Membership Plus) is public (marketing.membership_ladder_public). False until the launch conditions are met. */
-export function membershipLadderPublic(): boolean {
-  return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
-}
-
-/** The two paid prices of the ladder, formatted for display with the currency symbol, read from commerce.membership_ladder. */
-export function membershipLadderPriceLabels(): { evergreen: string; evergreenPlus: string } {
-  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
-  return { evergreen: "\u20A6" + formatNaira(v.evergreen_kobo), evergreenPlus: "\u20A6" + formatNaira(v.evergreen_plus_kobo) };
-}
-
 /**
- * The two ladder prices with a founding member percent taken off, for the founding member strip. The list prices are the same
- * commerce.membership_ladder figures as above; the percent comes from the live founding code (lib/marketing/founding-offer.ts), never
+ * The Membership price with a founding member percent taken off, for the founding member strip. The list price is the same
+ * commerce.membership_prices figure as above; the percent comes from the live founding code (lib/marketing/founding-offer.ts), never
  * typed. The pricing engine rounds a discount DOWN (private.price_quote_calc), so the price is the list less the rounded-down share.
  */
-export function foundingLadderPriceLabels(percent: number): { evergreen: string; evergreenPlus: string } {
-  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
-  const off = (kobo: number): number => kobo - Math.floor((kobo * percent) / 100);
-  return { evergreen: "\u20A6" + formatNaira(off(v.evergreen_kobo)), evergreenPlus: "\u20A6" + formatNaira(off(v.evergreen_plus_kobo)) };
+export function foundingPriceLabel(percent: number): string {
+  const kobo = membershipPriceKobo();
+  return formatNaira(kobo - Math.floor((kobo * percent) / 100));
 }

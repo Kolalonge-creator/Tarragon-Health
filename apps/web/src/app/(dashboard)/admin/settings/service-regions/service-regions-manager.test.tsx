@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-/** Withdrawing a state from Membership Plus asks first; approving does not; the page says the checkout does not read the flag yet. */
+/** Withdrawing a state from Membership Plus asks first; approving does not; the page says Plus is retired and no checkout reads the flag. */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ServiceRegionsManager } from "./service-regions-manager";
 
@@ -41,8 +41,8 @@ describe("ServiceRegionsManager Plus approval", () => {
     expect(setPlus).toHaveBeenCalledWith({ id: "r2", enabled: true });
   });
 
-  it("says plainly that the Plus checkout does not read the approval yet", () => {
+  it("says plainly that Plus is retired and no checkout reads the approval", () => {
     render(<ServiceRegionsManager />);
-    expect(screen.getByText(/does not read it yet/)).toBeTruthy();
+    expect(screen.getByText(/no longer sold, so no checkout reads it/)).toBeTruthy();
   });
 });

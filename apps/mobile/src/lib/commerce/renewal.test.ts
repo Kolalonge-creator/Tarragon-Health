@@ -32,8 +32,8 @@ describe("mobile automatic renewal", () => {
   });
 
   it("parses the status, keeps only the last four digits of the card, and treats a strange reply as no information", () => {
-    const full = { enabled: true, has_membership: true, auto_renew: true, ends_at: "2027-10-26T00:00:00Z", amount_kobo: 12_900_000, card: { brand: "visa", last4: "4081", exp_month: "12", exp_year: "2030", authorization_code: "AUTH_secret" } };
-    expect(parseRenewal(full)).toEqual({ enabled: true, hasMembership: true, autoRenew: true, endsAt: "2027-10-26T00:00:00Z", amountKobo: 12_900_000, cardLast4: "4081" });
+    const full = { enabled: true, has_membership: true, auto_renew: true, ends_at: "2027-10-26T00:00:00Z", amount_kobo: 10_000_000, card: { brand: "visa", last4: "4081", exp_month: "12", exp_year: "2030", authorization_code: "AUTH_secret" } };
+    expect(parseRenewal(full)).toEqual({ enabled: true, hasMembership: true, autoRenew: true, endsAt: "2027-10-26T00:00:00Z", amountKobo: 10_000_000, cardLast4: "4081" });
     expect(JSON.stringify(parseRenewal(full))).not.toMatch(/AUTH_/);
     expect(parseRenewal({ enabled: true, has_membership: false })).toEqual({ enabled: true, hasMembership: false, autoRenew: false, endsAt: null, amountKobo: null, cardLast4: null });
     expect(parseRenewal({ enabled: true, has_membership: true, amount_kobo: -5, card: "x" })).toMatchObject({ amountKobo: null, cardLast4: null });

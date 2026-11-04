@@ -6,18 +6,19 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
+import { t } from "@tarragon/i18n";
 import { IncludedView } from "./included-view";
 
 const ITEM = {
-  code: "membership_annual", kind: "membership" as const, name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
+  code: "membership_annual_no_panel", kind: "membership" as const, name_key: "catalog.membership_annual_no_panel.name", description_key: "catalog.membership_annual_no_panel.description",
+  included_keys: ["catalog.membership_annual_no_panel.incl.1", "catalog.membership_annual_no_panel.incl.2"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
 };
 
 describe("IncludedView", () => {
   it("names the item, lists what is included, gives the price, the length, no renewal and the refund route", async () => {
     render(<IncludedView item={ITEM} yourPriceKobo={10_000_000} locale="en" />);
-    expect(screen.getByRole("heading", { name: "Membership Plus" })).toBeTruthy();
-    expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: t("catalog.membership_annual_no_panel.name", "en") })).toBeTruthy();
+    expect(screen.getByText(t("catalog.membership_annual_no_panel.incl.1", "en"))).toBeTruthy();
     expect(screen.getByText("₦100,000")).toBeTruthy();
     expect(screen.getByText("It lasts 365 days from the day you pay.")).toBeTruthy();
     expect(screen.getByText(/does not renew by itself/)).toBeTruthy();

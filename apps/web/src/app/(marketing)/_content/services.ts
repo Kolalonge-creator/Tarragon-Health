@@ -91,7 +91,7 @@ export const PROOF_STATS = [
   {
     value: "Free",
     label: "to join",
-    detail: "The app is free, with no time limit. Membership adds a year of care with your care team and a video call every month. Membership Plus adds the yearly blood panel.",
+    detail: "The app is free, with no time limit. Membership adds a year of care with your care team and an online meeting with a doctor every month. Laboratory tests are paid to the laboratory directly.",
   },
   {
     value: "12 hrs",
@@ -162,7 +162,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 5,
     title: "A reading is dangerous",
-    body: "A dangerous reading brings you clear guidance straight away, alerts the person you named, and is followed up. On Membership and Membership Plus, a doctor on your care team is alerted as well.",
+    body: "A dangerous reading brings you clear guidance straight away, alerts the person you named, and is followed up. On Membership, a doctor on your care team is alerted as well.",
   },
   {
     step: 6,
@@ -325,7 +325,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "I am healthy. Is Tarragon for me?",
     answer:
-      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free. Your yearly check is included in Membership Plus, or you can take our request to any laboratory and pay them directly. In most years the result is reassurance. If a check does find something, a doctor follows up within 24 hours, or within 12 hours if the result is critical.",
+      "Yes. Prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check and education matched to you all help you stay well. The app is free. For your yearly check, you take our request to any reputable laboratory and pay them directly, then upload the report. In most years the result is reassurance. If a check does find something, a doctor follows up within 24 hours, or within 12 hours if the result is critical.",
   },
   {
     category: "general",
@@ -343,7 +343,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How much does it cost?",
     answer:
-      "The app is free, with no time limit. Membership and Membership Plus are each one price for a year of care with your care team, including a video call every month. Membership Plus adds the yearly blood panel. You pay pharmacies directly for medicines. See the pricing page for the prices.",
+      "The app is free, with no time limit. Membership is one price for a year of care with your care team, including an online meeting with a doctor every month. You pay laboratories directly for tests and pharmacies directly for medicines. See the pricing page for the prices.",
   },
   {
     category: "general",
@@ -397,7 +397,7 @@ export const HOMEPAGE_FAQS = [
     category: "clinical",
     question: "What is the difference between my Health Score and my Annual Health Check?",
     answer:
-      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your yearly blood panel, with Membership Plus, is a fuller set of eighteen tests that covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within 24 hours, or within 12 hours if the result is critical.",
+      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your yearly health check, at a laboratory you choose, covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within 24 hours, or within 12 hours if the result is critical.",
   },
   {
     category: "clinical",

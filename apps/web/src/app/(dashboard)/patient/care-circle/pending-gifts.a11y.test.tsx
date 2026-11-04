@@ -21,7 +21,7 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
-const GIFT = { entitlement_id: "e1", name_key: "catalog.membership_annual.name", paid_at: "2026-10-06T10:00:00Z", decide_by: "2026-11-05T10:00:00Z" };
+const GIFT = { entitlement_id: "e1", name_key: "catalog.membership_annual_no_panel.name", paid_at: "2026-10-06T10:00:00Z", decide_by: "2026-11-05T10:00:00Z" };
 const PAYER = { payer_id: "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11", first_name: "Chinedu", entitlement_ids: ["e1"], last_gift_at: "2026-11-03T10:00:00Z", is_member: false };
 beforeEach(() => {
   gifts = { data: [GIFT] };
@@ -34,7 +34,7 @@ describe("PendingGifts", () => {
   it("says what was paid for, that nothing starts until yes, and by when to answer", async () => {
     render(<PendingGifts locale="en" />);
     expect(screen.getByText("Someone has paid for care for you")).toBeTruthy();
-    expect(screen.getByText(/Membership Plus\. Nothing starts until you say yes\./)).toBeTruthy();
+    expect(screen.getByText(/^Membership\. Nothing starts until you say yes\./)).toBeTruthy();
     expect(screen.getByText(/Please answer by/)).toBeTruthy();
     cleanup();
     await expectNoA11yViolations(<PendingGifts locale="en" />);

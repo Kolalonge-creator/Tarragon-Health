@@ -14,8 +14,9 @@ function migration(suffix: string): string {
 }
 
 describe("the two-tier Membership prices mirror the migrations", () => {
-  const prices = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number; organisation_member_kobo: number };
-  const limits = getProposedConfig("commerce.organisation_member_price_limits").value as {
+  // History: the two-tier launch and its later live rows, as they stood before Tarragon Health 2.0 (T2-09 replaced them on 2026-11-04).
+  const prices = getProposedConfig("commerce.membership_prices", "2026-11-03").value as { individual_kobo: number; organisation_member_kobo: number };
+  const limits = getProposedConfig("commerce.organisation_member_price_limits", "2026-11-03").value as {
     item_code: string;
     min_kobo: number;
     max_kobo: number;
@@ -66,6 +67,48 @@ describe("the two-tier Membership prices mirror the migrations", () => {
     expect(sql).not.toMatch(/2099|park/i);
     expect(sql).toMatch(/update public\.prices set valid_to = v_now where id = v_old\.id;/);
     expect(sql).toMatch(/values \(it\.organisation_id, it\.id, 12000000, v_now,/);
+  });
+});
+
+describe("Tarragon Health 2.0: one Membership at 100,000 naira, employer seat 90,000 (T2-01, T2-05, T2-09)", () => {
+  const prices = getProposedConfig("commerce.membership_prices", "2026-11-04").value as { individual_kobo: number; organisation_member_kobo: number };
+  const limits = getProposedConfig("commerce.organisation_member_price_limits", "2026-11-04").value as {
+    item_code: string;
+    min_kobo: number;
+    max_kobo: number;
+    default_kobo: number;
+  };
+  const sql = migration("_t2_one_membership_100k_plus_retired.sql");
+
+  it("states the founder's numbers in integer kobo", () => {
+    expect(prices).toEqual({ individual_kobo: 10_000_000, organisation_member_kobo: 9_000_000 });
+  });
+
+  it("the migration opens exactly these rows and closes the old ones at the same instant", () => {
+    expect(sql).toMatch(/values \(it\.organisation_id, it\.id, 10000000, '\{\}'::jsonb, v_now,/);
+    expect(sql).toMatch(/values \(it\.organisation_id, null, it\.id, 9000000, v_now,/);
+    expect(sql).toMatch(/update public\.prices set valid_to = v_now where id = v_old\.id;/);
+    expect(sql).not.toMatch(/2099|park/i);
+  });
+
+  it("the organisation price limits v2 seed is identical to the registry, on the Membership item", () => {
+    const match = /organisation-price-limits-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("organisation price limits seed not found in the migration");
+    expect(JSON.parse(match[1])).toEqual(limits);
+    expect(limits.item_code).toBe("membership_annual_no_panel");
+    expect(limits.default_kobo).toBe(prices.organisation_member_kobo);
+  });
+
+  it("both prices sit inside the floor and ceiling", () => {
+    for (const p of [prices.individual_kobo, prices.organisation_member_kobo]) {
+      expect(p).toBeGreaterThanOrEqual(limits.min_kobo);
+      expect(p).toBeLessThanOrEqual(limits.max_kobo);
+    }
+  });
+
+  it("stops selling Plus and the upgrade, keeps the tier module on", () => {
+    expect(sql).toMatch(/update public\.catalog_items set active = false, updated_at = v_now where code in \('membership_annual', 'membership_upgrade_plus'\);/);
+    expect(sql).not.toMatch(/membership_two_member_tiers['"]?\s*,\s*false/);
   });
 });
 

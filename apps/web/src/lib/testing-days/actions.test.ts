@@ -18,7 +18,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({ storage: { from: () => ({ upload, remove, createSignedUrl: jest.fn() }) } }),
 }));
 
-import { recordEcg, recordUrinalysis, recordMeasurements } from "./actions";
+import { createTestingEvent, recordEcg, recordUrinalysis, recordMeasurements } from "./actions";
 
 const BOOKING = "11111111-1111-4111-8111-111111111111";
 const EVENT = "22222222-2222-4222-8222-222222222222";
@@ -124,5 +124,15 @@ describe("recordEcg", () => {
     const [name, args] = rpc.mock.calls[1] as [string, { p_machine_statement: string }];
     expect(name).toBe("record_poc_ecg");
     expect(args.p_machine_statement).toBe("Sinus rhythm");
+  });
+});
+
+describe("createTestingEvent (T2-02: public testing days are closed)", () => {
+  it("says plainly that a public day cannot be created when the database refuses it, never the raw code", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "testing_public_days_closed" } });
+    const r = await createTestingEvent(undefined, form({ kind: "public_day", eventDate: "2026-12-01", venueName: "Hall", address: "1 Road", city: "Ikeja", capacity: "40" }));
+    expect(r?.error).toMatch(/^Public testing days are closed/);
+    expect(r?.error).not.toContain("testing_public_days_closed");
+    expect(r?.message).toBeUndefined();
   });
 });
