@@ -21,9 +21,12 @@ describe("care circle model", () => {
     expect(parseMyCircle(null)).toEqual({ members: [], invites: [], offers: [] });
   });
 
-  it("drops a supported-person row that carries a legacy or unknown permission, keeps the rest", () => {
+  it("keeps a supported person whose list carries an unknown permission (only that name is dropped), and drops garbage (Care Circle P2)", () => {
     const good = { patient_id: "p", member_id: "m", name: "Mum", relationship: "Mother", permissions: ["pay_for_care"], expires_at: "2027-01-01T00:00:00Z" };
-    expect(parseSupported([good, { ...good, permissions: ["view_results"] }, 5])).toEqual([{ ...good, alert_mode: "push_and_app" }]);
+    expect(parseSupported([good, { ...good, member_id: "m2", permissions: ["pay_for_care", "view_results"] }, 5])).toEqual([
+      { ...good, alert_mode: "push_and_app" },
+      { ...good, member_id: "m2", alert_mode: "push_and_app" },
+    ]);
     expect(parseSupported("nope")).toEqual([]);
   });
 
