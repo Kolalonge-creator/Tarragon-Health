@@ -647,6 +647,32 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
   },
   {
+    key: "lab.trend_rules",
+    // Tarragon Health 2.0, Phase 2 (brief section 5.3): deterministic rules that spot a worsening lab trend, including one that stays
+    // inside the normal range. A rule that fires opens a clinician review task only: it never tells the patient anything, never names a
+    // diagnosis and never suggests a medicine change. DRAFTED BY AN AGENT 2026-11-04 FOR THE CMO: every threshold below is a starting
+    // point taken from the cited guidance and must be reviewed, changed or rejected by the CMO before anything reads it. No code reads
+    // this entry yet; wiring it in is a separate change after sign-off. Values use the yearly-panel units (lab_panel_versions v4).
+    value: {
+      window_months: 12,
+      min_points: 3,
+      rules: [
+        { analyte: "hba1c", unit: "%", rise_from_first: 0.5, latest_at_least: 5.7, note: "ADA Standards of Care: a 0.5 point change is clinically meaningful" },
+        { analyte: "fasting_glucose", unit: "mg/dL", rise_from_first: 15, latest_at_least: 100, note: "steady rise towards the prediabetes range (ADA: 100 to 125)" },
+        { analyte: "creatinine", unit: "mg/dL", rise_pct_from_first: 25, note: "KDIGO: a fall in eGFR of 25% or more is a significant change; creatinine is the panel's kidney marker" },
+        { analyte: "ldl_cholesterol", unit: "mg/dL", rise_from_first: 30, note: "a rise of about 30 mg/dL moves most people up a risk band" },
+        { analyte: "haemoglobin", unit: "g/dL", fall_from_first: 2, note: "a fall of 2 g/dL or more over a year needs a reason" },
+        { analyte: "potassium", unit: "mmol/L", rise_from_first: 0.7, latest_at_least: 5.0, note: "rising potassium in someone not yet out of range" },
+      ],
+      consecutive_rise_required: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "Drafted 2026-11-04 from ADA Standards of Care (glycaemia), KDIGO CKD guideline (kidney change), for CMO review; docs/plans/tarragon-2-0-founder-brief-2026-11-04.md section 5.3",
+  },
+  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
