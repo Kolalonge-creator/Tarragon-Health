@@ -3,7 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
-import { feedSchema, groupViewSchema, hiddenListSchema, type FeedPost } from "@/lib/community/model";
+import { feedSchema, feedSortFrom, groupViewSchema, hiddenListSchema, type FeedPost } from "@/lib/community/model";
 import { t } from "@tarragon/i18n";
 import { GroupView } from "../group-view";
 import { MUTED } from "../styles";
@@ -13,8 +13,15 @@ export const dynamic = "force-dynamic";
 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 
-export default async function CommunityGroupPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CommunityGroupPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ sort?: string | string[] }>;
+}) {
   const { slug } = await params;
+  const sort = feedSortFrom((await searchParams).sort);
   if (!SLUG.test(slug)) notFound();
   const { acting, profile, uiLanguage } = await getPatientDashboardContext();
   if (acting || profile.receives_care === false) redirect("/patient");
@@ -52,7 +59,7 @@ export default async function CommunityGroupPage({ params }: { params: Promise<{
   let feedFailed = false;
   let hidden: { id: string; handle: string }[] = [];
   if (view.membership.status === "active") {
-    const { data: feedData, error: feedError } = await supabase.rpc("community_feed", { p_group_id: view.group.id });
+    const { data: feedData, error: feedError } = await supabase.rpc("community_feed", { p_group_id: view.group.id, ...(sort === "latest" ? {} : { p_sort: sort }) });
     const feed = feedError ? null : feedSchema.safeParse(feedData);
     if (feed?.success && feed.data.ok) {
       posts = feed.data.posts;
@@ -68,7 +75,7 @@ export default async function CommunityGroupPage({ params }: { params: Promise<{
   return (
     <div className="space-y-6">
       {header}
-      <GroupView view={view} initialPosts={posts} initialHasMore={hasMore} feedFailed={feedFailed} hidden={hidden} locale={uiLanguage} />
+      <GroupView view={view} initialPosts={posts} initialHasMore={hasMore} feedFailed={feedFailed} hidden={hidden} sort={sort} locale={uiLanguage} />
     </div>
   );
 }

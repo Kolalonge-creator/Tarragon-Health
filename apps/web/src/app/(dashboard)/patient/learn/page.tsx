@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BP_COURSE_CODE } from "./course/course-model";
 import { asLocale, t } from "@tarragon/i18n";
 import { HealthEducationLibrary } from "@/app/(dashboard)/patient/health-education";
+import { HEALTH_EDUCATION_CATEGORIES, type HealthEducationCategory } from "@/lib/queries/health-education";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -17,7 +18,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * health-education.tsx for the "Recommended for you" rail (personalised,
  * paced) sitting above the full, ungated browse-by-category library.
  */
-export default async function LearnPage() {
+export default async function LearnPage({ searchParams }: { searchParams: Promise<{ category?: string | string[] }> }) {
+  const rawCategory = (await searchParams).category;
+  const wanted = Array.isArray(rawCategory) ? rawCategory[0] : rawCategory;
+  // Only a known category opens; anything else shows the library as usual.
+  const initialCategory: HealthEducationCategory | null = HEALTH_EDUCATION_CATEGORIES.find((c) => c.value === wanted)?.value ?? null;
   const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   const locale = asLocale(uiLanguage);
   // The course card appears only when the server returns lessons: nothing published means nothing shown.
@@ -76,6 +81,7 @@ export default async function LearnPage() {
         patientId={subjectId}
         organisationId={organisationId}
         conditionLanguagePreference={profile.condition_language_preference}
+        initialCategory={initialCategory}
       />
     </div>
   );

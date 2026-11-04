@@ -29,8 +29,8 @@ describe("parsing", () => {
     expect(out.members).toHaveLength(2);
     expect(out.members[1]?.permissions).toEqual(["red_alerts"]);
     expect(out.invites).toHaveLength(1);
-    expect(parseMyCircle(null)).toEqual({ members: [], invites: [] });
-    expect(parseMyCircle({ members: "no", invites: 5 })).toEqual({ members: [], invites: [] });
+    expect(parseMyCircle(null)).toEqual({ members: [], invites: [], offers: [] });
+    expect(parseMyCircle({ members: "no", invites: 5 })).toEqual({ members: [], invites: [], offers: [] });
   });
 
   it("parses supported people, alerts, the log and an invite reply", () => {
@@ -97,8 +97,8 @@ describe("parsing", () => {
 
 describe("api", () => {
   it("loads each list and reports an error message instead of throwing", async () => {
-    mockRpc.mockResolvedValueOnce({ data: { members: [], invites: [] }, error: null });
-    expect(await loadMyCircle()).toEqual({ ok: true, data: { members: [], invites: [] } });
+    mockRpc.mockResolvedValueOnce({ data: { members: [], invites: [], offers: [] }, error: null });
+    expect(await loadMyCircle()).toEqual({ ok: true, data: { members: [], invites: [], offers: [] } });
     mockRpc.mockResolvedValueOnce({ data: [], error: null });
     expect(await loadViewLog()).toEqual({ ok: true, data: [] });
     mockRpc.mockResolvedValueOnce({ data: [], error: null });
@@ -177,9 +177,9 @@ describe("S29b gifts", () => {
 
 describe("S29c follow-up", () => {
   it("reads a pause only when it is whole, and the configured pause length", () => {
-    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: "t", pause_alerts: true }, pause_days: 7 })).toEqual({ members: [], invites: [], pause: { pausedUntil: "t", pauseAlerts: true }, pauseDays: 7 });
-    expect(parseMyCircle({ members: [], invites: [], pause: null })).toEqual({ members: [], invites: [] });
-    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: 5 } })).toEqual({ members: [], invites: [] });
+    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: "t", pause_alerts: true }, pause_days: 7 })).toEqual({ members: [], invites: [], offers: [], pause: { pausedUntil: "t", pauseAlerts: true }, pauseDays: 7 });
+    expect(parseMyCircle({ members: [], invites: [], pause: null })).toEqual({ members: [], invites: [], offers: [] });
+    expect(parseMyCircle({ members: [], invites: [], pause: { paused_until: 5 } })).toEqual({ members: [], invites: [], offers: [] });
   });
 
   it("an unknown alert mode falls back to push and in-app, never to silence; an open request is not called unless said so", () => {

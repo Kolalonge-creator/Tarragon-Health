@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { loadLocationConsent, revokeLocationConsent, sendHelpAlert, type HelpAlertResult } from "@/lib/care-circle/help-alert";
+import { loadLocationConsent, revokeLocationConsent, sendHelpAlert, showSentPaused, type HelpAlertResult } from "@/lib/care-circle/help-alert";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
@@ -12,7 +12,7 @@ import { AppText } from "@/ui/kit/AppText";
  * go to the nearest hospital. The phone sends no location (see lib/care-circle/help-alert.ts), so it never offers to share one; it only
  * lets a person who turned sharing on from the web turn it off.
  */
-export function HelpAlertCard() {
+export function HelpAlertCard({ alertsPaused = false }: { alertsPaused?: boolean }) {
   const locale = asLocale(useUiLanguage());
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<HelpAlertResult | null>(null);
@@ -52,6 +52,8 @@ export function HelpAlertCard() {
     <Card style={{ gap: 8 }}>
       <AppText variant="bodyStrong">{t("circle.help.title", locale)}</AppText>
       <MutedText>{t("circle.help.intro", locale)}</MutedText>
+      {/* P1 (D-help): while the circle's alerts are paused the button still works; the patient is told so before pressing it */}
+      {alertsPaused ? <AppText variant="bodyStrong">{t("circlep1.help.paused_warning", locale)}</AppText> : null}
       <PrimaryButton title={t("circle.help.button", locale)} onPress={() => void tap()} loading={sending} />
       {notOpen ? <MutedText>{t("circle.help.not_open", locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.help.error", locale)}</ErrorText> : null}
@@ -65,6 +67,7 @@ export function HelpAlertCard() {
                 : t("circle.help.sent_none", locale)}
           </AppText>
           <MutedText>{result.locationShared ? t("circle.help.location_on", locale) : t("circle.help.location_off", locale)}</MutedText>
+          {showSentPaused(result) ? <MutedText>{t("circlep1.help.sent_paused", locale)}</MutedText> : null}
         </View>
       ) : null}
       {sharingOn ? (
