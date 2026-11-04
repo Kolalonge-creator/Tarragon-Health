@@ -48,6 +48,13 @@ own comment) rather than failing the run.
 
 ## What's covered
 
+- **`clinical-documents.spec.ts`** — clinical document engine step 7: a patient uploads a document without knowing what it is, answers
+  the one question and finds it in My Health Records (the same file again is refused); a Care Coordinator finds the patient (a name alone
+  finds nobody) and uploads a laboratory report with the identity on it checked (a wrong date of birth is refused, the patient gets the
+  values-free notice, the report stays held); a doctor opens the document side by side, records a review, and the patient then sees
+  "Reviewed by a doctor" but not the note. Needs a production build (`E2E_PRODUCTION_BUILD=1`) and `ANTHROPIC_API_KEY` unset (no model is
+  called; AI-024 is off). Point both `E2E_DB_URL` and `E2E_DATABASE_URL` at the stack's database.
+
 - **`events-care-message-round-trip.spec.ts`** and **`events-booking-round-trip.spec.ts`** —
   events harness E5 to E7: a care message from patient to doctor and back, and a
   booking from slot to cancellation, each with the in-app bell asserted for every
