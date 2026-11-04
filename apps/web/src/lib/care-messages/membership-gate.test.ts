@@ -1,5 +1,7 @@
 import { isMemberOnlyCategory, isMembershipRequiredError, MEMBER_ONLY_CATEGORIES } from "./membership-gate";
 import { careMessageCategories } from "@/lib/validation/care-messages";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("MSG-1 membership gate", () => {
   it("gates only clinical and medication, and leaves support categories open", () => {
@@ -7,6 +9,17 @@ describe("MSG-1 membership gate", () => {
     for (const c of careMessageCategories) {
       expect(isMemberOnlyCategory(c)).toBe(c === "clinical" || c === "medication");
     }
+  });
+
+  it("matches the category list in the database rule", () => {
+    const sql = readFileSync(
+      join(__dirname, "../../../../../supabase/migrations/20261104160436_msg1_free_members_no_clinical_threads.sql"),
+      "utf8",
+    );
+    const match = sql.match(/select p_category in \(([^)]*)\)/);
+    expect(match).not.toBeNull();
+    const dbCategories = (match?.[1] ?? "").split(",").map((c) => c.trim().replace(/'/g, "")).sort();
+    expect(dbCategories).toEqual([...MEMBER_ONLY_CATEGORIES].sort());
   });
 
   it("recognises the database refusal by its hint", () => {

@@ -6,6 +6,8 @@
 --      'general' thread and the message is flagged with an emergency clinician alert, exactly as for a Member.
 --   4. The table holds the rule on its own: a Free patient's direct insert of a clinical thread, and a change of their own general
 --      thread to 'medication', are both refused.
+--   4d. A supporter who is staff of ANOTHER organisation cannot use that to slip a clinical thread past the gate by putting their own
+--      organisation on a direct insert: the staff exemption is judged against the patient's organisation.
 --   5. A Member opens a clinical thread; a clinician opens a clinical thread for a Free patient (staff are never refused).
 --   6. A supporter acting for a Free patient is refused a clinical thread, and allowed one for a Member.
 --   7. SABOTAGE: with the table trigger dropped, the Free patient's direct clinical insert succeeds, so case 4 discriminates.
@@ -15,8 +17,8 @@ begin;
 create temp table msg1_results (check_name text, observed text, expected text, verdict text);
 grant all on msg1_results to public;
 
-create function pg_temp.mkuser(p_role text, p_name text) returns uuid language plpgsql as $$
-declare v uuid := gen_random_uuid(); v_org uuid := (select id from public.organisations order by created_at limit 1);
+create function pg_temp.mkuser(p_role text, p_name text, p_org uuid default null) returns uuid language plpgsql as $$
+declare v uuid := gen_random_uuid(); v_org uuid := coalesce(p_org, (select id from public.organisations order by created_at limit 1));
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 'msg1-' || replace(v::text, '-', '') || '@example.invalid', 'x', now(), '{}', '{}');
@@ -45,24 +47,28 @@ $$ insert into msg1_results values (p_name, p_actual, p_expected, case when p_ac
 do $$
 declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
-  admin uuid; free_pat uuid; member uuid; clin uuid; helper uuid; v_thread uuid; v_n integer;
+  admin uuid; free_pat uuid; member uuid; clin uuid; helper uuid; v_thread uuid; v_n integer; v_org2 uuid; ostaff uuid;
 begin
   admin := pg_temp.mkuser('admin', 'MSG1 Admin');
   free_pat := pg_temp.mkuser('patient', 'MSG1 Free Patient');
   member := pg_temp.mkuser('patient', 'MSG1 Member');
   clin := pg_temp.mkuser('clinician', 'MSG1 Clinician');
   helper := pg_temp.mkuser('patient', 'MSG1 Supporter');
+  insert into public.organisations (name, type) select 'MSG1 other org', type from public.organisations order by created_at limit 1
+  returning id into v_org2;
+  ostaff := pg_temp.mkuser('clinician', 'MSG1 Clinician Elsewhere', v_org2);
   insert into public.patient_memberships (organisation_id, patient_id, source, state, granted_by, grant_reason, is_test)
   values (v_org, member, 'granted', 'active', admin, 'MSG1 proof: a Member', true);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access)
-  values (free_pat, helper, 'manage', free_pat, false), (member, helper, 'manage', member, false);
+  values (free_pat, helper, 'manage', free_pat, false), (member, helper, 'manage', member, false),
+         (free_pat, ostaff, 'manage', free_pat, false);
   -- The supporter needs the 'messaging' category to act for the patient at all; MSG-1 is checked after that.
   -- Only the patient may grant a category, so each grant is made in that patient's session.
   -- clinical_access is forced false on insert and only the patient may switch it on (enforce_clinical_access_consent_owner).
   perform pg_temp.as_user(free_pat);
-  update public.profile_access set clinical_access = true where grantee_user_id = helper and profile_id = free_pat;
+  update public.profile_access set clinical_access = true where grantee_user_id in (helper, ostaff) and profile_id = free_pat;
   insert into public.profile_access_categories (profile_access_id, category)
-  select id, 'messaging' from public.profile_access where grantee_user_id = helper and profile_id = free_pat
+  select id, 'messaging' from public.profile_access where grantee_user_id in (helper, ostaff) and profile_id = free_pat
   on conflict do nothing;
   perform pg_temp.as_user(member);
   update public.profile_access set clinical_access = true where grantee_user_id = helper and profile_id = member;
@@ -106,6 +112,11 @@ begin
   perform pg_temp.ck('4b free recategorise to medication refused', '42501:membership_required',
     pg_temp.try_as(free_pat, format($q$update public.care_message_threads set category = 'medication' where id = %L$q$, v_thread)));
   perform pg_temp.ck('4c category unchanged', 'general', (select category::text from public.care_message_threads where id = v_thread));
+
+  perform pg_temp.ck('4d other-org staff supporter, own org on a direct insert, refused', '42501:membership_required',
+    pg_temp.try_as(ostaff, format(
+      $q$insert into public.care_message_threads (organisation_id, patient_id, subject, created_by, category) values (%L, %L, 'Cross org', %L, 'clinical')$q$,
+      v_org2, free_pat, ostaff)));
 
   -- 5. Members and staff.
   perform pg_temp.ck('5a member clinical allowed', 'ok',

@@ -26,29 +26,42 @@
 -- Live counts before (2026-11-04): 1 thread, category general; 2 active memberships. Nothing is converted or refused retroactively: the
 -- trigger checks only new rows and category changes.
 
+-- The one place the rule lives; the trigger and start_care_thread both call it. The staff exemption is judged against the PATIENT's
+-- organisation, read from profiles, never against the row's organisation_id: on a direct insert that column comes from the client, and the
+-- insert policy accepts any organisation the caller is staff of.
+create or replace function private.care_thread_needs_membership(p_patient uuid, p_category public.care_message_category)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_category in ('clinical', 'medication')
+     and (select auth.uid()) is not null
+     and not private.is_org_staff((select pr.organisation_id from public.profiles pr where pr.id = p_patient))
+     and not private.patient_is_member(p_patient);
+$$;
+
+comment on function private.care_thread_needs_membership(uuid, public.care_message_category) is
+  'MSG-1: true when a signed-in caller who is not staff of the patient''s organisation asks for a clinical or medication thread for a patient who is not a Member.';
+
+revoke all on function private.care_thread_needs_membership(uuid, public.care_message_category) from public, anon, authenticated;
+
 create or replace function private.care_thread_member_clinical_gate()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_uid uuid := (select auth.uid());
 begin
-  if new.category not in ('clinical', 'medication') then
-    return new;
-  end if;
   if tg_op = 'UPDATE' and old.category = new.category then
     return new;
   end if;
-  if v_uid is null or private.is_org_staff(new.organisation_id) then
-    return new;
+  if private.care_thread_needs_membership(new.patient_id, new.category) then
+    raise exception 'Clinical messages to the care team are included in Membership.'
+      using errcode = '42501', hint = 'membership_required';
   end if;
-  if private.patient_is_member(new.patient_id) then
-    return new;
-  end if;
-  raise exception 'Clinical messages to the care team are included in Membership.'
-    using errcode = '42501', hint = 'membership_required';
+  return new;
 end;
 $$;
 
@@ -78,7 +91,6 @@ declare
   v_patient uuid;
   v_thread_id uuid;
   v_is_staff_or_self boolean;
-  v_is_staff boolean;
   v_category public.care_message_category := coalesce(p_category, 'general');
   v_matches text[];
 begin
@@ -103,16 +115,13 @@ begin
 
   -- MSG-1: a non-Member's clinical request is refused, unless the message itself reads as a possible emergency. Then it is kept as a
   -- general thread so it is saved and the care_messages safety screen pages a clinician. Payment never stands between a patient and that.
-  if v_category in ('clinical', 'medication') then
-    v_is_staff := private.is_org_staff(v_org);
-    if not v_is_staff and not private.patient_is_member(v_patient) then
-      v_matches := private.screen_care_message_for_emergency(p_body);
-      if v_matches is not null and array_length(v_matches, 1) is not null then
-        v_category := 'general';
-      else
-        raise exception 'Clinical messages to the care team are included in Membership.'
-          using errcode = '42501', hint = 'membership_required';
-      end if;
+  if private.care_thread_needs_membership(v_patient, v_category) then
+    v_matches := private.screen_care_message_for_emergency(p_body);
+    if v_matches is not null and array_length(v_matches, 1) is not null then
+      v_category := 'general';
+    else
+      raise exception 'Clinical messages to the care team are included in Membership.'
+        using errcode = '42501', hint = 'membership_required';
     end if;
   end if;
 

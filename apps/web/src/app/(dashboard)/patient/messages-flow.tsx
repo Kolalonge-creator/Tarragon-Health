@@ -298,15 +298,16 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     appointments, labs, payments or the app by choosing one of those topics above.
                   </p>
                   <p className="text-charcoal-ink/70 dark:text-night-ink/70">
-                    If you feel unwell now, do not wait for a message. Use the emergency guidance on your dashboard or go to
-                    the nearest hospital.
+                    If you feel unwell now, do not wait for a message. Use the urgent symptoms check on your dashboard or go
+                    to the nearest hospital.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm">
                       <Link href="/patient/membership">See Membership</Link>
                     </Button>
                     <Button asChild size="sm" variant="outline">
-                      <Link href="/patient">Emergency guidance</Link>
+                      {/* The urgent symptoms check is a persistent control on every dashboard section page. */}
+                      <Link href="/patient">Check urgent symptoms</Link>
                     </Button>
                   </div>
                 </div>

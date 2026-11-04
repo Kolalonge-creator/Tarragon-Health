@@ -14,7 +14,7 @@ Live: 3 active doctors (CMO + 2 Senior Medical Officers), **0 Care Coordinators*
 | Free members cannot message doctors, enforced in the API | Nothing in the database; only the dashboard card was gated (`doctor_checkin`) | **Closed by MSG-1** |
 | Safety for every plan | Danger-phrase screen on every patient/sponsor message (`private.screen_care_message_for_emergency`), Free red-event path, one result engine (T2-07) | none |
 | Support queue (A) | `navigation_requests` ("I need help") with a coordinator worklist | messages are not routed anywhere by topic |
-| Clinical queue (B), coordinator first | one inbox shared by doctors and coordinators | no queue, assignee or lifecycle (MSG-3) |
+| Clinical queue (B), coordinator first | one inbox shared by doctors and coordinators; a thread owner already exists (`care_thread_owners`: owner, assigned_by, handover note) | no queue or lifecycle (MSG-3); owner assignment is manual |
 | Safety queue (C) | `clinician_alerts`: safety flags, unread-clinical sweep (240 min ack), abnormal results | a dashboard tile only |
 | Monthly meeting | `member_followup_entitlements` (12 a year, no stockpile), doctor-offered slots, coordinator booking, 5,000 naira extra meeting | none |
 | Pre-meeting summary | S89 deterministic pre-visit brief with source links, sensitive rows fail closed | an AI-written version would be a new governed AI system |
@@ -28,8 +28,11 @@ Live: 3 active doctors (CMO + 2 Senior Medical Officers), **0 Care Coordinators*
 1. **MSG-1 (this PR).** Database refuses a Free member's clinical or medication thread through the RPC, a direct insert or a category
    change; the danger-phrase exception keeps the safety path open; the composer explains Membership. Laboratory stays open (directory
    and upload help) and is routed by MSG-3.
-2. **MSG-3 routing and lifecycle.** On `care_message_threads`: `queue` (support / clinical), `assigned_to`, `state` (received, assigned,
-   doctor_review_needed, responded, closed) with timestamps for each step, all set server-side. A Free member's thread is always support.
+2. **MSG-3 routing and lifecycle.** On `care_message_threads`: `queue` (support / clinical) and `state` (received, assigned,
+   doctor_review_needed, responded, closed) with timestamps for each step, all set server-side. The assignee is the existing
+   `care_thread_owners` row, filled automatically instead of by hand; no second assignee column. A Free member's thread is always support,
+   including a clinical thread a doctor opened to them or one opened while they were a Member (MSG-1 checks Membership only when a
+   thread is opened, so later messages in such a thread must route by the patient's current Membership).
    Assignment: support to the least-loaded active coordinator, else a doctor; clinical to a coordinator for triage, else straight to the
    least-loaded doctor (MSG-2 fallback), reusing the availability rules of `private.auto_assign_escalation()`. A coordinator can mark
    "doctor review needed", never close a thread that is marked so. Reply target counts from received to responded, not to opened.
