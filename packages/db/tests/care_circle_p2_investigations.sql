@@ -155,7 +155,7 @@ begin
   -- P. yearly plan
   perform pg_temp.ck('P1 plan progress counts everyday tests only (done kft; due hba1c, lipid, tft, fbc; overdue lft)', '1/4/1',
     (v #>> '{plan_progress,done}') || '/' || (v #>> '{plan_progress,due}') || '/' || (v #>> '{plan_progress,overdue}'));
-  perform pg_temp.ck('P2 the next due date is the earliest open everyday test (the overdue one)', (current_date - 10)::text, v #>> '{plan_progress,next_due}');
+  perform pg_temp.ck('P2 the next due date is the earliest upcoming everyday test (fbc), not the overdue one', (current_date + 2)::text, v #>> '{plan_progress,next_due}');
   -- G. who gets the blocks
   v := pg_temp.view(old, pat);
   perform pg_temp.ck('G1 a supporter without the new permissions gets none of the new blocks', 'false/false/false/false',

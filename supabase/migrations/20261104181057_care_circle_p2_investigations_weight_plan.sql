@@ -186,7 +186,8 @@ begin
     select count(*) filter (where ss.status = 'completed' and ss.updated_at > now() - interval '12 months'),
            count(*) filter (where ss.status in ('pending', 'booked')),
            count(*) filter (where ss.status = 'overdue'),
-           min(ss.due_date) filter (where ss.status in ('pending', 'booked', 'overdue'))
+           -- the next one coming up (an overdue one is already counted as overdue; a past date is not "next")
+           min(ss.due_date) filter (where ss.status in ('pending', 'booked') and ss.due_date >= v_today)
       into v_done, v_due, v_overdue, v_next
       from public.screening_schedules ss join public.screen_types st on st.id = ss.screen_type_id
      where ss.patient_id = p_patient and private.circle_screen_shareable(st.code, st.sensitive);
