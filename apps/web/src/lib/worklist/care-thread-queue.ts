@@ -20,6 +20,23 @@ export interface QueuedThread {
   needs_doctor: boolean;
 }
 
+/** An open conversation the care team has not answered since the patient's side last wrote (the MSG-3 reply clock is running). The
+ * same definition care_operations_summary counts as "waiting on a reply". */
+export function isUnanswered(thread: { status: string; awaiting_reply_since: string | null }): boolean {
+  return thread.status === "open" && thread.awaiting_reply_since !== null;
+}
+
+/** ?unanswered=1 from a care operations tile link. */
+export function parseUnansweredOnly(raw: string | string[] | undefined): boolean {
+  return (Array.isArray(raw) ? raw[0] : raw) === "1";
+}
+
+/** The ?view= value from a care operations tile link; anything unknown falls back to "all". */
+export function parseInboxView(raw: string | string[] | undefined): InboxView {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "support" || v === "clinical" || v === "needs_doctor" ? v : "all";
+}
+
 export function inView(thread: QueuedThread, view: InboxView): boolean {
   if (view === "all") return true;
   if (view === "needs_doctor") return thread.needs_doctor;

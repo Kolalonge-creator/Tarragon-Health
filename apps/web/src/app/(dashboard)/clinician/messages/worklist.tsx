@@ -12,7 +12,7 @@ import {
   useFlagThreadForDoctor,
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
-import { INBOX_VIEW_LABEL, QUEUE_LABEL, inView, isNeedsDoctorCloseError, isNoDoctorAvailableError, type InboxView } from "@/lib/worklist/care-thread-queue";
+import { INBOX_VIEW_LABEL, QUEUE_LABEL, inView, isNeedsDoctorCloseError, isNoDoctorAvailableError, isUnanswered, type InboxView } from "@/lib/worklist/care-thread-queue";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { TimeCapture } from "@/components/clinician/time-capture";
 import { AgpDisclosure } from "@/components/agp-disclosure";
@@ -263,18 +263,25 @@ function ThreadRow({ thread, focusedId, onFocus }: { thread: CareThreadWithPatie
   );
 }
 
-export function ClinicianMessagesWorklist() {
+export function ClinicianMessagesWorklist({
+  initialView = "all",
+  initialUnansweredOnly = false,
+}: { initialView?: InboxView; initialUnansweredOnly?: boolean } = {}) {
   const { data: threads, isLoading, isError } = useOrgCareThreads();
   const [showTemplates, setShowTemplates] = useState(false);
   const [awaitingOnly, setAwaitingOnly] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
-  const [view, setView] = useState<InboxView>("all");
+  const [view, setView] = useState<InboxView>(initialView);
+  // MSG-5: the care operations "waiting" tiles open the inbox showing only conversations the care team has not answered yet.
+  const [unansweredOnly, setUnansweredOnly] = useState(initialUnansweredOnly);
   const { data: me } = useCurrentUserId();
   const { data: myThreadIds } = useMyOwnedThreadIds(me);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // useOrgCareThreads already returns threads ranked longest-waiting first;
   // splitting open from closed preserves that order inside each group.
-  const visible = (threads ?? []).filter((t) => (!mineOnly || (myThreadIds?.has(t.id) ?? false)) && inView(t, view));
+  const visible = (threads ?? []).filter(
+    (t) => (!mineOnly || (myThreadIds?.has(t.id) ?? false)) && inView(t, view) && (!unansweredOnly || isUnanswered(t))
+  );
   const viewCount = (v: InboxView) => (threads ?? []).filter((t) => t.status === "open" && inView(t, v)).length;
   const allOpen = visible.filter((t) => t.status === "open");
   const myPastTarget = (threads ?? []).filter((t) => (myThreadIds?.has(t.id) ?? false) && isPastReplyTarget(t, REPLY_TARGET_HOURS)).length;
@@ -311,6 +318,15 @@ export function ClinicianMessagesWorklist() {
               </Button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={unansweredOnly}
+            onClick={() => setUnansweredOnly((v) => !v)}
+          >
+            {unansweredOnly ? "Show answered too" : "Unanswered only"}
+          </Button>
           <Button
             type="button"
             variant="outline"

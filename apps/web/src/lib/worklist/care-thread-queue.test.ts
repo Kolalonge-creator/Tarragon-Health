@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { inView, isNeedsDoctorCloseError, isNoDoctorAvailableError } from "./care-thread-queue";
+import { inView, isNeedsDoctorCloseError, isNoDoctorAvailableError, isUnanswered, parseInboxView, parseUnansweredOnly } from "./care-thread-queue";
 
 describe("MSG-3 inbox views", () => {
   const support = { queue: "support" as const, needs_doctor: false };
@@ -13,6 +13,21 @@ describe("MSG-3 inbox views", () => {
     expect(inView(flagged, "needs_doctor")).toBe(true);
     expect(inView(clinical, "needs_doctor")).toBe(false);
     for (const t of [support, clinical, flagged]) expect(inView(t, "all")).toBe(true);
+  });
+
+  it("treats only an open thread with a running reply clock as unanswered", () => {
+    expect(isUnanswered({ status: "open", awaiting_reply_since: "2026-11-04T10:00:00Z" })).toBe(true);
+    expect(isUnanswered({ status: "open", awaiting_reply_since: null })).toBe(false);
+    expect(isUnanswered({ status: "closed", awaiting_reply_since: "2026-11-04T10:00:00Z" })).toBe(false);
+    expect(parseUnansweredOnly("1")).toBe(true);
+    expect(parseUnansweredOnly(undefined)).toBe(false);
+  });
+
+  it("reads the view from a tile link and ignores anything else", () => {
+    expect(parseInboxView("support")).toBe("support");
+    expect(parseInboxView(["needs_doctor", "x"])).toBe("needs_doctor");
+    expect(parseInboxView("drop table")).toBe("all");
+    expect(parseInboxView(undefined)).toBe("all");
   });
 
   it("recognises the no-doctor-available refusal", () => {
