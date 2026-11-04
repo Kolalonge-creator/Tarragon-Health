@@ -32,7 +32,7 @@ describe("gift share", () => {
   });
   it("sends exactly what was ticked and maps a full circle and a failure", async () => {
     mockRpc.mockResolvedValueOnce({ data: { ok: true, member_id: "m" }, error: null });
-    await expect(shareWithGiftPayer(PAYER, ["doctor_note"], true)).resolves.toEqual({ ok: true });
+    await expect(shareWithGiftPayer(PAYER, ["doctor_note"], true)).resolves.toEqual({ ok: true, offered: false });
     expect(mockRpc).toHaveBeenCalledWith("share_circle_with_gift_payer", { p_payer: PAYER, p_permissions: ["doctor_note"], p_monthly_report: true });
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "circle_full" } });
     await expect(shareWithGiftPayer(PAYER, ["red_alerts"], false)).resolves.toEqual({ ok: false, reason: "full" });
@@ -41,13 +41,13 @@ describe("gift share", () => {
   });
   it("reads payers, drops a malformed row, and a failed read is none", async () => {
     mockRpc.mockResolvedValueOnce({ data: [{ payer_id: PAYER, first_name: "Chinedu", entitlement_ids: ["e1"] }, { payer_id: "bad" }], error: null });
-    await expect(loadGiftPayers()).resolves.toEqual([{ payerId: PAYER, firstName: "Chinedu", entitlementIds: ["e1"] }]);
+    await expect(loadGiftPayers()).resolves.toEqual([{ payerId: PAYER, firstName: "Chinedu", entitlementIds: ["e1"], offerPending: false }]);
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
     await expect(loadGiftPayers()).resolves.toEqual([]);
     expect(parseGiftPayers({})).toEqual([]);
   });
   it("a re-read keeps a payer already on screen", () => {
-    const a = { payerId: PAYER, firstName: "Chinedu", entitlementIds: ["e1"] };
+    const a = { payerId: PAYER, firstName: "Chinedu", entitlementIds: ["e1"], offerPending: false };
     expect(mergeKeepingShown([a], [])).toEqual([a]);
     expect(mergeKeepingShown([a], [{ ...a, entitlementIds: ["e2"] }])[0]!.entitlementIds).toEqual(["e1", "e2"]);
   });

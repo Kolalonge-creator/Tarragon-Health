@@ -46,6 +46,8 @@ export const circleP5Copy = {
   "circlep5.admin.paused_now": "Circles paused now",
   "circlep5.admin.help_alerts_30d": "Help alerts sent (30 days)",
   "circlep5.admin.error": "We could not load these figures.",
+  // approved separately on 2026-11-04 (CC-COPY-P5b): what the person who paid sees when the circle filled up before they said yes
+  "circlep5.offer.full": "{name}'s Care Circle is full at the moment, so you cannot join yet. Nothing has been shared. {name} can make room by removing someone or cancelling an invite.",
 } as const;
 
 export type CircleP5CopyKey = keyof typeof circleP5Copy;

@@ -34,7 +34,7 @@ describe("S69b parsers", () => {
       ],
     });
     expect(list?.tasks).toHaveLength(1);
-    expect(list?.tasks[0]).toEqual({ taskId: "t1", kind: "take_to_lab", neededBy: "2026-10-27", state: "open", claimedByName: null, mine: false, canClaim: true, canRelease: false, canComplete: false, canCancel: false });
+    expect(list?.tasks[0]).toEqual({ taskId: "t1", kind: "take_to_lab", neededBy: "2026-10-27", state: "open", claimedByName: null, mine: false, canClaim: true, canRelease: false, canComplete: false, canCancel: false, note: null, addressed: false, recipients: null, myAnswer: null, canDecline: false });
     expect(JSON.stringify(list)).not.toMatch(/180/);
     expect(parseTasks({ role: "boss", tasks: [] })).toBeNull();
   });
@@ -84,7 +84,7 @@ describe("S69b calls", () => {
 
   it("the job limit is reported as such", async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: "task_limit" } });
-    expect(await postTask("p", "errand", null)).toEqual({ ok: false, limit: true });
+    expect(await postTask("p", "errand", null)).toEqual({ ok: false, reason: "limit" });
   });
 
   it("an ended access, an off module or a failed read all read as nothing to show", async () => {
