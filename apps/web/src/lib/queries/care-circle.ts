@@ -31,6 +31,10 @@ import {
   familyNoteShareInputSchema,
   giftShareInputSchema,
   giftShareResultSchema,
+  parseShareOffers,
+  parseSharingHistory,
+  respondOfferInputSchema,
+  respondOfferResultSchema,
   type GiftShareInput,
   type CirclePermission,
 } from "@/lib/care-circle/model";
@@ -619,6 +623,71 @@ export function useDismissGiftPayer() {
       if (!parsed.success) throw new CircleError("invalid");
       const { error } = await createClient().rpc("dismiss_gift_payer_offer", { p_payer: parsed.data });
       if (error) throw new CircleError(error.message);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Care Circle P1 (founder decision D3, 2026-11-04): a person who paid is asked to join and says yes or no
+// ---------------------------------------------------------------------------
+export const shareOffersKey = ["care-circle", "share-offers"] as const;
+/** The payer's open offers. A missing function (app ahead of its migration) is "none". */
+export function useShareOffers() {
+  return useQuery({
+    queryKey: shareOffersKey,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_circle_share_offers");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseShareOffers(data);
+    },
+  });
+}
+/** Yes or no. The database checks the caller is the person asked, the offer is still open, and the circle is not full. */
+export function useRespondShareOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { memberId: string; accept: boolean }) => {
+      const parsed = respondOfferInputSchema.safeParse(input);
+      if (!parsed.success) throw new CircleError("invalid");
+      const { data, error } = await createClient().rpc("respond_to_circle_share_offer", { p_member: parsed.data.memberId, p_accept: parsed.data.accept });
+      if (error) throw new CircleError(error.message);
+      const r = respondOfferResultSchema.safeParse(data);
+      if (!r.success) throw new CircleError("unknown");
+      return r.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.supported });
+    },
+  });
+}
+/** The patient takes back an offer nobody has answered yet. */
+export function useWithdrawShareOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (memberId: string) => {
+      const parsed = respondOfferInputSchema.shape.memberId.safeParse(memberId);
+      if (!parsed.success) throw new CircleError("invalid");
+      const { data, error } = await createClient().rpc("withdraw_circle_share_offer", { p_member: parsed.data });
+      if (error) throw new CircleError(error.message);
+      return data === true;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.mine });
+      void qc.invalidateQueries({ queryKey: giftPayersKey });
+    },
+  });
+}
+/** P1: the patient's own history of who may see what (the database returns only the caller's rows). */
+export function useSharingHistory(enabled: boolean) {
+  return useQuery({
+    queryKey: ["care-circle", "sharing-history"] as const,
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_circle_sharing_history", { p_limit: 50 });
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseSharingHistory(data);
     },
   });
 }

@@ -437,7 +437,8 @@ begin
   insert into results values ('sabotaged', 'a supporter who never opted in is not nudged', '0', pg_temp.cnt(v_see, 'circle_gentle_nudge', null, 'in_app'));
   -- (b) the permission test removed from the digest: a member with only appointments is given the doses block
   select pg_get_functiondef('public.circle_weekly_digest(uuid)'::regprocedure) into d;
-  d := replace(d, 'if ''adherence_summary'' = any (m.permissions) then', 'if true then');
+  -- (Care Circle P1, 2026-11-04: the digest now reads the consent-filtered v_perms, not m.permissions)
+  d := replace(d, 'if ''adherence_summary'' = any (v_perms) then', 'if true then');
   if d = pg_get_functiondef('public.circle_weekly_digest(uuid)'::regprocedure) then raise exception 'sabotage (b) did not change the function'; end if;
   execute d;
   insert into results values ('sabotaged', 'a member without the medicines permission gets no doses block', 'false',

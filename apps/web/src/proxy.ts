@@ -11,7 +11,8 @@ import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
 import { rateLimit } from "@/lib/rate-limit";
 import { JOIN_PATH_PREFIX, isJoinToken, joinLandingPath } from "@/lib/care-circle/join-link";
-import { isMobileApiPath, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
+import { isMobileApiPath, isSafetyRoute, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
+import { appCheckShouldRefuse } from "@/lib/app-check/verify";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -38,6 +39,15 @@ export async function proxy(request: NextRequest) {
   if (isMobileApiPath(request.nextUrl.pathname)) {
     const limited = await mobileApiRateLimitResponse(request.headers, rateLimit, request.nextUrl.pathname);
     if (limited) return limited;
+    // Firebase App Check (Play Integrity) for the Android app. MONITOR mode by default: logs, never refuses
+    // (lib/app-check/verify.ts). Even under enforce, a safety route is never refused: a delay there could delay care.
+    if (!isSafetyRoute(request.nextUrl.pathname) && (await appCheckShouldRefuse(request.headers, request.nextUrl.pathname))) {
+      // 403, never 401: the app reads a 401 as an expired session, refreshes, and signs the person out.
+      return NextResponse.json(
+        { error: "This app could not be verified. Update TarragonHealth from the Play Store and try again.", code: "app_check_failed" },
+        { status: 403 },
+      );
+    }
   }
 
   const { response, supabase, user } = await updateSession(request, { verify: "claims" });

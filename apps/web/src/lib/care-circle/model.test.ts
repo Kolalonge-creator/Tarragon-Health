@@ -17,8 +17,8 @@ describe("care circle model", () => {
       invites: [],
     });
     expect(ok.members).toHaveLength(1);
-    expect(parseMyCircle({ members: [{ permissions: ["view_results"] }], invites: [] })).toEqual({ members: [], invites: [] });
-    expect(parseMyCircle(null)).toEqual({ members: [], invites: [] });
+    expect(parseMyCircle({ members: [{ permissions: ["view_results"] }], invites: [] })).toEqual({ members: [], invites: [], offers: [] });
+    expect(parseMyCircle(null)).toEqual({ members: [], invites: [], offers: [] });
   });
 
   it("drops a supported-person row that carries a legacy or unknown permission, keeps the rest", () => {
@@ -83,7 +83,7 @@ describe("care circle follow-up (S29c)", () => {
     const base = { members: [], invites: [] };
     expect(parseMyCircle({ ...base, pause: { paused_until: "2026-10-14T00:00:00Z", pause_alerts: true }, pause_days: 7 }).pause).toEqual({ paused_until: "2026-10-14T00:00:00Z", pause_alerts: true });
     expect(parseMyCircle({ ...base, pause: null, pause_days: 7 }).pause).toBeNull();
-    expect(parseMyCircle({ ...base, pause: { paused_until: 5 } })).toEqual({ members: [], invites: [] });
+    expect(parseMyCircle({ ...base, pause: { paused_until: 5 } })).toEqual({ members: [], invites: [], offers: [] });
   });
 
   it("an unknown alert mode falls back to the safer one (push and in app), never to silence", () => {
