@@ -53,6 +53,8 @@ export const memberSchema = z.object({
   monthly_report_shared: z.boolean().optional().default(false),
   /** S69b: the patient chose to let this supporter be nudged. Absent means off. */
   missed_dose_alert: z.boolean().optional().default(false),
+  /** P4: main or backup family contact. A label only: it grants nothing. */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional().default(null),
 });
 export type CircleMember = z.infer<typeof memberSchema>;
 
@@ -180,7 +182,28 @@ export const supporterViewSchema = z.object({
     })
     .optional(),
   plan_progress: z.object({ done: z.number(), due: z.number(), overdue: z.number(), next_due: z.string().nullable() }).optional(),
+  /** P4: this supporter is the patient's main or backup family contact (a label only). */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional(),
 });
+
+/** P4: one event on the family timeline. Never a value or free text; `code` is a test code or a help-request kind. */
+export const TIMELINE_KINDS = [
+  "doctor_note_shared", "appointment_attended", "appointment_missed", "test_requested", "test_reviewed", "help_requested", "help_done",
+] as const;
+export const timelineEventSchema = z.object({
+  at: z.string(),
+  kind: z.enum(TIMELINE_KINDS),
+  code: z.string().optional(),
+  source: z.enum(["clinician", "patient", "system"]),
+});
+export type TimelineEvent = z.infer<typeof timelineEventSchema>;
+export function parseTimeline(data: unknown): TimelineEvent[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = timelineEventSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
 export type SupporterView = z.infer<typeof supporterViewSchema>;
 
 /** Null means the access has ended or never existed: the screen shows one neutral message either way. */

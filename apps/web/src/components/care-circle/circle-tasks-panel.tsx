@@ -86,7 +86,7 @@ export function CircleTasksPanel({ patientId, locale }: { patientId: string; loc
             <div className="space-y-1">
               <Label htmlFor={`task-kind-${patientId}`}>{t("cctools.tasks.kind", locale)}</Label>
               <select id={`task-kind-${patientId}`} className={`w-full rounded-md border bg-transparent px-3 ${TOUCH}`} value={kind} onChange={(e) => setKind(e.target.value)}>
-                {CIRCLE_TASK_KINDS.map((k) => <option key={k} value={k}>{t(circleToolsTaskKindKey(k), locale)}</option>)}
+                {CIRCLE_TASK_KINDS.filter((k) => role === "patient" || k !== "other").map((k) => <option key={k} value={k}>{t(circleToolsTaskKindKey(k), locale)}</option>)}
               </select>
             </div>
             <div className="space-y-1">
