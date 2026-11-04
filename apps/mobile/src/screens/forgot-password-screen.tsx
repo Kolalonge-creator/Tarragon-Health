@@ -279,7 +279,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
           <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
             {ta("auth.recovery.title", locale)}
           </Text>
-          <MutedText>We can text you a code, or email you a reset link.</MutedText>
+          <MutedText>{TEXT_CODES_ENABLED ? "We can text you a code, or email you a reset link." : "We'll email you a reset link."}</MutedText>
         </View>
 
         <View
