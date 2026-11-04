@@ -30,6 +30,9 @@ describe("supporter home on the phone", () => {
     expect(hasSharedBlocks({}, "en")).toBe(false);
     expect(hasSharedBlocks({ adherence: { taken: 1, due: 2, percent: 50 } }, "en")).toBe(true);
     expect(hasSharedBlocks({ appointments: { nextAt: null, missed30d: 0 } }, "en")).toBe(true);
+    // a released doctor's note on its own is something to show, never the empty state
+    expect(hasSharedBlocks({ doctorNote: { body: "Reviewed today.", writtenAt: "2026-11-03T10:00:00Z", authorStaffId: null, authorName: null } }, "en")).toBe(true);
+    expect(hasSharedBlocks({ doctorNote: null }, "en")).toBe(false);
   });
 
   it("a supporter-only account opens on the people it supports, with tabs and a menu only for that", () => {

@@ -14,6 +14,8 @@ import { HelpAlertCard } from "./care-circle-help-card";
 import { PermissionSummary, PresetPicker, TasksCard, useToolsStatus } from "./circle-tools";
 import { supabase } from "@/lib/supabase";
 import { SupporterBlocks } from "./supporter-blocks";
+import { GiftPayerOffers } from "./gift-share-step";
+import { MyFamilyNoteCard } from "./my-family-note-card";
 import { placeholderColorFor, useTextInputStyle, useTheme } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
@@ -115,6 +117,9 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<MessageKey | null>(null);
+  // 2026-11-03: after a yes, the "would you like [name] to see how you are doing?" step opens for that gift's payer. Accepting shares nothing.
+  const [justAccepted, setJustAccepted] = useState<string | null>(null);
+  const [payersKey, setPayersKey] = useState(0);
   async function answer(id: string, accept: boolean) {
     setBusy(true);
     setFailed(false);
@@ -126,6 +131,8 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
       return;
     }
     setNotice(r === "accepted" ? "circle.gift.accepted" : "circle.gift.declined");
+    setJustAccepted(r === "accepted" ? id : null);
+    setPayersKey((k) => k + 1);
     onAnswered();
   }
   function decline(id: string) {
@@ -134,7 +141,6 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
       { text: t("circle.gift.decline", locale), style: "destructive", onPress: () => void answer(id, false) },
     ]);
   }
-  if (gifts.length === 0 && !notice) return null;
   return (
     <View style={{ gap: 8 }}>
       {gifts.map((g) => (
@@ -149,6 +155,7 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
       ))}
       {notice ? <MutedText>{t(notice, locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.gift.error", locale)}</ErrorText> : null}
+      <GiftPayerOffers justAccepted={justAccepted} refreshKey={payersKey} />
     </View>
   );
 }
@@ -471,6 +478,8 @@ export function CareCircleSection() {
   if (!circle) return loadFailed ? <ErrorText>{t("circle.error.unknown", locale)}</ErrorText> : <ActivityIndicator />;
   return (
     <View style={{ gap: 12 }}>
+      {/* every line a doctor writes for the family reaches the patient first; nothing is shared until they choose */}
+      <MyFamilyNoteCard />
       <GiftCards gifts={gifts} onAnswered={() => void refresh()} />
       <AppText variant="title">{t("circle.title", locale)}</AppText>
       <MutedText>{t("circle.intro", locale)}</MutedText>

@@ -44,6 +44,19 @@ describe("SupporterView", () => {
     await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
   });
 
+  it("shows the doctor's line for the family only when it was sent, with the name null-gated", async () => {
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByText("A note from the doctor")).toBeNull();
+    cleanup();
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "She did well today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: "s1", author_name: "Dr Amara Eze" } },
+    };
+    await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByText("She did well today.")).toBeTruthy();
+    expect(screen.getByText("From Dr Amara Eze")).toBeTruthy();
+  });
+
   it("shows weekly averages and a direction, never a single reading", () => {
     view = {
       isPending: false,
@@ -101,6 +114,15 @@ describe("SupporterView", () => {
     view = { isPending: false, data: { ...BASE, permissions: ["pay_for_care"], can_pay: true } };
     render(<SupporterView patientId="p1" locale="en" />);
     expect(screen.getByTestId("supporter-blocks-empty").textContent).toMatch(/You can still pay for their care/);
+  });
+
+  it("a released doctor's note on its own is shown, never the empty state", () => {
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "Reviewed today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: null, author_name: null } },
+    } as typeof view;
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByTestId("supporter-blocks-empty")).toBeNull();
   });
 
   it("does not show the empty state when a block is shared", () => {

@@ -1,6 +1,7 @@
 import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { circleToolsCopy } from "./care-circle-tools-copy";
+import { familyCircleCopy } from "./family-circle-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -2101,6 +2102,7 @@ export const en = {
   "supporterjoin.sees.bp": "See {name}'s weekly blood pressure trend, as averages only. Never a single reading.",
   "supporterjoin.sees.appointments": "See {name}'s next appointment, and whether one was missed. Never the reason.",
   "supporterjoin.sees.digest": "Get a short weekly note on how {name} is getting on, such as how many days they logged a reading.",
+  "supporterjoin.sees.doctor_note": "See a short note from {name}'s doctor after a meeting, only when {name} chooses to share it.",
   "supporterjoin.can.alert": "Be asked to check on {name} if their care team sees something urgent. You will see only that they need a call, never what happened.",
   "supporterjoin.can.pay": "Pay for {name}'s care. Paying shows you no health information.",
   "supporterjoin.can.tasks": "Help with small jobs {name} asks for, like a lift to the lab or collecting medicines.",
@@ -5012,6 +5014,8 @@ export const en = {
   ...cycleCopy,
   // S69b: Care Circle presets, preview, shared jobs, digest, nudge (proposed copy, CMO and DPO review pending: see care-circle-tools-copy.ts)
   ...circleToolsCopy,
+  // 2026-11-03: share with the person who paid, and the doctor's line for the family (proposed copy, CMO and DPO review pending: see family-circle-copy.ts)
+  ...familyCircleCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

@@ -1,8 +1,8 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
 import {
-  circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog,
-  type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
+  circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog, parseGiftPayers, parseMyFamilyNotes, validGiftShare, isUuid,
+  type GiftPayer, type MyFamilyNote, type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
 export async function loadMyCircle(): Promise<QueryResult<MyCircle>> {
@@ -181,4 +181,41 @@ export async function loadDigest(patientId: string): Promise<CircleDigest | null
 export async function loadNudges(): Promise<CircleNudge[]> {
   const { data, error } = await supabase.rpc("circle_recent_nudges");
   return error ? [] : parseNudges(data);
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-03: sharing with the person who paid for a gift the patient accepted
+// ---------------------------------------------------------------------------
+/** Payers of accepted gifts who see nothing yet. First name only. A failed read is "none": this is an offer, never a required step. */
+export async function loadGiftPayers(): Promise<GiftPayer[]> {
+  const { data, error } = await supabase.rpc("circle_gift_payers");
+  return error ? [] : parseGiftPayers(data);
+}
+/** "Not now", remembered per payer: the offer never comes back for that payer. A failed save shares nothing either way. */
+export async function dismissGiftPayer(payerId: string): Promise<boolean> {
+  if (!isUuid(payerId)) return false;
+  const { data, error } = await supabase.rpc("dismiss_gift_payer_offer", { p_payer: payerId });
+  return !error && data === true;
+}
+/** The patient's own notes from the doctor (latest first). A failed read is "none": nothing is shared by not showing it. */
+export async function loadMyFamilyNotes(): Promise<MyFamilyNote[]> {
+  const { data, error } = await supabase.rpc("my_family_notes");
+  return error ? [] : parseMyFamilyNotes(data);
+}
+/** Share or un-share one note. Only the patient can (the database checks). Null means it was not saved. */
+export async function setFamilyNoteShared(noteId: string, share: boolean): Promise<boolean | null> {
+  if (!isUuid(noteId)) return null;
+  const { data, error } = await supabase.rpc("set_family_note_shared", { p_note: noteId, p_share: share });
+  return error || typeof data !== "boolean" ? null : data;
+}
+export type GiftShareAnswer = { ok: true } | { ok: false; reason: "invalid" | "full" | "failed" };
+/**
+ * The patient's tap. Checked here before anything is sent; the database checks again (auth.uid() is the patient, the payer must have paid
+ * for a gift this patient accepted, the list is limited, under 18 is refused). Nothing is shared without this call.
+ */
+export async function shareWithGiftPayer(payerId: string, permissions: readonly string[], monthlyReport: boolean): Promise<GiftShareAnswer> {
+  if (!validGiftShare(payerId, permissions)) return { ok: false, reason: "invalid" };
+  const { data, error } = await supabase.rpc("share_circle_with_gift_payer", { p_payer: payerId, p_permissions: [...permissions], p_monthly_report: monthlyReport });
+  if (error) return { ok: false, reason: error.message.includes("circle_full") ? "full" : "failed" };
+  return parseOk(data) ? { ok: true } : { ok: false, reason: "failed" };
 }

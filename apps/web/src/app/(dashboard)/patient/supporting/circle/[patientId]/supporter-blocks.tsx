@@ -2,6 +2,7 @@ import { circleMonthlyLines, parseCircleMonthly, t, type Locale } from "@tarrago
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import type { SupporterView } from "@/lib/care-circle/model";
+import { FamilyDoctorNoteCard } from "@/components/care-circle/family-doctor-note-card";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
@@ -9,10 +10,13 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
  * The health blocks a supporter sees, and nothing else. Used by the supporter's own page and by the patient's "see what they see"
  * preview, so the preview cannot show anything the real page does not. A block that is absent is simply not shared.
  */
-export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly">; locale: Locale }) {
+export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly" | "doctor_note">; locale: Locale }) {
   const monthly = parseCircleMonthly(view.monthly).filter((r) => circleMonthlyLines(r, locale).length > 0);
   return (
     <>
+      {/* the doctor's line for the family first: the most personal thing on the page. Absent = not shared; null = none written yet. */}
+      {view.doctor_note !== undefined ? <FamilyDoctorNoteCard note={view.doctor_note} locale={locale} /> : null}
+
       {view.adherence ? (
         <Card>
           <CardHeader><CardTitle>{t("circle.view.adherence.title", locale)}</CardTitle></CardHeader>
@@ -73,9 +77,10 @@ export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "a
  * True when at least one health block above would render. A view with only check-in requests or paying shared has none. A block
  * added above must be added here too, or its page would also show the empty state.
  */
-export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly">, locale: Locale): boolean {
+export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly" | "doctor_note">, locale: Locale): boolean {
   const monthly = parseCircleMonthly(view.monthly).filter((r) => circleMonthlyLines(r, locale).length > 0);
-  return Boolean(view.adherence || view.bp_trend || view.appointments || monthly.length > 0);
+  // a doctor's note the patient released counts too, or a page whose only shared item is that note would show the empty state
+  return Boolean(view.adherence || view.bp_trend || view.appointments || monthly.length > 0 || view.doctor_note != null);
 }
 
 /**

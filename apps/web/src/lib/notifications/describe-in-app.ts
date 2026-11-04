@@ -858,6 +858,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }
+  if (n.template === "circle_shared_with_you") {
+    // From public.share_circle_with_gift_payer (2026-11-03): to the payer. No name, nothing about what is shared (INV-07).
+    return { text: "Someone has added you to their Care Circle", href: "/patient/supporting" };
+  }
   // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral lines (INV-07), never the reading or the cause.
   if (n.template === "free_red_guidance") {
     return { text: t("freered.notice.guidance", "en"), href: "/patient" };

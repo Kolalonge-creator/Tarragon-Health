@@ -8,6 +8,7 @@ import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { isMessageKey } from "@/lib/commerce/model";
 import { usePendingGifts, useRespondToGift } from "@/lib/queries/care-circle";
+import { GiftPayerOffers } from "./gift-payer-offers";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
@@ -15,14 +16,17 @@ const TOUCH = "min-h-11";
 /**
  * A care pack or Membership someone in the Care Circle paid for waits here for the patient's yes (S29b, OQ-191). Nothing starts and
  * no lead clinician is assigned until the patient accepts; a no refunds the payer and tells the payer nothing.
+ *
+ * 2026-11-03: after a yes, the next step asks whether the person who paid may see how the patient is doing (GiftPayerOffers). Nothing is
+ * shared by accepting; only the patient's own tap in that step shares anything. The same offer stays here for any earlier payer.
  */
 export function PendingGifts({ locale }: { locale: Locale }) {
   const gifts = usePendingGifts();
   const respond = useRespondToGift();
   const [notice, setNotice] = useState<"circle.gift.accepted" | "circle.gift.declined" | null>(null);
+  const [justAccepted, setJustAccepted] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const rows = gifts.data ?? [];
-  if (rows.length === 0 && !notice) return null;
 
   async function answer(entitlementId: string, accept: boolean) {
     setFailed(false);
@@ -30,6 +34,7 @@ export function PendingGifts({ locale }: { locale: Locale }) {
     try {
       const r = await respond.mutateAsync({ entitlementId, accept });
       setNotice(r === "accepted" ? "circle.gift.accepted" : "circle.gift.declined");
+      setJustAccepted(r === "accepted" ? entitlementId : null);
     } catch {
       setFailed(true);
     }
@@ -65,6 +70,7 @@ export function PendingGifts({ locale }: { locale: Locale }) {
       ))}
       {notice ? <p role="status">{t(notice, locale)}</p> : null}
       <FormError id="gift-error" message={failed ? t("circle.gift.error", locale) : null} />
+      <GiftPayerOffers locale={locale} justAccepted={justAccepted} />
     </div>
   );
 }

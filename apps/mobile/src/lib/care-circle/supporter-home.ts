@@ -25,7 +25,8 @@ export function mergePeople(circle: readonly CirclePerson[], managed: readonly M
 }
 
 /** True when at least one health block would render. A person who shared only check-in requests or paying has none. */
-export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly">, locale: Locale): boolean {
+export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly" | "doctorNote">, locale: Locale): boolean {
   const monthly = (view.monthly ?? []).filter((r) => circleMonthlyLines(r, locale).length > 0);
-  return Boolean(view.adherence || view.bpTrend || view.appointments || monthly.length > 0);
+  // a doctor's note the patient released counts too, or a page whose only shared item is that note would show the empty state
+  return Boolean(view.adherence || view.bpTrend || view.appointments || monthly.length > 0 || view.doctorNote != null);
 }

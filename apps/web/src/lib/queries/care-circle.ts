@@ -26,6 +26,12 @@ import {
   parseSupported,
   parseSupporterView,
   parseViewLog,
+  parseGiftPayers,
+  parseMyFamilyNotes,
+  familyNoteShareInputSchema,
+  giftShareInputSchema,
+  giftShareResultSchema,
+  type GiftShareInput,
   type CirclePermission,
 } from "@/lib/care-circle/model";
 
@@ -345,6 +351,8 @@ export function useRespondToGift() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: circleKeys.gifts });
       void qc.invalidateQueries({ queryKey: ["commerce"] });
+      // an accepted gift may bring a payer into the "would you like them to see" offer
+      void qc.invalidateQueries({ queryKey: ["care-circle", "gift-payers"] });
     },
   });
 }
@@ -551,6 +559,100 @@ export function useWeeklyDigest(patientId: string, enabled: boolean) {
       const { data, error } = await createClient().rpc("circle_weekly_digest", { p_patient: patientId });
       if (error) throw new CircleError(error.message);
       return parseDigest(data);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-03: sharing with the person who paid for a gift the patient accepted
+// ---------------------------------------------------------------------------
+export const giftPayersKey = ["care-circle", "gift-payers"] as const;
+
+/** Payers of accepted gifts who do not see anything yet. First name only. A missing function (app ahead of its migration) is "none". */
+export function useGiftPayers(enabled = true) {
+  return useQuery({
+    queryKey: giftPayersKey,
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_gift_payers");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseGiftPayers(data);
+    },
+  });
+}
+
+/**
+ * The patient's tap. Input is checked with Zod before anything is sent; the database checks it again (auth.uid() is the patient, the
+ * payer must have paid for a gift this patient accepted, the list is limited, under 18 is refused). Nothing is shared without this call.
+ */
+export function useShareWithGiftPayer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: GiftShareInput) => {
+      const parsed = giftShareInputSchema.safeParse(input);
+      if (!parsed.success) throw new CircleError("invite_permissions_invalid");
+      const { data, error } = await createClient().rpc("share_circle_with_gift_payer", {
+        p_payer: parsed.data.payerId,
+        p_permissions: [...parsed.data.permissions],
+        p_monthly_report: parsed.data.monthlyReport,
+      });
+      if (error) throw new CircleError(error.message);
+      const r = giftShareResultSchema.safeParse(data);
+      if (!r.success) throw new CircleError("unknown");
+      return r.data;
+    },
+    // the circle list changes; the offer list is left alone on purpose so the step that was just answered stays on screen with its
+    // confirmation (it drops off on the next visit)
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: circleKeys.mine });
+      void qc.invalidateQueries({ queryKey: ["care-circle", "preview-member"] });
+    },
+  });
+}
+
+/** "Not now", remembered per payer: the offer never comes back for that payer, even after a later gift. */
+export function useDismissGiftPayer() {
+  return useMutation({
+    mutationFn: async (payerId: string) => {
+      const parsed = giftShareInputSchema.shape.payerId.safeParse(payerId);
+      if (!parsed.success) throw new CircleError("invalid");
+      const { error } = await createClient().rpc("dismiss_gift_payer_offer", { p_payer: parsed.data });
+      if (error) throw new CircleError(error.message);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 2026-11-03 (review fix): the patient reads every doctor's note first and decides, note by note, whether family may see it
+// ---------------------------------------------------------------------------
+export const myFamilyNotesKey = ["care-circle", "my-family-notes"] as const;
+export function useMyFamilyNotes() {
+  return useQuery({
+    queryKey: myFamilyNotesKey,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_family_notes");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseMyFamilyNotes(data);
+    },
+  });
+}
+/** Share or un-share one note with the Care Circle. Only the patient can; the database checks auth.uid() against the note's patient. */
+export function useSetFamilyNoteShared() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { noteId: string; share: boolean }) => {
+      const parsed = familyNoteShareInputSchema.safeParse(input);
+      if (!parsed.success) throw new CircleError("invalid");
+      const { data, error } = await createClient().rpc("set_family_note_shared", { p_note: parsed.data.noteId, p_share: parsed.data.share });
+      if (error) throw new CircleError(error.message);
+      if (typeof data !== "boolean") throw new CircleError("unknown");
+      return data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: myFamilyNotesKey });
+      void qc.invalidateQueries({ queryKey: ["care-circle", "preview-member"] });
     },
   });
 }
