@@ -347,10 +347,10 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       },
       {
         href: "/admin/settings/screening-days",
-        label: "Group screening days",
-        blurb: "Confirm requests, set the cohort discount, and issue attendee vouchers.",
+        label: "Group screening days and outreach checks",
+        blurb: "Create outreach checks, enrol attendees and save their readings; confirm group bookings.",
         icon: SEMANTIC_ICON.booking,
-        visible: adminOnly,
+        visible: anyOf("screening_days.manage", "screening_days.run"),
       },
       {
         href: "/admin/settings/lab-result-consult-pricing",

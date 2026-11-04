@@ -214,6 +214,10 @@ begin
   perform pg_temp.rec('G1 SABOTAGE enrolment policy opened: the payer now reads enrolments (so F3 was the policy)', '2',
     pg_temp.q_as(v_payer, format($q$select count(*)::text from public.outreach_enrolments where screening_day_id = %L$q$, v_paid)));
   execute $s$ create or replace function private.can_run_outreach_day() returns boolean language sql stable security definer set search_path = '' as $b$ select true $b$ $s$;
+  -- the later organisation-scoped check (20261104012736) is a second barrier on the same path; open it too when it exists
+  if to_regprocedure('private.is_outreach_runner_for_org(uuid)') is not null then
+    execute $s$ create or replace function private.is_outreach_runner_for_org(p_org uuid) returns boolean language sql stable security definer set search_path = '' as $b$ select true $b$ $s$;
+  end if;
   v_r := pg_temp.q_as(v_p1, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s4, v_other));
   perform pg_temp.rec('G2 SABOTAGE on-site check forced true: a patient can enrol someone (so E4 was that check)', 'true', (v_r not like 'ERR 42501:%')::text);
   execute replace(pg_get_functiondef('private.enforce_lab_order_origin()'::regprocedure),

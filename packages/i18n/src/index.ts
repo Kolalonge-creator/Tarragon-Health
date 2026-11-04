@@ -14,6 +14,9 @@ export {
   FERTILE_WINDOW_LABEL,
   FERTILE_WINDOW_LINK_TEXT,
   FERTILE_WINDOW_SIGNED,
+  activeOutreachDangerousReadingWording,
+  OUTREACH_DANGEROUS_READING_SIGNED,
+  type OutreachDangerousReadingWords,
   type FertileWindowWords,
 } from "./clinical-wording";
 

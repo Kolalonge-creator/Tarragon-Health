@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { activeOutreachDangerousReadingWording } from "@tarragon/i18n";
 import { koboToNaira } from "@tarragon/shared";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -310,7 +311,27 @@ function optionalNumber(value: string): number | undefined {
   return value.trim() === "" ? undefined : Number(value);
 }
 
-function VitalsForm({ day, slotId }: { day: ScreeningDay; slotId: string }) {
+/** OUT-001, the CMO-signed on-site wording (packages/i18n clinical-wording.json), shown when a saved reading was an emergency. */
+export function DangerousReadingPanel({ name, onDone }: { name: string; onDone: () => void }) {
+  const words = activeOutreachDangerousReadingWording();
+  return (
+    <div role="alert" className="w-full space-y-2 rounded-md border-2 border-red-600 bg-red-50 p-4 text-sm text-charcoal-ink dark:bg-red-950/40 dark:text-night-ink">
+      <p className="font-heading text-base font-semibold">
+        {words.title}: {name}
+      </p>
+      <ol className="list-decimal space-y-1 pl-5">
+        {words.steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      <Button type="button" size="sm" variant="outline" onClick={onDone}>
+        Done
+      </Button>
+    </div>
+  );
+}
+
+function VitalsForm({ day, slotId, onEmergency }: { day: ScreeningDay; slotId: string; onEmergency: () => void }) {
   const record = useRecordOutreachVitals();
   const [sys1, setSys1] = useState("");
   const [dia1, setDia1] = useState("");
@@ -340,7 +361,16 @@ function VitalsForm({ day, slotId }: { day: ScreeningDay; slotId: string }) {
       className="w-full space-y-2 rounded-md border border-charcoal-ink/10 p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        record.mutate({ slotId, screeningDayId: day.id, vitals });
+        // mutateAsync, not a per-call onSuccess: saving makes this form unmount (the row turns to "Readings saved"), and TanStack
+        // Query drops per-call callbacks of an unmounted observer. The promise still resolves, and onEmergency belongs to the list.
+        record
+          .mutateAsync({ slotId, screeningDayId: day.id, vitals })
+          .then((data) => {
+            if (data.emergency) onEmergency();
+          })
+          .catch(() => {
+            // shown below from record.error while the form is still on screen
+          });
       }}
     >
       <div className="flex flex-wrap items-end gap-2">
@@ -378,6 +408,8 @@ function SlotsList({ day }: { day: ScreeningDay }) {
   const addSlot = useAddScreeningDaySlot();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  // Slots whose saved readings crossed the emergency threshold; the panel stays until the staff member taps Done.
+  const [emergencySlots, setEmergencySlots] = useState<ReadonlySet<string>>(new Set());
   const ready = screeningDayReadyForAttendees(day);
   const registered = (slots ?? []).filter((s) => s.status !== "removed").length;
   const remaining = (day.slots_confirmed ?? 0) - registered;
@@ -413,8 +445,24 @@ function SlotsList({ day }: { day: ScreeningDay }) {
                   {enrolment.vitals_recorded_at ? (
                     <Badge variant="green">Readings saved</Badge>
                   ) : (
-                    <VitalsForm day={day} slotId={slot.id} />
+                    <VitalsForm
+                      day={day}
+                      slotId={slot.id}
+                      onEmergency={() => setEmergencySlots((prev) => new Set(prev).add(slot.id))}
+                    />
                   )}
+                  {emergencySlots.has(slot.id) ? (
+                    <DangerousReadingPanel
+                      name={slot.full_name ?? "this person"}
+                      onDone={() =>
+                        setEmergencySlots((prev) => {
+                          const next = new Set(prev);
+                          next.delete(slot.id);
+                          return next;
+                        })
+                      }
+                    />
+                  ) : null}
                 </>
               )}
             </li>
@@ -451,7 +499,7 @@ function SlotsList({ day }: { day: ScreeningDay }) {
   );
 }
 
-function ScreeningDayRow({ day }: { day: ScreeningDay }) {
+function ScreeningDayRow({ day, canManage }: { day: ScreeningDay; canManage: boolean }) {
   const badge = STATUS_BADGE[day.status];
   const kind = screeningDayKind(day);
   return (
@@ -471,23 +519,25 @@ function ScreeningDayRow({ day }: { day: ScreeningDay }) {
         </p>
         <p className="text-sm text-charcoal-ink/70">{day.slots_requested} people expected</p>
         {day.notes ? <p className="text-sm text-charcoal-ink/60">{day.notes}</p> : null}
-        {day.status === "requested" ? <ConfirmForm day={day} /> : null}
+        {day.status === "requested" ? (
+          canManage ? <ConfirmForm day={day} /> : <p className="text-sm text-charcoal-ink/60">Waiting for confirmation.</p>
+        ) : null}
         {day.status === "confirmed" ? <SlotsList day={day} /> : null}
       </CardContent>
     </Card>
   );
 }
 
-export function ScreeningDaysDashboard() {
+export function ScreeningDaysDashboard({ canManage }: { canManage: boolean }) {
   const { data: days, isLoading } = useScreeningDays();
 
   return (
     <div className="space-y-4">
-      <CreateOutreachForm />
+      {canManage ? <CreateOutreachForm /> : null}
       {isLoading ? <p className="text-sm text-charcoal-ink/60">Loading…</p> : null}
       {days && days.length === 0 ? <p className="text-sm text-charcoal-ink/60">No screening days yet.</p> : null}
       {(days ?? []).map((day) => (
-        <ScreeningDayRow key={day.id} day={day} />
+        <ScreeningDayRow key={day.id} day={day} canManage={canManage} />
       ))}
     </div>
   );
