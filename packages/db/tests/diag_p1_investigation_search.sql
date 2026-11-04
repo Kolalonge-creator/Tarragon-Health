@@ -9,6 +9,7 @@
 --   13   an unrelated term returns nothing; a bad threshold is refused
 --   14   anon cannot execute the search
 --   15   screen_types cannot link to an ambiguous parent (trigger)
+--   16   an imaging study cannot link to a lab test or a different modality; the matching concept is accepted
 -- Sabotage x2: (a) breast parent no longer ambiguous -> "breast scan" no longer clarifies; (b) trigger dropped ->
 -- the ambiguous link is accepted. Each must flip the result, proving the checks discriminate.
 
@@ -56,7 +57,15 @@ begin
   if not exists (select 1 from public.search_investigations('MRI', t) where matched_on = 'clarify' and code = 'inv.mri_brain') then
     raise exception 'FAIL 11: MRI should ask which body part';
   end if;
+  select matched_on into r from public.search_investigations('MRI', t) where code = 'inv.mri_spine';
+  if r.matched_on is distinct from 'clarify_group' then raise exception 'FAIL 11b: MRI spine must be a group, got %', r.matched_on; end if;
   raise notice 'PASS 8-11: ambiguous terms ask, never guess';
+
+  select * into r from public.search_investigations('chest ct', t) where code = 'inv.ct_chest';
+  if r.matched_on is distinct from 'fuzzy' or r.score > 0.89 then
+    raise exception 'FAIL 11c: reordered words must stay a capped fuzzy match, got % %', r.matched_on, r.score;
+  end if;
+  raise notice 'PASS 11c: fuzzy never poses as exact';
 
   if exists (select 1 from public.search_investigations('scan', t) where matched_on = 'clarify') then
     raise exception 'FAIL 12: a loose word must not pick an ambiguous parent';
@@ -90,6 +99,25 @@ begin
   end;
   if not v_ok then raise exception 'FAIL 15: screen_types accepted an ambiguous concept'; end if;
   raise notice 'PASS 15: ambiguous concept cannot be linked';
+
+  -- 16: an imaging study cannot link to a lab test or to another modality; the right one is accepted
+  insert into public.imaging_providers (id, name) values ('00000000-0000-4000-8000-00000000d1a6', 'Proof imaging centre');
+  insert into public.imaging_studies (provider_id, modality, code, name, price_kobo)
+  values ('00000000-0000-4000-8000-00000000d1a6', 'xray', 'proof_cxr', 'Proof chest X-ray', 0);
+  v_ok := false;
+  begin
+    update public.imaging_studies set concept_id = (select id from public.reference_concepts where code = 'inv.hba1c') where code = 'proof_cxr';
+  exception when sqlstate '23514' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL 16: imaging study accepted a lab test concept'; end if;
+  v_ok := false;
+  begin
+    update public.imaging_studies set concept_id = (select id from public.reference_concepts where code = 'inv.ct_chest') where code = 'proof_cxr';
+  exception when sqlstate '23514' then v_ok := true;
+  end;
+  if not v_ok then raise exception 'FAIL 16b: an X-ray study accepted a CT concept'; end if;
+  update public.imaging_studies set concept_id = (select id from public.reference_concepts where code = 'inv.xray_chest') where code = 'proof_cxr';
+  raise notice 'PASS 16: imaging links must match domain and modality';
 
   -- Sabotage (a)
   update public.reference_concepts set is_ambiguous = false where code = 'inv.breast_imaging';

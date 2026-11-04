@@ -383,11 +383,24 @@ returns trigger
 language plpgsql
 set search_path = ''
 as $$
+-- TG_ARGV[0] = 'imaging' additionally requires a procedure concept whose modality equals the study's modality, so an
+-- imaging study can never be linked to a laboratory test (or to the wrong modality).
+declare
+  v_ok boolean;
 begin
-  if new.concept_id is not null and not exists (
-       select 1 from public.reference_concepts
-        where id = new.concept_id and investigation_category is not null and not is_ambiguous) then
-    raise exception '%.concept_id must reference a specific (not ambiguous) investigation concept', tg_table_name
+  if new.concept_id is null then
+    return new;
+  end if;
+  select true into v_ok
+    from public.reference_concepts c
+   where c.id = new.concept_id
+     and c.investigation_category is not null
+     and not c.is_ambiguous
+     and (tg_nargs = 0 or tg_argv[0] <> 'imaging'
+          or (c.domain = 'procedure' and c.modality is not distinct from (to_jsonb(new) ->> 'modality')::public.imaging_modality));
+  if v_ok is null then
+    raise exception '%.concept_id must reference a specific (not ambiguous) investigation concept%', tg_table_name,
+      case when tg_nargs > 0 and tg_argv[0] = 'imaging' then ' of the same imaging modality' else '' end
       using errcode = '23514';
   end if;
   return new;
@@ -399,8 +412,8 @@ create trigger screen_types_require_investigation_concept
   before insert or update of concept_id on public.screen_types
   for each row execute function private.require_investigation_concept();
 create trigger imaging_studies_require_investigation_concept
-  before insert or update of concept_id on public.imaging_studies
-  for each row execute function private.require_investigation_concept();
+  before insert or update of concept_id, modality on public.imaging_studies
+  for each row execute function private.require_investigation_concept('imaging');
 
 -- Exact one-to-one matches only. breast_imaging (ultrasound under 40, mammography 40+) is two investigations and
 -- stays null, like ogtt_fpg and the panels.
@@ -424,7 +437,8 @@ update public.screen_types st
 -- 4. Search
 --   Order of strength: exact display (1.00) > exact synonym or abbreviation (0.98) > whole-word phrase inside a
 --   display or synonym (0.90) > trigram similarity. If the strongest match is an ambiguous parent, the result is that
---   parent's children for the user to choose (matched_on = 'clarify'), never a guess.
+--   parent's children for the user to choose (matched_on = 'clarify', or 'clarify_group' for a child that needs a further
+--   choice), never a guess. Fuzzy scores are capped at 0.89 so they never pose as exact.
 -- ---------------------------------------------------------------------------
 create or replace function public.search_investigations(p_text text, p_min_score numeric, p_limit integer default 10)
 returns table (
@@ -456,10 +470,12 @@ begin
                or exists (select 1 from public.reference_concept_synonyms s
                            where s.concept_id = c.id
                              and ' ' || private.normalise_term(s.term) || ' ' like '% ' || nd.n || ' %') then 0.90
-             else round(greatest(
+             -- Fuzzy is capped below every exact tier: reordered words can share all trigrams (similarity 1.0) and must
+             -- never be reported, or clarified, as an exact match.
+             else least(0.89, round(greatest(
                extensions.similarity(private.normalise_term(c.display), nd.n),
                coalesce((select max(extensions.similarity(private.normalise_term(s.term), nd.n))
-                           from public.reference_concept_synonyms s where s.concept_id = c.id), 0))::numeric, 3)
+                           from public.reference_concept_synonyms s where s.concept_id = c.id), 0))::numeric, 3))
            end as sc
       from public.reference_concepts c
       cross join needle nd
@@ -485,7 +501,8 @@ begin
   ),
   clarify as (
     select c.id, c.code, c.display, c.patient_description, c.investigation_category, c.modality, c.body_region,
-           p.sc, 'clarify'::text as how, p.id as pid, p.display as pdisplay,
+           -- A child that is itself ambiguous (MRI -> "MRI spine") is a group: the UI asks again, it is never a final choice.
+           p.sc, case when c.is_ambiguous then 'clarify_group' else 'clarify' end::text as how, p.id as pid, p.display as pdisplay,
            coalesce((c.attributes ->> 'clarify_order')::int, 999) as ord
       from parent p
       join public.reference_concepts c on c.parent_id = p.id
