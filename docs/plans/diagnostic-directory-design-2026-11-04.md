@@ -70,7 +70,7 @@ The principle: one investigation identity, two existing branch tables, one new s
 **Investigation identity.**
 - Reuse `reference_concepts` as the single investigation identity. Add `kind = 'investigation'` with:
   - `category`: lab section, ultrasound, mammography, X-ray, CT, MRI, cardiac, endoscopy, physiology
-  - `modality`: a FK-style text matching the existing `imaging_equipment.modality` values, not a third enum
+  - `modality`: typed with the existing imaging modality enum (the type of `imaging_equipment.modality`), so there is one list of modalities, not a third
   - `body_region`, `laterality_applicable`, `patient_description`
   - `is_ambiguous_parent`, with child concepts for the clarification step
 - Link `screen_types.concept_id` and `imaging_studies.concept_id` to it, so ordering, results and directory search share one identity.
@@ -80,6 +80,7 @@ The principle: one investigation identity, two existing branch tables, one new s
 **Listings that are not contracts.**
 - Add `directory_status` (`draft` / `listed` / `suspended` / `deactivated`) to `lab_providers` and `imaging_providers`, separate from `is_active`.
 - `is_active` keeps meaning "contracted, routable, billable". The routing, settlement and never-sell-below-cost code reads only `is_active`, so a non-partner listing can never be billed or routed.
+- **P2 must first list every reader of `lab_providers`, `lab_provider_locations`, `imaging_providers` and `imaging_provider_locations` that does not filter on `is_active`.** This covers admin partner pickers, the `facilities.lab_provider_id` link, settlement and cost-basis screens, partner dashboards and `region_service_available`. Each reader gets an `is_active` filter or a stated reason. A DB proof inserts a listed, inactive provider and asserts it reaches no ordering, billing, settlement or partner-picker path.
 - A diagnostic centre that offers both labs and imaging gets one row in each table, joined by the existing `organisation_id` claim column.
 
 **Branch fields.** Add to `lab_provider_locations` and `imaging_provider_locations`:
@@ -142,7 +143,7 @@ Each concept carries a LOINC code (or the RadLex/LOINC radiology playbook code f
 
 Search runs in Postgres and is deterministic, with no external AI:
 1. Normalise the term with the existing `private.normalise_term`.
-2. Match in this order: exact concept name, exact synonym or abbreviation, full-text, then trigram similarity at 0.35 or above.
+2. Match in this order: exact concept name, exact synonym or abbreviation, full-text, then trigram similarity at or above a versioned threshold (proposed 0.35, kept in `packages/shared/src/proposed-config`, not written into SQL).
 3. Return the matched concepts with a `match_kind`.
 4. If the best match is an ambiguous parent, return `needs_clarification` with its children instead of results.
 
@@ -188,14 +189,16 @@ A doctor's search defaults to the **patient's** saved location, never the doctor
 
 **Stage 1, eligibility** (server-side, `private.diagnostic_service_eligible`): exact concept match; availability in (available, by_appointment); the Level 1 conditions in §8; no open suspension at provider, branch or service scope. Expiry takes effect when the function is evaluated, so a credential that expires drops out with no cron. The existing `credential_expiry_notices` warn staff at 90, 60 and 30 days.
 
-**Stage 2, groups**, all within the chosen radius:
-1. Eligible preferred-partner branches, ordered by distance.
-2. Other eligible branches, ordered by distance.
+**Stage 2, groups**, all within the chosen radius. Let *d0* be the distance to the nearest eligible branch.
+1. Eligible preferred-partner branches within the **partner band**, ordered by distance. The band is *d0* plus a versioned margin (proposed 3 km, in `proposed-config`).
+2. All other eligible branches, partner or not, ordered by distance. This includes a partner that falls outside the band.
 3. Branches whose service is `awaiting_confirmation` or `external_referral`, labelled and shown only below the others. They are never presented as normal recommendations.
 
-Two safeguards keep the partner advantage bounded:
-- A partner farther than the radius never outranks a closer eligible branch.
-- Within a group, ties break by verification recency, then name. There is no quality score and no payment weighting.
+Example: in Lekki, the nearest eligible mammography branch is 2 km away. A partner at 4 km is listed first. A partner in Ikeja at 18 km is not: it sits in group 2 at its own distance, below the 2 km branch. The founder spec's rule, that a far partner must not top the list, therefore holds at every radius.
+
+Two more safeguards:
+- Within a group, ties break by verification recency, then by name. There is no quality score and no payment weighting.
+- The band margin is an operational setting, so any change to it is versioned and audited.
 
 If the founder keeps brief §8.1 (DIR-1 = no), drop group 1. The rest stands unchanged.
 
