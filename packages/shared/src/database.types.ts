@@ -31118,6 +31118,115 @@ export type Database = {
         }
         Relationships: []
       }
+      outreach_day_prices: {
+        Row: {
+          change_note: string
+          created_at: string
+          created_by: string | null
+          is_active: boolean
+          price_per_head_kobo: number
+          version: number
+        }
+        Insert: {
+          change_note: string
+          created_at?: string
+          created_by?: string | null
+          is_active?: boolean
+          price_per_head_kobo: number
+          version: number
+        }
+        Update: {
+          change_note?: string
+          created_at?: string
+          created_by?: string | null
+          is_active?: boolean
+          price_per_head_kobo?: number
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_day_prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_enrolments: {
+        Row: {
+          consult_purchase_id: string | null
+          enrolled_at: string
+          enrolled_by: string
+          kind: string
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          screening_day_id: string
+          slot_id: string
+          vitals_reading_ids: string[]
+          vitals_recorded_at: string | null
+          vitals_recorded_by: string | null
+        }
+        Insert: {
+          consult_purchase_id?: string | null
+          enrolled_at?: string
+          enrolled_by: string
+          kind: string
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          screening_day_id: string
+          slot_id: string
+          vitals_reading_ids?: string[]
+          vitals_recorded_at?: string | null
+          vitals_recorded_by?: string | null
+        }
+        Update: {
+          consult_purchase_id?: string | null
+          enrolled_at?: string
+          enrolled_by?: string
+          kind?: string
+          lab_order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          screening_day_id?: string
+          slot_id?: string
+          vitals_reading_ids?: string[]
+          vitals_recorded_at?: string | null
+          vitals_recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_enrolments_consult_purchase_id_fkey"
+            columns: ["consult_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "service_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_screening_day_id_fkey"
+            columns: ["screening_day_id"]
+            isOneToOne: false
+            referencedRelation: "screening_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: true
+            referencedRelation: "screening_day_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panel_bundles: {
         Row: {
           category: Database["public"]["Enums"]["panel_bundle_category"]
@@ -41423,6 +41532,7 @@ export type Database = {
           full_name: string | null
           id: string
           organisation_id: string
+          outreach_enrolled: boolean
           phone: string | null
           screening_day_id: string
           status: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41435,6 +41545,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organisation_id: string
+          outreach_enrolled?: boolean
           phone?: string | null
           screening_day_id: string
           status?: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41447,6 +41558,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organisation_id?: string
+          outreach_enrolled?: boolean
           phone?: string | null
           screening_day_id?: string
           status?: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41501,10 +41613,11 @@ export type Database = {
           event_date: string
           host_name: string
           id: string
+          kind: string
           location: string
           notes: string | null
           organisation_id: string
-          panel_bundle_id: string
+          panel_bundle_id: string | null
           payer_profile_id: string | null
           price_per_head_kobo: number | null
           requested_by: string
@@ -41524,10 +41637,11 @@ export type Database = {
           event_date: string
           host_name: string
           id?: string
+          kind?: string
           location: string
           notes?: string | null
           organisation_id: string
-          panel_bundle_id: string
+          panel_bundle_id: string | null
           payer_profile_id?: string | null
           price_per_head_kobo?: number | null
           requested_by: string
@@ -41547,10 +41661,11 @@ export type Database = {
           event_date?: string
           host_name?: string
           id?: string
+          kind?: string
           location?: string
           notes?: string | null
           organisation_id?: string
-          panel_bundle_id?: string
+          panel_bundle_id?: string | null
           payer_profile_id?: string | null
           price_per_head_kobo?: number | null
           requested_by?: string
@@ -54416,6 +54531,30 @@ export type Database = {
           p_slots_confirmed: number
         }
         Returns: Json
+      }
+      create_outreach_day: {
+        Args: {
+          p_contact_phone: string
+          p_event_date: string
+          p_host_name: string
+          p_kind: string
+          p_location: string
+          p_notes?: string
+          p_slots_requested: number
+        }
+        Returns: Json
+      }
+      enrol_outreach_attendee: {
+        Args: { p_patient_id: string; p_slot_id: string }
+        Returns: Json
+      }
+      record_outreach_vitals: {
+        Args: { p_data: Json; p_slot_id: string }
+        Returns: Json
+      }
+      set_outreach_day_price: {
+        Args: { p_change_note: string; p_price_kobo: number }
+        Returns: number
       }
       confirm_vaccination_card_extraction: {
         Args: { p_extraction_id: string; p_records: Json }
