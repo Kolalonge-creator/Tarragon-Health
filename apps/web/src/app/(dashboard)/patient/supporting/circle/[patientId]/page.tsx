@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
-import { PageHeader } from "@/components/ui/page-header";
-import { SEMANTIC_ICON } from "@/lib/icons";
 import { SupporterView } from "./supporter-view";
 import { HelpAlertView } from "./help-alert-view";
 
@@ -10,15 +8,10 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** One person's page for a supporter. The header ("{name}'s care") comes from the same single read as the blocks, inside SupporterView. */
 export default async function SupporterViewPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = await params;
   if (!UUID.test(patientId)) notFound();
   const { uiLanguage } = await getPatientDashboardContext();
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Shared with you" icon={SEMANTIC_ICON.family} backTo={{ href: "/patient/supporting", label: "People you support" }} />
-      <HelpAlertView patientId={patientId} locale={uiLanguage} />
-      <SupporterView patientId={patientId} locale={uiLanguage} />
-    </div>
-  );
+  return <SupporterView patientId={patientId} locale={uiLanguage} alertSlot={<HelpAlertView patientId={patientId} locale={uiLanguage} />} />;
 }

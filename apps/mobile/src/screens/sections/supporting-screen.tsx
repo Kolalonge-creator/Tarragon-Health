@@ -1,19 +1,26 @@
 import { CircleSupportingSection } from "./circle-supporting-section";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
-import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/legacy-kit";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
 import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
 import { SponsorSharingControl } from "@/screens/sections/sponsor-sharing-control";
 import { AppText } from "@/ui/kit/AppText";
+import { SegmentedControl } from "@/ui/kit/SegmentedControl";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
 
 interface SupportingScreenProps {
   userId: string;
   organisationId: string;
   acting: ActingFor | null;
   onActingChange: () => void;
+  /** An account that only supports other people: no switch to "My health", which it does not have. */
+  supporterOnly?: boolean;
+  /** For an account that is both: the other half of the "My health / People I support" switch. */
+  onOpenMyHealth?: () => void;
 }
 
 /**
@@ -31,7 +38,8 @@ interface SupportingScreenProps {
  * messaging) still open the real web page in the system browser rather than
  * being rebuilt natively, and why.
  */
-export function SupportingScreen({ userId, organisationId, acting, onActingChange }: SupportingScreenProps) {
+export function SupportingScreen({ userId, organisationId, acting, onActingChange, supporterOnly = false, onOpenMyHealth }: SupportingScreenProps) {
+  const locale = asLocale(useUiLanguage());
   const colors = useLegacyColors();
   const [people, setPeople] = useState<SupportedPerson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,18 +75,26 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
-      <View>
-        <AppText variant="title">People you support</AppText>
-        <MutedText>Open someone&apos;s account to log a reading or run an errand for them.</MutedText>
+      {!supporterOnly && onOpenMyHealth ? (
+        <SegmentedControl
+          options={[
+            { value: "mine", label: t("supporterjoin.mode.mine", locale) },
+            { value: "supporting", label: t("supporterjoin.mode.supporting", locale) },
+          ]}
+          value="supporting"
+          onChange={(v) => {
+            if (v === "mine") onOpenMyHealth();
+          }}
+          accessibilityLabel={t("supporterjoin.mode.label", locale)}
+        />
+      ) : null}
+
+      <View style={{ gap: 4 }}>
+        <AppText variant="title" accessibilityRole="header">People who share their care with you</AppText>
+        <MutedText>Each person here chose to let you follow or help with their care. Open someone to see what they share.</MutedText>
       </View>
 
-      <CircleSupportingSection />
-
-      <SectionLabel>People you support</SectionLabel>
-
-      {loading ? (
-        <ActivityIndicator color={colors.brand} />
-      ) : loadError ? (
+      {loadError ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry loading the people you support"
@@ -88,31 +104,37 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
               .catch(() => {})
               .finally(() => setLoading(false));
           }}
+          style={{ minHeight: 44 }}
         >
           <Card style={{ gap: 6 }}>
             <AppText variant="bodyStrong">
-              We couldn&apos;t load this right now
+              We couldn&apos;t load everyone right now
             </AppText>
             <MutedText>Check your connection and tap to try again.</MutedText>
           </Card>
         </Pressable>
-      ) : people.length === 0 ? (
-        <Card style={{ gap: 6 }}>
-          <AppText variant="bodyStrong">
-            You are not supporting anyone yet
-          </AppText>
-          <MutedText>
-            Once someone accepts a request to let you help manage their care, they appear here.
-          </MutedText>
-        </Card>
-      ) : (
-        people.map((person) => {
+      ) : null}
+
+      <CircleSupportingSection
+        managed={loading ? null : people}
+        empty={
+          loadError ? null : (
+          <Card style={{ gap: 6 }}>
+            <AppText variant="bodyStrong" accessibilityRole="header">
+              No one has shared their care with you yet
+            </AppText>
+            <MutedText>
+              When someone invites you to their Care Circle, they send you a link. Open it on this phone, accept, and they will appear here.
+            </MutedText>
+          </Card>
+          )
+        }
+        renderManaged={(person) => {
           const name = person.fullName ?? "This person";
           const isOpen = acting?.profileId === person.profileId;
           return (
-            <Card key={person.profileId} style={{ gap: 8 }}>
+            <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                <AppText variant="bodyStrong" style={{ flexShrink: 1 }}>{name}</AppText>
                 <Badge tone={person.permissionLevel === "manage" ? "brand" : "neutral"}>
                   {person.permissionLevel === "manage" ? "You can act for them" : "You can follow"}
                 </Badge>
@@ -130,16 +152,11 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
                     disabled={switching === person.profileId}
                   />
                 )
-              ) : (
-                <MutedText>
-                  You can follow how {name} is doing, if they&apos;ve shared that with you, but you
-                  cannot act for them.
-                </MutedText>
-              )}
-            </Card>
+              ) : null}
+            </View>
           );
-        })
-      )}
+        }}
+      />
 
       {error ? <ErrorText>{error}</ErrorText> : null}
 
@@ -153,7 +170,7 @@ export function SupportingScreen({ userId, organisationId, acting, onActingChang
 
       <CalloutCard
         icon="wallet-outline"
-        title="What you've funded"
+        title="Buy care for someone, and what you have funded"
         subtitle="Vouchers and statements for everyone you support open in the full patient app."
         ctaLabel="Manage what you fund"
         onPress={() => setManageOpen(true)}

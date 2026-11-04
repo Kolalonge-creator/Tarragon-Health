@@ -3,6 +3,7 @@ import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
 import { createClient } from "@/lib/supabase/server";
 import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { CareModeSwitchIfSupporting } from "@/components/care-circle/care-mode-switch";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
 import { lockedHomePins, resolveHomePins } from "@tarragon/shared";
@@ -82,7 +83,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, glucoseUnit, measurementUnits, profile } =
+  const { subjectId, acting, subjectSex, glucoseUnit, measurementUnits, profile, uiLanguage } =
     await getPatientDashboardContext();
   // Independent reads: run them together, not one after another.
   const supabase = await createClient();
@@ -153,6 +154,9 @@ export default async function PatientOverviewPage() {
           renders above the hero band. Renders nothing when there's no
           payment problem. */}
       <PaymentFailureBanner patientId={subjectId} />
+
+      {/* For someone who is both a patient and a supporter: one tap between their own health and the people they support. */}
+      {!acting ? <CareModeSwitchIfSupporting locale={uiLanguage} /> : null}
 
       {/* The page's identity moment: one band answering "how am I doing"
           (Health Score, white panel — clinical status colours stay on a

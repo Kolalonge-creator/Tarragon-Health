@@ -19193,6 +19193,133 @@ export type Database = {
           },
         ]
       }
+      care_circle_gift_payer_dismissals: {
+        Row: {
+          dismissed_at: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          payer_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          payer_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          payer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_circle_gift_payer_dismissals_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_doctor_notes: {
+        Row: {
+          appointment_id: string | null
+          author_staff_id: string
+          body: string
+          created_at: string
+          encounter_id: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          released_at: string | null
+          released_by: string | null
+          share_decided_at: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          author_staff_id: string
+          body: string
+          created_at?: string
+          encounter_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id: string
+          released_at?: string | null
+          released_by?: string | null
+          share_decided_at?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          author_staff_id?: string
+          body?: string
+          created_at?: string
+          encounter_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          released_at?: string | null
+          released_by?: string | null
+          share_decided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_doctor_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_author_staff_id_fkey"
+            columns: ["author_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_encounter_id_fkey"
+            columns: ["encounter_id"]
+            isOneToOne: false
+            referencedRelation: "encounters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_doctor_notes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_waitlist: {
         Row: {
           created_at: string
@@ -31118,6 +31245,115 @@ export type Database = {
         }
         Relationships: []
       }
+      outreach_day_prices: {
+        Row: {
+          change_note: string
+          created_at: string
+          created_by: string | null
+          is_active: boolean
+          price_per_head_kobo: number
+          version: number
+        }
+        Insert: {
+          change_note: string
+          created_at?: string
+          created_by?: string | null
+          is_active?: boolean
+          price_per_head_kobo: number
+          version: number
+        }
+        Update: {
+          change_note?: string
+          created_at?: string
+          created_by?: string | null
+          is_active?: boolean
+          price_per_head_kobo?: number
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_day_prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_enrolments: {
+        Row: {
+          consult_purchase_id: string | null
+          enrolled_at: string
+          enrolled_by: string
+          kind: string
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          screening_day_id: string
+          slot_id: string
+          vitals_reading_ids: string[]
+          vitals_recorded_at: string | null
+          vitals_recorded_by: string | null
+        }
+        Insert: {
+          consult_purchase_id?: string | null
+          enrolled_at?: string
+          enrolled_by: string
+          kind: string
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          screening_day_id: string
+          slot_id: string
+          vitals_reading_ids?: string[]
+          vitals_recorded_at?: string | null
+          vitals_recorded_by?: string | null
+        }
+        Update: {
+          consult_purchase_id?: string | null
+          enrolled_at?: string
+          enrolled_by?: string
+          kind?: string
+          lab_order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          screening_day_id?: string
+          slot_id?: string
+          vitals_reading_ids?: string[]
+          vitals_recorded_at?: string | null
+          vitals_recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_enrolments_consult_purchase_id_fkey"
+            columns: ["consult_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "service_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_screening_day_id_fkey"
+            columns: ["screening_day_id"]
+            isOneToOne: false
+            referencedRelation: "screening_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrolments_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: true
+            referencedRelation: "screening_day_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panel_bundles: {
         Row: {
           category: Database["public"]["Enums"]["panel_bundle_category"]
@@ -41423,6 +41659,7 @@ export type Database = {
           full_name: string | null
           id: string
           organisation_id: string
+          outreach_enrolled: boolean
           phone: string | null
           screening_day_id: string
           status: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41435,6 +41672,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organisation_id: string
+          outreach_enrolled?: boolean
           phone?: string | null
           screening_day_id: string
           status?: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41447,6 +41685,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organisation_id?: string
+          outreach_enrolled?: boolean
           phone?: string | null
           screening_day_id?: string
           status?: Database["public"]["Enums"]["screening_day_slot_status"]
@@ -41501,10 +41740,11 @@ export type Database = {
           event_date: string
           host_name: string
           id: string
+          kind: string
           location: string
           notes: string | null
           organisation_id: string
-          panel_bundle_id: string
+          panel_bundle_id: string | null
           payer_profile_id: string | null
           price_per_head_kobo: number | null
           requested_by: string
@@ -41524,10 +41764,11 @@ export type Database = {
           event_date: string
           host_name: string
           id?: string
+          kind?: string
           location: string
           notes?: string | null
           organisation_id: string
-          panel_bundle_id: string
+          panel_bundle_id: string | null
           payer_profile_id?: string | null
           price_per_head_kobo?: number | null
           requested_by: string
@@ -41547,10 +41788,11 @@ export type Database = {
           event_date?: string
           host_name?: string
           id?: string
+          kind?: string
           location?: string
           notes?: string | null
           organisation_id?: string
-          panel_bundle_id?: string
+          panel_bundle_id?: string | null
           payer_profile_id?: string | null
           price_per_head_kobo?: number | null
           requested_by?: string
@@ -54421,6 +54663,30 @@ export type Database = {
         }
         Returns: Json
       }
+      create_outreach_day: {
+        Args: {
+          p_contact_phone: string
+          p_event_date: string
+          p_host_name: string
+          p_kind: string
+          p_location: string
+          p_notes?: string
+          p_slots_requested: number
+        }
+        Returns: Json
+      }
+      enrol_outreach_attendee: {
+        Args: { p_patient_id: string; p_slot_id: string }
+        Returns: Json
+      }
+      record_outreach_vitals: {
+        Args: { p_data: Json; p_slot_id: string }
+        Returns: Json
+      }
+      set_outreach_day_price: {
+        Args: { p_change_note: string; p_price_kobo: number }
+        Returns: number
+      }
       confirm_vaccination_card_extraction: {
         Args: { p_extraction_id: string; p_records: Json }
         Returns: number
@@ -58132,6 +58398,12 @@ export type Database = {
       circle_weekly_digest: { Args: { p_patient: string }; Returns: Json };
       circle_recent_nudges: { Args: never; Returns: Json };
       circle_check_in_pending: { Args: never; Returns: Json };
+      circle_gift_payers: { Args: never; Returns: Json };
+      share_circle_with_gift_payer: { Args: { p_payer: string; p_permissions: string[]; p_monthly_report?: boolean }; Returns: Json };
+      write_family_note: { Args: { p_encounter: string; p_body: string }; Returns: string };
+      set_family_note_shared: { Args: { p_note: string; p_share: boolean }; Returns: boolean };
+      my_family_notes: { Args: never; Returns: Json };
+      dismiss_gift_payer_offer: { Args: { p_payer: string }; Returns: boolean };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
       circle_checkin_window_enabled: { Args: never; Returns: boolean };
@@ -58195,6 +58467,9 @@ export type Database = {
       submit_facility_rating: { Args: { p_booking?: string; p_comment?: string; p_facility: string; p_lab_order?: string; p_patient?: string; p_rating: number }; Returns: Json };
       my_supported_people: { Args: never; Returns: Json };
       preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      care_circle_invite_landing: { Args: { p_token: string }; Returns: Json };
+      care_circle_invite_status: { Args: { p_token: string }; Returns: Json };
+      signup_gate_status_supporter: { Args: { p_email: string | null; p_invite_code: string | null; p_phone: string | null }; Returns: boolean };
       revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
       update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
       complete_symptom_review: {

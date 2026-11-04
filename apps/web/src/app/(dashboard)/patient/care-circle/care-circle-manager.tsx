@@ -285,7 +285,7 @@ function InviteMade({ link, expiresAt, locale, onDone, share = browserShare }: {
           className={TOUCH}
           onClick={() => {
             // A cancelled share sheet is not an error; the link is still on screen to copy.
-            share(t("circle.invite.share_text", locale, { link }), link).catch(() => undefined);
+            share(t("supporterjoin.share_text", locale, { link }), link).catch(() => undefined);
           }}
         >
           {t("circle.invite.share", locale)}

@@ -75,6 +75,10 @@ export const PERMISSION_KEYS = [
   "support.view_as",
   "notification_templates.manage",
   "ai_governance.manage",
+  // Group screening days and outreach checks (20260829003735, 20261103235614): .manage sets prices and confirms days;
+  // .run is on-site work only (register and enrol attendees, record their readings), for an outreach partner.
+  "screening_days.manage",
+  "screening_days.run",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];

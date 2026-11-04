@@ -113,7 +113,7 @@ export type SignUpOutcome =
  */
 export async function startPhoneSignUp(
   auth: AuthApi,
-  args: { phone: string; password: string; fullName: string; dateOfBirth: string; state?: string; inviteCode?: string },
+  args: { phone: string; password: string; fullName: string; dateOfBirth: string; state?: string; inviteCode?: string; supporter?: boolean },
 ): Promise<SignUpOutcome> {
   // Registration is for adults (S04b-1). The database refuses an under-18 date of birth too; this is the calm first answer.
   const age = checkAdultDateOfBirth(args.dateOfBirth);
@@ -129,6 +129,9 @@ export async function startPhoneSignUp(
         date_of_birth: args.dateOfBirth,
         ...(args.state ? { state: args.state } : {}),
         ...(args.inviteCode ? { invite_code: args.inviteCode } : {}),
+        // A supporter-only account: the database makes it receives_care = false from the first row
+        // (private.profiles_supporter_signup_default), and a pending Care Circle invite to this number lets it through invite-only sign-up.
+        ...(args.supporter ? { account_purpose: "support", signup_intent: "support" } : {}),
       },
     },
   });

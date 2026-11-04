@@ -14,6 +14,9 @@ export {
   FERTILE_WINDOW_LABEL,
   FERTILE_WINDOW_LINK_TEXT,
   FERTILE_WINDOW_SIGNED,
+  activeOutreachDangerousReadingWording,
+  OUTREACH_DANGEROUS_READING_SIGNED,
+  type OutreachDangerousReadingWords,
   type FertileWindowWords,
 } from "./clinical-wording";
 
@@ -26,6 +29,7 @@ export * from "./audio-scripts";
 export * from "./monthly-report";
 export * from "./cycle-copy";
 export * from "./care-circle-tools-copy";
+export * from "./family-circle-copy";
 export * from "./employer-pilot-copy";
 export * from "./care-gap-copy";
 export * from "./maternal-child";

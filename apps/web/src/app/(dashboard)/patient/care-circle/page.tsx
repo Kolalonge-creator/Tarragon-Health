@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CareCircleManager } from "./care-circle-manager";
 import { HelpAlertCard } from "./help-alert-card";
+import { MyFamilyNoteCard } from "@/components/care-circle/my-family-note-card";
 import { RecoveryContactCard } from "@/components/account/recovery-contact-card";
 
 export const metadata = { title: "Your Care Circle" };
@@ -16,6 +17,8 @@ export default async function CareCirclePage() {
     <div className="space-y-6">
       <PageHeader title="Your Care Circle" icon={SEMANTIC_ICON.family} backTo={{ href: "/patient/family", label: "Your people" }} />
       <HelpAlertCard patientId={profile.id} locale={uiLanguage} />
+      {/* every line a doctor writes for the family reaches the patient first; nothing is shared until they choose */}
+      <MyFamilyNoteCard locale={uiLanguage} />
       <CareCircleManager locale={uiLanguage} patientId={profile.id} />
       <RecoveryContactCard />
     </div>

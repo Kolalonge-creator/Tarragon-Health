@@ -4,8 +4,10 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
-import { SupportedPeople } from "./supported-people";
-import { CircleSupporting } from "./circle-supporting";
+import { SupportingPeopleList } from "./supporting-people-list";
+import { CareModeSwitch } from "@/components/care-circle/care-mode-switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { NudgesCard } from "@/components/care-circle/nudges-card";
 import { CaregiverCallInvites } from "./caregiver-call-invites";
 import { ReservationsSent } from "./reservations-sent";
@@ -34,19 +36,14 @@ export default async function SupportingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Someone who is also a patient switches between their own health and the people they support here. A supporter-only account
+          has nowhere else to go, so it gets neither the switch nor a back link that would only bounce it back to this page. */}
+      {profile.receives_care !== false ? <CareModeSwitch active="supporting" locale={uiLanguage} /> : null}
+
       <PageHeader
-        backTo={{ href: "/patient", label: "Dashboard" }}
-        title="People you support"
+        title="People who share their care with you"
         icon={NAV_ICON.healthyAgeing}
-        description="Money you put towards someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
-        actions={
-          <Link
-            href="/patient/supporting/new"
-            className="inline-flex items-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white"
-          >
-            Buy care for someone
-          </Link>
-        }
+        description="Each person here chose to let you follow or help with their care, and keeps their own account. Open someone to see what they share."
       />
 
       {/* First, because Paystack returns the payer here: a paid reservation's claim link is the next thing they need (no SMS goes to the person). Renders nothing when there is none. */}
@@ -57,9 +54,22 @@ export default async function SupportingPage() {
       <CaregiverCallInvites locale={uiLanguage} />
 
       <NudgesCard locale={uiLanguage} />
-      <CircleSupporting locale={uiLanguage} />
+      <SupportingPeopleList locale={uiLanguage} />
 
-      <SupportedPeople />
+      {/* Paying is one thing a supporter can do, not what the page is about, so it sits below the people. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Buy care for someone</CardTitle>
+          <CardDescription>
+            Pay for care for a relative or friend, even if they are not on Tarragon yet. They keep their own account and their own records.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="min-h-11">
+            <Link href="/patient/supporting/new">Buy care for someone</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* The other half of the same relationship, on the same page on purpose.
           Someone who both supports a person and is supported BY one should be

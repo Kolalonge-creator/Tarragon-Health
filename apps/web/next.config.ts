@@ -88,16 +88,29 @@ const zoomHosts = "https://*.zoom.us https://*.zoom.com";
 // Keep this version equal to ZOOM_SDK_VERSION in src/lib/consultations/zoom-sdk.ts (csp.test.ts fails if they drift). A browser matches
 // a path prefix only on the URL as requested, so a redirect to another path would be blocked: that is the intent.
 const ZOOM_SDK_CODE_SOURCE = "https://source.zoom.us/6.5.0/";
+// The Google Maps JavaScript API (@vis.gl/react-google-maps) draws the public /coverage partner map and powers the "Geocode" button on
+// the admin partner-catalogue pages. Until 2026-11-04 this policy blocked maps.googleapis.com, so the map never loaded in production
+// ("The Google Maps JavaScript API could not load") and the Geocode button stayed disabled. The hosts below are Google's documented
+// Maps JS hosts, https only. They are in the GENERAL policy, not on those pages alone, on purpose: a browser fixes a page's CSP at the
+// first full document load and keeps it through every client-side (next/link, router.push, server-action redirect) navigation after
+// it, so a per-route policy is lost the moment someone clicks through to the map from another page (tried and reverted the same day).
+// The cost is small because script-src already carries 'unsafe-inline' (see above), so naming one more script host adds no real
+// XSS exposure. The browser key itself is restricted in Google Cloud to the Maps JavaScript and Geocoding APIs and to the
+// tarragonhealth.ng / localhost referrers. The consultation rooms keep their own policy (no Maps on those pages).
+const googleMapsScriptHosts = "https://maps.googleapis.com https://*.gstatic.com";
+const googleMapsImageHosts = "https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com";
+const googleMapsConnectHosts = "https://*.googleapis.com https://*.google.com https://*.gstatic.com";
 function buildCsp(opts: { inAppCall: boolean }): string {
   const call = opts.inAppCall;
+  const maps = !call;
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${ZOOM_SDK_CODE_SOURCE}` : ""),
-    "style-src 'self' 'unsafe-inline'" + (call ? " https://source.zoom.us" : ""),
-    "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : ""),
-    "font-src 'self'" + (call ? " data: https://source.zoom.us" : ""),
+    "script-src 'self' 'unsafe-inline'" + (call ? ` 'wasm-unsafe-eval' ${ZOOM_SDK_CODE_SOURCE}` : "") + (maps ? ` ${googleMapsScriptHosts}` : ""),
+    "style-src 'self' 'unsafe-inline'" + (call ? " https://source.zoom.us" : "") + (maps ? " https://fonts.googleapis.com" : ""),
+    "img-src 'self' data: blob: " + supabaseOrigin + (call ? ` ${zoomHosts}` : "") + (maps ? ` ${googleMapsImageHosts}` : ""),
+    "font-src 'self'" + (call ? " data: https://source.zoom.us" : "") + (maps ? " https://fonts.gstatic.com" : ""),
     call ? `media-src 'self' blob: ${zoomHosts}` : "",
-    call ? `worker-src 'self' blob: ${ZOOM_SDK_CODE_SOURCE}` : "",
+    call ? `worker-src 'self' blob: ${ZOOM_SDK_CODE_SOURCE}` : maps ? "worker-src 'self' blob:" : "",
     [
       "connect-src 'self'",
       supabaseOrigin,
@@ -106,6 +119,7 @@ function buildCsp(opts: { inAppCall: boolean }): string {
       "https://*.ingest.de.sentry.io",
       "https://*.ingest.sentry.io",
       ...(call ? [zoomHosts, "wss://*.zoom.us", "wss://*.zoom.com"] : []),
+      ...(maps ? [googleMapsConnectHosts] : []),
     ].join(" "),
     `frame-src ${supabaseOrigin} https://www.youtube-nocookie.com`,
     "object-src 'none'",

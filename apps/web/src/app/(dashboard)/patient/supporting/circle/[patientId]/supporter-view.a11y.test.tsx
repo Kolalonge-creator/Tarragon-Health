@@ -7,7 +7,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { expectNoA11yViolations } from "@/test/a11y";
 import { SupporterView } from "./supporter-view";
 
-let view: { isPending: boolean; data: unknown };
+let view: { isPending: boolean; data: unknown; isError?: boolean; refetch?: () => void };
 let people: { data: unknown[] };
 const mutateAsync = jest.fn();
 const push = jest.fn();
@@ -44,6 +44,19 @@ describe("SupporterView", () => {
     await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
   });
 
+  it("shows the doctor's line for the family only when it was sent, with the name null-gated", async () => {
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByText("A note from the doctor")).toBeNull();
+    cleanup();
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "She did well today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: "s1", author_name: "Dr Amara Eze" } },
+    };
+    await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByText("She did well today.")).toBeTruthy();
+    expect(screen.getByText("From Dr Amara Eze")).toBeTruthy();
+  });
+
   it("shows weekly averages and a direction, never a single reading", () => {
     view = {
       isPending: false,
@@ -69,11 +82,61 @@ describe("SupporterView", () => {
     expect(screen.getByRole("link", { name: "Pay for their care" }).getAttribute("href")).toBe("/patient/supporting/circle/p1/pay");
   });
 
-  it("one neutral message when access has ended or never existed", () => {
+  it("one calm, neutral message when nothing is shared right now (ended, never existed or paused look the same)", async () => {
     view = { isPending: false, data: null };
     render(<SupporterView patientId="p1" locale="en" />);
-    expect(screen.getByRole("alert").textContent).toMatch(/not available/);
+    expect(screen.getByRole("status").textContent).toBe("Nothing is being shared with you right now.");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/paus|ended|removed|not available/i);
     expect(screen.queryByText(/Mama Eze/)).toBeNull();
+    expect(screen.getAllByRole("link", { name: "People you support" }).length).toBeGreaterThan(0);
+    cleanup();
+    await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
+  });
+
+  it("titles the page with the person's name", () => {
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByRole("heading", { level: 1, name: "Mama Eze's care" })).toBeTruthy();
+  });
+
+  it("when only check-in requests are shared, says so calmly instead of showing an empty page", async () => {
+    view = { isPending: false, data: { ...BASE, permissions: ["red_alerts"] } };
+    render(<SupporterView patientId="p1" locale="en" />);
+    const empty = screen.getByTestId("supporter-blocks-empty");
+    expect(empty.textContent).toMatch(/Mama Eze has not shared anything to show here yet\./);
+    expect(empty.textContent).toMatch(/You will still be told at once if they need help\./);
+    expect(empty.textContent).not.toMatch(/pay/i);
+    cleanup();
+    await expectNoA11yViolations(<SupporterView patientId="p1" locale="en" />);
+  });
+
+  it("when only paying is shared, the empty state says paying still works", () => {
+    view = { isPending: false, data: { ...BASE, permissions: ["pay_for_care"], can_pay: true } };
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByTestId("supporter-blocks-empty").textContent).toMatch(/You can still pay for their care/);
+  });
+
+  it("a released doctor's note on its own is shown, never the empty state", () => {
+    view = {
+      isPending: false,
+      data: { ...BASE, permissions: ["doctor_note"], doctor_note: { body: "Reviewed today.", written_at: "2026-11-03T10:00:00Z", author_staff_id: null, author_name: null } },
+    } as typeof view;
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByTestId("supporter-blocks-empty")).toBeNull();
+  });
+
+  it("does not show the empty state when a block is shared", () => {
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.queryByTestId("supporter-blocks-empty")).toBeNull();
+  });
+
+  it("a failed read says so and offers to try again", () => {
+    const refetch = jest.fn();
+    view = { isPending: false, data: undefined, isError: true, refetch } as typeof view;
+    render(<SupporterView patientId="p1" locale="en" />);
+    expect(screen.getByRole("alert").textContent).toMatch(/could not load this page/);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("lets the supporter leave, after confirming", async () => {

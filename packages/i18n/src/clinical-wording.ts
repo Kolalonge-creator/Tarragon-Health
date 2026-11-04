@@ -58,3 +58,21 @@ export const FERTILE_WINDOW_LINK_TEXT: string = activeFertileWindowWording().lin
 
 /** The phrases the founder banned from the app (D2), kept in the wording JSON so no source file has to spell them. */
 export const FERTILE_WINDOW_BANNED_PHRASES: readonly string[] = WORDING.fertileWindow.banned;
+
+/**
+ * OUT-001: what outreach event staff see when a reading they just saved crosses the signed emergency threshold. Same gate:
+ * `outreachDangerousReading.signed` is set only on the CMO's instruction, never by a build. `current` and `proposed` are the
+ * same signed text, so the screen is right whether or not a later version is pending.
+ */
+export interface OutreachDangerousReadingWords {
+  readonly title: string;
+  readonly steps: readonly string[];
+}
+
+export const OUTREACH_DANGEROUS_READING_SIGNED: Sign | null = WORDING.outreachDangerousReading.signed as Sign | null;
+
+export function activeOutreachDangerousReadingWording(
+  signed: Sign | null = OUTREACH_DANGEROUS_READING_SIGNED,
+): OutreachDangerousReadingWords {
+  return signed ? WORDING.outreachDangerousReading.proposed : WORDING.outreachDangerousReading.current;
+}

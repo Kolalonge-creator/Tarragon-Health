@@ -48,6 +48,9 @@ jest.mock("@/lib/queries/care-circle", () => {
     usePreviewPermissions: () => previewPerms,
     usePendingGifts: () => ({ data: [] }),
     useRespondToGift: () => ({ mutateAsync: jest.fn(), isPending: false }),
+    useGiftPayers: () => ({ data: [], isLoading: false }),
+    useShareWithGiftPayer: () => ({ mutateAsync: jest.fn(), isPending: false }),
+    useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
   };
 });
 

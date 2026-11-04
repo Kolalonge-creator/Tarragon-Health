@@ -3,6 +3,7 @@ import { useUiLanguage } from "@/lib/ui-language";
 import type { SupporterView } from "@/lib/care-circle/parse";
 import { Card, MutedText } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
+import { FamilyDoctorNoteCard } from "./family-doctor-note-card";
 
 function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -15,12 +16,15 @@ function lagosDateTime(iso: string): string {
  * The health blocks a supporter sees, and nothing else. Used by the supporter's own page and by the patient's "see what they see"
  * preview, so the preview cannot show anything the real page does not. A block that is absent is simply not shared.
  */
-export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly"> }) {
+export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly" | "doctorNote"> }) {
   const locale = asLocale(useUiLanguage());
   const dir = view.bpTrend?.direction ?? null;
   const monthly = (view.monthly ?? []).filter((r) => circleMonthlyLines(r, locale).length > 0);
   return (
     <>
+      {/* the doctor's line for the family first. Absent = not shared; null = none written yet. */}
+      {view.doctorNote !== undefined ? <FamilyDoctorNoteCard note={view.doctorNote} /> : null}
+
       {view.adherence ? (
         <Card style={{ gap: 4 }}>
           <AppText variant="bodyStrong">{t("circle.view.adherence.title", locale)}</AppText>

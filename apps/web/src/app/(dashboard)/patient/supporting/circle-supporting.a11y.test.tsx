@@ -6,7 +6,7 @@ import { CircleSupporting } from "./circle-supporting";
 
 let people: { isSuccess: boolean; data: unknown[] };
 let alerts: { data: unknown[] };
-jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a> }));
+jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 const ack = jest.fn();
 const setMode = jest.fn();
 const requestCheckIn = jest.fn();
@@ -40,7 +40,7 @@ describe("CircleSupporting", () => {
   it("lists the people and links to each page", async () => {
     render(<CircleSupporting locale="en" />);
     expect(screen.getByText("Mama Eze")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe("/patient/supporting/circle/p1");
+    expect(screen.getByRole("link", { name: "Open: Mama Eze's care" }).getAttribute("href")).toBe("/patient/supporting/circle/p1");
     cleanup();
     await expectNoA11yViolations(<CircleSupporting locale="en" />);
   });
@@ -87,6 +87,21 @@ describe("CircleSupporting", () => {
     render(<CircleSupporting locale="en" />);
     expect(screen.queryByLabelText(/Check-in requests for/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/quiet hours/i);
+  });
+
+  it("leaves out someone who already has a unified card, and lists nobody until that list is known", () => {
+    const { container, rerender } = render(<CircleSupporting locale="en" hidePatientIds={new Set(["p1"])} />);
+    expect(container.textContent).toBe("");
+    rerender(<CircleSupporting locale="en" hidePatientIds={null} />);
+    expect(screen.queryByText("Mama Eze")).toBeNull();
+    rerender(<CircleSupporting locale="en" hidePatientIds={new Set()} />);
+    expect(screen.getByText("Mama Eze")).toBeTruthy();
+  });
+
+  it("still shows an open request while the other list is loading", () => {
+    alerts = { data: [{ patient_id: "p1", name: "Mama Eze", since: "2026-10-06T10:00:00Z", called: false }] };
+    render(<CircleSupporting locale="en" hidePatientIds={null} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/Please check on Mama Eze/);
   });
 
   it("renders nothing at all for someone who is in no circle", () => {

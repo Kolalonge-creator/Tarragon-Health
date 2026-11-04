@@ -21,6 +21,16 @@ describe("checkSignupGate", () => {
     expect(await checkSignupGate({ phone: "+2348011112222" })).toEqual({ inviteOnly: true, allowed: true });
   });
 
+  it("asks the supporter question for a supporter sign-up, so a pending Care Circle invite can let them in", async () => {
+    rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: true, error: null });
+    expect(await checkSignupGate({ email: "aunty@example.com", supporter: true })).toEqual({ inviteOnly: true, allowed: true });
+    expect(rpc).toHaveBeenLastCalledWith("signup_gate_status_supporter", { p_phone: null, p_email: "aunty@example.com", p_invite_code: null });
+    rpc.mockReset();
+    rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: false, error: null });
+    expect(await checkSignupGate({ email: "aunty@example.com", supporter: false })).toEqual({ inviteOnly: true, allowed: false });
+    expect(rpc).toHaveBeenLastCalledWith("signup_gate_status", { p_phone: null, p_email: "aunty@example.com", p_invite_code: null });
+  });
+
   it("never blocks on a failed pre-check: the database trigger is the real gate", async () => {
     rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({ data: null, error: { message: "boom" } });
     expect(await checkSignupGate({ email: "a@b.co" })).toEqual({ inviteOnly: true, allowed: true });
