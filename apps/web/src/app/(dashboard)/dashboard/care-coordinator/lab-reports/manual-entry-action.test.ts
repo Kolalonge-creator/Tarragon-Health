@@ -10,7 +10,7 @@ const profileRows = new Map<string, unknown>();
 const storeResultDocument = jest.fn();
 const removeResultDocument = jest.fn();
 const renderManualEntryPdf = jest.fn();
-const raiseIfCriticalDraft = jest.fn();
+const criticalReasonFor = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   getCurrentUser: jest.fn().mockResolvedValue({ id: "coord-1" }),
@@ -26,7 +26,6 @@ jest.mock("@/lib/supabase/server", () => ({
     }),
   })),
 }));
-jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true }) }));
 jest.mock("@/lib/lab-results/store-file", () => ({
   storeFile: jest.fn(),
   removeFile: jest.fn(),
@@ -34,7 +33,7 @@ jest.mock("@/lib/lab-results/store-file", () => ({
   removeResultDocument: (...a: unknown[]) => removeResultDocument(...a),
 }));
 jest.mock("@/lib/clinical-documents/manual-entry-pdf", () => ({ renderManualEntryPdf: (...a: unknown[]) => renderManualEntryPdf(...a) }));
-jest.mock("@/lib/lab-reports/escalation-bridge", () => ({ raiseIfCriticalDraft: (...a: unknown[]) => raiseIfCriticalDraft(...a) }));
+jest.mock("@/lib/lab-reports/escalation-bridge", () => ({ criticalReasonFor: (...a: unknown[]) => criticalReasonFor(...a) }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
 import { enterResultsByHand } from "./actions";
@@ -69,7 +68,7 @@ beforeEach(() => {
   storeResultDocument.mockResolvedValue(STORED);
   renderManualEntryPdf.mockResolvedValue(Buffer.from("%PDF-1.4 typed"));
   rpc.mockResolvedValue({ data: { ok: true, document_id: "doc-1", extraction_id: "ext-1" }, error: null });
-  raiseIfCriticalDraft.mockResolvedValue({ raised: true });
+  criticalReasonFor.mockReturnValue(null);
 });
 
 describe("enterResultsByHand", () => {
@@ -99,9 +98,33 @@ describe("enterResultsByHand", () => {
     );
   });
 
-  it("raises the doctor's alert at once for the draft (the bridge decides whether it is critical)", async () => {
+  it("passes a critical reason so the database raises the alert in the same transaction", async () => {
+    criticalReasonFor.mockReturnValue("Potassium 6.9 mmol/L is in the critical range.");
+    profileRows.set(PATIENT, { id: PATIENT, role: "patient", organisation_id: "org-1", full_name: "Ngozi Okafor", sex: "female", date_of_birth: "1980-01-15" });
     await enterResultsByHand(undefined, form());
-    expect(raiseIfCriticalDraft).toHaveBeenCalledWith({ service: true }, expect.objectContaining({ documentId: "doc-1", patientId: PATIENT }));
+    expect(criticalReasonFor).toHaveBeenCalledWith(expect.any(Array), { sex: "female", date_of_birth: "1980-01-15" });
+    expect(rpc).toHaveBeenCalledWith(
+      "coordinator_submit_manual_results",
+      expect.objectContaining({ p_critical_reason: "Potassium 6.9 mmol/L is in the critical range." }),
+    );
+  });
+
+  it("sends no critical reason when nothing is critical", async () => {
+    await enterResultsByHand(undefined, form());
+    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_critical_reason");
+  });
+
+  it("returns a worded error, stores nothing, when the record of typed results cannot be made", async () => {
+    renderManualEntryPdf.mockRejectedValue(new Error("font"));
+    const r = await enterResultsByHand(undefined, form());
+    expect(r?.error).toContain("could not be made");
+    expect(storeResultDocument).not.toHaveBeenCalled();
+  });
+
+  it("reads a comma decimal as a decimal point (the form sends 6.8)", async () => {
+    // The form normalises "6,8" before sending; the action receives a number.
+    const rows = JSON.stringify([{ code: "hba1c", value: 6.8, unit: "%" }]);
+    await expect(enterResultsByHand(undefined, form({ rows }))).resolves.toEqual({ success: true });
   });
 
   it("stores the attached original instead of making a record", async () => {
@@ -130,6 +153,5 @@ describe("enterResultsByHand", () => {
     const r = await enterResultsByHand(undefined, form());
     expect(r?.error).toContain("does not match");
     expect(removeResultDocument).toHaveBeenCalledWith(STORED.file_path);
-    expect(raiseIfCriticalDraft).not.toHaveBeenCalled();
   });
 });

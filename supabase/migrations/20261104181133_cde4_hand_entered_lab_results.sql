@@ -10,8 +10,9 @@
 --     and where the values came from;
 --   * the clinician files it through the existing confirm_lab_report_extraction, so the S27 result engine, the CMO-signed ranges,
 --     the abnormal-result alerts and the release machine all apply unchanged (T2-04/T2-07);
---   * a typed critical value raises the review alert to urgent at once (raise_lab_extraction_alert, the same escalation bridge an
---     AI reading uses), so it is never held quietly (CDE-02).
+--   * a typed critical value raises the review alert to urgent in the same transaction (raise_lab_extraction_alert, the bridge an
+--     AI reading uses): the laboratory's own "critical" flag on any row, checked here, or the catalogue's critical bands, worked out
+--     by the server from the typed values (CDE-02). It can never be left at routine by a later step failing.
 -- Hand-typed values are never treated as verified: nothing reaches the patient's record until a clinician files them.
 --
 -- WHAT CHANGES IN EXISTING OBJECTS (each redefined from its live body):
@@ -161,7 +162,8 @@ create or replace function public.coordinator_submit_manual_results(
   p_source_description text,
   p_source_facility_id uuid default null,
   p_source_facility_name text default null,
-  p_admin_note text default null)
+  p_admin_note text default null,
+  p_critical_reason text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -177,6 +179,8 @@ declare
   v_ext uuid;
   v_n integer;
   v_lab_name text;
+  v_lab_critical text;
+  v_reason text;
 begin
   if v_org is null then
     raise exception 'This action is for care coordinators' using errcode = '42501';
@@ -248,22 +252,38 @@ begin
          admin_note = nullif(btrim(coalesce(p_admin_note, '')), '')
    where routed_table = 'lab_result_documents' and routed_id = v_doc;
 
+  -- CDE-02: a critical typed value raises the review alert to urgent IN THIS TRANSACTION, so it can never be left at routine.
+  -- Two sources, either is enough: the laboratory's own "critical" flag on any row (checked here, whatever the caller sends), and the
+  -- catalogue's critical bands, which the server works out from the typed values and passes as p_critical_reason.
+  select string_agg(coalesce(r ->> 'reportedLabel', 'a result'), ', ' order by o)
+    into v_lab_critical
+    from jsonb_array_elements(coalesce(p_manual_details, '[]'::jsonb)) with ordinality d(x, o)
+    join jsonb_array_elements(p_rows) with ordinality rr(r, o2) on o2 = o
+   where x ->> 'labFlag' = 'critical';
+  v_reason := concat_ws(' ',
+    case when v_lab_critical is not null then format('The laboratory flagged %s as critical.', v_lab_critical) end,
+    nullif(btrim(coalesce(p_critical_reason, '')), ''));
+  if nullif(v_reason, '') is not null then
+    perform public.raise_lab_extraction_alert(v_doc, 'urgent_escalation', 'Typed in by hand: ' || left(v_reason, 400));
+    update public.lab_report_extractions set critical_suspected = true where id = v_ext;
+  end if;
+
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, subject_patient_id, event)
   values (pr.organisation_id, v_uid, 'lab_results.entered_by_hand', 'lab_report_extractions', v_ext, p_patient,
           jsonb_build_object('document_id', v_doc, 'rows', jsonb_array_length(p_rows), 'original_attached', p_original_attached,
-                             'matched_on', to_jsonb(v_matched)));
+                             'matched_on', to_jsonb(v_matched), 'critical_raised', nullif(v_reason, '') is not null));
 
   return jsonb_build_object('ok', true, 'document_id', v_doc, 'extraction_id', v_ext);
 end;
 $function$;
 
-revoke all on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text) from public;
-revoke all on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text) from anon;
-grant execute on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text) to authenticated;
+revoke all on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text, text) from public;
+revoke all on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text, text) from anon;
+grant execute on function public.coordinator_submit_manual_results(uuid, jsonb, jsonb, boolean, jsonb, jsonb, date, text, uuid, text, text, text) to authenticated;
 
 do $$
 begin
-  if has_function_privilege('anon', 'public.coordinator_submit_manual_results(uuid,jsonb,jsonb,boolean,jsonb,jsonb,date,text,uuid,text,text)', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.coordinator_submit_manual_results(uuid,jsonb,jsonb,boolean,jsonb,jsonb,date,text,uuid,text,text,text)', 'EXECUTE') then
     raise exception 'coordinator_submit_manual_results must not be executable by anon';
   end if;
 end $$;

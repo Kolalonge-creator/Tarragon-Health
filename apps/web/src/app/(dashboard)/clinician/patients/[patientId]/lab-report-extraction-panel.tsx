@@ -227,16 +227,20 @@ export function LabReportExtractionPanel({
   const isManual = extraction.entryMethod === "manual";
   // The laboratory's own flag, the specimen and the comment, as the coordinator typed them, shown under the matching row.
   const manualDetailByCode = new Map<string, string>();
+  // Also keyed by the row object, for rows with no catalogue code (an unlisted test) that land in the "could not be filed" list.
+  const manualDetailByRow = new Map<ExtractedRow, string>();
   if (isManual) {
     extraction.rows.forEach((row, i) => {
       const d = extraction.manualDetails?.[i];
-      if (!row.code || !d) return;
+      if (!d) return;
       const parts = [
         d.labFlag && d.labFlag !== "none" ? `Lab flag: ${d.labFlag}` : null,
         d.specimen ? `Specimen: ${d.specimen}` : null,
         d.comment ? `Comment: ${d.comment}` : null,
       ].filter(Boolean);
-      if (parts.length) manualDetailByCode.set(row.code, parts.join(" · "));
+      if (!parts.length) return;
+      manualDetailByRow.set(row, parts.join(" · "));
+      if (row.code) manualDetailByCode.set(row.code, parts.join(" · "));
     });
   }
 
@@ -442,6 +446,7 @@ export function LabReportExtractionPanel({
                   <li key={`${row.reportedLabel}-${i}`}>
                     {row.reportedLabel}: {row.valueText ?? row.value ?? "—"}{" "}
                     {row.unit ?? ""} ({STATUS_COPY[row.status].label})
+                    {manualDetailByRow.get(row) ? <span className="block pl-3 text-charcoal-ink/60">{manualDetailByRow.get(row)}</span> : null}
                   </li>
                 ))}
               </ul>

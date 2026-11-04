@@ -5,7 +5,8 @@
 --      has no plan that would otherwise open one) with its own title, and a draft marked entry_method = 'manual' with who typed it
 --      and where the values came from. The intake record is entered_by_hand, care_coordinator channel, waiting for a doctor, and
 --      no reader attempt is counted. The patient gets the values-free notice (CDE-08) and reads neither document nor draft.
---   2. A critical typed value can raise that alert to urgent (the same bridge an AI reading uses).
+--   2. A critical typed value raises that alert to urgent in the same call: the laboratory's own "critical" flag (even on a test
+--      outside the catalogue), or the catalogue's critical bands passed in by the server. A non-critical entry stays at review.
 --   3. A doctor files it through confirm_lab_report_extraction: an S27 result exists and the intake record is reviewed.
 --   4. Refused: a clinician (not a coordinator), a name that does not match, no rows, a malformed row, no source, a future test
 --      date, a file outside the patient's folder, details that do not line up with the rows. A draft cannot claim to be manual
@@ -13,7 +14,7 @@
 --   5. SABOTAGE (automatic): with the CDE-02 branch removed from private.handle_lab_result_document, a hand entry for a patient
 --      with no plan opens no review alert (so 1 proves the branch).
 --   Sabotage by hand (checked 2026-11-04): the entry_method filter removed from private.cde_on_lab_report_extraction -> FAIL 1
---   (a hand entry counted as a reader attempt).
+--   (a hand entry counted as a reader attempt); the laboratory-flag check removed from coordinator_submit_manual_results -> FAIL 2.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/cde3_hand_entered_lab_results.sql
 
@@ -111,10 +112,43 @@ begin
   perform set_config('request.jwt.claims', null, true);
   if v_n <> 0 then raise exception 'FAIL 1: the patient can read the unreviewed hand entry (% rows)', v_n; end if;
 
-  -- 2. a critical typed value raises the alert to urgent (the bridge the server action calls)
-  perform public.raise_lab_extraction_alert(v_doc.id, 'urgent_escalation', 'Potassium 6.9 typed in by hand');
-  if (select level from public.clinician_alerts where id = v_alert.id) <> 'urgent_escalation' then
-    raise exception 'FAIL 2: a critical hand-typed value could not raise the review alert';
+  -- 2. a critical typed value raises the alert to urgent in the same call: the laboratory's own flag on an unlisted test, and the
+  --    catalogue's bands passed in by the server. The first entry above (lab flags "high" only, no reason) stayed at review level.
+  if v_alert.level <> 'clinician_review' then
+    raise exception 'FAIL 2: a hand entry with no critical value was raised to % ', v_alert.level;
+  end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_out := public.coordinator_submit_manual_results(v_patient, v_identity,
+    jsonb_build_object('file_path', v_patient::text || '/cde3-crit.pdf', 'original_filename', 'c.pdf', 'mime_type', 'application/pdf',
+                       'file_size_bytes', 1000, 'content_sha256', repeat('9', 64)),
+    false,
+    '[{"reportedLabel":"Troponin I","code":null,"label":null,"value":null,"valueText":"2.1","unit":"ng/mL","canonicalUnit":null,"converted":false,"reportedRange":null,"confidence":"high","status":"unmapped","flags":[]}]',
+    '[{"labFlag":"critical","specimen":null,"comment":null}]', date '2026-11-03', 'Phone call from the lab', v_lab, null, null, null);
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if (select a.level from public.clinician_alerts a join public.lab_result_documents d on d.clinician_alert_id = a.id
+       where d.id = (v_out ->> 'document_id')::uuid) <> 'urgent_escalation'
+     or not (select critical_suspected from public.lab_report_extractions where id = (v_out ->> 'extraction_id')::uuid) then
+    raise exception 'FAIL 2: a result the laboratory flagged critical did not raise the alert to urgent';
+  end if;
+  if (select detail from public.clinician_alerts a join public.lab_result_documents d on d.clinician_alert_id = a.id
+       where d.id = (v_out ->> 'document_id')::uuid) not like '%laboratory flagged Troponin I as critical%' then
+    raise exception 'FAIL 2: the urgent alert does not say which result the laboratory flagged';
+  end if;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_out := public.coordinator_submit_manual_results(v_patient, v_identity,
+    jsonb_build_object('file_path', v_patient::text || '/cde3-band.pdf', 'original_filename', 'b.pdf', 'mime_type', 'application/pdf',
+                       'file_size_bytes', 1000, 'content_sha256', repeat('a', 64)),
+    false, v_rows, '[{"labFlag":"none","specimen":null,"comment":null},{"labFlag":"none","specimen":null,"comment":null}]',
+    date '2026-11-03', 'Email from the lab', v_lab, null, null, 'Potassium 6.9 mmol/L is in the critical range.');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if (select a.level from public.clinician_alerts a join public.lab_result_documents d on d.clinician_alert_id = a.id
+       where d.id = (v_out ->> 'document_id')::uuid) <> 'urgent_escalation' then
+    raise exception 'FAIL 2: a value in the catalogue''s critical range did not raise the alert to urgent';
   end if;
 
   -- 3. the doctor files it through the ordinary path

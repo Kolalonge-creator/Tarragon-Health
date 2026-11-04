@@ -66,7 +66,8 @@ export function ManualEntryForm({
     rows.map((r) => {
       const t = byCode.get(r.code);
       const qualitative = Boolean(t?.values);
-      const numeric = r.value.trim() === "" ? null : Number(r.value);
+      // "6,8" is how some laboratories print 6.8.
+      const numeric = r.value.trim() === "" ? null : Number(r.value.trim().replace(",", "."));
       return {
         code: r.code,
         ...(r.code === OTHER ? { label: r.label } : {}),

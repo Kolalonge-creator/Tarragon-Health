@@ -5,10 +5,9 @@ import { z } from "zod";
 import type { Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { removeFile, removeResultDocument, storeFile, storeResultDocument } from "@/lib/lab-results/store-file";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildManualDraft, manualRowsSchema, transcriptRows } from "@/lib/clinical-documents/manual-entry";
 import { renderManualEntryPdf } from "@/lib/clinical-documents/manual-entry-pdf";
-import { raiseIfCriticalDraft } from "@/lib/lab-reports/escalation-bridge";
+import { criticalReasonFor } from "@/lib/lab-reports/escalation-bridge";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 import { describeDocumentRefusal } from "@/lib/clinical-documents/status";
 
@@ -92,18 +91,23 @@ async function checkUploader(
   supabase: ServerClient,
   userId: string,
   patientId: string,
-): Promise<{ meName: string; patientName: string } | { error: string }> {
+): Promise<{ meName: string; patientName: string; patientSex: string | null; patientDob: string | null } | { error: string }> {
   const { data: me } = await supabase.from("profiles").select("role, organisation_id, full_name").eq("id", userId).single();
   if (!me || !UPLOADER_ROLES.has(me.role) || !me.organisation_id) return { error: "You do not have access to that." };
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, organisation_id, role, full_name")
+    .select("id, organisation_id, role, full_name, sex, date_of_birth")
     .eq("id", patientId)
     .maybeSingle();
   if (!patient || patient.role !== "patient" || patient.organisation_id !== me.organisation_id) {
     return { error: "That patient isn't in your organisation." };
   }
-  return { meName: me.full_name ?? "A care coordinator", patientName: patient.full_name ?? "Patient" };
+  return {
+    meName: me.full_name ?? "A care coordinator",
+    patientName: patient.full_name ?? "Patient",
+    patientSex: patient.sex ?? null,
+    patientDob: patient.date_of_birth ?? null,
+  };
 }
 
 const optional = (v: FormDataEntryValue | null) => (typeof v === "string" && v.trim() !== "" ? v : undefined);
@@ -254,30 +258,34 @@ export async function enterResultsByHand(_prev: UploadState, formData: FormData)
 
   const original = formData.get("file");
   const originalAttached = original instanceof File && original.size > 0;
-  const source: File = originalAttached
-    ? original
-    : new File(
-        [
-          new Uint8Array(
-            await renderManualEntryPdf({
-              patientName: allowed.patientName,
-              enteredByName: allowed.meName,
-              enteredAt: new Date(),
-              sourceDescription: v.sourceDescription,
-              laboratory,
-              reportDate: v.reportDate,
-              rows: transcriptRows(rowsParsed.data),
-            }),
-          ),
-        ],
-        "results-typed-in-by-hand.pdf",
-        { type: "application/pdf" },
-      );
+  let source: File;
+  if (originalAttached) {
+    source = original;
+  } else {
+    try {
+      const pdf = await renderManualEntryPdf({
+        patientName: allowed.patientName,
+        enteredByName: allowed.meName,
+        enteredAt: new Date(),
+        sourceDescription: v.sourceDescription,
+        laboratory,
+        reportDate: v.reportDate,
+        rows: transcriptRows(rowsParsed.data),
+      });
+      source = new File([new Uint8Array(pdf)], "results-typed-in-by-hand.pdf", { type: "application/pdf" });
+    } catch (error) {
+      console.error("lab-reports: could not make the record of typed results", error);
+      return { error: "The record of what you typed could not be made. Attach the original report, or try again." };
+    }
+  }
+
+  // CDE-02: worked out before saving and passed in, so the database raises the doctor's alert to urgent in the same transaction.
+  const criticalReason = criticalReasonFor(draft.rows, { sex: allowed.patientSex, date_of_birth: allowed.patientDob });
 
   const stored = await storeResultDocument(v.patientId, source);
   if ("error" in stored) return { error: stored.error };
 
-  const { data, error } = await supabase.rpc("coordinator_submit_manual_results", {
+  const { error } = await supabase.rpc("coordinator_submit_manual_results", {
     p_patient: v.patientId,
     p_identity: {
       name_on_report: v.nameOnReport,
@@ -293,6 +301,7 @@ export async function enterResultsByHand(_prev: UploadState, formData: FormData)
     ...(v.labProviderId ? { p_source_facility_id: v.labProviderId } : {}),
     ...(v.labName && !v.labProviderId ? { p_source_facility_name: v.labName } : {}),
     ...(v.note ? { p_admin_note: v.note } : {}),
+    ...(criticalReason ? { p_critical_reason: criticalReason } : {}),
   });
   if (error) {
     if (isDatabaseRefusal(error)) await removeResultDocument(stored.file_path);
@@ -300,11 +309,6 @@ export async function enterResultsByHand(_prev: UploadState, formData: FormData)
     return { error: describeDocumentRefusal(error, "The results could not be saved. Try again.") };
   }
 
-  const documentId = (data as { document_id?: string } | null)?.document_id;
-  if (documentId) {
-    // CDE-02: a critical typed value raises the review alert to urgent now, the same bridge an AI reading uses.
-    await raiseIfCriticalDraft(createServiceRoleClient(), { documentId, patientId: v.patientId, rows: draft.rows });
-  }
   revalidatePath("/dashboard/care-coordinator/lab-reports");
   return { success: true };
 }

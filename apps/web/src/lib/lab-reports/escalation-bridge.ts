@@ -12,6 +12,21 @@ export function ageFrom(dateOfBirth: string | null): number | null {
   return years >= 0 && years < 130 ? Math.floor(years) : null;
 }
 
+type DraftRow = { code: string | null; value: number | null; valueText: string | null; status: string };
+
+/** Why a draft looks critical by the catalogue's critical bands for this patient, or null. Pure: no database. */
+export function criticalReasonFor(
+  rows: readonly DraftRow[],
+  profile: { sex: string | null; date_of_birth: string | null } | null,
+): string | null {
+  const ctx: PatientContext = {
+    sex: profile?.sex === "male" || profile?.sex === "female" ? profile.sex : null,
+    ageYears: ageFrom(profile?.date_of_birth ?? null),
+  };
+  const { status, reason } = worstStatusOf(rows, ctx);
+  return status === "critical" && reason ? reason : null;
+}
+
 /**
  * The escalation bridge for a DRAFT (an AI reading, or results a Care Coordinator typed in by hand, CDE-02): when a draft looks
  * critical, the review alert already open for the document is raised to urgent so a doctor sees it first. It records no finding,
@@ -25,17 +40,13 @@ export async function raiseIfCriticalDraft(
   params: {
     documentId: string;
     patientId: string;
-    rows: readonly { code: string | null; value: number | null; valueText: string | null; status: string }[];
+    rows: readonly DraftRow[];
   },
 ): Promise<{ raised: boolean }> {
   try {
     const { data: profile } = await service.from("profiles").select("sex, date_of_birth").eq("id", params.patientId).maybeSingle();
-    const ctx: PatientContext = {
-      sex: profile?.sex === "male" || profile?.sex === "female" ? profile.sex : null,
-      ageYears: ageFrom(profile?.date_of_birth ?? null),
-    };
-    const { status, reason } = worstStatusOf(params.rows, ctx);
-    if (status !== "critical" || !reason) return { raised: false };
+    const reason = criticalReasonFor(params.rows, profile ?? null);
+    if (!reason) return { raised: false };
     await service.rpc("raise_lab_extraction_alert", {
       p_document_id: params.documentId,
       p_level: "urgent_escalation",
