@@ -12,8 +12,9 @@ describe("Care Circle tools copy (S69b)", () => {
     }
   });
 
-  it("is marked pending review and nothing in code says otherwise", () => {
-    expect(CIRCLE_TOOLS_COPY_REVIEW.status).toBe("pending_cmo_review");
+  it("carries the CMO and DPO approval (2026-11-04)", () => {
+    expect(CIRCLE_TOOLS_COPY_REVIEW.status).toBe("cmo_reviewed");
+    expect(CIRCLE_TOOLS_COPY_REVIEW.reviewedOn).toBe("2026-11-04");
     expect(CIRCLE_TOOLS_COPY_REVIEW.owner).toBe("CMO");
   });
 
