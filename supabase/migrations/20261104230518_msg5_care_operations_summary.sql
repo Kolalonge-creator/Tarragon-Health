@@ -8,8 +8,8 @@
 --   * alerts: open or acknowledged emergency and urgent clinician alerts, and open unread-clinical-message alerts (not suppressed, not
 --     a duplicate);
 --   * monthly meetings this month (member_followup_entitlements covering now): available, booked, done;
---   * workload: one row per active clinician or Care Coordinator login in the organisation, with the open threads they own that are
---     waiting, past target, or need a doctor. Ordered by name, never by a measure: it shows where work sits, it does not rank anyone.
+--   * workload: one row per active clinician or Care Coordinator login in the organisation, plus anyone else who holds an open thread
+--     (an admin, a deactivated or test account), with the open threads they own that are waiting, past target, or need a doctor. Ordered by name, never by a measure: it shows where work sits, it does not rank anyone.
 -- The reply target and lookback come from the caller (the shared config care_messages.reply_target), so the page and this function
 -- cannot drift apart; out-of-range values are refused.
 --
@@ -66,8 +66,11 @@ begin
       select count(*) from waiting
       where patient_last and now() - awaiting_reply_since > v_target and now() - last_message_at <= v_lookback),
     'older_unanswered', (select count(*) from waiting where patient_last and now() - last_message_at > v_lookback),
+    -- Unowned also covers an owner who has since left or been deactivated: nobody can act on it until routing reassigns it.
     'unowned_waiting', (
-      select count(*) from waiting w where not exists (select 1 from public.care_thread_owners o where o.thread_id = w.id))
+      select count(*) from waiting w
+      where not exists (select 1 from public.care_thread_owners o
+                        where o.thread_id = w.id and private.is_eligible_thread_owner(o.owner_id, v_org)))
   ) into v_messages;
 
   select jsonb_build_object(
@@ -77,7 +80,8 @@ begin
   ) into v_alerts
   from public.clinician_alerts a
   join public.profiles pt on pt.id = a.patient_id
-  where a.organisation_id = v_org and a.status in ('open', 'acknowledged')
+  -- Snoozed is still unresolved, so it still counts as open here.
+  where a.organisation_id = v_org and a.status in ('open', 'acknowledged', 'snoozed')
     and not coalesce(a.suppressed, false) and a.duplicate_of is null and not coalesce(pt.is_test, false);
 
   select jsonb_build_object(
@@ -90,7 +94,7 @@ begin
 
   select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.name), '[]'::jsonb) into v_workload
   from (
-    select p.id as staff_id, coalesce(p.full_name, 'Colleague') as name, p.role::text as role,
+    select p.id as staff_id, coalesce(p.full_name, 'Colleague') as name, p.role::text as role, p.is_active as active,
            exists (select 1 from public.clinical_staff cs
                    where cs.profile_id = p.id and cs.organisation_id = v_org and cs.active
                      and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer')) as is_doctor,
@@ -102,8 +106,13 @@ begin
     left join public.care_thread_owners o on o.owner_id = p.id
     left join public.care_message_threads th on th.id = o.thread_id and th.status = 'open' and th.organisation_id = v_org
       and not exists (select 1 from public.profiles pt where pt.id = th.patient_id and coalesce(pt.is_test, false))
-    where p.organisation_id = v_org and p.is_active and p.role in ('clinician', 'care_coordinator') and not coalesce(p.is_test, false)
-    group by p.id, p.full_name, p.role
+    -- Every active clinician and coordinator (with zero if they hold nothing), plus anyone else who holds an open thread in this
+    -- organisation (an admin who took one, a test or since-deactivated account), so the rows always add up to the totals.
+    where p.organisation_id = v_org
+      and ((p.is_active and p.role in ('clinician', 'care_coordinator') and not coalesce(p.is_test, false))
+           or exists (select 1 from public.care_thread_owners o2 join public.care_message_threads t2 on t2.id = o2.thread_id
+                      where o2.owner_id = p.id and t2.organisation_id = v_org and t2.status = 'open'))
+    group by p.id, p.full_name, p.role, p.is_active
   ) x;
 
   return jsonb_build_object(

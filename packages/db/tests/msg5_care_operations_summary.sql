@@ -6,6 +6,9 @@
 --   3. Alerts: an emergency alert raised by a danger-phrase message is counted.
 --   4. Workload: one row per active clinician or coordinator, with what each owns; names only, no patient detail anywhere in the output.
 --   5. Another organisation's staff see none of it.
+--   5b. Review fixes: an admin who takes a thread appears in the workload; a deactivated owner's waiting threads count as unowned and
+--       they still appear (inactive); a snoozed emergency alert still counts as open; monthly meetings count only this month's
+--       entitlements, never a test one.
 --   6. SABOTAGE: the test patient's waiting thread is left out; flipping that patient to a real one raises support_waiting by one,
 --      so the exclusion is what kept it out.
 -- BEGIN/ROLLBACK; mints its own fixtures.
@@ -123,6 +126,35 @@ begin
   perform pg_temp.ck('5 another organisation''s staff see none of it', '0/0/0',
     (s2->'messages'->>'support_waiting') || '/' || (s2->'messages'->>'clinical_waiting') || '/' || (s2->'alerts'->>'emergency_open'));
 
+  -- 5b. Review fixes.
+  perform pg_temp.as_user(admin);
+  insert into public.care_thread_owners (thread_id, organisation_id, owner_id) values (t_unowned, v_org, admin);
+  perform pg_temp.back();
+  update public.clinician_alerts set status = 'snoozed', snoozed_until = now() + interval '2 hours', snooze_reason = 'MSG5 proof snooze', snoozed_by = doc
+    where patient_id = mp and organisation_id = v_org and level = 'emergency';
+  delete from public.member_followup_entitlements where patient_id = mp;
+  insert into public.member_followup_entitlements (organisation_id, patient_id, membership_id, month_index, period_start, period_end, state, consumed_at, config_version, is_test)
+  select v_org, mp, pm.id, x.mi, x.ps, x.pe, x.st, x.ca, 1, x.tst
+  from public.patient_memberships pm,
+       (values (1, now() - interval '5 days', now() + interval '25 days', 'available', null::timestamptz, false),
+               (2, now() - interval '5 days', now() + interval '25 days', 'consumed', now() - interval '1 day', false),
+               (3, now() + interval '25 days', now() + interval '55 days', 'available', null::timestamptz, false),
+               (4, now() - interval '5 days', now() + interval '25 days', 'available', null::timestamptz, true)) as x(mi, ps, pe, st, ca, tst)
+  where pm.patient_id = mp;
+  s := pg_temp.summary_as(co);
+  perform pg_temp.ck('5b1 admin who took a thread is in the workload', '1',
+    (select e->>'waiting' from jsonb_array_elements(s->'workload') e where e->>'staff_id' = admin::text));
+  perform pg_temp.ck('5b2 nothing unowned once the admin holds it', '0', s->'messages'->>'unowned_waiting');
+  perform pg_temp.ck('5b3 snoozed emergency alert still counts as open', '1', s->'alerts'->>'emergency_open');
+  perform pg_temp.ck('5b4 monthly meetings: this month only, no test row', '1/0/1',
+    (s->'monthly_meetings'->>'available') || '/' || (s->'monthly_meetings'->>'booked') || '/' || (s->'monthly_meetings'->>'done'));
+  update public.profiles set is_active = false where id = co;
+  s := pg_temp.summary_as(doc);
+  perform pg_temp.ck('5b5 a deactivated owner''s waiting threads count as unowned', '2', s->'messages'->>'unowned_waiting');
+  perform pg_temp.ck('5b6 and they still appear, marked inactive', '2/false',
+    (select (e->>'waiting') || '/' || (e->>'active') from jsonb_array_elements(s->'workload') e where e->>'staff_id' = co::text));
+  update public.profiles set is_active = true where id = co;
+
   -- 6. Sabotage: the test patient's thread is what the exclusion keeps out.
   update public.profiles set is_test = false where id = tp;
   s := pg_temp.summary_as(co);
@@ -137,7 +169,7 @@ begin
   select string_agg(check_name || ' (expected ' || coalesce(expected, 'null') || ', got ' || coalesce(observed, 'null') || ')', '; ')
     into v_fail from msg5_results where verdict <> 'PASS';
   if v_fail is not null then raise exception 'MSG-5 proof FAILED: %', v_fail; end if;
-  if (select count(*) from msg5_results) < 18 then raise exception 'MSG-5 proof FAILED: only % checks ran', (select count(*) from msg5_results); end if;
+  if (select count(*) from msg5_results) < 24 then raise exception 'MSG-5 proof FAILED: only % checks ran', (select count(*) from msg5_results); end if;
 end $$;
 
 rollback;

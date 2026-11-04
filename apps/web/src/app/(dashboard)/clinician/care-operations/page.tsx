@@ -13,7 +13,7 @@ export default function ClinicianCareOperations() {
           What is waiting across patient messages, clinical alerts and monthly meetings, and who holds it. Updates every minute.
         </p>
       </div>
-      <CareOperationsPage messagesHref="/clinician/messages" showDoctorLinks />
+      <CareOperationsPage messagesHref="/clinician/messages" alertsHref="/clinician/operations-queue" showDoctorLinks />
     </div>
   );
 }

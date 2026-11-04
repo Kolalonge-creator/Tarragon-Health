@@ -14,18 +14,27 @@ import { Badge } from "@/components/ui/badge";
  * `messagesHref` is the inbox for the viewer's own area (/clinician/messages for a doctor, the coordinator's own tab for a coordinator,
  * which cannot open every /clinician page). Results, alerts and monthly check-ins link to their existing doctor pages.
  */
-export function CareOperationsPage({ messagesHref, showDoctorLinks }: { messagesHref: string; showDoctorLinks: boolean }) {
+export function CareOperationsPage({
+  messagesHref,
+  alertsHref,
+  showDoctorLinks,
+}: {
+  messagesHref: string;
+  /** The open-alert queue, when the viewer may open it (doctors, and coordinators: the operations queue is read-only). */
+  alertsHref: string | null;
+  showDoctorLinks: boolean;
+}) {
   const { data, isLoading, isError } = useCareOperationsSummary();
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (isError || !data) {
     return (
       <p role="alert" className="text-sm text-red-600">
-        Could not load the care operations summary. The counts below are not shown rather than shown as zero.
+        Could not load the care operations summary. Nothing is shown rather than a zero that might not be true. Try again in a moment.
       </p>
     );
   }
-  return <CareOperationsView data={data} messagesHref={messagesHref} showDoctorLinks={showDoctorLinks} />;
+  return <CareOperationsView data={data} messagesHref={messagesHref} alertsHref={alertsHref} showDoctorLinks={showDoctorLinks} />;
 }
 
 function TileLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -39,16 +48,20 @@ function TileLink({ href, children }: { href: string; children: React.ReactNode 
 export function CareOperationsView({
   data,
   messagesHref,
+  alertsHref,
   showDoctorLinks,
 }: {
   data: CareOperationsSummary;
   messagesHref: string;
+  alertsHref: string | null;
   showDoctorLinks: boolean;
 }) {
   const m = data.messages;
   const a = data.alerts;
   const mm = data.monthly_meetings;
   const view = (v: string) => `${messagesHref}?view=${v}`;
+  // The waiting tiles count unanswered threads only, so they open the inbox filtered the same way.
+  const unanswered = (v: string) => `${messagesHref}?view=${v}&unanswered=1`;
 
   return (
     <div className="space-y-6">
@@ -58,10 +71,10 @@ export function CareOperationsView({
           <TileLink href={view("all")}>
             <StatTile icon={MessageSquare} label="New messages today" value={String(m.new_today)} />
           </TileLink>
-          <TileLink href={view("support")}>
+          <TileLink href={unanswered("support")}>
             <StatTile icon={Inbox} label="Support, waiting on a reply" value={String(m.support_waiting)} />
           </TileLink>
-          <TileLink href={view("clinical")}>
+          <TileLink href={unanswered("clinical")}>
             <StatTile icon={Stethoscope} label="Clinical, waiting on a reply" value={String(m.clinical_waiting)} />
           </TileLink>
           <TileLink href={view("needs_doctor")}>
@@ -72,7 +85,7 @@ export function CareOperationsView({
               status={m.needs_doctor > 0 ? { text: "A doctor is needed", tone: "amber" } : undefined}
             />
           </TileLink>
-          <TileLink href={view("all")}>
+          <TileLink href={unanswered("all")}>
             <StatTile
               icon={Clock}
               label={`Past the ${data.target_hours} hour reply target`}
@@ -80,7 +93,7 @@ export function CareOperationsView({
               status={m.past_target > 0 ? { text: "Overdue", tone: "red" } : undefined}
             />
           </TileLink>
-          <TileLink href={view("all")}>
+          <TileLink href={unanswered("all")}>
             <StatTile
               icon={UserX}
               label="Waiting with nobody assigned"
@@ -100,7 +113,7 @@ export function CareOperationsView({
       <section aria-labelledby="ops-safety" className="space-y-3">
         <h2 id="ops-safety" className="font-heading text-lg font-semibold text-charcoal-ink">Clinical safety</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <MaybeLink href={showDoctorLinks ? "/clinician/operations-queue" : null}>
+          <MaybeLink href={alertsHref}>
             <StatTile
               icon={AlertTriangle}
               label="Open emergency alerts"
@@ -108,10 +121,10 @@ export function CareOperationsView({
               status={a.emergency_open > 0 ? { text: "Act now", tone: "red" } : undefined}
             />
           </MaybeLink>
-          <MaybeLink href={showDoctorLinks ? "/clinician/operations-queue" : null}>
+          <MaybeLink href={alertsHref}>
             <StatTile icon={AlertTriangle} label="Open urgent alerts" value={String(a.urgent_open)} />
           </MaybeLink>
-          <MaybeLink href={showDoctorLinks ? "/clinician/operations-queue" : null}>
+          <MaybeLink href={alertsHref}>
             <StatTile icon={MessageSquare} label="Unread clinical message alerts" value={String(a.unread_message_alerts_open)} />
           </MaybeLink>
         </div>
@@ -141,7 +154,8 @@ export function CareOperationsView({
         <CardHeader>
           <CardTitle>Who holds what</CardTitle>
           <CardDescription>
-            Open conversations each person owns. Listed by name: this shows where work sits, it does not rank anyone.
+            Open conversations each person owns, including anyone who has left but still holds one. Listed by name: this shows where
+            work sits, it does not rank anyone.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -161,8 +175,13 @@ export function CareOperationsView({
               <tbody className="divide-y divide-charcoal-ink/10">
                 {data.workload.map((row) => (
                   <tr key={row.staff_id}>
-                    <td className="py-2">{row.name}</td>
-                    <td className="py-2">{row.is_doctor ? "Doctor" : row.role === "care_coordinator" ? "Care Coordinator" : "Clinician"}</td>
+                    <td className="py-2">
+                      {row.name}
+                      {!row.active && <span className="ml-1 text-charcoal-ink/50">(no longer active: reassign)</span>}
+                    </td>
+                    <td className="py-2">
+                      {row.is_doctor ? "Doctor" : row.role === "care_coordinator" ? "Care Coordinator" : row.role === "admin" ? "Administrator" : "Clinician"}
+                    </td>
                     <td className="py-2 text-right">{row.waiting}</td>
                     <td className="py-2 text-right">
                       {row.past_target > 0 ? <Badge variant="red">{row.past_target}</Badge> : row.past_target}

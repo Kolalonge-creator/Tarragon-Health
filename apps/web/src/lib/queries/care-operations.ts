@@ -36,6 +36,8 @@ export const careOperationsSummarySchema = z.object({
       staff_id: z.string(),
       name: z.string(),
       role: z.string(),
+      /** False for someone who has left but still holds an open thread. */
+      active: z.boolean(),
       is_doctor: z.boolean(),
       waiting: count,
       past_target: count,
