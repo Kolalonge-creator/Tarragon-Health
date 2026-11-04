@@ -9,7 +9,7 @@ Audited against `origin/main-dev` at 0f28a51dc and the live project `koiplnmbgnq
 
 ---
 
-## 0. Decisions needed before any build
+## 0. Decisions (DIR-1 to DIR-3 decided 2026-11-04, see DECISIONS.md; DIR-4 follows the recommendation)
 
 | # | Question | Why it blocks | Recommendation |
 |---|----------|---------------|----------------|
