@@ -5,6 +5,8 @@ import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { isInviteOnlySignup } from "@/lib/auth/signup-gate";
 import { safeJoinRedirect } from "@/lib/care-circle/join-link";
+import { googleSignInAvailable } from "@/lib/auth/google-sign-in";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 /**
  * The first screen a new user sees, so nothing on it may outlive the business
@@ -74,7 +76,7 @@ export default async function SignupPage({
 }) {
   const { ref, intent, redirect } = await searchParams;
   const locale = await getAuthLocale();
-  const inviteOnly = await isInviteOnlySignup();
+  const [inviteOnly, googleEnabled] = await Promise.all([isInviteOnlySignup(), googleSignInAvailable()]);
   const bookingCheck = intent === "health_check";
   // Someone here to pay for a relative's care. They are not signing up to be
   // treated, so we neither promise them care nor ask them to consent to it.
@@ -140,6 +142,19 @@ export default async function SignupPage({
             redirectTo={redirect}
             inviteOnly={inviteOnly}
           />
+          {/* Plain patient sign-up only. A Google sign-up cannot carry what the form carries for the other routes (a supporter's
+              account purpose, a referral code, the Health Check intent), so those keep the form. Date of birth and phone are asked
+              for in onboarding before anything else can be used. */}
+          {googleEnabled && !supporting && !bookingCheck && !ref && (
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center gap-3 text-xs text-charcoal-ink/50" aria-hidden="true">
+                <span className="h-px flex-1 bg-charcoal-ink/10" />
+                or
+                <span className="h-px flex-1 bg-charcoal-ink/10" />
+              </div>
+              <GoogleSignInButton redirectTo={redirect} label="Sign up with Google" />
+            </div>
+          )}
         </div>
 
         <p className="text-center text-sm text-charcoal-ink/60">

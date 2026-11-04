@@ -11,7 +11,11 @@ export async function GET(request: NextRequest) {
   const redirectParam = searchParams.get("redirect");
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login`);
+    // A Google round trip (marked via=google by GoogleSignInButton) returns ?error=... instead of a code when it did not finish: the
+    // person cancelled, or the database refused the new account (the invite-only rule on auth.users). Say so on /login rather than a
+    // bare form. Other errors (an expired email link) keep the plain redirect, so nobody is told about a Google sign-in they never tried.
+    const googleFailed = searchParams.get("via") === "google" && searchParams.get("error") !== null;
+    return NextResponse.redirect(`${origin}/login${googleFailed ? "?error=google" : ""}`);
   }
 
   const supabase = await createClient();

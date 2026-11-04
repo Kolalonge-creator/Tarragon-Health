@@ -6,15 +6,17 @@ import { pickRedirectTarget } from "@/lib/auth/redirect";
 import { passkeysAvailable } from "@/lib/passkeys/server";
 import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 import { signupHrefFor } from "@/lib/auth/signup-href";
+import { GOOGLE_SIGN_IN_FAILED, googleSignInAvailable } from "@/lib/auth/google-sign-in";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; next?: string; intent?: string }>;
+  searchParams: Promise<{ redirect?: string; next?: string; intent?: string; error?: string }>;
 }) {
-  const { redirect, next, intent } = await searchParams;
+  const { redirect, next, intent, error } = await searchParams;
   const locale = await getAuthLocale();
-  const passkeysEnabled = await passkeysAvailable();
+  const [passkeysEnabled, googleEnabled] = await Promise.all([passkeysAvailable(), googleSignInAvailable()]);
   // S69 (OQ-220): a join link opened while signed out must survive "Create an account" and the email-verification round trip, so the
   // sanitised destination rides along to /signup, which already threads it into emailRedirectTo.
   const safe = pickRedirectTarget({ redirect, next });
@@ -43,7 +45,21 @@ export default async function LoginPage({
           </p>
         </div>
 
+        {error === "google" && (
+          <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-charcoal-ink">
+            {GOOGLE_SIGN_IN_FAILED}
+          </p>
+        )}
+
         <LoginForm redirectTo={safe ?? undefined} locale={locale} passkeysEnabled={passkeysEnabled} />
+
+        {/* A supporter must sign up as a supporter (intent survives only through our own forms), so Google is offered to everyone else. */}
+        {googleEnabled && !supporter && (
+          <div className="space-y-3">
+            <OrDivider />
+            <GoogleSignInButton redirectTo={safe ?? undefined} />
+          </div>
+        )}
 
         <p className="text-center text-sm text-charcoal-ink/60">
           New here?{" "}
@@ -52,6 +68,16 @@ export default async function LoginPage({
           </Link>
         </p>
       </div>
+    </div>
+  );
+}
+
+function OrDivider() {
+  return (
+    <div className="flex items-center gap-3 text-xs text-charcoal-ink/50" aria-hidden="true">
+      <span className="h-px flex-1 bg-charcoal-ink/10" />
+      or
+      <span className="h-px flex-1 bg-charcoal-ink/10" />
     </div>
   );
 }
