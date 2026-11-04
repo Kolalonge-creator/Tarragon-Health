@@ -7,7 +7,7 @@ import { parseCircleMonthly, type CircleMonthlyRow, type MessageKey } from "@tar
  */
 export const CIRCLE_PERMISSIONS = [
   "adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note",
-  // Care Circle P2 (2026-11-04). The mobile supporter screen does not show these blocks yet; the web page does.
+  // Care Circle P2 (2026-11-04)
   "investigation_status", "investigation_values", "weekly_weight_trend", "care_plan_progress",
 ] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
@@ -32,7 +32,9 @@ export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEY
 export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string; monthlyReportShared: boolean; missedDoseAlert: boolean }
 export interface PendingInvite { inviteId: string; hint: string; relationship: string; expiresAt: string }
 export interface CirclePause { pausedUntil: string; pauseAlerts: boolean }
-export interface MyCircle { members: CircleMember[]; invites: PendingInvite[]; pause?: CirclePause; pauseDays?: number }
+/** Care Circle P1 (D3): a share with a person who paid, waiting for them to say yes. It grants nothing until they do. */
+export interface PendingOffer { memberId: string; name: string; permissions: CirclePermission[]; answerBy: string }
+export interface MyCircle { members: CircleMember[]; invites: PendingInvite[]; offers: PendingOffer[]; pause?: CirclePause; pauseDays?: number }
 /** A supporter can drop the push for one person and keep the in-app request. No quiet hours: a request must never be hidden by the clock. */
 export const ALERT_MODES = ["push_and_app", "app_only"] as const;
 export type AlertMode = (typeof ALERT_MODES)[number];
@@ -51,7 +53,18 @@ export interface SupporterView {
   canPay: boolean;
   /** The doctor's line for the family: absent = not shared; null = shared but none written yet. The author is null-gated by the database. */
   doctorNote?: DoctorNote | null;
+  // Care Circle P2: each absent = not shared. Everyday tests only; the database never sends a sensitive test or value.
+  investigations?: InvestigationRow[];
+  results?: ResultRow[];
+  weightTrend?: { weeks: { weekStart: string; kg: number | null; readings: number }[]; direction: "higher" | "lower" | "steady" | null };
+  planProgress?: { done: number; due: number; overdue: number; nextDue: string | null };
 }
+/** Care Circle P2: where one test has got to. Never a value. */
+export const INVESTIGATION_STAGES = ["due", "overdue", "requested", "awaiting_result", "result_received", "awaiting_review", "reviewed", "done"] as const;
+export type InvestigationStage = (typeof INVESTIGATION_STAGES)[number];
+export interface InvestigationRow { code: string; stage: InvestigationStage; dueDate: string | null; followUp: boolean }
+/** Care Circle P2 (D2): one reviewed, released value. `inRange` is null when the lab gave no range. */
+export interface ResultRow { code: string; at: string; value: number | null; valueText: string | null; unit: string; refLow: number | null; refHigh: number | null; inRange: boolean | null }
 export interface DoctorNote { body: string; writtenAt: string; authorStaffId: string | null; authorName: string | null }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
@@ -74,7 +87,7 @@ function permissions(x: unknown): CirclePermission[] | null {
 }
 
 export function parseMyCircle(data: unknown): MyCircle {
-  const out: MyCircle = { members: [], invites: [] };
+  const out: MyCircle = { members: [], invites: [], offers: [] };
   if (!isObj(data)) return out;
   if (Array.isArray(data["members"])) {
     for (const m of data["members"]) {
@@ -83,6 +96,13 @@ export function parseMyCircle(data: unknown): MyCircle {
       if (str(m["member_id"]) && str(m["name"]) && str(m["relationship"]) && perms && str(m["expires_at"])) {
         out.members.push({ memberId: m["member_id"], name: m["name"], relationship: m["relationship"], permissions: perms, expiresAt: m["expires_at"], monthlyReportShared: m["monthly_report_shared"] === true, missedDoseAlert: m["missed_dose_alert"] === true });
       }
+    }
+  }
+  if (Array.isArray(data["offers"])) {
+    for (const o of data["offers"]) {
+      if (!isObj(o)) continue;
+      const perms = permissions(o["permissions"]);
+      if (str(o["member_id"]) && str(o["name"]) && perms && str(o["answer_by"])) out.offers.push({ memberId: o["member_id"], name: o["name"], permissions: perms, answerBy: o["answer_by"] });
     }
   }
   const p = data["pause"];
@@ -121,6 +141,8 @@ export function parseViewLog(data: unknown): ViewLogRow[] {
   return data.flatMap((r) => (isObj(r) && str(r["viewer"]) && str(r["at"]) ? [{ viewer: r["viewer"], at: r["at"] }] : []));
 }
 
+const direction = (d: unknown): "higher" | "lower" | "steady" | null => (d === "higher" || d === "lower" || d === "steady" ? d : null);
+
 /** Null means the access has ended or never existed. Only the blocks the database sent are kept, field by field, so a stray field cannot leak onto the screen. */
 export function parseSupporterView(data: unknown): SupporterView | null {
   if (!isObj(data) || !str(data["patient_id"]) || !str(data["name"]) || !str(data["shared_until"])) return null;
@@ -135,7 +157,35 @@ export function parseSupporterView(data: unknown): SupporterView | null {
         : [],
     );
     const d = b["direction"];
-    v.bpTrend = { weeks, direction: d === "higher" || d === "lower" || d === "steady" ? d : null };
+    v.bpTrend = { weeks, direction: direction(d) };
+  }
+  if (Array.isArray(data["investigations"])) {
+    v.investigations = data["investigations"].flatMap((r): InvestigationRow[] => {
+      if (!isObj(r) || !str(r["code"]) || typeof r["follow_up"] !== "boolean") return [];
+      const stage = INVESTIGATION_STAGES.find((s) => s === r["stage"]);
+      return stage ? [{ code: r["code"], stage, dueDate: str(r["due_date"]) ? r["due_date"] : null, followUp: r["follow_up"] }] : [];
+    });
+  }
+  if (Array.isArray(data["results"])) {
+    v.results = data["results"].flatMap((r): ResultRow[] => {
+      if (!isObj(r) || !str(r["code"]) || !str(r["at"]) || !str(r["unit"])) return [];
+      const value = num(r["value"]) ? r["value"] : null;
+      const valueText = str(r["value_text"]) ? r["value_text"] : null;
+      if (value === null && valueText === null) return [];
+      return [{
+        code: r["code"], at: r["at"], value, valueText, unit: r["unit"], refLow: num(r["ref_low"]) ? r["ref_low"] : null, refHigh: num(r["ref_high"]) ? r["ref_high"] : null,
+        inRange: typeof r["in_range"] === "boolean" ? r["in_range"] : null,
+      }];
+    });
+  }
+  const wt = data["weight_trend"];
+  if (isObj(wt) && Array.isArray(wt["weeks"])) {
+    const weeks = wt["weeks"].flatMap((w) => (isObj(w) && str(w["week_start"]) && num(w["readings"]) ? [{ weekStart: w["week_start"], kg: num(w["kg"]) ? w["kg"] : null, readings: w["readings"] }] : []));
+    v.weightTrend = { weeks, direction: direction(wt["direction"]) };
+  }
+  const pp = data["plan_progress"];
+  if (isObj(pp) && num(pp["done"]) && num(pp["due"]) && num(pp["overdue"])) {
+    v.planProgress = { done: pp["done"], due: pp["due"], overdue: pp["overdue"], nextDue: str(pp["next_due"]) ? pp["next_due"] : null };
   }
   if (Array.isArray(data["monthly"])) v.monthly = parseCircleMonthly(data["monthly"]);
   const p = data["appointments"];
@@ -178,14 +228,15 @@ export function familyNoteAuthor(n: Pick<DoctorNote, "authorStaffId" | "authorNa
 export const GIFT_SHARE_PERMISSIONS = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts", "doctor_note", "pay_for_care"] as const satisfies readonly CirclePermission[];
 export type GiftSharePermission = (typeof GIFT_SHARE_PERMISSIONS)[number];
 export const GIFT_SHARE_USUAL: readonly GiftSharePermission[] = ["weekly_bp_trend", "adherence_summary", "appointments", "red_alerts"];
-export interface GiftPayer { payerId: string; firstName: string | null; entitlementIds: string[] }
+/** `offerPending` (P1, D3): the patient already asked this payer to join and is waiting for their answer. */
+export interface GiftPayer { payerId: string; firstName: string | null; entitlementIds: string[]; offerPending: boolean }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (x: string): boolean => UUID.test(x);
 export function parseGiftPayers(data: unknown): GiftPayer[] {
   if (!Array.isArray(data)) return [];
   return data.flatMap((r) =>
     isObj(r) && str(r["payer_id"]) && UUID.test(r["payer_id"]) && Array.isArray(r["entitlement_ids"]) && r["entitlement_ids"].every(str)
-      ? [{ payerId: r["payer_id"], firstName: str(r["first_name"]) ? r["first_name"] : null, entitlementIds: r["entitlement_ids"] as string[] }]
+      ? [{ payerId: r["payer_id"], firstName: str(r["first_name"]) ? r["first_name"] : null, entitlementIds: r["entitlement_ids"] as string[], offerPending: r["offer_pending"] === true }]
       : [],
   );
 }
@@ -196,7 +247,7 @@ export function mergeKeepingShown(shown: readonly GiftPayer[], next: readonly Gi
     const i = out.findIndex((x) => x.payerId === p.payerId);
     const cur = i === -1 ? undefined : out[i];
     if (cur === undefined) out.push(p);
-    else out[i] = { ...cur, entitlementIds: [...new Set([...cur.entitlementIds, ...p.entitlementIds])] };
+    else out[i] = { ...cur, entitlementIds: [...new Set([...cur.entitlementIds, ...p.entitlementIds])], offerPending: p.offerPending };
   }
   return out;
 }
@@ -304,10 +355,14 @@ export function parseToolsStatus(data: unknown): ToolsStatus {
 }
 export const parseDeclined = (data: unknown): boolean => isObj(data) && data["ok"] === true;
 
+export type TaskAnswer = "can_help" | "cannot_help";
 export interface CircleTask {
   taskId: string; kind: string; neededBy: string | null; state: "open" | "claimed" | "done"; claimedByName: string | null; mine: boolean;
   canClaim: boolean; canRelease: boolean; canComplete: boolean; canCancel: boolean;
+  /** Care Circle P3: the patient's note (D4), whether it was addressed to the caller, and (patient only) who it went to and their answers. */
+  note: string | null; addressed: boolean; recipients: { name: string; answer: TaskAnswer | null }[] | null; myAnswer: TaskAnswer | null; canDecline: boolean;
 }
+const taskAnswer = (x: unknown): TaskAnswer | null => (x === "can_help" || x === "cannot_help" ? x : null);
 export interface CircleTaskList { role: "patient" | "helper" | "viewer"; tasks: CircleTask[] }
 export function parseTasks(data: unknown): CircleTaskList | null {
   if (!isObj(data) || !Array.isArray(data["tasks"])) return null;
@@ -320,6 +375,11 @@ export function parseTasks(data: unknown): CircleTaskList | null {
     return [{
       taskId: r["task_id"], kind: r["kind"], neededBy: str(r["needed_by"]) ? r["needed_by"] : null, state, claimedByName: str(r["claimed_by_name"]) ? r["claimed_by_name"] : null,
       mine: r["mine"] === true, canClaim: r["can_claim"] === true, canRelease: r["can_release"] === true, canComplete: r["can_complete"] === true, canCancel: r["can_cancel"] === true,
+      note: str(r["note"]) && r["note"].length > 0 ? r["note"] : null,
+      addressed: r["addressed"] === true,
+      recipients: Array.isArray(r["recipients"]) ? r["recipients"].flatMap((x) => (isObj(x) && str(x["name"]) ? [{ name: x["name"], answer: taskAnswer(x["answer"]) }] : [])) : null,
+      myAnswer: taskAnswer(r["my_answer"]),
+      canDecline: r["can_decline"] === true,
     }];
   });
   return { role, tasks };
@@ -351,4 +411,76 @@ export interface CircleNudge { patientId: string; name: string; since: string }
 export function parseNudges(data: unknown): CircleNudge[] {
   if (!Array.isArray(data)) return [];
   return data.flatMap((r) => (isObj(r) && str(r["patient_id"]) && str(r["name"]) && str(r["since"]) ? [{ patientId: r["patient_id"], name: r["name"], since: r["since"] }] : []));
+}
+
+// ---------------------------------------------------------------------------
+// Care Circle P1 (founder decision D3, 2026-11-04): a person who paid is asked to join, and says yes or no
+// ---------------------------------------------------------------------------
+/** An offer to join someone's Care Circle, as the payer sees it. First name only. Unknown permission names are dropped, never the row. */
+export interface ShareOffer { memberId: string; patientId: string; name: string; permissions: CirclePermission[]; monthlyReport: boolean; offeredAt: string; answerBy: string }
+export function parseShareOffers(data: unknown): ShareOffer[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r): ShareOffer[] => {
+    if (!isObj(r)) return [];
+    const perms = permissions(r["permissions"]);
+    return str(r["member_id"]) && UUID.test(r["member_id"]) && str(r["patient_id"]) && str(r["name"]) && perms && str(r["offered_at"]) && str(r["answer_by"])
+      ? [{ memberId: r["member_id"], patientId: r["patient_id"], name: r["name"], permissions: perms, monthlyReport: r["monthly_report"] === true, offeredAt: r["offered_at"], answerBy: r["answer_by"] }]
+      : [];
+  });
+}
+/** respond_to_circle_share_offer: only a clean `{ok: true, accepted}` counts; anything else is "not saved". */
+export function parseRespondOffer(data: unknown): { accepted: boolean } | null {
+  return isObj(data) && data["ok"] === true && typeof data["accepted"] === "boolean" ? { accepted: data["accepted"] } : null;
+}
+/** share_circle_with_gift_payer: `offered` true means the payer must say yes first; false means an existing member now sees more. */
+export function parseGiftShareResult(data: unknown): { offered: boolean } | null {
+  return isObj(data) && data["ok"] === true ? { offered: data["offered"] === true } : null;
+}
+
+/** P1: one change in the patient's history of who may see what. Written only by the database. */
+export const SHARING_CHANGES = [
+  "added", "offered", "accepted", "declined", "withdrawn", "offer_lapsed", "permissions_changed", "renewed", "revoked", "expired",
+  "monthly_report_on", "monthly_report_off", "missed_dose_alert_on", "missed_dose_alert_off",
+  "paused", "resumed", "doctor_note_shared", "doctor_note_withdrawn",
+] as const;
+export type SharingChange = (typeof SHARING_CHANGES)[number];
+export interface SharingHistoryRow { at: string; changes: SharingChange[]; by: "patient" | "supporter" | "system"; supporter: string | null }
+/** A change this app does not know is dropped; a row is dropped only when none of its changes are known. */
+export function parseSharingHistory(data: unknown): SharingHistoryRow[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((r): SharingHistoryRow[] => {
+    if (!isObj(r) || !str(r["at"]) || !Array.isArray(r["changes"])) return [];
+    const by = r["by"];
+    if (by !== "patient" && by !== "supporter" && by !== "system") return [];
+    const changes = r["changes"].flatMap((c): SharingChange[] => {
+      const hit = SHARING_CHANGES.find((k) => k === c);
+      return hit ? [hit] : [];
+    });
+    return changes.length > 0 ? [{ at: r["at"], changes, by, supporter: str(r["supporter"]) ? r["supporter"] : null }] : [];
+  });
+}
+const SHARING_CHANGE_KEYS = {
+  added: "circlep1.history.added",
+  offered: "circlep1.history.offered",
+  accepted: "circlep1.history.accepted",
+  declined: "circlep1.history.declined",
+  withdrawn: "circlep1.history.withdrawn",
+  offer_lapsed: "circlep1.history.offer_lapsed",
+  permissions_changed: "circlep1.history.permissions_changed",
+  renewed: "circlep1.history.renewed",
+  revoked: "circlep1.history.revoked",
+  expired: "circlep1.history.expired",
+  monthly_report_on: "circlep1.history.monthly_report_on",
+  monthly_report_off: "circlep1.history.monthly_report_off",
+  missed_dose_alert_on: "circlep1.history.missed_dose_alert_on",
+  missed_dose_alert_off: "circlep1.history.missed_dose_alert_off",
+  paused: "circlep1.history.paused",
+  resumed: "circlep1.history.resumed",
+  doctor_note_shared: "circlep1.history.doctor_note_shared",
+  doctor_note_withdrawn: "circlep1.history.doctor_note_withdrawn",
+} as const satisfies Record<SharingChange, MessageKey>;
+/** The copy key for one change, exactly as the web maps it: a removal made by the supporter themself reads "left". */
+export function sharingChangeKey(change: SharingChange, by: SharingHistoryRow["by"]): MessageKey {
+  if (change === "revoked" && by === "supporter") return "circlep1.history.left";
+  return SHARING_CHANGE_KEYS[change];
 }

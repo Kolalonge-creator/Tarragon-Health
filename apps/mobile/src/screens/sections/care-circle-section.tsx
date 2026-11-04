@@ -5,11 +5,13 @@ import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   answerCheckIn, answerGift, cancelInvite, checkInWindowOpen, createInvite, loadCheckInPending, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember, setMissedDoseAlert,
+  loadSharingHistory, withdrawShareOffer,
 } from "@/lib/care-circle/api";
 import {
-  CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
-  type CircleMember, type CirclePause, type CirclePermission, type MyCircle, type PendingGift, type PreviewView, type ViewLogRow,
+  CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey, sharingChangeKey,
+  type CircleMember, type CirclePause, type CirclePermission, type MyCircle, type PendingGift, type PendingOffer, type PreviewView, type SharingHistoryRow, type ViewLogRow,
 } from "@/lib/care-circle/parse";
+import { Disclosure } from "@/ui/kit/Disclosure";
 import { HelpAlertCard } from "./care-circle-help-card";
 import { PermissionSummary, PresetPicker, TasksCard, useToolsStatus } from "./circle-tools";
 import { supabase } from "@/lib/supabase";
@@ -169,7 +171,7 @@ function PreviewPanel({ view, failed }: { view: PreviewView | null | undefined; 
     <View style={{ gap: 8 }}>
       <AppText variant="bodyStrong" accessibilityRole="header">{t("circle.preview.title", locale)}</AppText>
       <MutedText>{t("circle.preview.note", locale)}</MutedText>
-      <SupporterBlocks view={view} />
+      <SupporterBlocks view={view} name={view.name} />
       {view.alertSample ? <Text>{t("circle.preview.alert", locale)}</Text> : null}
     </View>
   );
@@ -441,6 +443,72 @@ function InviteForm({ onMade }: { onMade: () => void }) {
   );
 }
 
+/** P1 (D3): shares with a person who paid, waiting for them to say yes. The patient may withdraw one before it is answered. */
+function OffersWaiting({ offers, onChanged }: { offers: readonly PendingOffer[]; onChanged: () => void }) {
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (offers.length === 0) return null;
+  return (
+    <Card style={{ gap: 6 }}>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("circlep1.offers.title", locale)}</AppText>
+      {offers.map((o) => (
+        <View key={o.memberId} style={{ gap: 6, paddingVertical: 4 }}>
+          <AppText variant="body">{t("circlep1.offers.row", locale, { name: o.name, date: lagosDate(o.answerBy) })}</AppText>
+          <SecondaryButton
+            title={t("circlep1.offers.withdraw", locale)}
+            disabled={busy}
+            onPress={() => {
+              setBusy(true);
+              setFailed(false);
+              void withdrawShareOffer(o.memberId).then((ok) => {
+                setBusy(false);
+                if (ok) onChanged();
+                else setFailed(true);
+              });
+            }}
+          />
+        </View>
+      ))}
+      {failed ? <ErrorText>{t("circlep1.offer.error", locale)}</ErrorText> : null}
+    </Card>
+  );
+}
+
+/** P1: every change to who may see what, newest first. Written only by the database; the patient sees only their own. */
+function SharingHistory({ refreshKey }: { refreshKey: number }) {
+  const locale = asLocale(useUiLanguage());
+  const [rows, setRows] = useState<SharingHistoryRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void loadSharingHistory().then((r) => {
+      if (!alive) return;
+      if (r.ok) {
+        setRows(r.data);
+        setFailed(false);
+      } else setFailed(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [refreshKey]);
+  if (failed) return <MutedText>{t("circlep1.history.error", locale)}</MutedText>;
+  if (rows === null) return <ActivityIndicator />;
+  if (rows.length === 0) return <MutedText>{t("circlep1.history.empty", locale)}</MutedText>;
+  return (
+    <View style={{ gap: 4 }}>
+      {rows.flatMap((row, i) =>
+        row.changes.map((c) => (
+          <AppText variant="body" key={`${row.at}-${i}-${c}`}>
+            {`${t(sharingChangeKey(c, row.by), locale, { name: row.supporter ?? t("circlep1.history.someone", locale) })} · ${lagosDateTime(row.at)}`}
+          </AppText>
+        )),
+      )}
+    </View>
+  );
+}
+
 /**
  * The patient's Care Circle (S29): who can see what, and the one place to invite, change or remove anyone. Embedded in "Your people".
  * The invite link is shared from the patient's own phone (the platform sends no SMS); the token is shown once.
@@ -463,7 +531,9 @@ export function CareCircleSection() {
     };
   }, []);
 
+  const [historyKey, setHistoryKey] = useState(0);
   const refresh = useCallback(async () => {
+    setHistoryKey((k) => k + 1);
     const [c, l, g] = await Promise.all([loadMyCircle(), loadViewLog(), loadPendingGifts()]);
     if (c.ok) setCircle(c.data);
     else setLoadFailed(true);
@@ -484,7 +554,7 @@ export function CareCircleSection() {
       <AppText variant="title">{t("circle.title", locale)}</AppText>
       <MutedText>{t("circle.intro", locale)}</MutedText>
       <MutedText>{t("circle.monthly.notice", locale)}</MutedText>
-      <HelpAlertCard />
+      <HelpAlertCard alertsPaused={circle.pause?.pauseAlerts === true} />
       <AppText variant="bodyStrong">{t("circle.stop.reminder", locale)}</AppText>
       <PauseCard pause={circle.pause} days={circle.pauseDays ?? 7} onChanged={() => void refresh()} />
       {circle.members.length === 0 ? <MutedText>{t("circle.members.empty", locale)}</MutedText> : null}
@@ -497,13 +567,17 @@ export function CareCircleSection() {
           <SecondaryButton title={t("circle.invite.cancel", locale)} onPress={() => { void cancelInvite(i.inviteId).then(refresh); }} />
         </Card>
       ))}
-      {myId ? <TasksCard patientId={myId} tools={tools} /> : null}
+      <OffersWaiting offers={circle.offers} onChanged={() => void refresh()} />
+      {myId ? <TasksCard patientId={myId} tools={tools} members={circle.members} /> : null}
       <InviteForm onMade={() => void refresh()} />
       <Card style={{ gap: 4 }}>
         <AppText variant="bodyStrong">{t("circle.log.title", locale)}</AppText>
         {log.length === 0 ? <MutedText>{t("circle.log.empty", locale)}</MutedText> : null}
         {log.map((row) => <AppText variant="body" key={`${row.viewer}-${row.at}`}>{t("circle.log.line", locale, { name: row.viewer, date: lagosDateTime(row.at) })}</AppText>)}
       </Card>
+      <Disclosure title={t("circlep1.history.title", locale)}>
+        <SharingHistory refreshKey={historyKey} />
+      </Disclosure>
     </View>
   );
 }

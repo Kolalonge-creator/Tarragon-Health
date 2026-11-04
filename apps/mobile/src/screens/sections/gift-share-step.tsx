@@ -11,7 +11,8 @@ import { Card } from "@/ui/kit/Card";
 import { InlineAlert } from "@/ui/kit/InlineAlert";
 import { Skeleton, SkeletonGroup } from "@/ui/kit/Skeleton";
 
-type Outcome = "shared" | "not_now";
+/** shared: an invitation the payer must accept (P1, D3). widened: an existing member now sees more, at once. */
+type Outcome = "shared" | "widened" | "not_now";
 
 /**
  * The next step after a patient accepts a gift someone else paid for (2026-11-03), the mobile twin of the web GiftShareStep:
@@ -33,7 +34,11 @@ export function GiftShareStep({ payer }: { payer: GiftPayer }) {
     return (
       <Card style={{ gap: space.sm }}>
         <AppText variant="body" accessibilityLiveRegion="polite">
-          {outcome === "shared" ? t("giftshare.done", locale, { name }) : t("giftshare.not_now_done", locale)}
+          {outcome === "shared"
+            ? t("giftshare.done", locale, { name })
+            : outcome === "widened"
+              ? t("giftshare.done_member", locale, { name })
+              : t("giftshare.not_now_done", locale)}
         </AppText>
       </Card>
     );
@@ -52,7 +57,7 @@ export function GiftShareStep({ payer }: { payer: GiftPayer }) {
     setProblem(null);
     const r = await shareWithGiftPayer(payer.payerId, ticked, monthly);
     setBusy(false);
-    if (r.ok) setOutcome("shared");
+    if (r.ok) setOutcome(r.offered ? "shared" : "widened");
     else setProblem(r.reason === "full" ? "full" : "failed");
   }
 
@@ -139,7 +144,10 @@ export function GiftPayerOffers({ justAccepted, refreshKey }: { justAccepted: st
           <AppText variant="bodyStrong" heading>{t("giftshare.later_title", locale)}</AppText>
           <AppText variant="body" tone="textMuted">{t("giftshare.later_body", locale)}</AppText>
           {others.map((p) =>
-            open === p.payerId ? (
+            p.offerPending ? (
+              // P1 (D3): already asked; they see nothing until they say yes. The patient can withdraw it under "Waiting for a reply".
+              <AppText key={p.payerId} variant="body" tone="textMuted">{t("giftshare.waiting", locale, { name: p.firstName ?? t("giftshare.someone", locale) })}</AppText>
+            ) : open === p.payerId ? (
               <GiftShareStep key={p.payerId} payer={p} />
             ) : (
               <Button key={p.payerId} variant="secondary" title={t("giftshare.later_open", locale, { name: p.firstName ?? t("giftshare.someone", locale) })} onPress={() => setOpen(p.payerId)} />

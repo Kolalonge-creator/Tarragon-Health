@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { space, useTheme } from "@/ui/design";
-import { hasSharedBlocks, mergePeople } from "@/lib/care-circle/supporter-home";
+import { hasSharedBlocks, mergePeople, showPersonSwitcher } from "@/lib/care-circle/supporter-home";
+import { Chip } from "@/ui/kit/Chip";
 import type { SupportedPerson as ManagedPerson } from "@/lib/acting";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
-import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadSupported, loadUnanswered, loadSupporterView, requestCheckIn, revokeMember, setAlertMode } from "@/lib/care-circle/api";
-import { ALERT_MODES, minutesLeft, type AlertMode, type OpenAlert, type SupportedPerson, type SupporterView, type UnansweredCheckIn } from "@/lib/care-circle/parse";
+import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadShareOffers, loadSupported, loadUnanswered, loadSupporterView, requestCheckIn, respondToShareOffer, revokeMember, setAlertMode } from "@/lib/care-circle/api";
+import { ALERT_MODES, minutesLeft, permissionKey, type AlertMode, type OpenAlert, type ShareOffer, type SupportedPerson, type SupporterView, type UnansweredCheckIn } from "@/lib/care-circle/parse";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 import { CallInvitesSection } from "./call-invites-section";
 import { MembershipSection } from "./membership-section";
@@ -24,7 +25,9 @@ function lagosDate(iso: string): string {
  * When nothing is shared right now (ended, never existed, or paused) it says one calm, neutral thing: a pause is deliberately
  * indistinguishable from a removal (docs/design/S29.md section 7), so the words never suggest either.
  */
-function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBack: () => void; onLeft: () => void }) {
+function PersonView({ person, people, onSwitch, onBack, onLeft }: {
+  person: SupportedPerson; people: readonly SupportedPerson[]; onSwitch: (p: SupportedPerson) => void; onBack: () => void; onLeft: () => void;
+}) {
   const locale = asLocale(useUiLanguage());
   const [view, setView] = useState<SupporterView | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
@@ -41,7 +44,12 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
   }, [person.patientId]);
   useEffect(() => load(), [load]);
 
-  const back = <SecondaryButton title={t("supporterjoin.error.open_people", locale)} onPress={onBack} />;
+  const back = (
+    <>
+      <SecondaryButton title={t("supporterjoin.error.open_people", locale)} onPress={onBack} />
+      <PersonSwitcher people={people} current={person.patientId} onSwitch={onSwitch} />
+    </>
+  );
 
   if (paying) {
     return (
@@ -87,7 +95,7 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
       <MutedText>{t("circle.view.shared_until", locale, { date: lagosDate(view.sharedUntil) })}</MutedText>
 
       {hasSharedBlocks(view, locale) ? (
-        <SupporterBlocks view={view} />
+        <SupporterBlocks view={view} name={view.name} />
       ) : (
         <Card style={{ gap: 4 }}>
           <AppText variant="body">{t("supporterjoin.view.empty", locale, { name: view.name })}</AppText>
@@ -112,8 +120,98 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
   );
 }
 
+/**
+ * Care Circle P2 (spec 5.1): someone who supports more than one person moves between them here. Each person is a separate read (the
+ * page is keyed by the patient id and the database gate is checked again on every read), so nothing from one person's page is ever shown
+ * on another's. Hidden for a supporter of one person.
+ */
+function PersonSwitcher({ people, current, onSwitch }: { people: readonly SupportedPerson[]; current: string; onSwitch: (p: SupportedPerson) => void }) {
+  const locale = asLocale(useUiLanguage());
+  if (!showPersonSwitcher(people)) return null;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup" accessibilityLabel={t("circlep2.switcher.label", locale)} contentContainerStyle={{ gap: 8 }}>
+      {people.map((p) => (
+        <Chip
+          key={p.patientId}
+          label={p.name}
+          accessibilityLabel={p.relationship ? `${p.name} (${p.relationship})` : p.name}
+          selected={p.patientId === current}
+          onPress={() => {
+            if (p.patientId !== current) onSwitch(p);
+          }}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+/**
+ * Care Circle P1 (founder decision D3, 2026-11-04): someone this person paid for has asked them to join their Care Circle. Nothing is
+ * shown to them until they say yes here. Hidden when there is nothing to answer, and when the read fails (an offer is never a required step).
+ */
+function ShareOffers({ onAnswered }: { onAnswered: () => void }) {
+  const [offers, setOffers] = useState<ShareOffer[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void loadShareOffers().then((o) => {
+      if (alive) setOffers(o);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (offers.length === 0) return null;
+  return (
+    <>
+      {offers.map((o) => <OfferCard key={o.memberId} offer={o} onAnswered={onAnswered} />)}
+    </>
+  );
+}
+
+function OfferCard({ offer, onAnswered }: { offer: ShareOffer; onAnswered: () => void }) {
+  const locale = asLocale(useUiLanguage());
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [answer, setAnswer] = useState<"accepted" | "declined" | null>(null);
+  async function answerWith(accept: boolean) {
+    setBusy(true);
+    setFailed(false);
+    const r = await respondToShareOffer(offer.memberId, accept);
+    setBusy(false);
+    if (!r) {
+      setFailed(true);
+      return;
+    }
+    setAnswer(r.accepted ? "accepted" : "declined");
+    onAnswered();
+  }
+  if (answer) {
+    return (
+      <Card style={{ gap: 6 }}>
+        <AppText variant="body" accessibilityLiveRegion="polite">
+          {answer === "accepted" ? t("circlep1.offer.accepted", locale, { name: offer.name }) : t("circlep1.offer.declined", locale)}
+        </AppText>
+      </Card>
+    );
+  }
+  return (
+    <Card style={{ gap: 8 }}>
+      <AppText variant="bodyStrong" accessibilityRole="header">{t("circlep1.offer.title", locale, { name: offer.name })}</AppText>
+      <AppText variant="body">{t("circlep1.offer.body", locale)}</AppText>
+      {/* what they would see, in the same words the patient chose from; anything unrecognised was already dropped when parsed */}
+      {offer.permissions.map((p) => <AppText variant="body" key={p}>{`• ${t(permissionKey(p), locale)}`}</AppText>)}
+      <MutedText>{t("circlep1.offer.answer_by", locale, { date: lagosDate(offer.answerBy) })}</MutedText>
+      {failed ? <ErrorText>{t("circlep1.offer.error", locale)}</ErrorText> : null}
+      <PrimaryButton title={t("circlep1.offer.accept", locale)} disabled={busy} onPress={() => void answerWith(true)} />
+      <SecondaryButton title={t("circlep1.offer.decline", locale)} disabled={busy} onPress={() => void answerWith(false)} />
+    </Card>
+  );
+}
+
 /** The person's page as its own full screen, over the list, so going back returns exactly where they were. */
-function PersonScreen({ person, onClose, onLeft }: { person: SupportedPerson | null; onClose: () => void; onLeft: () => void }) {
+function PersonScreen({ person, people, onSwitch, onClose, onLeft }: {
+  person: SupportedPerson | null; people: readonly SupportedPerson[]; onSwitch: (p: SupportedPerson) => void; onClose: () => void; onLeft: () => void;
+}) {
   const { colors, reducedMotion } = useTheme();
   return (
     <Modal
@@ -124,7 +222,8 @@ function PersonScreen({ person, onClose, onLeft }: { person: SupportedPerson | n
     >
       <SafeAreaView edges={["top", "left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.canvas }}>
         <ScrollView contentContainerStyle={{ padding: space.xl, gap: space.lg }}>
-          {person ? <PersonView person={person} onBack={onClose} onLeft={onLeft} /> : null}
+          {/* keyed by the person, so switching starts a fresh read and nothing from the last page lingers */}
+          {person ? <PersonView key={person.patientId} person={person} people={people} onSwitch={onSwitch} onBack={onClose} onLeft={onLeft} /> : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -273,6 +372,7 @@ export function CircleSupportingSection({
 
   return (
     <View style={{ gap: 12 }}>
+      <ShareOffers onAnswered={() => void refresh()} />
       <CallInvitesSection />
       <NudgesCard tools={tools} onOpen={(id) => { const p = people.find((x) => x.patientId === id); if (p) setOpen(p); }} />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}
@@ -306,6 +406,8 @@ export function CircleSupportingSection({
       })}
       <PersonScreen
         person={open}
+        people={people}
+        onSwitch={setOpen}
         onClose={() => setOpen(null)}
         onLeft={() => {
           setOpen(null);

@@ -1,7 +1,9 @@
 import type { QueryResult } from "../medications";
+import { CIRCLE_TASK_NOTE_MAX } from "@tarragon/shared";
 import { supabase } from "../supabase";
 import {
   circleErrorKey, parseDeclined, parseDigest, parseNudges, parseTasks, parseToolsStatus, parseAcceptInvite, parseAlerts, parseCheckInPending, parseCheckInResult, parseInvitePreview, parseUnanswered, parseGiftAnswer, parsePendingGifts, parseInviteMade, parseMyCircle, parseOk, parsePaused, parsePreviewView, parseSupported, parseSupporterView, parseViewLog, parseGiftPayers, parseMyFamilyNotes, validGiftShare, isUuid,
+  parseShareOffers, parseRespondOffer, parseGiftShareResult, parseSharingHistory, type ShareOffer, type SharingHistoryRow,
   type GiftPayer, type MyFamilyNote, type AlertMode, type CircleDigest, type CircleNudge, type CircleTaskList, type ToolsStatus, type CheckInResult, type CirclePermission, type InvitePreview, type UnansweredCheckIn, type InviteMade, type PendingGift, type MyCircle, type OpenAlert, type PreviewView, type SupportedPerson, type SupporterView, type ViewLogRow,
 } from "./parse";
 
@@ -164,11 +166,28 @@ export async function loadTasks(patientId: string): Promise<CircleTaskList | nul
   const { data, error } = await supabase.rpc("circle_tasks", { p_patient: patientId });
   return error ? null : parseTasks(data);
 }
-export async function postTask(patientId: string, kind: string, neededBy: string | null): Promise<{ ok: true } | { ok: false; limit: boolean }> {
-  const { error } = await supabase.rpc("post_circle_task", { p_patient: patientId, p_kind: kind, ...(neededBy ? { p_needed_by: neededBy } : {}) });
-  return error ? { ok: false, limit: error.message.includes("task_limit") } : { ok: true };
+export type PostTaskResult = { ok: true } | { ok: false; reason: "limit" | "note_needed" | "note_too_long" | "error" };
+/**
+ * Post a help request. `recipients` (membership ids) and `note` are the patient's only (Care Circle P3, D4); a helper passes neither.
+ * Nobody ticked means everyone who helps. Kind "other" needs a note; both are checked here and again by the database.
+ */
+export async function postTask(
+  patientId: string, kind: string, neededBy: string | null, opts: { recipients?: readonly string[]; note?: string | null } = {},
+): Promise<PostTaskResult> {
+  const note = opts.note?.trim() ? opts.note.trim() : null;
+  if (note && note.length > CIRCLE_TASK_NOTE_MAX) return { ok: false, reason: "note_too_long" };
+  if (kind === "other" && !note) return { ok: false, reason: "note_needed" };
+  const recipients = opts.recipients && opts.recipients.length > 0 ? opts.recipients.filter(isUuid) : null;
+  const { error } = await supabase.rpc("post_circle_task", {
+    p_patient: patientId, p_kind: kind,
+    ...(neededBy ? { p_needed_by: neededBy } : {}),
+    ...(recipients && recipients.length > 0 ? { p_recipients: recipients } : {}),
+    ...(note ? { p_note: note } : {}),
+  });
+  if (!error) return { ok: true };
+  return { ok: false, reason: error.message.includes("task_limit") ? "limit" : error.message.includes("task_other_needs_note") ? "note_needed" : error.message.includes("task_note_too_long") ? "note_too_long" : "error" };
 }
-export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task";
+export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task" | "decline_circle_task";
 /** true: done. false: it was no longer possible (for a claim: someone else got there first). null: not saved. */
 export async function taskAction(action: TaskAction, taskId: string): Promise<boolean | null> {
   const { data, error } = await supabase.rpc(action, { p_task: taskId });
@@ -208,7 +227,8 @@ export async function setFamilyNoteShared(noteId: string, share: boolean): Promi
   const { data, error } = await supabase.rpc("set_family_note_shared", { p_note: noteId, p_share: share });
   return error || typeof data !== "boolean" ? null : data;
 }
-export type GiftShareAnswer = { ok: true } | { ok: false; reason: "invalid" | "full" | "failed" };
+/** `offered` (P1, D3): true means the payer was asked and sees nothing until they say yes; false means an existing member now sees more. */
+export type GiftShareAnswer = { ok: true; offered: boolean } | { ok: false; reason: "invalid" | "full" | "failed" };
 /**
  * The patient's tap. Checked here before anything is sent; the database checks again (auth.uid() is the patient, the payer must have paid
  * for a gift this patient accepted, the list is limited, under 18 is refused). Nothing is shared without this call.
@@ -217,5 +237,32 @@ export async function shareWithGiftPayer(payerId: string, permissions: readonly 
   if (!validGiftShare(payerId, permissions)) return { ok: false, reason: "invalid" };
   const { data, error } = await supabase.rpc("share_circle_with_gift_payer", { p_payer: payerId, p_permissions: [...permissions], p_monthly_report: monthlyReport });
   if (error) return { ok: false, reason: error.message.includes("circle_full") ? "full" : "failed" };
-  return parseOk(data) ? { ok: true } : { ok: false, reason: "failed" };
+  const r = parseGiftShareResult(data);
+  return r ? { ok: true, offered: r.offered } : { ok: false, reason: "failed" };
+}
+
+// ---------------------------------------------------------------------------
+// Care Circle P1 (founder decision D3, 2026-11-04): offers to a person who paid, and the patient's history of sharing changes
+// ---------------------------------------------------------------------------
+/** The payer's open offers. A failed read is "none": an offer is never a required step. */
+export async function loadShareOffers(): Promise<ShareOffer[]> {
+  const { data, error } = await supabase.rpc("my_circle_share_offers");
+  return error ? [] : parseShareOffers(data);
+}
+/** Yes or no. null: not saved (the database checks the caller is the person asked and the offer is still open). */
+export async function respondToShareOffer(memberId: string, accept: boolean): Promise<{ accepted: boolean } | null> {
+  if (!isUuid(memberId)) return null;
+  const { data, error } = await supabase.rpc("respond_to_circle_share_offer", { p_member: memberId, p_accept: accept });
+  return error ? null : parseRespondOffer(data);
+}
+/** The patient takes back an offer nobody has answered yet. */
+export async function withdrawShareOffer(memberId: string): Promise<boolean> {
+  if (!isUuid(memberId)) return false;
+  const { data, error } = await supabase.rpc("withdraw_circle_share_offer", { p_member: memberId });
+  return !error && data === true;
+}
+/** The patient's own history of who may see what (the database returns only the caller's rows). */
+export async function loadSharingHistory(): Promise<QueryResult<SharingHistoryRow[]>> {
+  const { data, error } = await supabase.rpc("my_circle_sharing_history", { p_limit: 50 });
+  return error ? { ok: false, error: error.message } : { ok: true, data: parseSharingHistory(data) };
 }
