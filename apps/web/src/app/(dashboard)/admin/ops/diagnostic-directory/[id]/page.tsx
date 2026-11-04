@@ -220,7 +220,12 @@ function Branch({ d, b, tests }: { d: Detail; b: DetailBranch; tests: Investigat
             <label className="block text-xs text-charcoal-ink">{t("dxdir.f.performing_branch", locale)}
               <select name="performing_branch_listing_id" className={input}>
                 <option value="">{t("dxdir.f.none", locale)}</option>
-                {siblings.map((x) => <option key={x.location_id} value={x.branch_listing_id as string}>{x.name}</option>)}
+                <optgroup label={t("dxdir.f.performer.same_provider", locale)}>
+                  {siblings.map((x) => <option key={x.location_id} value={x.branch_listing_id as string}>{x.name}</option>)}
+                </optgroup>
+                <optgroup label={t("dxdir.f.performer.other_provider", locale)}>
+                  {d.other_branches.map((x) => <option key={x.branch_listing_id} value={x.branch_listing_id}>{x.label}</option>)}
+                </optgroup>
               </select>
             </label>
             <label className="flex items-center gap-2 text-xs text-charcoal-ink"><input type="checkbox" name="appointment_required" /> {t("dxdir.f.appointment_required", locale)}</label>
@@ -352,6 +357,15 @@ function Incidents({ d }: { d: Detail }) {
   );
 }
 
+const SUBJECTS = ["provider_listings", "branch_listings", "branch_services", "credentials", "listing_incidents", "credential_requirements"] as const;
+const ACTIONS = ["created", "status", "location_verified", "details_updated", "confirmed", "recorded", "opened", "closed", "availability", "retired", "replaced"] as const;
+const historySubject = (table: string) => {
+  const key = table.replace(/^diagnostic_/, "");
+  return (SUBJECTS as readonly string[]).includes(key) ? t(`dxdir.history.subject.${key as (typeof SUBJECTS)[number]}`, locale) : key;
+};
+const historyAction = (action: string) =>
+  (ACTIONS as readonly string[]).includes(action) ? t(`dxdir.history.action.${action as (typeof ACTIONS)[number]}`, locale) : action;
+
 function History({ d }: { d: Detail }) {
   return (
     <section aria-labelledby="dx-history" className="space-y-2">
@@ -362,8 +376,8 @@ function History({ d }: { d: Detail }) {
         <ul className="space-y-1 text-xs text-charcoal-ink/80">
           {d.events.map((e, n) => (
             <li key={`${e.at}-${n}`}>
-              {lagosDate(e.at)} · {e.actor ?? "-"} · {e.subject_table.replace("diagnostic_", "").replace(/_/g, " ")} {e.action}
-              {e.from || e.to ? `: ${e.from ?? "-"} to ${e.to ?? "-"}` : ""}{e.note ? ` (${e.note})` : ""}
+              {lagosDate(e.at)} · {e.actor ?? t("dxdir.history.someone", locale)} · {historySubject(e.subject_table)}: {historyAction(e.action)}
+              {e.from || e.to ? ` (${t("dxdir.history.change", locale, { from: e.from ?? "-", to: e.to ?? "-" })})` : ""}{e.note ? `: ${e.note}` : ""}
             </li>
           ))}
         </ul>

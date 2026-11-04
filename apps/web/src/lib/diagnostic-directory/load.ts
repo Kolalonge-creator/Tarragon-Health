@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { detailSchema, investigationOptionsSchema, overviewSchema, type Detail, type InvestigationOption, type Overview } from "./model";
+import { detailSchema, INVESTIGATION_CATEGORIES, investigationOptionsSchema, overviewSchema, type Detail, type InvestigationOption, type Overview } from "./model";
 
 export type Loaded<T> = { ok: true; data: T } | { ok: false; denied: boolean; missing?: boolean };
 
@@ -25,6 +25,10 @@ export async function loadInvestigationOptions(): Promise<Loaded<InvestigationOp
   const { data, error } = await loose(await createClient())
     .from("reference_concepts")
     .select("id, display, investigation_category, is_ambiguous")
+    // Filtered in the query, not after: the terminology table also holds medicines, conditions and analytes, and a capped page
+    // of everything could silently drop tests from the picker.
+    .in("investigation_category", [...INVESTIGATION_CATEGORIES])
+    .eq("is_ambiguous", "false")
     .order("display", { ascending: true });
   if (error) return { ok: false, denied: error.code === "42501" };
   const rows = Array.isArray(data)

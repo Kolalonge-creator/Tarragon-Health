@@ -3,7 +3,7 @@
 --
 --   A  a patient cannot read the overview or a provider's detail, nor create a facility
 --   B  a verifier creates an imaging centre: the provider is NOT contracted (is_active false), both listings start as draft
---   C  the overview lists it; the detail returns its branch, and a service's eligibility reasons
+--   C  the overview lists it; the detail returns its branch, a service's eligibility reasons, and incident events in the history
 --   D  a contracted provider cannot be given a new branch here (it would become orderable at once)
 -- Sabotage: the contracted check removed from private.diagnostic_new_branch -> D's branch goes through.
 
@@ -78,6 +78,7 @@ begin
   perform pg_temp.as_user(v_admin);
   v_svc := public.admin_dx_upsert_service(v_branch, (select id from public.reference_concepts where code = 'inv.mammography'),
                                           'available', 'onsite', null, true, null, null, 'Phone call with the centre manager');
+  perform public.admin_dx_open_incident('branch', v_branch, 'routine', 'Phone number rings out on three separate days', false);
   v_over := public.admin_dx_overview();
   v_detail := public.admin_dx_provider_detail(v_listing);
   perform pg_temp.as_postgres();
@@ -89,6 +90,9 @@ begin
     (v_detail -> 'branches' -> 0 -> 'services' -> 0 -> 'reasons') ?& array['provider_not_listed', 'missing_credential:nnra_authorisation',
                                                                            'missing_credential:state_facility_licence'],
     (v_detail -> 'branches' -> 0 -> 'services' -> 0 ->> 'reasons'));
+
+  insert into results values ('C4 the history includes the incident',
+    exists (select 1 from jsonb_array_elements(v_detail -> 'events') e where e ->> 'subject_table' = 'diagnostic_listing_incidents' and e ->> 'action' = 'opened'), null);
 
   -- D
   -- A contracted lab fixture: its activation guard (licence, accreditation) has its own proofs, so it is bypassed here.
@@ -138,7 +142,7 @@ begin
     if not r.ok then v_fail := v_fail + 1; end if;
   end loop;
   if v_fail > 0 then raise exception '% check(s) failed', v_fail; end if;
-  if (select count(*) from results) < 9 then raise exception 'expected 9 checks, ran %', (select count(*) from results); end if;
+  if (select count(*) from results) < 10 then raise exception 'expected 10 checks, ran %', (select count(*) from results); end if;
 end;
 $$;
 

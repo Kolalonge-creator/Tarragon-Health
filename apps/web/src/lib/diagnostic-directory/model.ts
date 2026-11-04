@@ -13,6 +13,11 @@ export const CREDENTIAL_STATUSES = [
 ] as const;
 export const AVAILABILITY = ["available", "temporarily_unavailable", "by_appointment", "external_referral", "awaiting_confirmation", "discontinued"] as const;
 export const PERFORMED = ["onsite", "other_branch_same_provider", "external_facility"] as const;
+export const INVESTIGATION_CATEGORIES = [
+  "haematology", "clinical_chemistry", "endocrinology", "lipids", "renal", "liver", "microbiology", "serology", "immunology", "molecular",
+  "histopathology", "cytology", "tumour_markers", "urinalysis", "reproductive", "infectious_disease", "ultrasound", "breast_imaging", "xray",
+  "ct", "mri", "cardiac", "endoscopy", "physiology", "other_imaging",
+] as const;
 export const LISTING_STATUSES = ["draft", "listed", "suspended", "deactivated"] as const;
 
 export const NOTICES = [
@@ -154,6 +159,7 @@ export const detailSchema = z.object({
     branch_listing_id: uuid.nullable(), service_id: uuid.nullable(), opened_at: z.string(), decision: nullableString,
     reinstated: z.boolean().nullable(), closed_at: nullableString,
   })),
+  other_branches: z.array(z.object({ branch_listing_id: uuid, label: z.string() })),
   events: z.array(z.object({
     at: z.string(), action: z.string(), subject_table: z.string(), from: nullableString, to: nullableString, note: nullableString, actor: nullableString,
   })),

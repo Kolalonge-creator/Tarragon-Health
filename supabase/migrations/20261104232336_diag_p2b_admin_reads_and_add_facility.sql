@@ -188,6 +188,18 @@ begin
           or i.branch_listing_id in (select id from public.diagnostic_branch_listings where provider_listing_id = pl.id)
           or i.service_id in (select s.id from public.diagnostic_branch_services s join public.diagnostic_branch_listings b
                                 on b.id = s.branch_listing_id where b.provider_listing_id = pl.id)), '[]'::jsonb),
+    -- Branches of OTHER providers, so a test sent elsewhere can name the laboratory or centre that really does it.
+    'other_branches', coalesce((
+      select jsonb_agg(jsonb_build_object('branch_listing_id', o.id, 'label', o.label) order by o.label) from (
+        select b.id, coalesce(lp.name, ip.name) || ': ' || coalesce(ll.name, il.name) || ', ' || coalesce(ll.state, il.state) as label
+          from public.diagnostic_branch_listings b
+          join public.diagnostic_provider_listings op on op.id = b.provider_listing_id
+          left join public.lab_providers lp on lp.id = op.lab_provider_id
+          left join public.imaging_providers ip on ip.id = op.imaging_provider_id
+          left join public.lab_provider_locations ll on ll.id = b.lab_location_id
+          left join public.imaging_provider_locations il on il.id = b.imaging_location_id
+         where b.provider_listing_id <> pl.id and b.directory_status in ('draft', 'listed')
+         limit 500) o), '[]'::jsonb),
     'events', coalesce((
       select jsonb_agg(e order by e ->> 'at' desc) from (
         select jsonb_build_object('at', ev.at, 'action', ev.action, 'subject_table', ev.subject_table, 'from', ev.from_value,
@@ -201,6 +213,11 @@ begin
             or ev.subject_id in (select c.id from public.diagnostic_credentials c
                                   where c.provider_listing_id = pl.id
                                      or c.branch_listing_id in (select id from public.diagnostic_branch_listings where provider_listing_id = pl.id))
+            or ev.subject_id in (select i.id from public.diagnostic_listing_incidents i
+                                  where i.provider_listing_id = pl.id
+                                     or i.branch_listing_id in (select id from public.diagnostic_branch_listings where provider_listing_id = pl.id)
+                                     or i.service_id in (select s.id from public.diagnostic_branch_services s join public.diagnostic_branch_listings b
+                                                           on b.id = s.branch_listing_id where b.provider_listing_id = pl.id))
          order by ev.at desc
          limit 50) q), '[]'::jsonb),
     'today', v_today
