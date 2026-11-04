@@ -4,6 +4,7 @@ import { SignupForm } from "./signup-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { isInviteOnlySignup } from "@/lib/auth/signup-gate";
+import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 
 /**
  * The first screen a new user sees, so nothing on it may outlive the business
@@ -41,12 +42,30 @@ const HEALTH_CHECK_BENEFITS = [
  * be honest that they cannot simply read their mother's record — she decides
  * that, from her own account.
  */
+/**
+ * For somebody who was sent a Care Circle link (/signup?intent=support&redirect=/patient/supporting/join/...). They are here to follow
+ * one person's care, often from abroad, so the page says exactly that, and why the email or phone matters.
+ */
+const CIRCLE_BENEFITS = [
+  "Follow how they are doing, with only what they chose to share",
+  "Be told at once if they ask for help",
+  "No health questions for you: a supporter account is not for being treated",
+  "Free, and they can change what they share at any time",
+];
+
 const SUPPORT_BENEFITS = [
   "Pay for their plan, their checks or their refills on your card",
   "See what your money actually paid for, itemised",
   "They keep their own account and their own records, and they choose what you can see",
   "No health questions for you: this account is for paying, not for being treated",
 ];
+
+/** "Already have an account?" keeps a supporter's join link, so signing in returns them to the invite. */
+function loginHrefForSupporter(joinRedirect: string | null): string {
+  const params = new URLSearchParams({ intent: "support" });
+  if (joinRedirect) params.set("redirect", joinRedirect);
+  return `/login?${params.toString()}`;
+}
 
 export default async function SignupPage({
   searchParams,
@@ -60,6 +79,8 @@ export default async function SignupPage({
   // Someone here to pay for a relative's care. They are not signing up to be
   // treated, so we neither promise them care nor ask them to consent to it.
   const supporting = intent === "support";
+  // A Care Circle link: a supporter account, then straight back to the invite to accept it.
+  const joining = supporting && safeJoinRedirect(redirect) !== null;
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
@@ -76,14 +97,18 @@ export default async function SignupPage({
           <h1 className="font-heading text-xl font-semibold text-charcoal-ink sm:text-2xl">
             {bookingCheck
               ? "Book your Health Check"
-              : supporting
-                ? "Support someone's care"
-                : "Create your account"}
+              : joining
+                ? "Create your free supporter account"
+                : supporting
+                  ? "Support someone's care"
+                  : "Create your account"}
           </h1>
           <p className="mt-2 text-sm text-charcoal-ink/60">
             {bookingCheck
               ? "We need an account to hold your results and your history. A short setup, then you choose where to have the test done."
-              : supporting
+              : joining
+                ? "Use the same email address or phone number the invite was sent to, so we can match it to you. You will come straight back to the invite to accept it."
+                : supporting
                 ? "For paying for someone else's care in Nigeria. We only ask for what we need to bill you, and no health questions, because this account is not for treating you."
                 : "A couple of minutes to set up. Your care team takes it from there."}
           </p>
@@ -93,7 +118,9 @@ export default async function SignupPage({
           <ul className="space-y-2.5">
             {(bookingCheck
               ? HEALTH_CHECK_BENEFITS
-              : supporting
+              : joining
+                ? CIRCLE_BENEFITS
+                : supporting
                 ? SUPPORT_BENEFITS
                 : BENEFITS
             ).map((benefit) => (
@@ -117,7 +144,10 @@ export default async function SignupPage({
 
         <p className="text-center text-sm text-charcoal-ink/60">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-brand-green hover:underline">
+          <Link
+            href={supporting ? loginHrefForSupporter(safeJoinRedirect(redirect)) : "/login"}
+            className="font-medium text-brand-green hover:underline"
+          >
             Sign in
           </Link>
         </p>

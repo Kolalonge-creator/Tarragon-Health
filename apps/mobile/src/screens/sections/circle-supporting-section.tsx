@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ActivityIndicator, Alert, Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { space, useTheme } from "@/ui/design";
+import { hasSharedBlocks, mergePeople } from "@/lib/care-circle/supporter-home";
+import type { SupportedPerson as ManagedPerson } from "@/lib/acting";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { ackAlert, ackUnanswered, checkInWindowOpen, loadOpenAlerts, loadSupported, loadUnanswered, loadSupporterView, requestCheckIn, revokeMember, setAlertMode } from "@/lib/care-circle/api";
@@ -15,7 +19,11 @@ function lagosDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
-/** One read about one person: only the blocks the database sent. Read only: no export, no copy, no raw readings. */
+/**
+ * One person's page, on its own screen: only the blocks the database sent. Read only: no export, no copy, no raw readings.
+ * When nothing is shared right now (ended, never existed, or paused) it says one calm, neutral thing: a pause is deliberately
+ * indistinguishable from a removal (docs/design/S29.md section 7), so the words never suggest either.
+ */
 function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBack: () => void; onLeft: () => void }) {
   const locale = asLocale(useUiLanguage());
   const [view, setView] = useState<SupporterView | null | undefined>(undefined);
@@ -23,12 +31,17 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
   const [failed, setFailed] = useState(false);
   const tools = useToolsStatus();
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setFailed(false);
+    setView(undefined);
     void loadSupporterView(person.patientId).then((r) => {
       if (r.ok) setView(r.data);
       else setFailed(true);
     });
   }, [person.patientId]);
+  useEffect(() => load(), [load]);
+
+  const back = <SecondaryButton title={t("supporterjoin.error.open_people", locale)} onPress={onBack} />;
 
   if (paying) {
     return (
@@ -38,25 +51,50 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
       </View>
     );
   }
-  if (failed) return <ErrorText>{t("circle.error.unknown", locale)}</ErrorText>;
-  if (view === undefined) return <ActivityIndicator />;
+  if (failed) {
+    return (
+      <View style={{ gap: 12 }}>
+        {back}
+        <ErrorText>{t("supporterjoin.view.load_failed", locale)}</ErrorText>
+        <PrimaryButton title={t("supporterjoin.view.retry", locale)} onPress={load} />
+      </View>
+    );
+  }
+  if (view === undefined) {
+    return (
+      <View style={{ gap: 12 }} accessible accessibilityLabel={t("supporterjoin.view.loading", locale)}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
   if (view === null) {
     return (
       <View style={{ gap: 12 }}>
-        <ErrorText>{t("circle.view.not_found", locale)}</ErrorText>
-        <SecondaryButton title={t("circle.supporting.title", locale)} onPress={onBack} />
+        {back}
+        <Card style={{ gap: 6 }}>
+          <AppText variant="bodyStrong" accessibilityRole="header">{t("supporterjoin.view.nothing_now", locale)}</AppText>
+          <MutedText>{t("supporterjoin.view.nothing_now_body", locale)}</MutedText>
+        </Card>
       </View>
     );
   }
 
   return (
     <View style={{ gap: 12 }}>
-      <SecondaryButton title={t("circle.supporting.title", locale)} onPress={onBack} />
-      <AppText variant="title">{view.name}</AppText>
+      {back}
+      <AppText variant="title" accessibilityRole="header">{t("supporterjoin.view.title", locale, { name: view.name })}</AppText>
       <MutedText>{t("circle.view.privacy", locale, { name: view.name })}</MutedText>
       <MutedText>{t("circle.view.shared_until", locale, { date: lagosDate(view.sharedUntil) })}</MutedText>
 
-      <SupporterBlocks view={view} />
+      {hasSharedBlocks(view, locale) ? (
+        <SupporterBlocks view={view} />
+      ) : (
+        <Card style={{ gap: 4 }}>
+          <AppText variant="body">{t("supporterjoin.view.empty", locale, { name: view.name })}</AppText>
+          {person.permissions.includes("red_alerts") ? <MutedText>{t("supporterjoin.view.empty_alerts", locale)}</MutedText> : null}
+          {view.canPay ? <MutedText>{t("supporterjoin.view.empty_pay", locale)}</MutedText> : null}
+        </Card>
+      )}
       <DigestCard patientId={person.patientId} tools={tools} />
       <TasksCard patientId={person.patientId} tools={tools} />
 
@@ -71,6 +109,25 @@ function PersonView({ person, onBack, onLeft }: { person: SupportedPerson; onBac
         }
       />
     </View>
+  );
+}
+
+/** The person's page as its own full screen, over the list, so going back returns exactly where they were. */
+function PersonScreen({ person, onClose, onLeft }: { person: SupportedPerson | null; onClose: () => void; onLeft: () => void }) {
+  const { colors, reducedMotion } = useTheme();
+  return (
+    <Modal
+      visible={person !== null}
+      animationType={reducedMotion ? "none" : "slide"}
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.canvas }}>
+        <ScrollView contentContainerStyle={{ padding: space.xl, gap: space.lg }}>
+          {person ? <PersonView person={person} onBack={onClose} onLeft={onLeft} /> : null}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -169,8 +226,20 @@ function CheckInAsk({ person, open }: { person: SupportedPerson; open: boolean }
   );
 }
 
-/** The Care Circle half of the supporter's home (S29): an open check-in request first, then the people who have shared something. */
-export function CircleSupportingSection() {
+/**
+ * The supporter's home list on the phone (S29, supporter join path): open check-in requests first, then ONE card per person,
+ * combining their Care Circle membership and any account access they gave (mergePeople). `managed` is that second list (null while
+ * it loads); `renderManaged` draws its half of a card; `empty` is shown only when there is truly nobody.
+ */
+export function CircleSupportingSection({
+  managed,
+  renderManaged,
+  empty,
+}: {
+  managed: ManagedPerson[] | null;
+  renderManaged: (person: ManagedPerson) => ReactNode;
+  empty: ReactNode;
+}) {
   const locale = asLocale(useUiLanguage());
   const [people, setPeople] = useState<SupportedPerson[] | null>(null);
   const [alerts, setAlerts] = useState<OpenAlert[]>([]);
@@ -199,9 +268,8 @@ export function CircleSupportingSection() {
     };
   }, []);
 
-  if (open) return <PersonView person={open} onBack={() => setOpen(null)} onLeft={() => { setOpen(null); void refresh(); }} />;
-  if (people === null) return <ActivityIndicator />;
-  if (people.length === 0 && alerts.length === 0 && missed.length === 0) return <CallInvitesSection />;
+  if (people === null || managed === null) return <ActivityIndicator accessibilityLabel={t("supporterjoin.view.loading", locale)} />;
+  const rows = mergePeople(people, managed);
 
   return (
     <View style={{ gap: 12 }}>
@@ -215,16 +283,35 @@ export function CircleSupportingSection() {
           <PrimaryButton title={t("circle.alert.called", locale)} onPress={() => { void ackUnanswered(m.patientId).then((ok) => { if (ok) void refresh(); }); }} />
         </Card>
       ))}
-      <AppText variant="title">{t("circle.supporting.title", locale)}</AppText>
-      {people.map((p) => (
-        <Card key={p.memberId} style={{ gap: 6 }}>
-          <AppText variant="bodyStrong">{alerts.some((a) => a.patientId === p.patientId && !a.called) ? `${p.name} · ${t("circle.supporting.needs_attention", locale)}` : p.name}</AppText>
-          <MutedText>{`${t("circle.supporting.relationship", locale, { relationship: p.relationship })} · ${t("circle.view.shared_until", locale, { date: lagosDate(p.expiresAt) })}`}</MutedText>
-          <PrimaryButton title={t("circle.supporting.open", locale)} onPress={() => setOpen(p)} />
-          {p.permissions.includes("red_alerts") ? <AlertModePicker person={p} onChanged={() => void refresh()} /> : null}
-          {p.permissions.includes("red_alerts") ? <CheckInAsk person={p} open={checkInOpen} /> : null}
-        </Card>
-      ))}
+      {rows.length === 0 ? empty : null}
+      {rows.map((row) => {
+        const c = row.circle;
+        const needsAttention = alerts.some((a) => a.patientId === row.id && !a.called);
+        return (
+          <Card key={row.id} style={{ gap: 8 }}>
+            <AppText variant="bodyStrong" accessibilityRole="header">
+              {needsAttention ? `${row.name} · ${t("circle.supporting.needs_attention", locale)}` : row.name}
+            </AppText>
+            {c ? (
+              <>
+                <MutedText>{`${t("circle.supporting.relationship", locale, { relationship: c.relationship })} · ${t("circle.view.shared_until", locale, { date: lagosDate(c.expiresAt) })}`}</MutedText>
+                <PrimaryButton title={t("supporterjoin.view.title", locale, { name: c.name })} onPress={() => setOpen(c)} />
+                {c.permissions.includes("red_alerts") ? <AlertModePicker person={c} onChanged={() => void refresh()} /> : null}
+                {c.permissions.includes("red_alerts") ? <CheckInAsk person={c} open={checkInOpen} /> : null}
+              </>
+            ) : null}
+            {row.managed ? renderManaged(row.managed) : null}
+          </Card>
+        );
+      })}
+      <PersonScreen
+        person={open}
+        onClose={() => setOpen(null)}
+        onLeft={() => {
+          setOpen(null);
+          void refresh();
+        }}
+      />
     </View>
   );
 }

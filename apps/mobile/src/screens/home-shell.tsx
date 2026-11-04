@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppState, View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { signOutOfThisPhone } from "@/lib/sign-out";
-import { SECTIONS, type SectionId } from "@/lib/sections";
+import { SECTIONS, SUPPORTER_PRIMARY_SECTIONS, SUPPORTER_SECTION_IDS, supporterSection, type SectionId } from "@/lib/sections";
 import { expoNotificationTapPort, startNotificationTaps } from "@/lib/notification-tap";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { registerPushToken } from "@/lib/push-registration";
@@ -36,6 +36,7 @@ import { RecordsRequestsScreen } from "@/screens/sections/records-requests-scree
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
+import { CareModeSwitch } from "@/screens/sections/care-mode-switch";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { PaymentRequestsScreen } from "@/screens/sections/payment-requests-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
@@ -98,6 +99,11 @@ interface HomeShellProps {
   patientName: string;
   patientNumber: string | null;
   initials: string;
+  /**
+   * profiles.receives_care === false: an account that only supports other people. It opens on the people it supports, with its own
+   * tabs and a menu of only what such an account is for (lib/sections.ts SUPPORTER_SECTION_IDS), mirroring the web proxy.
+   */
+  supporterOnly?: boolean;
 }
 
 /**
@@ -186,9 +192,11 @@ interface HomeShellProps {
  *   caregiver acting for someone with real active conditions — see
  *   lib/healthy-ageing.ts's own comment on loadCoordinatedCareSummary.
  */
-export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
+export function HomeShell({ userId, organisationId, patientName, patientNumber, initials, supporterOnly = false }: HomeShellProps) {
   const { colors: theme } = useTheme();
-  const [section, setSection] = useState<SectionId>("overview");
+  // A supporter-only account never sees a patient section: every way into one (a tab, the menu, a notification tap) is routed home.
+  const [section, setSectionRaw] = useState<SectionId>(supporterOnly ? "supporting" : "overview");
+  const setSection = useCallback((id: SectionId) => setSectionRaw(supporterOnly ? supporterSection(id) : id), [supporterOnly]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
   // Whether the acting-for lookup has finished: until then "no acting-for" is only a guess.
@@ -250,7 +258,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     } catch {
       return undefined;
     }
-  }, []);
+  }, [setSection]);
 
   function handleSelect(id: SectionId) {
     setSection(id);
@@ -268,6 +276,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const hiddenSections: SectionId[] = [
     ...(communityVisible ? [] : (["community"] as const)),
     ...SECTIONS.map((s) => s.id).filter((id) => closedSections.includes(id)),
+    ...(supporterOnly ? SECTIONS.map((s) => s.id).filter((id) => !SUPPORTER_SECTION_IDS.includes(id)) : []),
   ];
   // S29e: people who need a supporter's attention, shown as a count on "People you support" in the menu. The backup for the push:
   // read on open, on a light timer and whenever the app comes back. A failed read leaves the last known count (never invents one).
@@ -372,6 +381,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         organisationId={organisationId}
         acting={acting}
         onActingChange={refreshActing}
+        supporterOnly={supporterOnly}
+        onOpenMyHealth={() => handleSelect("overview")}
       />
     ),
     passport: () => (
@@ -456,10 +467,15 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       )}
 
       {/* S29e: a supporter asked for a check-in; the patient's own account only, and only while a question waits. */}
-      {acting === null ? <CheckInCard /> : null}
+      {acting === null && !supporterOnly ? <CheckInCard /> : null}
 
       {/* D.2: "What is this?" for the screen and a one-time offer of a short tour on the four bottom tabs. Words only; nothing autoplays. */}
       <ScreenHelp section={section} />
+
+      {/* An account that is both a patient and a supporter: one tap between its own health and the people it supports. */}
+      {!supporterOnly && acting === null && section === "overview" ? (
+        <CareModeSwitch userId={userId} active="mine" onSelect={() => handleSelect("supporting")} />
+      ) : null}
 
       <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 
@@ -470,11 +486,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         activeSection={section}
         onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
+        sections={supporterOnly ? SUPPORTER_PRIMARY_SECTIONS : undefined}
       />
 
       {/* S08b: doses from yesterday and today that closed with no answer, asked about once. The
           device owner's own medicines only, never the person being acted for. */}
-      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null} />
+      <CatchUpSheet patientId={userId} organisationId={organisationId} enabled={actingChecked && acting === null && !supporterOnly} />
 
       <JoinInviteModal onJoined={() => handleSelect("supporting")} />
 

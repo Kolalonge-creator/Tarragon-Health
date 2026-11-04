@@ -10,6 +10,7 @@ import { isAppHost } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
 import { rateLimit } from "@/lib/rate-limit";
+import { JOIN_PATH_PREFIX, isJoinToken, joinLandingPath } from "@/lib/care-circle/join-link";
 import { isMobileApiPath, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
@@ -86,6 +87,14 @@ export async function proxy(request: NextRequest) {
   // /verify-report: it needs no session, must not bounce a signed-in visitor (a pharmacist who is also a
   // user), and the 64-hex token in the path must never leave through a Referer header.
   if (pathname === "/verify-rx" || pathname.startsWith("/verify-rx/")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
+  // The signed-out landing for a Care Circle invite link (supporter join path). The token in the path is the only key to it, the page
+  // needs no session (a relative abroad opens it before they have an account), a signed-in visitor is sent on to the real join page
+  // by the page itself, and the token must never leave through a Referer header.
+  if (pathname.startsWith("/circle/join/")) {
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }
@@ -174,6 +183,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user) {
+    // A Care Circle link opened while signed out goes to its landing (who invited you, what you will see, a supporter sign-up), not to
+    // a bare sign-in form. Only a well-formed token is carried; anything else falls through to the ordinary sign-in redirect.
+    const joinToken = pathname.startsWith(JOIN_PATH_PREFIX) ? pathname.slice(JOIN_PATH_PREFIX.length) : null;
+    if (joinToken !== null && isJoinToken(joinToken)) {
+      const landing = NextResponse.redirect(new URL(joinLandingPath(joinToken), request.url));
+      landing.headers.set("Referrer-Policy", "no-referrer");
+      return landing;
+    }
     if (isRoleHomePrefixed(pathname)) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
@@ -247,7 +264,10 @@ export async function proxy(request: NextRequest) {
       pathname === "/patient/subscription" ||
       pathname.startsWith("/patient/subscription/") ||
       // Where Paystack sends a payer back after they pay for a loved one (S29). Only the status page, never the shop for themselves.
-      pathname === "/patient/membership/paid";
+      pathname === "/patient/membership/paid" ||
+      // Paying for a group's screening day is the same "I pay, they receive" shape; the page says any patient account, support-only
+      // included, can request one, and the supporter menu links to it.
+      pathname === "/patient/screening-days";
     if (!allowed) {
       return NextResponse.redirect(new URL("/patient/supporting", request.url));
     }

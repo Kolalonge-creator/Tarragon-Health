@@ -14,7 +14,7 @@ import { FormError, fieldErrorId } from "@/components/ui/form-error";
  * had a working Stripe integration behind it); removing the toggle rather
  * than fixing it, since there is nothing left here to choose a currency for.
  */
-export function ReadyNotice() {
+export function ReadyNotice({ joinRedirect = null }: { joinRedirect?: string | null } = {}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +80,7 @@ export function ReadyNotice() {
           setPending(true);
           setError(null);
           try {
-            await completeOnboarding();
+            await completeOnboarding(joinRedirect ? { redirect: joinRedirect } : undefined);
           } catch (err) {
             // completeOnboarding() ends in redirect(), which Next.js
             // implements by throwing — that's the success path, not a

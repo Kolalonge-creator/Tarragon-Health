@@ -208,6 +208,8 @@ describe("supporter default-deny gate", () => {
     "/patient/supporting/circle/11111111-2222-4333-8444-555555555555",
     "/patient/supporting/circle/11111111-2222-4333-8444-555555555555/pay",
     "/patient/membership/paid",
+    // the supporter menu links here, and the page is for any patient account, support-only included
+    "/patient/screening-days",
   ])("allows %s", async (path) => {
     stubSession({ user: { id: "u1" }, profile: supporter });
     const res = await proxy(request(path));
@@ -219,6 +221,31 @@ describe("supporter default-deny gate", () => {
     const res = await proxy(request(path));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/patient/supporting");
+  });
+});
+
+describe("Care Circle join link opened while signed out (supporter join path)", () => {
+  const TOKEN = "abcdefghijklmnopqrstuvwxyz0123456789_-AB";
+
+  it("sends a signed-out visitor to the landing, not to a bare sign-in form, with no Referer", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request(`/patient/supporting/join/${TOKEN}`));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location") as string).pathname).toBe(`/circle/join/${TOKEN}`);
+    expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
+  });
+
+  it("does not carry a malformed token: that falls back to the ordinary sign-in redirect", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request("/patient/supporting/join/not%20a%20token"));
+    expect(new URL(res.headers.get("location") as string).pathname).toBe("/login");
+  });
+
+  it("serves the landing itself to anyone, signed in or not, with no Referer", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request(`/circle/join/${TOKEN}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
   });
 });
 

@@ -37,6 +37,11 @@ import {
   type SponsorActionState,
 } from "./actions";
 import { useSponsorableServiceProducts } from "@/lib/queries/service-products";
+import type { Locale } from "@tarragon/i18n";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useSupportedPeople as useCirclePeople } from "@/lib/queries/care-circle";
+import type { SupportedPerson as CirclePerson } from "@/lib/care-circle/model";
+import { CirclePersonDetails } from "./circle-supporting";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -155,8 +160,11 @@ function DownloadStatementButton({ people }: { people: SupportedPerson[] }) {
  * being allowed to pay for care and a sponsor being allowed to read it are two
  * different questions with two different answers, and they are kept that way.
  */
-export function SupportedPeople() {
+export function SupportedPeople({ locale = "en" }: { locale?: Locale } = {}) {
   const { data: people, isLoading, isError } = useSupportedPeople();
+  // The same person can be in a Care Circle AND someone this supporter pays for: one card per person, with both halves on it.
+  const circle = useCirclePeople();
+  const circleByPatient = new Map<string, CirclePerson>((circle.data ?? []).map((p) => [p.patient_id, p]));
 
   if (isLoading) {
     return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading the people you support…</p>;
@@ -170,21 +178,19 @@ export function SupportedPeople() {
   }
 
   if (people.length === 0) {
+    // Someone in a Care Circle already has their card above: saying "nobody yet" next to it would contradict the page.
+    if (!circle.isSuccess || (circle.data ?? []).length > 0) return null;
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>You are not supporting anyone yet</CardTitle>
-          <CardDescription>
-            Once someone names you as next of kin, or accepts a request to let you help manage
-            their care, they appear here and you can fund their care directly. If they are not on
-            Tarragon yet, use Buy care for someone at the top to set up their record yourself.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button asChild variant="outline">
-            <Link href="/patient/family">Manage next of kin and family</Link>
-          </Button>
-        </CardContent>
+        <EmptyState
+          title="No one has shared their care with you yet"
+          body="When someone invites you to their Care Circle, they send you a link. Open it, accept, and they will appear here. You can also buy care for someone below, even if they are not on Tarragon yet."
+          action={
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/patient/family">Manage next of kin and family</Link>
+            </Button>
+          }
+        />
       </Card>
     );
   }
@@ -193,8 +199,12 @@ export function SupportedPeople() {
   const totalUsed = people.reduce((sum, p) => sum + p.usedVouchers.length, 0);
   const totalFunded = people.reduce((sum, p) => sum + p.fundedKobo, 0);
 
+  // The money summary only once there is money to summarise: a page that opens on "0 checks used" reads as a bill, not as people.
+  const anyMoney = totalFunded > 0 || totalReady > 0 || totalUsed > 0;
+
   return (
     <div className="space-y-6">
+      {anyMoney ? (
       <Card>
         <CardContent className="space-y-4 py-6">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -226,9 +236,10 @@ export function SupportedPeople() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {people.map((person) => (
-        <PersonCard key={person.profileId} person={person} />
+        <PersonCard key={person.profileId} person={person} circle={circleByPatient.get(person.profileId)} locale={locale} />
       ))}
     </div>
   );
@@ -236,8 +247,13 @@ export function SupportedPeople() {
 
 function PersonCard({
   person,
+  circle,
+  locale,
 }: {
   person: SupportedPerson;
+  /** Their Care Circle membership with this supporter, when there is one: shown on the same card. */
+  circle?: CirclePerson;
+  locale: Locale;
 }) {
   const name = person.fullName ?? "This person";
 
@@ -280,6 +296,11 @@ function PersonCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {circle ? (
+          <div className="border-b border-charcoal-ink/10 pb-4 dark:border-night-ink/15">
+            <CirclePersonDetails person={circle} locale={locale} />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Paid for and waiting to be used</p>

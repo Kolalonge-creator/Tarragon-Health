@@ -16,6 +16,27 @@ import { lightPalette } from "@/ui/design/tokens";
 import { fontFamily } from "@/ui/design/typography";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { SegmentedControl } from "@/ui/kit/SegmentedControl";
+
+type SignUpPurpose = "care" | "support";
+
+/** What the account is for. A supporter account is asked no health questions and opens on the people it supports. */
+const PURPOSE_OPTIONS: { value: SignUpPurpose; label: string }[] = [
+  { value: "care", label: "For my own care" },
+  { value: "support", label: "To support someone" },
+];
+
+const CARE_BENEFITS = [
+  "Log blood pressure, sugar and medicines in seconds",
+  "Plain-language explanations of your results",
+  "Reminders that fit around your day",
+];
+
+const SUPPORT_BENEFITS = [
+  "Follow how they are doing, with only what they chose to share",
+  "Be told at once if they ask for help",
+  "No health questions for you: this account is not for being treated",
+];
 
 const inputStyle = {
   borderWidth: 1,
@@ -133,6 +154,8 @@ type SignUpMethod = "phone" | "email";
 export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const locale = DEFAULT_LOCALE;
   const [method, setMethod] = useState<SignUpMethod>("phone");
+  const [purpose, setPurpose] = useState<SignUpPurpose>("care");
+  const supporter = purpose === "support";
   // Phone method: after signUp the account exists but is unconfirmed; this
   // holds the E.164 number the code went to. The app is never entered until
   // verifyOtp succeeds (the listener in App.tsx only sees a session then).
@@ -200,6 +223,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
       dateOfBirth: dateOfBirth.trim(),
       state: stateValue || undefined,
       inviteCode: inviteCode.trim() || undefined,
+      supporter,
     });
     setLoading(false);
     if (outcome.kind === "error") {
@@ -259,6 +283,8 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           date_of_birth: dateOfBirth.trim(),
           ...(stateValue ? { state: stateValue } : {}),
           ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
+          // A supporter-only account (see startPhoneSignUp): supporter-only from the first row, never asked health questions.
+          ...(supporter ? { account_purpose: "support", signup_intent: "support" } : {}),
         },
       },
     });
@@ -340,15 +366,25 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
           <Text style={{ fontSize: 24, fontFamily: fontFamily.headingBold, color: colors.ink }}>
             {ta("auth.signup.title", locale)}
           </Text>
-          <MutedText>A couple of minutes to set up. Your care team takes it from there.</MutedText>
+          <MutedText>
+            {supporter
+              ? "A free account for following someone's care. If you were sent an invite, use the same email address or phone number it was sent to."
+              : "A couple of minutes to set up. Your care team takes it from there."}
+          </MutedText>
         </View>
 
+        <SegmentedControl
+          options={PURPOSE_OPTIONS}
+          value={purpose}
+          onChange={(value) => {
+            setPurpose(value);
+            setError(null);
+          }}
+          accessibilityLabel="What is this account for"
+        />
+
         <View style={{ gap: 8, backgroundColor: colors.brandTint, borderRadius: radius.card, padding: 14 }}>
-          {[
-            "Log blood pressure, sugar and medicines in seconds",
-            "Plain-language explanations of your results",
-            "Reminders that fit around your day",
-          ].map((line) => (
+          {(supporter ? SUPPORT_BENEFITS : CARE_BENEFITS).map((line) => (
             <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Ionicons name="checkmark-circle" size={18} color={colors.brand} />
               <Text style={{ flex: 1, fontSize: 14, color: colors.ink }}>{line}</Text>

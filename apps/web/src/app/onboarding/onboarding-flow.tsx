@@ -149,7 +149,10 @@ export function OnboardingFlow({
   existingPlan,
   initial,
   receivesCare = true,
+  joinRedirect = null,
 }: {
+  /** A Care Circle join link to return to once this is done (already validated by the page). */
+  joinRedirect?: string | null;
   profile: { id: string; fullName: string | null };
   /**
    * False means this person came to pay for someone else's care, not to
@@ -225,7 +228,7 @@ export function OnboardingFlow({
   }, [answers, consentDone, answersSaved]);
 
   if (!receivesCare) {
-    return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
+    return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} joinRedirect={joinRedirect} />;
   }
 
   return (
@@ -363,10 +366,10 @@ export function OnboardingFlow({
           preview, then a plain confirmation that the app is free. There is no
           plan to choose here any more. */}
       {readyForPlan && intakeCollapsed && existingPlan && (
-        <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
+        <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} joinRedirect={joinRedirect} />
       )}
       {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} answers={answers} />}
-      {readyForPlan && intakeCollapsed && !existingPlan && <ReadyNotice />}
+      {readyForPlan && intakeCollapsed && !existingPlan && <ReadyNotice joinRedirect={joinRedirect} />}
 
       {intent !== null && !readyForPlan && (
         <p className="text-center text-xs text-charcoal-ink/50">
@@ -394,10 +397,12 @@ function SupporterOnboarding({
   profile,
   done,
   onDone,
+  joinRedirect,
 }: {
   profile: { id: string; fullName: string | null };
   done: boolean;
   onDone: (value: boolean) => void;
+  joinRedirect: string | null;
 }) {
   const [finishing, setFinishing] = useState(false);
 
@@ -411,6 +416,21 @@ function SupporterOnboarding({
       </div>
 
       <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+        {joinRedirect ? (
+          <>
+            <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+              One step before you accept
+            </h2>
+            <p className="text-sm text-charcoal-ink">
+              Please agree to the terms below. Then you go straight back to the invite to accept it.
+            </p>
+            <p className="text-sm text-charcoal-ink/60">
+              We are not asking you any health questions, because this account is for following
+              someone&apos;s care, not for treating you.
+            </p>
+          </>
+        ) : (
+          <>
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
           Supporting someone&apos;s care
         </h2>
@@ -428,6 +448,8 @@ function SupporterOnboarding({
           We are not asking you any health questions, because this account is not for treating you.
           If you ever want your own care here, you can set that up later.
         </p>
+          </>
+        )}
       </div>
 
       {done ? (
@@ -444,11 +466,11 @@ function SupporterOnboarding({
         <form
           action={async () => {
             setFinishing(true);
-            await completeOnboarding();
+            await completeOnboarding(joinRedirect ? { redirect: joinRedirect } : undefined);
           }}
         >
-          <Button type="submit" disabled={finishing} className="w-full">
-            {finishing ? "Setting up…" : "Go to the people you support"}
+          <Button type="submit" disabled={finishing} className="min-h-11 w-full">
+            {finishing ? "Setting up…" : joinRedirect ? "Back to the invite" : "Go to the people you support"}
           </Button>
         </form>
       )}

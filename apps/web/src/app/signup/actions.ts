@@ -113,7 +113,7 @@ export async function signUp(
 
   // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
   // Email only: the phone typed on this form is not verified, so it can never satisfy a phone invite.
-  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode, supporter: parsed.data.intent === "support" });
   if (!gate.allowed) {
     return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
   }
@@ -319,7 +319,7 @@ export async function signUpWithPhone(
 
   // Invite-only sign-up: say so kindly before a code is sent. A number that already has an account never reaches the gate, so this
   // cannot be used to learn which numbers are registered.
-  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode });
+  const gate = await checkSignupGate({ phone: parsed.data.phone, inviteCode: parsed.data.inviteCode, supporter: parsed.data.intent === "support" });
   if (!gate.allowed) {
     return { error: t("signup.invite_required", locale), field: "inviteCode" };
   }

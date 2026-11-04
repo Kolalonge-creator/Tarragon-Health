@@ -719,6 +719,10 @@
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
     {
+      "file": "apps/web/src/lib/care-circle/invite-landing.ts",
+      "category": "Care Circle signed-out landing (2026-11-03): calls public.care_circle_invite_landing, which is granted to the service role only, behind a per-address rate limit and a token-shape check. It returns only the inviter's first name, the view permissions and the masked contact hint for a valid pending invite; the browser never calls the function. Same shape as payment-request/preview.ts."
+    },
+    {
       "file": "apps/web/src/lib/payment-request/preview.ts",
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
