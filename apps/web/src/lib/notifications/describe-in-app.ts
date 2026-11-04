@@ -504,6 +504,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "poc_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/testing-days" };
   }
+  // CDE-08: the care team added a report. Fixed neutral wording (INV-07): nothing from the payload, no test, value or laboratory.
+  if (n.template === "lab_report_received") {
+    return { text: "Your care team has added a report to your health record. A doctor will review it, and we will let you know when you can see it", href: "/patient/labs" };
+  }
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }

@@ -242,4 +242,4 @@ Migration `20261104162557_cde2_coordinator_lab_uploads.sql`, proof `packages/db/
 - `staff_lab_assignments`: which laboratories a coordinator handles (admin-managed; the admin screen for it comes with the admin statistics, a later step).
 - Step 1's fingerprint gaps are closed: `replace_my_result_document` takes `p_content_sha256` (dropped and re-created, one definition), `patient_add_lab_result` passes the fingerprint on.
 - Lab reports only. Uploading an ECG, scan or other report for a patient arrives with step 5, when those kinds route through the intake record.
-- Not done, by decision: a care-team upload does not notify the patient (INV-03 stands; OQ-CDE-08).
+- CDE-08 (`20261104165832_cde3_values_free_upload_notice.sql`): a care-team upload sends the patient a values-free notice (in-app and push: a report was added, a doctor will review it). Nothing from the report is in it; the result stays held (INV-03).

@@ -7,7 +7,8 @@
 --   2. Upload: name + date of birth (or + patient number) files a held S27 result; the intake row is care_coordinator, records what
 --      matched, the laboratory and the test date; the patient cannot see it, the coordinator can. Refused: a date of birth or a
 --      patient number that does not match, a name that does not match, a name with no second identifier, no fingerprint, no
---      laboratory, a patient in another organisation, a clinician (not a coordinator), the same file twice.
+--      laboratory, a patient in another organisation, a clinician (not a coordinator), the same file twice. CDE-08: the patient
+--      gets one values-free "report added" notice (payload: the intake id only); their own upload queues none.
 --   3. Corrections: the uploader corrects the test date with a reason (audited with the old value); another coordinator cannot;
 --      after a clinician has released the result nobody can.
 --   4. Fingerprint gaps closed: a patient's replacement upload and a patient-added S27 file are refused when the file is already in
@@ -157,6 +158,11 @@ begin
   reset role;
   perform set_config('request.jwt.claims', null, true);
   if v_n <> 0 then raise exception 'FAIL 2: the patient sees a held coordinator upload'; end if;
+  -- CDE-08: the patient is told a report was added, and nothing else (the payload is the intake id only)
+  select count(*) into v_n from public.notifications
+   where recipient_id = v_patient and template = 'lab_report_received' and channel = 'in_app'
+     and payload = jsonb_build_object('clinical_document_id', v_cd.id);
+  if v_n <> 1 then raise exception 'FAIL 2 (CDE-08): % values-free notices for the coordinator upload, expected 1', v_n; end if;
 
   -- patient number as the second identifier
   perform set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
@@ -278,6 +284,7 @@ begin
   end if;
 
   -- 4. fingerprint gaps closed
+  select count(*) into v_audit_before from public.notifications where recipient_id = v_patient and template = 'lab_report_received';
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.lab_result_documents (organisation_id, patient_id, file_path, original_filename, mime_type, file_size_bytes,
@@ -292,6 +299,10 @@ begin
   end;
   if v_err is distinct from 'clinical_document_duplicate' then
     reset role; raise exception 'FAIL 4: a replacement with a file already in the record was accepted (%)', v_err;
+  end if;
+  select count(*) into v_n from public.notifications where recipient_id = v_patient and template = 'lab_report_received';
+  if v_n <> v_audit_before then
+    reset role; raise exception 'FAIL 4 (CDE-08): the patient''s own upload queued a "report added" notice';
   end if;
   v_err := null;
   begin
