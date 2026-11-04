@@ -16916,6 +16916,7 @@ export type Database = {
           ai_summary_generated_at: string | null
           ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
+          content_sha256: string | null
           created_at: string
           file_path: string
           file_size_bytes: number | null
@@ -16938,6 +16939,7 @@ export type Database = {
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
+          content_sha256?: string | null
           created_at?: string
           file_path: string
           file_size_bytes?: number | null
@@ -16960,6 +16962,7 @@ export type Database = {
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
+          content_sha256?: string | null
           created_at?: string
           file_path?: string
           file_size_bytes?: number | null
@@ -23390,11 +23393,13 @@ export type Database = {
       }
       imaging_report_documents: {
         Row: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
           ai_impression_flagged: boolean | null
           ai_impression_text: string | null
           ai_summary_generated_at: string | null
           ai_summary_status: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id: string | null
+          content_sha256: string | null
           created_at: string
           file_path: string
           file_size_bytes: number | null
@@ -23413,11 +23418,13 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_impression_flagged?: boolean | null
           ai_impression_text?: string | null
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
+          content_sha256?: string | null
           created_at?: string
           file_path: string
           file_size_bytes?: number | null
@@ -23436,11 +23443,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_impression_flagged?: boolean | null
           ai_impression_text?: string | null
           ai_summary_generated_at?: string | null
           ai_summary_status?: Database["public"]["Enums"]["ai_document_summary_status"]
           clinician_alert_id?: string | null
+          content_sha256?: string | null
           created_at?: string
           file_path?: string
           file_size_bytes?: number | null
@@ -23505,6 +23514,7 @@ export type Database = {
       }
       imaging_reports: {
         Row: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
           ai_assisted: boolean
           body_region: string
           clinician_alert_id: string | null
@@ -23536,6 +23546,7 @@ export type Database = {
           urgency: Database["public"]["Enums"]["imaging_finding_urgency"]
         }
         Insert: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_assisted?: boolean
           body_region: string
           clinician_alert_id?: string | null
@@ -23567,6 +23578,7 @@ export type Database = {
           urgency?: Database["public"]["Enums"]["imaging_finding_urgency"]
         }
         Update: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
           ai_assisted?: boolean
           body_region?: string
           clinician_alert_id?: string | null
@@ -52371,6 +52383,7 @@ export type Database = {
       coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
       correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       confirm_clinical_document_kind: { Args: { p_document: string; p_kind: string }; Returns: string }
+      route_clinical_document: { Args: { p_document: string; p_file_path: string }; Returns: string }
       review_clinical_document: { Args: { p_document: string; p_note: string }; Returns: undefined }
       record_document_classification: { Args: { p_document: string; p_suggested_kind: string; p_confidence: number; p_source: string; p_system: string; p_apply: boolean; p_error?: string }; Returns: string }
       submit_unsorted_document: { Args: { p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_content_sha256: string; p_note?: string }; Returns: string }

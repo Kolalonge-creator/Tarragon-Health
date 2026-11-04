@@ -9,7 +9,7 @@ const rpc = jest.fn();
 const upload = jest.fn();
 const remove = jest.fn();
 const runDocumentClassification = jest.fn();
-const startLabReader = jest.fn();
+const startReader = jest.fn();
 const routedRow = { data: { routed_table: "lab_result_documents", routed_id: "33333333-3333-4333-8333-333333333333" } };
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -25,7 +25,7 @@ jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/validation/result-doc-signature", () => ({ verifyResultDocSignature: jest.fn().mockResolvedValue(null) }));
 jest.mock("@/lib/clinical-documents/classify-run", () => ({
   runDocumentClassification: (...a: unknown[]) => runDocumentClassification(...a),
-  startLabReader: (...a: unknown[]) => startLabReader(...a),
+  startReader: (...a: unknown[]) => startReader(...a),
 }));
 
 import { confirmDocumentKind, uploadUnsortedDocument } from "./unsorted-documents-actions";
@@ -82,17 +82,18 @@ describe("uploadUnsortedDocument", () => {
 });
 
 describe("confirmDocumentKind", () => {
-  it("starts the lab reader only when the answer routed the document into the lab path", async () => {
+  it("starts the reader for the pipeline the answer chose, and links a paid walkthrough only for a lab document", async () => {
     rpc.mockImplementation(async (name: string) => ({ data: name === "confirm_clinical_document_kind" ? "lab" : null, error: null }));
     await expect(confirmDocumentKind({ documentId: DOC, kindCode: "lab.haematology" })).resolves.toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("confirm_clinical_document_kind", { p_document: DOC, p_kind: "lab.haematology" });
-    expect(startLabReader).toHaveBeenCalledWith({ service: true }, DOC);
+    expect(startReader).toHaveBeenCalledWith({ service: true }, DOC, "lab");
 
-    startLabReader.mockClear();
+    startReader.mockClear();
     rpc.mockReset();
     rpc.mockResolvedValue({ data: "ecg", error: null });
     await confirmDocumentKind({ documentId: DOC, kindCode: "cardiology.ecg" });
-    expect(startLabReader).not.toHaveBeenCalled();
+    expect(startReader).toHaveBeenCalledWith({ service: true }, DOC, "ecg");
+    expect(rpc).not.toHaveBeenCalledWith("claim_lab_result_consult_credit", expect.anything());
   });
 
   it("refuses a malformed answer before reaching the database", async () => {

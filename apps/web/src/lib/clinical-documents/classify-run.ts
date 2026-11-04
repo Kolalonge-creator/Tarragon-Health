@@ -1,10 +1,15 @@
 import "server-only";
+import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProposedConfig, type ConfigValue, type Database } from "@tarragon/shared";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { normaliseForVision } from "@/lib/lab-reports/heic";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
+import { runEcgReportExtraction } from "@/lib/ecg-reports/extraction-actions";
+import { runImagingReportExtraction } from "@/lib/imaging-reports/extraction-actions";
+import { ECG_REPORT_BUCKET } from "@/lib/ecg-reports/documents";
+import { IMAGING_REPORT_BUCKET } from "@/lib/imaging-reports/documents";
 import { classifyByRules } from "./classify-rules";
 import { STUCK_AFTER_MINUTES } from "./retry";
 import { CLASSIFIER_MODEL_ID, classifyDocument, type ClassifiableKind } from "./classify";
@@ -146,13 +151,61 @@ export async function runDocumentClassification(
       console.error("clinical-documents: could not record the classification", error);
       return { pipeline: null, asked: false };
     }
-    if (pipeline === "lab") await startLabReader(service, doc.id);
+    if (pipeline) await startReader(service, doc.id, pipeline);
     return { pipeline: pipeline ?? null, asked: !pipeline };
   } catch (error) {
     // The document stays 'classifying'; the daily retry picks it up and, after the last attempt, asks the patient.
     console.error("clinical-documents: classification failed", error);
     return { pipeline: null, asked: false };
   }
+}
+
+/**
+ * After a document's type is known (classifier or the patient's answer): start its reader. A lab document was routed by the database
+ * in the same transaction. An ECG or imaging document still waits ('processing'): its reader keeps files in its own bucket, so the
+ * file is copied there and public.route_clinical_document creates the ECG or imaging row (step 5a). If that fails the document stays
+ * 'processing': it is on the ops exception queue after 30 minutes and the daily sweep tries again. Never throws.
+ */
+export async function startReader(service: SupabaseClient<Database>, documentId: string, pipeline: string): Promise<void> {
+  try {
+    if (pipeline === "lab") return await startLabReader(service, documentId);
+    if (pipeline === "ecg" || pipeline === "imaging" || pipeline === "mammography") return await routeToReader(service, documentId, pipeline);
+  } catch (error) {
+    console.error("clinical-documents: could not start the reader", error);
+  }
+}
+
+async function routeToReader(service: SupabaseClient<Database>, documentId: string, pipeline: string): Promise<void> {
+  const { data: cd } = await service
+    .from("clinical_documents")
+    .select("id, status, routed_table, patient_id, organisation_id, file_path, mime_type")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (!cd || cd.routed_table !== null || cd.status !== "processing" || !cd.file_path) return;
+  const bucket = pipeline === "ecg" ? ECG_REPORT_BUCKET : IMAGING_REPORT_BUCKET;
+  const { data: file, error: downloadError } = await service.storage.from(RESULT_DOC_BUCKET).download(cd.file_path);
+  if (downloadError || !file) {
+    console.error("clinical-documents: could not read the stored upload for routing", downloadError);
+    return;
+  }
+  const ext = cd.file_path.split(".").pop() ?? "bin";
+  const target = `${cd.patient_id}/${randomUUID()}.${ext}`;
+  const { error: uploadError } = await service.storage
+    .from(bucket)
+    .upload(target, file, { contentType: cd.mime_type ?? undefined, upsert: false });
+  if (uploadError) {
+    console.error("clinical-documents: could not copy the upload to its reader", uploadError);
+    return;
+  }
+  const { data: routedId, error } = await service.rpc("route_clinical_document", { p_document: cd.id, p_file_path: target });
+  if (error || !routedId) {
+    console.error("clinical-documents: could not route the document", error);
+    await service.storage.from(bucket).remove([target]);
+    return;
+  }
+  const params = { documentId: routedId, patientId: cd.patient_id, filePath: target, mimeType: cd.mime_type };
+  if (pipeline === "ecg") await runEcgReportExtraction(service, { ...params, organisationId: cd.organisation_id });
+  else await runImagingReportExtraction(service, params);
 }
 
 /** A document just routed into the lab path: start the AI-005 reader on its new lab row, exactly as a direct lab upload does. */
@@ -192,6 +245,22 @@ export async function retryStuckClassifications(
     .order("status_changed_at", { ascending: true })
     .limit(limit);
   if (error) return { error: error.message };
+
+  // Step 5a: sorted ECG or imaging uploads whose copy to the reader did not finish.
+  const { data: waiting } = await service
+    .from("clinical_documents")
+    .select("id, kind_code")
+    .eq("status", "processing")
+    .is("routed_table", null)
+    .lt("status_changed_at", cutoff)
+    .limit(limit);
+  if ((waiting ?? []).length > 0) {
+    const kinds = await loadClassifiableKinds(service);
+    for (const w of waiting ?? []) {
+      const pipeline = kinds.find((k) => k.code === w.kind_code)?.pipeline;
+      if (pipeline) await startReader(service, w.id, pipeline);
+    }
+  }
 
   const policy = classifierPolicy();
   const summary = { considered: docs?.length ?? 0, retried: 0, asked: 0, failed: 0 };

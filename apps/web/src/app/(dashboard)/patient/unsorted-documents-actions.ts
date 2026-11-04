@@ -10,7 +10,7 @@ import { validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
-import { runDocumentClassification, startLabReader } from "@/lib/clinical-documents/classify-run";
+import { runDocumentClassification, startReader } from "@/lib/clinical-documents/classify-run";
 
 /**
  * "Not sure what this is?" (clinical document engine step 4). A patient uploads a health document for themselves without choosing
@@ -130,10 +130,8 @@ export async function confirmDocumentKind(input: { documentId: string; kindCode:
     if (error.message.includes("kind_not_specific")) return { ok: false, error: "Choose a more specific type." };
     return { ok: false, error: "Could not save your answer. Please try again." };
   }
-  if (pipeline === "lab") {
-    await linkConsultCredit(supabase, user.id, parsed.data.documentId);
-    await startLabReader(createServiceRoleClient(), parsed.data.documentId);
-  }
+  if (pipeline === "lab") await linkConsultCredit(supabase, user.id, parsed.data.documentId);
+  if (pipeline) await startReader(createServiceRoleClient(), parsed.data.documentId, pipeline);
   revalidatePath("/patient/labs");
   return { ok: true };
 }
