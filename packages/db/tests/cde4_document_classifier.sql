@@ -11,9 +11,9 @@
 --   4. The patient answers "lab result": a lab_result_documents row for the same stored file (source patient), and the SAME
 --      intake row becomes the routed one (adopted; no second intake row, no duplicate refusal). A routed document cannot be
 --      re-answered; a grouping node with no pipeline is refused; another patient cannot answer.
---   5. A confident classification of a non-lab kind (ECG) is applied: for a patient with no plan the document is kept and says it
---      is not reviewed (no alert); for a patient with an active programme a clinician review alert opens at once. The access
---      category becomes the kind's.
+--   5. A confident classification of a kind with no reader yet (a specialist letter; ECG and imaging go to their readers since
+--      step 5a) is applied: for a patient with no plan the document is kept and says it is not reviewed (no alert); for a patient
+--      with an active programme a clinician review alert opens at once. The access category becomes the kind's.
 --   6. AI-024 is registered disabled with no evaluation run; the classifier record is service-role only.
 --   6b. Once sorted the answer is final (the patient cannot re-answer a kept ECG). A tied clinician records the review of the kept
 --      ECG (status reviewed, note in the staff-only review table, audited); the patient can neither record one nor read the note;
@@ -212,10 +212,10 @@ begin
   perform set_config('request.jwt.claims', null, true);
 
   -- 5. a confident non-lab classification: kept (no plan) or reviewed (active programme)
-  v_out := public.record_document_classification(v_doc3, 'cardiology.ecg', 0.95, 'ai', 'AI-024:claude-sonnet-5', true, null);
+  v_out := public.record_document_classification(v_doc3, 'reports.specialist', 0.95, 'ai', 'AI-024:claude-sonnet-5', true, null);
   select * into v_cd from public.clinical_documents where id = v_doc3;
-  if v_out <> 'ecg' or v_cd.kind_code <> 'cardiology.ecg' or v_cd.kind_source <> 'ai' or v_cd.routed_table is not null
-     or v_cd.status <> 'uploaded' or v_cd.clinician_alert_id is not null or v_cd.access_category <> 'labs_results'
+  if v_out <> 'narrative' or v_cd.kind_code <> 'reports.specialist' or v_cd.kind_source <> 'ai' or v_cd.routed_table is not null
+     or v_cd.status <> 'uploaded' or v_cd.clinician_alert_id is not null or v_cd.access_category <> 'medical_history'
      or v_cd.status_reason not like 'Kept on your record%' then
     raise exception 'FAIL 5: a non-lab document for a patient with no plan is wrong: %', to_jsonb(v_cd);
   end if;
@@ -224,7 +224,7 @@ begin
   v_doc4 := public.submit_unsorted_document(v_paid::text || '/cde4-d.pdf', 'ecg.pdf', 'application/pdf', 1000, repeat('d', 64), null);
   reset role;
   perform set_config('request.jwt.claims', null, true);
-  v_out := public.record_document_classification(v_doc4, 'cardiology.ecg', 0.95, 'ai', 'AI-024:claude-sonnet-5', true, null);
+  v_out := public.record_document_classification(v_doc4, 'reports.specialist', 0.95, 'ai', 'AI-024:claude-sonnet-5', true, null);
   select * into v_cd from public.clinical_documents where id = v_doc4;
   if v_cd.status <> 'doctor_review_required' or v_cd.clinician_alert_id is null
      or (select status from public.clinician_alerts where id = v_cd.clinician_alert_id) <> 'open' then
@@ -245,7 +245,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    perform public.confirm_clinical_document_kind(v_doc3, 'reports.other');
+    perform public.confirm_clinical_document_kind(v_doc3, 'reports.discharge');
     reset role;
     raise exception 'FAIL 6b: a sorted document was re-answered';
   exception when others then
@@ -330,10 +330,10 @@ begin
   -- 7. SABOTAGE: without the adoption branch, the answer is refused as a duplicate of the waiting upload
   v_doc := v_doc2; -- still waiting for its type
   select pg_get_functiondef('private.cde_open_intake(uuid, uuid, text, uuid, text, text, text, uuid)'::regprocedure) into v_def;
-  if position('and cd.routed_table is null and k.pipeline = ''lab''' in v_def) = 0 then
+  if position('(k.pipeline = ''lab'' and p_routed_table = ''lab_result_documents'')' in v_def) = 0 then
     raise exception 'SETUP: the adoption branch text was not found';
   end if;
-  execute replace(v_def, 'and cd.routed_table is null and k.pipeline = ''lab''', 'and false and cd.routed_table is null');
+  execute replace(v_def, '(k.pipeline = ''lab'' and p_routed_table = ''lab_result_documents'')', 'false');
   v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   set local role authenticated;
