@@ -69,5 +69,11 @@ export function withoutCrossOrganisation(perms: readonly string[]): string[] {
 }
 
 /** The fixed list of shared-task kinds. There is no free text in a task, so nothing medical can be typed into one. */
-export const CIRCLE_TASK_KINDS = ["take_to_appointment", "take_to_lab", "collect_medicines", "visit", "phone_call", "errand"] as const;
+export const CIRCLE_TASK_KINDS = [
+  "take_to_appointment", "take_to_lab", "collect_medicines", "visit", "phone_call", "errand",
+  // Care Circle P3 (2026-11-04); "other" needs the patient's note (the database refuses it without one)
+  "transport", "help_paying_test", "help_paying_medicines", "consultation_help", "other",
+] as const;
+/** P3: the longest note a patient may add to a help request (the database CHECK says the same). */
+export const CIRCLE_TASK_NOTE_MAX = 140;
 export type CircleTaskKind = (typeof CIRCLE_TASK_KINDS)[number];

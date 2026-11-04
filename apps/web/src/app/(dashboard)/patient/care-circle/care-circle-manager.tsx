@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
-import { CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, circleErrorKey, endsSoon, inviteLinkPath, permissionKey, type CircleMember, type CirclePermission, type PreviewView } from "@/lib/care-circle/model";
+import { CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, circleErrorKey, endsSoon, inviteLinkPath, permissionKey, sharingChangeKey, type CircleMember, type CirclePermission, type PendingOffer, type PreviewView } from "@/lib/care-circle/model";
 import { SupporterBlocks } from "../supporting/circle/[patientId]/supporter-blocks";
 import { PermissionSummary } from "@/components/care-circle/permission-summary";
 import { PresetPicker } from "@/components/care-circle/preset-picker";
@@ -29,8 +29,10 @@ import {
   useRevokeMember,
   useSetMissedDoseAlert,
   useSetMonthlyShare,
+  useSharingHistory,
   useToolsStatus,
   useUpdateMember,
+  useWithdrawShareOffer,
 } from "@/lib/queries/care-circle";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -384,6 +386,46 @@ function InviteForm({ locale, origin }: { locale: Locale; origin: string }) {
   );
 }
 
+/** P1 (D3): shares with a person who paid, waiting for them to say yes. The patient may withdraw one before it is answered. */
+function OffersWaiting({ offers, locale }: { offers: readonly PendingOffer[]; locale: Locale }) {
+  const withdraw = useWithdrawShareOffer();
+  if (offers.length === 0) return null;
+  return (
+    <section aria-labelledby="circle-offers-title" className="mt-4 space-y-2 border-t pt-4">
+      <h3 id="circle-offers-title" className="font-medium">{t("circlep1.offers.title", locale)}</h3>
+      <ul className="divide-y">
+        {offers.map((o) => (
+          <li key={o.member_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <p className="text-sm">{t("circlep1.offers.row", locale, { name: o.name, date: formatPatientDate(o.answer_by) })}</p>
+            <Button type="button" variant="outline" className={TOUCH} disabled={withdraw.isPending} onClick={() => withdraw.mutate(o.member_id)}>
+              {t("circlep1.offers.withdraw", locale)}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** P1: every change to who may see what, newest first. Written only by the database; the patient sees only their own. */
+function SharingHistory({ locale }: { locale: Locale }) {
+  const history = useSharingHistory(true);
+  if (history.isError) return <p className={MUTED}>{t("circlep1.history.error", locale)}</p>;
+  if (history.isSuccess && history.data.length === 0) return <p className={MUTED}>{t("circlep1.history.empty", locale)}</p>;
+  return (
+    <ul className="space-y-1">
+      {(history.data ?? []).flatMap((row, i) =>
+        row.changes.map((c) => (
+          <li key={`${row.at}-${i}-${c}`}>
+            {t(sharingChangeKey(c, row.by), locale, { name: row.supporter ?? t("circlep1.history.someone", locale) })}
+            <span className={`text-sm ${MUTED}`}> · {formatPatientDateTime(row.at)}</span>
+          </li>
+        )),
+      )}
+    </ul>
+  );
+}
+
 /** `origin` is passed by a test; the app uses the browser's own. */
 export function CareCircleManager({ locale, origin, patientId }: { locale: Locale; origin?: string; patientId?: string }) {
   const circle = useMyCircle();
@@ -392,6 +434,7 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
   const base = origin ?? (typeof window === "undefined" ? "" : window.location.origin);
   const members = circle.data?.members ?? [];
   const invites = circle.data?.invites ?? [];
+  const offers = circle.data?.offers ?? [];
 
   return (
     <div className="space-y-6">
@@ -410,7 +453,7 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
       <Card>
         <CardHeader><CardTitle>{t("circle.invites.title", locale)}</CardTitle></CardHeader>
         <CardContent>
-          {circle.isSuccess && invites.length === 0 ? <p className={MUTED}>{t("circle.invites.empty", locale)}</p> : null}
+          {circle.isSuccess && invites.length === 0 && offers.length === 0 ? <p className={MUTED}>{t("circle.invites.empty", locale)}</p> : null}
           <ul className="divide-y">
             {invites.map((i) => (
               <li key={i.invite_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -425,6 +468,7 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
               </li>
             ))}
           </ul>
+          <OffersWaiting offers={offers} locale={locale} />
         </CardContent>
       </Card>
 
@@ -449,6 +493,10 @@ export function CareCircleManager({ locale, origin, patientId }: { locale: Local
             ))}
           </ul>
         </div>
+      </Disclosure>
+
+      <Disclosure title={t("circlep1.history.title", locale)}>
+        <SharingHistory locale={locale} />
       </Disclosure>
     </div>
   );

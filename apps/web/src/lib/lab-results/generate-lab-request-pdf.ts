@@ -4,6 +4,9 @@ import type { Database } from "@tarragon/shared";
 import { LabRequestDocument, type LabRequestData } from "@/lib/lab-results/lab-request-document";
 import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
+/** D5: screens that are sensitive for ACCESS (other people) though not flagged sensitive in the catalogue. Mirrors private.screen_code_access_sensitive. */
+export const ACCESS_SENSITIVE_EXTRA_CODES = ["antenatal_booking", "pcos_panel"] as const;
+
 export type GenerateLabRequestPdfResult =
   | { ok: true; buffer: Buffer; filename: string; orderNumber: string | null }
   | { ok: false; error: "not_found" | "panel_unavailable" };
@@ -51,6 +54,8 @@ export async function generateLabRequestPdf(
   if (viewerId && viewerId !== order.patient_id && order.origin === "patient_initiated") {
     const codes = order.panel_bundle?.test_codes ?? [];
     if (codes.length > 0) {
+      // D5 (2026-11-04): the access rule is the catalogue's sensitive flag OR a pregnancy-related screen (private.screen_code_access_sensitive)
+      if (codes.some((c) => (ACCESS_SENSITIVE_EXTRA_CODES as readonly string[]).includes(c))) return { ok: false, error: "not_found" };
       const { data: sensitive } = await supabase.from("screen_types").select("code").eq("sensitive", true).in("code", codes);
       // fail closed: a failed or empty lookup for a non-owner is treated as "cannot tell", which is a refusal only when something sensitive was found;
       // the catalogue read is a plain select, so an error here returns null data and we refuse.

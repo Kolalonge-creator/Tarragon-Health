@@ -12,6 +12,11 @@ const IMAGING_MODALITIES = [
 
 const FINDING_URGENCIES = ["routine", "clinically_significant", "urgent", "critical"] as const;
 
+/** BI-RADS and breast density exactly as the radiologist printed them (CDE step 5b). The platform never assigns or changes one. */
+export const BIRADS_AS_PRINTED = ["0", "1", "2", "3", "4", "4A", "4B", "4C", "5", "6"] as const;
+export const BREAST_DENSITY_AS_PRINTED = ["A", "B", "C", "D"] as const;
+const BREAST_MODALITIES = ["mammography", "ultrasound", "mri"] as const;
+
 /**
  * A clinician filing the structured imaging report (spec §59.10) for an
  * order — either after reviewing a patient/staff-uploaded document, or
@@ -35,11 +40,21 @@ export const fileImagingReportSchema = z
     dicom_accession_number: z.string().trim().max(100).optional(),
     pacs_url: z.string().trim().url().optional(),
     document_id: z.string().uuid().optional(),
+    breast_density_as_printed: z.enum(BREAST_DENSITY_AS_PRINTED).optional(),
+    birads_left_as_printed: z.enum(BIRADS_AS_PRINTED).optional(),
+    birads_right_as_printed: z.enum(BIRADS_AS_PRINTED).optional(),
+    birads_overall_as_printed: z.enum(BIRADS_AS_PRINTED).optional(),
   })
   .refine((data) => data.is_abnormal || data.urgency === "routine", {
     message: "Urgency above routine only applies to an abnormal finding",
     path: ["urgency"],
-  });
+  })
+  .refine(
+    (data) =>
+      (BREAST_MODALITIES as readonly string[]).includes(data.modality) ||
+      (!data.breast_density_as_printed && !data.birads_left_as_printed && !data.birads_right_as_printed && !data.birads_overall_as_printed),
+    { message: "BI-RADS and breast density belong to a breast study only", path: ["birads_overall_as_printed"] },
+  );
 export type FileImagingReportInput = z.infer<typeof fileImagingReportSchema>;
 
 /** A clinician noting an incidental finding on a filed report (spec §59.12). */

@@ -5,7 +5,11 @@ import { parseCircleMonthly, type CircleMonthlyRow, type MessageKey } from "@tar
  * that is not what was expected means "nothing to show". The supporter view is the only thing a supporter can read about a
  * patient; a block that is absent is "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"] as const;
+export const CIRCLE_PERMISSIONS = [
+  "adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note",
+  // Care Circle P2 (2026-11-04). The mobile supporter screen does not show these blocks yet; the web page does.
+  "investigation_status", "investigation_values", "weekly_weight_trend", "care_plan_progress",
+] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const GRANT_DAY_CHOICES = [30, 90, 365] as const;
 
@@ -18,6 +22,10 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   attend_consultation: "consult.cg.perm",
   // 2026-11-03: the doctor's line for the family (outside `circle.` on purpose: pending CMO review)
   doctor_note: "familynote.perm",
+  investigation_status: "circlep2.perm.investigation_status",
+  investigation_values: "circlep2.perm.investigation_values",
+  weekly_weight_trend: "circlep2.perm.weekly_weight_trend",
+  care_plan_progress: "circlep2.perm.care_plan_progress",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
@@ -52,9 +60,17 @@ const num = (x: unknown): x is number => typeof x === "number" && Number.isFinit
 const isPermission = (x: unknown): x is CirclePermission => CIRCLE_PERMISSIONS.some((p) => p === x);
 
 /** Every entry must be a known circle permission; one unknown value drops the whole row (it is not something this build understands). */
-function permissions(x: unknown): CirclePermission[] | null {
+/** For an invitation, every permission must be known: the person is agreeing to see exactly these, so an older app says it cannot show it
+ * rather than show a shorter list than the one they would be accepting. */
+function permissionsStrict(x: unknown): CirclePermission[] | null {
   if (!Array.isArray(x)) return null;
   return x.every(isPermission) ? (x as CirclePermission[]) : null;
+}
+
+function permissions(x: unknown): CirclePermission[] | null {
+  if (!Array.isArray(x)) return null;
+  // a name this app does not know (a newer database, an older app) is dropped rather than hiding the whole person (Care Circle P2)
+  return x.filter(isPermission);
 }
 
 export function parseMyCircle(data: unknown): MyCircle {
@@ -244,7 +260,7 @@ export function parseGiftAnswer(data: unknown): "accepted" | "declined" | null {
 export type InvitePreview = { ok: true; inviterFirstName: string; relationship: string; permissions: CirclePermission[]; crossOrganisation: boolean } | { ok: false };
 export function parseInvitePreview(data: unknown): InvitePreview {
   if (!isObj(data) || data["ok"] !== true || !str(data["inviter_first_name"]) || !str(data["relationship"])) return { ok: false };
-  const perms = permissions(data["permissions"]);
+  const perms = permissionsStrict(data["permissions"]);
   if (!perms) return { ok: false };
   return { ok: true, inviterFirstName: data["inviter_first_name"], relationship: data["relationship"], permissions: perms, crossOrganisation: data["cross_organisation"] === true };
 }

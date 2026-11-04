@@ -12,6 +12,8 @@ import {
   staffImagingReportUploadSchema,
   validateImagingReportDocFile,
 } from "@/lib/validation/imaging-report-documents";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 type DocumentSource = Database["public"]["Enums"]["imaging_report_document_source"];
 export type ImagingReportUploadResult = { error?: string; success?: boolean };
@@ -125,6 +127,8 @@ export async function uploadImagingReportForPatient(
       original_filename: file.name,
       mime_type: file.type,
       file_size_bytes: file.size,
+      // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
+      content_sha256: await fileSha256(file),
       source,
       uploaded_by: user.id,
       note: note ?? null,
@@ -133,6 +137,7 @@ export async function uploadImagingReportForPatient(
     .single();
   if (insertError || !inserted) {
     await service.storage.from(IMAGING_REPORT_BUCKET).remove([path]);
+    if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }
 
@@ -222,6 +227,8 @@ export async function uploadImagingReportAsPatient(
       original_filename: file.name,
       mime_type: file.type,
       file_size_bytes: file.size,
+      // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
+      content_sha256: await fileSha256(file),
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
@@ -230,6 +237,7 @@ export async function uploadImagingReportAsPatient(
     .single();
   if (insertError || !inserted) {
     await supabase.storage.from(IMAGING_REPORT_BUCKET).remove([path]);
+    if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }
 

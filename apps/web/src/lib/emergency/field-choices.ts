@@ -29,10 +29,10 @@ export function hiddenFields(c: CardFieldChoices): CardField[] {
 }
 
 /**
- * Mirrors private.emergency_card_sensitive_condition (migration 20261008035104_s47_emergency_card_defaults.sql); a Jest test fails if the two lists differ.
+ * Mirrors private.emergency_card_sensitive_condition (latest: migration 20261104194246_d5_pregnancy_sti_sensitive_access.sql, which added STI words, D5); a Jest test fails if the two lists differ.
  * A condition that looks reproductive or mental health is removed from a shown list unless its own switch is on.
  */
-export const REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
+export const REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec|syphil|chlamyd|gonorrh|treponem|sexually transmitted)/i;
 export const MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
 
 /**

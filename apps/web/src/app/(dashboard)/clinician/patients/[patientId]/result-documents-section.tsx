@@ -16,6 +16,7 @@ const SOURCE_LABEL: Record<string, string> = {
   lab_liaison: "Lab liaison",
   clinician: "Clinician",
   admin: "Admin",
+  care_coordinator: "Care coordinator (typed in by hand)",
 };
 
 type AckStatus = Database["public"]["Enums"]["result_document_acknowledgement_status"];
@@ -76,7 +77,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
   const { data: extractionRows } = await supabase
     .from("lab_report_extractions")
     .select(
-      "id, document_id, status, report_date, lab_name, patient_name_on_report, rows, unreadable_reason, error_message, confirmed_at, confirmed_codes",
+      "id, document_id, status, report_date, lab_name, patient_name_on_report, rows, unreadable_reason, error_message, confirmed_at, confirmed_codes, entry_method, created_at, source_description, manual_details, entered_by_profile:profiles!lab_report_extractions_entered_by_fkey(full_name)",
     )
     .eq("patient_id", patientId);
 
@@ -94,6 +95,11 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
         errorMessage: row.error_message,
         confirmedAt: row.confirmed_at,
         confirmedCodes: (row.confirmed_codes ?? []) as unknown as string[],
+        entryMethod: row.entry_method === "manual" ? "manual" : "ai",
+        enteredByName: row.entered_by_profile?.full_name ?? null,
+        enteredAt: row.created_at,
+        sourceDescription: row.source_description,
+        manualDetails: (row.manual_details ?? null) as ExtractionView["manualDetails"],
       },
     ]),
   );

@@ -12,6 +12,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
 import { useRevokeMember, useSupportedPeople, useSupporterView } from "@/lib/queries/care-circle";
 import { SupporterBlocks, SupporterBlocksEmpty, hasSharedBlocks } from "./supporter-blocks";
+import { PersonSwitcher } from "./person-switcher";
 import { WeeklyDigestCard } from "@/components/care-circle/weekly-digest-card";
 import { CircleTasksPanel } from "@/components/care-circle/circle-tasks-panel";
 
@@ -92,10 +93,11 @@ export function SupporterView({ patientId, locale, alertSlot }: { patientId: str
           </>
         }
       />
+      <PersonSwitcher people={people.data ?? []} current={patientId} locale={locale} />
       {alertSlot}
 
       <h2 className="sr-only">{t("supporterjoin.view.shared_heading", locale, { name: v.name })}</h2>
-      {hasSharedBlocks(v, locale) ? <SupporterBlocks view={v} locale={locale} /> : <SupporterBlocksEmpty view={v} locale={locale} />}
+      {hasSharedBlocks(v, locale) ? <SupporterBlocks view={v} locale={locale} name={v.name} /> : <SupporterBlocksEmpty view={v} locale={locale} />}
       <WeeklyDigestCard patientId={patientId} locale={locale} />
       <CircleTasksPanel patientId={patientId} locale={locale} />
 
