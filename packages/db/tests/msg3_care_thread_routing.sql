@@ -108,6 +108,9 @@ begin
   insert into msg3_fx values ('t2', t2);
   perform pg_temp.ck('2b queue clinical', 'clinical', (select queue::text from public.care_message_threads where id = t2));
   perform pg_temp.ck('2c owner is the coordinator', co::text, pg_temp.owner_of(t2)::text);
+  perform pg_temp.ck('2d the coordinator is notified in the app', 'true',
+    (exists (select 1 from public.notifications n where n.recipient_id = co and n.template = 'clinician_new_care_message'
+              and n.payload->>'thread_id' = t2::text))::text);
 end $$;
 
 -- 3. A second patient message keeps the original clock.
@@ -150,6 +153,11 @@ declare t2 uuid := pg_temp.f('t2');
 begin
   perform pg_temp.ck('6a coordinator cannot close a thread that needs a doctor', '42501:needs_doctor',
     pg_temp.try_as(pg_temp.f('co'), format($q$update public.care_message_threads set status = 'closed' where id = %L$q$, t2)));
+  perform pg_temp.ck('6a2 coordinator''s direct update of the flag runs', 'ok',
+    pg_temp.try_as(pg_temp.f('co'), format($q$update public.care_message_threads set needs_doctor = false where id = %L$q$, t2)));
+  perform pg_temp.ck('6a3 but the flag is untouched, so closing is still refused', 'true/42501:needs_doctor',
+    (select needs_doctor::text from public.care_message_threads where id = t2) || '/' ||
+    pg_temp.try_as(pg_temp.f('co'), format($q$update public.care_message_threads set status = 'closed' where id = %L$q$, t2)));
   perform pg_temp.ck('6b patient update runs', 'ok',
     pg_temp.try_as(pg_temp.f('mp'), format($q$update public.care_message_threads set needs_doctor = false, queue = 'support' where id = %L$q$, t2)));
   perform pg_temp.ck('6c but the routing fields are pinned', 'true/clinical',
@@ -177,10 +185,23 @@ end $$;
 
 -- 8. Continuity and leave.
 do $$
-declare t1 uuid := pg_temp.f('t1'); v_owner uuid := pg_temp.owner_of(pg_temp.f('t1')); t3 uuid;
+declare t1 uuid := pg_temp.f('t1'); t3 uuid; t7 uuid;
 begin
+  -- t1 is a support thread the system gave a doctor while no coordinator existed; with a coordinator free it moves to them.
   perform pg_temp.try_as(pg_temp.f('fp'), format($q$select public.post_care_message(%L, 'Still cannot open it')$q$, t1));
-  perform pg_temp.ck('8a owner keeps the thread', v_owner::text, pg_temp.owner_of(t1)::text);
+  perform pg_temp.ck('8a system-assigned doctor hands a support thread to the free coordinator', pg_temp.f('co')::text, pg_temp.owner_of(t1)::text);
+  -- A doctor who starts a conversation owns it, and the patient's reply stays with them even with a coordinator free.
+  perform pg_temp.ck('8a2 doctor starts a thread to the patient', 'ok',
+    pg_temp.try_as(pg_temp.f('doc1'), format($q$select public.start_care_thread('MSG3 your result', 'Please call us about your result', %L, null, null, 'general')$q$, pg_temp.f('fp'))));
+  t7 := pg_temp.thread_by_subject(pg_temp.f('fp'), 'MSG3 your result');
+  perform pg_temp.ck('8a3 starter owns it, attributed to themselves', pg_temp.f('doc1')::text || '/' || pg_temp.f('doc1')::text,
+    (select owner_id::text || '/' || assigned_by::text from public.care_thread_owners where thread_id = t7));
+  perform pg_temp.try_as(pg_temp.f('fp'), format($q$select public.post_care_message(%L, 'What does the result mean?')$q$, t7));
+  perform pg_temp.ck('8a4 patient reply stays with the starting doctor', pg_temp.f('doc1')::text, pg_temp.owner_of(t7)::text);
+  -- A doctor flag on a thread whose owner does not change still records the reason.
+  perform pg_temp.val_as(pg_temp.f('admin'), format($q$select public.flag_care_thread_for_doctor(%L, 'Patient asks about an abnormal result')::text$q$, t7));
+  perform pg_temp.ck('8a5 reason recorded although the owner is unchanged', 'true',
+    ((select owner_id = pg_temp.f('doc1') and handover_note like 'Needs a doctor: Patient asks%' from public.care_thread_owners where thread_id = t7))::text);
   perform pg_temp.try_as(pg_temp.f('fp'), $q$select public.start_care_thread('MSG3 payment', 'My card was charged twice', null, null, null, 'billing')$q$);
   t3 := pg_temp.thread_by_subject(pg_temp.f('fp'), 'MSG3 payment');
   insert into msg3_fx values ('t3', t3);
