@@ -123,6 +123,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          doctor_flag_reason: string | null
           handover_note: string | null
           organisation_id: string
           owner_id: string
@@ -131,6 +132,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          doctor_flag_reason?: string | null
           handover_note?: string | null
           organisation_id: string
           owner_id: string
@@ -139,6 +141,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          doctor_flag_reason?: string | null
           handover_note?: string | null
           organisation_id?: string
           owner_id?: string
@@ -7862,6 +7865,7 @@ export type Database = {
       }
       care_message_threads: {
         Row: {
+          awaiting_reply_since: string | null
           care_plan_id: string | null
           care_team_last_read_at: string | null
           category: Database["public"]["Enums"]["care_message_category"]
@@ -7870,21 +7874,27 @@ export type Database = {
           created_by: string | null
           escalation_id: string | null
           id: string
+          last_care_team_reply_at: string | null
           last_message_at: string
           last_message_author_role:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor: boolean
+          needs_doctor_at: string | null
+          needs_doctor_by: string | null
           organisation_id: string
           patient_id: string
           patient_last_read_at: string | null
           patient_last_reminded_at: string | null
           patient_reminder_count: number
+          queue: Database["public"]["Enums"]["care_thread_queue"]
           status: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id: string | null
           updated_at: string
         }
         Insert: {
+          awaiting_reply_since?: string | null
           care_plan_id?: string | null
           care_team_last_read_at?: string | null
           category?: Database["public"]["Enums"]["care_message_category"]
@@ -7893,21 +7903,27 @@ export type Database = {
           created_by?: string | null
           escalation_id?: string | null
           id?: string
+          last_care_team_reply_at?: string | null
           last_message_at?: string
           last_message_author_role?:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor?: boolean
+          needs_doctor_at?: string | null
+          needs_doctor_by?: string | null
           organisation_id: string
           patient_id: string
           patient_last_read_at?: string | null
           patient_last_reminded_at?: string | null
           patient_reminder_count?: number
+          queue?: Database["public"]["Enums"]["care_thread_queue"]
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject: string
           unread_alert_id?: string | null
           updated_at?: string
         }
         Update: {
+          awaiting_reply_since?: string | null
           care_plan_id?: string | null
           care_team_last_read_at?: string | null
           category?: Database["public"]["Enums"]["care_message_category"]
@@ -7916,15 +7932,20 @@ export type Database = {
           created_by?: string | null
           escalation_id?: string | null
           id?: string
+          last_care_team_reply_at?: string | null
           last_message_at?: string
           last_message_author_role?:
             | Database["public"]["Enums"]["care_message_author"]
             | null
+          needs_doctor?: boolean
+          needs_doctor_at?: string | null
+          needs_doctor_by?: string | null
           organisation_id?: string
           patient_id?: string
           patient_last_read_at?: string | null
           patient_last_reminded_at?: string | null
           patient_reminder_count?: number
+          queue?: Database["public"]["Enums"]["care_thread_queue"]
           status?: Database["public"]["Enums"]["care_message_thread_status"]
           subject?: string
           unread_alert_id?: string | null
@@ -52462,6 +52483,14 @@ export type Database = {
       }
     }
     Functions: {
+      care_operations_summary: {
+        Args: { p_lookback_days?: number; p_target_hours?: number }
+        Returns: Json
+      }
+      flag_care_thread_for_doctor: {
+        Args: { p_reason: string; p_thread: string }
+        Returns: string
+      }
       list_annual_bundle_labs: {
         Args: { p_state: string; p_town?: string }
         Returns: {
@@ -52694,7 +52723,7 @@ export type Database = {
       community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
       community_dpo_candidates: { Args: never; Returns: Json }
       community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
-      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number }; Returns: Json }
+      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number; p_sort?: string }; Returns: Json }
       community_get_group: { Args: { p_slug: string }; Returns: Json }
       community_hidden_authors: { Args: { p_group_id: string }; Returns: Json }
       community_hide_author: { Args: { p_post_id: string }; Returns: Json }
@@ -52731,6 +52760,7 @@ export type Database = {
       community_safety_queue: { Args: never; Returns: Json }
       community_sample_queue: { Args: never; Returns: Json }
       community_sample_review: { Args: { p_id: string; p_agrees: boolean; p_note?: string }; Returns: Json }
+      community_saved_list: { Args: { p_before?: string }; Returns: Json }
       community_search_groups: { Args: { p_q: string }; Returns: Json }
       community_search_posts: { Args: { p_query: string; p_group_id?: string; p_before?: string }; Returns: Json }
       community_send_digests: { Args: never; Returns: number }
@@ -52738,6 +52768,7 @@ export type Database = {
       community_set_digest: { Args: { p_group_id: string; p_on: boolean }; Returns: Json }
       community_set_group_muted: { Args: { p_group_id: string; p_muted: boolean }; Returns: Json }
       community_set_my_display_name: { Args: { p_name: string | null }; Returns: Json }
+      community_set_saved: { Args: { p_post_id: string; p_saved: boolean }; Returns: Json }
       community_staff_context: { Args: never; Returns: Json }
       community_submit_post: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
       community_submit_post_with_image: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id: string; p_storage_path: string; p_mime: string; p_size: number; p_width: number; p_height: number }; Returns: Json }
@@ -59541,6 +59572,7 @@ export type Database = {
         | "monitoring_reminder"
         | "general"
       care_message_thread_status: "open" | "closed"
+      care_thread_queue: "support" | "clinical"
       curbside_consult_status: "open" | "closed"
       care_management_barrier_category:
         | "financial"
@@ -61867,6 +61899,7 @@ export const Constants = {
         "general",
       ],
       care_message_thread_status: ["open", "closed"],
+      care_thread_queue: ["support", "clinical"],
       curbside_consult_status: ["open", "closed"],
       care_management_barrier_category: [
         "financial",

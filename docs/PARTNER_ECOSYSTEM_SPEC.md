@@ -222,6 +222,9 @@ Reframed below in §4 as a phased checklist rather than a single bar, matching t
 
 ## 3. The guardrail — read this before writing any scoring/routing code
 
+> **Reconciliation 2026-11-04 (DIR-1):** for the diagnostic (lab and imaging) directory only, the founder decided that eligible preferred partners near the patient may be badged and listed first. See `docs/DECISIONS.md` DIR-1 and `docs/plans/diagnostic-directory-design-2026-11-04.md` §10. Everything else in this section still stands.
+
+
 Unchanged from `docs/CLINICAL_NETWORK_SPEC.md` §3, and it applies to §95.7 and §95.16 exactly as
 written there:
 

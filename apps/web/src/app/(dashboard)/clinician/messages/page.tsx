@@ -1,7 +1,9 @@
 import { ClinicianMessagesWorklist } from "./worklist";
 import { NoteRequestsPanel } from "./note-requests-panel";
+import { parseInboxView, parseUnansweredOnly } from "@/lib/worklist/care-thread-queue";
 
-export default function ClinicianMessagesPage() {
+export default async function ClinicianMessagesPage({ searchParams }: { searchParams: Promise<{ view?: string | string[]; unanswered?: string | string[] }> }) {
+  const { view, unanswered } = await searchParams;
   return (
     <div className="space-y-6">
       <div>
@@ -10,7 +12,7 @@ export default function ClinicianMessagesPage() {
           In-app care messaging threads with your patients.
         </p>
       </div>
-      <ClinicianMessagesWorklist />
+      <ClinicianMessagesWorklist initialView={parseInboxView(view)} initialUnansweredOnly={parseUnansweredOnly(unanswered)} />
       <NoteRequestsPanel />
     </div>
   );

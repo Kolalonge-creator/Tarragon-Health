@@ -22,6 +22,7 @@ import { HomePlanCompare } from "./_components/home-plan-compare";
 import { HomeBusinessDoor } from "./_components/home-business-door";
 import { FoundingMembersStrip } from "./_components/founding-members-strip";
 import { CareCircleAbroad } from "./_components/care-circle-abroad";
+import { TarragonCommunity } from "./_components/tarragon-community";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
@@ -300,6 +301,9 @@ export default async function MarketingHomePage() {
       {/* 7b. Family abroad: Care Circle, with a labelled illustration of
           the supporter view. Live features only; see _content/care-circle.ts. */}
       <CareCircleAbroad variant="sage" />
+
+      {/* 7c. Tarragon Community, the patient support groups (COM-29). */}
+      <TarragonCommunity />
 
       {/* Same rule the product pages follow (see PRODUCT_VIDEOS in
           _content/media.ts: "empty youtubeId = section not rendered"). */}

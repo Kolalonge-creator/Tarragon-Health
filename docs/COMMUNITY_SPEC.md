@@ -680,3 +680,26 @@ and the 2026-10-31 clinician-accounts change carried in six functions. `private.
 and `clinical_staff`: a global moderator grant for every active, non-test internal account, plus safety reviewer for a working doctor;
 `community_staff.source` says `automatic` or `admin`, `revoked_by` says who withdrew it, and a withdrawn grant is never re-given by the
 trigger. Staff alerts and the overdue notice route to the reader's console (`area`: clinician, coordinator, admin, analyst, finance).
+
+## 20. Name (2026-11-04, COM-29)
+
+In the app the feature is **Community** (menus, page titles, staff desks, unchanged). On the website and in marketing it is
+**Tarragon Community**, subtitle "Support groups for people living with blood pressure, diabetes and more." No coined sub-brand
+name (`docs/BRAND_GUIDE.md` section 11). Not to be confused with the separate "Community groups" feature (`community.title` in
+`packages/i18n`: private church, mosque or workplace groups sharing one combined total), which keeps its own name.
+
+## 21. Saved posts, feed order and the private way out (2026-11-04, COM-30)
+
+Migration `20261104165453_community_saved_posts_and_feed_sort.sql`, proof `community_saved_posts_and_feed_sort.sql`.
+- **Saved posts.** `community_saved_posts` (RPC-only like every community table, 500 per member, ON DELETE CASCADE from the account and
+  the post). `community_set_saved(post, saved)` saves a top-level post the member can read today (unknown, reply, unreadable all answer
+  `not_found`); unsaving always removes the member's own row. `community_saved_list(before)` shows only posts the member can still read:
+  leaving the group, being suspended, hiding the author or the post leaving `visible` drops it from the list, and the row stays, so it
+  returns if that changes. The feed carries `i_saved` for the caller only. Web: a Save control on top-level posts, `/patient/community/saved`.
+- **Feed order.** `community_feed(group, before, limit, sort)`: `latest` (default, pages by `before`) or `discussed` (top-level visible posts
+  of the last 30 days by visible replies, one page, `has_more` false). The old three-argument call still resolves (one signature).
+- **The private way out.** Each group page has "For your own health": the in-app care-team messages, the private record upload, and the
+  group's reading in the Learn library (`GROUP_READING` in `lib/community/model.ts`, keyed by slug; `/patient/learn?category=` opens a
+  category). The picture form says lab results, prescriptions and hospital letters do not belong in a group. The wording promises a
+  private route, not a doctor: Free members are refused clinical threads (MSG-1).
+- Not done here: mobile (`apps/mobile` still reads the feed in the default order and has no Save control or care links).
