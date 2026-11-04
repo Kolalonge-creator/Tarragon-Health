@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Annual Health Check",
     subtitle:
-      "Eighteen blood tests once a year, taken at a testing day you choose and read with your care team. Included in Membership Plus.",
+      "Your yearly tests at any laboratory you choose, uploaded to the app and reviewed by a doctor.",
   });
 }

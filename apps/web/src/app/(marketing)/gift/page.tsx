@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatNaira } from "@tarragon/commerce";
-import { getProposedConfig } from "@tarragon/shared";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion, type FaqItem } from "../_components/marketing-faq-accordion";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
@@ -16,28 +14,21 @@ import { GiftPersonalizer } from "./_components/gift-personalizer";
 export const metadata: Metadata = pageMetadata({
   title: "Give the gift of health",
   description:
-    "Give a parent or family member a year of Membership: a monthly video call with their care team, paid once by you and theirs to accept.",
+    "Give a parent or family member a year of Membership: a monthly online meeting with a doctor from their care team, paid once by you and theirs to accept.",
   path: MARKETING_ROUTES.gift,
 });
 
 export const revalidate = 3600;
 
-/** Whether the Membership ladder is public (marketing.membership_ladder_public). False until the launch conditions are met. */
-function ladderIsPublic(): boolean {
-  return (getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled === true;
-}
-
-/** What is being given, in words. With the ladder public there are two yearly gifts, each priced from versioned config. */
+/** What is being given, in words: one yearly gift, the Membership (T2-01, 2026-11-04), priced from versioned config. */
 function givingSummary(price: string): string {
-  if (!ladderIsPublic()) return `A year of ${paidProductName()}, \u20A6${price}`;
-  const v = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
-  return `A year of Membership (\u20A6${formatNaira(v.evergreen_kobo)}) or Membership Plus (\u20A6${formatNaira(v.evergreen_plus_kobo)}, with the yearly blood panel)`;
+  return `A year of ${paidProductName()}, ₦${price}`;
 }
 
 const WAYS_TO_GIVE = [
   {
     title: "Give them a year of Membership",
-    body: "For a parent, spouse or family member: a video call with their care team every month, written questions between calls and prescriptions their care team signs. Membership Plus adds the yearly blood panel. You pay once, in naira, wherever you are paying from. It does not renew by itself.",
+    body: "For a parent, spouse or family member: a personalised preventive plan, one online meeting with a doctor from their care team every month, and a doctor's review of the laboratory reports they upload. Laboratory tests are paid to the laboratory directly. You pay once, in naira, wherever you are paying from. It does not renew by itself.",
   },
   {
     title: "They choose to accept it",
@@ -53,9 +44,7 @@ function giftFaq(price: string): FaqItem[] {
   return [
     {
       question: "What exactly am I giving?",
-      answer: ladderIsPublic()
-        ? `${givingSummary(price)}. Both are the same care: a video call with their care team every month, written questions between calls and prescriptions their care team signs. The only difference is the yearly blood panel. Medicines are not included.`
-        : `A year of ${paidProductName()}, ₦${price}. It is the same product anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
+      answer: `${givingSummary(price)}. It is the same Membership anyone can join: a personalised preventive plan and test schedule, laboratory request forms to take to any reputable laboratory, a doctor's review of the reports they upload, and one online meeting with a doctor from their care team every month. Laboratory tests and medicines are not included; they pay the laboratory or pharmacy directly.`,
     },
     {
       question: "Who can I give it to?",
@@ -115,9 +104,7 @@ export default function GiftPage() {
       <PhotoBannerHero
         eyebrow="Care that stays with them"
         title="Give the gift of health"
-        description={ladderIsPublic()
-          ? `${givingSummary(price)}. A video call with their care team every month. They choose whether to accept it, and it does not renew.`
-          : `Give someone a year of ${paidProductName()}, ₦${price}: a yearly blood test and a video call with their care team every month. They choose whether to accept it, and it does not renew.`}
+        description={`Give someone a year of ${paidProductName()}, ₦${price}: their own preventive plan and one online meeting with a doctor from their care team every month. They choose whether to accept it, and it does not renew.`}
         primaryHref="/signup?intent=support"
         primaryLabel="Give a year of Membership"
         secondaryHref="/login"

@@ -14,7 +14,7 @@ jest.mock("@/lib/queries/commerce", () => ({
 jest.mock("@/lib/queries/emergency", () => ({ useActiveEmergency: () => ({ data: mockEmergency() }) }));
 jest.mock("@/lib/queries/free-red-checkin", () => ({ useFreeGuidance: () => ({ data: mockGuidance() }) }));
 
-const ui = <AboveTargetMembershipCard patientId="p1" priceLabel="84,000" refundDays={21} />;
+const ui = <AboveTargetMembershipCard patientId="p1" priceLabel="100,000" refundDays={21} />;
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -28,7 +28,7 @@ describe("AboveTargetMembershipCard (journey 1: the Membership offer above targe
   it("shows the offer with the price and refund window when the database says offer", () => {
     const { container } = render(ui);
     expect(screen.getByText("Your readings this week are above your target")).toBeTruthy();
-    expect(container.textContent).toContain("84,000");
+    expect(container.textContent).toContain("100,000");
     expect(container.textContent).toContain("21 days");
     expect(screen.getByRole("link", { name: "See Membership" }).getAttribute("href")).toBe("/patient/membership");
     expect(container.textContent).not.toMatch(/hurry|limited|expires|urgent|danger|—|–/i);

@@ -27,7 +27,7 @@ export async function grantMembership(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
 
   const supabase = await createClient();
-  // Both tiers go through the tier-aware function: Plus needs an approved collection state while Plus is limited by state (OQ-PLUS-1).
+  // The tier-aware function, always with the Membership tier (T2-01): no collection state is ever sent.
   const args = {
     p_patient: parsed.data.patientId,
     p_reason: parsed.data.reason,
@@ -37,7 +37,6 @@ export async function grantMembership(
   const { error } = await supabase.rpc("grant_membership_tier", {
     ...args,
     p_tier: parsed.data.tier,
-    ...(parsed.data.tier === "plus" && parsed.data.collectionState ? { p_collection_state: parsed.data.collectionState } : {}),
   });
   if (error) return { error: describeMembershipError(error) };
   revalidatePath(parsed.data.base);

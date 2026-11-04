@@ -341,7 +341,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
       {
         href: "/admin/settings/testing-days",
         label: "Testing days and employer visits",
-        blurb: "Schedule Member testing days and employer on-site visits, approve venues, run the stations.",
+        blurb: "Run testing days already scheduled and employer on-site visits (public days are closed to new bookings), approve venues, run the stations.",
         icon: SEMANTIC_ICON.booking,
         visible: adminOnly,
       },

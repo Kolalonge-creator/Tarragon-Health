@@ -4,42 +4,35 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { PanelTests } from "../_components/panel-tests";
 import { Section, SectionHeading } from "../_components/section";
 import { HowTestingWorks } from "../_components/how-testing-works";
 import { StepsExplorer } from "../_components/steps-explorer";
-import { PLUS_PANEL_WHERE, YEARLY_PANEL_TESTS } from "../_content/pricing-ladder";
+import { LAB_TESTS_WHERE } from "../_content/pricing-ladder";
+import { LAB_TESTS_NOT_INCLUDED } from "@/lib/marketing/membership";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One blood panel a year, taken at a testing day you choose and read with your care team, included in Membership Plus. On other plans, use any laboratory.",
+    "Your yearly check, at any laboratory you choose: download a request form, pay the laboratory directly, upload the report, and a doctor reviews it.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
 /**
- * The yearly blood panel, as it actually exists.
+ * The yearly health check, laboratory-independent (Tarragon Health 2.0, decisions T2-01 and T2-02, 2026-11-04).
  *
- * Founder decision 2026-11-03 (MS-04, docs/DECISIONS.md), on top of TT-4 and
- * T-3: the Core, Advanced and Comprehensive screens and the old annual
- * health check bundles are legacy and cannot be sold (a trigger refuses to
- * make one purchasable again). The one yearly panel that exists is the
- * Membership Plus panel: the tests in YEARLY_PANEL_TESTS, taken at a testing
- * day the member chooses from the open dates and venues (MS-03; Tarragon runs
- * no laboratory or clinic of its own), with results uploaded to the account
- * and read with the care team. This page describes
- * that, and only that. It names no tier, no imaging, no separate doctor
- * consultation and no price of its own: the price is on the pricing page,
- * read from versioned config.
+ * Membership Plus and its yearly blood panel are retired, and Tarragon-run testing days are closed to new bookings. The yearly check
+ * now works the same way as every other test: the Membership gives a personalised test schedule and a downloadable request form, the
+ * member takes it to any reputable laboratory and pays the laboratory directly, uploads the report, a doctor reviews it, and it goes
+ * into the health record and the trends. This page names no laboratory price ("contact the laboratory for current pricing"), no
+ * testing day, no sample collection by Tarragon and no review turnaround time. The Membership price is on the pricing page, read from
+ * versioned config.
  *
- * The trust block is still narrower than the homepage TrustBand on purpose:
- * every line is something the database or the payment integration enforces.
- * clinical_staff carries clinical_staff_active_requires_verification and
- * clinical_staff_no_self_verification; checkout is hosted by Paystack and the
- * platform never receives a card number. No MDCN/NMCN registration number is
- * shown anywhere (founder decision 2026-09-25).
+ * The trust block is narrower than the homepage TrustBand on purpose: every line is something the database or the payment integration
+ * enforces. clinical_staff carries clinical_staff_active_requires_verification and clinical_staff_no_self_verification; checkout is
+ * hosted by Paystack and the platform never receives a card number. No MDCN/NMCN registration number is shown anywhere (founder
+ * decision 2026-09-25).
  */
 const BOOKING_ASSURANCES = [
   {
@@ -48,7 +41,7 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "You confirm the price first",
-    body: "Membership Plus is one price for a year, shown to you and confirmed before anything is taken. It does not renew unless you choose that.",
+    body: "Membership is one price for a year, shown to you and confirmed before anything is taken. It does not renew unless you choose that.",
   },
   {
     title: "Your card details stay with Paystack",
@@ -56,53 +49,53 @@ const BOOKING_ASSURANCES = [
   },
 ];
 
-const WHATS_INCLUDED = [
+const WHAT_IT_COVERS = [
   {
-    title: "Blood sugar",
-    body: "Fasting glucose and HbA1c, which shows your average blood sugar over the last three months. HbA1c is the earliest reliable warning sign of diabetes, often years before symptoms.",
+    title: "A schedule made for you",
+    body: "Your plan says which tests are due this year, based on your age, your history and any condition you have. Many adults are advised to check blood sugar, cholesterol, kidneys, liver and blood count.",
   },
   {
-    title: "Cholesterol and fats",
-    body: "Total cholesterol, LDL, HDL and triglycerides, which together indicate your risk of heart attack and stroke.",
+    title: "A request form you can download",
+    body: "When a test is due, download the request form from the app. It names exactly what is needed, so the laboratory knows what to do.",
   },
   {
-    title: "Kidneys, liver and blood count",
-    body: "Creatinine, potassium and sodium for your kidneys; ALT and AST for your liver; haemoglobin, white cell count and platelets for your blood. A baseline that next year's check can be compared against.",
+    title: "Any reputable laboratory",
+    body: "Take the form to a laboratory you trust, near you. You pay the laboratory directly. Contact the laboratory for current pricing.",
   },
   {
-    title: "Infection screening",
-    body: "HIV, hepatitis B and hepatitis C. These infections cause no symptoms for years and do the most damage when nobody is looking for them. The result is treated as confidential.",
+    title: "Confidential screening",
+    body: "Screening for HIV, hepatitis B and hepatitis C can be requested on its own and in confidence. The result is treated as confidential.",
   },
   {
-    title: "Read with your care team",
-    body: "Your results are uploaded to your account. A result outside the normal range is checked by a clinician first, and your care team goes through all of them with you on your monthly video call.",
+    title: "Reviewed by a doctor",
+    body: "Upload your report to the app and a doctor from your care team reviews it. You can talk it through at your monthly online meeting.",
   },
   {
     title: "One record, year after year",
-    body: "Your results are kept in your Health Passport instead of in a drawer. Changes across several years are often where early warnings first appear.",
+    body: "Every report goes into your health record and your trends, instead of a drawer. Changes across several years are often where early warnings first appear.",
   },
 ];
 
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Join Membership Plus",
-    body: "One price for a year of care with your care team, including the yearly blood panel. You see the price and confirm it before anything is taken.",
+    title: "Join Membership",
+    body: "One price for a year of care with your care team. You see the price and confirm it before anything is taken. Laboratory tests are not included.",
   },
   {
     step: 2,
-    title: "Choose a date and location",
-    body: "When your panel is due, the app shows you the testing days available, with their dates and locations. You pick the one that suits you, and we remind you before the day.",
+    title: "Download your request form",
+    body: "When your yearly tests are due, we remind you, and you download the request form from the app.",
   },
   {
     step: 3,
-    title: "One visit",
-    body: "Tarragon's team takes your samples in a single visit, and our partner laboratory tests them. Fast for nine to twelve hours beforehand for the cholesterol test; water is fine.",
+    title: "Go to any reputable laboratory",
+    body: "Choose a laboratory near you and pay the laboratory directly. Ask them whether you should fast beforehand.",
   },
   {
     step: 4,
-    title: "Your results, explained",
-    body: "Your results are uploaded to your account. Anything outside the normal range is checked by a clinician first, and reaches a doctor within 24 hours, or within 12 hours if it is critical. Your care team then goes through everything with you on your monthly call.",
+    title: "Upload the report",
+    body: "Upload the laboratory report to the app. A doctor reviews it, it goes into your health record and your trends, and your care team can go through it with you at your monthly meeting.",
   },
 ];
 
@@ -112,24 +105,20 @@ export default function AnnualHealthCheckPage() {
       <Section className="pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            One day a year for your health
+            Once a year, at a laboratory you choose
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
-            The yearly blood panel
+            Your yearly health check
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Eighteen blood tests, once a year, taken at a testing day you choose and read with
-            your care team. It covers blood sugar, cholesterol, your kidneys, liver and
-            blood count, and screening for HIV and hepatitis, and it is kept on one record so that
-            each year builds on the last.
+            Your plan tells you which tests are due. You download a request form, take it to any
+            reputable laboratory and pay the laboratory directly. Then you upload the report, a doctor
+            reviews it, and it goes into your health record so that each year builds on the last.
           </p>
-          <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
-            Included in Membership Plus
-            <span className="text-base font-normal text-charcoal-ink/60"> · one price for the year · no renewal unless you choose it</span>
-          </p>
+          <p className="mt-4 text-base text-charcoal-ink/70">{LAB_TESTS_NOT_INCLUDED}</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
-              <Link href={MARKETING_ROUTES.pricing}>See Membership Plus</Link>
+              <Link href={MARKETING_ROUTES.pricing}>See Membership</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
@@ -139,7 +128,7 @@ export default function AnnualHealthCheckPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Already a member? Your panel is arranged from the Membership section of your dashboard.
+            Already a member? Your test schedule and request forms are in your dashboard.
           </p>
         </div>
       </Section>
@@ -148,28 +137,26 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              What is included
+              How the yearly check works
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              Eighteen tests in one visit
+              Your tests, your laboratory, one record
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              These tests were chosen because they detect the conditions that quietly cause most
-              avoidable illness in Nigeria: diabetes, heart disease, kidney and liver damage, and
-              infections found late. Every one of them is in the panel; there are no levels to
-              choose between.
+              The aim is to find the conditions that quietly cause most avoidable illness in Nigeria
+              early: diabetes, heart disease, kidney and liver damage, and infections found late.
+              Which tests you need depends on you, and your plan says which.
             </p>
-            <PanelTests groups={YEARLY_PANEL_TESTS} />
           </div>
           <MarketingMediaFrame
             media={{
               illustration: "annual-checklist",
-              imageAlt: "Eighteen tests, read with your care team, once a year",
+              imageAlt: "A yearly test schedule, reviewed by a doctor and kept on one record",
             }}
           />
         </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {WHATS_INCLUDED.map((item) => (
+          {WHAT_IT_COVERS.map((item) => (
             <div
               key={item.title}
               className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
@@ -182,9 +169,9 @@ export default function AnnualHealthCheckPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="How it works" title="Booked when it is due, completed in a morning" />
+        <SectionHeading eyebrow="How it works" title="Four steps, once a year" />
         <StepsExplorer steps={HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))} />
-        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">{PLUS_PANEL_WHERE}</p>
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">{LAB_TESTS_WHERE}</p>
       </Section>
 
       <Section variant="sage">
@@ -193,9 +180,9 @@ export default function AnnualHealthCheckPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="On Free and Membership"
+          eyebrow="On every plan"
           title="Any test, any laboratory, no commission"
-          description="The yearly panel is the one test Tarragon arranges for you. Everything else, on every plan, works the same way: we tell you which tests you need and write the request, you take it to Synlab or any laboratory you choose, and you pay the laboratory directly at its price."
+          description="We tell you which tests you need and write the request, you take it to any reputable laboratory you choose, and you pay the laboratory directly. Tarragon takes no cut."
         />
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/70">
           Your screening calendar is free on every plan. The screenings recommended by the World
@@ -214,7 +201,7 @@ export default function AnnualHealthCheckPage() {
             What to expect
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            In most years your panel will simply confirm that you are well, and that is its purpose.
+            In most years your tests will simply confirm that you are well, and that is their purpose.
             If something does show up, finding it early usually means simpler and cheaper
             treatment, and a doctor will tell you clearly if it needs further investigation.
           </p>
@@ -251,8 +238,8 @@ export default function AnnualHealthCheckPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="This year's panel, with your care team"
-          description="One morning, once a year, and a care team who explain where your health stands. Membership Plus is one price for the year, and the app itself stays free."
+          title="This year's check, with your care team"
+          description="Your tests at a laboratory you choose, reviewed by a doctor and kept on one record. Membership is one price for the year, and the app itself stays free."
           primaryHref="/signup"
           primaryLabel="Create your free account"
           secondaryHref={MARKETING_ROUTES.pricing}

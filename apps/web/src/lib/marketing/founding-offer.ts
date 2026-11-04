@@ -2,7 +2,7 @@ import { z } from "zod";
 import { marketingAnonClient } from "./anon-client";
 
 /**
- * The founding member offer (founder decision 2026-11-04): a share off the first year of Membership and Membership Plus, for a fixed
+ * The founding member offer (founder decision 2026-11-04): a share off the first year of Membership, for a fixed
  * number of places, open until they run out. Its terms live on ONE discount code an admin creates with the founding member badge;
  * `public.founding_offer_status()` reads that code and counts the places taken (a place is taken only by a paid order).
  *

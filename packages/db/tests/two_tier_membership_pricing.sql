@@ -12,6 +12,7 @@
 --   * checkout stays dormant: v5_checkout off, the Membership item off
 -- SABOTAGE: the floor/ceiling check removed, and the module gate removed from the claim trigger; both checks must flip.
 begin;
+\ir _fixtures/pre_t2_organisation_pricing.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
@@ -120,9 +121,10 @@ declare v_item uuid := pg_temp.f('item'); v_admin uuid := pg_temp.f('admin'); v_
 begin
   perform pg_temp.ck('every organisation pays 100,000 naira by default', '10000000/10000000',
     (select amount_kobo::text from private.organisation_member_price(a, v_item)) || '/' || (select amount_kobo::text from private.organisation_member_price(b, v_item)));
+  -- counted among rows open now: the T2 fixture (pre_t2_organisation_pricing.sql) leaves the launch row closed and opens its copy
   perform pg_temp.ck('there is exactly one default row and no volume tiers', '1/1',
-    (select count(*)::text from public.organisation_member_prices where catalog_item_id = v_item) || '/' ||
-    (select count(*)::text from public.organisation_member_prices where catalog_item_id = v_item and employer_organisation_id is null));
+    (select count(*)::text from public.organisation_member_prices where catalog_item_id = v_item and (valid_to is null or valid_to > now())) || '/' ||
+    (select count(*)::text from public.organisation_member_prices where catalog_item_id = v_item and employer_organisation_id is null and (valid_to is null or valid_to > now())));
   perform pg_temp.ck('the limits are 50,000 to 200,000 naira', '5000000/20000000',
     (select (rules ->> 'min_kobo') || '/' || (rules ->> 'max_kobo') from public.organisation_price_limits where is_active));
   perform pg_temp.ck('a patient cannot set an organisation price', 'true',

@@ -26,7 +26,7 @@ export function ServiceRegionsManager() {
         <CardTitle>States</CardTitle>
         <CardDescription>
           {liveCount} of {regions?.length ?? 0} states live. {plusCount} approved for Membership Plus blood
-          collection (Plus buyers pick from these; the nationwide partner laboratory list does not depend on it). Deactivating a state re-gates its
+          collection (only a Plus year bought earlier uses these; the nationwide partner laboratory list does not depend on it). Deactivating a state re-gates its
           partner actions immediately; it does not remove partner data you have already loaded.
         </CardDescription>
       </CardHeader>
@@ -34,7 +34,7 @@ export function ServiceRegionsManager() {
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load service regions.</p>}
         <p className="text-xs text-charcoal-ink/60">
-          Plus approval is recorded and audited here. The Plus checkout does not read it yet; it will when the Membership Plus tier is switched on.
+          Plus approval is recorded and audited here. Membership Plus is retired and no longer sold, so no checkout reads it; it matters only to a member whose Plus year was bought earlier.
         </p>
         {setPlus.isError && (
           <p className="text-sm text-red-600">Could not update Plus collection for that state. Please try again.</p>

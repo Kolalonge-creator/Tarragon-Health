@@ -3733,6 +3733,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (organisation seat matches Membership Plus, 2026-10-28 answer, applied live 2026-10-29); the live organisation_member_prices row valid from 2026-10-29",
   },
   {
+    key: "commerce.membership_prices",
+    // Version 4, 2026-11-04 (Tarragon Health 2.0, decisions T2-01, T2-05, T2-09): Membership Plus is retired and there is one annual
+    // Membership at 100,000 naira; an employer seat is that Membership at 90,000 naira (10% below). Applied live by
+    // 20261104042601_t2_one_membership_100k_plus_retired.sql, which closes the old rows and opens these at the same instant. Earlier
+    // versions are kept as history; the mirror test pins this one to that migration.
+    value: { individual_kobo: 10_000_000, organisation_member_kobo: 9_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 4,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-01, T2-05, T2-09 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
+  },
+  {
     key: "employer.seat_pilot",
     // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
     // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
@@ -3764,6 +3777,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-21",
     source: "docs/DECISIONS.md (2026-10-21); supabase/migrations/20261021110528_membership_evergreen_ladder_foundation.sql",
+  },
+  {
+    key: "commerce.membership_ladder",
+    // Version 2, 2026-11-04 (T2-01, T2-09): only the Membership is sold, at 100,000 naira. Membership Plus (membership_annual) and the
+    // upgrade are inactive in the catalogue (not sold); their last prices are kept here only so a Plus year bought earlier can still be
+    // described. plus_sold is false.
+    value: {
+      evergreen_code: "membership_annual_no_panel",
+      evergreen_kobo: 10_000_000,
+      evergreen_plus_code: "membership_annual",
+      evergreen_plus_kobo: 12_900_000,
+      upgrade_kobo: 4_500_000,
+      plus_sold: false,
+    },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-01, T2-09 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
   },
   {
     key: "marketing.membership_ladder_public",
@@ -3857,6 +3889,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-12",
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "commerce.organisation_member_price_limits",
+    // Version 2, 2026-11-04 (T2-05): the limits move to the Membership item (membership_annual_no_panel), default 90,000 naira; the band
+    // (50,000 to 200,000) is unchanged and still PROPOSED. Mirrored byte for byte by the organisation_price_limits v2 seed in
+    // 20261104042601_t2_one_membership_100k_plus_retired.sql.
+    value: { item_code: "membership_annual_no_panel", min_kobo: 5_000_000, max_kobo: 20_000_000, default_kobo: 9_000_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-05 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
   },
   {
     key: "ops.service_targets",

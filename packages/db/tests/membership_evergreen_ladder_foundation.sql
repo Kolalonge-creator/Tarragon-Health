@@ -34,8 +34,8 @@ begin
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
   values ('00000000-0000-0000-0000-000000000001', a, 'purchase', 'active', now() - interval '1 day', now() + interval '300 days', true, 'evergreen');
   -- no tier given: must default to plus
-  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test)
-  values ('00000000-0000-0000-0000-000000000001', b, 'purchase', 'active', now() - interval '1 day', now() + interval '300 days', true);
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
+  values ('00000000-0000-0000-0000-000000000001', b, 'purchase', 'active', now() - interval '1 day', now() + interval '300 days', true, 'plus');
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, ended_at, end_reason, is_test, tier)
   values ('00000000-0000-0000-0000-000000000001', d, 'purchase', 'ended', now() - interval '400 days', now() - interval '30 days', now() - interval '30 days', 'proof: ended', true, 'evergreen');
   insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
@@ -46,7 +46,10 @@ do $$
 declare a uuid := (select v from fx where k = 'a'); b uuid := (select v from fx where k = 'b'); c uuid := (select v from fx where k = 'c');
         d uuid := (select v from fx where k = 'd'); e uuid := (select v from fx where k = 'e'); r text;
 begin
-  if (select tier from public.patient_memberships where patient_id = b) <> 'plus' then raise exception 'FAIL default tier is not plus'; end if;
+  -- T2-09 (2026-11-04): a membership with no stated tier is the Membership (evergreen); it defaulted to plus before
+  if (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'patient_memberships' and column_name = 'tier') not like '''evergreen''%' then
+    raise exception 'FAIL the default tier is not evergreen';
+  end if;
   begin
     update public.patient_memberships set tier = 'gold' where patient_id = a;
     raise exception 'FAIL the CHECK accepted tier gold';
@@ -81,8 +84,10 @@ begin
   select id into v_plus from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   select id into v_eg from public.catalog_items where code = 'membership_annual_no_panel' order by created_at limit 1;
   if v_eg is null then raise exception 'FAIL the Membership item does not exist'; end if;
-  if (select active from public.catalog_items where id = v_eg) then raise exception 'FAIL the Membership item is active'; end if;
-  if (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 8400000 then raise exception 'FAIL Membership price'; end if;
+  -- T2-09 (2026-11-04): the Membership is the one item sold, at 100,000 naira; Plus is no longer sold (its last price stays open as history)
+  if not (select active from public.catalog_items where id = v_eg) then raise exception 'FAIL the Membership item is not on sale'; end if;
+  if (select active from public.catalog_items where id = v_plus) then raise exception 'FAIL Membership Plus is still on sale'; end if;
+  if (select amount_kobo from public.prices where catalog_item_id = v_eg and valid_to is null) <> 10000000 then raise exception 'FAIL Membership price'; end if;
   if (select amount_kobo from public.prices where catalog_item_id = v_plus and valid_to is null) <> 12900000 then raise exception 'FAIL Membership Plus price'; end if;
   select exists (select 1 from public.prices where catalog_item_id = v_plus and amount_kobo = 12000000 and valid_to is not null) into v_old_closed;
   if not v_old_closed then raise exception 'FAIL the 12,000,000 row was not closed (or was edited)'; end if;

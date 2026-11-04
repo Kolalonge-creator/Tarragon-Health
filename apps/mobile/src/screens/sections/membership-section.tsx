@@ -4,12 +4,13 @@ import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } fr
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
-import { RENEWAL_CONSENT_TICKED_BY_DEFAULT, arrangeItems, formatNaira, isTier, ladderActive, monthlyEquivalentKobo, monthlyFramingKobo, panelIncluded, UPGRADE_CODE, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
+import { RENEWAL_CONSENT_TICKED_BY_DEFAULT, arrangeItems, formatNaira, isTier, ladderActive, monthlyEquivalentKobo, monthlyFramingKobo, panelIncluded, type FeeEstimateSchedule, type NotIncludedEntry, type PriceChangeNotice, type Quote } from "@tarragon/commerce";
 import { buildCheckoutView, itemisedRows, returnNotice } from "@/lib/commerce/checkout-view";
 import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "@/lib/commerce/plus-state-setup";
+import { offeredItems } from "@/lib/commerce/offered";
 import { loadAutoRenewEnabled, loadCatalogue, loadFoundingBadge, loadFoundingOffer, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { RefundRuleBlock } from "./refund-blocks";
@@ -53,10 +54,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [notIncluded, setNotIncluded] = useState<Readonly<Record<string, readonly NotIncludedEntry[]>>>({});
   const [priceNotices, setPriceNotices] = useState<PriceChangeNotice[]>([]);
   const [loaded, setLoaded] = useState(false);
-  // Membership Plus is bought for an approved state where blood is collected; only these can be chosen, and the choice stays fixed once paid
+  // The approved collection states, read only so an existing Membership Plus holder with no state yet can choose one (Plus is no longer sold)
   const [plusStates, setPlusStates] = useState<PlusState[] | null>(null);
   const [plusStatesFailed, setPlusStatesFailed] = useState(false);
-  const [collectionState, setCollectionState] = useState("");
   // a Plus member who has no state yet (employer seat, earlier grant) chooses it once
   const [setupState, setSetupState] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
@@ -102,8 +102,10 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     setNotIncluded(ni.ok ? ni.data : {});
     setPriceNotices(!beneficiary && pn.ok ? pn.data : []);
     if (c.ok) {
-      setItems(c.data);
-      if (!beneficiary) await loadQuotes(c.data, appliedRef.current);
+      // Membership Plus and the upgrade are retired (T2-01, T2-09): dropped here so they are never priced, shown or bought.
+      const offered = offeredItems(c.data);
+      setItems(offered);
+      if (!beneficiary) await loadQuotes(offered, appliedRef.current);
     }
     if (o.ok) setOrders(o.data);
     if (m.ok) setMembership(m.data);
@@ -126,7 +128,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
 
   /** Automatic renewal is offered only for the person's own Membership while the switch is on, and never to someone who already holds one. */
   function canRenewItem(item: CatalogueItem): boolean {
-    return renewSwitch && !beneficiary && item.kind === "membership" && item.code !== "membership_upgrade_plus" && !membership.isMember;
+    return renewSwitch && !beneficiary && item.kind === "membership" && !membership.isMember;
   }
 
   /** For someone else the name and what happens come first, before any card is touched (S29c): they are asked to accept, and a no is a refund. */
@@ -141,13 +143,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     ]);
   }
 
-  /** Membership Plus and the upgrade to it need an approved state; only while the ladder is on, as in the database. */
-  function needsStateFor(item: CatalogueItem): boolean {
-    return ladderActive(items) && (item.code === "membership_annual" || item.code === UPGRADE_CODE);
-  }
-
   async function pay(item: CatalogueItem) {
-    if (needsStateFor(item) && !collectionState) return;
     setErrorKey(null);
     setNotice(null);
     setBusy(item.code);
@@ -165,7 +161,6 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       ...(chosen !== null ? { expectedAmountKobo: chosen.amountDueKobo } : {}),
       // the person's own tick, only ever sent when they gave it
       ...(canRenewItem(item) && (renew[item.code] ?? RENEWAL_CONSENT_TICKED_BY_DEFAULT) ? { autoRenew: true } : {}),
-      ...(needsStateFor(item) ? { collectionState } : {}),
       // only a code the database accepted for THIS item in the quote the person was shown
       ...(appliedCode && chosen !== null && chosen.discountCodeOk === true ? { discountCode: appliedCode } : {}),
     });
@@ -210,8 +205,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   }
 
   if (!loaded) return <ActivityIndicator accessibilityLabel={tr("shop.title")} />;
-  // The Membership ladder (founder decision 2026-10-21): two equal cards that state the annual blood panel first. A current Membership
-  // member sees only the upgrade. Before the database serves the Membership item this is exactly the single-Membership screen.
+  // One Membership (T2-01, T2-09, 2026-11-04): items never holds Membership Plus or the upgrade (filtered on load), so a Free person sees the
+  // one Membership card and a member sees nothing more to buy. A current Plus year is still described below.
   const ladder = ladderActive(items);
   const tierNow = !beneficiary && isTier(membership.tier) ? membership.tier : null;
   const arranged = arrangeItems(items, { tier: tierNow, isMember: !beneficiary && membership.isMember, inGrace: false, forSomeoneElse: beneficiary !== undefined });
@@ -232,12 +227,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       {!beneficiary && membership.isMember && membership.endsAt ? (
         <MutedText>{ladder && tierNow === "plus" ? tr("shop.tier.you_have_plus", { date: lagos(membership.endsAt) }) : ladder && tierNow === "evergreen" ? tr("shop.tier.you_have_evergreen", { date: lagos(membership.endsAt) }) : tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText>
       ) : null}
-      {ladder && !(membership.isMember && !beneficiary) ? (
-        <View style={{ gap: 4 }}>
-          <AppText variant="body">{tr("shop.tier.same_care")}</AppText>
-          <MutedText>{tr("shop.tier.urgent_same")}</MutedText>
-        </View>
-      ) : null}
+      {ladder && !(membership.isMember && !beneficiary) ? <MutedText>{tr("shop.tier.urgent_same")}</MutedText> : null}
       {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}
       {needsPlusStateSetup({ ladder, forSomeoneElse: beneficiary !== undefined, tier: tierNow, membership }) ? (
         <Card>
@@ -347,51 +337,14 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
         const pointsOn = usePoints[item.code] === true && pointsLine !== null;
         const quote = (pointsOn ? q?.points : q?.plain) ?? null;
         const view = buildCheckoutView({ item, quote, fee });
-        // The upgrade is bought BY a current member, so being one never blocks it.
-        const blocked = !beneficiary && item.kind === "membership" && membership.isMember && item.code !== UPGRADE_CODE;
+        const blocked = !beneficiary && item.kind === "membership" && membership.isMember;
         const tierCard = ladder && panelIncluded(item.code) !== null;
         return (
           <Card key={item.code}>
-            {tierCard ? <MutedText>{tr(panelIncluded(item.code) ? "shop.tier.panel_yes" : "shop.tier.panel_no")}</MutedText> : null}
-            <AppText variant="bodyLargeStrong">{tierCard ? tr(panelIncluded(item.code) ? "shop.tier.evergreen_plus.name" : "shop.tier.evergreen.name") : copy(item.nameKey)}</AppText>
+            {tierCard ? <MutedText>{tr("shop.tier.panel_no")}</MutedText> : null}
+            <AppText variant="bodyLargeStrong">{tierCard ? tr("shop.tier.evergreen.name") : copy(item.nameKey)}</AppText>
             <MutedText>{copy(item.descriptionKey)}</MutedText>
             {tierCard && monthlyOn ? <MutedText>{tr("shop.tier.monthly", { amount: naira(monthlyFramingKobo(quote?.amountDueKobo ?? item.amountKobo)) })}</MutedText> : null}
-            {needsStateFor(item) && !blocked ? (
-              <View style={{ gap: 6, marginTop: 8 }}>
-                <AppText variant="bodyStrong">{beneficiary ? tr("shop.plus.state.label_for", { name: beneficiary.name }) : tr("shop.plus.state.label")}</AppText>
-                {plusStatesFailed ? (
-                  <View style={{ gap: 6 }}>
-                    <ErrorText>{tr("shop.plus.state.error")}</ErrorText>
-                    <SecondaryButton title={tr("shop.plus.state.retry")} onPress={() => void refresh()} />
-                  </View>
-                ) : plusStates !== null && plusStates.length === 0 ? (
-                  <MutedText>{tr("shop.plus.state.none")}</MutedText>
-                ) : (
-                  <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                    {(plusStates ?? []).map((s) => {
-                      const on = collectionState === s.state;
-                      return (
-                        <Pressable
-                          key={s.state}
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked: on }}
-                          onPress={() => {
-                            // a different state is a different order: never replay the payment started for the old one
-                            keys.current.delete("membership_annual");
-                            keys.current.delete(UPGRADE_CODE);
-                            setCollectionState(s.state);
-                          }}
-                          style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 22, borderWidth: 1, borderColor: on ? colors.ink : colors.muted }}
-                        >
-                          <Text style={{ color: colors.ink, fontWeight: on ? "700" : "400" }}>{s.displayName}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-                <MutedText>{beneficiary ? tr("shop.plus.state.warning_for", { name: beneficiary.name }) : tr("shop.plus.state.warning")}</MutedText>
-              </View>
-            ) : null}
             <AppText variant="bodyStrong" style={{ marginTop: 8 }}>{tr("shop.included")}</AppText>
             {item.includedKeys.map((k) => (
               <AppText variant="body" key={k}>{`• ${copy(k)}`}</AppText>
@@ -490,9 +443,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
             )}
             {blocked ? null : (
               <PrimaryButton
-                title={view.mode === "covered" ? (busy === item.code ? tr("sponsor.getting") : tr("sponsor.get")) : busy === item.code ? tr("shop.paying") : item.code === UPGRADE_CODE ? tr("shop.tier.upgrade.pay") : tr("shop.pay")}
+                title={view.mode === "covered" ? (busy === item.code ? tr("sponsor.getting") : tr("sponsor.get")) : busy === item.code ? tr("shop.paying") : tr("shop.pay")}
                 onPress={() => confirmGift(item)}
-                disabled={busy !== null || (needsStateFor(item) && !collectionState)}
+                disabled={busy !== null}
               />
             )}
           </Card>

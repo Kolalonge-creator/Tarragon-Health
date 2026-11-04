@@ -1,8 +1,8 @@
 /**
- * Public price rule (replaces the TT-11 "one price" premise, which the 2026-10-21 three-tier decision superseded; see docs/DECISIONS.md).
- * The marketing site and everything else public may quote EXACTLY TWO member prices, Membership and Membership Plus, plus the upgrade
- * difference between them, every one read from versioned config (commerce.membership_ladder, or commerce.membership_prices while the
- * ladder is off). It may quote no volume or seat-tier wording and no other naira figure. This holds with the ladder OFF and ON.
+ * Public price rule (Tarragon Health 2.0, decisions T2-01, T2-05, T2-09, 2026-11-04; see docs/DECISIONS.md). Membership Plus is retired.
+ * The marketing site and everything else public may quote EXACTLY TWO figures: the Membership price and the employer seat price (the
+ * same Membership bought by an employer for each employee), both read from versioned config (commerce.membership_prices). It may quote
+ * no laboratory price, no volume or seat-tier wording and no other naira figure.
  *
  * It scans source, not rendered HTML (the pages are server components with data loaders). A figure typed into a page is the only way
  * a stray price gets onto the site, and this catches that. Comments and test files are ignored.
@@ -19,6 +19,7 @@ const NAIRA_TEMPLATE_ALLOWED: Record<string, string> = {
   "app/(marketing)/pricing/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/gift/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/page.tsx": "the Membership price on the homepage, from commerce.membership_prices (same source as /pricing)",
+  "lib/marketing/membership.ts": "the employer seat price in the shared employer line, from commerce.membership_prices",
   "app/(marketing)/_components/roi-calculator.tsx":
     "an employer sketch whose every figure is a visitor-editable assumption and a modelled saving; it quotes no Tarragon price",
 };
@@ -63,7 +64,7 @@ function stripComments(text: string): string {
 
 const files = ROOTS.flatMap(walk).map((p) => ({ rel: relative(SRC, p).split("\\").join("/"), text: stripComments(readFileSync(p, "utf8")) }));
 
-describe("public prices: exactly two member prices plus the upgrade difference, nothing else", () => {
+describe("public prices: the Membership price and the employer seat price, nothing else", () => {
   it("scans a real set of marketing files", () => {
     expect(files.length).toBeGreaterThan(50);
   });
@@ -90,7 +91,7 @@ describe("public prices: exactly two member prices plus the upgrade difference, 
   });
 
   it("reads prices only from the two member-price config keys, however the key is written", () => {
-    const allowed = new Set(["commerce.membership_ladder", "commerce.membership_prices"]);
+    const allowed = new Set(["commerce.membership_prices"]);
     const used = new Set<string>();
     // Any quoted commerce.* key anywhere in the marketing roots: a direct call, a constant, a wrapper's argument.
     for (const f of files) for (const m of f.text.matchAll(/["'`](commerce\.[A-Za-z0-9_.]+)["'`]/g)) used.add(m[1]);
@@ -104,11 +105,17 @@ describe("public prices: exactly two member prices plus the upgrade difference, 
     expect(hits).toEqual([]);
   });
 
-  it("the ladder config holds exactly two member prices and one upgrade difference that equals their gap", () => {
-    const v = getProposedConfig("commerce.membership_ladder").value as Record<string, unknown>;
-    const priceKeys = Object.keys(v).filter((k) => k.endsWith("_kobo")).sort();
-    expect(priceKeys).toEqual(["evergreen_kobo", "evergreen_plus_kobo", "upgrade_kobo"]);
-    expect(v.upgrade_kobo).toBe((v.evergreen_plus_kobo as number) - (v.evergreen_kobo as number));
+  it("the price config holds exactly the two public figures, and agrees with the ladder's one sold Membership", () => {
+    const v = getProposedConfig("commerce.membership_prices").value as Record<string, unknown>;
+    expect(Object.keys(v).filter((k) => k.endsWith("_kobo")).sort()).toEqual(["individual_kobo", "organisation_member_kobo"]);
+    const l = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; plus_sold: boolean };
+    expect(l.evergreen_kobo).toBe(v.individual_kobo);
+    expect(l.plus_sold).toBe(false);
+  });
+
+  it("no marketing file names or offers Membership Plus, its blood panel, an upgrade or a testing day", () => {
+    const plus = /Membership Plus|evergreen_plus|membership_upgrade_plus|blood panel|testing days?\b/i;
+    expect(files.filter((f) => plus.test(f.text)).map((f) => f.rel)).toEqual([]);
   });
 
   describe("offers that are banned, and the negations that are allowed", () => {

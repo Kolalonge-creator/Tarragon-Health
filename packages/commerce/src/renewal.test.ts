@@ -7,7 +7,7 @@ import { fail, ok, type ProviderResult } from "../../../supabase/functions/_shar
 import { MemoryStore } from "./support/memory-store.ts";
 
 const FIRST = "tho_0123456789abcdef0123456789abcdef";
-const PRICE = 12_900_000;
+const PRICE = 10_000_000;
 const CARD = { code: "AUTH_card_1", reusable: true, signature: "SIG_1", brand: "visa", last4: "4081", expMonth: "12", expYear: "2030", channel: "card" } as const;
 
 /** A Membership that was paid for once with a card the buyer agreed to keep, so the mock knows the authorization. */
