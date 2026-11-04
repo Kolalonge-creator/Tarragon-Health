@@ -81,6 +81,7 @@ export async function runDocumentClassification(
   service: SupabaseClient<Database>,
   documentId: string,
 ): Promise<{ pipeline: string | null; asked: boolean }> {
+  // asked: false with no pipeline means the document is still 'classifying' (an error); the daily sweep finishes it.
   try {
     const { data: doc } = await service
       .from("clinical_documents")
@@ -109,6 +110,8 @@ export async function runDocumentClassification(
           fileBase64: normalised.buffer.toString("base64"),
           mediaType: normalised.mediaType,
           kinds,
+          // An activated governed prompt (AI governance console) replaces the in-repo one; the code list is always appended.
+          governedSystemPrompt: config?.prompt?.system_prompt ?? null,
         });
         if (!result.ok) {
           return { value: null, modelIdentifier: CLASSIFIER_MODEL_ID, degradedReason: `Classifier: ${result.reason}` };
@@ -178,7 +181,7 @@ export async function retryStuckClassifications(
   service: SupabaseClient<Database>,
   now: Date = new Date(),
   limit = 50,
-): Promise<{ considered: number; retried: number; asked: number } | { error: string }> {
+): Promise<{ considered: number; retried: number; asked: number; failed: number } | { error: string }> {
   const cutoff = new Date(now.getTime() - STUCK_AFTER_MINUTES * 60_000).toISOString();
   const { data: docs, error } = await service
     .from("clinical_documents")
@@ -191,7 +194,7 @@ export async function retryStuckClassifications(
   if (error) return { error: error.message };
 
   const policy = classifierPolicy();
-  const summary = { considered: docs?.length ?? 0, retried: 0, asked: 0 };
+  const summary = { considered: docs?.length ?? 0, retried: 0, asked: 0, failed: 0 };
   for (const doc of docs ?? []) {
     const { count } = await service
       .from("clinical_document_jobs")
@@ -202,7 +205,7 @@ export async function retryStuckClassifications(
     // crashing the classifier is asked about within max_classify_attempts days, never retried for ever.
     const sweepsSoFar = Math.floor((now.getTime() - new Date(doc.created_at).getTime()) / 86_400_000);
     if (Math.max((count ?? 0) + 1, sweepsSoFar) >= policy.max_classify_attempts) {
-      await service.rpc("record_document_classification", {
+      const { error: giveUpError } = await service.rpc("record_document_classification", {
         p_document: doc.id,
         p_suggested_kind: null as unknown as string,
         p_confidence: null as unknown as number,
@@ -211,7 +214,13 @@ export async function retryStuckClassifications(
         p_apply: false,
         p_error: "Could not be sorted automatically; the patient is asked",
       });
-      summary.asked += 1;
+      if (giveUpError) {
+        // Still 'classifying': the ops exception queue lists it after 30 minutes, so a person sees it.
+        console.error("clinical-documents: could not hand a stuck upload to the patient", giveUpError);
+        summary.failed += 1;
+      } else {
+        summary.asked += 1;
+      }
     } else {
       summary.retried += 1;
       await runDocumentClassification(service, doc.id);

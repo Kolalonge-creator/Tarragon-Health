@@ -10,12 +10,14 @@ const upload = jest.fn();
 const remove = jest.fn();
 const runDocumentClassification = jest.fn();
 const startLabReader = jest.fn();
+const routedRow = { data: { routed_table: "lab_result_documents", routed_id: "33333333-3333-4333-8333-333333333333" } };
 
 jest.mock("@/lib/supabase/server", () => ({
   getCurrentUser: jest.fn().mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" }),
   createClient: jest.fn().mockImplementation(async () => ({
     rpc,
     storage: { from: () => ({ upload, remove }) },
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => routedRow }) }) }),
   })),
 }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true }) }));
@@ -57,9 +59,16 @@ describe("uploadUnsortedDocument", () => {
     expect(runDocumentClassification).toHaveBeenCalledWith({ service: true }, DOC);
   });
 
-  it("reports a lab outcome when the document was sorted into the lab path", async () => {
+  it("reports a lab outcome and links a paid walkthrough to the new lab document", async () => {
     runDocumentClassification.mockResolvedValue({ pipeline: "lab", asked: false });
+    rpc.mockImplementation(async (name: string) => ({ data: name === "claim_lab_result_consult_credit" ? "req-1" : DOC, error: null }));
     await expect(uploadUnsortedDocument(form())).resolves.toEqual({ ok: true, outcome: "sorted_lab" });
+    expect(rpc).toHaveBeenCalledWith("settle_lab_result_consult_claim", { p_request_id: "req-1", p_document_id: routedRow.data.routed_id });
+  });
+
+  it("does not promise a question when sorting did not finish", async () => {
+    runDocumentClassification.mockResolvedValue({ pipeline: null, asked: false });
+    await expect(uploadUnsortedDocument(form())).resolves.toEqual({ ok: true, outcome: "saved" });
   });
 
   it("removes the stored file when the database refuses, and says why for a duplicate", async () => {
@@ -74,12 +83,13 @@ describe("uploadUnsortedDocument", () => {
 
 describe("confirmDocumentKind", () => {
   it("starts the lab reader only when the answer routed the document into the lab path", async () => {
-    rpc.mockResolvedValue({ data: "lab", error: null });
+    rpc.mockImplementation(async (name: string) => ({ data: name === "confirm_clinical_document_kind" ? "lab" : null, error: null }));
     await expect(confirmDocumentKind({ documentId: DOC, kindCode: "lab.haematology" })).resolves.toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("confirm_clinical_document_kind", { p_document: DOC, p_kind: "lab.haematology" });
     expect(startLabReader).toHaveBeenCalledWith({ service: true }, DOC);
 
     startLabReader.mockClear();
+    rpc.mockReset();
     rpc.mockResolvedValue({ data: "ecg", error: null });
     await confirmDocumentKind({ documentId: DOC, kindCode: "cardiology.ecg" });
     expect(startLabReader).not.toHaveBeenCalled();

@@ -12,7 +12,7 @@
 --           approval before it can be switched on; this migration seeds neither (standing rule). While it is off, the fallback
 --           is simply asking the patient;
 --        c. otherwise, or below the confidence threshold, the patient is asked "What is this?" (status 'needs_type_confirmation',
---           kind_source 'confirmed' once answered).
+--           kind_source 'confirmed' once answered). The answer is final once given.
 --      A failed or unsure classification only ever moves the document toward a person (asking the patient), never toward a
 --      pipeline or "normal" (§8.3, §8.4).
 --   3. Once the kind is known:
@@ -75,6 +75,8 @@ alter table public.clinical_documents
 create index clinical_documents_unsorted_idx on public.clinical_documents (status, status_changed_at)
   where routed_table is null;
 
+-- Job rows are ordered by time to find the latest error; two attempts recorded in one transaction would share now() and tie.
+alter table public.clinical_document_jobs alter column created_at set default clock_timestamp();
 alter table public.clinical_document_jobs drop constraint clinical_document_jobs_step_check;
 alter table public.clinical_document_jobs add constraint clinical_document_jobs_step_check check (step in ('classify', 'extract'));
 
@@ -265,7 +267,9 @@ begin
   if v_note is not null and length(v_note) > 500 then raise exception 'clinical_document_note_too_long' using errcode = '22023'; end if;
   -- The file must already be stored, in the caller's own folder (the bucket's own-folder policy is what let them write it).
   if p_file_path is null or split_part(p_file_path, '/', 1) <> v_me::text
-     or not exists (select 1 from storage.objects o where o.bucket_id = 'lab-result-documents' and o.name = p_file_path) then
+     -- uploaded by the caller themselves: care-team files for this patient live in the same folder and stay hidden until reviewed
+     or not exists (select 1 from storage.objects o where o.bucket_id = 'lab-result-documents' and o.name = p_file_path
+                     and o.owner_id = v_me::text) then
     raise exception 'clinical_document_file_missing' using errcode = '22023';
   end if;
 
@@ -338,8 +342,9 @@ begin
     insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, escalation_level)
     values (cd.organisation_id, cd.patient_id, 'clinician_review', 'open',
       format('%s uploaded by the patient: review needed', k.label),
-      format('The patient uploaded a document sorted as "%s" (%s). Open the original and record any clinical finding. '
-             'There is no automatic reader for this kind yet.', k.label,
+      format('The patient uploaded a document sorted as "%s" (%s). Open it under "Uploaded documents not yet read automatically" '
+             'on the patient''s record, and record the review there with any clinical finding. There is no automatic reader for this '
+             'kind yet.', k.label,
              case p_source when 'confirmed' then 'the patient chose the type' when 'ai' then 'type suggested by AI-024'
                            when 'rules' then 'type found from the file name or note' else p_source end), 2)
     returning id into v_alert;
@@ -419,8 +424,8 @@ grant execute on function public.record_document_classification(uuid, text, nume
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- 7. The patient answers "What is this?"
 -- ---------------------------------------------------------------------------------------------------------------------------
--- Only the patient who uploaded it, only while it is not yet routed. Re-answering a non-lab answer is allowed (it is still waiting
--- for its reader); the review alert, if any, stays open and is not duplicated.
+-- Only the patient who uploaded it, only while its type is still unknown. Once sorted the answer is final: a re-answer could leave a
+-- review alert naming the wrong kind, open a second one through the lab path, or move the access category under a reviewing doctor.
 create or replace function public.confirm_clinical_document_kind(p_document uuid, p_kind text)
 returns text
 language plpgsql
@@ -440,7 +445,7 @@ begin
   if cd.routed_table is not null or cd.is_superseded then
     raise exception 'clinical_document_already_routed' using errcode = '55000';
   end if;
-  if cd.status not in ('classifying', 'needs_type_confirmation', 'uploaded', 'doctor_review_required') then
+  if cd.kind_code is not null or cd.status not in ('classifying', 'needs_type_confirmation') then
     raise exception 'clinical_document_already_routed' using errcode = '55000';
   end if;
 
@@ -454,6 +459,353 @@ end;
 $function$;
 revoke all on function public.confirm_clinical_document_kind(uuid, text) from public, anon;
 grant execute on function public.confirm_clinical_document_kind(uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- 7b. A clinician reviews a kept (not yet routed) document of a non-lab kind
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- The doctor opens the original from the patient's record ("Uploaded documents not yet read automatically") and records that it
+-- was reviewed, with a note of any finding. Their own review alert stays theirs to resolve on the alerts screen as usual.
+alter table public.clinical_documents
+  add column reviewed_by uuid references public.profiles (id) on delete restrict,
+  add column reviewed_at timestamptz,
+  add column review_note text check (review_note is null or length(review_note) <= 2000);
+
+create or replace function public.review_clinical_document(p_document uuid, p_note text)
+returns void
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_me uuid := (select auth.uid());
+  cd public.clinical_documents;
+  v_note text := nullif(btrim(coalesce(p_note, '')), '');
+begin
+  if v_me is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  select * into cd from public.clinical_documents where id = p_document for update;
+  if not found or not exists (select 1 from public.profiles pr where pr.id = v_me and pr.role = 'clinician' and pr.organisation_id = cd.organisation_id)
+     or not exists (select 1 from public.clinical_staff cs where cs.profile_id = v_me and cs.active)
+     or not private.staff_may_read(cd.patient_id, cd.organisation_id, cd.access_category) then
+    raise exception 'clinical document not found' using errcode = 'P0002';
+  end if;
+  if cd.routed_table is not null or cd.kind_code is null then
+    raise exception 'clinical_document_not_reviewable_here' using errcode = '55000';
+  end if;
+  if v_note is null then raise exception 'clinical_document_review_note_required' using errcode = '22023'; end if;
+  if length(v_note) > 2000 then raise exception 'clinical_document_review_note_too_long' using errcode = '22023'; end if;
+  update public.clinical_documents
+     set status = 'reviewed', status_reason = 'Reviewed by a doctor', status_changed_at = now(),
+         reviewed_by = v_me, reviewed_at = now(), review_note = v_note
+   where id = cd.id;
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values (cd.organisation_id, v_me, 'clinical_document.reviewed', 'clinical_documents', cd.id, jsonb_build_object('kind', cd.kind_code));
+end;
+$function$;
+revoke all on function public.review_clinical_document(uuid, text) from public, anon;
+grant execute on function public.review_clinical_document(uuid, text) to authenticated;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- 7c. Ops exception queue: an unanswered type question, or an upload stuck while being sorted (redefined from 20261104160432,
+--     the documents branch only)
+-- ---------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.ops_exception_queue(p_domain text DEFAULT NULL::text, p_limit integer DEFAULT 200)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_limit integer := least(greatest(coalesce(p_limit, 200), 1), 500);
+begin
+  if not private.can_view_ops_console() then
+    return '[]'::jsonb;
+  end if;
+
+  return coalesce((
+    select jsonb_agg(to_jsonb(q) order by q.severity_rank, q.age_hours desc)
+    from (
+      select * from (
+        -- ---------------------------------------------------------------
+        -- ALERTS (30.12) — unacknowledged clinical alerts, worst first.
+        -- ---------------------------------------------------------------
+        select
+          'alerts'::text                                        as domain,
+          a.id                                                  as entity_id,
+          'clinician_alert'::text                               as entity_type,
+          case
+            when a.level = 'emergency' then 'critical'
+            when a.sla_due_at is not null and a.sla_due_at < now() then 'urgent'
+            when a.level = 'urgent_escalation' then 'urgent'
+            else 'high'
+          end                                                   as severity,
+          case
+            when a.level = 'emergency' then 1
+            when a.sla_due_at is not null and a.sla_due_at < now() then 2
+            when a.level = 'urgent_escalation' then 2
+            else 3
+          end                                                   as severity_rank,
+          a.title                                               as headline,
+          case
+            when a.sla_due_at is not null and a.sla_due_at < now()
+              then 'Past its contact SLA and still unacknowledged.'
+            else 'Awaiting clinician acknowledgement.'
+          end                                                   as detail,
+          p.full_name                                           as subject_name,
+          a.patient_id                                          as subject_id,
+          a.created_at                                          as opened_at,
+          round(extract(epoch from (now() - a.created_at)) / 3600.0, 1) as age_hours,
+          a.sla_due_at                                          as due_at,
+          '/clinician'::text                             as href
+        from public.clinician_alerts a
+        left join public.profiles p on p.id = a.patient_id
+        where a.status = 'open'
+          and (a.level <> 'routine' or a.created_at < now() - interval '24 hours')
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- APPOINTMENTS (30.8) — booking requests nobody has answered, and
+        -- scheduled appointments whose time has passed with no outcome
+        -- recorded (the no-show / never-happened gap).
+        -- ---------------------------------------------------------------
+        select
+          'appointments', b.id, 'booking_request',
+          case when b.created_at < now() - interval '48 hours' then 'urgent' else 'high' end,
+          case when b.created_at < now() - interval '48 hours' then 2 else 3 end,
+          'Booking request unanswered',
+          'Requested ' || b.service_type || ' for ' || to_char(b.requested_date, 'DD Mon') || '.',
+          p.full_name, b.profile_id, b.created_at,
+          round(extract(epoch from (now() - b.created_at)) / 3600.0, 1),
+          b.created_at + interval '24 hours',
+          '/admin/bookings'
+        from public.booking_requests b
+        left join public.profiles p on p.id = b.profile_id
+        where b.status = 'requested'
+          and b.created_at < now() - interval '12 hours'
+
+        union all
+
+        select
+          'appointments', ap.id, 'appointment',
+          'high', 3,
+          'Appointment outcome not recorded',
+          'Scheduled time has passed and it is still marked scheduled — complete it or mark the no-show.',
+          p.full_name, ap.patient_id, ap.scheduled_for,
+          round(extract(epoch from (now() - ap.scheduled_for)) / 3600.0, 1),
+          ap.scheduled_for + interval '24 hours',
+          '/clinician/appointments'
+        from public.appointments ap
+        left join public.profiles p on p.id = ap.patient_id
+        where ap.status = 'scheduled'
+          and ap.scheduled_for < now() - interval '12 hours'
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- REFERRALS (30.9) — raised but never booked, or booked with the
+        -- appointment date behind us and no completion.
+        -- ---------------------------------------------------------------
+        select
+          'referrals', r.id, 'specialist_referral',
+          case when r.created_at < now() - interval '7 days' then 'urgent' else 'high' end,
+          case when r.created_at < now() - interval '7 days' then 2 else 3 end,
+          'Referral awaiting booking',
+          r.specialist_type::text || ' referral has had no booking confirmed.',
+          p.full_name, r.patient_id, r.created_at,
+          round(extract(epoch from (now() - r.created_at)) / 3600.0, 1),
+          r.created_at + interval '72 hours',
+          '/clinician/referrals'
+        from public.specialist_referrals r
+        left join public.profiles p on p.id = r.patient_id
+        where r.status = 'pending'
+          and r.created_at < now() - interval '48 hours'
+
+        union all
+
+        select
+          'referrals', r.id, 'specialist_referral',
+          'high', 3,
+          'Specialist report overdue',
+          'The appointment date has passed and the referral has not been completed.',
+          p.full_name, r.patient_id, r.appointment_date,
+          round(extract(epoch from (now() - r.appointment_date)) / 3600.0, 1),
+          r.appointment_date + interval '7 days',
+          '/clinician/referrals'
+        from public.specialist_referrals r
+        left join public.profiles p on p.id = r.patient_id
+        where r.status in ('booked', 'confirmed')
+          and r.appointment_date is not null
+          and r.appointment_date < now() - interval '7 days'
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- LABORATORY (30.10) — orders stuck before a result.
+        -- ---------------------------------------------------------------
+        select
+          'laboratory', lo.id, 'lab_order',
+          case when lo.ordered_at < now() - interval '7 days' then 'urgent' else 'high' end,
+          case when lo.ordered_at < now() - interval '7 days' then 2 else 3 end,
+          case lo.status
+            when 'ordered' then 'Sample not collected'
+            when 'sample_collected' then 'Sample collected, no result'
+            else 'Result delayed'
+          end,
+          'Lab order has been open since ' || to_char(lo.ordered_at at time zone 'Africa/Lagos', 'DD Mon') || '.',
+          p.full_name, lo.patient_id, lo.ordered_at,
+          round(extract(epoch from (now() - lo.ordered_at)) / 3600.0, 1),
+          lo.ordered_at + interval '72 hours',
+          '/clinician/orders'
+        from public.lab_orders lo
+        left join public.profiles p on p.id = lo.patient_id
+        where lo.status in ('ordered', 'sample_collected', 'processing')
+          and lo.ordered_at < now() - interval '3 days'
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- PHARMACY (30.11) — orders that have not reached the patient.
+        -- ---------------------------------------------------------------
+        select
+          'pharmacy', po.id, 'pharmacy_order',
+          case when po.requested_at < now() - interval '5 days' then 'urgent' else 'high' end,
+          case when po.requested_at < now() - interval '5 days' then 2 else 3 end,
+          case po.status
+            when 'requested' then 'Prescription not confirmed by pharmacy'
+            when 'confirmed' then 'Confirmed but not dispensed'
+            when 'dispensed' then 'Dispensed but not collected'
+            else 'Dispensed but not collected'
+          end,
+          'Medication order has not reached the patient.',
+          p.full_name, po.patient_id, po.requested_at,
+          round(extract(epoch from (now() - po.requested_at)) / 3600.0, 1),
+          po.requested_at + interval '48 hours',
+          '/admin/settings/partners/pharmacies'
+        from public.pharmacy_orders po
+        left join public.profiles p on p.id = po.patient_id
+        where po.status in ('requested', 'confirmed', 'dispensed')
+          and po.requested_at < now() - interval '2 days'
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- PAYMENTS (30.14) — reconciliation exceptions and webhook errors.
+        -- ---------------------------------------------------------------
+        select
+          'payments', f.id, 'payment_reconciliation_flag',
+          case when f.flag_type = 'amount_mismatch' then 'urgent' else 'high' end,
+          case when f.flag_type = 'amount_mismatch' then 2 else 3 end,
+          'Reconciliation exception: ' || replace(f.flag_type, '_', ' '),
+          'Provider reference ' || f.provider_reference || ' does not match our ledger.',
+          null, null, f.detected_at,
+          round(extract(epoch from (now() - f.detected_at)) / 3600.0, 1),
+          f.detected_at + interval '72 hours',
+          '/finance/reconciliation'
+        from public.payment_reconciliation_flags f
+        where f.status = 'open'
+
+        union all
+
+        select
+          'payments', pt.id, 'payment_transaction',
+          'high', 3,
+          'Payment webhook failed',
+          'Paystack/Stripe event could not be processed: ' || left(pt.error, 120),
+          null, null, pt.created_at,
+          round(extract(epoch from (now() - pt.created_at)) / 3600.0, 1),
+          pt.created_at + interval '24 hours',
+          '/finance'
+        from public.payment_transactions pt
+        where pt.error is not null
+          and pt.processed_at is null
+          and pt.created_at > now() - interval '30 days'
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- DOCUMENTS (clinical document engine, step 1): an uploaded report
+        -- the automatic reader could not read, or one stuck while being read.
+        -- A person has to read it; it must never sit unseen.
+        -- ---------------------------------------------------------------
+        select
+          'documents', cd.id, 'clinical_document',
+          case when cd.status_changed_at < now() - interval '24 hours' then 'urgent' else 'high' end,
+          case when cd.status_changed_at < now() - interval '24 hours' then 2 else 3 end,
+          case cd.status
+            when 'processing_failed' then 'Uploaded report could not be read'
+            else 'Uploaded report stuck while being read'
+          end,
+          case cd.status
+            when 'processing_failed' then 'The automatic reader failed ' || cd.failed_attempts::text || ' time(s). A person needs to read the original.'
+            when 'needs_type_confirmation' then 'The patient uploaded a document and has not said what it is for 3 days. Contact the patient.'
+            when 'classifying' then 'Still being sorted after 30 minutes.'
+            else 'Still marked as being read after 30 minutes.'
+          end,
+          p.full_name, cd.patient_id, cd.status_changed_at,
+          round(extract(epoch from (now() - cd.status_changed_at)) / 3600.0, 1),
+          cd.status_changed_at + interval '24 hours',
+          '/clinician/patients/' || cd.patient_id::text
+        from public.clinical_documents cd
+        left join public.profiles p on p.id = cd.patient_id
+        where cd.status = 'processing_failed'
+           or (cd.status in ('processing', 'classifying') and cd.status_changed_at < now() - interval '30 minutes')
+           -- step 4: an unsorted upload whose question the patient has not answered
+           or (cd.status = 'needs_type_confirmation' and cd.status_changed_at < now() - interval '3 days')
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- INCIDENTS (30.18) — anything past its own SLA.
+        -- ---------------------------------------------------------------
+        select
+          'incidents', i.id, 'ops_incident',
+          case when i.severity = 'sev1' then 'critical' else 'urgent' end,
+          case when i.severity = 'sev1' then 1 else 2 end,
+          i.reference || ' — ' || i.title,
+          case
+            when i.acknowledged_at is null then 'Not acknowledged and past its acknowledgement SLA.'
+            else 'Past its resolution SLA.'
+          end,
+          null, null, i.detected_at,
+          round(extract(epoch from (now() - i.detected_at)) / 3600.0, 1),
+          case when i.acknowledged_at is null then i.ack_due_at else i.resolve_due_at end,
+          '/admin/ops/incidents/' || i.id::text
+        from public.ops_incidents i
+        where i.status <> 'closed'
+          and (
+            (i.acknowledged_at is null and i.ack_due_at < now())
+            or (i.resolved_at is null and i.resolve_due_at < now())
+          )
+
+        union all
+
+        -- ---------------------------------------------------------------
+        -- PROVIDERS (30.5) — clinical staff who can be routed work but whose
+        -- licence has never been verified. A governance exception, and one
+        -- that belongs on the same queue as everything else precisely
+        -- because it is nobody's daily habit to go looking for it.
+        -- ---------------------------------------------------------------
+        select
+          'providers', cs.id, 'clinical_staff',
+          'urgent', 2,
+          'Clinical staff licence unverified',
+          'This staff record is active but has never had its licence verified.',
+          pr.full_name, cs.profile_id, cs.created_at,
+          round(extract(epoch from (now() - cs.created_at)) / 3600.0, 1),
+          cs.created_at + interval '7 days',
+          '/admin/settings/clinical-staff'
+        from public.clinical_staff cs
+        left join public.profiles pr on pr.id = cs.profile_id
+        where cs.active
+          and cs.license_verified_at is null
+      ) src
+      where p_domain is null or p_domain = 'all' or src.domain = p_domain
+      order by src.severity_rank, src.age_hours desc
+      limit v_limit
+    ) q
+  ), '[]'::jsonb);
+end;
+$function$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- 8. AI-024: the document classifier, registered DISABLED
@@ -581,7 +933,8 @@ begin
   if has_function_privilege('anon', 'public.submit_unsorted_document(text, text, text, bigint, text, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.confirm_clinical_document_kind(uuid, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.record_document_classification(uuid, text, numeric, text, text, boolean, text)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.cde_apply_kind(uuid, text, text, uuid)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'private.cde_apply_kind(uuid, text, text, uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.review_clinical_document(uuid, text)', 'EXECUTE') then
     raise exception 'step 4 function grants are wrong';
   end if;
 end;

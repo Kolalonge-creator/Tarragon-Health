@@ -3,7 +3,8 @@
 --
 --   1. A patient uploads a document without a type: an intake row with no kind and no routing, 'classifying', under the most
 --      protective access category, visible to that patient only. Refused: a file outside the patient's own folder, a file not in
---      storage, the same file twice, a care coordinator using the patient route.
+--      storage, a file in their folder that someone else stored (a held care-team upload), the same file twice, a care coordinator
+--      using the patient route.
 --   2. An unsure classification (below the threshold, the app passes apply = false) asks the patient: 'needs_type_confirmation',
 --      the suggestion kept, nothing routed, one classify job recorded and NOT counted as a reader attempt.
 --   3. A failed classification never routes, even if the caller passes a kind with apply = true: the patient is asked.
@@ -14,6 +15,9 @@
 --      is not reviewed (no alert); for a patient with an active programme a clinician review alert opens at once. The access
 --      category becomes the kind's.
 --   6. AI-024 is registered disabled with no evaluation run; the classifier record is service-role only.
+--   6b. Once sorted the answer is final (the patient cannot re-answer a kept ECG). A tied clinician records the review of the kept
+--      ECG (status reviewed, note, audited); the patient cannot; a routed document cannot be reviewed here; a note is required.
+--   6c. The ops exception queue lists a question left unanswered for 3 days, and not a fresh one.
 --   7. SABOTAGE (automatic): with the adoption branch removed from private.cde_open_intake, answering "lab result" is refused as a
 --      duplicate of the waiting upload (so 4 proves the adoption).
 --   Sabotage by hand (checked 2026-11-04): the p_error guard removed from record_document_classification -> FAIL 3; the
@@ -31,6 +35,9 @@ declare
   v_paid uuid := gen_random_uuid();
   v_other uuid := gen_random_uuid();
   v_coord uuid := gen_random_uuid();
+  v_doctor uuid := gen_random_uuid();
+  v_admin uuid;
+  v_q jsonb;
   v_doc uuid;
   v_doc2 uuid;
   v_doc3 uuid;
@@ -44,26 +51,38 @@ declare
 begin
   select id into v_org from public.organisations limit 1;
   select id into v_prog from public.chronic_condition_programmes limit 1;
-  if v_org is null or v_prog is null then raise exception 'SETUP: seed organisation or programme missing'; end if;
+  select id into v_admin from public.profiles where organisation_id = v_org and role = 'admin' limit 1;
+  if v_org is null or v_prog is null or v_admin is null then raise exception 'SETUP: seed organisation, programme or admin missing'; end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v_pat, 'cde4-patient@example.invalid', 'x', now(), '{}', '{}'),
          (v_paid, 'cde4-paid@example.invalid', 'x', now(), '{}', '{}'),
          (v_other, 'cde4-other@example.invalid', 'x', now(), '{}', '{}'),
-         (v_coord, 'cde4-coord@example.invalid', 'x', now(), '{}', '{}');
+         (v_coord, 'cde4-coord@example.invalid', 'x', now(), '{}', '{}'),
+         (v_doctor, 'cde4-doctor@example.invalid', 'x', now(), '{}', '{}');
   update public.profiles set organisation_id = v_org, role = 'patient', is_test = true where id in (v_pat, v_paid, v_other);
   update public.profiles set organisation_id = v_org, role = 'care_coordinator', is_test = true where id = v_coord;
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'CDE4 Doctor', is_test = true where id = v_doctor;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+  values (v_org, v_doctor, 'CDE4 Doctor', 'MDCN', 'CDE4-001', true, 'active', now(), v_admin,
+      'senior_medical_officer', 'contracted', 2, true, v_admin, true);
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_paid, v_doctor, now())
+  on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
   set local session_replication_role = replica; -- the programme activation trigger needs a signed protocol; a fixture only
   insert into public.programme_purchases (organisation_id, patient_id, programme_id, status, price_kobo, duration_weeks, starts_at, ends_at, purchased_at)
   values (v_org, v_paid, v_prog, 'active', 100, 12, current_date - 10, current_date + 40, now() - interval '10 days');
   set local session_replication_role = origin;
 
-  insert into storage.objects (bucket_id, name) values
-    ('lab-result-documents', v_pat::text || '/cde4-a.pdf'),
-    ('lab-result-documents', v_pat::text || '/cde4-b.jpg'),
-    ('lab-result-documents', v_pat::text || '/cde4-c.pdf'),
-    ('lab-result-documents', v_paid::text || '/cde4-d.pdf'),
-    ('lab-result-documents', v_other::text || '/cde4-x.pdf');
+  insert into storage.objects (bucket_id, name, owner_id) values
+    ('lab-result-documents', v_pat::text || '/cde4-a.pdf', v_pat::text),
+    ('lab-result-documents', v_pat::text || '/cde4-b.jpg', v_pat::text),
+    ('lab-result-documents', v_pat::text || '/cde4-c.pdf', v_pat::text),
+    ('lab-result-documents', v_paid::text || '/cde4-d.pdf', v_paid::text),
+    ('lab-result-documents', v_other::text || '/cde4-x.pdf', v_other::text),
+    -- a care-team upload in the patient's folder, stored by the server (no owner): held until a clinician reviews it
+    ('lab-result-documents', v_pat::text || '/cde4-team.pdf', null);
 
   -- 1. upload without a type
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
@@ -81,13 +100,13 @@ begin
     raise exception 'FAIL 1: the unsorted intake row is wrong: %', to_jsonb(v_cd);
   end if;
   -- refusals
-  foreach v_out in array array['other_folder', 'missing', 'duplicate'] loop
+  foreach v_out in array array['other_folder', 'missing', 'not_owned', 'duplicate'] loop
     begin
       perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
       set local role authenticated;
       perform public.submit_unsorted_document(
         case v_out when 'other_folder' then v_other::text || '/cde4-x.pdf' when 'missing' then v_pat::text || '/nope.pdf'
-                   else v_pat::text || '/cde4-a.pdf' end,
+                   when 'not_owned' then v_pat::text || '/cde4-team.pdf' else v_pat::text || '/cde4-a.pdf' end,
         'f.pdf', 'application/pdf', 10, case v_out when 'duplicate' then repeat('a', 64) else repeat('e', 64) end, null);
       reset role;
       raise exception 'FAIL 1: an upload was accepted (%)', v_out;
@@ -216,6 +235,83 @@ begin
   if has_function_privilege('authenticated', 'public.record_document_classification(uuid, text, numeric, text, text, boolean, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.submit_unsorted_document(text, text, text, bigint, text, text)', 'EXECUTE') then
     raise exception 'FAIL 6: step 4 function grants are wrong';
+  end if;
+
+  -- 6b. the answer is final once sorted; a tied clinician records the review of the kept ECG
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.confirm_clinical_document_kind(v_doc3, 'reports.other');
+    reset role;
+    raise exception 'FAIL 6b: a sorted document was re-answered';
+  exception when others then
+    reset role;
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_paid, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.review_clinical_document(v_doc4, 'I am the patient');
+    reset role;
+    raise exception 'FAIL 6b: a patient recorded a review';
+  exception when others then
+    reset role;
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.clinical_documents where id = v_doc4;
+  if v_n <> 1 then reset role; raise exception 'FAIL 6b: the tied clinician cannot see the kept document'; end if;
+  begin
+    perform public.review_clinical_document(v_doc4, '   ');
+    reset role;
+    raise exception 'FAIL 6b: a review without a note was accepted';
+  exception when others then
+    reset role;
+    if sqlerrm like 'FAIL%' then raise; end if;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.review_clinical_document(v_doc4, 'Sinus rhythm, no concern.');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  select * into v_cd from public.clinical_documents where id = v_doc4;
+  if v_cd.status <> 'reviewed' or v_cd.reviewed_by <> v_doctor or v_cd.review_note <> 'Sinus rhythm, no concern.'
+     or not exists (select 1 from public.audit_log where entity_id = v_doc4 and action = 'clinical_document.reviewed') then
+    raise exception 'FAIL 6b: the review was not recorded: %', to_jsonb(v_cd);
+  end if;
+  -- a document routed into the lab path is reviewed there, not here: the doctor is tied to the patient for this check
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_pat, v_doctor, now())
+  on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.review_clinical_document(v_doc, 'x');
+    reset role;
+    raise exception 'FAIL 6b: a routed document was reviewed here';
+  exception when others then
+    reset role;
+    if sqlerrm like 'FAIL%' then raise; end if;
+    if sqlerrm <> 'clinical_document_not_reviewable_here' then raise exception 'FAIL 6b: wrong refusal for a routed document: %', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', null, true);
+
+  -- 6c. an unanswered question older than 3 days is on the ops exception queue; a fresh one is not
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_q := public.ops_exception_queue('documents', 200);
+  reset role;
+  if exists (select 1 from jsonb_array_elements(v_q) e where (e ->> 'entity_id')::uuid = v_doc2) then
+    raise exception 'FAIL 6c: a fresh question is already on the ops queue';
+  end if;
+  update public.clinical_documents set status_changed_at = now() - interval '4 days' where id = v_doc2;
+  set local role authenticated;
+  v_q := public.ops_exception_queue('documents', 200);
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if not exists (select 1 from jsonb_array_elements(v_q) e where (e ->> 'entity_id')::uuid = v_doc2 and e ->> 'domain' = 'documents') then
+    raise exception 'FAIL 6c: an unanswered question is not on the ops exception queue';
   end if;
 
   -- 7. SABOTAGE: without the adoption branch, the answer is refused as a duplicate of the waiting upload

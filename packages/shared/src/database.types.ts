@@ -12264,6 +12264,9 @@ export type Database = {
           original_filename: string | null
           patient_id: string
           patient_note: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           routed_id: string | null
           routed_table: string | null
           source_facility_id: string | null
@@ -12306,6 +12309,9 @@ export type Database = {
           original_filename?: string | null
           patient_id: string
           patient_note?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12348,6 +12354,9 @@ export type Database = {
           original_filename?: string | null
           patient_id?: string
           patient_note?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12393,6 +12402,13 @@ export type Database = {
           {
             foreignKeyName: "clinical_documents_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -52355,6 +52371,7 @@ export type Database = {
       coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
       correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       confirm_clinical_document_kind: { Args: { p_document: string; p_kind: string }; Returns: string }
+      review_clinical_document: { Args: { p_document: string; p_note: string }; Returns: undefined }
       record_document_classification: { Args: { p_document: string; p_suggested_kind: string; p_confidence: number; p_source: string; p_system: string; p_apply: boolean; p_error?: string }; Returns: string }
       submit_unsorted_document: { Args: { p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_content_sha256: string; p_note?: string }; Returns: string }
       coordinator_submit_manual_results: { Args: { p_patient: string; p_identity: Json; p_file: Json; p_original_attached: boolean; p_rows: Json; p_manual_details: Json; p_report_date: string; p_source_description: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }

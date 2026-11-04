@@ -19,7 +19,7 @@ import { runDocumentClassification, startLabReader } from "@/lib/clinical-docume
  */
 
 export type UnsortedUploadResult =
-  | { ok: true; outcome: "sorted_lab" | "sorted_other" | "question" }
+  | { ok: true; outcome: "sorted_lab" | "sorted_other" | "question" | "saved" }
   | { ok: false; error: string };
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -75,9 +75,38 @@ export async function uploadUnsortedDocument(formData: FormData): Promise<Unsort
   }
 
   // Awaited, as the lab upload awaits its reader: the patient sees the outcome (sorted, or one question) when the page refreshes.
-  const { pipeline } = await runDocumentClassification(createServiceRoleClient(), documentId);
+  const { pipeline, asked } = await runDocumentClassification(createServiceRoleClient(), documentId);
+  if (pipeline === "lab") await linkConsultCredit(supabase, user.id, documentId);
   revalidatePath("/patient/labs");
-  return { ok: true, outcome: pipeline === "lab" ? "sorted_lab" : pipeline ? "sorted_other" : "question" };
+  // No pipeline and not asked: sorting did not finish (an error). The upload is saved; the daily sweep finishes it.
+  return { ok: true, outcome: pipeline === "lab" ? "sorted_lab" : pipeline ? "sorted_other" : asked ? "question" : "saved" };
+}
+
+/**
+ * Same best-effort step as the direct lab upload (uploadResultDocumentAsPatient): a doctor walkthrough the patient already paid
+ * for is linked to the lab document this upload became. Never blocks: with nothing to claim, nothing happens.
+ */
+async function linkConsultCredit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  patientId: string,
+  clinicalDocumentId: string,
+): Promise<void> {
+  try {
+    const { data: cd } = await supabase
+      .from("clinical_documents")
+      .select("routed_table, routed_id")
+      .eq("id", clinicalDocumentId)
+      .maybeSingle();
+    if (cd?.routed_table !== "lab_result_documents" || !cd.routed_id) return;
+    const { data: claimed, error } = await supabase.rpc("claim_lab_result_consult_credit", {
+      p_patient_id: patientId,
+      p_lab_order_id: null as unknown as string,
+    });
+    if (error) throw error;
+    if (claimed) await supabase.rpc("settle_lab_result_consult_claim", { p_request_id: claimed, p_document_id: cd.routed_id });
+  } catch (error) {
+    console.error("unsorted documents: could not link a consult-fee credit (non-blocking)", error);
+  }
 }
 
 const confirmSchema = z.object({
@@ -101,7 +130,10 @@ export async function confirmDocumentKind(input: { documentId: string; kindCode:
     if (error.message.includes("kind_not_specific")) return { ok: false, error: "Choose a more specific type." };
     return { ok: false, error: "Could not save your answer. Please try again." };
   }
-  if (pipeline === "lab") await startLabReader(createServiceRoleClient(), parsed.data.documentId);
+  if (pipeline === "lab") {
+    await linkConsultCredit(supabase, user.id, parsed.data.documentId);
+    await startLabReader(createServiceRoleClient(), parsed.data.documentId);
+  }
   revalidatePath("/patient/labs");
   return { ok: true };
 }

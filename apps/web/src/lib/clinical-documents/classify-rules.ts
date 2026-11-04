@@ -47,9 +47,13 @@ const RULES: readonly Rule[] = [
 export function normaliseForRules(text: string): string {
   return text
     .toLowerCase()
-    .replace(/\.[a-z0-9]{2,5}$/, " ") // a file extension
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+/** The file name without its extension, so "report.pdf" never reads as the word "pdf". */
+function stripExtension(fileName: string): string {
+  return fileName.replace(/\.[A-Za-z0-9]{2,5}$/, "");
 }
 
 /**
@@ -57,7 +61,7 @@ export function normaliseForRules(text: string): string {
  * "hba1c": both lab) resolve to that branch's lab root only when they share a pipeline-level parent; otherwise null.
  */
 export function classifyByRules(fileName: string | null, note: string | null): RuleMatch | null {
-  const text = normaliseForRules(`${fileName ?? ""} ${note ?? ""}`);
+  const text = normaliseForRules(`${stripExtension(fileName ?? "")} ${note ?? ""}`);
   if (!text) return null;
   const hits = RULES.filter((r) => r.pattern.test(text));
   if (hits.length === 0) return null;
@@ -68,9 +72,4 @@ export function classifyByRules(fileName: string | null, note: string | null): R
     return { kindCode: "lab", ruleId: hits.map((h) => h.id).join("+") };
   }
   return null;
-}
-
-/** The pipeline-level group a kind belongs to (its root code), for comparing a rule with the model. */
-export function kindRoot(code: string): string {
-  return code.split(".")[0] ?? code;
 }

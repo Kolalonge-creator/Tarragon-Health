@@ -31,6 +31,7 @@ const OUTCOME_MESSAGE = {
   sorted_lab: "Thanks. It looks like a lab result, so it has gone to your lab results to be read.",
   sorted_other: "Thanks. It has been saved to your record under the right type.",
   question: "Thanks. One quick question below: tell us what kind of document it is.",
+  saved: "Thanks, it is saved. We are still working out what kind of document it is, and will ask you if we need to.",
 } as const;
 
 function formatDate(value: string): string {
