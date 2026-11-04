@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { appCheckHeaders } from "./app-check";
 import { PLATFORM_URL } from "./platform-url";
 import type { HealthReadingType, HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
@@ -732,6 +733,8 @@ async function request<T>(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`,
+      // Android: a Play Integrity-backed App Check token when one is ready, else nothing (never delays or fails a request).
+      ...(await appCheckHeaders()),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   };
