@@ -5201,6 +5201,7 @@ export const en = {
   "founding.badge": "Founding member",
   "founding.badge.detail": "You joined as one of Tarragon's first members.",
   "shop.founding.title": "Founding member code available",
+  "quote.code.use_founding": "Put {code} in the box",
   "shop.founding.hint": "Enter {code} in the Discount code box to take {percent}% off the first year of Membership or Membership Plus. One use per person, while places last.",
   "quote.points.use": "Use my points to lower the Tarragon fee",
   "shop.see_included": "See what is included",

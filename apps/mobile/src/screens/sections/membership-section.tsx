@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { JoinWaitlist } from "./join-waitlist";
-import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
@@ -10,7 +10,7 @@ import { HmoEligibilitySection } from "./hmo-eligibility-section";
 import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "@/lib/commerce/plus-state-setup";
-import { loadAutoRenewEnabled, loadCatalogue, loadFoundingBadge, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
+import { loadAutoRenewEnabled, loadCatalogue, loadFoundingBadge, loadFoundingOffer, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, loadQuote, setMyPlusState, startCheckout, verifyOrder } from "@/lib/commerce/api";
 import { EntitlementsSection } from "./entitlements-section";
 import { RefundRuleBlock } from "./refund-blocks";
 import { RenewalSection } from "./renewal-section";
@@ -69,6 +69,12 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   const [renewSwitch, setRenewSwitch] = useState(false);
   // The person's own founding member badge; never shown while paying for someone else.
   const [founding, setFounding] = useState(false);
+  // The open founding offer, shown as a hint; the person types or taps the code into the box and presses Apply themselves.
+  const [foundingOffer, setFoundingOffer] = useState<{ code: string; percent: number } | null>(null);
+  // A discount code the person typed, and the one they applied. Every quote is worked out again by the database with it.
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const appliedRef = useRef<string | null>(null);
   const [renew, setRenew] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
@@ -79,10 +85,17 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
   // One retry key per item, made on first tap and kept until a refusal, so a double tap or a dropped connection is the SAME order.
   const keys = useRef(new Map<string, string>());
 
+  /** The database's quote for each item, plain and with points, with the applied discount code if there is one. */
+  const loadQuotes = useCallback(async (list: CatalogueItem[], code: string | null) => {
+    const entries = await Promise.all(list.map(async (i) => [i.code, { plain: await loadQuote(i.code, false, undefined, code), points: await loadQuote(i.code, true, undefined, code) }] as const));
+    setQuotes(Object.fromEntries(entries));
+  }, []);
+
   const refresh = useCallback(async () => {
-    const [c, o, m, ni, pn, ps, rs, fb] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadPlusStates(), loadAutoRenewEnabled(), beneficiary ? Promise.resolve(false) : loadFoundingBadge()]);
+    const [c, o, m, ni, pn, ps, rs, fb, fo] = await Promise.all([loadCatalogue(), loadMyOrders(), loadMembership(), loadNotIncluded(), loadPriceChangeNotices(), loadPlusStates(), loadAutoRenewEnabled(), beneficiary ? Promise.resolve(false) : loadFoundingBadge(), beneficiary ? Promise.resolve(null) : loadFoundingOffer()]);
     setRenewSwitch(rs);
     setFounding(fb);
+    setFoundingOffer(fo);
     setPlusStates(ps);
     setPlusStatesFailed(ps === null);
     // these two only add information; a failed read shows nothing extra, never a guess
@@ -90,16 +103,22 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
     setPriceNotices(!beneficiary && pn.ok ? pn.data : []);
     if (c.ok) {
       setItems(c.data);
-      if (!beneficiary) {
-        const entries = await Promise.all(c.data.map(async (i) => [i.code, { plain: await loadQuote(i.code, false), points: await loadQuote(i.code, true) }] as const));
-        setQuotes(Object.fromEntries(entries));
-      }
+      if (!beneficiary) await loadQuotes(c.data, appliedRef.current);
     }
     if (o.ok) setOrders(o.data);
     if (m.ok) setMembership(m.data);
     setEntKey((k) => k + 1);
     setLoaded(true);
-  }, [beneficiary]);
+  }, [beneficiary, loadQuotes]);
+
+  /** Apply or remove a code: a different code is a different order, so no retry key from the old price is reused. */
+  async function changeCode(code: string | null) {
+    appliedRef.current = code;
+    setAppliedCode(code);
+    keys.current.clear();
+    setErrorKey(null);
+    await loadQuotes(items, code);
+  }
 
   useEffect(() => {
     void refresh();
@@ -147,6 +166,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       // the person's own tick, only ever sent when they gave it
       ...(canRenewItem(item) && (renew[item.code] ?? RENEWAL_CONSENT_TICKED_BY_DEFAULT) ? { autoRenew: true } : {}),
       ...(needsStateFor(item) ? { collectionState } : {}),
+      // only a code the database accepted for THIS item in the quote the person was shown
+      ...(appliedCode && chosen !== null && chosen.discountCodeOk === true ? { discountCode: appliedCode } : {}),
     });
     if (!r.ok) {
       if (!keepsRetryKey(r.code)) keys.current.delete(item.code);
@@ -277,6 +298,43 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
           <MutedText>{tr("pricechange.renew")}</MutedText>
         </Card>
       ) : null}
+      {!beneficiary && foundingOffer && !membership.isMember && items.some((i) => i.kind === "membership") ? (
+        <View
+          testID="founding-hint"
+          accessible
+          accessibilityLabel={`${tr("shop.founding.title")}. ${tr("shop.founding.hint", { code: foundingOffer.code, percent: foundingOffer.percent })}`}
+          style={{ gap: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.muted, padding: 14 }}
+        >
+          <AppText variant="bodyStrong">{tr("shop.founding.title")}</AppText>
+          <MutedText>{tr("shop.founding.hint", { code: foundingOffer.code, percent: foundingOffer.percent })}</MutedText>
+          {/* fills the box only; the person still presses Apply, so a code is never applied for them */}
+          {appliedCode === null ? <SecondaryButton title={tr("quote.code.use_founding", { code: foundingOffer.code })} onPress={() => setCodeInput(foundingOffer.code)} /> : null}
+        </View>
+      ) : null}
+      {!beneficiary && items.length > 0 ? (
+        <View style={{ gap: 6 }} testID="discount-code-box">
+          <AppText variant="bodyStrong" nativeID="discount-code-label">{tr("quote.code.label")}</AppText>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <TextInput
+              value={codeInput}
+              onChangeText={(v) => setCodeInput(v.toUpperCase())}
+              editable={appliedCode === null}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={32}
+              accessibilityLabelledBy="discount-code-label"
+              accessibilityLabel={tr("quote.code.label")}
+              style={{ flex: 1, minHeight: 44, borderWidth: 1, borderColor: colors.muted, borderRadius: 8, paddingHorizontal: 12, color: colors.ink }}
+            />
+            {appliedCode ? (
+              <SecondaryButton title={tr("quote.code.remove")} onPress={() => { setCodeInput(""); void changeCode(null); }} />
+            ) : (
+              <SecondaryButton title={tr("quote.code.apply")} disabled={codeInput.trim().length < 3} onPress={() => void changeCode(codeInput.trim())} />
+            )}
+          </View>
+          <MutedText>{tr("quote.code.hint")}</MutedText>
+        </View>
+      ) : null}
       {items.length === 0 ? (
         <View style={{ gap: 12 }}>
           <MutedText>{tr("shop.not_open")}</MutedText>
@@ -358,6 +416,9 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
               </View>
             ) : (
               <View style={{ gap: 4, marginTop: 8 }}>
+                {appliedCode && quote?.discountCodeOk === false ? (
+                  <ErrorText>{tr(quote.rateLimited ? "shop.error.discount_code_rate_limited" : "shop.error.discount_code_invalid")}</ErrorText>
+                ) : null}
                 {view.partCover ? (
                   <AppText variant="body">{tr("sponsor.part", { name: view.partCover.sponsorName ?? tr("sponsor.covered_generic"), amount: naira(view.partCover.amountKobo) })}</AppText>
                 ) : null}
