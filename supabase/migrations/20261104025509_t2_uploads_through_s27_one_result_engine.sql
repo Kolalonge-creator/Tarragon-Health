@@ -33,6 +33,14 @@ create unique index if not exists screening_results_lab_result_screen_type_key
 comment on column public.screening_results.lab_result_id is
   'T2-07: set when this row mirrors a released S27 lab result (one row per screen type with an abnormal value). The abnormal-result handler does not page for it: the S27 critical call or the releasing clinician already has the result.';
 
+-- the de-identified analytics copy of screening_results must carry the new column too (OQ-39 drift proof)
+do $$
+begin
+  if to_regprocedure('private.rebuild_analytics_clean_views()') is not null then
+    perform private.rebuild_analytics_clean_views();
+  end if;
+end $$;
+
 -- frozen like the other clinical columns (body otherwise as live on 2026-11-04)
 create or replace function private.enforce_screening_result_clinical_columns_immutable()
 returns trigger
