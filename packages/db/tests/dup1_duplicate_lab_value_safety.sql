@@ -101,7 +101,6 @@ begin
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');   perform pg_temp.setf('pat', v_pat);
   v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient'); perform pg_temp.setf('pat2', v_pat2);
   v_doc := pg_temp.mkdoc(v_org, 'tied', v_admin);     perform pg_temp.setf('doc', v_doc);
-  v_doc2 := pg_temp.mkdoc(v_org, 'untied', v_admin);  perform pg_temp.setf('doc2', v_doc2);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_pat, v_doc, now());
 
   -- ===== 1. same HbA1c by both routes ============================================================================================
@@ -233,6 +232,12 @@ begin
   insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status)
   values (v_org, v_pat, 'hbsag', 1.2, 'IU/mL', now(), 'final');
   perform pg_temp.ck('5a a sensitive code produces no link', '0', (select count(*)::text from public.lab_value_links where lower(analyte_code) in ('hiv', 'hbsag')));
+
+  -- The untied clinician is created only now. A released structured result with an abnormal value is mirrored into screening_results
+  -- (T2-07), whose doctor-dashboard alert is assigned to a doctor automatically (least loaded), and an assigned alert is a way in by
+  -- design. A clinician who did not exist when those alerts were assigned cannot have been picked, so this one is untied on every run
+  -- (the same reasoning as screening_outside_lab_upload_to_trend.sql).
+  v_doc2 := pg_temp.mkdoc(v_org, 'untied', v_admin);  perform pg_temp.setf('doc2', v_doc2);
 
   -- ===== 6. the clinician-visible note ===========================================================================================
   perform pg_temp.ck('6a the person sees their own disagreements (ldl and creatinine)', '2',

@@ -32,6 +32,7 @@ declare
   v_other uuid := gen_random_uuid();
   v_doctor uuid := gen_random_uuid();
   v_stranger uuid := gen_random_uuid();
+  v_stranger2 uuid := gen_random_uuid();
   v_schedule uuid;
   v_order uuid;
   v_doc1 uuid;
@@ -201,7 +202,17 @@ begin
     raise exception 'FAIL 7: the care-team doctor sees % instead of [7.4, 6.8] in date order', v_vals;
   end if;
 
-  perform set_config('request.jwt.claims', json_build_object('sub', v_stranger, 'role', 'authenticated')::text, true);
+  -- A filed upload now becomes an S27 result whose review task is assigned to a doctor automatically (T2-07), and an assigned task
+  -- is a way in, so the step-5 stranger may have been picked. This second stranger exists only after both filings, so it is untied.
+  perform set_config('request.jwt.claims', null, true);
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_stranger2, 'outside-lab-stranger2@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Outside Lab Stranger 2', is_test = true where id = v_stranger2;
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number,
+                                     indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_stranger2, v_org, 'Outside Lab Stranger 2', 'senior_medical_officer', true, 'MDCN', 'OUTSIDELAB-003', true, v_verifier, v_verifier, now());
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_stranger2, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_n from public.lab_analyte_readings where patient_id = v_patient;
   reset role;
