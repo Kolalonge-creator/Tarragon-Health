@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import * as WebBrowser from "expo-web-browser";
 import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import appIcon from "../../assets/icon.png";
@@ -8,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
 import { requestPhoneCode, signInWithPhonePassword } from "@/lib/auth/auth-flow";
 import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
+import { googleSignInAvailable, signInWithGoogle } from "@/lib/auth/google-sign-in";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
 import { lightPalette } from "@/ui/design/tokens";
@@ -69,6 +71,28 @@ export function LoginScreen() {
   const [signupOpen, setSignupOpen] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // The button appears only while the Google provider is switched on in Supabase; any failure hides it.
+  useEffect(() => {
+    let live = true;
+    void googleSignInAvailable(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY).then((ok) => {
+      if (live) setGoogleAvailable(ok);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setGoogleLoading(true);
+    const outcome = await signInWithGoogle(supabase.auth, (url, redirect) => WebBrowser.openAuthSessionAsync(url, redirect));
+    setGoogleLoading(false);
+    if (outcome.kind === "error") setError(outcome.message);
+    // signed_in: App.tsx's auth listener takes over. cancelled: the person closed the sheet, show nothing.
+  }
 
   async function handleSignIn() {
     // Guard before the network round-trip — a blank submit shouldn't cost a
@@ -306,6 +330,9 @@ export function LoginScreen() {
           <Text style={{ color: colors.brand, fontSize: 14, fontWeight: "600" }}>{ta("auth.signin.forgot", locale)}</Text>
         </Pressable>
         <SecondaryButton title={ta("auth.signup.title", locale)} onPress={() => setSignupOpen(true)} />
+        {googleAvailable ? (
+          <SecondaryButton title="Continue with Google" onPress={handleGoogleSignIn} loading={googleLoading} />
+        ) : null}
         </>
         )}
       </ScrollView>
