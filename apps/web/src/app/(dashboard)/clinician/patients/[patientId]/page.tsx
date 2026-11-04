@@ -27,6 +27,7 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { UnsortedDocumentsSection } from "./unsorted-documents-section";
+import { RecordsSection } from "./records-section";
 import { PatientReportedValuesSection } from "./patient-reported-values-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
@@ -493,6 +494,12 @@ export default async function ClinicianPatientPage({
                 },
               ]
             : []),
+          {
+            // Clinical document engine step 6: every uploaded document of every kind, one list, with the side-by-side viewer.
+            id: "records",
+            label: "Records & investigations",
+            content: <RecordsSection patientId={patient.id} />,
+          },
           {
             id: "referrals",
             label: "Referrals",

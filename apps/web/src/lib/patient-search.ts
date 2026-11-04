@@ -17,6 +17,7 @@ export const PATIENT_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Exercise", href: "/patient/exercise", group: "Your habits", hint: "Programmes to build activity safely.", keywords: "walking workout fitness activity" },
   { label: "Nutrition", href: "/patient/nutrition", group: "Your habits", hint: "Meals and food.", keywords: "food diet eating meal calories" },
   { label: "Lab results", href: "/patient/labs", group: "Tests", hint: "Your results and lab requests.", keywords: "blood test results hba1c cholesterol lipid kidney liver" },
+  { label: "My Health Records", href: "/patient/health-records", group: "Tests", hint: "Every report, scan, letter and document on your record.", keywords: "documents reports scans xray ultrasound ecg letter discharge upload pdf biopsy smear" },
   { label: "Health Check", href: "/patient/health-check", group: "Tests", hint: "Your yearly whole-body check, step by step.", keywords: "annual yearly screening checkup" },
   { label: "Health Score", href: "/patient/health-score", group: "Tests", hint: "How your score has moved and what feeds it.", keywords: "score rating progress" },
   { label: "Medications", href: "/patient/medications", group: "Care", hint: "Today's doses and your medicines.", keywords: "tablets pills drugs dose refill reminder medicine" },

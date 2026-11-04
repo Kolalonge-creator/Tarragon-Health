@@ -51549,6 +51549,37 @@ export type Database = {
       }
     }
     Views: {
+      clinical_record_items: {
+        Row: {
+          access_category: Database["public"]["Enums"]["care_access_category"] | null
+          entered_by_hand: boolean | null
+          file_bucket: string | null
+          file_path: string | null
+          id: string | null
+          important_finding: boolean | null
+          investigation_date: string | null
+          is_superseded: boolean | null
+          is_test: boolean | null
+          kind_code: string | null
+          kind_group: string | null
+          kind_label: string | null
+          mime_type: string | null
+          organisation_id: string | null
+          original_filename: string | null
+          patient_id: string | null
+          pipeline: string | null
+          reviewed: boolean | null
+          routed_id: string | null
+          routed_table: string | null
+          source_facility_name: string | null
+          status: string | null
+          status_changed_at: string | null
+          status_reason: string | null
+          upload_channel: string | null
+          uploaded_at: string | null
+        }
+        Relationships: []
+      }
       inhaler_use_current: {
         Row: {
           id: string | null

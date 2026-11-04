@@ -930,6 +930,7 @@
     "apps/web/src/app/signup/actions.ts",
     "apps/web/src/app/signup/page.tsx",
     "apps/web/src/lib/clinical-documents/classify-run.ts",
+    "apps/web/src/lib/clinical-documents/record-items.ts",
     "apps/web/src/lib/ecg-reports/documents.ts",
     "apps/web/src/lib/imaging-reports/extraction-actions.ts",
     "apps/web/src/lib/lab-results/documents.ts",
