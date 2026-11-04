@@ -23,10 +23,11 @@ describe("parsing", () => {
     expect(out.members.map((x) => x.monthlyReportShared)).toEqual([false, true, false]);
   });
 
-  it("keeps good members and invites, drops a row with an unknown permission, and survives garbage", () => {
+  it("keeps good members and invites, keeps a member with an unknown permission (dropping only that name), and survives garbage", () => {
     const m = { member_id: "m", name: "Ada", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "t" };
-    const out = parseMyCircle({ members: [m, { ...m, permissions: ["view_results"] }, 3], invites: [{ invite_id: "i", hint: "+234•••4567", relationship: "Son", expires_at: "t" }, { x: 1 }] });
-    expect(out.members).toHaveLength(1);
+    const out = parseMyCircle({ members: [m, { ...m, permissions: ["red_alerts", "view_results"] }, 3], invites: [{ invite_id: "i", hint: "+234•••4567", relationship: "Son", expires_at: "t" }, { x: 1 }] });
+    expect(out.members).toHaveLength(2);
+    expect(out.members[1]?.permissions).toEqual(["red_alerts"]);
     expect(out.invites).toHaveLength(1);
     expect(parseMyCircle(null)).toEqual({ members: [], invites: [] });
     expect(parseMyCircle({ members: "no", invites: 5 })).toEqual({ members: [], invites: [] });
