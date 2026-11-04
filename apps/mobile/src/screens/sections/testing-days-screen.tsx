@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
-  bookTestingDay,
   cancelTestingBooking,
   loadMyTestingBookings,
   loadReleasedPocResults,
@@ -13,15 +12,10 @@ import {
   type PocReleased,
   type TestingDay,
 } from "@/lib/testing-days";
-import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
-import { formatNaira, panelIncluded, UPGRADE_CODE } from "@tarragon/commerce";
-import { YEARLY_PANEL_TESTS, testingDaysOffer, type TestingDaysOffer } from "@tarragon/shared";
-import { loadCatalogue } from "@/lib/commerce/api";
-import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 import { AppText } from "@/ui/kit/AppText";
 
 const STATE_LABEL: Record<MyTestingBooking["state"], string> = {
@@ -39,17 +33,16 @@ function when(iso: string): string {
 const ECG_CLASS_LABEL = { normal: "Normal", abnormal: "Needs a closer look", urgent: "Your care team will contact you" } as const;
 
 /**
- * Testing days for Members: see the upcoming days with places left, hold one, change or cancel it. Mirrors
- * apps/web/.../patient/testing-days. A Free account sees what Membership includes; the rules themselves live in the database.
+ * Testing days (T2-02, 2026-11-04): Tarragon-run public testing days are closed to new bookings. Someone who already holds a place
+ * still sees it and can cancel it or move it to another scheduled day; released results still show. Everyone else is told plainly
+ * where yearly tests happen now (any reputable laboratory, paid directly, report uploaded for a doctor to review). Mirrors
+ * apps/web/.../patient/testing-days; the rules themselves live in the database.
  */
 export function TestingDaysScreen() {
   const colors = useLegacyColors();
   const [days, setDays] = useState<TestingDay[]>([]);
   const [bookings, setBookings] = useState<MyTestingBooking[]>([]);
   const [poc, setPoc] = useState<PocReleased>({ results: [], ecgs: [] });
-  const [notMember, setNotMember] = useState(false);
-  const [offer, setOffer] = useState<TestingDaysOffer>({ options: [], showPanelTests: false });
-  const locale = asLocale(useUiLanguage());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +50,8 @@ export function TestingDaysScreen() {
 
   const refresh = useCallback(async () => {
     const [d, b, p] = await Promise.all([loadTestingDays(), loadMyTestingBookings(), loadReleasedPocResults()]);
-    if (d.ok) {
-      setDays(d.data.days);
-      setNotMember(d.data.notMember);
-      // A Free account is shown what Membership includes and costs, from the shop's own catalogue. A failed read leaves only the prompt.
-      if (d.data.notMember) {
-        const c = await loadCatalogue();
-        if (c.ok) setOffer(testingDaysOffer(c.data.map((i) => ({ code: i.code, kind: i.kind, name_key: i.nameKey, amount_kobo: i.amountKobo })), panelIncluded, (code) => code === UPGRADE_CODE));
-      }
-    } else setError(d.error);
+    // The day list is only used to move a place someone already holds; a Free account gets none, which is fine.
+    if (d.ok) setDays(d.data.days);
     if (b.ok) setBookings(b.data);
     if (p.ok) setPoc(p.data);
   }, []);
@@ -95,34 +81,22 @@ export function TestingDaysScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
         <ScreenTitle>Testing days</ScreenTitle>
-        <MutedText>Your yearly health check happens at a testing day near you. Pick a day, hold your place, and we will remind you.</MutedText>
+        <MutedText>If you already hold a place at a testing day, it is shown here and we will remind you before it.</MutedText>
       </View>
 
       {loading && <ActivityIndicator color={colors.brand} />}
       {error && <ErrorText>{error}</ErrorText>}
       {message && <MutedText>{message}</MutedText>}
 
-      {notMember && (
+      {!loading && !live && (
         <Card style={{ gap: 8 }}>
-          <AppText variant="bodyStrong">Testing days are part of Membership</AppText>
-          {offer.showPanelTests ? (
-            <View style={{ gap: 4 }}>
-              <MutedText>With Membership Plus, your yearly blood tests are taken at a testing day. They cover:</MutedText>
-              {YEARLY_PANEL_TESTS.map((g) => (
-                <AppText key={g.heading} variant="body">
-                  <AppText variant="bodyStrong">{g.heading}: </AppText>
-                  {g.tests.join(", ")}
-                </AppText>
-              ))}
-            </View>
-          ) : null}
-          {offer.options.map((o) => (
-            <View key={o.code} style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <AppText variant="body" style={{ flex: 1 }}>{Object.hasOwn(en, o.nameKey) ? t(o.nameKey as MessageKey, locale) : "Membership"}</AppText>
-              <AppText variant="bodyStrong">{`₦${formatNaira(o.amountKobo)}`}</AppText>
-            </View>
-          ))}
-          <SecondaryButton title="See what Membership includes" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/membership`)} />
+          <AppText variant="bodyStrong">We are not taking new bookings for Tarragon testing days.</AppText>
+          <MutedText>
+            You can do your yearly tests at any reputable laboratory near you. Download a lab request form, take it to the laboratory and pay
+            them directly (contact the laboratory for current pricing). Then upload the report: a doctor reviews it and it is kept in your
+            health record with your trends.
+          </MutedText>
+          <SecondaryButton title="Get a lab request form" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/labs`)} />
         </Card>
       )}
 
@@ -146,10 +120,9 @@ export function TestingDaysScreen() {
         </Card>
       )}
 
-      {!notMember && (
+      {live && others.length > 0 && (
         <View style={{ gap: 10 }}>
-          <AppText variant="bodyLargeStrong">{live ? "Other days" : "Upcoming testing days"}</AppText>
-          {!loading && others.length === 0 && <MutedText>No other days are open right now. Please check back soon.</MutedText>}
+          <AppText variant="bodyLargeStrong">Other days you can move to</AppText>
           {others.map((d) => (
             <Card key={d.id} style={{ gap: 6 }}>
               <AppText variant="bodyStrong">{when(d.event_date)}</AppText>
@@ -158,19 +131,11 @@ export function TestingDaysScreen() {
                 {d.lga ? ` (${d.lga})` : ""}
               </MutedText>
               <MutedText>{seatsLabel(d)}</MutedText>
-              {live ? (
-                <SecondaryButton
-                  title="Change to this day"
-                  loading={busy === d.id}
-                  onPress={() => void run(d.id, () => rescheduleTestingBooking(live.booking_id, d.id), "Your place is moved.")}
-                />
-              ) : (
-                <PrimaryButton
-                  title={d.full ? "Join waiting list" : "Hold my place"}
-                  loading={busy === d.id}
-                  onPress={() => void run(d.id, () => bookTestingDay(d.id), d.full ? "You are on the waiting list." : "Your place is held.")}
-                />
-              )}
+              <SecondaryButton
+                title="Change to this day"
+                loading={busy === d.id}
+                onPress={() => void run(d.id, () => rescheduleTestingBooking(live.booking_id, d.id), "Your place is moved.")}
+              />
             </Card>
           ))}
         </View>

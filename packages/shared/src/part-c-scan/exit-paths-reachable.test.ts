@@ -33,7 +33,9 @@ describe("exit paths are reachable (S87)", () => {
   it("cancellation: public pages say what a person can do and when", () => {
     const pricing = read("app/(marketing)/pricing/page.tsx");
     const terms = read("app/(marketing)/terms/page.tsx");
-    expect(pricing).toMatch(/Can I get a refund\?/);
+    // since T2-01 (2026-11-04) the pricing FAQ is content the page renders (planFaq in _content/pricing-ladder.ts)
+    expect(pricing).toMatch(/planFaq\(/);
+    expect(read("app/(marketing)/_content/pricing-ladder.ts")).toMatch(/Can I get a refund\?/);
     expect(terms).toMatch(/refund/i);
     // the app's own services page says there is nothing to cancel for a fixed-term pack
     expect(read("app/(dashboard)/patient/subscription/subscription-manager.tsx")).toMatch(/nothing to cancel/i);

@@ -1,108 +1,89 @@
 /**
- * The public Membership ladder (founder decision 2026-10-21). Successor to the old "one Membership price" premise of
- * no-public-prices.test.ts: there are now exactly TWO member prices, both read from versioned config, nothing typed, no volume words.
+ * The public plans (Tarragon Health 2.0, decisions T2-01, T2-05, T2-09, 2026-11-04): Free and Membership. Membership Plus is retired and
+ * no public content offers it. Prices are read from versioned config, nothing typed, no laboratory price, no volume words.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProposedConfig, PROPOSED_CONFIG } from "@tarragon/shared";
-import { YEARLY_PANEL_TESTS, ladderCards, ladderFaq, LADDER_SAFETY_STATEMENT, LADDER_SAME_CARE_STATEMENT } from "@/app/(marketing)/_content/pricing-ladder";
+import { getProposedConfig } from "@tarragon/shared";
+import { LAB_TESTS_WHERE, planCards, planFaq, SAFETY_STATEMENT } from "@/app/(marketing)/_content/pricing-ladder";
+import { LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, employerSeatLine } from "./membership";
 
 const PAGE = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "pricing", "page.tsx"), "utf8");
-const labels = { evergreen: "₦84,000", evergreenPlus: "₦129,000" };
+const labels = { membership: "₦100,000" };
 
 function allCopy(): string {
-  const cards = ladderCards(labels);
   return [
-    ...cards.flatMap((c) => [c.name, c.difference, c.priceLine, c.summary, ...c.includes]),
-    ...ladderFaq(21).flatMap((f) => [f.question, f.answer]),
-    LADDER_SAFETY_STATEMENT,
-    LADDER_SAME_CARE_STATEMENT,
+    ...planCards(labels).flatMap((c) => [c.name, c.priceLine, c.summary, ...c.includes]),
+    ...planFaq(21).flatMap((f) => [f.question, f.answer]),
+    SAFETY_STATEMENT,
+    LAB_TESTS_WHERE,
+    LAB_TESTS_NOT_INCLUDED,
+    employerSeatLine("90,000"),
   ].join("\n");
 }
 
-describe("the Membership ladder pricing content", () => {
-  it("is three cards: Free, Membership, Membership Plus, with the annual blood panel stated first on each", () => {
-    const cards = ladderCards(labels);
-    expect(cards.map((c) => c.name)).toEqual(["Free", "Membership", "Membership Plus"]);
-    expect(cards.map((c) => c.difference)).toEqual(["Annual blood panel: no", "Annual blood panel: no", "Annual blood panel: yes"]);
+describe("the public plan content", () => {
+  it("is two cards: Free and Membership", () => {
+    expect(planCards(labels).map((c) => c.name)).toEqual(["Free", "Membership"]);
   });
 
-  it("states that both paid plans are the same care", () => {
-    expect(LADDER_SAME_CARE_STATEMENT).toMatch(/same care/);
-    expect(LADDER_SAFETY_STATEMENT).toMatch(/same on every plan, including Free/);
+  it("never offers Membership Plus, its blood panel, an upgrade or a testing day", () => {
+    expect(allCopy()).not.toMatch(/Membership Plus|blood panel|upgrade|testing day|collected for you/i);
   });
 
-  it("only the Plus card lists the yearly blood test; Membership's description says it is not included", () => {
-    const [, evergreen, plus] = ladderCards(labels);
-    expect(evergreen!.includes.join(" ").toLowerCase()).not.toContain("blood test");
-    expect(evergreen!.summary).toMatch(/blood test is not included/);
-    expect(plus!.includes.join(" ").toLowerCase()).toContain("blood test");
+  it("the Membership card lists the shared inclusions and says laboratory tests are not included", () => {
+    const membership = planCards(labels).find((c) => c.id === "membership")!;
+    expect(membership.includes).toEqual(MEMBERSHIP_INCLUDES);
+    expect(membership.summary).toMatch(/Laboratory tests and medicines are not included/);
+    expect(LAB_TESTS_NOT_INCLUDED).toMatch(/Contact the laboratory for current pricing/);
+    expect(LAB_TESTS_WHERE).toMatch(/any reputable laboratory/);
   });
 
-  it("uses no banned tier word, no em dash, no countdown or scarcity, no ratio and no 'doctor-led'", () => {
+  it("promises no doctor review turnaround time", () => {
+    expect(allCopy()).not.toMatch(/within \d+ (?:hours?|days?|working days?) .*review|reviewed within|\b\d+\s*(?:hours?|hrs)\b/i);
+  });
+
+  it("the employer line says the seat is the same Membership, counts only, and on-site visits are separate", () => {
+    const line = employerSeatLine("90,000");
+    expect(line).toMatch(/same Membership for each employee at ₦90,000 per person per year/);
+    expect(line).toMatch(/never anyone's results/);
+    expect(line).toMatch(/not part of a seat/);
+  });
+
+  it("uses no banned tier word, no em dash, no countdown or scarcity, no ratio, no 'doctor-led', no WhatsApp or SMS", () => {
     const text = allCopy();
     expect(text).not.toMatch(/\b(basic|lite|standard|premium|gold)\b/i);
     expect(text).not.toContain("—");
     expect(text).not.toMatch(/limited time|hurry|only \d+ left|last chance|ends (today|soon)|countdown|save \d+%|% off|<s>|strikethrough/i);
-    expect(text).not.toMatch(/doctor-led|\b1:\d{2,}\b/i);
+    expect(text).not.toMatch(/doctor-led|\b1:\d{2,}\b|whatsapp|\bsms\b/i);
   });
 
   it("types no naira amount: prices come in as labels formatted from config", () => {
     const amount = /₦\s?\d|\bNGN\s?\d|\b\d{1,3}(?:,\d{3})+\s*(?:naira|NGN)\b/;
-    expect(amount.test(allCopy().replace(/₦84,000|₦129,000/g, ""))).toBe(false);
     const content = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "_content", "pricing-ladder.ts"), "utf8");
     const code = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
     expect(amount.test(code)).toBe(false);
   });
 
-  it("the page reads the two prices and the public switch from versioned config", () => {
-    expect(PAGE).toContain('getProposedConfig("commerce.membership_ladder")');
-    expect(PAGE).toContain('getProposedConfig("marketing.membership_ladder_public")');
-  });
-
-  it("the gift page switches on the same config and quotes the two gift prices from it, typing none", () => {
-    const gift = readFileSync(join(__dirname, "..", "..", "app", "(marketing)", "gift", "page.tsx"), "utf8");
-    expect(gift).toContain('getProposedConfig("marketing.membership_ladder_public")');
-    expect(gift).toContain('getProposedConfig("commerce.membership_ladder")');
-    expect(gift).toContain("@/lib/marketing/membership");
-  });
-
-  it("there are exactly two member prices and no volume tier in the ladder config", () => {
-    const v = getProposedConfig("commerce.membership_ladder").value as Record<string, unknown>;
-    const priceKeys = Object.keys(v).filter((k) => k.endsWith("_kobo") && k !== "upgrade_kobo");
-    expect(priceKeys.sort()).toEqual(["evergreen_kobo", "evergreen_plus_kobo"]);
-    expect(JSON.stringify(v).toLowerCase()).not.toMatch(/volume|bracket|seat/);
-  });
-
-  it("the public switch is on in this change, which merges only once the launch conditions in docs/DECISIONS.md (2026-10-21) are met", () => {
-    expect((getProposedConfig("marketing.membership_ladder_public").value as { enabled: boolean }).enabled).toBe(true);
+  it("the pricing page reads its prices through the shared membership module, and no longer switches on the ladder flag", () => {
+    expect(PAGE).toContain("@/lib/marketing/membership");
+    expect(PAGE).toContain("employerSeatPriceLabel");
+    expect(PAGE).not.toContain('getProposedConfig("marketing.membership_ladder_public")');
+    expect(PAGE).not.toContain('getProposedConfig("commerce.membership_ladder")');
   });
 
   it("the refund window in the FAQ is the one passed in, never typed", () => {
-    expect(ladderFaq(21).find((f) => f.question.startsWith("Can I get a refund"))!.answer).toContain("within 21 days");
-    expect(ladderFaq(30).find((f) => f.question.startsWith("Can I get a refund"))!.answer).toContain("within 30 days");
+    expect(planFaq(21).find((f) => f.question.startsWith("Can I get a refund"))!.answer).toContain("within 21 days");
+    expect(planFaq(30).find((f) => f.question.startsWith("Can I get a refund"))!.answer).toContain("within 30 days");
+  });
+
+  it("the config the site reads is the founder's: one Membership price and an employer seat 10% below it", () => {
+    const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number; organisation_member_kobo: number };
+    expect(v.organisation_member_kobo).toBe((v.individual_kobo * 9) / 10);
+    expect((getProposedConfig("commerce.membership_ladder").value as { plus_sold: boolean }).plus_sold).toBe(false);
   });
 
   it("sabotage: the banned-word check really catches a banned tier name", () => {
     expect(/\b(basic|lite|standard|premium|gold)\b/i.test("Gold plan")).toBe(true);
-  });
-});
-
-describe("yearly panel test list on the Membership Plus card", () => {
-  it("lists the panel tests on Plus only, and none on Free or Membership", () => {
-    const cards = ladderCards({ evergreen: "A", evergreenPlus: "B" });
-    expect(cards.find((c) => c.id === "evergreen_plus")!.panelTests).toBe(YEARLY_PANEL_TESTS);
-    expect(cards.find((c) => c.id === "evergreen")!.panelTests).toBeUndefined();
-    expect(cards.find((c) => c.id === "free")!.panelTests).toBeUndefined();
-  });
-
-  it("matches the analytes of the membership_annual lab panel, minus the clinician-only anti-HBs add-on", () => {
-    // anti_hbs: a clinician-set add-on the patient never chooses, so the page does not promise it. TSH is no longer on the panel at all (v5).
-    const NOT_PROMISED = ["anti_hbs"];
-    const entries = PROPOSED_CONFIG.filter((e) => e.key === "lab.panels");
-    const latest = entries.reduce((a, b) => (b.version > a.version ? b : a));
-    const v = latest.value as { panels: { membership_annual: { analytes: { code: string; label: string }[] } } };
-    const registry = v.panels.membership_annual.analytes.filter((a) => !NOT_PROMISED.includes(a.code)).map((a) => a.label).sort();
-    expect(YEARLY_PANEL_TESTS.flatMap((g) => g.tests).sort()).toEqual(registry);
   });
 });

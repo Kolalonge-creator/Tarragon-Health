@@ -77,7 +77,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For family abroad",
     title: "You already send money home for healthcare.",
     description:
-      "Give a parent or relative a year of Membership instead: a monthly video call with their care team, and the yearly blood panel with Membership Plus. They choose to accept it, and you are told when they do.",
+      "Give a parent or relative a year of Membership instead: their own preventive plan and a monthly online meeting with a doctor from their care team. They choose to accept it, and you are told when they do.",
     primaryHref: MARKETING_ROUTES.gift,
     primaryLabel: "Give a year of Membership",
     secondaryHref: MARKETING_ROUTES.pricing,

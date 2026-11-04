@@ -14,7 +14,7 @@ jest.mock("@/lib/queries/commerce", () => ({
   useCancelRenewal: () => ({ mutateAsync, isPending: false }),
 }));
 
-const ON = { enabled: true, has_membership: true, auto_renew: true, ends_at: "2027-10-26T00:00:00Z", amount_kobo: 12_900_000, card: { brand: "visa", last4: "4081", exp_month: "12", exp_year: "2030" } };
+const ON = { enabled: true, has_membership: true, auto_renew: true, ends_at: "2027-10-26T00:00:00Z", amount_kobo: 10_000_000, card: { brand: "visa", last4: "4081", exp_month: "12", exp_year: "2030" } };
 beforeEach(() => { renewal = { data: ON }; mutateAsync.mockReset(); mutateAsync.mockResolvedValue({}); });
 afterEach(cleanup);
 
@@ -33,7 +33,7 @@ describe("RenewalCard", () => {
     const text = document.body.textContent!;
     expect(text).toMatch(/renews on/);
     expect(text).toMatch(/card ending 4081/);
-    expect(text).toMatch(/₦129,000/);
+    expect(text).toMatch(/₦100,000/);
     expect(text).toMatch(/up to 3 days before/);
     expect(text).toMatch(/You keep your Membership until/);
     expect(text).toMatch(/delete the saved card/);

@@ -7,6 +7,11 @@ import { Label } from "@/components/ui/label";
 import { FormError, FormSuccess } from "@/components/ui/form-error";
 import { createDiscountCode, setDiscountCodeStatus, type DiscountCodeActionState } from "./actions";
 
+/** T2-01 (2026-11-04): the Plus upgrade is retired and is never offered as a target for a new code. */
+const NEVER_A_TARGET: ReadonlySet<string> = new Set(["membership_upgrade_plus"]);
+/** Retired, shown only because the founding member rule in the database still names it. */
+const RETIRED: ReadonlySet<string> = new Set(["membership_annual"]);
+
 export function CreateDiscountCodeForm({
   items,
   cohorts,
@@ -67,10 +72,10 @@ export function CreateDiscountCodeForm({
         <legend className="font-medium">Only for these items (none ticked means every item)</legend>
         {items.length === 0 ? <p>No catalogue items yet.</p> : null}
         <div className="grid gap-1 sm:grid-cols-2">
-          {items.map((i) => (
+          {items.filter((i) => !NEVER_A_TARGET.has(i.code)).map((i) => (
             <label key={i.code} className="flex min-h-11 items-center gap-2">
               <input type="checkbox" name="item" value={i.code} className="h-5 w-5" />
-              {i.code}{i.active ? "" : " (off)"}
+              {i.code}{RETIRED.has(i.code) ? " (retired, not sold)" : i.active ? "" : " (off)"}
             </label>
           ))}
         </div>
@@ -95,7 +100,8 @@ export function CreateDiscountCodeForm({
         </label>
         <p id="dc-badge-hint" className="text-sm text-muted-foreground">
           Everyone whose year is paid with this code is shown as a founding member in the app, and the public site shows how many places are left (its total uses).
-          Tick exactly the two Membership items above (membership_annual_no_panel and membership_annual), never the upgrade. The offer closes by itself when its places run out, so the last day can be set well ahead. Only one founding member code can be active at a time. The badge cannot be added or removed later.
+          Tick exactly the two Membership items above (membership_annual_no_panel and membership_annual). Membership Plus is retired and
+          no longer sold, so only the Membership can actually be bought with the code; the database still asks for both items on a founding code. The offer closes by itself when its places run out, so the last day can be set well ahead. Only one founding member code can be active at a time. The badge cannot be added or removed later.
         </p>
       </div>
       <div className="sm:col-span-2">

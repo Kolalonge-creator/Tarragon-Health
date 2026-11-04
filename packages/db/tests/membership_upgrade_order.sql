@@ -10,6 +10,17 @@
 --   * the 21 day refund window runs from the top-up date, and an approved refund puts the tier back to evergreen without ending the membership
 -- SABOTAGE: the refund patch is removed; the tier-back-to-evergreen check must flip.
 begin;
+-- T2-09 (2026-11-04) put the Membership at 100,000 naira; this proof checks the upgrade is the Plus/Membership difference of the
+-- 2026-10-21 ladder, so it restores that Membership price inside its own (rolled-back) transaction. Plus and the upgrade stay inactive,
+-- which is the starting state this proof expects.
+do $$
+declare it public.catalog_items%rowtype;
+begin
+  select * into it from public.catalog_items where code = 'membership_annual_no_panel';
+  update public.prices set valid_to = now() where catalog_item_id = it.id and valid_from < now() and (valid_to is null or valid_to > now());
+  insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, valid_from, reason)
+  values (it.organisation_id, it.id, 8400000, '{}'::jsonb, now(), 'proof fixture: the 2026-10-21 Membership price (rolled back)');
+end $$;
 
 create function pg_temp.mkuser(p_label text, p_role text) returns uuid language plpgsql as $f$
 declare v uuid := gen_random_uuid();

@@ -5,6 +5,9 @@
 -- with the min_cell rule for the employer, anon never.
 -- One rolled-back transaction. Ends with a SABOTAGE section: the patient policy and the release guard are opened and the checks must flip.
 begin;
+-- T2-02 (2026-11-04) closed new public testing days; this proof still tests how existing public-day bookings work, so it opens
+-- the legacy path for this transaction only (create_testing_event honours it for a direct postgres session, never an API request).
+select set_config('tarragon.allow_legacy_public_testing_day', 'on', true);
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
@@ -59,8 +62,9 @@ create function pg_temp.mkmember(p_org uuid, p_label text, p_source text default
 language plpgsql as $f$
 declare v uuid := pg_temp.mkuser(p_org, p_label, 'patient');
 begin
-  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test)
-  values (p_org, v, p_source, 'active', now() - interval '1 day', pg_temp.f('admin'), 'testing days proof member', true);
+  -- tier stated explicitly: it defaulted to plus until T2-09 (2026-11-04), and testing-day check-in is a Plus-year benefit
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, granted_by, grant_reason, is_test, tier)
+  values (p_org, v, p_source, 'active', now() - interval '1 day', pg_temp.f('admin'), 'testing days proof member', true, 'plus');
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_tier text, p_admin uuid) returns uuid
@@ -435,6 +439,10 @@ declare ev uuid := pg_temp.f('vis'); bk uuid; r jsonb;
 begin
   update public.testing_events set event_date = (now() at time zone 'Africa/Lagos')::date, lab_provider_id = pg_temp.f('lab') where id = ev;
   select id into bk from public.testing_event_bookings where event_id = ev and state = 'confirmed' limit 1;
+  -- T2-09: a membership now defaults to the Membership tier and check-in draws the yearly panel, a Plus benefit kept only for Plus
+  -- years bought before 2026-11-04; this attendee stands for such an existing Plus holder.
+  update public.patient_memberships set tier = 'plus'
+   where patient_id = (select patient_id from public.testing_event_bookings where id = bk);
   r := pg_temp.rpc(pg_temp.f('runner'), format('public.check_in_testing_booking(%L)', bk))::jsonb;
   perform pg_temp.ck('an employer-visit attendee is checked in through the same path (order + specimen)', 'true|membership_annual',
     ((r ->> 'specimen_number') like 'SPX-%')::text || '|' || (select panel_code from public.lab_orders where id = (r ->> 'lab_order_id')::uuid));

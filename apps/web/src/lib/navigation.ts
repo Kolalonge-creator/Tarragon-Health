@@ -263,9 +263,9 @@ export function getNavSections(
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Yearly reports for people you support", href: "/patient/family/health-reports", icon: "passport" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
-            // Two-tier model: the Member's yearly check happens at a listed testing day.
+            // T2-02: testing days take no new bookings; this page now shows places already held and their results.
             { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
-            // The year at a glance: consultations, testing days (booked and open) and screenings due.
+            // The year at a glance: consultations, testing-day places already held and screenings due.
             { label: "My calendar", href: "/patient/calendar", icon: "booking" },
           ],
         },

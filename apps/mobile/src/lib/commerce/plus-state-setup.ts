@@ -3,6 +3,7 @@ import type { MembershipState } from "./parse";
 
 /**
  * The card that lets a Membership Plus member with no collection state (employer seat, earlier grant) choose one once (OQ-PLUS-1).
+ * Plus is no longer sold (T2-01, 2026-11-04); this stays for a Plus year bought earlier, until it ends.
  * Pure so the rules are tested without rendering a screen.
  */
 export function needsPlusStateSetup(input: { ladder: boolean; forSomeoneElse: boolean; tier: string | null; membership: MembershipState }): boolean {

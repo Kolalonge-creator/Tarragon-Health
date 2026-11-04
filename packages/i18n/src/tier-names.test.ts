@@ -5,6 +5,8 @@ import { en } from "./en";
 /**
  * W-46: the display names of the two paid tiers. membership_annual includes the yearly blood panel, so it is Membership Plus.
  * "Tarragon Membership" was the old name for that product and must not come back anywhere customer-facing.
+ * T2-01/T2-09 (2026-11-04): Membership Plus is retired and no longer sold. Its name stays only so a Plus year bought earlier, and its
+ * order history, can still be described; no string that a person sees while buying may offer it, the upgrade or the yearly blood panel.
  */
 const REPO = join(process.cwd(), "..", "..");
 
@@ -28,6 +30,26 @@ describe("membership tier display names", () => {
   it("names the panel-included product Membership Plus and the no-panel product Membership", () => {
     expect(en["catalog.membership_annual.name"]).toBe("Membership Plus");
     expect(en["catalog.membership_annual_no_panel.name"]).toBe("Membership");
+  });
+
+  it("one Membership (T2-01): the strings shown while buying never offer Plus, the upgrade or the panel as included", () => {
+    const buying = [
+      "shop.founding.hint",
+      "shop.tier.you_have_evergreen",
+      "shop.tier.panel_no",
+      "shop.tier.same_care",
+      "catalog.membership_annual_no_panel.description",
+      "catalog.membership_annual_no_panel.incl.1",
+      "catalog.membership_annual_no_panel.incl.2",
+      "catalog.membership_annual_no_panel.incl.3",
+    ] as const;
+    const offenders = buying.filter((k) => /Membership Plus|blood panel|move up|upgrade|testing day/i.test(en[k]));
+    expect(offenders).toEqual([]);
+    // the Membership says lab tests are paid to the laboratory, and never names a fixed lab price
+    expect(en["catalog.membership_annual_no_panel.description"]).toMatch(/pay the laboratory directly/);
+    expect(buying.filter((k) => /\u20A6|₦|naira/i.test(en[k]))).toEqual([]);
+    // sabotage: the pattern does catch the old founding hint
+    expect(/Membership Plus/i.test("take 10% off the first year of Membership or Membership Plus")).toBe(true);
   });
 
   it("no string in any en.ts namespace uses the old name 'Tarragon Membership'", () => {
