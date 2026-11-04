@@ -49,6 +49,9 @@ export async function retryUnreadLabReports(
     .select("id, routed_id, status, failed_attempts, extraction_attempts, status_changed_at")
     .eq("routed_table", "lab_result_documents")
     .in("status", ["processing_failed", "processing"])
+    // In the query, not after it: documents past the limit stay processing_failed until a person acts, and must not crowd
+    // newer failures out of the window.
+    .lt("failed_attempts", MAX_AUTOMATIC_READ_ATTEMPTS)
     .order("status_changed_at", { ascending: true })
     .limit(200);
   if (error) return { error: error.message };

@@ -38,6 +38,7 @@ function fakeService(docs: Row[], sources: Record<string, Row>) {
           select: () => chain,
           eq: () => chain,
           in: () => chain,
+          lt: () => chain,
           order: () => chain,
           limit: () => Promise.resolve({ data: docs, error: null }),
         };

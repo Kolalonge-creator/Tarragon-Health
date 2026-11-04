@@ -207,6 +207,10 @@
       "category": "cron or webhook route (no user session)"
     },
     {
+      "file": "apps/web/src/app/api/cron/clinical-document-retry/route.ts",
+      "category": "cron or webhook route (no user session)"
+    },
+    {
       "file": "apps/web/src/app/api/cron/clinical-rules/route.ts",
       "category": "cron or webhook route (no user session)"
     },

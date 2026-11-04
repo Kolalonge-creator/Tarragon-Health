@@ -141,6 +141,9 @@ create table public.clinical_documents (
   status_reason       text,
   status_changed_at   timestamptz not null default now(),
   visible_to_patient  boolean not null default false,
+  -- Set once a newer upload replaces this one and never cleared (a later review changes the status, not this). The duplicate
+  -- refusal ignores a replaced file, so the patient can upload it again after replacing it by mistake.
+  is_superseded       boolean not null default false,
   content_sha256      text check (content_sha256 ~ '^[0-9a-f]{64}$'),
   mime_type           text,
   file_count          integer not null default 1 check (file_count >= 1),
@@ -162,7 +165,7 @@ create index clinical_documents_uploader_idx on public.clinical_documents (uploa
 -- Backstop for the duplicate refusal in private.cde_open_intake (a race between two simultaneous uploads of one file).
 create unique index clinical_documents_one_file_per_patient
   on public.clinical_documents (patient_id, content_sha256)
-  where content_sha256 is not null and status <> 'superseded';
+  where content_sha256 is not null and not is_superseded;
 
 create trigger clinical_documents_set_updated_at before update on public.clinical_documents
   for each row execute function private.set_updated_at();
@@ -170,7 +173,9 @@ create trigger clinical_documents_set_updated_at before update on public.clinica
 alter table public.clinical_documents enable row level security;
 create policy clinical_documents_select on public.clinical_documents for select to authenticated using (
   (patient_id = (select auth.uid()) and visible_to_patient)
-  or uploaded_by = (select auth.uid())
+  -- A staff uploader (care coordinator, clinician, admin) sees the status of their own uploads, never a value: the intake row has
+  -- none. Not for a patient, whose visibility must mirror the source tables exactly (visible_to_patient).
+  or (uploaded_by = (select auth.uid()) and patient_id <> (select auth.uid()))
   or private.staff_may_read(patient_id, organisation_id, access_category)
 );
 revoke all on public.clinical_documents from anon;
@@ -220,6 +225,7 @@ declare
   e public.lab_report_extractions;
   r public.lab_results;
   v_unready boolean;
+  v_superseded boolean := false;
 begin
   select * into v_cd from public.clinical_documents where routed_table = p_routed_table and routed_id = p_routed_id;
   if not found then return; end if;
@@ -228,6 +234,7 @@ begin
     select * into d from public.lab_result_documents where id = p_routed_id;
     if not found then return; end if;
     select * into e from public.lab_report_extractions where document_id = p_routed_id;
+    v_superseded := d.superseded_by_document_id is not null;
     -- Mirrors lab_result_documents_select + lab_result_documents_hide_replaced exactly.
     v_visible := (d.source = 'patient' or d.reviewed_at is not null)
                  and (d.superseded_by_document_id is null or d.reviewed_at is not null);
@@ -263,16 +270,21 @@ begin
       end if;
     end if;
   else
-    -- An S27 file: its status is the status of the result it belongs to (the latest, if corrected).
+    -- An S27 file: its status is the status of the result it belongs to (the latest, if corrected). Patient visibility mirrors
+    -- the lab_results patient read policy exactly: not withdrawn, and released, or added by the patient and not withheld.
     select * into r from public.lab_results where document_id = p_routed_id order by created_at desc limit 1;
     if not found then
       v_status := 'uploaded';
-    elsif r.release_state in ('awaiting_review', 'clinician_disclosure_required') then
-      v_status := 'doctor_review_required';
-    elsif r.release_state = 'released' then
-      v_status := 'reviewed'; v_visible := true;
     else
-      v_status := 'reviewed'; -- withheld by a clinician
+      v_visible := r.withdrawn_at is null
+                   and (r.release_state = 'released' or (r.submitted_by_kind = 'patient' and r.release_state <> 'withheld'));
+      if r.withdrawn_at is not null then
+        v_status := 'reviewed'; v_reason := 'Withdrawn by a clinician';
+      elsif r.release_state in ('awaiting_review', 'clinician_disclosure_required') then
+        v_status := 'doctor_review_required';
+      else
+        v_status := 'reviewed'; -- released, or withheld by a clinician
+      end if;
     end if;
   end if;
 
@@ -281,6 +293,7 @@ begin
          status_reason = v_reason,
          status_changed_at = case when status is distinct from v_status then now() else status_changed_at end,
          visible_to_patient = v_visible,
+         is_superseded = is_superseded or v_superseded,
          extraction_attempts = (select count(*) from public.clinical_document_jobs j where j.document_id = v_cd.id),
          failed_attempts = (select count(*) from public.clinical_document_jobs j
                              where j.document_id = v_cd.id and j.outcome = 'failed'
@@ -305,7 +318,7 @@ declare
 begin
   if p_sha is not null then
     select id into v_existing from public.clinical_documents
-     where patient_id = p_patient and content_sha256 = p_sha and status <> 'superseded'
+     where patient_id = p_patient and content_sha256 = p_sha and not is_superseded
      limit 1;
     if v_existing is not null then
       raise exception 'clinical_document_duplicate'
@@ -440,7 +453,7 @@ begin
 end;
 $function$;
 
-create trigger cde_refresh_on_lab_result after insert or update of release_state, document_id on public.lab_results
+create trigger cde_refresh_on_lab_result after insert or update of release_state, document_id, withdrawn_at on public.lab_results
   for each row execute function private.cde_on_lab_result();
 
 revoke all on function private.cde_refresh(text, uuid) from public;
@@ -487,11 +500,27 @@ end;
 $function$;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
+-- 7a. Registries: data handling (S39d) and how staff may read (S39b / INV-12)
+-- ---------------------------------------------------------------------------------------------------------------------------
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('clinical_documents', 'patient_id', 'clinical_record', 'review', true, false,
+        'One intake record per uploaded clinical document: channel, kind, status, file fingerprint, routing (CDE step 1). No values or findings. Class assigned by the migration author, not yet reviewed by the CMO and DPO.'),
+       ('clinical_document_jobs', 'patient_id', 'clinical_record', 'review', false, false,
+        'Automatic-reading attempts for an uploaded document (outcome, technical error, model). Staff-only operational record. Class assigned by the migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('clinical_documents', 'tied', 'patient_id', 'labs_results', null),
+       ('clinical_document_jobs', 'tied', 'patient_id', 'labs_results', null)
+on conflict (table_name) do nothing;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
 -- 7. The automatic retry sweep (apps/web/src/app/api/cron/clinical-document-retry) in the owner registry
 -- ---------------------------------------------------------------------------------------------------------------------------
-insert into public.automations (name, kind, schedule, source_ref)
-values ('vercel:clinical-document-retry', 'vercel_cron', '15 7 * * *', '/api/cron/clinical-document-retry')
+insert into public.automations (name, kind, schedule, source_ref) values
+  ('vercel:clinical-document-retry', 'vercel_cron', '15 7 * * *', '/api/cron/clinical-document-retry')
 on conflict (name) do nothing;
+insert into public.automation_jobs (job_name, schedule, source)
+values ('/api/cron/clinical-document-retry', '15 7 * * *', 'vercel') on conflict (job_name) do nothing;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- 8. Ops exception queue: the 'documents' domain (live body, one branch added before INCIDENTS)

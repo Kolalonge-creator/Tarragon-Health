@@ -13,9 +13,14 @@
 --   6. Team path (S27): a clinician's file for the patient opens an intake row (clinician, doctor_review_required) that the
 --      patient cannot see and the clinician can; the same bytes as the patient's own upload are refused; release makes it reviewed
 --      and visible.
---   7. Replacement: a patient replacing an unreviewed upload marks the old intake row superseded.
+--      6b. A withdrawn result is hidden from the patient again. 6c. A patient's own S27 file, withheld by a clinician, is hidden
+--      from that patient (the uploader branch of the read policy is for staff uploaders only).
+--   7. Replacement: a patient replacing an unreviewed upload marks the old intake row superseded. 7b. The replaced file may be
+--      uploaded again, and a later review of the replaced upload still succeeds (the unique index keys on is_superseded).
 --   8. SABOTAGE (automatic): with the extraction trigger dropped, a failed read leaves the document "processing" (so 3 proves the
 --      trigger); with the intake trigger dropped, an upload opens no intake row and a duplicate is not refused (so 1 and 5 prove it).
+--   Sabotage by hand (checked 2026-11-04): withdrawn_at removed from the lab_results trigger -> FAIL 6b; the read policy's uploader
+--   branch opened to patients -> FAIL 6c; the unique index keyed on status <> 'superseded' -> 7b's review raises a duplicate key.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/cde1_clinical_document_intake.sql
 
@@ -243,6 +248,41 @@ begin
     raise exception 'FAIL 6: a released team upload is %, visible %', v_cd.status, v_cd.visible_to_patient;
   end if;
 
+  -- 6b. withdrawing a released result hides it from the patient again (lab_results: withdrawn_at is null)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_q := public.withdraw_lab_result(v_doc2, 'Report belonged to another patient');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if coalesce((v_q ->> 'ok')::boolean, false) is not true then raise exception 'SETUP 6b: the clinician could not withdraw (%)', v_q; end if;
+  select * into v_cd from public.clinical_documents where id = v_cd.id;
+  if v_cd.visible_to_patient then raise exception 'FAIL 6b: a withdrawn result is still visible to the patient'; end if;
+
+  -- 6c. a patient's own S27 file, withheld by a clinician: hidden from the patient although the patient uploaded it
+  perform set_config('request.jwt.claims', json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.patient_add_lab_result(jsonb_build_object('file_path', v_other::text || '/cde1-own.pdf', 'original_filename', 'own.pdf',
+                                                           'mime_type', 'application/pdf', 'file_size_bytes', 1000));
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  select * into v_cd from public.clinical_documents where routed_table = 'lab_result_files' and patient_id = v_other;
+  if v_cd.id is null or v_cd.upload_channel <> 'patient_app' or not v_cd.visible_to_patient then
+    raise exception 'FAIL 6c: a patient-added S27 file is not visible to its patient (channel %, visible %)', v_cd.upload_channel, v_cd.visible_to_patient;
+  end if;
+  select id into v_doc2 from public.lab_results where document_id = v_cd.routed_id;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_q := public.withhold_lab_result(v_doc2, 'Not a lab report: a photo of a prescription');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if coalesce((v_q ->> 'ok')::boolean, false) is not true then raise exception 'SETUP 6c: the clinician could not withhold (%)', v_q; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.clinical_documents where id = v_cd.id;
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if v_n <> 0 then raise exception 'FAIL 6c: the patient still reads the intake row of their withheld file'; end if;
+
   -- 7. replacing an unreviewed upload marks the old one superseded
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -257,6 +297,23 @@ begin
   if v_cd.status <> 'superseded' then raise exception 'FAIL 7: a replaced upload is % (must be superseded)', v_cd.status; end if;
   if not exists (select 1 from public.clinical_documents where routed_table = 'lab_result_documents' and routed_id = v_new_doc) then
     raise exception 'FAIL 7: the replacement opened no intake row';
+  end if;
+
+  -- 7b. the replaced file may be uploaded again, and a later review of the replaced upload still succeeds
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.lab_result_documents (organisation_id, patient_id, file_path, original_filename, mime_type, file_size_bytes,
+      source, uploaded_by, content_sha256)
+  values (v_org, v_patient, v_patient::text || '/cde1-c3.pdf', 'c.pdf', 'application/pdf', 1000, 'patient', v_patient, v_sha_c);
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  select routed_id into v_doc2 from public.clinical_documents where routed_table = 'lab_result_documents' and content_sha256 = v_sha_c
+     and is_superseded;
+  if v_doc2 is null then raise exception 'FAIL 7b: the replaced upload is not marked superseded'; end if;
+  update public.lab_result_documents set reviewed_at = now(), reviewed_by = v_doctor where id = v_doc2;
+  select * into v_cd from public.clinical_documents where routed_table = 'lab_result_documents' and routed_id = v_doc2;
+  if v_cd.status <> 'reviewed' or not v_cd.is_superseded then
+    raise exception 'FAIL 7b: reviewing a replaced upload gave %, superseded %', v_cd.status, v_cd.is_superseded;
   end if;
 
   -- 8. SABOTAGE
