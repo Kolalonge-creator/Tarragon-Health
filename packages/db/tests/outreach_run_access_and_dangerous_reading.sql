@@ -94,6 +94,16 @@ begin
     pg_temp.q_as(v_runner, format($q$select count(*)::text from public.outreach_enrolments where screening_day_id = %L$q$, v_day)));
   perform pg_temp.rec('B3 another org''s holder reads no enrolment', '0',
     pg_temp.q_as(v_runner2, $q$select count(*)::text from public.outreach_enrolments$q$));
+  -- review: a holder in another organisation cannot WRITE to this day either, even knowing its ids
+  v_r := pg_temp.q_as(v_runner2, format($q$select public.add_screening_day_slot(%L, 'Intruder', null)::text$q$, v_day));
+  perform pg_temp.rec('B4 another org''s holder cannot register an attendee here', 'true', (v_r like 'ERR 42501:%')::text);
+  v_r := pg_temp.q_as(v_runner2, format($q$select public.record_outreach_vitals(%L, '{"pulse_bpm":72}'::jsonb)::text$q$, v_s1));
+  perform pg_temp.rec('B5 ...nor save readings into this day''s attendee', 'true', (v_r like 'ERR 42501:%')::text);
+
+  v_r := pg_temp.q_as(v_admin, format($q$select public.add_screening_day_slot(%L, 'Spare', null)::text$q$, v_day));
+  v_r := pg_temp.q_as(v_runner2, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_r::uuid, v_p1));
+  perform pg_temp.rec('B6 ...nor enrol anyone on it', 'true', (v_r like 'ERR 42501:%')::text);
+  update public.screening_day_slots set status = 'removed' where screening_day_id = v_day and full_name = 'Spare';
 
   -- ===== C. Emergency flag =====
   v_r := pg_temp.q_as(v_runner, format($q$select (public.record_outreach_vitals(%L, '{"bp_readings":[{"systolic":124,"diastolic":80}],"pulse_bpm":72}'::jsonb) ->> 'emergency')$q$, v_s1));
@@ -113,7 +123,7 @@ begin
 
   -- ===== D. SABOTAGE =====
   execute replace(pg_get_functiondef('public.record_outreach_vitals(uuid,jsonb)'::regprocedure),
-                  $x$perform set_config('tarragon.outreach_vitals', 'on', true);$x$, 'null;');
+                  $x$perform set_config('tarragon.outreach_vitals', e.patient_id::text, true);$x$, 'null;');
   v_s1 := (pg_temp.q_as(v_admin, format($q$select public.add_screening_day_slot(%L, 'Attendee Three', null)::text$q$, v_day)))::uuid;
   v_r := pg_temp.q_as(v_admin, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s1, pg_temp.mkuser(v_org, 'attendee-3', 'patient')));
   v_r := pg_temp.q_as(v_runner, format($q$select public.record_outreach_vitals(%L, '{"pulse_bpm":72}'::jsonb)::text$q$, v_s1));

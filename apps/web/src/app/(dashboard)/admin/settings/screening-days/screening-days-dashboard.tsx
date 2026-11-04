@@ -361,7 +361,16 @@ function VitalsForm({ day, slotId, onEmergency }: { day: ScreeningDay; slotId: s
       className="w-full space-y-2 rounded-md border border-charcoal-ink/10 p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        record.mutate({ slotId, screeningDayId: day.id, vitals }, { onSuccess: (data) => (data.emergency ? onEmergency() : undefined) });
+        // mutateAsync, not a per-call onSuccess: saving makes this form unmount (the row turns to "Readings saved"), and TanStack
+        // Query drops per-call callbacks of an unmounted observer. The promise still resolves, and onEmergency belongs to the list.
+        record
+          .mutateAsync({ slotId, screeningDayId: day.id, vitals })
+          .then((data) => {
+            if (data.emergency) onEmergency();
+          })
+          .catch(() => {
+            // shown below from record.error while the form is still on screen
+          });
       }}
     >
       <div className="flex flex-wrap items-end gap-2">

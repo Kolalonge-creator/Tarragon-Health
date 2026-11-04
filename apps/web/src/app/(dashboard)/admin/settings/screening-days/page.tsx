@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { hasAnyPermission, hasPermission } from "@/lib/auth/permissions";
+import { getCallerPermissions } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { ScreeningDaysDashboard } from "./screening-days-dashboard";
 
@@ -12,10 +12,11 @@ export default async function ScreeningDaysSettingsPage() {
 
   // An outreach partner holding screening_days.run reaches this page through the delegated /admin door (proxy.ts) and runs
   // the day: register, enrol, save readings. Creating and pricing days stays with screening_days.manage (and the admin).
-  if (!(await hasAnyPermission("screening_days.manage", "screening_days.run"))) {
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+  const canManage = isSuperAdmin || keys.has("screening_days.manage");
+  if (!canManage && !keys.has("screening_days.run")) {
     redirect("/admin");
   }
-  const canManage = await hasPermission("screening_days.manage");
 
   return (
     <div className="space-y-6">

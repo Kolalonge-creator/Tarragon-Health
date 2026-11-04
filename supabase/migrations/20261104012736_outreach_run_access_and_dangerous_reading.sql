@@ -52,11 +52,17 @@ declare
 begin
   for r in select * from (values
     (1, $o$  for r in select * from jsonb_array_elements(v_bp) loop$o$,
-        $n$  perform set_config('tarragon.outreach_vitals', 'on', true);
+        $n$  perform set_config('tarragon.outreach_vitals', e.patient_id::text, true);
   for r in select * from jsonb_array_elements(v_bp) loop$n$),
     (2, $o$  if coalesce(array_length(v_ids, 1), 0) = 0 then$o$,
-        $n$  perform set_config('tarragon.outreach_vitals', 'off', true);
+        $n$  perform set_config('tarragon.outreach_vitals', '', true);
   if coalesce(array_length(v_ids, 1), 0) = 0 then$n$),
+    -- review: a runner acts only on a day of their own organisation (can_run_outreach_day is not organisation-scoped)
+    (4, $o$  if e.vitals_recorded_at is not null then raise exception 'vitals_already_recorded' using errcode = '22023'; end if;$o$,
+        $n$  if not (private.is_admin() or private.is_outreach_runner_for_org(e.organisation_id)) then
+    raise exception 'not authorised for this outreach check' using errcode = '42501';
+  end if;
+  if e.vitals_recorded_at is not null then raise exception 'vitals_already_recorded' using errcode = '22023'; end if;$n$),
     (3, $o$  return jsonb_build_object('vitals_rows', array_length(v_ids, 1));$o$,
         $n$  -- OUT-001: did any reading just saved cross the signed emergency thresholds?
   return jsonb_build_object('vitals_rows', array_length(v_ids, 1),
@@ -81,7 +87,8 @@ declare
     return new;
   end if;
   -- Outreach health check readings, entered through record_outreach_vitals only (it checks the runner and the enrolment).
-  if coalesce(current_setting('tarragon.outreach_vitals', true), '') = 'on' then
+  -- The flag names the one enrolled patient, so it admits that patient's readings and nobody else's.
+  if coalesce(current_setting('tarragon.outreach_vitals', true), '') = new.patient_id::text then
     return new;
   end if;$n$;
 begin
@@ -89,6 +96,38 @@ begin
     raise exception 'OUT-001: assisted_entry_guard expected exactly 1 match';
   end if;
   execute replace(v_def, v_old, v_new);
+end $$;
+
+-- 4. ORGANISATION SCOPE for the other two on-site writes (found in review): a holder of screening_days.run in one organisation
+--    must not register or enrol attendees on another organisation's outreach day.
+do $$
+declare
+  v_def text;
+  r record;
+begin
+  for r in select * from (values
+    ('public.add_screening_day_slot(uuid,text,text)',
+     $o$     and not (v_day.kind <> 'bundle' and private.can_run_outreach_day()) then$o$,
+     $n$     and not (v_day.kind <> 'bundle' and (private.is_admin() or private.is_outreach_runner_for_org(v_day.organisation_id))) then$n$),
+    ('public.enrol_outreach_attendee(uuid,uuid)',
+     $o$  if v_day.kind not in ('outreach_free', 'outreach_paid') then$o$,
+     $n$  if not (private.is_admin() or private.is_outreach_runner_for_org(v_day.organisation_id)) then
+    raise exception 'not authorised for this outreach check' using errcode = '42501';
+  end if;
+  if v_day.kind not in ('outreach_free', 'outreach_paid') then$n$),
+    ('public.enrol_outreach_attendee(uuid,uuid)',
+     $o$  if v_slot.phone is not null and v_phone is distinct from v_slot.phone then$o$,
+     $n$  if v_org is distinct from v_day.organisation_id then
+    raise exception 'that person is registered with another organisation' using errcode = '22023';
+  end if;
+  if v_slot.phone is not null and v_phone is distinct from v_slot.phone then$n$)
+  ) as t(fn, old_text, new_text) loop
+    v_def := pg_get_functiondef(r.fn::regprocedure);
+    if (length(v_def) - length(replace(v_def, r.old_text, ''))) / length(r.old_text) <> 1 then
+      raise exception 'outreach org scope: % expected exactly 1 match', r.fn;
+    end if;
+    execute replace(v_def, r.old_text, r.new_text);
+  end loop;
 end $$;
 
 do $$
