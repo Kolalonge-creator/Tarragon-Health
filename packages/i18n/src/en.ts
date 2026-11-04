@@ -5017,7 +5017,7 @@ export const en = {
   ...circleToolsCopy,
   // 2026-11-03: share with the person who paid, and the doctor's line for the family (proposed copy, CMO and DPO review pending: see family-circle-copy.ts)
   ...familyCircleCopy,
-  // 2026-11-04: Care Circle Phase 4, family contact and timeline (proposed copy, CMO and DPO review pending: see care-circle-p4-copy.ts)
+  // 2026-11-04: Care Circle Phase 4, family contact and timeline (approved by the CMO and DPO 2026-11-04: see care-circle-p4-copy.ts)
   ...circleP4Copy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",

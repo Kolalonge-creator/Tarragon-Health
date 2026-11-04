@@ -519,7 +519,7 @@ Also fixed: the weekly digest no longer counts requests addressed to someone els
 
 Built on `feat/care-circle-phase4-timeline-contacts`. One migration (`20261104211059_care_circle_p4_timeline_contacts.sql`), one proof
 (`care_circle_p4_timeline_contacts.sql`, 19 checks, 3 sabotage), web changes. New wording is under `circlep4.` in
-`packages/i18n/src/care-circle-p4-copy.ts`, **pending CMO/DPO review** (not covered by CC-COPY).
+`packages/i18n/src/care-circle-p4-copy.ts`, approved by the founder as CMO and DPO on 2026-11-04 (CC-COPY-P4).
 
 | Spec item | Status |
 |---|---|

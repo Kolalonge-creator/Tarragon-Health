@@ -15,8 +15,9 @@ describe("Care Circle Phase 4 copy (family contact, timeline)", () => {
     }
   });
 
-  it("is still pending CMO review (the 2026-11-04 approval covered Phases 1 to 3 only)", () => {
-    expect(CIRCLE_P4_COPY_REVIEW.status).toBe("pending_cmo_review");
+  it("carries its own CMO and DPO approval (2026-11-04, CC-COPY-P4)", () => {
+    expect(CIRCLE_P4_COPY_REVIEW.status).toBe("cmo_reviewed");
+    expect(CIRCLE_P4_COPY_REVIEW.reviewedOn).toBe("2026-11-04");
   });
 
   it("follows the copy rules", () => {
