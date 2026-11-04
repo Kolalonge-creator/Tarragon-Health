@@ -1,0 +1,28 @@
+import { describe, expect, it } from "@jest/globals";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { getProposedConfig } from "./index";
+
+const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..");
+const MIGRATIONS = join(ROOT, "supabase", "migrations");
+
+function migrationSql(suffix: string): string {
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith(suffix));
+  if (!file) throw new Error(`migration ending ${suffix} not found`);
+  return readFileSync(join(MIGRATIONS, file), "utf8");
+}
+
+describe("directory.investigation_search mirrors search_investigations", () => {
+  it("the SQL function takes the threshold from its caller, with no default written in SQL", () => {
+    const sql = migrationSql("_diag_p1_investigation_catalogue_and_search.sql");
+    const signature = /function public\.search_investigations\(([^)]*)\)/.exec(sql)?.[1] ?? "";
+    expect(signature).toMatch(/p_min_score numeric(?!\s+default)/);
+  });
+
+  it("the DB proof exercises the value in force", () => {
+    const proof = readFileSync(join(ROOT, "packages", "db", "tests", "diag_p1_investigation_search.sql"), "utf8");
+    const value = /t numeric := ([0-9.]+);/.exec(proof)?.[1];
+    expect(Number(value)).toBe(getProposedConfig<{ min_score: number }>("directory.investigation_search").value.min_score);
+  });
+});
