@@ -27,17 +27,26 @@ alter table public.imaging_report_documents
 alter table public.imaging_reports
   add column access_category public.care_access_category not null default 'labs_results';
 
--- A filed report is read under its document's category (a filed pelvic scan stays reproductive_health).
+-- A filed report is read under its document's category (a filed pelvic scan stays reproductive_health). On an update the category
+-- can only become more protective: re-pointing document_id at a labs_results document never lowers a reproductive_health report.
 create or replace function private.imaging_report_inherit_access_category()
 returns trigger
 language plpgsql
 security definer
 set search_path to ''
 as $function$
+declare
+  v_doc_category public.care_access_category;
 begin
   if new.document_id is not null then
-    select d.access_category into new.access_category from public.imaging_report_documents d where d.id = new.document_id;
-    new.access_category := coalesce(new.access_category, 'labs_results');
+    select d.access_category into v_doc_category from public.imaging_report_documents d where d.id = new.document_id;
+  end if;
+  if tg_op = 'INSERT' then
+    new.access_category := coalesce(v_doc_category, new.access_category, 'labs_results');
+  elsif old.access_category = 'labs_results' and v_doc_category is not null then
+    new.access_category := v_doc_category;
+  else
+    new.access_category := old.access_category;
   end if;
   return new;
 end;

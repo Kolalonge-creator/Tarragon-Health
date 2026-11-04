@@ -17,7 +17,8 @@ export interface NarrativeRules {
   readonly ecg_urgent_terms: readonly string[];
   readonly ecg_qtc_urgent_ms: number;
   readonly imaging_urgent_terms: readonly string[];
-  readonly negations_before: readonly string[];
+  readonly negation_words_before: readonly string[];
+  readonly negation_phrases_before: readonly string[];
   readonly negations_after: readonly string[];
 }
 
@@ -45,13 +46,17 @@ function escape(s: string): string {
 }
 
 /**
- * A term found in the text, unless that mention is negated: a negation in the same clause at most three words before it ("no evidence
- * of malignancy", "negative for intraepithelial lesion or malignancy"), or straight after it ("pneumothorax excluded"). Anything looser
- * could hide a real finding ("not benign; carcinoma"), and on this side of the rules erring toward urgent is the safe direction.
+ * A term found in the text, unless that mention is negated in the same clause: a bare negation word at most one word before it ("no
+ * residual carcinoma"), a negation phrase at most three words before it ("negative for intraepithelial lesion or malignancy"), or a
+ * phrase straight after it ("pneumothorax excluded"). Anything looser could hide a real finding ("not benign; carcinoma", "no change in
+ * the known carcinoma"); on this side of the rules erring toward urgent is the safe direction.
  */
 function findTerm(text: string, terms: readonly string[], rules: NarrativeRules): string | null {
   const lower = text.toLowerCase();
-  const before = new RegExp(`\\b(?:${rules.negations_before.map((n) => escape(n.toLowerCase())).join("|")})(?:\\s+[a-z0-9-]+){0,3}\\s*$`);
+  const alt = (xs: readonly string[]) => xs.map((n) => escape(n.toLowerCase())).join("|");
+  const before = new RegExp(
+    `(?:\\b(?:${alt(rules.negation_words_before)})(?:\\s+[a-z0-9-]+)?|\\b(?:${alt(rules.negation_phrases_before)})(?:\\s+[a-z0-9-]+){0,3})\\s*$`,
+  );
   const after = new RegExp(`^\\s*(?:${rules.negations_after.map((n) => escape(n.toLowerCase())).join("|")})\\b`);
   for (const term of terms) {
     const re = new RegExp(`(^|[^a-z0-9])${escape(term.toLowerCase())}(?![a-z0-9])`, "g");

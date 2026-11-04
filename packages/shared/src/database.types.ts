@@ -12338,6 +12338,68 @@ export type Database = {
           },
         ]
       }
+      clinical_document_reviews: {
+        Row: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
+          document_id: string
+          is_test: boolean
+          note: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string
+          reviewed_by: string
+        }
+        Insert: {
+          access_category: Database["public"]["Enums"]["care_access_category"]
+          document_id: string
+          is_test?: boolean
+          note: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at?: string
+          reviewed_by: string
+        }
+        Update: {
+          access_category?: Database["public"]["Enums"]["care_access_category"]
+          document_id?: string
+          is_test?: boolean
+          note?: string
+          organisation_id?: string
+          patient_id?: string
+          reviewed_at?: string
+          reviewed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_document_reviews_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "clinical_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_document_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_document_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_document_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_documents: {
         Row: {
           access_category: Database["public"]["Enums"]["care_access_category"]
@@ -12368,9 +12430,6 @@ export type Database = {
           original_filename: string | null
           patient_id: string
           patient_note: string | null
-          review_note: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
           routed_id: string | null
           routed_table: string | null
           source_facility_id: string | null
@@ -12413,9 +12472,6 @@ export type Database = {
           original_filename?: string | null
           patient_id: string
           patient_note?: string | null
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12458,9 +12514,6 @@ export type Database = {
           original_filename?: string | null
           patient_id?: string
           patient_note?: string | null
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12506,13 +12559,6 @@ export type Database = {
           {
             foreignKeyName: "clinical_documents_patient_id_fkey"
             columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinical_documents_reviewed_by_fkey"
-            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

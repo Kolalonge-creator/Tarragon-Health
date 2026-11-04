@@ -42,5 +42,7 @@ describe("draft narrative urgent-finding rules (CDE-01, unsigned)", () => {
     expect(matchNarrativeRules({ pathologyDiagnosis: "Lesion is not benign; carcinoma present" })[0]?.matched).toBe("carcinoma");
     expect(matchNarrativeRules({ pathologyDiagnosis: "No change since the previous biopsy, which showed carcinoma" })[0]?.matched).toBe("carcinoma");
     expect(matchNarrativeRules({ imagingImpression: "No effusion. Right pneumothorax." })[0]?.matched).toBe("pneumothorax");
+    expect(matchNarrativeRules({ pathologyDiagnosis: "No change in the known carcinoma" })[0]?.matched).toBe("carcinoma");
+    expect(matchNarrativeRules({ pathologyDiagnosis: "No residual carcinoma" })).toEqual([]);
   });
 });

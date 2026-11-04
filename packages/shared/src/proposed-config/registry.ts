@@ -11463,9 +11463,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       imaging_urgent_terms: ["pneumothorax", "pulmonary embolism", "aortic dissection", "pneumoperitoneum", "free air", "intracranial haemorrhage",
         "intracranial hemorrhage", "cord compression", "ectopic pregnancy", "bowel obstruction", "suspicious for malignancy",
         "highly suggestive of malignancy"],
-      // A negation counts only inside the same clause, at most three words before the term ("no evidence of malignancy"), or
-      // straight after it ("pneumothorax excluded"). Anything looser could hide a real finding; erring toward urgent is the safe side.
-      negations_before: ["no", "not", "without", "negative for", "no evidence of", "free of"],
+      // A negation counts only inside the same clause: a bare word ("no", "not", "without") at most one word before the term ("no
+      // residual carcinoma"), a phrase ("negative for", "no evidence of", "free of") at most three words before it ("negative for
+      // intraepithelial lesion or malignancy"), or a phrase straight after it ("pneumothorax excluded"). Anything looser could hide a
+      // real finding ("no change in the known carcinoma"); erring toward urgent is the safe side.
+      negation_words_before: ["no", "not", "without"],
+      negation_phrases_before: ["negative for", "no evidence of", "free of"],
       negations_after: ["ruled out", "excluded", "is ruled out", "has been excluded"],
     },
     owner: "CMO",

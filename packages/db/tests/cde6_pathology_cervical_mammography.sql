@@ -6,7 +6,8 @@
 --      reproductive_health, the fields as printed (empty strings dropped), and the document is reviewed with the doctor's note.
 --      Filing it again is refused.
 --   2. Refused: a kind that does not match the document (histopathology from a cervical document), a result without its result
---      field (a histopathology report with no diagnosis line), no note, a patient filing, a document of another pipeline.
+--      field (a histopathology report with no diagnosis line), no note, a patient filing, a document of another pipeline, a report
+--      date after today in Lagos, an impossible date.
 --   3. The patient cannot read the structured record; the tied clinician can.
 --   4. Mammography: BI-RADS and density as printed are kept on a breast study; a value outside the printed scale, or BI-RADS on a
 --      chest X-ray, is refused.
@@ -70,7 +71,7 @@ begin
 
   -- 2. refusals (as the tied clinician unless said otherwise)
   perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
-  foreach v_err in array array['kind_mismatch', 'no_diagnosis', 'no_note', 'other_pipeline'] loop
+  foreach v_err in array array['kind_mismatch', 'no_diagnosis', 'no_note', 'other_pipeline', 'future_date', 'bad_date'] loop
     begin
       set local role authenticated;
       perform public.file_pathology_report(
@@ -78,6 +79,9 @@ begin
         case v_err when 'kind_mismatch' then '{"report_kind":"histopathology","diagnosis_as_printed":"x"}'::jsonb
                    when 'no_diagnosis' then '{"report_kind":"histopathology","diagnosis_as_printed":"  ","specimen":"Skin"}'::jsonb
                    when 'other_pipeline' then '{"report_kind":"histopathology","diagnosis_as_printed":"x"}'::jsonb
+                   when 'future_date' then jsonb_build_object('report_kind', 'cervical_cytology', 'cytology_category_as_printed', 'NILM',
+                                             'reported_on', ((now() at time zone 'Africa/Lagos')::date + 2)::text)
+                   when 'bad_date' then '{"report_kind":"cervical_cytology","cytology_category_as_printed":"NILM","reported_on":"2026-02-31"}'::jsonb
                    else '{"report_kind":"cervical_cytology","cytology_category_as_printed":"NILM"}'::jsonb end,
         case v_err when 'no_note' then ' ' else 'Filed' end);
       reset role;
@@ -115,7 +119,8 @@ begin
     raise exception 'FAIL 1: the filed record is wrong: %', to_jsonb(v_r);
   end if;
   if (select status from public.clinical_documents where id = v_cerv) <> 'reviewed'
-     or (select reviewed_by from public.clinical_documents where id = v_cerv) <> v_doctor then
+     or (select reviewed_by from public.clinical_document_reviews where document_id = v_cerv) is distinct from v_doctor
+     or (select access_category from public.clinical_document_reviews where document_id = v_cerv) <> 'reproductive_health' then
     raise exception 'FAIL 1: filing did not record the review of the document';
   end if;
   set local role authenticated;

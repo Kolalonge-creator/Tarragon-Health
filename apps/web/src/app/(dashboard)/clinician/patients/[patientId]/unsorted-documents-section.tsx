@@ -17,7 +17,7 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("clinical_documents")
-    .select("id, kind_code, kind_source, status, file_path, original_filename, patient_note, created_at, reviewed_at, review_note")
+    .select("id, kind_code, kind_source, status, file_path, original_filename, patient_note, created_at")
     .eq("patient_id", patientId)
     .is("routed_table", null)
     .not("kind_code", "is", null)
@@ -25,10 +25,19 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
     .limit(30);
   if (!rows || rows.length === 0) return null;
 
-  const [{ data: kinds }, signed] = await Promise.all([
+  const ids = rows.map((r) => r.id);
+  const [{ data: kinds }, signed, { data: reviewRows }, { data: pathologyRows }] = await Promise.all([
     supabase.from("clinical_document_kinds").select("code, label, pipeline"),
     signStoragePaths(RESULT_DOC_BUCKET, rows.flatMap((r) => (r.file_path ? [r.file_path] : [])), 300),
+    // Staff-only (RLS): the doctor's review and the filed record never sit on a row the patient can read.
+    supabase.from("clinical_document_reviews").select("document_id, reviewed_at, note").in("document_id", ids),
+    supabase
+      .from("pathology_reports")
+      .select("clinical_document_id, report_kind, diagnosis_as_printed, grade_as_printed, stage_as_printed, cytology_category_as_printed, hpv_result_as_printed, hpv_genotypes_as_printed, recommendation_as_printed, reported_on, laboratory_name")
+      .in("clinical_document_id", ids),
   ]);
+  const reviewOf = new Map((reviewRows ?? []).map((r) => [r.document_id, r]));
+  const pathologyOf = new Map((pathologyRows ?? []).map((r) => [r.clinical_document_id, r]));
   const label = new Map((kinds ?? []).map((k) => [k.code, k.label]));
   const pipelineOf = new Map((kinds ?? []).map((k) => [k.code, k.pipeline]));
   const SOURCE: Record<string, string> = { confirmed: "type chosen by the patient", ai: "type suggested by AI-024", rules: "type from the file name" };
@@ -46,11 +55,13 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {rows.map((r) => {
             const url = r.file_path ? signed.get(r.file_path) ?? null : null;
+            const review = reviewOf.get(r.id);
+            const filed = pathologyOf.get(r.id);
             return (
               <li key={r.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{label.get(r.kind_code ?? "") ?? r.kind_code}</span>
-                  <Badge variant={r.reviewed_at ? "green" : "amber"}>{r.reviewed_at ? "Reviewed" : "Waiting for review"}</Badge>
+                  <Badge variant={review ? "green" : "amber"}>{review ? "Reviewed" : "Waiting for review"}</Badge>
                   <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                     {formatPatientDate(r.created_at)} · {SOURCE[r.kind_source ?? ""] ?? r.kind_source}
                   </span>
@@ -63,8 +74,32 @@ export async function UnsortedDocumentsSection({ patientId }: { patientId: strin
                 ) : (
                   <p className="text-sm text-charcoal-ink/60">The file could not be opened just now. Refresh to try again.</p>
                 )}
-                {r.reviewed_at ? (
-                  <p className="mt-1 text-sm">Review: {r.review_note}</p>
+                {filed && (
+                  <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 text-sm">
+                    {(
+                      [
+                        ["Diagnosis (as printed)", filed.diagnosis_as_printed],
+                        ["Grade", filed.grade_as_printed],
+                        ["Stage", filed.stage_as_printed],
+                        ["Cytology (as printed)", filed.cytology_category_as_printed],
+                        ["HPV result", filed.hpv_result_as_printed],
+                        ["HPV genotypes", filed.hpv_genotypes_as_printed],
+                        ["Recommendation", filed.recommendation_as_printed],
+                        ["Laboratory", filed.laboratory_name],
+                        ["Reported", filed.reported_on],
+                      ] as const
+                    )
+                      .filter(([, v]) => v)
+                      .map(([k, v]) => (
+                        <div key={k} className="contents">
+                          <dt className="text-charcoal-ink/60 dark:text-night-ink/60">{k}</dt>
+                          <dd>{v}</dd>
+                        </div>
+                      ))}
+                  </dl>
+                )}
+                {review ? (
+                  <p className="mt-1 text-sm">Review: {review.note}</p>
                 ) : pipelineOf.get(r.kind_code ?? "") === "pathology" || pipelineOf.get(r.kind_code ?? "") === "cervical" ? (
                   // Step 5b: a pathology or cervical result is filed as printed; filing records the review.
                   <PathologyReportForm documentId={r.id} patientId={patientId} pipeline={pipelineOf.get(r.kind_code ?? "") as "pathology" | "cervical"} />

@@ -465,10 +465,33 @@ grant execute on function public.confirm_clinical_document_kind(uuid, text) to a
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- The doctor opens the original from the patient's record ("Uploaded documents not yet read automatically") and records that it
 -- was reviewed, with a note of any finding. Their own review alert stays theirs to resolve on the alerts screen as usual.
-alter table public.clinical_documents
-  add column reviewed_by uuid references public.profiles (id) on delete restrict,
-  add column reviewed_at timestamptz,
-  add column review_note text check (review_note is null or length(review_note) <= 2000);
+-- The review lives in its own staff-only table, not on clinical_documents: the patient reads their own intake rows (status only),
+-- and a doctor's working note is not something to publish to them by accident (code review, step 5).
+create table public.clinical_document_reviews (
+  document_id     uuid primary key references public.clinical_documents (id) on delete cascade,
+  organisation_id uuid not null references public.organisations (id) on delete restrict,
+  patient_id      uuid not null references public.profiles (id) on delete cascade,
+  access_category public.care_access_category not null,
+  reviewed_by     uuid not null references public.profiles (id) on delete restrict,
+  reviewed_at     timestamptz not null default now(),
+  note            text not null check (length(note) between 1 and 2000),
+  is_test         boolean not null default false
+);
+alter table public.clinical_document_reviews enable row level security;
+create policy clinical_document_reviews_select on public.clinical_document_reviews for select to authenticated
+  using (private.staff_may_read(patient_id, organisation_id, access_category));
+revoke all on public.clinical_document_reviews from anon;
+grant select on public.clinical_document_reviews to authenticated;
+revoke insert, update, delete, truncate on public.clinical_document_reviews from authenticated;
+create trigger audit_row_change_trg after insert or delete or update on public.clinical_document_reviews
+  for each row execute function private.audit_row_change();
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('clinical_document_reviews', 'patient_id', 'clinical_record', 'review', true, false,
+        'A doctor''s review of a patient-uploaded document that has no automatic reader (CDE step 4). Staff-only. Class assigned by the migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('clinical_document_reviews', 'tied', 'patient_id', 'labs_results', 'The row carries its document''s category; the policy reads it.')
+on conflict (table_name) do nothing;
 
 create or replace function public.review_clinical_document(p_document uuid, p_note text)
 returns void
@@ -494,9 +517,10 @@ begin
   if v_note is null then raise exception 'clinical_document_review_note_required' using errcode = '22023'; end if;
   if length(v_note) > 2000 then raise exception 'clinical_document_review_note_too_long' using errcode = '22023'; end if;
   update public.clinical_documents
-     set status = 'reviewed', status_reason = 'Reviewed by a doctor', status_changed_at = now(),
-         reviewed_by = v_me, reviewed_at = now(), review_note = v_note
+     set status = 'reviewed', status_reason = 'Reviewed by a doctor', status_changed_at = now()
    where id = cd.id;
+  insert into public.clinical_document_reviews (document_id, organisation_id, patient_id, access_category, reviewed_by, note, is_test)
+  values (cd.id, cd.organisation_id, cd.patient_id, cd.access_category, v_me, v_note, cd.is_test);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (cd.organisation_id, v_me, 'clinical_document.reviewed', 'clinical_documents', cd.id, jsonb_build_object('kind', cd.kind_code));
 end;
@@ -739,6 +763,9 @@ begin
             when 'processing_failed' then 'The automatic reader failed ' || cd.failed_attempts::text || ' time(s). A person needs to read the original.'
             when 'needs_type_confirmation' then 'The patient uploaded a document and has not said what it is for 3 days. Contact the patient.'
             when 'classifying' then 'Still being sorted after 30 minutes.'
+            when 'processing' then case when cd.routed_table is null
+              then 'Sorted by type but not yet handed to its reader (the file copy or routing failed). Retried daily; a person can read the original from the patient record.'
+              else 'Still marked as being read after 30 minutes.' end
             else 'Still marked as being read after 30 minutes.'
           end,
           p.full_name, cd.patient_id, cd.status_changed_at,

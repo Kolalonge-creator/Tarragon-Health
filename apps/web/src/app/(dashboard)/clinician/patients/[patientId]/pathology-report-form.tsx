@@ -51,6 +51,13 @@ export function PathologyReportForm({ documentId, patientId, pipeline }: { docum
       }}
     >
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Copy each line exactly as printed. Leave out anything that is not on the report.</p>
+      {pipeline === "cervical" && (
+        // OQ-CDE-10: filing here does not create a screening result. The abnormal-screening pathway has one entry point.
+        <p role="note" className="rounded-md bg-amber-100 p-2 text-sm text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+          This keeps the report on the record. It does not record a screening result. Also record the screening result on the
+          Screening &amp; prevention tab, so an abnormal result starts the follow-up pathway.
+        </p>
+      )}
       <div className="space-y-1">
         <Label htmlFor={`${id}-kind`}>Result type</Label>
         <Select id={`${id}-kind`} value={kind} onChange={(e) => setKind(e.target.value)} className="min-h-11">

@@ -50,7 +50,8 @@ create table public.pathology_reports (
   recommendation_as_printed    text check (recommendation_as_printed is null or length(recommendation_as_printed) <= 2000),
   pathologist_name             text check (pathologist_name is null or length(pathologist_name) <= 200),
   laboratory_name              text check (laboratory_name is null or length(laboratory_name) <= 200),
-  reported_on                  date check (reported_on is null or reported_on <= current_date),
+  -- Not in the future (Lagos date); checked in file_pathology_report, where the error can name itself.
+  reported_on                  date,
   filed_by                     uuid not null references public.profiles (id) on delete restrict,
   filed_at                     timestamptz not null default now(),
   is_test                      boolean not null default false,
@@ -120,6 +121,17 @@ begin
   select coalesce(jsonb_object_agg(key, btrim(value #>> '{}')) filter (where nullif(btrim(value #>> '{}'), '') is not null), '{}'::jsonb)
     into f from jsonb_each(coalesce(p_fields, '{}'::jsonb));
 
+  if f ? 'reported_on' then
+    if (f ->> 'reported_on') !~ '^\d{4}-\d{2}-\d{2}$' then raise exception 'pathology_report_date_invalid' using errcode = '22023'; end if;
+    begin
+      if (f ->> 'reported_on')::date > (now() at time zone 'Africa/Lagos')::date then
+        raise exception 'pathology_report_date_in_future' using errcode = '22023';
+      end if;
+    exception when invalid_datetime_format or datetime_field_overflow then
+      raise exception 'pathology_report_date_invalid' using errcode = '22023';
+    end;
+  end if;
+
   insert into public.pathology_reports (organisation_id, patient_id, clinical_document_id, report_kind, access_category, specimen,
       site, diagnosis_as_printed, grade_as_printed, stage_as_printed, cytology_category_as_printed, hpv_result_as_printed,
       hpv_genotypes_as_printed, recommendation_as_printed, pathologist_name, laboratory_name, reported_on, filed_by, is_test)
@@ -130,9 +142,10 @@ begin
   returning id into v_id;
 
   update public.clinical_documents
-     set status = 'reviewed', status_reason = 'Reviewed by a doctor', status_changed_at = now(),
-         reviewed_by = v_me, reviewed_at = now(), review_note = v_note
+     set status = 'reviewed', status_reason = 'Reviewed by a doctor', status_changed_at = now()
    where id = cd.id;
+  insert into public.clinical_document_reviews (document_id, organisation_id, patient_id, access_category, reviewed_by, note, is_test)
+  values (cd.id, cd.organisation_id, cd.patient_id, cd.access_category, v_me, v_note, cd.is_test);
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (cd.organisation_id, v_me, 'pathology_report.filed', 'pathology_reports', v_id,
           jsonb_build_object('clinical_document_id', cd.id, 'report_kind', v_kind));

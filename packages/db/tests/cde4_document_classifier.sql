@@ -16,7 +16,8 @@
 --      category becomes the kind's.
 --   6. AI-024 is registered disabled with no evaluation run; the classifier record is service-role only.
 --   6b. Once sorted the answer is final (the patient cannot re-answer a kept ECG). A tied clinician records the review of the kept
---      ECG (status reviewed, note, audited); the patient cannot; a routed document cannot be reviewed here; a note is required.
+--      ECG (status reviewed, note in the staff-only review table, audited); the patient can neither record one nor read the note;
+--      a routed document cannot be reviewed here; a note is required.
 --   6c. The ops exception queue lists a question left unanswered for 3 days, and not a fresh one.
 --   7. SABOTAGE (automatic): with the adoption branch removed from private.cde_open_intake, answering "lab result" is refused as a
 --      duplicate of the waiting upload (so 4 proves the adoption).
@@ -279,10 +280,19 @@ begin
   reset role;
   perform set_config('request.jwt.claims', null, true);
   select * into v_cd from public.clinical_documents where id = v_doc4;
-  if v_cd.status <> 'reviewed' or v_cd.reviewed_by <> v_doctor or v_cd.review_note <> 'Sinus rhythm, no concern.'
+  if v_cd.status <> 'reviewed'
+     or not exists (select 1 from public.clinical_document_reviews r where r.document_id = v_doc4 and r.reviewed_by = v_doctor
+                     and r.note = 'Sinus rhythm, no concern.' and r.access_category = v_cd.access_category)
      or not exists (select 1 from public.audit_log where entity_id = v_doc4 and action = 'clinical_document.reviewed') then
     raise exception 'FAIL 6b: the review was not recorded: %', to_jsonb(v_cd);
   end if;
+  -- the doctor's note is staff-only: the patient reads the status of their own upload, never the note
+  perform set_config('request.jwt.claims', json_build_object('sub', v_paid, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.clinical_document_reviews where document_id = v_doc4;
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if v_n <> 0 then raise exception 'FAIL 6b: the patient can read the doctor''s review note'; end if;
   -- a document routed into the lab path is reviewed there, not here: the doctor is tied to the patient for this check
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_doctor, now())

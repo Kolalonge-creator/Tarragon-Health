@@ -8,7 +8,8 @@
 --      the lab stores; the ECG handler tells the patient itself).
 --   2. A "Not sure" upload sorted as an obstetric ultrasound waits for its reader ('processing', not routed). route_clinical_document
 --      inserts the imaging row for the copied file with the kind's category (reproductive_health), the intake row is adopted (no
---      second row) and is waiting for a doctor; a report filed from that document inherits the category.
+--      second row) and is waiting for a doctor; a report filed from that document inherits the category, and re-pointing the report
+--      at a labs_results document never lowers it.
 --   3. A "Not sure" upload sorted as an ECG is routed into the ECG store, with the ECG review alert.
 --   4. Refused: route_clinical_document for a client (service role only), for a document not waiting for a reader, for a file that
 --      is not in the reader's bucket or not in the patient's folder; changing an imaging record's category from a session.
@@ -35,6 +36,7 @@ declare
   v_order uuid;
   v_staff uuid;
   v_report uuid;
+  v_plain uuid;
   v_cd public.clinical_documents;
   v_out text;
   v_n integer;
@@ -144,6 +146,13 @@ begin
   returning id into v_report;
   if (select access_category from public.imaging_reports where id = v_report) <> 'reproductive_health' then
     raise exception 'FAIL 2: a report filed from a reproductive_health scan did not inherit the category';
+  end if;
+  -- re-pointing the report at a labs_results document never lowers its category
+  insert into public.imaging_report_documents (organisation_id, patient_id, file_path, mime_type, source)
+  values (v_org, v_pat, v_pat::text || '/plain.pdf', 'application/pdf', 'clinician') returning id into v_plain;
+  update public.imaging_reports set document_id = v_plain where id = v_report;
+  if (select access_category from public.imaging_reports where id = v_report) <> 'reproductive_health' then
+    raise exception 'FAIL 2: re-pointing document_id lowered the report''s category';
   end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
   set local role authenticated;
