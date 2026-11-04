@@ -21,6 +21,12 @@ const text = (args: { isMember: boolean; type?: string; terms?: BookingTerms }) 
   coordinatorTermsLines({ patientName: "Mama Adaeze", isMember: args.isMember, appointmentType: args.type ?? "telemedicine", terms: args.terms ?? terms() }).join("\n");
 
 describe("coordinatorTermsLines", () => {
+  it("tells the coordinator a doctor visit can end in a prescription form the patient takes to a pharmacy, and leaves it off per-item visits", () => {
+    expect(text({ isMember: true })).toContain("A prescription comes as a form the patient downloads and takes to their nearest pharmacy.");
+    expect(text({ isMember: true, type: "dietitian", terms: terms({ price_kobo: 500000 }) })).not.toContain("prescription");
+    expect(text({ isMember: true, type: "pharmacist", terms: terms({ price_kobo: 500000 }) })).not.toContain("prescription");
+  });
+
   const PRICED = terms({ price_kobo: 500000 });
 
   it("prices an extra meeting for a Member and points to the monthly meeting for the included one, naming the patient", () => {
