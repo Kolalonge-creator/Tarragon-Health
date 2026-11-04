@@ -243,3 +243,14 @@ Migration `20261104162557_cde2_coordinator_lab_uploads.sql`, proof `packages/db/
 - Step 1's fingerprint gaps are closed: `replace_my_result_document` takes `p_content_sha256` (dropped and re-created, one definition), `patient_add_lab_result` passes the fingerprint on.
 - Lab reports only. Uploading an ECG, scan or other report for a patient arrives with step 5, when those kinds route through the intake record.
 - CDE-08 (`20261104165832_cde3_values_free_upload_notice.sql`): a care-team upload sends the patient a values-free notice (in-app and push: a report was added, a doctor will review it). Nothing from the report is in it; the result stays held (INV-03).
+
+## 15. Step 3 as built (2026-11-04): results typed in by hand (CDE-02)
+
+Migration `20261104181133_cde4_hand_entered_lab_results.sql`, proof `packages/db/tests/cde3_hand_entered_lab_results.sql`, "Type in results" on the coordinator's Lab reports tab.
+
+- Typed results become a **draft for a doctor**, exactly like an AI reading: the same validation (`validateExtractedRow`: catalogue code, unit conversion, plausibility; then the cross-row consistency checks), the same review panel, and filing through `confirm_lab_report_extraction` into the S27 result engine (signed ranges, abnormal alerts, release machine). Nothing reaches the patient's record until a doctor files it.
+- **Provenance everywhere:** the draft is `entry_method = 'manual'` with who typed it, when, and where the values came from (required); the laboratory's own flag, specimen and comment per row are kept beside it; the intake record is `entered_by_hand`; the doctor's panel says "Typed in by hand, not yet checked" with those details instead of the AI label.
+- **A source document always exists:** the original report when attached, otherwise a PDF the server makes of exactly what was typed (patient, laboratory, test date, source, who typed it and when, every row as typed, labelled as a transcription and not a laboratory report).
+- **Always reviewed:** a care-team hand entry opens a clinician review alert whatever the patient's plan (`handle_lab_result_document`, CDE-02 branch), and a critical typed value raises it to urgent at once through the same escalation bridge an AI reading uses (`lib/lab-reports/escalation-bridge.ts`, now shared by both).
+- The same identity check as a file upload (now one function, `private.cde_check_identity`), the same duplicate refusal, the CDE-08 values-free notice.
+- Not counted as a reader attempt, so never retried and never an ops "could not be read" exception.

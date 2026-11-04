@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { FilePicker } from "@/components/ui/file-picker";
 import { LAB_RESULT_FILE_ACCEPT } from "@/lib/lab-results/structured";
-import { STAFF_STATUS_LABEL, STATUS_TONE, type ClinicalDocumentStatus } from "@/lib/clinical-documents/status";
+import { ManualEntryForm, type TestOption } from "./manual-entry-form";
+import {
+  STAFF_STATUS_LABEL,
+  STATUS_TONE,
+  type ClinicalDocumentStatus,
+} from "@/lib/clinical-documents/status";
 import {
   correctUploadDetails,
   findPatientForUpload,
@@ -30,7 +35,12 @@ export type MyUpload = {
 const OTHER_LAB = "__other__";
 
 function formatLagosDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lagos",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
 }
 
 /**
@@ -41,7 +51,13 @@ function formatLagosDate(iso: string): string {
  * The uploader fixes administrative details (test date, laboratory, note) until a clinician has dealt with the report. Never a
  * value or the patient: a wrong patient means asking the care team to withdraw it.
  */
-function CorrectUpload({ upload, labs }: { upload: MyUpload; labs: LabOption[] }) {
+function CorrectUpload({
+  upload,
+  labs,
+}: {
+  upload: MyUpload;
+  labs: LabOption[];
+}) {
   const [open, setOpen] = useState(false);
   const [lab, setLab] = useState("");
   const [date, setDate] = useState("");
@@ -73,16 +89,28 @@ function CorrectUpload({ upload, labs }: { upload: MyUpload; labs: LabOption[] }
         <Button type="button" variant="outline" onClick={() => setOpen(true)}>
           Correct details
         </Button>
-        {result?.success ? <span className="text-sm text-green-700 dark:text-green-300">Saved.</span> : null}
+        {result?.success ? (
+          <span className="text-sm text-green-700 dark:text-green-300">
+            Saved.
+          </span>
+        ) : null}
       </span>
     );
   }
   return (
-    <form onSubmit={save} className="w-full space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+    <form
+      onSubmit={save}
+      className="w-full space-y-2 rounded-md border border-charcoal-ink/10 p-3"
+    >
       <div className="grid gap-2 sm:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor={`fix-date-${upload.id}`}>Test date</Label>
-          <Input id={`fix-date-${upload.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            id={`fix-date-${upload.id}`}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`fix-lab-${upload.id}`}>Laboratory</Label>
@@ -103,20 +131,42 @@ function CorrectUpload({ upload, labs }: { upload: MyUpload; labs: LabOption[] }
         </div>
         {lab === OTHER_LAB ? (
           <div className="space-y-1">
-            <Label htmlFor={`fix-labname-${upload.id}`}>Laboratory or centre name</Label>
-            <Input id={`fix-labname-${upload.id}`} value={labName} onChange={(e) => setLabName(e.target.value)} maxLength={200} />
+            <Label htmlFor={`fix-labname-${upload.id}`}>
+              Laboratory or centre name
+            </Label>
+            <Input
+              id={`fix-labname-${upload.id}`}
+              value={labName}
+              onChange={(e) => setLabName(e.target.value)}
+              maxLength={200}
+            />
           </div>
         ) : null}
       </div>
       <div className="space-y-1">
         <Label htmlFor={`fix-note-${upload.id}`}>Note for the care team</Label>
-        <Input id={`fix-note-${upload.id}`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+        <Input
+          id={`fix-note-${upload.id}`}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1000}
+        />
       </div>
       <div className="space-y-1">
-        <Label htmlFor={`fix-reason-${upload.id}`}>Why are you changing it?</Label>
-        <Input id={`fix-reason-${upload.id}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={5} />
+        <Label htmlFor={`fix-reason-${upload.id}`}>
+          Why are you changing it?
+        </Label>
+        <Input
+          id={`fix-reason-${upload.id}`}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          required
+          minLength={5}
+        />
       </div>
-      {result?.error ? <p className="text-sm text-red-700 dark:text-red-300">{result.error}</p> : null}
+      {result?.error ? (
+        <p className="text-sm text-red-700 dark:text-red-300">{result.error}</p>
+      ) : null}
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
           {saving ? "Saving" : "Save change"}
@@ -129,7 +179,16 @@ function CorrectUpload({ upload, labs }: { upload: MyUpload; labs: LabOption[] }
   );
 }
 
-export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads: MyUpload[] }) {
+export function LabReportUpload({
+  labs,
+  uploads,
+  tests,
+}: {
+  labs: LabOption[];
+  uploads: MyUpload[];
+  tests: TestOption[];
+}) {
+  const [mode, setMode] = useState<"file" | "manual">("file");
   const [query, setQuery] = useState("");
   const [dob, setDob] = useState("");
   const [results, setResults] = useState<UploadPatientMatch[] | null>(null);
@@ -137,14 +196,20 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [lab, setLab] = useState<string>("");
-  const [state, formAction, pending] = useActionState<UploadState, FormData>(uploadLabReportForPatient, undefined);
+  const [state, formAction, pending] = useActionState<UploadState, FormData>(
+    uploadLabReportForPatient,
+    undefined,
+  );
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
     setSearching(true);
     setSearchError(null);
     setSelected(null);
-    const r = await findPatientForUpload({ query, ...(dob ? { dateOfBirth: dob } : {}) });
+    const r = await findPatientForUpload({
+      query,
+      ...(dob ? { dateOfBirth: dob } : {}),
+    });
     setSearching(false);
     if ("error" in r) {
       setSearchError(r.error);
@@ -154,7 +219,10 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
     }
   }
 
-  const sortedLabs = [...labs].sort((a, b) => Number(b.assigned) - Number(a.assigned) || a.name.localeCompare(b.name));
+  const sortedLabs = [...labs].sort(
+    (a, b) =>
+      Number(b.assigned) - Number(a.assigned) || a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="space-y-6">
@@ -164,40 +232,83 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-            Use this when a laboratory sends a patient&apos;s report to Tarragon instead of to the patient. Search by patient number,
-            phone number or email. To search by name, add the date of birth: a name alone can match the wrong person.
+            Use this when a laboratory sends a patient&apos;s report to Tarragon
+            instead of to the patient. Search by patient number, phone number or
+            email. To search by name, add the date of birth: a name alone can
+            match the wrong person.
           </p>
           <form onSubmit={search} className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
-              <Label htmlFor="upload-search">Patient number, phone, email or name</Label>
-              <Input id="upload-search" value={query} onChange={(e) => setQuery(e.target.value)} className="w-72" />
+              <Label htmlFor="upload-search">
+                Patient number, phone, email or name
+              </Label>
+              <Input
+                id="upload-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-72"
+              />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="upload-search-dob">Date of birth (needed for a name)</Label>
-              <Input id="upload-search-dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-48" />
+              <Label htmlFor="upload-search-dob">
+                Date of birth (needed for a name)
+              </Label>
+              <Input
+                id="upload-search-dob"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                className="w-48"
+              />
             </div>
-            <Button type="submit" disabled={searching || query.trim().length < 3}>
+            <Button
+              type="submit"
+              disabled={searching || query.trim().length < 3}
+            >
               {searching ? "Searching" : "Find patient"}
             </Button>
           </form>
-          {searchError ? <p className="text-sm text-red-700 dark:text-red-300">{searchError}</p> : null}
-          {results && results.length === 0 ? <p className="text-sm">No patient matches that. Check the details on the report.</p> : null}
+          {searchError ? (
+            <p className="text-sm text-red-700 dark:text-red-300">
+              {searchError}
+            </p>
+          ) : null}
+          {results && results.length === 0 ? (
+            <p className="text-sm">
+              No patient matches that. Check the details on the report.
+            </p>
+          ) : null}
           {results && results.length > 0 ? (
             <ul className="divide-y divide-charcoal-ink/10 rounded-md border border-charcoal-ink/10">
               {results.map((p) => (
-                <li key={p.patientId} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                <li
+                  key={p.patientId}
+                  className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
+                >
                   <span>
                     <span className="font-medium">{p.fullName}</span>
                     {" · "}
-                    {p.patientNumberHint ? `patient no. ${p.patientNumberHint}` : "no patient number"}
+                    {p.patientNumberHint
+                      ? `patient no. ${p.patientNumberHint}`
+                      : "no patient number"}
                     {" · born "}
                     {p.birthYear ?? "unknown"}
                     {p.sex ? ` · ${p.sex}` : ""}
                     {p.state ? ` · ${p.state}` : ""}
                     {p.phoneLast4 ? ` · phone ending ${p.phoneLast4}` : ""}
                   </span>
-                  <Button type="button" variant={selected?.patientId === p.patientId ? "default" : "outline"} onClick={() => setSelected(p)}>
-                    {selected?.patientId === p.patientId ? "Selected" : "Choose"}
+                  <Button
+                    type="button"
+                    variant={
+                      selected?.patientId === p.patientId
+                        ? "default"
+                        : "outline"
+                    }
+                    onClick={() => setSelected(p)}
+                  >
+                    {selected?.patientId === p.patientId
+                      ? "Selected"
+                      : "Choose"}
                   </Button>
                 </li>
               ))}
@@ -209,84 +320,155 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
       {selected ? (
         <Card>
           <CardHeader>
-            <CardTitle>Report for {selected.fullName}</CardTitle>
+            <CardTitle>Results for {selected.fullName}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <form action={formAction} className="space-y-4" key={selected.patientId}>
-              <input type="hidden" name="patientId" value={selected.patientId} />
-              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-                Copy these from the report itself, not from the search result. If they do not match this patient, the upload is refused.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label htmlFor="nameOnReport">Name on the report</Label>
-                  <Input id="nameOnReport" name="nameOnReport" required minLength={3} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="dateOfBirthOnReport">Date of birth on the report</Label>
-                  <Input id="dateOfBirthOnReport" name="dateOfBirthOnReport" type="date" />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="patientNumberOnReport">Patient number on the report</Label>
-                  <Input id="patientNumberOnReport" name="patientNumberOnReport" />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label htmlFor="labProviderId">Laboratory</Label>
-                  <select
-                    id="labProviderId"
-                    name={lab === OTHER_LAB ? undefined : "labProviderId"}
-                    value={lab}
-                    onChange={(e) => setLab(e.target.value)}
-                    required
-                    className="h-9 w-full rounded-md border border-charcoal-ink/20 bg-transparent px-2 text-sm"
-                  >
-                    <option value="" disabled>
-                      Choose
-                    </option>
-                    {sortedLabs.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                        {l.assigned ? " (yours)" : ""}
-                      </option>
-                    ))}
-                    <option value={OTHER_LAB}>Another laboratory or centre</option>
-                  </select>
-                </div>
-                {lab === OTHER_LAB ? (
-                  <div className="space-y-1">
-                    <Label htmlFor="labName">Laboratory or centre name</Label>
-                    <Input id="labName" name="labName" required maxLength={200} />
-                  </div>
-                ) : null}
-                <div className="space-y-1">
-                  <Label htmlFor="investigationDate">Test date</Label>
-                  <Input id="investigationDate" name="investigationDate" type="date" />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="note">Note for the care team (optional, not shown to the patient)</Label>
-                <Input id="note" name="note" maxLength={1000} />
-              </div>
-              <FilePicker
-                id="file"
-                name="file"
-                accept={LAB_RESULT_FILE_ACCEPT}
-                required
-                label="Choose the report"
-                hint="PDF, JPEG or PNG, up to 10 MB"
-              />
-              {state?.error ? <p className="text-sm text-red-700 dark:text-red-300">{state.error}</p> : null}
-              {state?.success ? (
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  Uploaded. A doctor will review it; the patient sees it once they have.
-                </p>
-              ) : null}
-              <Button type="submit" disabled={pending}>
-                {pending ? "Uploading" : "Upload report"}
+          <CardContent className="space-y-4">
+            <div
+              className="flex gap-2"
+              role="group"
+              aria-label="How the results arrived"
+            >
+              <Button
+                type="button"
+                variant={mode === "file" ? "default" : "outline"}
+                onClick={() => setMode("file")}
+              >
+                Upload a report
               </Button>
-            </form>
+              <Button
+                type="button"
+                variant={mode === "manual" ? "default" : "outline"}
+                onClick={() => setMode("manual")}
+              >
+                Type in results
+              </Button>
+            </div>
+            {mode === "manual" ? (
+              <ManualEntryForm
+                patientId={selected.patientId}
+                labs={sortedLabs}
+                tests={tests}
+              />
+            ) : (
+              <form
+                action={formAction}
+                className="space-y-4"
+                key={selected.patientId}
+              >
+                <input
+                  type="hidden"
+                  name="patientId"
+                  value={selected.patientId}
+                />
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                  Copy these from the report itself, not from the search result.
+                  If they do not match this patient, the upload is refused.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="nameOnReport">Name on the report</Label>
+                    <Input
+                      id="nameOnReport"
+                      name="nameOnReport"
+                      required
+                      minLength={3}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="dateOfBirthOnReport">
+                      Date of birth on the report
+                    </Label>
+                    <Input
+                      id="dateOfBirthOnReport"
+                      name="dateOfBirthOnReport"
+                      type="date"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="patientNumberOnReport">
+                      Patient number on the report
+                    </Label>
+                    <Input
+                      id="patientNumberOnReport"
+                      name="patientNumberOnReport"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="labProviderId">Laboratory</Label>
+                    <select
+                      id="labProviderId"
+                      name={lab === OTHER_LAB ? undefined : "labProviderId"}
+                      value={lab}
+                      onChange={(e) => setLab(e.target.value)}
+                      required
+                      className="h-9 w-full rounded-md border border-charcoal-ink/20 bg-transparent px-2 text-sm"
+                    >
+                      <option value="" disabled>
+                        Choose
+                      </option>
+                      {sortedLabs.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                          {l.assigned ? " (yours)" : ""}
+                        </option>
+                      ))}
+                      <option value={OTHER_LAB}>
+                        Another laboratory or centre
+                      </option>
+                    </select>
+                  </div>
+                  {lab === OTHER_LAB ? (
+                    <div className="space-y-1">
+                      <Label htmlFor="labName">Laboratory or centre name</Label>
+                      <Input
+                        id="labName"
+                        name="labName"
+                        required
+                        maxLength={200}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    <Label htmlFor="investigationDate">Test date</Label>
+                    <Input
+                      id="investigationDate"
+                      name="investigationDate"
+                      type="date"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="note">
+                    Note for the care team (optional, not shown to the patient)
+                  </Label>
+                  <Input id="note" name="note" maxLength={1000} />
+                </div>
+                <FilePicker
+                  id="file"
+                  name="file"
+                  accept={LAB_RESULT_FILE_ACCEPT}
+                  required
+                  label="Choose the report"
+                  hint="PDF, JPEG or PNG, up to 10 MB"
+                />
+                {state?.error ? (
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {state.error}
+                  </p>
+                ) : null}
+                {state?.success ? (
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Uploaded. A doctor will review it; the patient sees it once
+                    they have.
+                  </p>
+                ) : null}
+                <Button type="submit" disabled={pending}>
+                  {pending ? "Uploading" : "Upload report"}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
       ) : null}
@@ -297,21 +479,32 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
         </CardHeader>
         <CardContent>
           {uploads.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Nothing uploaded yet.</p>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              Nothing uploaded yet.
+            </p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">
               {uploads.map((u) => (
-                <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <li
+                  key={u.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+                >
                   <span>
                     <span className="font-medium">{u.patientName}</span>
                     {" · "}
                     {u.lab}
-                    {u.investigationDate ? ` · tested ${formatLagosDate(u.investigationDate)}` : ""}
+                    {u.investigationDate
+                      ? ` · tested ${formatLagosDate(u.investigationDate)}`
+                      : ""}
                     {" · uploaded "}
                     {formatLagosDate(u.uploadedAt)}
                   </span>
-                  <Badge variant={STATUS_TONE[u.status]}>{STAFF_STATUS_LABEL[u.status]}</Badge>
-                  {u.status !== "reviewed" && u.status !== "superseded" ? <CorrectUpload upload={u} labs={sortedLabs} /> : null}
+                  <Badge variant={STATUS_TONE[u.status]}>
+                    {STAFF_STATUS_LABEL[u.status]}
+                  </Badge>
+                  {u.status !== "reviewed" && u.status !== "superseded" ? (
+                    <CorrectUpload upload={u} labs={sortedLabs} />
+                  ) : null}
                 </li>
               ))}
             </ul>

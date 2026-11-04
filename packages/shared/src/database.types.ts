@@ -12240,6 +12240,7 @@ export type Database = {
           admin_note: string | null
           content_sha256: string | null
           created_at: string
+          entered_by_hand: boolean
           extraction_attempts: number
           failed_attempts: number
           file_count: number
@@ -12271,6 +12272,7 @@ export type Database = {
           admin_note?: string | null
           content_sha256?: string | null
           created_at?: string
+          entered_by_hand?: boolean
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
@@ -12302,6 +12304,7 @@ export type Database = {
           admin_note?: string | null
           content_sha256?: string | null
           created_at?: string
+          entered_by_hand?: boolean
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
@@ -25423,17 +25426,21 @@ export type Database = {
           created_at: string
           critical_suspected: boolean
           document_id: string
+          entered_by: string | null
+          entry_method: string
           error_message: string | null
           id: string
           lab_name: string | null
           lab_name_key: string | null
           layout_fingerprint: string | null
+          manual_details: Json | null
           model_id: string | null
           organisation_id: string
           patient_id: string
           patient_name_on_report: string | null
           report_date: string | null
           rows: Json
+          source_description: string | null
           status: string
           template_id: string | null
           unreadable_reason: string | null
@@ -25445,17 +25452,21 @@ export type Database = {
           created_at?: string
           critical_suspected?: boolean
           document_id: string
+          entered_by?: string | null
+          entry_method?: string
           error_message?: string | null
           id?: string
           lab_name?: string | null
           lab_name_key?: string | null
           layout_fingerprint?: string | null
+          manual_details?: Json | null
           model_id?: string | null
           organisation_id: string
           patient_id: string
           patient_name_on_report?: string | null
           report_date?: string | null
           rows?: Json
+          source_description?: string | null
           status: string
           template_id?: string | null
           unreadable_reason?: string | null
@@ -25467,17 +25478,21 @@ export type Database = {
           created_at?: string
           critical_suspected?: boolean
           document_id?: string
+          entered_by?: string | null
+          entry_method?: string
           error_message?: string | null
           id?: string
           lab_name?: string | null
           lab_name_key?: string | null
           layout_fingerprint?: string | null
+          manual_details?: Json | null
           model_id?: string | null
           organisation_id?: string
           patient_id?: string
           patient_name_on_report?: string | null
           report_date?: string | null
           rows?: Json
+          source_description?: string | null
           status?: string
           template_id?: string | null
           unreadable_reason?: string | null
@@ -25495,6 +25510,13 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: true
             referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_report_extractions_entered_by_fkey"
+            columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -52281,6 +52303,7 @@ export type Database = {
       find_patient_for_upload: { Args: { p_query: string; p_date_of_birth?: string }; Returns: { patient_id: string; patient_number_hint: string | null; full_name: string | null; birth_year: number | null; sex: string | null; state: string | null; phone_last4: string | null }[] }
       coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
       correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
+      coordinator_submit_manual_results: { Args: { p_patient: string; p_identity: Json; p_file: Json; p_original_attached: boolean; p_rows: Json; p_manual_details: Json; p_report_date: string; p_source_description: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
       sign_nutrition_target_config: { Args: { p_id: string }; Returns: string }
@@ -60023,6 +60046,7 @@ export type Database = {
         | "clinician"
         | "admin"
         | "lab_partner"
+        | "care_coordinator"
       lead_goal:
         | "managing_a_condition"
         | "staying_ahead"
@@ -62452,6 +62476,7 @@ export const Constants = {
         "clinician",
         "admin",
         "lab_partner",
+        "care_coordinator",
       ],
       lead_goal: [
         "managing_a_condition",

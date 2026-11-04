@@ -55,6 +55,11 @@ const REFUSALS: Record<string, string> = {
   investigation_date_in_future: "The test date cannot be in the future.",
   clinical_document_already_reviewed: "A clinician has already dealt with this report, so its details can no longer be changed here.",
   "A reason is required": "Give a short reason for the change.",
+  investigation_date_required: "Enter the test date. It cannot be in the future.",
+  manual_source_required: "Say where the values came from.",
+  manual_rows_required: "Add at least one result.",
+  manual_rows_invalid: "One of the results could not be read. Check each row and try again.",
+  lab_file_path_invalid: "The file could not be saved. Try again.",
 };
 
 export function describeDocumentRefusal(error: { message?: string } | null | undefined, fallback: string): string {

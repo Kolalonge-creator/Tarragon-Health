@@ -4,6 +4,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { LAB_RESULT_BUCKET, LAB_RESULT_EXT, validateLabResultFile } from "@/lib/lab-results/structured";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
+import { validateResultDocFile } from "@/lib/validation/lab-result-documents";
 
 /**
  * Storage for S27 lab result files, shared by the care-team, partner, patient and care-coordinator upload actions. Deliberately NOT a
@@ -37,3 +39,38 @@ export async function storeFile(patientId: string, file: File): Promise<StoredFi
 export async function removeFile(path: string): Promise<void> {
   await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).remove([path]);
 }
+
+/**
+ * Storage for a lab_result_documents file (the patient-document bucket) written on a patient's behalf by the care team: an original
+ * report, or the record of results typed in by hand (CDE-02). Same checks as a patient's own upload: declared type, size and the
+ * file's own first bytes.
+ */
+export async function storeResultDocument(patientId: string, file: File): Promise<StoredFile | { error: string }> {
+  const bad = validateResultDocFile(file);
+  if (bad) return { error: bad };
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) return { error: signatureError };
+  const ext = RESULT_DOC_EXT[file.type] ?? "bin";
+  const path = `${patientId}/${randomUUID()}.${ext}`;
+  const { error } = await createServiceRoleClient().storage.from(RESULT_DOC_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+  if (error) return { error: "The file could not be stored. Please try again." };
+  return {
+    file_path: path,
+    original_filename: file.name.slice(0, 200),
+    mime_type: file.type,
+    file_size_bytes: file.size,
+    content_sha256: await fileSha256(file),
+  };
+}
+
+export async function removeResultDocument(path: string): Promise<void> {
+  await createServiceRoleClient().storage.from(RESULT_DOC_BUCKET).remove([path]);
+}
+
+const RESULT_DOC_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "application/pdf": "pdf",
+};

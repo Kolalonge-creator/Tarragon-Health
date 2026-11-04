@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { removeFile, storeFile } from "@/lib/lab-results/store-file";
+import { removeFile, removeResultDocument, storeFile, storeResultDocument } from "@/lib/lab-results/store-file";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { buildManualDraft, manualRowsSchema, transcriptRows } from "@/lib/clinical-documents/manual-entry";
+import { renderManualEntryPdf } from "@/lib/clinical-documents/manual-entry-pdf";
+import { raiseIfCriticalDraft } from "@/lib/lab-reports/escalation-bridge";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 import { describeDocumentRefusal } from "@/lib/clinical-documents/status";
 
@@ -81,6 +85,27 @@ const uploadSchema = z
 
 export type UploadState = { error?: string; success?: boolean } | undefined;
 
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/** A coordinator, and the patient in the same organisation. Both database functions check this again. */
+async function checkUploader(
+  supabase: ServerClient,
+  userId: string,
+  patientId: string,
+): Promise<{ meName: string; patientName: string } | { error: string }> {
+  const { data: me } = await supabase.from("profiles").select("role, organisation_id, full_name").eq("id", userId).single();
+  if (!me || !UPLOADER_ROLES.has(me.role) || !me.organisation_id) return { error: "You do not have access to that." };
+  const { data: patient } = await supabase
+    .from("profiles")
+    .select("id, organisation_id, role, full_name")
+    .eq("id", patientId)
+    .maybeSingle();
+  if (!patient || patient.role !== "patient" || patient.organisation_id !== me.organisation_id) {
+    return { error: "That patient isn't in your organisation." };
+  }
+  return { meName: me.full_name ?? "A care coordinator", patientName: patient.full_name ?? "Patient" };
+}
+
 const optional = (v: FormDataEntryValue | null) => (typeof v === "string" && v.trim() !== "" ? v : undefined);
 
 export async function uploadLabReportForPatient(_prev: UploadState, formData: FormData): Promise<UploadState> {
@@ -104,18 +129,10 @@ export async function uploadLabReportForPatient(_prev: UploadState, formData: Fo
   if (!(file instanceof File) || file.size === 0) return { error: "Attach the report (PDF or photo)." };
 
   // The file is stored with the service role before the database function runs, so check first that this account may upload for
-  // this patient at all: a coordinator, and the patient in the same organisation. The database repeats both checks.
+  // this patient at all. The database repeats the check.
   const supabase = await createClient();
-  const { data: me } = await supabase.from("profiles").select("role, organisation_id").eq("id", user.id).single();
-  if (!me || !UPLOADER_ROLES.has(me.role) || !me.organisation_id) return { error: "You do not have access to that." };
-  const { data: patient } = await supabase
-    .from("profiles")
-    .select("id, organisation_id, role")
-    .eq("id", v.patientId)
-    .maybeSingle();
-  if (!patient || patient.role !== "patient" || patient.organisation_id !== me.organisation_id) {
-    return { error: "That patient isn't in your organisation." };
-  }
+  const allowed = await checkUploader(supabase, user.id, v.patientId);
+  if ("error" in allowed) return allowed;
 
   const stored = await storeFile(v.patientId, file);
   if ("error" in stored) return { error: stored.error };
@@ -169,6 +186,125 @@ export async function correctUploadDetails(input: z.input<typeof correctSchema>)
     ...(v.note !== undefined ? { p_admin_note: v.note } : {}),
   });
   if (error) return { error: describeDocumentRefusal(error, "The change could not be saved. Try again.") };
+  revalidatePath("/dashboard/care-coordinator/lab-reports");
+  return { success: true };
+}
+
+const manualSchema = z
+  .object({
+    patientId: z.string().uuid(),
+    nameOnReport: z.string().trim().min(3, "Enter the patient's name as it appears in the source.").max(200),
+    dateOfBirthOnReport: isoDate.optional(),
+    patientNumberOnReport: z.string().trim().max(40).optional(),
+    labProviderId: z.string().uuid().optional(),
+    labName: z.string().trim().max(200).optional(),
+    reportDate: isoDate,
+    sourceDescription: z.string().trim().min(3, "Say where the values came from, for example \"Email from Synlab Ikeja\".").max(300),
+    note: z.string().trim().max(1000).optional(),
+    rows: z.string().max(60_000),
+  })
+  .refine((v) => v.dateOfBirthOnReport || v.patientNumberOnReport, {
+    message: "Enter the date of birth or the patient number given in the source, as well as the name.",
+  })
+  .refine((v) => v.labProviderId || v.labName, { message: "Say which laboratory the results came from." });
+
+/**
+ * CDE-02: the coordinator types in results a laboratory sent as values (an email, a printed sheet). They become a DRAFT a doctor
+ * checks and files, built by the same validation as an AI reading. The source document is the original report when attached, or
+ * otherwise a PDF of exactly what was typed. A critical typed value raises the doctor's review alert to urgent at once.
+ */
+export async function enterResultsByHand(_prev: UploadState, formData: FormData): Promise<UploadState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "You are signed out. Sign in again to continue." };
+
+  const parsed = manualSchema.safeParse({
+    patientId: formData.get("patientId"),
+    nameOnReport: formData.get("nameOnReport"),
+    dateOfBirthOnReport: optional(formData.get("dateOfBirthOnReport")),
+    patientNumberOnReport: optional(formData.get("patientNumberOnReport")),
+    labProviderId: optional(formData.get("labProviderId")),
+    labName: optional(formData.get("labName")),
+    reportDate: formData.get("reportDate"),
+    sourceDescription: formData.get("sourceDescription"),
+    note: optional(formData.get("note")),
+    rows: formData.get("rows"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  const v = parsed.data;
+
+  let rawRows: unknown;
+  try {
+    rawRows = JSON.parse(v.rows);
+  } catch {
+    return { error: "The results could not be read. Try again." };
+  }
+  const rowsParsed = manualRowsSchema.safeParse(rawRows);
+  if (!rowsParsed.success) return { error: rowsParsed.error.issues[0]?.message ?? "Check each result and try again." };
+  const draft = buildManualDraft(rowsParsed.data);
+  if ("error" in draft) return { error: draft.error };
+
+  const supabase = await createClient();
+  const allowed = await checkUploader(supabase, user.id, v.patientId);
+  if ("error" in allowed) return allowed;
+
+  const { data: lab } = v.labProviderId
+    ? await supabase.from("lab_providers").select("name").eq("id", v.labProviderId).maybeSingle()
+    : { data: null };
+  const laboratory = lab?.name ?? v.labName ?? "Not recorded";
+
+  const original = formData.get("file");
+  const originalAttached = original instanceof File && original.size > 0;
+  const source: File = originalAttached
+    ? original
+    : new File(
+        [
+          new Uint8Array(
+            await renderManualEntryPdf({
+              patientName: allowed.patientName,
+              enteredByName: allowed.meName,
+              enteredAt: new Date(),
+              sourceDescription: v.sourceDescription,
+              laboratory,
+              reportDate: v.reportDate,
+              rows: transcriptRows(rowsParsed.data),
+            }),
+          ),
+        ],
+        "results-typed-in-by-hand.pdf",
+        { type: "application/pdf" },
+      );
+
+  const stored = await storeResultDocument(v.patientId, source);
+  if ("error" in stored) return { error: stored.error };
+
+  const { data, error } = await supabase.rpc("coordinator_submit_manual_results", {
+    p_patient: v.patientId,
+    p_identity: {
+      name_on_report: v.nameOnReport,
+      date_of_birth_on_report: v.dateOfBirthOnReport ?? null,
+      patient_number_on_report: v.patientNumberOnReport ?? null,
+    } as unknown as Json,
+    p_file: stored as unknown as Json,
+    p_original_attached: originalAttached,
+    p_rows: draft.rows as unknown as Json,
+    p_manual_details: draft.details as unknown as Json,
+    p_report_date: v.reportDate,
+    p_source_description: v.sourceDescription,
+    ...(v.labProviderId ? { p_source_facility_id: v.labProviderId } : {}),
+    ...(v.labName && !v.labProviderId ? { p_source_facility_name: v.labName } : {}),
+    ...(v.note ? { p_admin_note: v.note } : {}),
+  });
+  if (error) {
+    if (isDatabaseRefusal(error)) await removeResultDocument(stored.file_path);
+    if (isDuplicateDocumentError(error)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
+    return { error: describeDocumentRefusal(error, "The results could not be saved. Try again.") };
+  }
+
+  const documentId = (data as { document_id?: string } | null)?.document_id;
+  if (documentId) {
+    // CDE-02: a critical typed value raises the review alert to urgent now, the same bridge an AI reading uses.
+    await raiseIfCriticalDraft(createServiceRoleClient(), { documentId, patientId: v.patientId, rows: draft.rows });
+  }
   revalidatePath("/dashboard/care-coordinator/lab-reports");
   return { success: true };
 }

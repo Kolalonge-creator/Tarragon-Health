@@ -27,8 +27,13 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/lab-results/store-file", () => ({
   storeFile: (...a: unknown[]) => storeFile(...a),
   removeFile: (...a: unknown[]) => removeFile(...a),
+  storeResultDocument: jest.fn(),
+  removeResultDocument: jest.fn(),
 }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
+jest.mock("@/lib/clinical-documents/manual-entry-pdf", () => ({ renderManualEntryPdf: jest.fn() }));
+jest.mock("@/lib/lab-reports/escalation-bridge", () => ({ raiseIfCriticalDraft: jest.fn() }));
 
 import { findPatientForUpload, uploadLabReportForPatient } from "./actions";
 

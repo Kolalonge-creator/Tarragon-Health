@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { isClinicalDocumentStatus } from "@/lib/clinical-documents/status";
+import { ANALYTE_CATALOGUE, QUALITATIVE_CATALOGUE } from "@/lib/lab-reports/analyte-catalogue";
 import { LabReportUpload, type LabOption, type MyUpload } from "./lab-report-upload";
+import type { TestOption } from "./manual-entry-form";
 
 /**
  * Clinical document engine step 2 (CDE-03): the Care Coordinator's lab report desk. Labs that email results to Tarragon rather
@@ -45,5 +47,16 @@ export default async function CareCoordinatorLabReportsPage() {
       patientName: u.profiles?.full_name ?? "Patient",
     }));
 
-  return <LabReportUpload labs={labOptions} uploads={myUploads} />;
+  // The tests a coordinator can type in: the same catalogue the AI reader maps to, with the units it can convert.
+  const tests: TestOption[] = [
+    ...ANALYTE_CATALOGUE.map((a) => ({
+      code: a.code,
+      label: a.label,
+      units: [a.canonicalUnit, ...Object.keys(a.unitConversions ?? {})].filter((u, i, all) => all.indexOf(u) === i),
+      values: null,
+    })),
+    ...QUALITATIVE_CATALOGUE.map((q) => ({ code: q.code, label: q.label, units: [], values: [...q.values] })),
+  ].sort((a, b) => a.label.localeCompare(b.label));
+
+  return <LabReportUpload labs={labOptions} uploads={myUploads} tests={tests} />;
 }

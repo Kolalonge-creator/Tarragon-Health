@@ -185,59 +185,31 @@ revoke all on function public.find_patient_for_upload(text, date) from anon;
 grant execute on function public.find_patient_for_upload(text, date) to authenticated;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
--- 4. The coordinator's upload
+-- 3b. The identity check, shared by every care-team upload for a patient (a file, or results typed in by hand)
 -- ---------------------------------------------------------------------------------------------------------------------------
-create or replace function public.coordinator_submit_lab_report(
-  p_patient uuid,
-  p_file jsonb,
-  p_identity jsonb,
-  p_source_facility_id uuid default null,
-  p_source_facility_name text default null,
-  p_investigation_date date default null,
-  p_admin_note text default null)
-returns jsonb
+-- The name printed on the report must share two words with the record (every word when the record holds only one), and the date
+-- of birth or the patient number must also be given and match. A date of birth or number that is given and does not match refuses
+-- outright. Returns what matched, in order, for the intake record.
+create or replace function private.cde_check_identity(pr public.profiles, p_identity jsonb)
+returns text[]
 language plpgsql
+stable
 security definer
 set search_path to ''
 as $function$
 declare
-  v_uid uuid := (select auth.uid());
-  v_org uuid := private.cde_uploader_org();
-  pr public.profiles;
-  v_sha text := p_file ->> 'content_sha256';
   v_name_on_report text := btrim(coalesce(p_identity ->> 'name_on_report', ''));
   v_dob_on_report date;
   v_number_on_report text := nullif(btrim(coalesce(p_identity ->> 'patient_number_on_report', '')), '');
   v_shared integer;
   v_record_words integer;
   v_matched text[] := '{}';
-  v_out jsonb;
-  v_cd uuid;
 begin
-  if v_org is null then
-    raise exception 'This action is for care coordinators' using errcode = '42501';
-  end if;
-  select * into pr from public.profiles where id = p_patient;
-  if not found or pr.role <> 'patient' or not pr.is_active or pr.organisation_id is distinct from v_org then
-    raise exception 'Not permitted' using errcode = '42501';
-  end if;
-  if v_sha is null or v_sha !~ '^[0-9a-f]{64}$' then
-    raise exception 'lab_file_hash_invalid' using errcode = '22023';
-  end if;
-  if p_investigation_date is not null and p_investigation_date > (now() at time zone 'Africa/Lagos')::date then
-    raise exception 'investigation_date_in_future' using errcode = '22023';
-  end if;
-  if p_source_facility_id is null and nullif(btrim(coalesce(p_source_facility_name, '')), '') is null then
-    raise exception 'source_facility_required' using errcode = '22023';
-  end if;
-
-  -- Identity: the details printed on the report, checked against the record here, never trusted from the screen.
   begin
     v_dob_on_report := nullif(btrim(coalesce(p_identity ->> 'date_of_birth_on_report', '')), '')::date;
   exception when others then
     raise exception 'identity_date_invalid' using errcode = '22023';
   end;
-  -- Two name words in common, or every word when the record holds only one (a single-name record must still be uploadable).
   v_record_words := cardinality(private.cde_name_words(pr.full_name));
   select count(*) into v_shared
     from unnest(private.cde_name_words(v_name_on_report)) w
@@ -261,6 +233,56 @@ begin
   if cardinality(v_matched) < 2 then
     raise exception 'identity_second_identifier_required' using errcode = '22023';
   end if;
+  return v_matched;
+end;
+$function$;
+revoke all on function private.cde_check_identity(public.profiles, jsonb) from public;
+revoke all on function private.cde_check_identity(public.profiles, jsonb) from authenticated;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- 4. The coordinator's upload
+-- ---------------------------------------------------------------------------------------------------------------------------
+create or replace function public.coordinator_submit_lab_report(
+  p_patient uuid,
+  p_file jsonb,
+  p_identity jsonb,
+  p_source_facility_id uuid default null,
+  p_source_facility_name text default null,
+  p_investigation_date date default null,
+  p_admin_note text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  v_org uuid := private.cde_uploader_org();
+  pr public.profiles;
+  v_sha text := p_file ->> 'content_sha256';
+  v_matched text[];
+  v_out jsonb;
+  v_cd uuid;
+begin
+  if v_org is null then
+    raise exception 'This action is for care coordinators' using errcode = '42501';
+  end if;
+  select * into pr from public.profiles where id = p_patient;
+  if not found or pr.role <> 'patient' or not pr.is_active or pr.organisation_id is distinct from v_org then
+    raise exception 'Not permitted' using errcode = '42501';
+  end if;
+  if v_sha is null or v_sha !~ '^[0-9a-f]{64}$' then
+    raise exception 'lab_file_hash_invalid' using errcode = '22023';
+  end if;
+  if p_investigation_date is not null and p_investigation_date > (now() at time zone 'Africa/Lagos')::date then
+    raise exception 'investigation_date_in_future' using errcode = '22023';
+  end if;
+  if p_source_facility_id is null and nullif(btrim(coalesce(p_source_facility_name, '')), '') is null then
+    raise exception 'source_facility_required' using errcode = '22023';
+  end if;
+
+  -- Identity: the details printed on the report, checked against the record here, never trusted from the screen.
+  v_matched := private.cde_check_identity(pr, p_identity);
 
   perform set_config('tarragon.upload_sha256', v_sha, true);
   v_out := private.submit_lab_result(p_patient, null, null, null, p_file, 'tarragon_team', v_uid, null);
