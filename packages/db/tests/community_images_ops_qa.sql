@@ -241,6 +241,8 @@ begin
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_p2, format('select public.community_feed(%L)', v_g)) -> 'posts') x where x ->> 'id' = v_post::text))::text);
 
   -- 2. Rota, coverage, drills ------------------------------------------------------------------------------------------------------------
+  -- automatic moderators now start on a full-week rota (community_seed_default_shifts); this proof starts from an empty one
+  delete from public.community_shifts;
   perform pg_temp.rec('with no rota every hour is uncovered', '168', (private.community_uncovered_hours('moderator'))::text);
   perform pg_temp.rec('...and the go-live condition is not met', 'false',
     (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'moderated_hours_declared'));

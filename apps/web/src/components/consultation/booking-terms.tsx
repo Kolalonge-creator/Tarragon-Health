@@ -8,6 +8,8 @@ import { useMyBookingTerms, type BookingTerms } from "@/lib/queries/appointments
  * S64 (15.7): the price, the cancel rule and what comes back, shown BEFORE the patient pays, on every booking path. Every number comes
  * from the live policy and the live product (my_booking_terms), never from this file. What comes back on a cancelled visit is the visit
  * credit, not cash: whether money is returned is still undecided (OQ-133), so this screen never promises it.
+ * A doctor visit also says what it can end in (CON-02). While prescribing_enabled is off a doctor cannot send a prescription to a pharmacy, so a
+ * prescription is always the downloadable form the patient takes to a pharmacy themselves; the line says that and never promises a sent one.
  */
 export function BookingTermsView({ terms, locale = "en", included = false }: { terms: BookingTerms; locale?: Locale; included?: boolean }) {
   const price = terms.price_kobo === null ? null : `₦${koboToNaira(terms.price_kobo).toLocaleString("en-NG")}`;
@@ -19,6 +21,7 @@ export function BookingTermsView({ terms, locale = "en", included = false }: { t
       {!terms.late_cancel_credit_returned && <p>{t("terms.late", locale)}</p>}
       <p>{t("terms.care_team_cancels", locale)}</p>
       <p>{t("terms.adult", locale, { age: terms.min_age_years })}</p>
+      {included && <p>{t("terms.outcome", locale)}</p>}
     </div>
   );
 }
