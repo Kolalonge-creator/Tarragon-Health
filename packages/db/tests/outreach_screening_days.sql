@@ -217,7 +217,7 @@ begin
   v_r := pg_temp.q_as(v_p1, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_s4, v_other));
   perform pg_temp.rec('G2 SABOTAGE on-site check forced true: a patient can enrol someone (so E4 was that check)', 'true', (v_r not like 'ERR 42501:%')::text);
   execute replace(pg_get_functiondef('private.enforce_lab_order_origin()'::regprocedure),
-                  $x$or (coalesce(current_setting('tarragon.outreach_enrol', true), '') = 'on' and new.fulfilment = 'self_arranged')$x$, '');
+                  $x$and coalesce(current_setting('tarragon.outreach_enrol', true), '') = 'on' then$x$, $x$and false then$x$);
   v_r := pg_temp.q_as(v_admin, format($q$select public.add_screening_day_slot(%L, 'Late', null)::text$q$, v_free));
   -- a fresh attendee with no lab order of any kind, so the enrolment really has to create one
   v_r := pg_temp.q_as(v_admin, format($q$select public.enrol_outreach_attendee(%L, %L)::text$q$, v_r::uuid,

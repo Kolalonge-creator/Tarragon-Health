@@ -502,10 +502,14 @@ begin
       end if;
     end if;
 
-    -- The yearly panel: a testing-day check-in, the annual bundle start, or an outreach enrolment (OD-03, self-arranged only).
-    if new.panel_code = 'membership_annual' and (coalesce(current_setting('tarragon.testing_day_checkin', true), '') = 'on'
-         or coalesce(current_setting('tarragon.annual_bundle_start', true), '') = 'on'
-         or (coalesce(current_setting('tarragon.outreach_enrol', true), '') = 'on' and new.fulfilment = 'self_arranged')) then
+    if new.panel_code = 'membership_annual' and (coalesce(current_setting('tarragon.testing_day_checkin', true), '') = 'on' or coalesce(current_setting('tarragon.annual_bundle_start', true), '') = 'on') then
+      return new;
+    end if;
+
+    -- OD-03: an outreach enrolment's yearly-panel lab form (self-arranged only). Kept as its own check so the line above stays
+    -- byte-identical to its live text (plus_collection_states_and_annual_bundle.sql matches it exactly).
+    if new.panel_code = 'membership_annual' and new.fulfilment = 'self_arranged'
+       and coalesce(current_setting('tarragon.outreach_enrol', true), '') = 'on' then
       return new;
     end if;
 
