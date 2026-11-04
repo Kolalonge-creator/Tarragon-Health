@@ -1867,3 +1867,4 @@ d5_pregnancy_sti_sensitive_access.sql
 care_circle_p4_timeline_contacts.sql
 # Care Circle Phase 5 (2026-11-04): my_gifts_paid shows the payer their own paid gifts (first name, state word, Membership dates only once accepted, billing keys only) and nothing to the recipient or a stranger; admin_care_circle_metrics is admin only, counts only, excludes test accounts, and its counts match the fixtures. Sabotage x3: buyer filter removed, admin check removed, test filter removed.
 care_circle_p5_payer_view_and_metrics.sql
+care_circle_appointment_filter_fails_closed.sql
