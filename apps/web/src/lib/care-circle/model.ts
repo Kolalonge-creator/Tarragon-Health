@@ -6,9 +6,20 @@ import type { MessageKey } from "@tarragon/i18n";
  * treated as "nothing to show" rather than rendered half-wrong. The supporter view is the only thing a supporter can read about a
  * patient; the database sends a block only when the matching permission is held, so a missing block means "not shared", never "zero".
  */
-export const CIRCLE_PERMISSIONS = ["adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note"] as const;
+export const CIRCLE_PERMISSIONS = [
+  "adherence_summary", "weekly_bp_trend", "appointments", "red_alerts", "pay_for_care", "attend_consultation", "doctor_note",
+  // Care Circle P2 (2026-11-04)
+  "investigation_status", "investigation_values", "weekly_weight_trend", "care_plan_progress",
+] as const;
 export type CirclePermission = (typeof CIRCLE_PERMISSIONS)[number];
 export const permissionSchema = z.enum(CIRCLE_PERMISSIONS);
+/**
+ * A permission list from the database. A name this app does not know (a newer database, an older app) is dropped rather than failing the
+ * whole row: one unknown tick must never make a member or a supported person vanish from the screen.
+ */
+export const permissionListSchema = z
+  .array(z.string())
+  .transform((ps) => ps.filter((p): p is CirclePermission => (CIRCLE_PERMISSIONS as readonly string[]).includes(p)));
 
 const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   adherence_summary: "circle.perm.adherence_summary",
@@ -20,6 +31,11 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
   attend_consultation: "consult.cg.perm",
   // 2026-11-03: the doctor's line for the family; outside the `circle` namespace for the same reason (pending CMO review)
   doctor_note: "familynote.perm",
+  // Care Circle P2: pending CMO/DPO review (family-circle-copy.ts)
+  investigation_status: "circlep2.perm.investigation_status",
+  investigation_values: "circlep2.perm.investigation_values",
+  weekly_weight_trend: "circlep2.perm.weekly_weight_trend",
+  care_plan_progress: "circlep2.perm.care_plan_progress",
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
@@ -30,7 +46,7 @@ export const memberSchema = z.object({
   member_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   since: z.string(),
   /** S75 A5: the patient chose to share the monthly report with this supporter. Absent means off. */
@@ -45,7 +61,7 @@ export const pendingInviteSchema = z.object({
   hint: z.string(),
   kind: z.enum(["phone", "email"]),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   /** S69b: always "waiting" for the sender, whether the other person has not answered or quietly said not now. */
   state: z.string().optional(),
@@ -60,7 +76,7 @@ export type CirclePause = z.infer<typeof pauseSchema>;
 export const pendingOfferSchema = z.object({
   member_id: z.string(),
   name: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   answer_by: z.string(),
 });
 export type PendingOffer = z.infer<typeof pendingOfferSchema>;
@@ -90,7 +106,7 @@ export const supportedPersonSchema = z.object({
   member_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   expires_at: z.string(),
   alert_mode: z.enum(ALERT_MODES).catch("push_and_app"),
 });
@@ -113,11 +129,33 @@ export const doctorNoteSchema = z.object({
 });
 export type DoctorNote = z.infer<typeof doctorNoteSchema>;
 
+/** Care Circle P2: where one test has got to. Never a value. */
+export const INVESTIGATION_STAGES = ["due", "overdue", "requested", "awaiting_result", "result_received", "awaiting_review", "reviewed", "done"] as const;
+export const investigationRowSchema = z.object({
+  code: z.string(),
+  stage: z.enum(INVESTIGATION_STAGES),
+  due_date: z.string().nullable(),
+  follow_up: z.boolean(),
+});
+export type InvestigationRow = z.infer<typeof investigationRowSchema>;
+/** Care Circle P2 (D2): one reviewed, released value. `in_range` is null when the lab gave no range. */
+export const resultRowSchema = z.object({
+  code: z.string(),
+  at: z.string(),
+  value: z.number().nullable(),
+  value_text: z.string().nullable(),
+  unit: z.string(),
+  ref_low: z.number().nullable(),
+  ref_high: z.number().nullable(),
+  in_range: z.boolean().nullable(),
+});
+export type ResultRow = z.infer<typeof resultRowSchema>;
+
 export const supporterViewSchema = z.object({
   patient_id: z.string(),
   name: z.string(),
   relationship: z.string(),
-  permissions: z.array(permissionSchema),
+  permissions: permissionListSchema,
   shared_until: z.string(),
   adherence: z.object({ days: z.number(), taken: z.number(), due: z.number(), percent: z.number().nullable() }).optional(),
   bp_trend: z
@@ -132,6 +170,16 @@ export const supporterViewSchema = z.object({
   can_pay: z.boolean().optional(),
   /** The doctor's line for the family: absent = not shared; null = shared but none written yet. The author is null-gated by the database. */
   doctor_note: doctorNoteSchema.nullable().optional(),
+  // Care Circle P2: each absent = not shared. Everyday tests only; the database never sends a sensitive test or value.
+  investigations: z.array(investigationRowSchema).optional(),
+  results: z.array(resultRowSchema).optional(),
+  weight_trend: z
+    .object({
+      weeks: z.array(z.object({ week_start: z.string(), kg: z.number().nullable(), readings: z.number() })),
+      direction: z.enum(["higher", "lower", "steady"]).nullable(),
+    })
+    .optional(),
+  plan_progress: z.object({ done: z.number(), due: z.number(), overdue: z.number(), next_due: z.string().nullable() }).optional(),
 });
 export type SupporterView = z.infer<typeof supporterViewSchema>;
 
@@ -184,6 +232,7 @@ export const previewSchema = z.union([
     ok: z.literal(true),
     inviter_first_name: z.string(),
     relationship: z.string(),
+    // strict on purpose: the person is agreeing to exactly these, so an unknown one fails the preview rather than showing a shorter list
     permissions: z.array(permissionSchema),
     grant_days: z.number(),
     expires_at: z.string(),

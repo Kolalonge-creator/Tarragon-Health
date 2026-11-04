@@ -467,3 +467,29 @@ Fixed before the PR:
 - The "note waiting" notice failure now raises an incident, not only a warning.
 
 Not fixed here: payer accept/decline on mobile (web only for now); the inline copy of the gate in the help-alert fallback (reuse).
+
+## 14. Phase 2 build status (2026-11-04)
+
+Built on `feat/care-circle-phase2-dashboard` (stacked on Phase 1). One migration (`20261104181057_care_circle_p2_investigations_weight_plan.sql`),
+one proof (`care_circle_p2_investigations.sql`, 24 checks, 3 sabotage), web blocks and a person switcher.
+
+| # | Item | Status |
+|---|---|---|
+| 2.1 | Person selector | Done (web): a switcher at the top of each person's page when someone supports two or more people; each person is a separate page and a separate gated read |
+| 2.2 | Overview card | Existing page header kept (name, relationship, shared until). Not extended |
+| 2.3 | Investigation status | Done: `investigation_status`, one row per everyday test in the plan, stages due/overdue/requested/awaiting_result/result_received/awaiting_review/reviewed/done, follow-up flag, no values |
+| 2.3b | Test values (D2) | Done: `investigation_values`, released AND reviewed results only, latest per analyte, 12 months, lab range and an in/out answer, "ask them or their care team" line |
+| 2.4 | Weight trend | Done: `weekly_weight_trend`, weekly averages and a direction; follows the S42 vitals consent |
+| 2.5 | Care plan progress | Done: `care_plan_progress`, counts of everyday yearly tests done / due / overdue and the next due date (screening schedules only; free-text care tasks and goals are deliberately not shown) |
+| 2.6 | Data states | Each block says "nothing recorded" in its own words; a computer-read report never shows as reviewed |
+| 2.7 | Patient-side ticks | The four permissions appear in the invite form, member row and preview automatically (they read the permission list) |
+| 2.8 | Mobile | Partial: mobile knows the new permissions (ticks and labels) and no longer hides a person over an unknown permission; the four new blocks are shown on web only |
+| 2.9 | Empty states | A page whose only shared item is a new block is not the empty state |
+
+**Privacy design of 2.3/2.3b.** What family may see about a test is an allow-list (`private.circle_screen_shareable`), not a deny-list: 19
+everyday tests. Sensitive tests, reproductive ones not flagged sensitive (antenatal booking, PCOS), tuberculosis and any future test are
+hidden until added on purpose. Values are filtered again per analyte, and pregnancy hormone is always hidden (D5 recommendation applied
+here). No S42 consent cell exists for test results x Care Circle; the per-supporter tick is the consent. Adding a cell is a DPO decision.
+
+**Open:** D5 (pregnancy and STI sensitivity platform-wide), the allow-list itself (operational privacy setting, founder may adjust), mobile
+blocks, CMO/DPO review of the `circlep2.` strings.
