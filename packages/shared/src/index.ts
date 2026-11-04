@@ -346,3 +346,4 @@ export * from "./yearly-panel-tests";
 export * from "./testing-days-offer";
 export * from "./screening-day-date";
 export * from "./screening-day-steps";
+export * from "./test-code-labels";

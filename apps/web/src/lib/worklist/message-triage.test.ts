@@ -138,3 +138,28 @@ describe("the 14 day lookback on the reply-target badge", () => {
     }
   });
 });
+
+describe("MSG-3 reply clock", () => {
+  const now = new Date("2026-10-31T12:00:00Z").getTime();
+  const open = { status: "open", last_message_author_role: "patient" };
+  it("counts from the first unanswered message, so a follow-up does not reset the wait", () => {
+    // First asked 30 hours ago, nudged an hour ago: past the 24 hour target.
+    const t = { ...open, last_message_at: "2026-10-31T11:00:00Z", awaiting_reply_since: "2026-10-30T06:00:00Z" };
+    expect(isPastReplyTarget(t, 24, now)).toBe(true);
+    expect(waitingMs({ ...t, care_team_last_read_at: null }, now)).toBe(30 * 3_600_000);
+  });
+  it("falls back to the last message when the clock is absent", () => {
+    expect(isPastReplyTarget({ ...open, last_message_at: "2026-10-30T13:00:00Z", awaiting_reply_since: null }, 24, now)).toBe(false);
+  });
+  it("keeps a long-waiting patient who nudged recently badged, not in the quiet older count", () => {
+    // First asked 15 days ago, wrote again an hour ago.
+    const t = { ...open, last_message_at: "2026-10-31T11:00:00Z", awaiting_reply_since: "2026-10-16T12:00:00Z" };
+    expect(isPastReplyTarget(t, 24, now)).toBe(true);
+    expect(isOlderUnanswered(t, now)).toBe(false);
+  });
+  it("orders waiting threads by when the patient first asked", () => {
+    const early = thread({ last_message_at: at(-5), awaiting_reply_since: at(-600) });
+    const late = thread({ last_message_at: at(-100), awaiting_reply_since: at(-100) });
+    expect([late, early].sort(compareThreads)[0]).toBe(early);
+  });
+});

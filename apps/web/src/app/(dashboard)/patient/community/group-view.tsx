@@ -7,7 +7,8 @@ import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
-import type { FeedPost, GroupView as GroupViewData } from "@/lib/community/model";
+import { GROUP_READING, type FeedPost, type FeedSort, type GroupView as GroupViewData } from "@/lib/community/model";
+import { HEALTH_EDUCATION_CATEGORIES } from "@/lib/queries/health-education";
 import { Composer } from "./composer";
 import { JoinSection } from "./join-section";
 import { PostCard } from "./post-card";
@@ -20,6 +21,8 @@ import { leaveGroup, loadFeed, setDigest, setGroupMuted, submitPost } from "./co
 
 type FoundView = Extract<GroupViewData, { found: true }>;
 
+const LINK = "inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
+
 const TEAM_ROLE: Record<"moderator" | "safety_reviewer", MessageKey> = {
   moderator: "community.team.moderator",
   safety_reviewer: "community.team.safety_reviewer",
@@ -28,6 +31,9 @@ const TEAM_ROLE: Record<"moderator" | "safety_reviewer", MessageKey> = {
 /**
  * A group: the safety card first when there is one, then the not-medical-advice banner, the rules, reviewed notes, the member's made-up
  * name, join or leave and mute controls, the box to write in, and the feed. No realtime and no polling: writes refresh the page.
+ * The feed has two orders (`sort`, from the URL so a reload keeps it): latest (pages with "show older") and most discussed (one page).
+ * "For your own health" points to the private care-team messages, the private document upload and this group's reading in the library:
+ * the group is never the place for one person's results or questions.
  */
 export function GroupView({
   view,
@@ -35,6 +41,7 @@ export function GroupView({
   initialHasMore,
   feedFailed,
   hidden = [],
+  sort = "latest",
   locale,
 }: {
   view: FoundView;
@@ -43,6 +50,8 @@ export function GroupView({
   feedFailed: boolean;
   /** People this member has hidden in this group (handles only). */
   hidden?: readonly HiddenAuthor[];
+  /** The feed's order; the server already loaded `initialPosts` in it. */
+  sort?: FeedSort;
   locale: Locale;
 }) {
   const router = useRouter();
@@ -73,6 +82,8 @@ export function GroupView({
   const canJoin = !readOnly && notInGroup && !isFull;
   const blocked = membership.status === "suspended" || membership.status === "banned";
 
+  const reading = (GROUP_READING[group.slug] ?? []).flatMap((code) => HEALTH_EDUCATION_CATEGORIES.filter((c) => c.value === code));
+
   const known = new Set(initialPosts.map((p) => p.id));
   const posts = [...initialPosts, ...older.filter((p) => !known.has(p.id))];
 
@@ -81,7 +92,7 @@ export function GroupView({
     if (!last) return;
     setLoadingMore(true);
     setFeedMessage(null);
-    const result = await loadFeed({ groupId: group.id, before: last.created_at }).catch(() => null);
+    const result = await loadFeed({ groupId: group.id, before: last.created_at, sort }).catch(() => null);
     setLoadingMore(false);
     if (result && result.ok && "posts" in result) {
       setOlder((o) => [...o, ...result.posts]);
@@ -164,6 +175,40 @@ export function GroupView({
             ))}
           </ul>
         )}
+      </section>
+
+      <section aria-labelledby="community-care-title" className="space-y-2 rounded-xl border p-4">
+        <h3 id="community-care-title" className="font-medium">
+          {t("community.group.care_title", locale)}
+        </h3>
+        <p className="text-sm leading-relaxed">{t("community.group.care_body", locale)}</p>
+        <ul className="flex flex-wrap gap-x-4">
+          <li>
+            <Link href="/patient/messages" className={LINK}>
+              {t("community.group.care_messages", locale)}
+            </Link>
+          </li>
+          <li>
+            <Link href="/patient/documents" className={LINK}>
+              {t("community.group.care_documents", locale)}
+            </Link>
+          </li>
+        </ul>
+        <p className="pt-2 text-sm font-medium">{t("community.group.reading_title", locale)}</p>
+        <ul className="flex flex-wrap gap-x-4" data-testid="community-reading">
+          {reading.map((r) => (
+            <li key={r.value}>
+              <Link href={`/patient/learn?category=${r.value}#learn-library`} className={LINK}>
+                {r.label}
+              </Link>
+            </li>
+          ))}
+          <li>
+            <Link href="/patient/learn" className={LINK}>
+              {t("community.group.reading_all", locale)}
+            </Link>
+          </li>
+        </ul>
       </section>
 
       {pinned.length > 0 ? (
@@ -277,7 +322,26 @@ export function GroupView({
 
       {isMember ? (
         <section className="space-y-4" aria-label={group.name}>
-          {posts.length === 0 && !feedMessage ? <p className={MUTED}>{t("community.feed.empty", locale)}</p> : null}
+          <nav aria-label={t("community.sort.label", locale)} className="flex flex-wrap items-center gap-2">
+            {(["latest", "discussed"] as const).map((key) => (
+              <Link
+                key={key}
+                href={key === "latest" ? `/patient/community/${group.slug}` : `/patient/community/${group.slug}?sort=${key}`}
+                aria-current={sort === key ? "page" : undefined}
+                scroll={false}
+                className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green ${
+                  sort === key ? "border-brand-green bg-brand-green text-white" : "border-charcoal-ink/20"
+                }`}
+              >
+                {t(key === "latest" ? "community.sort.latest" : "community.sort.discussed", locale)}
+              </Link>
+            ))}
+          </nav>
+          <Link href="/patient/community/saved" className={LINK}>
+            {t("community.saved.link", locale)}
+          </Link>
+          {sort === "discussed" ? <p className={`text-sm ${MUTED}`}>{t("community.sort.discussed_note", locale)}</p> : null}
+          {posts.length === 0 && !feedMessage ? <p className={MUTED}>{t(sort === "discussed" ? "community.sort.discussed_empty" : "community.feed.empty", locale)}</p> : null}
           {posts.map((p) => (
             <PostCard
               key={p.id}

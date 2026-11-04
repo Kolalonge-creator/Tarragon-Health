@@ -887,12 +887,15 @@ export function HealthEducationLibrary({
   patientId,
   organisationId,
   conditionLanguagePreference,
+  initialCategory = null,
 }: {
   patientId: string;
   organisationId: string;
   conditionLanguagePreference?: string | null;
+  /** Opens one category straight away (from /patient/learn?category=..., e.g. a Community group's reading link). */
+  initialCategory?: HealthEducationCategory | null;
 }) {
-  const [activeCategory, setActiveCategory] = useState<HealthEducationCategory | null>(null);
+  const [activeCategory, setActiveCategory] = useState<HealthEducationCategory | null>(initialCategory);
   const { data: carePlans } = useCarePlans(patientId);
   const firstCondition = carePlans?.[0]?.condition ?? null;
 
@@ -924,6 +927,7 @@ export function HealthEducationLibrary({
         conditionLanguagePreference={conditionLanguagePreference}
       />
 
+      <div id="learn-library" className="scroll-mt-24" />
       {activeCategory ? (
         <CategoryDetail
           category={activeCategory}

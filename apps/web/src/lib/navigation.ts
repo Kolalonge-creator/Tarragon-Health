@@ -324,6 +324,8 @@ export function getNavSections(
                 },
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
+                // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it. Any staff member.
+                { label: "Care operations", href: "/dashboard/care-coordinator/operations", icon: "operations" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 // Case management, Safeguarding, Operations queue and
                 // Medication issues were listed here but are not in
@@ -457,6 +459,8 @@ export function getNavSections(
                   icon: "messages",
                   countKey: "careThreadsAwaitingReply",
                 },
+                // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
+                { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
                 { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
