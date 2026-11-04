@@ -52,6 +52,9 @@ const nativeBackend: AppCheckBackend = {
 };
 
 let getter: Promise<(() => Promise<string | null>) | null> | null = null;
+/** A failed initialisation is retried, but not more than once a minute (offline, Play services updating). */
+export const INIT_RETRY_MS = 60_000;
+let initFailedAt: number | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   return new Promise((resolve) => {
@@ -77,9 +80,14 @@ export async function appCheckHeaders(
   if (platform !== "android") return {};
   try {
     if (!getter) {
+      if (initFailedAt !== null && Date.now() - initFailedAt < INIT_RETRY_MS) return {};
       const backend = options.backend ?? nativeBackend;
       const debug = options.debug ?? (typeof __DEV__ !== "undefined" && __DEV__);
-      getter = backend.init(debug).catch(() => null);
+      getter = backend.init(debug).catch(() => {
+        initFailedAt = Date.now();
+        getter = null;
+        return null;
+      });
     }
     const timeoutMs = options.timeoutMs ?? TOKEN_TIMEOUT_MS;
     const get = await withTimeout(getter, timeoutMs);
@@ -94,4 +102,5 @@ export async function appCheckHeaders(
 /** Test seam: forget the initialised backend. */
 export function resetAppCheckForTests(): void {
   getter = null;
+  initFailedAt = null;
 }

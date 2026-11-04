@@ -42,7 +42,11 @@ export async function proxy(request: NextRequest) {
     // Firebase App Check (Play Integrity) for the Android app. MONITOR mode by default: logs, never refuses
     // (lib/app-check/verify.ts). Even under enforce, a safety route is never refused: a delay there could delay care.
     if (!isSafetyRoute(request.nextUrl.pathname) && (await appCheckShouldRefuse(request.headers, request.nextUrl.pathname))) {
-      return NextResponse.json({ error: "This app could not be verified. Update TarragonHealth from the Play Store and try again." }, { status: 401 });
+      // 403, never 401: the app reads a 401 as an expired session, refreshes, and signs the person out.
+      return NextResponse.json(
+        { error: "This app could not be verified. Update TarragonHealth from the Play Store and try again.", code: "app_check_failed" },
+        { status: 403 },
+      );
     }
   }
 

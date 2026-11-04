@@ -39,6 +39,28 @@ describe("appCheckHeaders", () => {
     await expect(appCheckHeaders({ platform: "android", backend: backend(null) })).resolves.toEqual({});
   });
 
+  it("retries a failed initialisation after the back-off instead of giving up for the session", async () => {
+    let fail = true;
+    const flaky: AppCheckBackend = {
+      async init() {
+        if (fail) throw new Error("offline");
+        return async () => "tok";
+      },
+    };
+    const realNow = Date.now;
+    let clock = 1_000_000;
+    Date.now = () => clock;
+    try {
+      await expect(appCheckHeaders({ platform: "android", backend: flaky })).resolves.toEqual({});
+      fail = false;
+      await expect(appCheckHeaders({ platform: "android", backend: flaky })).resolves.toEqual({});
+      clock += 61_000;
+      await expect(appCheckHeaders({ platform: "android", backend: flaky })).resolves.toEqual({ [APP_CHECK_HEADER]: "tok" });
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
   it("never waits longer than the timeout for a slow attestation", async () => {
     const slow: AppCheckBackend = {
       async init() {

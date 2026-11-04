@@ -45,14 +45,41 @@ describe("verifyAppCheckToken", () => {
   });
 });
 
+describe("JWKS handling", () => {
+  it("does not wait on a failing JWKS endpoint for every request", async () => {
+    let calls = 0;
+    const failing = (async () => {
+      calls += 1;
+      return { ok: false, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    await expect(verifyAppCheckToken(token(good), { fetchImpl: failing, nowMs: now })).resolves.toMatchObject({ reason: "unknown_key" });
+    await expect(verifyAppCheckToken(token(good), { fetchImpl: failing, nowMs: now + 1000 })).resolves.toMatchObject({ reason: "unknown_key" });
+    expect(calls).toBe(1);
+  });
+
+  it("refetches once when a token names a key it has not seen (rotation)", async () => {
+    let served = { keys: [] as unknown[] };
+    let calls = 0;
+    const rotating = (async () => {
+      calls += 1;
+      return { ok: true, json: async () => served };
+    }) as unknown as typeof fetch;
+    await expect(verifyAppCheckToken(token(good), { fetchImpl: rotating, nowMs: now })).resolves.toMatchObject({ reason: "unknown_key" });
+    served = jwks;
+    await expect(verifyAppCheckToken(token(good), { fetchImpl: rotating, nowMs: now + 11 * 60 * 1000 })).resolves.toMatchObject({ status: "valid" });
+    expect(calls).toBe(2);
+  });
+});
+
 describe("appCheckShouldRefuse", () => {
   const headers = (t?: string) => new Headers(t ? { [APP_CHECK_HEADER]: t } : {});
 
   it("monitor mode never refuses and stays quiet about requests without a token", async () => {
     const lines: string[] = [];
     const log = (l: string) => lines.push(l);
-    await expect(appCheckShouldRefuse(headers(), "/api/mobile/x", { mode: "monitor", fetchImpl: fetchJwks, log })).resolves.toBe(false);
-    await expect(appCheckShouldRefuse(headers("bad.token.here"), "/api/mobile/x", { mode: "monitor", fetchImpl: fetchJwks, log })).resolves.toBe(false);
+    const never = () => 0.5;
+    await expect(appCheckShouldRefuse(headers(), "/api/mobile/x", { mode: "monitor", fetchImpl: fetchJwks, log, random: never })).resolves.toBe(false);
+    await expect(appCheckShouldRefuse(headers("bad.token.here"), "/api/mobile/x", { mode: "monitor", fetchImpl: fetchJwks, log, random: never })).resolves.toBe(false);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("status=invalid");
     expect(lines[0]).not.toContain("bad.token");
@@ -62,6 +89,13 @@ describe("appCheckShouldRefuse", () => {
     const log = () => {};
     await expect(appCheckShouldRefuse(headers(), "/p", { mode: "enforce", fetchImpl: fetchJwks, log })).resolves.toBe(true);
     await expect(appCheckShouldRefuse(headers("x.y.z"), "/p", { mode: "enforce", fetchImpl: fetchJwks, log })).resolves.toBe(true);
+    await expect(appCheckShouldRefuse(headers(token({ ...good, exp: Date.now() / 1000 + 3600 })), "/p", { mode: "enforce", fetchImpl: fetchJwks, log })).resolves.toBe(false);
+  });
+
+  it("samples valid and missing verdicts so the missing share can be measured", async () => {
+    const lines: string[] = [];
+    await appCheckShouldRefuse(headers(), "/p", { mode: "monitor", log: (l) => lines.push(l), random: () => 0 });
+    expect(lines).toEqual(["[app-check] mode=monitor status=missing sample=0.01 path=/p"]);
   });
 
   it("off mode does nothing, and an unknown mode value means monitor", async () => {

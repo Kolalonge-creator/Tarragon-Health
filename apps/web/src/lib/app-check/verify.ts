@@ -39,20 +39,44 @@ interface Jwk {
   e?: string;
 }
 
+const JWKS_FAILURE_TTL_MS = 5 * 60 * 1000;
+const JWKS_REFETCH_MIN_MS = 10 * 60 * 1000;
+
 let jwksCache: { keys: Jwk[]; fetchedAt: number } | null = null;
+/** After a failed fetch, verification answers "invalid" at once for a few minutes instead of waiting on the timeout per request. */
+let jwksFailedAt: number | null = null;
 
 export function resetJwksCacheForTests(): void {
   jwksCache = null;
+  jwksFailedAt = null;
 }
 
-async function loadJwks(fetchImpl: typeof fetch, now: number): Promise<Jwk[]> {
-  if (jwksCache && now - jwksCache.fetchedAt < JWKS_TTL_MS) return jwksCache.keys;
-  const res = await fetchImpl(JWKS_URL, { signal: AbortSignal.timeout(3000) });
-  if (!res.ok) throw new Error(`jwks ${res.status}`);
-  const body = (await res.json()) as { keys?: Jwk[] };
-  const keys = Array.isArray(body.keys) ? body.keys : [];
-  jwksCache = { keys, fetchedAt: now };
-  return keys;
+async function fetchJwks(fetchImpl: typeof fetch, now: number): Promise<Jwk[] | null> {
+  if (jwksFailedAt !== null && now - jwksFailedAt < JWKS_FAILURE_TTL_MS) return null;
+  try {
+    const res = await fetchImpl(JWKS_URL, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error(`jwks ${res.status}`);
+    const body = (await res.json()) as { keys?: Jwk[] };
+    const keys = Array.isArray(body.keys) ? body.keys : [];
+    jwksCache = { keys, fetchedAt: now };
+    jwksFailedAt = null;
+    return keys;
+  } catch {
+    jwksFailedAt = now;
+    return null;
+  }
+}
+
+/** The key for this kid. Refetches on an unknown kid (Firebase rotated its keys), at most once per JWKS_REFETCH_MIN_MS. */
+async function findKey(kid: string, fetchImpl: typeof fetch, now: number): Promise<Jwk | null> {
+  const fresh = jwksCache && now - jwksCache.fetchedAt < JWKS_TTL_MS;
+  let keys = fresh ? jwksCache!.keys : (await fetchJwks(fetchImpl, now)) ?? jwksCache?.keys ?? [];
+  let key = keys.find((k) => k.kid === kid);
+  if (!key && jwksCache && now - jwksCache.fetchedAt >= JWKS_REFETCH_MIN_MS) {
+    keys = (await fetchJwks(fetchImpl, now)) ?? keys;
+    key = keys.find((k) => k.kid === kid);
+  }
+  return key ?? null;
 }
 
 function base64UrlToBytes(input: string): Uint8Array<ArrayBuffer> {
@@ -89,7 +113,7 @@ export async function verifyAppCheckToken(
     if (header.alg !== "RS256" || header.typ !== "JWT" || typeof header.kid !== "string") {
       return { status: "invalid", reason: "header" };
     }
-    const jwk = (await loadJwks(fetchImpl, now)).find((k) => k.kid === header.kid);
+    const jwk = await findKey(header.kid, fetchImpl, now);
     if (!jwk || jwk.kty !== "RSA" || !jwk.n || !jwk.e) return { status: "invalid", reason: "unknown_key" };
     const key = await crypto.subtle.importKey(
       "jwk",
@@ -114,23 +138,30 @@ export async function verifyAppCheckToken(
   }
 }
 
+/** Share of "valid" and "missing" verdicts logged in monitor mode; every "invalid" one is logged. */
+export const MONITOR_SAMPLE_RATE = 0.01;
+
 /**
- * The proxy's hook. Returns true when the request must be refused (enforce mode only). Logs a single line with the
- * verdict and path, never the token, never a user id.
+ * The proxy's hook. Returns true when the request must be refused (enforce mode only). Logs one line per invalid token
+ * and a 1% sample of the rest (enough to measure the share of requests without a token before enforcing), never the
+ * token, never a user id.
  */
 export async function appCheckShouldRefuse(
   headers: Headers,
   pathname: string,
-  options: { mode?: AppCheckMode; fetchImpl?: typeof fetch; log?: (line: string) => void } = {},
+  options: { mode?: AppCheckMode; fetchImpl?: typeof fetch; log?: (line: string) => void; random?: () => number } = {},
 ): Promise<boolean> {
   const mode = options.mode ?? appCheckMode();
   if (mode === "off") return false;
   const log = options.log ?? ((line: string) => console.info(line));
+  const random = options.random ?? Math.random;
   try {
     const verdict = await verifyAppCheckToken(headers.get(APP_CHECK_HEADER), { fetchImpl: options.fetchImpl });
-    const detail = verdict.status === "invalid" ? ` reason=${verdict.reason}` : "";
-    // Every app version before this build sends no token: a "missing" line per request in monitor mode would only be noise.
-    if (!(mode === "monitor" && verdict.status === "missing")) log(`[app-check] mode=${mode} status=${verdict.status}${detail} path=${pathname}`);
+    if (verdict.status === "invalid") {
+      log(`[app-check] mode=${mode} status=invalid reason=${verdict.reason} path=${pathname}`);
+    } else if (random() < MONITOR_SAMPLE_RATE) {
+      log(`[app-check] mode=${mode} status=${verdict.status} sample=${MONITOR_SAMPLE_RATE} path=${pathname}`);
+    }
     return mode === "enforce" && verdict.status !== "valid";
   } catch {
     // Fails open: a broken check must never take the mobile API down.
