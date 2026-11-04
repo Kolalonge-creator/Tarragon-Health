@@ -24,21 +24,35 @@ export const PIPELINE_GROUP: Record<string, string> = {
 };
 export const PIPELINE_ORDER = ["lab", "imaging", "mammography", "ecg", "pathology", "cervical", "narrative", "unsorted"] as const;
 
-/** Plain words for the patient (no clinical judgement in any of them). */
+/**
+ * Plain words for the patient (no clinical judgement in any of them). Only doctor_review_required means a doctor has been asked to
+ * look: 'processed' and 'awaiting_verification' are what a document becomes when no review was opened (for example on a plan without
+ * a doctor's review), so they must not promise one.
+ */
 export const PATIENT_STATUS: Record<string, string> = {
   uploaded: "Saved",
   classifying: "Working out what it is",
   needs_type_confirmation: "Tell us what it is",
   processing: "Being read",
-  processed: "Read, waiting for a doctor",
-  awaiting_verification: "Waiting for a doctor to check",
+  processed: "Read",
+  awaiting_verification: "Read, some parts were unclear",
   doctor_review_required: "Waiting for a doctor",
   reviewed: "Reviewed by a doctor",
   processing_failed: "Waiting for a person to read it",
   superseded: "Replaced by a newer upload",
 };
 
-export async function loadRecordItems(supabase: SupabaseClient<Database>, patientId: string, limit = 200): Promise<RecordItem[]> {
+/**
+ * sign: which rows get a signed link. "all" for a page that offers each file (the patient hub), a document id for the viewer (only the
+ * one it shows), "none" for a list that only links onward. A link is only ever made for a row the caller could read.
+ */
+export async function loadRecordItems(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  options: { sign?: "all" | "none" | { only: string }; limit?: number } = {},
+): Promise<RecordItem[]> {
+  const sign = options.sign ?? "all";
+  const limit = options.limit ?? 200;
   const { data } = await supabase
     .from("clinical_record_items")
     .select("*")
@@ -48,6 +62,7 @@ export async function loadRecordItems(supabase: SupabaseClient<Database>, patien
   const rows = (data ?? []) as RecordItemRow[];
   const byBucket = new Map<string, string[]>();
   for (const r of rows) {
+    if (sign === "none" || (typeof sign === "object" && r.id !== sign.only)) continue;
     if (r.file_bucket && r.file_path) byBucket.set(r.file_bucket, [...(byBucket.get(r.file_bucket) ?? []), r.file_path]);
   }
   const signed = new Map<string, string | null>();
@@ -60,12 +75,21 @@ export async function loadRecordItems(supabase: SupabaseClient<Database>, patien
   return rows.map((r) => ({ ...r, signedUrl: r.file_bucket && r.file_path ? signed.get(`${r.file_bucket}/${r.file_path}`) ?? null : null }));
 }
 
-/** Earlier documents of the same kind (same code, else the same group), oldest last: the "previous of the same kind" panel. */
+/** When the test was done if the report says so, else when it was added: what "earlier" means when comparing studies. */
+function studyDate(i: RecordItemRow): string {
+  return (i.investigation_date ?? i.uploaded_at ?? "").slice(0, 10);
+}
+
+/**
+ * Earlier documents of the same kind (same code, else the same group), newest first: the "previous of the same kind" panel. Earlier
+ * by test date, not by upload: a 2023 mammogram uploaded after the 2026 one is still the earlier study.
+ */
 export function previousOfSameKind(items: readonly RecordItemRow[], current: RecordItemRow): RecordItemRow[] {
+  const at = studyDate(current);
   return items
-    .filter((i) => i.id !== current.id && !i.is_superseded && (i.uploaded_at ?? "") < (current.uploaded_at ?? ""))
+    .filter((i) => i.id !== current.id && !i.is_superseded && studyDate(i) < at)
     .filter((i) => (current.kind_code && i.kind_code === current.kind_code) || (current.kind_group && i.kind_group === current.kind_group))
-    .sort((a, b) => (b.investigation_date ?? b.uploaded_at ?? "").localeCompare(a.investigation_date ?? a.uploaded_at ?? ""));
+    .sort((a, b) => studyDate(b).localeCompare(studyDate(a)));
 }
 
 export function groupByPipeline<T extends { pipeline: string | null }>(items: readonly T[]): { pipeline: string; label: string; items: T[] }[] {

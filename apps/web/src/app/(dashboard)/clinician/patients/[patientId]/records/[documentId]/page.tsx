@@ -30,7 +30,7 @@ export default async function RecordDocumentPage({ params }: { params: Promise<{
   if (opened.status === "failed") {
     return <p className="text-sm text-red-700">The opening could not be recorded, so the document is not shown. Try again in a moment.</p>;
   }
-  const items = await loadRecordItems(supabase, patientId);
+  const items = await loadRecordItems(supabase, patientId, { sign: { only: documentId } });
   const doc = items.find((i) => i.id === documentId);
   if (!doc) return <p className="text-sm">This document is not on a record you can open.</p>;
   const earlier = previousOfSameKind(items, doc);

@@ -29,6 +29,18 @@ describe("the record list", () => {
     expect(previousOfSameKind(items, current).map((i) => i.id)).toEqual(["2025", "2024"]);
   });
 
+  it("decides 'earlier' by test date, not by when the file was added", () => {
+    const newer = row({ id: "2026", kind_code: "imaging.mammography", uploaded_at: "2026-10-01T00:00:00Z", investigation_date: "2026-09-30" });
+    const older = row({ id: "2023", kind_code: "imaging.mammography", uploaded_at: "2026-10-05T00:00:00Z", investigation_date: "2023-09-01" });
+    expect(previousOfSameKind([newer, older], newer).map((i) => i.id)).toEqual(["2023"]);
+    expect(previousOfSameKind([newer, older], older)).toEqual([]);
+  });
+
+  it("only promises a doctor when one has been asked to look", () => {
+    expect(PATIENT_STATUS.doctor_review_required).toMatch(/doctor/);
+    for (const s of ["processed", "awaiting_verification", "uploaded"]) expect(PATIENT_STATUS[s]).not.toMatch(/doctor/i);
+  });
+
   it("uses plain words for every intake status", () => {
     for (const s of ["uploaded", "classifying", "needs_type_confirmation", "processing", "processed", "awaiting_verification", "doctor_review_required", "reviewed", "processing_failed", "superseded"]) {
       expect(PATIENT_STATUS[s]).toBeTruthy();

@@ -3,7 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NAV_ICON } from "@/lib/icons";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatPatientDate } from "@/lib/format-date";
 import { groupByPipeline, loadRecordItems, PATIENT_STATUS, PIPELINE_GROUP } from "@/lib/clinical-documents/record-items";
 import { UnsortedDocuments } from "@/app/(dashboard)/patient/unsorted-documents";
@@ -19,6 +19,18 @@ export const dynamic = "force-dynamic";
 export default async function HealthRecordsPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
   const { subjectId } = await getPatientDashboardContext();
   const { show } = await searchParams;
+  const user = await getCurrentUser();
+  if (user?.id !== subjectId) {
+    // Uploaded documents are shown to the account holder only (clinical_documents RLS); say so rather than "nothing here".
+    return (
+      <div className="space-y-6">
+        <PageHeader backTo={{ href: "/patient/my-health", label: "My Health" }} title="My Health Records" icon={NAV_ICON.passport} />
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          Uploaded reports and documents are shown only to the person whose record it is. Their results you can see are on Labs &amp; results.
+        </p>
+      </div>
+    );
+  }
   const supabase = await createClient();
   const items = await loadRecordItems(supabase, subjectId);
   const groups = groupByPipeline(items);

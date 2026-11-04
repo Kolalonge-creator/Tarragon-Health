@@ -12,7 +12,8 @@ import { groupByPipeline, loadRecordItems, PATIENT_STATUS, previousOfSameKind } 
  */
 export async function RecordsSection({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const items = await loadRecordItems(supabase, patientId);
+  // The list links onward to the viewer, so no file links are made here.
+  const items = await loadRecordItems(supabase, patientId, { sign: "none" });
   if (items.length === 0) {
     return (
       <Card>

@@ -10,7 +10,7 @@
 --      important_finding is true when the document's review alert is urgent or an emergency, for a staff reader only: for the
 --      patient themself it is always false, so the hub never labels a report important before a doctor has dealt with it (INV-03).
 --   2. public.clinical_worklist gains 'uploaded_documents': an ECG, scan, letter, pathology or cervical upload waiting for a doctor,
---      or one no reader could handle. Lab documents stay in 'lab_results'. Redefined from its live body (md5 ea4035bd2a10aa04e9605139e9e80554
+--      or one no reader could handle, for real patients only (INV-13). Lab documents stay in 'lab_results'. Redefined from its live body (md5 ea4035bd2a10aa04e9605139e9e80554
 --      checked against live 2026-11-04), one branch added.
 --
 -- Gates (G-01): none added.
@@ -115,7 +115,7 @@ begin
     -- Lab documents are already in 'lab_results' above, so they are left out here and never counted twice.
     select 'uploaded_documents', c.id, c.patient_id, coalesce(k.label, 'Document') || ' to review', c.status_changed_at
       from public.clinical_documents c left join public.clinical_document_kinds k on k.code = c.kind_code
-     where c.organisation_id = v_org and not c.is_superseded
+     where c.organisation_id = v_org and not c.is_superseded and not c.is_test
        and (c.routed_table is null or c.routed_table in ('ecg_report_documents', 'imaging_report_documents'))
        and c.status in ('doctor_review_required', 'processing_failed')
   ), ranked as (
