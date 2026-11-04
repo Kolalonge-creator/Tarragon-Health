@@ -28,6 +28,7 @@ import {
   useResumeCircle,
   useRevokeMember,
   useSetMissedDoseAlert,
+  useSetContactRole,
   useSetMonthlyShare,
   useSharingHistory,
   useToolsStatus,
@@ -134,6 +135,7 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
       {endsSoon(member.expires_at, openedAt) ? <p role="status" className="text-sm font-medium">{t("circle.member.ends_soon", locale)}</p> : null}
       <PresetPicker id={`m-${member.member_id}`} value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} locale={locale} />
       <PermissionBoxes id={`m-${member.member_id}`} value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} locale={locale} />
+      <ContactRoleSelect member={member} locale={locale} />
       <div className={`flex items-start gap-3 ${TOUCH}`}>
         <input
           id={`monthly-${member.member_id}`}
@@ -383,6 +385,31 @@ function InviteForm({ locale, origin }: { locale: Locale; origin: string }) {
       </Button>
       <FormError id="invite-error" message={errorKey ? t(errorKey, locale) : null} />
     </form>
+  );
+}
+
+/** P4: main or backup family contact. A label only (it grants nothing and is not the emergency contact); one of each per circle. */
+function ContactRoleSelect({ member, locale }: { member: CircleMember; locale: Locale }) {
+  const setRole = useSetContactRole();
+  const id = `contact-${member.member_id}`;
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id}>{t("circlep4.contact.label", locale)}</Label>
+      <select
+        id={id}
+        className={`w-full rounded-md border bg-transparent px-3 sm:w-auto ${TOUCH}`}
+        value={member.contact_role ?? ""}
+        disabled={setRole.isPending}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => setRole.mutate({ memberId: member.member_id, role: e.target.value === "primary" || e.target.value === "backup" ? e.target.value : null })}
+      >
+        <option value="">{t("circlep4.contact.none", locale)}</option>
+        <option value="primary">{t("circlep4.contact.primary", locale)}</option>
+        <option value="backup">{t("circlep4.contact.backup", locale)}</option>
+      </select>
+      <p id={`${id}-hint`} className={`text-sm ${MUTED}`}>{t("circlep4.contact.hint", locale)}</p>
+      {setRole.isError ? <p role="alert" className="text-sm">{t("circlep4.contact.save_error", locale)}</p> : null}
+    </div>
   );
 }
 
