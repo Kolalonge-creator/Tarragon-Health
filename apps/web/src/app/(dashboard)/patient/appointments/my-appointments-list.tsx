@@ -23,6 +23,7 @@ import { IntakeForm } from "@/components/consultation/intake-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CALENDAR_APPOINTMENT_STATUSES } from "@/lib/calendar/ics";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
 import type { Locale } from "@tarragon/i18n";
 
@@ -175,6 +176,11 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                     {appt.consultation_method === "telemedicine" && JOINABLE_STATUSES.includes(appt.status) && (
                       <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleJoinCall(appt.id)}>
                         {ensureVideo.isPending ? "Opening…" : "Join call"}
+                      </Button>
+                    )}
+                    {(CALENDAR_APPOINTMENT_STATUSES as readonly string[]).includes(appt.status) && (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`/api/calendar/appointment/${appt.id}`}>Add to calendar</a>
                       </Button>
                     )}
                     {["held", "booked", "confirmed"].includes(appt.status) && (

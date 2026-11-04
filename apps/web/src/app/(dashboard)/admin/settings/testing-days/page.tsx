@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ActionForm } from "@/components/testing-days/action-form";
-import { staffEventListSchema, type StaffEvent } from "@/lib/testing-days/model";
+import { hoursLabel, staffEventListSchema, type StaffEvent } from "@/lib/testing-days/model";
 import {
   approveVenue,
   createTestingEvent,
+  saveTestingEventDirections,
   saveTeam,
   setEventStatus,
   updateTestingEvent,
@@ -117,6 +118,10 @@ export default async function TestingDaysSettingsPage() {
                   ))}
                 </Select>
               </div>
+              <div className="space-y-1 sm:col-span-3">
+                <Label htmlFor="directions">Directions (shown to Members)</Label>
+                <Input id="directions" name="directions" maxLength={500} placeholder="Opposite the main gate, second floor, ask at reception" />
+              </div>
             </div>
           </ActionForm>
         </CardContent>
@@ -138,7 +143,9 @@ export default async function TestingDaysSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-charcoal-ink/70">
-                {e.address}. {e.seats_taken} of {e.capacity} places taken
+                {e.address}
+                {e.state ? `, ${e.state}` : ""}. {hoursLabel(e.starts_at, e.ends_at) ? `Open ${hoursLabel(e.starts_at, e.ends_at)}. ` : "No times set. "}
+                {e.seats_taken} of {e.capacity} places taken
                 {e.waitlisted ? `, ${e.waitlisted} waiting` : ""}.{" "}
                 {e.kind === "employer_visit" && e.headcount_requested ? `Employer asked for ${e.headcount_requested}. ` : ""}
                 {e.venue_approved ? "Venue approved." : "Venue not approved yet."}
@@ -190,6 +197,22 @@ export default async function TestingDaysSettingsPage() {
                           <Label htmlFor={`to-${e.id}`}>To</Label>
                           <Input id={`to-${e.id}`} name="endsAt" type="time" />
                         </div>
+                      </div>
+                    </ActionForm>
+                  </div>
+                </details>
+              ) : null}
+
+              {e.status !== "completed" && e.status !== "cancelled" ? (
+                <details>
+                  <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+                    Directions {e.directions ? "" : "(none yet)"}
+                  </summary>
+                  <div className="pt-3">
+                    <ActionForm action={saveTestingEventDirections} hidden={{ eventId: e.id }} submitLabel="Save directions" variant="outline">
+                      <div className="space-y-1">
+                        <Label htmlFor={`dir-${e.id}`}>How to find the venue</Label>
+                        <Input id={`dir-${e.id}`} name="directions" maxLength={500} defaultValue={e.directions ?? ""} />
                       </div>
                     </ActionForm>
                   </div>

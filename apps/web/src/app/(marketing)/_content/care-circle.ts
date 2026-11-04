@@ -89,12 +89,12 @@ export const CARE_CIRCLE_ILLUSTRATION = {
   name: "Adaeze",
   sharedUntil: "Shared with you until 30 November",
   weeks: [
-    { label: "29 Sep", systolic: 142, diastolic: 90 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
-    { label: "6 Oct", systolic: 139, diastolic: 88 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
-    { label: "13 Oct", systolic: 137, diastolic: 88 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
-    { label: "20 Oct", systolic: 135, diastolic: 86 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
-    { label: "27 Oct", systolic: 134, diastolic: 85 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
-    { label: "3 Nov", systolic: 134, diastolic: 84 }, // band-ok: illustration of a falling home BP trend on the marketing page, not a classification
+    { label: "29 Sep", systolic: 142, diastolic: 90 }, // band-ok: illustrative reading on the marketing page, not a threshold
+    { label: "6 Oct", systolic: 139, diastolic: 88 }, // band-ok: illustrative reading on the marketing page, not a threshold
+    { label: "13 Oct", systolic: 137, diastolic: 88 }, // band-ok: illustrative reading on the marketing page, not a threshold
+    { label: "20 Oct", systolic: 135, diastolic: 86 }, // band-ok: illustrative reading on the marketing page, not a threshold
+    { label: "27 Oct", systolic: 134, diastolic: 85 }, // band-ok: illustrative reading on the marketing page, not a threshold
+    { label: "3 Nov", systolic: 134, diastolic: 84 }, // band-ok: illustrative reading on the marketing page, not a threshold
   ],
   latestReadings: 6,
   dosesTaken: 12,
