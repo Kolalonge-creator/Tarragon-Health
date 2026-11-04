@@ -9,10 +9,11 @@ import { AvatarBadge } from "./avatar-badge";
 import { Composer } from "./composer";
 import { ReportForm } from "./report-form";
 import { MUTED, TOUCH } from "./styles";
-import { deletePost, editPost, hideAuthor, loadReplies, reactToPost, submitPost } from "./community-actions";
+import { deletePost, editPost, hideAuthor, loadReplies, reactToPost, setSaved, submitPost } from "./community-actions";
 
 /**
- * One post or reply. Shows the author's made-up name and preset picture only. Support, report, reply (top-level posts), and for the
+ * One post or reply. Shows the author's made-up name and preset picture only. Support, save (top-level posts; private to the member), report,
+ * reply (top-level posts), and for the
  * member's own posts edit (inside the window the group reports; the database enforces it too) and delete (asks first).
  */
 export function PostCard({
@@ -51,6 +52,7 @@ export function PostCard({
 }) {
   const [supported, setSupported] = useState(post.i_supported);
   const [supportCount, setSupportCount] = useState(post.support_count);
+  const [saved, setSavedState] = useState(post.i_saved === true);
   const [note, setNote] = useState<MessageKey | null>(null);
   const [editing, setEditing] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -72,6 +74,17 @@ export function PostCard({
     }
     setSupported(result.supported);
     setSupportCount(result.supportCount);
+  }
+
+  async function toggleSaved() {
+    setNote(null);
+    const result = await setSaved({ postId: post.id, saved: !saved }).catch(() => null);
+    if (!result || !result.ok) {
+      setNote(result ? result.key : "community.compose.refused.other");
+      return;
+    }
+    setSavedState(result.saved);
+    setNote(result.saved ? "community.saved.done" : "community.saved.undone");
   }
 
   async function fetchReplies() {
@@ -181,6 +194,12 @@ export function PostCard({
         {!post.pending_review ? (
           <Button type="button" variant="outline" className={TOUCH} aria-pressed={supported} onClick={toggleSupport}>
             {supported ? t("community.post.supported", locale) : t("community.post.support", locale)} ({supportCount})
+          </Button>
+        ) : null}
+        {/* i_saved comes only with the feed's top-level posts; replies carry no save control. */}
+        {!isReply && post.i_saved !== undefined ? (
+          <Button type="button" variant="ghost" className={TOUCH} aria-pressed={saved} onClick={toggleSaved}>
+            {saved ? t("community.saved.saved", locale) : t("community.saved.save", locale)}
           </Button>
         ) : null}
         {!isReply && !post.pending_review && (replyCount > 0 || canPost) ? (

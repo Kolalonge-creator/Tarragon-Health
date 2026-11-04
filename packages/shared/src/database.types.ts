@@ -52067,7 +52067,7 @@ export type Database = {
       community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
       community_dpo_candidates: { Args: never; Returns: Json }
       community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
-      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number }; Returns: Json }
+      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number; p_sort?: string }; Returns: Json }
       community_get_group: { Args: { p_slug: string }; Returns: Json }
       community_hidden_authors: { Args: { p_group_id: string }; Returns: Json }
       community_hide_author: { Args: { p_post_id: string }; Returns: Json }
@@ -52104,6 +52104,7 @@ export type Database = {
       community_safety_queue: { Args: never; Returns: Json }
       community_sample_queue: { Args: never; Returns: Json }
       community_sample_review: { Args: { p_id: string; p_agrees: boolean; p_note?: string }; Returns: Json }
+      community_saved_list: { Args: { p_before?: string }; Returns: Json }
       community_search_groups: { Args: { p_q: string }; Returns: Json }
       community_search_posts: { Args: { p_query: string; p_group_id?: string; p_before?: string }; Returns: Json }
       community_send_digests: { Args: never; Returns: number }
@@ -52111,6 +52112,7 @@ export type Database = {
       community_set_digest: { Args: { p_group_id: string; p_on: boolean }; Returns: Json }
       community_set_group_muted: { Args: { p_group_id: string; p_muted: boolean }; Returns: Json }
       community_set_my_display_name: { Args: { p_name: string | null }; Returns: Json }
+      community_set_saved: { Args: { p_post_id: string; p_saved: boolean }; Returns: Json }
       community_staff_context: { Args: never; Returns: Json }
       community_submit_post: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
       community_submit_post_with_image: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id: string; p_storage_path: string; p_mime: string; p_size: number; p_width: number; p_height: number }; Returns: Json }
