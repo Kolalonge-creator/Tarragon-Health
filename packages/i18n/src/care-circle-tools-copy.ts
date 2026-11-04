@@ -102,6 +102,24 @@ export const circleToolsCopy = {
   "cctools.task.kind.visit": "A visit",
   "cctools.task.kind.phone_call": "A phone call",
   "cctools.task.kind.errand": "An errand",
+  // Care Circle P3 (2026-11-04): more kinds of help request; pending CMO/DPO review with the rest of this file
+  "cctools.task.kind.transport": "Help with transport",
+  "cctools.task.kind.help_paying_test": "Help paying for a test",
+  "cctools.task.kind.help_paying_medicines": "Help paying for medicines",
+  "cctools.task.kind.consultation_help": "Help with a consultation",
+  "cctools.task.kind.other": "Something else",
+  "cctools.tasks.who": "Who is this for?",
+  "cctools.tasks.who_everyone": "Everyone who helps",
+  "cctools.tasks.who_hint": "Only the people you tick will see this request.",
+  "cctools.tasks.note": "A short note (optional)",
+  "cctools.tasks.note_hint": "Plain words, at most 140 characters. Please do not write medical details here.",
+  "cctools.tasks.note_needed": "Please add a short note to say what you need.",
+  "cctools.tasks.for_you": "Asked of you",
+  "cctools.tasks.decline": "I can't help",
+  "cctools.tasks.declined_mine": "You said you can't help with this.",
+  "cctools.tasks.answer.can_help": "{name} can help",
+  "cctools.tasks.answer.cannot_help": "{name} can't help",
+  "cctools.tasks.answer.waiting": "{name} has not answered yet",
 } as const;
 
 export type CircleToolsCopyKey = keyof typeof circleToolsCopy;
@@ -134,6 +152,11 @@ const TASK_KIND_KEYS: Readonly<Record<string, CircleToolsCopyKey>> = {
   visit: "cctools.task.kind.visit",
   phone_call: "cctools.task.kind.phone_call",
   errand: "cctools.task.kind.errand",
+  transport: "cctools.task.kind.transport",
+  help_paying_test: "cctools.task.kind.help_paying_test",
+  help_paying_medicines: "cctools.task.kind.help_paying_medicines",
+  consultation_help: "cctools.task.kind.consultation_help",
+  other: "cctools.task.kind.other",
 };
 
 export const circleToolsSeesKey = (code: CircleSeesCode): CircleToolsCopyKey => SEES_KEYS[code];

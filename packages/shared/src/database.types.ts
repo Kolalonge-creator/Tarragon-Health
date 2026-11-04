@@ -58389,9 +58389,10 @@ export type Database = {
       decline_care_circle_invite: { Args: { p_token: string }; Returns: Json };
       circle_tools_status: { Args: never; Returns: Json };
       set_circle_missed_dose_alert: { Args: { p_member: string; p_on: boolean }; Returns: boolean };
-      post_circle_task: { Args: { p_kind: string; p_needed_by?: string; p_patient: string }; Returns: Json };
+      post_circle_task: { Args: { p_kind: string; p_needed_by?: string; p_note?: string; p_patient: string; p_recipients?: string[] }; Returns: Json };
       circle_tasks: { Args: { p_patient: string }; Returns: Json };
       claim_circle_task: { Args: { p_task: string }; Returns: boolean };
+      decline_circle_task: { Args: { p_task: string }; Returns: boolean };
       release_circle_task: { Args: { p_task: string }; Returns: boolean };
       complete_circle_task: { Args: { p_task: string }; Returns: boolean };
       cancel_circle_task: { Args: { p_task: string }; Returns: boolean };
