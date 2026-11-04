@@ -109,5 +109,34 @@
       "label": "Not contraception. This cannot prevent pregnancy.",
       "link": "Learn about contraception and talk to your care team."
     }
+  },
+  "outreachDangerousReading": {
+    "note": "OUT-001. What outreach event staff see when a reading they just saved crosses the signed emergency threshold (an emergency_events row for that reading). Staff-facing; the attendee's own app shows EMG-001. No phone number (OQ-87 stays open).",
+    "signed": {
+      "by": "Kola Longe, founder (acting as CMO)",
+      "on": "2026-11-04",
+      "version": 1,
+      "note": "Recorded on the founder's own instruction in chat on 2026-11-04 after the exact text was shown and approved. The first draft said 'high enough'; the founder approved the correction to 'means' so the sentence is right for a dangerously low reading too. Founder acting as CMO; the CMO of record may re-sign by raising `version`."
+    },
+    "current": {
+      "title": "This reading needs care today",
+      "steps": [
+        "Stop the check for this person and stay with them.",
+        "Tell them calmly: \"Your reading means you need to be seen at a hospital today. Please go now, and do not drive yourself.\"",
+        "Help them find someone to go with them, or a way to get there. Do not give any medicine.",
+        "If they have chest pain, trouble breathing, weakness on one side of the body, confusion or fainting, get emergency help straight away.",
+        "Their app is showing them the same advice."
+      ]
+    },
+    "proposed": {
+      "title": "This reading needs care today",
+      "steps": [
+        "Stop the check for this person and stay with them.",
+        "Tell them calmly: \"Your reading means you need to be seen at a hospital today. Please go now, and do not drive yourself.\"",
+        "Help them find someone to go with them, or a way to get there. Do not give any medicine.",
+        "If they have chest pain, trouble breathing, weakness on one side of the body, confusion or fainting, get emergency help straight away.",
+        "Their app is showing them the same advice."
+      ]
+    }
   }
 }

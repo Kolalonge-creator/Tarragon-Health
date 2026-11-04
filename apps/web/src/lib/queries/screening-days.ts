@@ -299,7 +299,8 @@ export function useRecordOutreachVitals() {
         p_data: args.vitals,
       });
       if (error) throw error;
-      return data as { vitals_rows: number };
+      // emergency: a reading just saved crossed the signed emergency threshold (an emergency_events row); the screen shows OUT-001
+      return data as { vitals_rows: number; emergency: boolean };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: [OUTREACH_ENROLMENTS_QUERY_KEY, variables.screeningDayId] });
