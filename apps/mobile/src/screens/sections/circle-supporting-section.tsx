@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { space, useTheme } from "@/ui/design";
@@ -149,30 +149,44 @@ function PersonSwitcher({ people, current, onSwitch }: { people: readonly Suppor
  * Care Circle P1 (founder decision D3, 2026-11-04): someone this person paid for has asked them to join their Care Circle. Nothing is
  * shown to them until they say yes here. Hidden when there is nothing to answer, and when the read fails (an offer is never a required step).
  */
-function ShareOffers({ onAnswered }: { onAnswered: () => void }) {
+function ShareOffers({ refreshKey, onAnswered }: { refreshKey: number; onAnswered: () => void }) {
   const [offers, setOffers] = useState<ShareOffer[]>([]);
+  // an answered offer leaves the database's open list; its confirmation stays on screen until the section is left
+  const [answered, setAnswered] = useState<Readonly<Record<string, "accepted" | "declined">>>({});
+  const answeredRef = useRef(answered);
+  answeredRef.current = answered;
   useEffect(() => {
     let alive = true;
-    void loadShareOffers().then((o) => {
-      if (alive) setOffers(o);
+    void loadShareOffers().then((next) => {
+      if (!alive) return;
+      setOffers((cur) => [...next, ...cur.filter((o) => answeredRef.current[o.memberId] && !next.some((n) => n.memberId === o.memberId))]);
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [refreshKey]);
   if (offers.length === 0) return null;
   return (
     <>
-      {offers.map((o) => <OfferCard key={o.memberId} offer={o} onAnswered={onAnswered} />)}
+      {offers.map((o) => (
+        <OfferCard
+          key={o.memberId}
+          offer={o}
+          answer={answered[o.memberId] ?? null}
+          onAnswer={(a) => {
+            setAnswered((cur) => ({ ...cur, [o.memberId]: a }));
+            onAnswered();
+          }}
+        />
+      ))}
     </>
   );
 }
 
-function OfferCard({ offer, onAnswered }: { offer: ShareOffer; onAnswered: () => void }) {
+function OfferCard({ offer, answer, onAnswer }: { offer: ShareOffer; answer: "accepted" | "declined" | null; onAnswer: (a: "accepted" | "declined") => void }) {
   const locale = asLocale(useUiLanguage());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [answer, setAnswer] = useState<"accepted" | "declined" | null>(null);
   async function answerWith(accept: boolean) {
     setBusy(true);
     setFailed(false);
@@ -182,8 +196,7 @@ function OfferCard({ offer, onAnswered }: { offer: ShareOffer; onAnswered: () =>
       setFailed(true);
       return;
     }
-    setAnswer(r.accepted ? "accepted" : "declined");
-    onAnswered();
+    onAnswer(r.accepted ? "accepted" : "declined");
   }
   if (answer) {
     return (
@@ -347,7 +360,9 @@ export function CircleSupportingSection({
   const [open, setOpen] = useState<SupportedPerson | null>(null);
   const tools = useToolsStatus();
 
+  const [refreshCount, setRefreshCount] = useState(0);
   const refresh = useCallback(async () => {
+    setRefreshCount((n) => n + 1);
     const [p, a, u] = await Promise.all([loadSupported(), loadOpenAlerts(), loadUnanswered()]);
     setPeople(p.ok ? p.data : []);
     if (a.ok) setAlerts(a.data);
@@ -372,7 +387,7 @@ export function CircleSupportingSection({
 
   return (
     <View style={{ gap: 12 }}>
-      <ShareOffers onAnswered={() => void refresh()} />
+      <ShareOffers refreshKey={refreshCount} onAnswered={() => void refresh()} />
       <CallInvitesSection />
       <NudgesCard tools={tools} onOpen={(id) => { const p = people.find((x) => x.patientId === id); if (p) setOpen(p); }} />
       {alerts.map((a) => <AlertCard key={a.patientId} alert={a} onChanged={() => void refresh()} />)}

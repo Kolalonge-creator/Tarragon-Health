@@ -157,7 +157,8 @@ export function TasksCard({ patientId, tools, members = [] }: { patientId: strin
               : t("cctools.tasks.state.open", locale)}`}
           </MutedText>
           {/* the patient sees each named person's answer */}
-          {task.recipients?.map((r) => <AppText variant="body" key={r.name}>{t(taskAnswerKey(r.answer), locale, { name: r.name })}</AppText>)}
+          {/* names are not unique, so each line is keyed by position */}
+          {task.recipients?.map((r, i) => <AppText variant="body" key={`${i}-${r.name}`}>{t(taskAnswerKey(r.answer), locale, { name: r.name })}</AppText>)}
           {task.myAnswer === "cannot_help" ? <AppText variant="body">{t("cctools.tasks.declined_mine", locale)}</AppText> : null}
           {task.canClaim ? <PrimaryButton title={t("cctools.tasks.claim", locale)} disabled={busy} onPress={() => void run("claim_circle_task", task.taskId)} /> : null}
           {task.canDecline ? <SecondaryButton title={t("cctools.tasks.decline", locale)} disabled={busy} onPress={() => void run("decline_circle_task", task.taskId)} /> : null}

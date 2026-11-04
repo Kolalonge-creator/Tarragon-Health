@@ -189,10 +189,15 @@ describe("P3 help requests", () => {
   });
   it("sends recipients (membership ids) and a trimmed note only when given", async () => {
     mockRpc.mockResolvedValue({ data: "t", error: null });
-    await expect(postTask("p", "errand", "2026-11-10", { recipients: [M1, "junk"], note: "  bread please " })).resolves.toEqual({ ok: true });
-    expect(mockRpc).toHaveBeenLastCalledWith("post_circle_task", { p_patient: "p", p_kind: "errand", p_needed_by: "2026-11-10", p_recipients: [M1], p_note: "bread please" });
+    await expect(postTask("p", "errand", "2026-11-10", { recipients: [M1, M2, M1], note: "  bread please " })).resolves.toEqual({ ok: true });
+    expect(mockRpc).toHaveBeenLastCalledWith("post_circle_task", { p_patient: "p", p_kind: "errand", p_needed_by: "2026-11-10", p_recipients: [M1, M2], p_note: "bread please" });
     await postTask("p", "visit", null, { recipients: [], note: "   " });
     expect(mockRpc).toHaveBeenLastCalledWith("post_circle_task", { p_patient: "p", p_kind: "visit" });
+  });
+  it("fails closed: a request for chosen people is never widened to everyone because an id is unreadable", async () => {
+    await expect(postTask("p", "errand", null, { recipients: ["junk"] })).resolves.toEqual({ ok: false, reason: "error" });
+    await expect(postTask("p", "errand", null, { recipients: [M1, "junk"] })).resolves.toEqual({ ok: false, reason: "error" });
+    expect(mockRpc).not.toHaveBeenCalled();
   });
   it("'other' needs a note and a note is at most 140 characters, checked before sending", async () => {
     await expect(postTask("p", "other", null, { note: " " })).resolves.toEqual({ ok: false, reason: "note_needed" });

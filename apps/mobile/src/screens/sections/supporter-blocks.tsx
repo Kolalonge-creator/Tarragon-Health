@@ -75,8 +75,9 @@ export function SupporterBlocks({ view, name }: { view: Pick<SupporterView, Supp
         <Card style={{ gap: 4 }}>
           <AppText variant="bodyStrong">{t("circlep2.tests.title", locale)}</AppText>
           {view.investigations.length === 0 ? <MutedText>{t("circlep2.tests.none", locale)}</MutedText> : null}
-          {view.investigations.map((row) => (
-            <View key={row.code} style={{ gap: 2, paddingVertical: 4 }}>
+          {/* one row per schedule, so the same test can appear twice (one done, the next one due): keyed by position, not code */}
+          {view.investigations.map((row, i) => (
+            <View key={`${row.code}-${i}`} style={{ gap: 2, paddingVertical: 4 }}>
               <AppText variant="bodyStrong">{testCodeLabel(row.code)}</AppText>
               <AppText variant="body">{t(`circlep2.stage.${row.stage}`, locale)}</AppText>
               {row.dueDate && (row.stage === "due" || row.stage === "overdue") ? <MutedText>{t("circlep2.tests.due_on", locale, { date: lagosDate(row.dueDate) })}</MutedText> : null}
@@ -91,8 +92,8 @@ export function SupporterBlocks({ view, name }: { view: Pick<SupporterView, Supp
         <Card style={{ gap: 4 }}>
           <AppText variant="bodyStrong">{t("circlep2.results.title", locale)}</AppText>
           {view.results.length === 0 ? <MutedText>{t("circlep2.results.none", locale)}</MutedText> : null}
-          {view.results.map((r) => (
-            <View key={r.code} style={{ gap: 2, paddingVertical: 4 }}>
+          {view.results.map((r, i) => (
+            <View key={`${r.code}-${r.at}-${i}`} style={{ gap: 2, paddingVertical: 4 }}>
               <AppText variant="body">{`${testCodeLabel(r.code)}: ${resultValueText(r)}`}</AppText>
               {r.inRange !== null ? <AppText variant="body">{t(r.inRange ? "circlep2.results.in_range" : "circlep2.results.out_range", locale)}</AppText> : null}
               <MutedText>{t("circlep2.results.on", locale, { date: lagosDate(r.at) })}</MutedText>

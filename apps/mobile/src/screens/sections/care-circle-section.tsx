@@ -114,7 +114,8 @@ export function CheckInCard() {
 }
 
 /** A care pack or Membership someone else paid for waits here for the patient's yes (S29b). Nothing starts until they accept. */
-function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: () => void }) {
+/** `circleKey` moves with every re-read of the circle (a withdrawn offer, a new share), so the payer list re-reads with it. */
+function GiftCards({ gifts, onAnswered, circleKey }: { gifts: PendingGift[]; onAnswered: () => void; circleKey: number }) {
   const locale = asLocale(useUiLanguage());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -157,7 +158,8 @@ function GiftCards({ gifts, onAnswered }: { gifts: PendingGift[]; onAnswered: ()
       ))}
       {notice ? <MutedText>{t(notice, locale)}</MutedText> : null}
       {failed ? <ErrorText>{t("circle.gift.error", locale)}</ErrorText> : null}
-      <GiftPayerOffers justAccepted={justAccepted} refreshKey={payersKey} />
+      {/* both keys only ever go up, so their sum changes whenever either does */}
+      <GiftPayerOffers justAccepted={justAccepted} refreshKey={payersKey + circleKey} onShared={onAnswered} />
     </View>
   );
 }
@@ -550,7 +552,7 @@ export function CareCircleSection() {
     <View style={{ gap: 12 }}>
       {/* every line a doctor writes for the family reaches the patient first; nothing is shared until they choose */}
       <MyFamilyNoteCard />
-      <GiftCards gifts={gifts} onAnswered={() => void refresh()} />
+      <GiftCards gifts={gifts} onAnswered={() => void refresh()} circleKey={historyKey} />
       <AppText variant="title">{t("circle.title", locale)}</AppText>
       <MutedText>{t("circle.intro", locale)}</MutedText>
       <MutedText>{t("circle.monthly.notice", locale)}</MutedText>

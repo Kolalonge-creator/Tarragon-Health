@@ -177,11 +177,13 @@ export async function postTask(
   const note = opts.note?.trim() ? opts.note.trim() : null;
   if (note && note.length > CIRCLE_TASK_NOTE_MAX) return { ok: false, reason: "note_too_long" };
   if (kind === "other" && !note) return { ok: false, reason: "note_needed" };
-  const recipients = opts.recipients && opts.recipients.length > 0 ? opts.recipients.filter(isUuid) : null;
+  const recipients = opts.recipients && opts.recipients.length > 0 ? [...new Set(opts.recipients)] : null;
+  // fail closed: a request meant for chosen people must never be widened to everyone because an id could not be read
+  if (recipients && !recipients.every(isUuid)) return { ok: false, reason: "error" };
   const { error } = await supabase.rpc("post_circle_task", {
     p_patient: patientId, p_kind: kind,
     ...(neededBy ? { p_needed_by: neededBy } : {}),
-    ...(recipients && recipients.length > 0 ? { p_recipients: recipients } : {}),
+    ...(recipients ? { p_recipients: recipients } : {}),
     ...(note ? { p_note: note } : {}),
   });
   if (!error) return { ok: true };
