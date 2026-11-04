@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { NudgesCard } from "@/components/care-circle/nudges-card";
 import { CaregiverCallInvites } from "./caregiver-call-invites";
+import { ShareOffers } from "./share-offers";
 import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
 import { joinAsPatientToo } from "./actions";
@@ -51,6 +52,7 @@ export default async function SupportingPage() {
 
       <RecoveryDutiesCard />
 
+      <ShareOffers locale={uiLanguage} />
       <CaregiverCallInvites locale={uiLanguage} />
 
       <NudgesCard locale={uiLanguage} />

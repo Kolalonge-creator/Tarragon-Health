@@ -17,7 +17,7 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useDismissGiftPayer: () => ({ mutate: dismiss, isPending: false }),
 }));
 
-const PAYER = { payer_id: "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11", first_name: "Chinedu", entitlement_ids: ["e1"], last_gift_at: null, is_member: false };
+const PAYER = { payer_id: "8b0e1f4e-7d55-4a9b-9a51-1f5f0d6b2c11", first_name: "Chinedu", entitlement_ids: ["e1"], last_gift_at: null, is_member: false, offer_pending: false };
 const box = (name: RegExp) => screen.getByRole("checkbox", { name }) as HTMLInputElement;
 
 beforeEach(() => {
@@ -61,7 +61,7 @@ describe("GiftShareStep", () => {
     await act(async () => fireEvent.click(box(/line from the doctor/)));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Share what I ticked" })));
     expect(share).toHaveBeenCalledWith({ payerId: PAYER.payer_id, permissions: ["doctor_note"], monthlyReport: false });
-    expect(screen.getByRole("status").textContent).toMatch(/Chinedu can now see what you chose/);
+    expect(screen.getByRole("status").textContent).toMatch(/We have asked Chinedu to join your Care Circle/);
   });
 
   it("refuses an empty choice on screen without calling the server", async () => {

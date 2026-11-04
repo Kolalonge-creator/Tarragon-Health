@@ -4,9 +4,14 @@
 --      view is "not found", and the patient's offer list names the payer by first name only. A pending gift does not count.
 --   2. Only a real payer: the patient cannot add a stranger; nobody can name themself; a non-patient caller is refused.
 --   3. Permissions: an empty list, an unknown name and attend_consultation are refused.
---   4. The tap: an active membership with exactly the ticked permissions and the monthly report, one audit row, one in-app notice to the
---      payer; the payer's supporter view now shows the blocks. A repeat changes nothing and is not re-logged; a wider choice widens
---      (union, never narrows), logs once more, and does not notify twice. The payer drops off the offer list.
+--   4. The tap (Care Circle P1, founder decision D3 2026-11-04): an OFFER the payer must accept. Before they accept: no active member,
+--      their view is "not found", no audit row; they are told (in-app and push, naming nothing) and see the offer by first name; the patient
+--      sees it as waiting; neither a stranger nor the patient can accept it. After the payer accepts: exactly the ticked permissions and
+--      the monthly report, one audit row, the patient told they joined, the payer's view shows the blocks. A repeat changes nothing; a
+--      wider choice widens an existing member (union, never narrows), logs once more, and does not notify twice. The payer drops off the
+--      offer list.
+--   9. Declining, withdrawing and the deadline: a decline shares nothing; the patient can withdraw an unanswered offer; an offer past its
+--      deadline cannot be accepted and is replaced by a fresh share. SABOTAGE: the share made active again shows the payer the blocks.
 --   5. Under 18: the share is refused and the offer list is empty.
 --   6. anon has no execute; the payer test is not callable by a signed-in user.
 --   7. SABOTAGE (each must flip): the payer test always true (a stranger is added); the minor test always false (the under-18 patient is
@@ -117,24 +122,44 @@ begin
   perform pg_temp.ck('3b unknown permission refused', 'ERR:22023', pg_temp.share(pt, py, array['everything']));
   perform pg_temp.ck('3c attend_consultation is not offered here', 'ERR:22023', pg_temp.share(pt, py, array['attend_consultation']));
 
-  -- 4. the tap: "Share the usual"
+  -- 4. the tap: "Share the usual". Care Circle P1 (founder decision D3, 2026-11-04): the tap makes an OFFER the payer must accept.
   r := pg_temp.share(pt, py, v_usual, true);
-  perform pg_temp.ck('4a the share succeeds and creates a member', 'true/true', (r::jsonb ->> 'ok') || '/' || (r::jsonb ->> 'created'));
+  perform pg_temp.ck('4a the share succeeds and creates an offer', 'true/true/true', (r::jsonb ->> 'ok') || '/' || (r::jsonb ->> 'created') || '/' || (r::jsonb ->> 'offered'));
+  perform pg_temp.ck('4a1 before the payer accepts: no active member, view not found, no audit row', '0/ERR:P0002/0',
+    pg_temp.members(pt, py) || '/' || pg_temp.q_as(py, format('select public.circle_supporter_view(%L::uuid)::text', pt)) || '/' || pg_temp.events(pt, py));
+  perform pg_temp.ck('4a2 the payer is told, in-app and push, naming nothing', '2/{}',
+    pg_temp.notes(py) || '/' || (select string_agg(distinct payload::text, ',') from public.notifications where recipient_id = py and template = 'circle_shared_with_you'));
+  perform pg_temp.ck('4a3 the payer sees one open offer, first name only', '1/Gs',
+    jsonb_array_length(pg_temp.q_as(py, 'select public.my_circle_share_offers()::text')::jsonb) || '/' ||
+    (pg_temp.q_as(py, 'select public.my_circle_share_offers()::text')::jsonb -> 0 ->> 'name'));
+  perform pg_temp.ck('4a4 the patient sees it as waiting, and is not offered the payer again', 'waiting/true',
+    (pg_temp.q_as(pt, 'select public.my_care_circle()::text')::jsonb -> 'offers' -> 0 ->> 'state') || '/' ||
+    (pg_temp.q_as(pt, 'select public.circle_gift_payers()::text')::jsonb -> 0 ->> 'offer_pending'));
+  perform pg_temp.ck('4a5 a stranger cannot accept the payer''s offer', 'ERR:P0002',
+    pg_temp.q_as(st, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text',
+                            (select id from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'offered'))));
+  perform pg_temp.ck('4a6 the patient cannot accept on the payer''s behalf', 'ERR:P0002',
+    pg_temp.q_as(pt, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text',
+                            (select id from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'offered'))));
+  perform pg_temp.ck('4a7 the payer accepts', 'true',
+    pg_temp.q_as(py, format('select (public.respond_to_circle_share_offer(%L::uuid, true) ->> ''accepted'')',
+                            (select id from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'offered'))));
   select array_to_string(permissions, ',') || '/' || monthly_report_shared::text into v_perms from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'active';
   perform pg_temp.ck('4b exactly the ticked permissions and the monthly report', 'adherence_summary,appointments,red_alerts,weekly_bp_trend/true', v_perms);
-  perform pg_temp.ck('4c one audit row, one in-app notice to the payer', '1/1', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
-  perform pg_temp.ck('4d the notice is in-app and names nothing', 'in_app/{}',
-    (select channel::text || '/' || payload::text from public.notifications where recipient_id = py and template = 'circle_shared_with_you' limit 1));
+  perform pg_temp.ck('4c one audit row (the acceptance), no further notice to the payer', '1/2', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
+  perform pg_temp.ck('4d the patient is told the payer joined', '1',
+    (select count(*)::text from public.notifications where recipient_id = pt and template = 'circle_joined'));
   v_view := pg_temp.q_as(py, format('select public.circle_supporter_view(%L::uuid)::text', pt));
   perform pg_temp.ck('4e the payer now sees the shared blocks', 'true/true', (v_view::jsonb ? 'bp_trend')::text || '/' || (v_view::jsonb ? 'appointments')::text);
   perform pg_temp.ck('4f a block not ticked is not sent', 'false', (v_view::jsonb ? 'doctor_note')::text);
   r := pg_temp.share(pt, py, v_usual, true);
-  perform pg_temp.ck('4g a repeat changes nothing', 'false/1/1/1', (r::jsonb ->> 'changed') || '/' || pg_temp.members(pt, py) || '/' || pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
+  perform pg_temp.ck('4g a repeat changes nothing', 'false/1/1/2', (r::jsonb ->> 'changed') || '/' || pg_temp.members(pt, py) || '/' || pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
   r := pg_temp.share(pt, py, array['doctor_note'], false);
   select array_to_string(permissions, ',') || '/' || monthly_report_shared::text into v_perms from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'active';
-  perform pg_temp.ck('4h a wider choice widens, never narrows (monthly stays on)', 'adherence_summary,appointments,doctor_note,red_alerts,weekly_bp_trend/true', v_perms);
-  perform pg_temp.ck('4i the widening is logged once more and not re-notified', '2/1', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
+  perform pg_temp.ck('4h a wider choice widens an existing member, never narrows (monthly stays on)', 'adherence_summary,appointments,doctor_note,red_alerts,weekly_bp_trend/true', v_perms);
+  perform pg_temp.ck('4i the widening is logged once more and not re-notified', '2/2', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
   perform pg_temp.ck('4j the payer drops off the offer list', '[]', pg_temp.q_as(pt, 'select public.circle_gift_payers()::text'));
+  perform pg_temp.ck('4k the answered offer is gone from the payer''s list', '[]', pg_temp.q_as(py, 'select public.my_circle_share_offers()::text'));
 
   -- 5. under 18
   ent := pg_temp.gift(mn, py2, 'accepted');
@@ -232,6 +257,50 @@ begin
   perform pg_temp.ck('8k SABOTAGE dismissal ignored: the dismissed payer IS offered again (flips 8f)', 'true', (r like '%' || py3::text || '%')::text);
   perform pg_temp.ck('8j the patient can still choose to share later, deliberately', 'true',
     (pg_temp.share(pt, py3, array['appointments']) like '{%')::text);
+
+  -- 9. Care Circle P1 (D3): declining, withdrawing and the deadline
+  perform pg_temp.ck('9a a deliberate share is still only an offer', 'offered/0',
+    (select state from public.care_circle_members where patient_id = pt and supporter_id = py3 order by created_at desc limit 1) || '/' || pg_temp.members(pt, py3));
+  perform pg_temp.ck('9b the payer declines', 'false',
+    pg_temp.q_as(py3, format('select (public.respond_to_circle_share_offer(%L::uuid, false) ->> ''accepted'')',
+                             (select id from public.care_circle_members where patient_id = pt and supporter_id = py3 and state = 'offered'))));
+  perform pg_temp.ck('9c declined: nothing shared, view not found, no offer left', '0/ERR:P0002/[]',
+    pg_temp.members(pt, py3) || '/' || pg_temp.q_as(py3, format('select public.circle_supporter_view(%L::uuid)::text', pt)) || '/' ||
+    pg_temp.q_as(py3, 'select public.my_circle_share_offers()::text'));
+  r := pg_temp.share(pt, py3, array['appointments']);
+  v_perms := pg_temp.q_as(pt, format('select public.withdraw_circle_share_offer(%L::uuid)::text', (r::jsonb ->> 'member_id')));
+  perform pg_temp.ck('9d the patient withdraws a new offer before it is answered', 'true/expired',
+    v_perms || '/' || (select state from public.care_circle_members where id = (r::jsonb ->> 'member_id')::uuid));
+  perform pg_temp.ck('9e a withdrawn offer cannot be accepted', 'ERR:P0002',
+    pg_temp.q_as(py3, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text', (r::jsonb ->> 'member_id'))));
+  r := pg_temp.share(pt, py3, array['appointments']);
+  update public.care_circle_members set expires_at = now() - interval '1 minute' where id = (r::jsonb ->> 'member_id')::uuid;
+  perform pg_temp.ck('9f an offer past its deadline cannot be accepted, and is not listed', 'ERR:P0002/[]',
+    pg_temp.q_as(py3, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text', (r::jsonb ->> 'member_id'))) || '/' ||
+    pg_temp.q_as(py3, 'select public.my_circle_share_offers()::text'));
+  v_perms := (pg_temp.share(pt, py3, array['appointments']) like '{%')::text;
+  perform pg_temp.ck('9g a fresh share after a lapsed offer makes a new one, and the lapsed one is closed', 'true/1/expired',
+    v_perms || '/' || (select count(*)::text from public.care_circle_members where patient_id = pt and supporter_id = py3 and state = 'offered')
+    || '/' || (select state from public.care_circle_members where id = (r::jsonb ->> 'member_id')::uuid));
+  perform pg_temp.ck('9h anon cannot execute the offer functions', 'false/false/false',
+    has_function_privilege('anon', 'public.respond_to_circle_share_offer(uuid, boolean)', 'EXECUTE')::text || '/' ||
+    has_function_privilege('anon', 'public.my_circle_share_offers()', 'EXECUTE')::text || '/' ||
+    has_function_privilege('anon', 'public.withdraw_circle_share_offer(uuid)', 'EXECUTE')::text);
+  -- SABOTAGE: the share made active again (the pre-D3 behaviour). A new payer then sees the blocks without ever saying yes.
+  declare d text;
+  begin
+    select pg_get_functiondef('public.share_circle_with_gift_payer(uuid, text[], boolean)'::regprocedure) into d;
+    d := replace(d, 'v_perms, ''offered'',', 'v_perms, ''active'',');
+    if d = pg_get_functiondef('public.share_circle_with_gift_payer(uuid, text[], boolean)'::regprocedure) then raise exception 'sabotage D3 did not change the function'; end if;
+    execute d;
+    py := pg_temp.mkuser('Gs Payer Four');
+    ent := pg_temp.gift(pt, py, 'accepted');
+    perform pg_temp.share(pt, py, array['appointments']);
+    r := pg_temp.q_as(py, format('select public.circle_supporter_view(%L::uuid)::text', pt));
+    raise exception using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  perform pg_temp.ck('9i SABOTAGE share made active: the payer IS shown blocks without accepting (flips 4a1)', 'true', (r like '{%')::text);
 end $$;
 
 -- only failing checks are printed (a passing run prints none), plus the count of checks that held
