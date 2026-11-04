@@ -218,7 +218,6 @@ create table public.diagnostic_branch_services (
   confirmed_at                timestamptz not null,
   confirmed_by                uuid not null references public.profiles (id) on delete restrict,
   evidence_source             text not null check (char_length(btrim(evidence_source)) >= 5),
-  next_confirm_due            date not null,
   created_at                  timestamptz not null default now(),
   updated_at                  timestamptz not null default now(),
   constraint diagnostic_branch_services_one unique (branch_listing_id, concept_id),
@@ -230,7 +229,7 @@ create table public.diagnostic_branch_services (
 );
 create index diagnostic_branch_services_concept_idx on public.diagnostic_branch_services (concept_id, availability);
 comment on table public.diagnostic_branch_services is
-  'What one branch actually does, per investigation, confirmed by a named person with evidence. No price column on purpose: patients contact the facility for current pricing.';
+  'What one branch actually does, per investigation, confirmed by a named person with evidence. No price column on purpose: patients contact the facility for current pricing. Re-confirmation is due at confirmed_at + the active service_confirm_days (derived, never stored, so a cadence change applies everywhere at once).';
 
 -- ---------------------------------------------------------------------------
 -- 4. Credentials
@@ -600,7 +599,8 @@ begin
     perform private.diagnostic_log('diagnostic_branch_listings', v_id, 'created', null, 'draft', null);
   else
     update public.diagnostic_branch_listings
-       set lga = p_lga, town = p_town, neighbourhood = p_neighbourhood, email = p_email, website = p_website, updated_at = now()
+       set lga = coalesce(p_lga, lga), town = coalesce(p_town, town), neighbourhood = coalesce(p_neighbourhood, neighbourhood),
+           email = coalesce(p_email, email), website = coalesce(p_website, website), updated_at = now()
      where id = v_id;
     perform private.diagnostic_log('diagnostic_branch_listings', v_id, 'details_updated', null, null, null);
   end if;
@@ -678,7 +678,6 @@ declare
   c public.reference_concepts%rowtype;
   v_id uuid;
   v_from text;
-  v_due date := private.lagos_today() + private.diagnostic_directory_rule('service_confirm_days');
 begin
   perform private.diagnostic_require_verifier();
   select * into b from public.diagnostic_branch_listings where id = p_branch_listing_id;
@@ -705,16 +704,16 @@ begin
   if v_id is null then
     insert into public.diagnostic_branch_services (branch_listing_id, concept_id, availability, performed,
       performing_branch_listing_id, appointment_required, preparation_note, equipment_note,
-      confirmed_at, confirmed_by, evidence_source, next_confirm_due)
+      confirmed_at, confirmed_by, evidence_source)
     values (b.id, c.id, p_availability, p_performed, p_performing_branch_listing_id, coalesce(p_appointment_required, false),
-            p_preparation_note, p_equipment_note, now(), auth.uid(), p_evidence_source, v_due)
+            p_preparation_note, p_equipment_note, now(), auth.uid(), p_evidence_source)
     returning id into v_id;
   else
     update public.diagnostic_branch_services
        set availability = p_availability, performed = p_performed, performing_branch_listing_id = p_performing_branch_listing_id,
            appointment_required = coalesce(p_appointment_required, false), preparation_note = p_preparation_note,
            equipment_note = p_equipment_note, confirmed_at = now(), confirmed_by = auth.uid(),
-           evidence_source = p_evidence_source, next_confirm_due = v_due, updated_at = now()
+           evidence_source = p_evidence_source, updated_at = now()
      where id = v_id;
   end if;
   perform private.diagnostic_log('diagnostic_branch_services', v_id, 'confirmed', v_from, p_availability, p_evidence_source);
@@ -814,11 +813,14 @@ begin
     if i.provider_listing_id is not null then
       update public.diagnostic_provider_listings set directory_status = 'deactivated', status_changed_at = now(),
              status_changed_by = auth.uid(), status_reason = p_decision, updated_at = now() where id = i.provider_listing_id;
+      perform private.diagnostic_log('diagnostic_provider_listings', i.provider_listing_id, 'status', null, 'deactivated', p_decision);
     elsif i.branch_listing_id is not null then
       update public.diagnostic_branch_listings set directory_status = 'deactivated', status_changed_at = now(),
              status_changed_by = auth.uid(), status_reason = p_decision, updated_at = now() where id = i.branch_listing_id;
+      perform private.diagnostic_log('diagnostic_branch_listings', i.branch_listing_id, 'status', null, 'deactivated', p_decision);
     else
       update public.diagnostic_branch_services set availability = 'discontinued', updated_at = now() where id = i.service_id;
+      perform private.diagnostic_log('diagnostic_branch_services', i.service_id, 'availability', null, 'discontinued', p_decision);
     end if;
   end if;
   perform private.diagnostic_log('diagnostic_listing_incidents', p_incident_id, 'closed', 'open',
@@ -833,19 +835,26 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_old uuid;
+  v_new uuid;
 begin
   if auth.uid() is null or not private.is_admin() then
     raise exception 'only an admin may change credential requirements' using errcode = '42501';
   end if;
   update public.diagnostic_credential_requirements
      set is_active = false, retired_at = now(), retired_by = auth.uid()
-   where requirement_group = p_requirement_group and regulator = p_regulator and is_active;
+   where requirement_group = p_requirement_group and regulator = p_regulator and is_active
+  returning id into v_old;
+  if v_old is not null then
+    perform private.diagnostic_log('diagnostic_credential_requirements', v_old, 'retired', 'active', 'retired', p_change_note);
+  end if;
   if p_active then
     insert into public.diagnostic_credential_requirements (requirement_group, regulator, level, change_note, changed_by)
-    values (p_requirement_group, p_regulator, p_level, p_change_note, auth.uid());
+    values (p_requirement_group, p_regulator, p_level, p_change_note, auth.uid())
+    returning id into v_new;
+    perform private.diagnostic_log('diagnostic_credential_requirements', v_new, 'created', null, p_level, p_change_note);
   end if;
-  perform private.diagnostic_log('diagnostic_credential_requirements', gen_random_uuid(), 'replaced',
-                                 p_requirement_group || ':' || p_regulator, case when p_active then p_level else 'retired' end, p_change_note);
 end;
 $$;
 

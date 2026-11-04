@@ -124,6 +124,11 @@ begin
   v_reasons := public.admin_dx_service_eligibility(v_svc);
   insert into results values ('D2 reinstated -> eligible again', cardinality(v_reasons) = 0, array_to_string(v_reasons, ','));
 
+  -- D3: an omitted argument keeps the stored LGA
+  perform public.admin_dx_upsert_branch_listing(v_pl, v_loc, null, null, null, null, 'https://proof.example.org', true);
+  insert into results values ('D3 branch upsert keeps LGA when omitted',
+                              (select lga from public.diagnostic_branch_listings where id = v_bl) = 'Eti-Osa', null);
+
   -- E: unavailable, stale, outsourced to unknown
   perform public.admin_dx_upsert_service(v_bl, v_hba1c, 'temporarily_unavailable', 'onsite', null, false, null, null, 'Branch says analyser down');
   insert into results values ('E1 temporarily unavailable -> ineligible',
@@ -165,6 +170,14 @@ begin
   end;
   select count(*) into v_n from public.diagnostic_directory_events where subject_id in (v_pl, v_bl, v_svc, v_cred, v_inc);
   insert into results values ('G2 every step was logged', v_n >= 10, v_n::text);
+
+  -- G3: a non-reinstating closure deactivates the branch and logs it on the branch's own trail
+  perform pg_temp.as_user(v_admin);
+  v_inc := public.admin_dx_open_incident('branch', v_bl2, 'routine', 'Branch has closed permanently according to the landlord', true);
+  perform public.admin_dx_close_incident(v_inc, 'Branch confirmed closed by phone', null, false);
+  perform pg_temp.as_postgres();
+  insert into results values ('G3 deactivation logged on the branch trail',
+    exists (select 1 from public.diagnostic_directory_events where subject_id = v_bl2 and to_value = 'deactivated'), null);
 
   -- Sabotage a: retire the MLSCN requirement -> a credential-less service would pass
   delete from public.diagnostic_credentials where id = v_cred;
@@ -217,7 +230,7 @@ begin
     if not r.ok then v_fail := v_fail + 1; end if;
   end loop;
   if v_fail > 0 then raise exception '% check(s) failed', v_fail; end if;
-  if (select count(*) from results) < 22 then raise exception 'expected at least 22 checks, ran %', (select count(*) from results); end if;
+  if (select count(*) from results) < 24 then raise exception 'expected at least 24 checks, ran %', (select count(*) from results); end if;
 end;
 $$;
 
