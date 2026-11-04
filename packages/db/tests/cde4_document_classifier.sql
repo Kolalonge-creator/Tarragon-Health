@@ -22,6 +22,9 @@
 --      duplicate of the waiting upload (so 4 proves the adoption).
 --   Sabotage by hand (checked 2026-11-04): the p_error guard removed from record_document_classification -> FAIL 3; the
 --   step = 'extract' filter removed from cde_refresh -> FAIL 4 (the classify job counted as a reader attempt once routed).
+--   After the code review (checked 2026-11-04): the storage owner check removed from submit_unsorted_document -> FAIL 1; the
+--   "answer is final" guard relaxed in confirm_clinical_document_kind -> FAIL 6b; the unanswered-question branch removed from
+--   ops_exception_queue -> FAIL 6c.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/cde4_document_classifier.sql
 
