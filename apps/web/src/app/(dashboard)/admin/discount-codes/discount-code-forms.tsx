@@ -88,6 +88,16 @@ export function CreateDiscountCodeForm({
         <Label htmlFor="dc-note">Note (optional, for staff)</Label>
         <Input id="dc-note" name="note" maxLength={500} />
       </div>
+      <div className="space-y-1 sm:col-span-2">
+        <label className="flex min-h-11 items-center gap-2 font-medium">
+          <input type="checkbox" name="badge" value="founding_member" className="h-5 w-5" aria-describedby="dc-badge-hint" />
+          Founding member badge
+        </label>
+        <p id="dc-badge-hint" className="text-sm text-muted-foreground">
+          Everyone whose year is paid with this code is shown as a founding member in the app, and the public site shows how many places are left (its total uses).
+          Tick exactly the two Membership items above (membership_annual_no_panel and membership_annual), never the upgrade. The offer closes by itself when its places run out, so the last day can be set well ahead. Only one founding member code can be active at a time. The badge cannot be added or removed later.
+        </p>
+      </div>
       <div className="sm:col-span-2">
         <Button type="submit" disabled={pending} className="min-h-11">{pending ? "Creating…" : "Create code"}</Button>
         <FormError id="err-dc-create" message={state?.error ?? null} />

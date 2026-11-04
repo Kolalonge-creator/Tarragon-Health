@@ -13,7 +13,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  *
  * A client component only because the pathname is what decides; everything it draws is plain markup.
  */
-export function SectionGreeting({ greeting, roleLabel }: { greeting: string; roleLabel: string }) {
+export function SectionGreeting({ greeting, roleLabel, badge = null }: { greeting: string; roleLabel: string; badge?: React.ReactNode }) {
   const pathname = usePathname();
   const onOverview = pathname === "/patient" || pathname === "/patient/";
   if (!onOverview) {
@@ -30,6 +30,7 @@ export function SectionGreeting({ greeting, roleLabel }: { greeting: string; rol
           {greeting}
         </h1>
         <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{roleLabel} dashboard</p>
+        {badge ? <div className="mt-2">{badge}</div> : null}
       </div>
     </div>
   );

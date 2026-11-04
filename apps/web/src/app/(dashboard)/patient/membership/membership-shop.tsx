@@ -364,7 +364,22 @@ function History({ rows, locale, kindByCode }: { rows: OrderRow[]; locale: Local
 }
 
 /** `go` is where the patient is sent to pay; a test passes its own, the app uses the browser's navigation. */
-export function MembershipShop({ locale, fee, go = goTo, beneficiary, notIncluded = {}, priceNotices = [], showMonthly = false }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary; notIncluded?: Readonly<Record<string, readonly NotIncludedEntry[]>>; priceNotices?: readonly PriceChangeNotice[]; showMonthly?: boolean }) {
+/** The open founding member offer's code and percent, read by the page; shown as a hint, never applied for the person. */
+export interface FoundingHint { readonly code: string; readonly percent: number }
+
+/** A small, calm note that a founding member code exists. The person types it into the code box themselves. */
+function FoundingCodeHint({ hint, locale }: { hint: FoundingHint; locale: Locale }) {
+  return (
+    <aside aria-labelledby="founding-hint-title" className="rounded-xl border border-brand-green/30 bg-soft-sage/60 px-4 py-3 dark:border-brand-green-bright/30 dark:bg-brand-green/10" data-testid="founding-hint">
+      <p id="founding-hint-title" className="font-medium">{t("shop.founding.title", locale)}</p>
+      <p className={`text-sm ${MUTED}`}>
+        {t("shop.founding.hint", locale, { code: hint.code, percent: hint.percent })}
+      </p>
+    </aside>
+  );
+}
+
+export function MembershipShop({ locale, fee, go = goTo, beneficiary, notIncluded = {}, priceNotices = [], showMonthly = false, foundingOffer = null }: { locale: Locale; fee: FeeEstimateSchedule; go?: Go; beneficiary?: Beneficiary; notIncluded?: Readonly<Record<string, readonly NotIncludedEntry[]>>; priceNotices?: readonly PriceChangeNotice[]; showMonthly?: boolean; foundingOffer?: FoundingHint | null }) {
   const catalogue = useCatalogue();
   const orders = useMyOrders();
   const membership = useMyMembership();
@@ -396,6 +411,8 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
         </section>
       ) : null}
       {!chosenId ? <PriceChangeCard notices={priceNotices} locale={locale} /> : null}
+      {/* Only where a Membership year can actually be bought here: not to someone who already holds one (a gift for someone else still can). */}
+      {foundingOffer && !memberUntil && items.some((i) => i.kind === "membership") ? <FoundingCodeHint hint={foundingOffer} locale={locale} /> : null}
       {memberUntil ? (
         <p role="status">{ladder && tierNow === "plus" ? t("shop.tier.you_have_plus", locale, { date: memberDate }) : ladder && tierNow === "evergreen" ? t("shop.tier.you_have_evergreen", locale, { date: memberDate }) : t("shop.member_until", locale, { date: memberDate })}</p>
       ) : null}

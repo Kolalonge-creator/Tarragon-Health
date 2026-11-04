@@ -10,6 +10,8 @@ export type DiscountCodeActionState = { error?: string; message?: string } | und
 type DiscountCodeArgs = {
   p_code: string | null; p_kind: "percent" | "fixed"; p_percent: number | null; p_fixed_kobo: number | null; p_max_discount_kobo: number | null;
   p_item_codes: string[]; p_cohort_id: string | null; p_max_total_uses: number; p_max_per_person: number; p_valid_from: string; p_valid_to: string; p_note: string | null;
+  /** The only badge a code can carry today; part of what the code gives, fixed at creation. */
+  p_badge: "founding_member" | null;
 };
 
 /** The database accepts A-Z and 0-9 only, 4 to 24 long; lower case is normalised there. Blank means "generate one for me". */
@@ -33,6 +35,8 @@ const createSchema = z
     validFrom: DATE,
     validTo: DATE,
     note: z.string().trim().max(500).optional(),
+    // A checkbox: present means the code makes its paid beneficiaries founding members (founder decision 2026-11-04).
+    badge: z.union([z.literal(""), z.literal("founding_member")]).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.kind === "percent") {
@@ -53,6 +57,9 @@ const MESSAGES: Readonly<Record<string, string>> = {
   discount_code_invalid: "That code is not valid: 4 to 24 letters or digits, dates in order, and a cohort of your organisation.",
   unknown_item: "One of the chosen items is not in the catalogue.",
   discount_code_immutable: "What a code gives cannot change once it exists. End it and create a new one.",
+  founding_items_invalid: "A founding member code must be limited to exactly Membership and Membership Plus (membership_annual_no_panel and membership_annual), never the upgrade.",
+  founding_offer_exists: "A founding member code is already active. End it before creating another.",
+  discount_codes_one_live_founding_offer: "A founding member code is already active, so this one cannot be resumed. End the other one first.",
   "violates check constraint": "Those values are outside what is allowed: percent 1 to 100, amounts above zero, uses 1 to 1,000,000 in all and 1 to 100 per person.",
 };
 function describe(error: { message: string }): string {
@@ -82,6 +89,7 @@ export async function createDiscountCode(_prev: DiscountCodeActionState, formDat
     validFrom: formData.get("valid_from"),
     validTo: formData.get("valid_to"),
     note: formData.get("note") ?? "",
+    badge: formData.get("badge") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   const v = parsed.data;
@@ -114,6 +122,7 @@ export async function createDiscountCode(_prev: DiscountCodeActionState, formDat
     p_valid_from: from.toISOString(),
     p_valid_to: to.toISOString(),
     p_note: v.note || null,
+    p_badge: v.badge === "founding_member" ? "founding_member" : null,
   };
   const { data, error } = await supabase.rpc("admin_create_discount_code", args as unknown as Database["public"]["Functions"]["admin_create_discount_code"]["Args"]);
   if (error) return { error: describe(error) };

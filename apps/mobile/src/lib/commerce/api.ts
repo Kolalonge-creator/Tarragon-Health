@@ -61,7 +61,7 @@ export async function errorCodeOf(error: unknown): Promise<string> {
 }
 
 /** `beneficiary` is set only when paying for someone in the caller's Care Circle (S29); the database decides whether that is allowed. */
-export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; autoRenew?: boolean; collectionState?: string }): Promise<CheckoutResult> {
+export async function startCheckout(code: string, clientKey: string, beneficiary?: string, extras?: { usePoints?: boolean; expectedAmountKobo?: number; autoRenew?: boolean; collectionState?: string; discountCode?: string }): Promise<CheckoutResult> {
   // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment, and only when the person chose. The total they were shown is sent so the
   // database refuses the order if it now works out a different one.
   const body = {
@@ -71,6 +71,8 @@ export async function startCheckout(code: string, clientKey: string, beneficiary
     ...(extras?.autoRenew === true ? { auto_renew: true } : {}),
     // Membership Plus only: the approved state chosen for blood collection
     ...(extras?.collectionState ? { collection_state: extras.collectionState } : {}),
+    // a discount code the database already accepted in the quote; the server checks it again
+    ...(extras?.discountCode ? { discount_code: extras.discountCode } : {}),
   };
   const { data, error } = await supabase.functions.invoke("order-checkout", { body });
   if (error) return { ok: false, code: await errorCodeOf(error) };
@@ -87,8 +89,14 @@ export async function verifyOrder(reference: string): Promise<{ state: OrderRow[
 }
 
 /** What the person would pay for one item, from the database's own quote (S73). null means "could not be worked out": the screen then shows the catalogue price and sends no expected total. */
-export async function loadQuote(code: string, usePoints = false, beneficiary?: string): Promise<Quote | null> {
-  const { data, error } = await supabase.rpc("price_quote", { p_code: code, ...(beneficiary ? { p_beneficiary: beneficiary } : {}), ...(usePoints ? { p_use_points: true } : {}) });
+export async function loadQuote(code: string, usePoints = false, beneficiary?: string, discountCode?: string | null): Promise<Quote | null> {
+  const { data, error } = await supabase.rpc("price_quote", {
+    p_code: code,
+    ...(beneficiary ? { p_beneficiary: beneficiary } : {}),
+    ...(usePoints ? { p_use_points: true } : {}),
+    // the code the person typed and applied; the database decides whether it is valid (discountCodeOk in the quote)
+    ...(discountCode ? { p_discount_code: discountCode } : {}),
+  });
   return error ? null : parseQuote(data);
 }
 
@@ -144,6 +152,20 @@ export async function cancelPaymentRequest(id: string): Promise<string> {
 export async function loadAutoRenewEnabled(): Promise<boolean> {
   const { data, error } = await supabase.rpc("membership_auto_renew_enabled");
   return !error && data === true;
+}
+/** The signed-in person's own "Founding member" badge (founder decision 2026-11-04). A failed read is no badge, never a wrong one. */
+export async function loadFoundingBadge(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("my_founding_badge");
+  return !error && data === true;
+}
+/** The open founding member offer's code and percent, shown as a hint and never applied for the person. Closed, full or a failed read is null. */
+export async function loadFoundingOffer(): Promise<{ code: string; percent: number } | null> {
+  const { data, error } = await supabase.rpc("founding_offer_status");
+  if (error || typeof data !== "object" || data === null || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  const left = typeof d.places_left === "number" ? d.places_left : 0;
+  if (d.open !== true || left <= 0 || typeof d.code !== "string" || typeof d.percent !== "number") return null;
+  return { code: d.code, percent: d.percent };
 }
 /** The signed-in Member's renewal status. */
 export async function loadMyRenewal(): Promise<QueryResult<RenewalState | null>> {

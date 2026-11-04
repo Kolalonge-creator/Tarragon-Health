@@ -16,6 +16,7 @@ const codeRow = z.object({
   id: z.string().uuid(), code: z.string(), kind: z.enum(["percent", "fixed"]), percent: z.number().int().nullable(), fixed_kobo: z.number().int().nullable(),
   status: z.enum(["active", "paused", "ended"]), valid_from: z.string(), valid_to: z.string(), max_total_uses: z.number().int(), max_uses_per_person: z.number().int(),
   item_codes: z.array(z.string()), cohort_id: z.string().uuid().nullable(), used: z.number().int(),
+  badge: z.literal("founding_member").nullable().default(null),
 });
 const overview = z.object({ codes: z.array(codeRow) });
 const catalogue = z.object({ checkout_open: z.boolean(), items: z.array(z.object({ code: z.string(), audience: z.string().default("patient"), active: z.boolean() })) });
@@ -84,6 +85,7 @@ export default async function AdminDiscountCodesPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="font-mono">{c.code}</span> <Badge>{shown}</Badge>
+                {c.badge === "founding_member" ? <Badge variant="blue">Founding member badge</Badge> : null}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

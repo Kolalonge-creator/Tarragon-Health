@@ -5,7 +5,7 @@ import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCh
 const mockInvoke = jest.fn();
 const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
-import { loadCatalogue, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, setMyPlusState, startCheckout, verifyOrder } from "./api";
+import { loadCatalogue, loadFoundingOffer, loadMembership, loadMyOrders, loadNotIncluded, loadPlusStates, loadPriceChangeNotices, setMyPlusState, startCheckout, verifyOrder } from "./api";
 import { needsPlusStateSetup, plusStateSetupErrorKey } from "./plus-state-setup";
 
 const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
@@ -66,6 +66,27 @@ describe("api", () => {
     expect(mockInvoke).toHaveBeenLastCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k1", beneficiary: "p-9" } });
     await startCheckout("membership_annual", "k2", undefined);
     expect(mockInvoke).toHaveBeenLastCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k2" } });
+  });
+  it("sends an applied discount code to the quote and to checkout, and only when there is one", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    await loadQuote("membership_annual", false, undefined, "FOUNDING");
+    expect(mockRpc).toHaveBeenLastCalledWith("price_quote", { p_code: "membership_annual", p_discount_code: "FOUNDING" });
+    await loadQuote("membership_annual", false, undefined, null);
+    expect(mockRpc).toHaveBeenLastCalledWith("price_quote", { p_code: "membership_annual" });
+    mockInvoke.mockResolvedValue({ data: { reference: "tho_x", checkout_url: "https://checkout.paystack.com/a" }, error: null });
+    await startCheckout("membership_annual", "k1", undefined, { discountCode: "FOUNDING" });
+    expect(mockInvoke).toHaveBeenLastCalledWith("order-checkout", { body: { code: "membership_annual", client_key: "k1", discount_code: "FOUNDING" } });
+  });
+  it("reads the founding offer only when it is open with places left, never a guess", async () => {
+    mockRpc.mockResolvedValue({ data: { open: true, places_total: 100, places_left: 87, code: "FOUNDING", percent: 10 }, error: null });
+    expect(await loadFoundingOffer()).toEqual({ code: "FOUNDING", percent: 10 });
+    expect(mockRpc).toHaveBeenLastCalledWith("founding_offer_status");
+    mockRpc.mockResolvedValue({ data: { open: false, places_total: 100, places_left: 0 }, error: null });
+    expect(await loadFoundingOffer()).toBeNull();
+    mockRpc.mockResolvedValue({ data: { open: true, places_total: 100, places_left: 0, code: "FOUNDING", percent: 10 }, error: null });
+    expect(await loadFoundingOffer()).toBeNull();
+    mockRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await loadFoundingOffer()).toBeNull();
   });
   it("reads the stable error code from a failed call, and treats a strange success as unknown", async () => {
     mockInvoke.mockResolvedValue({ data: null, error: { context: { clone: () => ({ json: async () => ({ error: "no_capacity" }) }) } } });
