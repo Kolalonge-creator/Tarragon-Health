@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { geocodeAddress } from "@/lib/maps/geocode-address";
+import { AddressAutocompleteInput } from "@/components/maps/address-autocomplete-input";
 import {
   useLabProviderLocations,
   useCreateLabProviderLocation,
@@ -88,6 +89,8 @@ export function AdminLabProviderLocations({
   const [town, setTown] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  // Coordinates from a picked address suggestion; cleared whenever the address is retyped so a stale pin is never saved.
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const locatedCount = (locations ?? []).filter(
     (l) => l.latitude !== null && l.longitude !== null,
@@ -185,12 +188,23 @@ export function AdminLabProviderLocations({
             value={town}
             onChange={(e) => setTown(e.target.value)}
           />
-          <Input
-            placeholder="Address"
-            className="h-8 text-xs sm:col-span-2"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
+          <div className="sm:col-span-2">
+            <AddressAutocompleteInput
+              aria-label="Address"
+              placeholder="Address (start typing for suggestions)"
+              className="h-8 text-xs"
+              value={address}
+              onChange={(text) => {
+                setAddress(text);
+                setCoords(null);
+              }}
+              onSelect={(picked) => {
+                setCoords(picked.latitude !== null && picked.longitude !== null ? { latitude: picked.latitude, longitude: picked.longitude } : null);
+                if (picked.state) setState(picked.state);
+                if (picked.town && !town.trim()) setTown(picked.town);
+              }}
+            />
+          </div>
           <Input
             placeholder="Phone (+234…)"
             className="h-8 text-xs"
@@ -218,6 +232,8 @@ export function AdminLabProviderLocations({
                 town: town.trim(),
                 address: address.trim(),
                 contactPhone: phone.trim() || null,
+                latitude: coords?.latitude ?? null,
+                longitude: coords?.longitude ?? null,
               },
               {
                 onSuccess: () => {
@@ -226,6 +242,7 @@ export function AdminLabProviderLocations({
                   setTown("");
                   setAddress("");
                   setPhone("");
+                  setCoords(null);
                 },
               },
             )

@@ -776,6 +776,9 @@ export function useCreateLabProviderLocation() {
       town: string;
       address: string;
       contactPhone: string | null;
+      /** From a picked address suggestion; null leaves the branch "No location" until someone geocodes it. */
+      latitude?: number | null;
+      longitude?: number | null;
     }) => {
       const supabase = createClient();
       const { error } = await supabase.from("lab_provider_locations").insert({
@@ -785,6 +788,8 @@ export function useCreateLabProviderLocation() {
         town: input.town,
         address: input.address,
         contact_phone: input.contactPhone,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
       });
       if (error) throw error;
     },
