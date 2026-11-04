@@ -14,7 +14,8 @@ function migration(suffix: string): string {
 }
 
 describe("the Membership ladder prices mirror the migration", () => {
-  const ladder = getProposedConfig("commerce.membership_ladder").value as {
+  // History: the 2026-10-21 three-tier ladder (Plus retired 2026-11-04, T2-09; version 2 below).
+  const ladder = getProposedConfig("commerce.membership_ladder", "2026-11-03").value as {
     evergreen_code: string;
     evergreen_kobo: number;
     evergreen_plus_code: string;
@@ -54,5 +55,27 @@ describe("the Membership ladder prices mirror the migration", () => {
 
   it("names no banned tier word in the registry entry", () => {
     expect(JSON.stringify(ladder).toLowerCase()).not.toMatch(/basic|lite|standard|premium|gold/);
+  });
+});
+
+describe("Tarragon Health 2.0: only the Membership is sold (ladder version 2, T2-09)", () => {
+  const ladder = getProposedConfig("commerce.membership_ladder", "2026-11-04").value as {
+    evergreen_code: string;
+    evergreen_kobo: number;
+    evergreen_plus_code: string;
+    plus_sold: boolean;
+  };
+  const sql = migration("_t2_one_membership_100k_plus_retired.sql");
+
+  it("the Membership is 100,000 naira and Plus is not sold", () => {
+    expect(ladder.evergreen_code).toBe("membership_annual_no_panel");
+    expect(ladder.evergreen_kobo).toBe(10_000_000);
+    expect(ladder.plus_sold).toBe(false);
+  });
+
+  it("the migration prices that code at that amount and deactivates the Plus code", () => {
+    expect(sql).toContain(`'${ladder.evergreen_code}'`);
+    expect(sql).toContain(`${ladder.evergreen_kobo}, '{}'::jsonb, v_now,`);
+    expect(sql).toMatch(new RegExp(`set active = false[^;]*'${ladder.evergreen_plus_code}'`));
   });
 });

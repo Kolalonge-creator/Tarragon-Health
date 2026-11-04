@@ -38,6 +38,10 @@ export async function fileImagingReport(input: unknown): Promise<ImagingReportAc
     dicom_accession_number: dicomAccessionNumber,
     pacs_url: pacsUrl,
     document_id: documentId,
+    breast_density_as_printed: breastDensity,
+    birads_left_as_printed: biradsLeft,
+    birads_right_as_printed: biradsRight,
+    birads_overall_as_printed: biradsOverall,
   } = parsed.data;
 
   const user = await getCurrentUser();
@@ -78,6 +82,10 @@ export async function fileImagingReport(input: unknown): Promise<ImagingReportAc
       dicom_accession_number: dicomAccessionNumber ?? null,
       pacs_url: pacsUrl ?? null,
       document_id: documentId ?? null,
+      breast_density_as_printed: breastDensity ?? null,
+      birads_left_as_printed: biradsLeft ?? null,
+      birads_right_as_printed: biradsRight ?? null,
+      birads_overall_as_printed: biradsOverall ?? null,
       source: "clinician",
     })
     .select("id")

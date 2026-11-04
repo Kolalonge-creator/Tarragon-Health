@@ -10,8 +10,8 @@ import {
 
 describe("monthlyEquivalentKobo", () => {
   it("shows a yearly price as about a twelfth, in whole naira", () => {
-    expect(monthlyEquivalentKobo(8_400_000, 365)).toBe(700_000); // 84,000 naira a year is about 7,000 a month
-    expect(monthlyEquivalentKobo(12_900_000, 365)).toBe(1_075_000); // 129,000 / 12 = 10,750 exactly
+    expect(monthlyEquivalentKobo(9_000_000, 365)).toBe(750_000); // 90,000 naira a year is 7,500 a month exactly
+    expect(monthlyEquivalentKobo(10_000_000, 365)).toBe(833_300); // 100,000 / 12 = 8,333.33, shown as about 8,333
     expect(monthlyEquivalentKobo(12_000_000, 365)).toBe(1_000_000);
   });
 
@@ -34,13 +34,13 @@ describe("monthlyEquivalentKobo", () => {
   });
 
   it("applies only to a yearly item", () => {
-    expect(monthlyEquivalentKobo(8_400_000, null)).toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, 90)).toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, 365.5)).toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, ANNUAL_DURATION_DAYS.min - 1)).toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, ANNUAL_DURATION_DAYS.min)).not.toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, ANNUAL_DURATION_DAYS.max)).not.toBeNull();
-    expect(monthlyEquivalentKobo(8_400_000, ANNUAL_DURATION_DAYS.max + 1)).toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, null)).toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, 90)).toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, 365.5)).toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, ANNUAL_DURATION_DAYS.min - 1)).toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, ANNUAL_DURATION_DAYS.min)).not.toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, ANNUAL_DURATION_DAYS.max)).not.toBeNull();
+    expect(monthlyEquivalentKobo(9_000_000, ANNUAL_DURATION_DAYS.max + 1)).toBeNull();
   });
 
   it("uses twelve months", () => {
@@ -97,13 +97,13 @@ describe("parseNotIncluded", () => {
 
 describe("parsePriceChangeNotices", () => {
   const good = {
-    item_code: "membership_annual", name_key: "catalog.membership_annual.name", paid_list_kobo: 12_000_000, new_kobo: 12_900_000,
+    item_code: "membership_annual_no_panel", name_key: "catalog.membership_annual_no_panel.name", paid_list_kobo: 9_000_000, new_kobo: 10_000_000,
     new_from: "2026-12-01T00:00:00+00:00", ends_at: "2027-03-01T10:00:00+00:00",
   };
 
   it("reads a well-formed notice", () => {
     expect(parsePriceChangeNotices([good])).toEqual([{
-      itemCode: "membership_annual", nameKey: "catalog.membership_annual.name", paidListKobo: 12_000_000, newKobo: 12_900_000,
+      itemCode: "membership_annual_no_panel", nameKey: "catalog.membership_annual_no_panel.name", paidListKobo: 9_000_000, newKobo: 10_000_000,
       newFrom: "2026-12-01T00:00:00+00:00", endsAt: "2027-03-01T10:00:00+00:00",
     }]);
   });

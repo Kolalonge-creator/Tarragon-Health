@@ -15,7 +15,8 @@ export type WorklistKind =
   | "annual_check_reviews"
   | "therapy_approvals"
   | "vaccination_verification"
-  | "outside_records";
+  | "outside_records"
+  | "uploaded_documents";
 
 export interface WorklistItem {
   kind: WorklistKind;
@@ -37,11 +38,15 @@ export const WORKLIST_TITLES: Record<WorklistKind, string> = {
   therapy_approvals: "Therapy sessions awaiting approval",
   vaccination_verification: "Vaccination records to verify",
   outside_records: "Records from other hospitals to check",
+  uploaded_documents: "Uploaded reports waiting for a doctor (ECG, scans, letters, pathology)",
 };
 
 /** Where an item in a queue opens. Most open the patient's chart (logged); an outside record opens its own check page, which logs the same way. */
 export function worklistItemHref(kind: WorklistKind, itemId: string, patientId: string): string {
-  return kind === "outside_records" ? `/clinician/outside-records/${itemId}` : `/clinician/patients/${patientId}`;
+  if (kind === "outside_records") return `/clinician/outside-records/${itemId}`;
+  // An uploaded report opens in the side-by-side viewer, which opens (and logs) the patient's record first.
+  if (kind === "uploaded_documents") return `/clinician/patients/${patientId}/records/${itemId}`;
+  return `/clinician/patients/${patientId}`;
 }
 export const WORKLIST_ORDER = Object.keys(WORKLIST_TITLES) as WorklistKind[];
 

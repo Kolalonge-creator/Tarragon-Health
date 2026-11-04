@@ -47,7 +47,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A Health Check that matches you",
-      body: "A screening calendar matched to your age and sex, confidential screenings you can request yourself in minutes, and with Membership Plus a yearly blood panel carried out by Tarragon's own team. For any other test we write the request, you use any laboratory, and an abnormal result reaches a doctor.",
+      body: "A screening calendar matched to your age and sex, confidential screenings you can request yourself in minutes, and a yearly test schedule of your own. For any test we write the request, you use any reputable laboratory and pay it directly, and the report you upload is reviewed by a doctor.",
     },
   },
   {
@@ -240,15 +240,16 @@ export default function ForYouPage() {
             calendar, read the whole education library and use the AI Health Coach, with no time limit
             and no payment card required. If you want your care team to review your readings, rather
             than only store them, there is Membership. With Membership, a dangerous reading reaches a
-            doctor on your care team instead of sitting on your record, and you have a video call
-            with your care team every month. Membership Plus adds the yearly blood panel.
+            doctor on your care team instead of sitting on your record, you have an online meeting with
+            a doctor from your care team every month, and a doctor reviews the laboratory reports you
+            upload. Laboratory tests are not included: you pay the laboratory directly.
           </p>
           <p>
-            There are three plans, Free, Membership and Membership Plus, and the{" "}
+            There are two plans, Free and Membership, and the{" "}
             <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               pricing page
             </Link>{" "}
-            shows all three. If you are looking after a parent instead, see{" "}
+            shows both. If you are looking after a parent instead, see{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}

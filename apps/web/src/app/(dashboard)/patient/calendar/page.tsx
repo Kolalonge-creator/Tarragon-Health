@@ -8,7 +8,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { testingDayListSchema, myBookingListSchema } from "@/lib/testing-days/model";
+import { myBookingListSchema } from "@/lib/testing-days/model";
 import { appointmentLabel, readMyAppointments } from "@/lib/calendar/bookings";
 import {
   buildCalendarEntries,
@@ -68,8 +68,8 @@ function Entry({ e }: { e: CalendarEntry }) {
 }
 
 /**
- * One place for the patient's year: booked consultations, testing-day places, testing days still open to book and
- * screenings that are due. Every read is on the patient's own session. A source that fails to load is named on the
+ * One place for the patient's year: booked consultations, testing-day places already held and screenings that are due.
+ * Testing days still open to book are no longer listed: Tarragon testing days take no new bookings (T2-02, 2026-11-04). Every read is on the patient's own session. A source that fails to load is named on the
  * page, never silently left out, so an empty month is never mistaken for "nothing booked".
  */
 export default async function MyCalendarPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
@@ -84,7 +84,7 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
   const supabase = await createClient();
   const failed: string[] = [];
 
-  const [appointmentsResult, bookingsResult, daysResult, screeningsResult] = await Promise.all([
+  const [appointmentsResult, bookingsResult, screeningsResult] = await Promise.all([
     readMyAppointments(
       supabase,
       profile.id,
@@ -96,7 +96,6 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
       () => null,
     ),
     supabase.rpc("my_testing_bookings"),
-    supabase.rpc("list_testing_days", {}),
     supabase
       .from("screening_schedules")
       .select("id, due_date, status, screen_type:screen_types(name)")
@@ -116,9 +115,6 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
     return parsed.data;
   }
   const bookings = rows("testing-day bookings", myBookingListSchema, bookingsResult);
-  // Free accounts are refused open days (membership_required); that is not a failure, they simply have none to book.
-  const openDays =
-    daysResult.error?.message === "membership_required" ? [] : rows("open testing days", testingDayListSchema, daysResult);
   const screenings = rows("screenings", z.array(screeningRowSchema), screeningsResult);
 
   const entries = buildCalendarEntries(
@@ -132,7 +128,7 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
         clinicianName: a.clinician?.full_name ?? null,
       })),
       testingBookings: bookings,
-      openDays,
+      openDays: [],
       screenings: screenings.map((s) => ({ id: s.id, due_date: s.due_date, status: s.status, name: s.screen_type?.name ?? "Screening" })),
     },
     year,
@@ -145,7 +141,7 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="My calendar"
         icon={SEMANTIC_ICON.preventive}
-        description="Your consultations, testing days and screenings for the year, with testing days you can still book."
+        description="Your consultations, testing-day places and screenings for the year."
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -165,9 +161,6 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm">
             <Link href="/patient/appointments">Book a consultation</Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/patient/testing-days">Book a testing day</Link>
           </Button>
           <Button asChild size="sm" variant="ghost">
             <a href="/api/calendar/mine">Add all my bookings to my calendar</a>
@@ -196,7 +189,7 @@ export default async function MyCalendarPage({ searchParams }: { searchParams: P
       </ol>
 
       {entries.length === 0 && failed.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing in {year} yet. Book a consultation or a testing day and it will appear here.</p>
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing in {year} yet. Book a consultation and it will appear here.</p>
       ) : null}
 
       {months.map((m, i) =>

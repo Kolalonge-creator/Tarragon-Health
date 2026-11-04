@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You can pay for their care, if you wish",
-        body: "Give them a year of Membership or Membership Plus, paid once in naira. It is theirs to accept, can be used only for their care, and cannot be exchanged for cash. Laboratory tests are paid directly to the laboratory at its own price.",
+        body: "Give them a year of Membership, paid once in naira. It is theirs to accept, can be used only for their care, and cannot be exchanged for cash. Laboratory tests are paid directly to the laboratory at its own price.",
       },
     ],
     metadata: {
@@ -155,7 +155,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     included: [
       "A personal screening calendar covering cancer, metabolic, infectious and reproductive health checks matched to you",
       "A vaccination schedule, booking, and doctor-verified certificates",
-      "With Membership Plus, a yearly blood panel taken at a testing day you choose and read with your care team; for any other test we write the request and you use any laboratory",
+      "A yearly test schedule of your own: we write the request, you use any reputable laboratory and pay it directly, and a doctor reviews the report you upload",
       "Health education matched to you, with short quizzes to check understanding",
       "Doctor follow-up within 24 hours on an abnormal screening result, and within 12 hours if it is critical, on every plan",
       "A direct path into chronic care monitoring if a condition is found, on the same record, with no need to start again",
@@ -216,7 +216,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "labs",
     headline: "Know which tests are due, use any laboratory, and have every result followed up.",
     intro:
-      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a written request you can take to Synlab or any other laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, and we take no commission. The one exception is the Membership Plus yearly blood panel, which is taken at a testing day Tarragon arranges and which is included in that price.",
+      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a request form you can take to any reputable laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, and we take no commission. Contact the laboratory for current pricing.",
     included: [
       "A test calendar linked to your chronic care and screening record",
       "A written request you can take to any laboratory near you",

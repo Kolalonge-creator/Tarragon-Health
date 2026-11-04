@@ -14,6 +14,7 @@
 -- SABOTAGE: complementary suppression removed, the minimum-group gate removed, the report's employer scope widened, and the seat cap
 -- removed. Each must flip.
 begin;
+\ir _fixtures/pre_t2_organisation_pricing.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;

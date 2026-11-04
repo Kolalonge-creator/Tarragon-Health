@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { describe as describeInApp } from "./describe-in-app";
 
 describe("price_change_notice in the bell", () => {
-  const out = describeInApp({ template: "price_change_notice", payload: { price_id: "p1", item_code: "membership_annual", amount: 12_900_000 } });
+  const out = describeInApp({ template: "price_change_notice", payload: { price_id: "p1", item_code: "membership_annual_no_panel", amount: 10_000_000 } });
 
   it("is generic: it shows no item, no amount and no date, and is not alarming", () => {
     expect(out.text).not.toBe("You have an update");

@@ -1,6 +1,6 @@
 -- Journey 1 proof (migration *_my_membership_offer_above_target.sql): a Free patient whose 7-day blood pressure average is above target is offered
 -- Membership; nobody else is. One rolled-back transaction. Proves:
---  * a Free test patient with readings well above target gets status 'offer' for membership_annual with their own average;
+--  * a Free test patient with readings well above target gets status 'offer' for the Membership (membership_annual_no_panel since T2-09, 2026-11-04) with their own average;
 --  * a Free test patient within target, and one with too few readings, get 'not_eligible' (within_target, too_few_readings);
 --  * a current Member above target gets 'not_eligible' (already_member): no sales offer to someone who already has a doctor task;
 --  * a real (non-test) patient gets 'not_open_yet' while the checkout_enabled guard is off, whatever their readings;
@@ -62,7 +62,7 @@ begin
   update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child', date_of_birth = (private.lagos_today() - 3650) where id = v_dep;
 
   insert into results values ('real', 'Free test patient above target: offer', 'offer', pg_temp.field(pg_temp.offer_as(v_hi), 'status'));
-  insert into results values ('real', '...for membership_annual', 'membership_annual', pg_temp.field(pg_temp.offer_as(v_hi), 'catalog_item'));
+  insert into results values ('real', '...for the Membership (T2-09: Plus is no longer sold)', 'membership_annual_no_panel', pg_temp.field(pg_temp.offer_as(v_hi), 'catalog_item'));
   insert into results values ('real', '...with their own average (160/100)', '160/100', pg_temp.field(pg_temp.offer_as(v_hi), 'avg_systolic') || '/' || pg_temp.field(pg_temp.offer_as(v_hi), 'avg_diastolic'));
   insert into results values ('real', 'within target: not eligible', 'not_eligible/within_target', pg_temp.field(pg_temp.offer_as(v_ok), 'status') || '/' || pg_temp.field(pg_temp.offer_as(v_ok), 'reason'));
   insert into results values ('real', 'one reading only: not eligible', 'not_eligible/too_few_readings', pg_temp.field(pg_temp.offer_as(v_few), 'status') || '/' || pg_temp.field(pg_temp.offer_as(v_few), 'reason'));

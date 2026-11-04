@@ -3733,6 +3733,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (organisation seat matches Membership Plus, 2026-10-28 answer, applied live 2026-10-29); the live organisation_member_prices row valid from 2026-10-29",
   },
   {
+    key: "commerce.membership_prices",
+    // Version 4, 2026-11-04 (Tarragon Health 2.0, decisions T2-01, T2-05, T2-09): Membership Plus is retired and there is one annual
+    // Membership at 100,000 naira; an employer seat is that Membership at 90,000 naira (10% below). Applied live by
+    // 20261104042601_t2_one_membership_100k_plus_retired.sql, which closes the old rows and opens these at the same instant. Earlier
+    // versions are kept as history; the mirror test pins this one to that migration.
+    value: { individual_kobo: 10_000_000, organisation_member_kobo: 9_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 4,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-01, T2-05, T2-09 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
+  },
+  {
     key: "employer.seat_pilot",
     // EMP (docs/design/EMP.md): limits for an employer seat pilot and the rounding of its report. max_seats_per_pilot and
     // max_window_days stop a typo in a finance form; usage counts are shown rounded to report_round_to; usage_report_enabled stays false until counsel and the DPO have signed the employee notice (OQ-EMP-7, OQ-EMP-9), so a pilot reports seat counts only. The minimum cell is NOT here: the report uses the one platform rule, private.min_cell_floor (S75a, OQ-233), so there is a single number to change (I9). The
@@ -3764,6 +3777,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-21",
     source: "docs/DECISIONS.md (2026-10-21); supabase/migrations/20261021110528_membership_evergreen_ladder_foundation.sql",
+  },
+  {
+    key: "commerce.membership_ladder",
+    // Version 2, 2026-11-04 (T2-01, T2-09): only the Membership is sold, at 100,000 naira. Membership Plus (membership_annual) and the
+    // upgrade are inactive in the catalogue (not sold); their last prices are kept here only so a Plus year bought earlier can still be
+    // described. plus_sold is false.
+    value: {
+      evergreen_code: "membership_annual_no_panel",
+      evergreen_kobo: 10_000_000,
+      evergreen_plus_code: "membership_annual",
+      evergreen_plus_kobo: 12_900_000,
+      upgrade_kobo: 4_500_000,
+      plus_sold: false,
+    },
+    owner: "Founder",
+    status: "confirmed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-01, T2-09 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
   },
   {
     key: "marketing.membership_ladder_public",
@@ -3857,6 +3889,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-12",
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "commerce.organisation_member_price_limits",
+    // Version 2, 2026-11-04 (T2-05): the limits move to the Membership item (membership_annual_no_panel), default 90,000 naira; the band
+    // (50,000 to 200,000) is unchanged and still PROPOSED. Mirrored byte for byte by the organisation_price_limits v2 seed in
+    // 20261104042601_t2_one_membership_100k_plus_retired.sql.
+    value: { item_code: "membership_annual_no_panel", min_kobo: 5_000_000, max_kobo: 20_000_000, default_kobo: 9_000_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-05 (2026-11-04); supabase/migrations/20261104042601_t2_one_membership_100k_plus_retired.sql",
   },
   {
     key: "ops.service_targets",
@@ -11385,5 +11429,52 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-11-03",
     source: "Founder decision 2026-11-03 (docs/DECISIONS.md, Rota cover minimum); supabase/migrations/*_rota_cover_policy_two_clinicians.sql",
+  },
+  {
+    key: "documents.classifier",
+    // Clinical document engine step 4: when AI-024's suggested type is acted on without asking the patient. A suggestion at or above
+    // auto_apply_min_confidence that the file name or note does not contradict is applied; anything lower asks the patient one question.
+    // max_classify_attempts: automatic tries before the patient is simply asked. An operational setting (G-01): a wrong type sends a
+    // document to the wrong reader, whose own human review still applies; it never decides that a result is normal.
+    value: { auto_apply_min_confidence: 0.85, max_classify_attempts: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "docs/plans/clinical-document-engine-2026-11-04.md §16; supabase/migrations/20261104184341_cde5_document_classifier.sql",
+  },
+  {
+    key: "documents.narrative_urgent_rules",
+    // CDE-01 (clinical document engine step 5b): which REPORTED findings on a narrative report raise its review to urgent. DRAFT, NOT
+    // SIGNED, NOT LIVE: nothing reads this to escalate until the CMO signs it (OQ-CDE-11); until then every narrative report is routine
+    // doctor review and a doctor escalates by hand. Rules only ever raise priority; a report matching none is routine review, never
+    // "normal". Matching is on fields AS PRINTED (word-bounded, case-insensitive); a negated mention ("no evidence of malignancy",
+    // "pneumothorax excluded") does not match. Sources per rule are in docs/plans/narrative-urgent-finding-rules-draft-2026-11-04.md.
+    value: {
+      birads_urgent: ["0", "4", "4A", "4B", "4C", "5", "6"],
+      cervical_cytology_urgent: ["HSIL", "high-grade squamous intraepithelial lesion", "ASC-H", "atypical squamous cells, cannot exclude HSIL",
+        "AGC", "atypical glandular cells", "squamous cell carcinoma", "adenocarcinoma", "invasive"],
+      hpv_genotypes_urgent: ["16", "18"],
+      pathology_urgent_terms: ["carcinoma", "adenocarcinoma", "malignant", "malignancy", "sarcoma", "lymphoma", "melanoma", "leukaemia", "leukemia",
+        "metastatic", "metastasis", "high-grade dysplasia", "carcinoma in situ"],
+      ecg_urgent_terms: ["ventricular tachycardia", "ventricular fibrillation", "complete heart block", "third degree av block", "third-degree av block",
+        "mobitz ii", "second degree av block type ii", "st elevation", "stemi", "acute myocardial infarction", "acute mi"],
+      ecg_qtc_urgent_ms: 500,
+      imaging_urgent_terms: ["pneumothorax", "pulmonary embolism", "aortic dissection", "pneumoperitoneum", "free air", "intracranial haemorrhage",
+        "intracranial hemorrhage", "cord compression", "ectopic pregnancy", "bowel obstruction", "suspicious for malignancy",
+        "highly suggestive of malignancy"],
+      // A negation counts only inside the same clause: a bare word ("no", "not", "without") at most one word before the term ("no
+      // residual carcinoma"), a phrase ("negative for", "no evidence of", "free of") at most three words before it ("negative for
+      // intraepithelial lesion or malignancy"), or a phrase straight after it ("pneumothorax excluded"). Anything looser could hide a
+      // real finding ("no change in the known carcinoma"); erring toward urgent is the safe side.
+      negation_words_before: ["no", "not", "without"],
+      negation_phrases_before: ["negative for", "no evidence of", "free of"],
+      negations_after: ["ruled out", "excluded", "is ruled out", "has been excluded"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "CDE-01 draft from ACR BI-RADS 5th ed., NICE NG12, NHS Cervical Screening Programme colposcopy standards and the Bethesda system, ASCCP 2019, RCPath datasets, ESC 2022/2023 guidance, RCR critical-finding guidance (docs/plans/narrative-urgent-finding-rules-draft-2026-11-04.md). NOT signed (OQ-CDE-11).",
   },
 ];

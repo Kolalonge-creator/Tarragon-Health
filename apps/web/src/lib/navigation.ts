@@ -210,6 +210,8 @@ export function getNavSections(
             { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             // The front door for the record the patient carries and shares (S09x): timeline, emergency card, passport, share links, who has looked.
             { label: "My Health", href: "/patient/my-health", icon: "passport" },
+            // CDE-07: every report and document on the record, of any kind, in one place (clinical document engine step 6).
+            { label: "My Health Records", href: "/patient/health-records", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {
@@ -263,9 +265,9 @@ export function getNavSections(
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Yearly reports for people you support", href: "/patient/family/health-reports", icon: "passport" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
-            // Two-tier model: the Member's yearly check happens at a listed testing day.
+            // T2-02: testing days take no new bookings; this page now shows places already held and their results.
             { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
-            // The year at a glance: consultations, testing days (booked and open) and screenings due.
+            // The year at a glance: consultations, testing-day places already held and screenings due.
             { label: "My calendar", href: "/patient/calendar", icon: "booking" },
           ],
         },
@@ -834,6 +836,8 @@ export function getNavSections(
             { label: "Control by medicine adjustment", href: "/admin/outcomes/control-by-adjustment", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
+            // Care Circle adoption, engagement, gifts and safety: counts only, no names (Care Circle P5).
+            { label: "Care Circle", href: "/admin/care-circle", icon: "analytics" },
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
             { label: "Institution console", href: "/admin/sponsors/institution", icon: "members" },
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },

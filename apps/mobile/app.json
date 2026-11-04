@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0-native9",
+    "runtimeVersion": "0.1.0-native10",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -72,7 +72,8 @@
       ],
       "react-native-health-connect",
       "./plugins/withHealthConnectMainActivity.js",
-      "expo-font"
+      "expo-font",
+      "@react-native-firebase/app"
     ],
     "ios": {
       "bundleIdentifier": "com.tarragonhealth.mobile",

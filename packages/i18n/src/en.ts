@@ -2,6 +2,8 @@ import { activeWording } from "./clinical-wording";
 import { cycleCopy } from "./cycle-copy";
 import { circleToolsCopy } from "./care-circle-tools-copy";
 import { familyCircleCopy } from "./family-circle-copy";
+import { circleP4Copy } from "./care-circle-p4-copy";
+import { circleP5Copy } from "./care-circle-p5-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -1926,10 +1928,10 @@ export const en = {
   "catalog.membership_upgrade_plus.description": "Add the yearly blood panel to your Membership year. You pay only the difference, once. Your year does not change.",
   "catalog.membership_upgrade_plus.incl.1": "The yearly blood panel, taken at a testing day you choose from the dates and locations available. Your results are uploaded to your account. Results outside the normal range are checked by a clinician first, and your care team goes through them with you.",
   "catalog.membership_annual_no_panel.name": "Membership",
-  "catalog.membership_annual_no_panel.description": "A year of care with your care team, on your phone. The yearly blood test is not included. Medicines are not included: you take your prescription to any pharmacy and pay there.",
-  "catalog.membership_annual_no_panel.incl.1": "A video call with your care team every month, 12 in the year",
-  "catalog.membership_annual_no_panel.incl.2": "Written questions to your care team between calls",
-  "catalog.membership_annual_no_panel.incl.3": "Prescriptions that your care team signs, for you to take to any pharmacy",
+  "catalog.membership_annual_no_panel.description": "A year of preventive care with your care team, on your phone. Laboratory tests are not included: you have them at any reputable laboratory and pay the laboratory directly. Medicines are not included: you take your prescription to any pharmacy and pay there.",
+  "catalog.membership_annual_no_panel.incl.1": "One online meeting with a doctor from your care team every month. You can buy an extra meeting if you need one.",
+  "catalog.membership_annual_no_panel.incl.2": "A personal preventive plan and test schedule, with lab request forms you can download and take to any reputable laboratory",
+  "catalog.membership_annual_no_panel.incl.3": "Upload your lab reports: a doctor reviews them, and they are kept in your health record with your trends",
   "catalog.bp_care_pack_3m.name": "Blood pressure care pack, 3 months",
   "catalog.bp_care_pack_3m.description": "Three months of support from a care team lead who looks after your blood pressure. Medicines are not included.",
   "catalog.bp_care_pack_3m.incl.1": "A named care team lead who owns your plan",
@@ -2203,17 +2205,17 @@ export const en = {
   "circle.pay.confirm_no": "Go back",
   "circle.pay.someone": "this person",
   "circle.pay.only_year": "You can pay for a full year of Membership for them.",
-  "shop.error.upgrade_not_available": "Moving up to Membership Plus is only for someone on Membership, for themselves.",
+  "shop.error.upgrade_not_available": "Membership Plus is no longer offered, so there is nothing to move up to. Your Membership stays as it is.",
   "shop.tier.evergreen.name": "Membership",
   "shop.tier.evergreen_plus.name": "Membership Plus",
   "shop.tier.panel_yes": "Annual blood panel: yes",
-  "shop.tier.panel_no": "Annual blood panel: no",
+  "shop.tier.panel_no": "Lab tests: at any laboratory, paid to the laboratory",
   "shop.tier.monthly": "That is about {amount} a month, paid once for the year.",
-  "shop.tier.same_care": "Membership and Membership Plus are the same care. The only difference is the yearly blood panel.",
+  "shop.tier.same_care": "Membership is one plan. Lab tests are done at any reputable laboratory and paid to the laboratory directly.",
   "shop.tier.urgent_same": "If a reading or a symptom looks urgent, the guidance you see is the same on every plan, including Free.",
-  "shop.tier.you_have_plus": "You have Membership Plus until {date}.",
+  "shop.tier.you_have_plus": "You have Membership Plus until {date}. When it ends, you can renew as Membership.",
   "shop.tier.next_year": "Your next year is already paid for and starts on {date}.",
-  "shop.tier.you_have_evergreen": "Your Membership runs until {date}. You can add the yearly blood panel for the difference, once, without changing your year.",
+  "shop.tier.you_have_evergreen": "Your Membership runs until {date}.",
   "shop.tier.upgrade.pay": "Move up to Membership Plus",
   "shop.plus.state.label": "Where will your blood tests be collected?",
   "shop.plus.state.choose": "Choose a state",
@@ -2223,9 +2225,9 @@ export const en = {
   "shop.plus.state.error": "We could not load the states just now. Please check your connection and try again.",
   "shop.plus.state.retry": "Try again",
   "shop.error.plus_state_changed": "You changed the state after starting this payment. Please tap pay again to start fresh.",
-  "shop.error.plus_needs_direct_checkout": "Membership Plus is bought by the person themselves, so they can choose where their blood tests are collected. You can buy Membership for them instead.",
+  "shop.error.plus_needs_direct_checkout": "Membership Plus is no longer offered. You can buy Membership for them instead.",
   "shop.error.checkout_updating": "We are updating checkout. Please try again in a few minutes.",
-  "shop.plus.state.none": "Membership Plus is not open in any state yet. Membership is open everywhere.",
+  "shop.plus.state.none": "Blood collection is not open in any state just now. Your care team can help you with a lab request form instead.",
   "shop.plus.state.yours": "Your Membership Plus blood tests are collected in {state}.",
   "shop.plus.state.set_title": "Choose where your blood tests are collected",
   "shop.plus.state.set_button": "Save my state",
@@ -2233,7 +2235,7 @@ export const en = {
   "shop.plus.state.set_error": "We could not save your state just now. Please check your connection and try again.",
   "shop.plus.state.already_set": "Your state is already set and stays fixed. Contact us if it is wrong.",
   "shop.error.plus_state_required": "Please choose the state where your blood tests will be collected.",
-  "shop.error.plus_state_not_available": "Membership Plus blood collection is not open in that state. Please choose another state.",
+  "shop.error.plus_state_not_available": "Blood collection is not open in that state. Please choose another state.",
   "shop.error.upgrade_already_open": "You already have an upgrade waiting. Finish that payment or give it a little while, then try again.",
   "shop.error.gift_item_not_allowed": "Only the full yearly Membership can be paid for someone else.",
   "shop.buy_for.label": "Who is this for?",
@@ -5016,6 +5018,10 @@ export const en = {
   ...circleToolsCopy,
   // 2026-11-03: share with the person who paid, and the doctor's line for the family (proposed copy, CMO and DPO review pending: see family-circle-copy.ts)
   ...familyCircleCopy,
+  // 2026-11-04: Care Circle Phase 4, family contact and timeline (approved by the CMO and DPO 2026-11-04: see care-circle-p4-copy.ts)
+  ...circleP4Copy,
+  // 2026-11-04: Care Circle Phase 5, payer view and admin metrics (proposed copy, CMO and DPO review pending: see care-circle-p5-copy.ts)
+  ...circleP5Copy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",
@@ -5260,7 +5266,7 @@ export const en = {
   "founding.badge.detail": "You joined as one of Tarragon's first members.",
   "shop.founding.title": "Founding member code available",
   "quote.code.use_founding": "Put {code} in the box",
-  "shop.founding.hint": "Enter {code} in the Discount code box to take {percent}% off the first year of Membership or Membership Plus. One use per person, while places last.",
+  "shop.founding.hint": "Enter {code} in the Discount code box to take {percent}% off the first year of Membership. One use per person, while places last.",
   "quote.points.use": "Use my points to lower the Tarragon fee",
   "shop.see_included": "See what is included",
   "shop.panel_tests.summary": "See the tests in the yearly blood panel",

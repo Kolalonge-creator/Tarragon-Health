@@ -51,6 +51,7 @@ const CALL_SITES: Record<string, Site> = {
   [`${W}/appointment-prep/generate.ts`]: { systems: ["AI-013"] },
   [`${W}/care-messages/generate-draft-reply.ts`]: { systems: ["AI-014"] },
   [`${W}/case-briefs/generate.ts`]: { systems: ["AI-004"] },
+  [`${W}/clinical-documents/classify.ts`]: { systems: ["AI-024"], gatedIn: [`${W}/clinical-documents/classify-run.ts`] },
   [`${W}/diary/read-diary-page.ts`]: { systems: ["AI-021"] },
   [`${W}/document-capture/extract.ts`]: { systems: ["AI-018"], gatedIn: [`${W}/document-capture/run.ts`] },
   [`${W}/ecg-reports/extract.ts`]: { systems: ["AI-006"], gatedIn: [`${W}/ecg-reports/extraction-actions.ts`] },

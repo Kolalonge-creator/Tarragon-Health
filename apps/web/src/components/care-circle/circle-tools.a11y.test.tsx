@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
  * Care Circle supporter tools (S69b): the shared jobs, the weekly digest and the nudge list. Each renders nothing while its module is
- * off, shows only what the database sent, has no free-text field and no chat, and is axe-clean.
+ * off, shows only what the database sent, has no chat (the only free text is the patient's own short note on a help request, Care Circle P3), and is axe-clean.
  */
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
@@ -13,6 +13,7 @@ let tools: { digest: boolean; tasks: boolean; missed_dose: boolean; grace_minute
 let tasks: { isPending: boolean; isError: boolean; data: unknown };
 let digest: { isPending: boolean; isError: boolean; data: unknown };
 let nudges: { data: unknown[] };
+let circle: { data: unknown };
 const action = jest.fn();
 const post = jest.fn();
 jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a> }));
@@ -26,6 +27,7 @@ jest.mock("@/lib/queries/care-circle", () => {
     usePostTask: () => ({ mutateAsync: post, isPending: false }),
     useWeeklyDigest: () => digest,
     useRecentNudges: () => nudges,
+    useMyCircle: () => circle,
   };
 });
 
@@ -36,6 +38,7 @@ beforeEach(() => {
   tasks = { isPending: false, isError: false, data: { role: "helper", tasks: [TASK] } };
   digest = { isPending: false, isError: false, data: { patient_id: "p", name: "Mum", from: "2026-10-16", to: "2026-10-22", days: 7, readings: { days_logged: 5 } } };
   nudges = { data: [{ patient_id: "p", name: "Mum", since: "2026-10-22T08:00:00Z" }] };
+  circle = { data: { members: [{ member_id: "m1", name: "Ada Obi", relationship: "Daughter", permissions: ["appointments"], expires_at: "2027-01-01T00:00:00Z", since: "2026-10-01T00:00:00Z" }], invites: [], offers: [] } };
   action.mockReset();
   post.mockReset();
 });
@@ -80,7 +83,8 @@ describe("CircleTasksPanel", () => {
     fireEvent.change(screen.getByLabelText("What is it?"), { target: { value: "collect_medicines" } });
     fireEvent.change(screen.getByLabelText("Needed by (optional)"), { target: { value: "2026-10-30" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add job" })));
-    expect(post).toHaveBeenCalledWith({ kind: "collect_medicines", neededBy: "2026-10-30" });
+    // P3: the patient's call carries the (empty) recipients and note; nobody ticked = everyone who helps
+    expect(post).toHaveBeenCalledWith({ kind: "collect_medicines", neededBy: "2026-10-30", recipients: [], note: "" });
     cleanup();
     await expectNoA11yViolations(<CircleTasksPanel patientId="p" locale="en" />);
   });
@@ -135,5 +139,57 @@ describe("NudgesCard", () => {
     nudges = { data: [] };
     const b = render(<NudgesCard locale="en" />);
     expect(b.container.textContent).toBe("");
+  });
+
+  it("Care Circle P3: the patient can send a request to chosen people with a short note", async () => {
+    post.mockResolvedValue(undefined);
+    tasks = { isPending: false, isError: false, data: { role: "patient", tasks: [] } };
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    fireEvent.change(screen.getByLabelText("What is it?"), { target: { value: "help_paying_test" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Ada Obi/ }));
+    fireEvent.change(screen.getByLabelText("A short note (optional)"), { target: { value: "For Friday" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add job" })));
+    expect(post).toHaveBeenCalledWith({ kind: "help_paying_test", neededBy: null, recipients: ["m1"], note: "For Friday" });
+  });
+
+  it("Care Circle P3: 'Something else' needs a note before anything is sent", async () => {
+    tasks = { isPending: false, isError: false, data: { role: "patient", tasks: [] } };
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    fireEvent.change(screen.getByLabelText("What is it?"), { target: { value: "other" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add job" })));
+    expect(post).not.toHaveBeenCalled();
+    expect(screen.getByText("Please add a short note to say what you need.")).toBeTruthy();
+  });
+
+  it("Care Circle P3: a helper never sees the recipient or note fields", () => {
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    expect(screen.queryByLabelText("A short note (optional)")).toBeNull();
+    expect(screen.queryByText("Who is this for?")).toBeNull();
+  });
+
+  it("Care Circle P3: a person a request is addressed to sees the note and can say they can't help", async () => {
+    action.mockResolvedValue(true);
+    tasks = { isPending: false, isError: false, data: { role: "viewer", tasks: [{ ...TASK, kind: "help_paying_test", note: "For Friday", addressed: true, can_decline: true }] } };
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    expect(screen.getByText("For Friday")).toBeTruthy();
+    expect(screen.getByText("Asked of you")).toBeTruthy();
+    expect(screen.queryByText(/can only see/i)).toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "I can't help" })));
+    expect(action).toHaveBeenCalledWith({ action: "decline_circle_task", taskId: "t1" });
+  });
+
+  it("Care Circle P3: the patient sees each named person's answer", () => {
+    tasks = { isPending: false, isError: false, data: { role: "patient", tasks: [{ ...TASK, addressed: true,
+      recipients: [{ name: "Ada", answer: "cannot_help" }, { name: "Chidi", answer: null }] }] } };
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    expect(screen.getByText("Ada can't help")).toBeTruthy();
+    expect(screen.getByText("Chidi has not answered yet")).toBeTruthy();
+  });
+
+  it("Care Circle P4: a helper is not offered 'Something else' (only the patient can write the note it needs)", () => {
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    const options = Array.from((screen.getByLabelText("What is it?") as HTMLSelectElement).options).map((o) => o.value);
+    expect(options).not.toContain("other");
+    expect(options).toContain("transport");
   });
 });

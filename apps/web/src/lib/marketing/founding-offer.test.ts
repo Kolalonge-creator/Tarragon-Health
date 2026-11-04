@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { getProposedConfig } from "@tarragon/shared";
 import { formatNaira } from "@tarragon/commerce";
 import { loadFoundingOffer, parseFoundingOffer } from "./founding-offer";
-import { foundingLadderPriceLabels } from "./membership";
+import { foundingPriceLabel } from "./membership";
 
 const OPEN = { open: true, places_total: 100, places_left: 37, code: "FOUNDING10", percent: 10 };
 
@@ -39,12 +39,11 @@ describe("parseFoundingOffer", () => {
   });
 });
 
-describe("foundingLadderPriceLabels", () => {
-  it("takes the percent off the two config prices, rounding the discount down as the pricing engine does", () => {
-    const l = getProposedConfig("commerce.membership_ladder").value as { evergreen_kobo: number; evergreen_plus_kobo: number };
-    const off = (k: number, p: number) => k - Math.floor((k * p) / 100);
-    expect(foundingLadderPriceLabels(10)).toEqual({ evergreen: "₦" + formatNaira(off(l.evergreen_kobo, 10)), evergreenPlus: "₦" + formatNaira(off(l.evergreen_plus_kobo, 10)) });
-    // the founder's 2026-11-04 terms against today's config: 10% off 84,000 and 129,000
-    expect(foundingLadderPriceLabels(10)).toEqual({ evergreen: "₦75,600", evergreenPlus: "₦116,100" });
+describe("foundingPriceLabel", () => {
+  it("takes the percent off the one Membership price in config, rounding the discount down as the pricing engine does", () => {
+    const k = (getProposedConfig("commerce.membership_prices").value as { individual_kobo: number }).individual_kobo;
+    expect(foundingPriceLabel(10)).toBe(formatNaira(k - Math.floor((k * 10) / 100)));
+    // the founder's 2026-11-04 terms against today's config: 10% off 100,000
+    expect(foundingPriceLabel(10)).toBe("90,000");
   });
 });

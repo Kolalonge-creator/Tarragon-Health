@@ -24,11 +24,18 @@ describe("Care Circle for family abroad", () => {
       "Blood pressure, as weekly averages",
       "Medicines, as doses taken",
       "Appointments",
+      "Tests",
+      "Results a doctor has reviewed",
+      "Weight and yearly check-ups",
+      "A note from their care team",
       "A monthly summary",
+      "Requests for help",
       "A request to check on them",
     ]);
     expect(shared.textContent).toMatch(/Single readings are never shown/);
     expect(shared.textContent).toMatch(/names of the medicines are not shown/);
+    expect(shared.textContent).toMatch(/Sensitive tests are never shared/);
+    expect(shared.textContent).toMatch(/never says what happened/);
   });
 
   it("says the person chooses, can pause or remove anyone, and sees who looked", () => {
@@ -55,11 +62,8 @@ describe("Care Circle for family abroad", () => {
     expect(visibleText()).not.toMatch(/₦|NGN|naira/i);
   });
 
-  it("mentions the doctor's note only as coming soon", () => {
-    const text = visibleText();
-    expect(text).toMatch(/Coming soon: a short note from their care team/);
-    const noteMentions = text.match(/short note/g) ?? [];
-    expect(noteMentions).toHaveLength(1);
+  it("claims nothing as coming soon: every listed item is live", () => {
+    expect(visibleText()).not.toMatch(/coming soon/i);
   });
 
   it("makes none of the claims that are not live or not allowed", () => {

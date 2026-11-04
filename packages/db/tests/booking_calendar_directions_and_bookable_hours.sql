@@ -5,6 +5,9 @@
 --    screen could confirm them and patients saw no times), and confirming makes them confirmed.
 -- One rolled-back transaction. Ends with a SABOTAGE section: the old on-call-only list and an unguarded setter must flip checks.
 begin;
+-- T2-02 (2026-11-04) closed new public testing days; this proof still tests how existing public-day bookings work, so it opens
+-- the legacy path for this transaction only (create_testing_event honours it for a direct postgres session, never an API request).
+select set_config('tarragon.allow_legacy_public_testing_day', 'on', true);
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;

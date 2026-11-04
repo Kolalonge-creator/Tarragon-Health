@@ -10,6 +10,8 @@ import {
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
+import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -147,6 +149,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error("mobile lab-result-upload: could not claim a consult-fee credit (non-blocking)", error);
   }
 
+  // Computed on the server, never sent by the app: the database refuses the same file twice in one record.
+  const contentSha256 = await fileSha256(file);
+
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // Leading folder MUST be the caller's uid — the storage own-folder policy
   // checks exactly this, same as the web patient-upload path.
@@ -179,6 +184,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       uploaded_by: user.id,
       note: note ?? null,
       test_code: testCode ?? null,
+      content_sha256: contentSha256,
     })
     .select("id")
     .single();
@@ -191,6 +197,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         p_request_id: claimedRequestId,
         p_document_id: null as unknown as string,
       });
+    }
+    if (isDuplicateDocumentError(insertError)) {
+      return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
     }
     return NextResponse.json(
       { error: insertError?.message ?? "Could not save that upload." },

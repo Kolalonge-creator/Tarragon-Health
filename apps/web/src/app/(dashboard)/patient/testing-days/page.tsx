@@ -1,7 +1,4 @@
-import { testingDaysOffer, type TestingDaysOffer } from "@tarragon/shared";
-import { parseCatalogue } from "@/lib/commerce/model";
-import { panelIncluded, UPGRADE_CODE } from "@/lib/commerce/tiers";
-import { FreeTestingDaysOffer } from "./free-offer";
+import { TestingDaysClosedNote } from "./closed-note";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
@@ -21,8 +18,9 @@ import { PocResultsList } from "./poc-results-list";
 export const metadata = { title: "Testing days" };
 
 /**
- * Members book a place at a testing day (annual check: blood test, urine test, ECG, the basics). Free accounts see what
- * Membership includes instead. Results appear here only after a doctor has released them (INV-03).
+ * Tarragon-run public testing days are closed to new bookings (T2-02, 2026-11-04). This page now only honours what already exists: a
+ * place someone already holds (they can keep it, move it to another day already scheduled, or cancel it) and results a doctor has
+ * released (INV-03). Nobody is offered a new booking here; the yearly tests are done at any laboratory the person chooses.
  */
 export default async function TestingDaysPage({ searchParams }: { searchParams: Promise<{ state?: string; city?: string }> }) {
   const { state: stateParam, city: cityParam } = await searchParams;
@@ -33,13 +31,6 @@ export default async function TestingDaysPage({ searchParams }: { searchParams: 
 
   const supabase = await createClient();
   const { data: listRaw, error: listError } = await supabase.rpc("list_testing_days", {});
-  const notMember = listError?.message === "membership_required";
-  // A Free account is shown what Membership includes and costs, read from the shop's own catalogue. A failed read shows only the prompt.
-  let offer: TestingDaysOffer = { options: [], showPanelTests: false };
-  if (notMember) {
-    const { data: catalogueRaw, error: catalogueError } = await supabase.rpc("catalogue");
-    if (!catalogueError) offer = testingDaysOffer(parseCatalogue(catalogueRaw), panelIncluded, (code) => code === UPGRADE_CODE);
-  }
   const days: TestingDay[] = listError ? [] : testingDayListSchema.catch([]).parse(listRaw ?? []);
 
   const { data: bookingsRaw } = await supabase.rpc("my_testing_bookings");
@@ -53,13 +44,10 @@ export default async function TestingDaysPage({ searchParams }: { searchParams: 
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Testing days"
         icon={SEMANTIC_ICON.preventive}
-        description="Your yearly health check happens at a testing day near you. Choose a day to reserve your place, and we will remind you."
+        description="Places you already hold at a Tarragon testing day, and the results from them."
       />
-      {notMember ? (
-        <FreeTestingDaysOffer offer={offer} />
-      ) : (
-        <TestingDaysPanel days={days} bookings={bookings} place={place} />
-      )}
+      <TestingDaysPanel days={days} bookings={bookings} place={place} />
+      <TestingDaysClosedNote />
       <PocResultsList results={poc} />
     </div>
   );

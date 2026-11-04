@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { FREE_FEATURES } from "../_content/pricing";
-import { paidProductName, renewalCopy } from "@/lib/marketing/membership";
+import { LAB_TESTS_NOT_INCLUDED, paidProductName, renewalCopy } from "@/lib/marketing/membership";
 
 /**
  * Free vs Membership, side by side, for the homepage.
@@ -67,7 +67,8 @@ export function HomePlanCompare({
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">{renewalCopy(autoRenews, refundDays).short}</p>
+          <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">{LAB_TESTS_NOT_INCLUDED}</p>
+          <p className="mt-2 text-xs leading-relaxed text-charcoal-ink/65">{renewalCopy(autoRenews, refundDays).short}</p>
           <div className="mt-auto pt-6">
             <Button asChild size="lg" variant="accent" className="w-full">
               <Link href="/signup">Get started</Link>

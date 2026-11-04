@@ -18,18 +18,17 @@ import { PartnerLogoStrip } from "./_components/partner-logo-strip";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { FaqAccordion } from "./_components/marketing-faq-accordion";
 import { HomeEntryChips } from "./_components/home-entry-chips";
-import { HomeLadderCompare } from "./_components/home-ladder-compare";
 import { HomePlanCompare } from "./_components/home-plan-compare";
-import { ladderCards } from "./_content/pricing-ladder";
 import { HomeBusinessDoor } from "./_components/home-business-door";
 import { FoundingMembersStrip } from "./_components/founding-members-strip";
 import { CareCircleAbroad } from "./_components/care-circle-abroad";
+import { TarragonCommunity } from "./_components/tarragon-community";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipLadderPriceLabels, membershipLadderPublic, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
+import { employerSeatLine, employerSeatPriceLabel, LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -68,13 +67,11 @@ export const revalidate = 3600;
  * facts /pricing and /services state. FAQPage structured data is emitted for
  * them below. Redesign 2026-10-26: the homepage previously had no FAQ at all.
  */
-function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder: { evergreen: string; evergreenPlus: string } | null) {
+function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
   return [
     {
       question: "Is Tarragon really free?",
-      answer: ladder
-        ? `Yes. The app is free, with no time limit and no payment card needed. Membership (${ladder.evergreen} a year) and Membership Plus (${ladder.evergreenPlus} a year) are optional. Both add a video call with your care team every month, and Membership Plus also includes the yearly blood panel (a set of blood tests).`
-        : `Yes. The app is free, with no time limit and no payment card needed. ${paidProductName()} is optional: ₦${price} a year, and it includes a yearly blood test collected for you and a video call with your care team every month. Anyone can also request the annual test bundle and pay the laboratory directly.`,
+      answer: `Yes. The app is free, with no time limit and no payment card needed. ${paidProductName()} is optional: ₦${price} a year, with a personalised preventive plan, one online meeting with a doctor from your care team each month, and a doctor's review of the laboratory reports you upload. ${LAB_TESTS_NOT_INCLUDED}`,
     },
     {
       question: "Do I need a diagnosis to join?",
@@ -87,7 +84,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean, ladder:
         "You receive clear guidance and a specific next step straight away. If you do not acknowledge a dangerous reading, the person you named as your next of kin is contacted as well.",
     },
     {
-      question: ladder ? "Does Membership renew by itself?" : `Does ${paidProductName()} renew by itself?`,
+      question: `Does ${paidProductName()} renew by itself?`,
       answer: renewalCopy(autoRenews, refundDays).faqAnswer,
     },
   ];
@@ -99,8 +96,8 @@ export default async function MarketingHomePage() {
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const autoRenews = await membershipAutoRenews();
-  const ladderPrices = membershipLadderPublic() ? membershipLadderPriceLabels() : null;
-  const faq = homeFaq(price, refundDays, autoRenews, ladderPrices);
+  const seatPrice = employerSeatPriceLabel();
+  const faq = homeFaq(price, refundDays, autoRenews);
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -226,18 +223,13 @@ export default async function MarketingHomePage() {
       <Section variant="sage">
         <SectionHeading
           eyebrow="What it costs"
-          title={ladderPrices ? "Free, Membership or Membership Plus" : `Free to start. ${paidProductName()} when you want a doctor involved.`}
-          description={
-            ladderPrices
-              ? "Everything you can do yourself is free. Membership and Membership Plus give you a year of care with your care team. The only difference between them is the yearly blood panel."
-              : "There are two plans. Everything you can do yourself is free."
-          }
+          title={`Free to start. ${paidProductName()} when you want a doctor involved.`}
+          description="There are two plans. Everything you can do yourself is free."
         />
-        {ladderPrices ? (
-          <HomeLadderCompare cards={ladderCards(ladderPrices)} refundDays={refundDays} autoRenews={autoRenews} />
-        ) : (
-          <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
-        )}
+        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70" data-testid="home-employer-seat-line">
+          {employerSeatLine(seatPrice)}
+        </p>
       </Section>
 
       {/* The founding member offer, under the plans: renders nothing unless it is open (see the component). */}
@@ -309,6 +301,9 @@ export default async function MarketingHomePage() {
       {/* 7b. Family abroad: Care Circle, with a labelled illustration of
           the supporter view. Live features only; see _content/care-circle.ts. */}
       <CareCircleAbroad variant="sage" />
+
+      {/* 7c. Tarragon Community, the patient support groups (COM-29). */}
+      <TarragonCommunity />
 
       {/* Same rule the product pages follow (see PRODUCT_VIDEOS in
           _content/media.ts: "empty youtubeId = section not rendered"). */}

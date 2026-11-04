@@ -117,7 +117,7 @@ describe("itemised checkout (S71, 19.7)", () => {
 
 describe("paying for someone from abroad (S71, 19.4)", () => {
   it("shows the higher processing estimate for a card issued outside Nigeria, labelled as an estimate", () => {
-    catalogue = { data: [{ ...ITEM, code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", duration_days: 365, uses: null, components: {} }], isSuccess: true };
+    catalogue = { data: [{ ...ITEM, code: "membership_annual_no_panel", kind: "membership", name_key: "catalog.membership_annual_no_panel.name", duration_days: 365, uses: null, components: {} }], isSuccess: true };
     render(<MembershipShop locale="en" fee={FEE} go={go} beneficiary={{ id: "b1", name: "Ada" }} />);
     expect(screen.getByText(/Paying from abroad\? Cards issued outside Nigeria cost more to process/)).toBeTruthy();
     expect(screen.getByText(/the processing fee is about ₦[\d,]+ and the total about ₦[\d,]+/)).toBeTruthy();
