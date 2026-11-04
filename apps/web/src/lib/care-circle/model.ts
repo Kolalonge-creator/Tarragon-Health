@@ -498,6 +498,12 @@ export const taskSchema = z.object({
   needed_by: z.string().nullable(),
   state: z.enum(["open", "claimed", "done"]),
   claimed_by_name: z.string().nullable().optional(),
+  // Care Circle P3: the patient's note (D4), whether it was addressed, and (patient only) who it went to and their answers
+  note: z.string().nullable().optional(),
+  addressed: z.boolean().catch(false),
+  recipients: z.array(z.object({ name: z.string(), answer: z.enum(["can_help", "cannot_help"]).nullable() })).nullable().optional(),
+  my_answer: z.enum(["can_help", "cannot_help"]).nullable().optional(),
+  can_decline: z.boolean().catch(false),
   mine: z.boolean().catch(false),
   posted_by_me: z.boolean().catch(false),
   can_claim: z.boolean().catch(false),
