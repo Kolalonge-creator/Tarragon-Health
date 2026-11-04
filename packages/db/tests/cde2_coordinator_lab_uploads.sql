@@ -12,7 +12,10 @@
 --      after a clinician has released the result nobody can.
 --   4. Fingerprint gaps closed: a patient's replacement upload and a patient-added S27 file are refused when the file is already in
 --      the record.
---   5. Laboratory assignments: a coordinator reads their own and cannot create one; an admin can.
+--      2b. A record holding a single name can still be uploaded for. 3b. Choosing a typed laboratory replaces a directory one; an
+--      empty note clears the note. The search masks the patient number (last four characters only).
+--   5. Laboratory assignments: a coordinator reads their own and cannot create one; an admin can; 5b. only a coordinator of the
+--      same organisation can hold one.
 --   6. SABOTAGE (automatic): with the uploader check opened to any active account, the clinician's upload is no longer refused
 --      (so 2 proves the check).
 --   Sabotage by hand (checked 2026-11-04): private.cde_name_words made to return a constant -> FAIL 2 (a wrong name is accepted);
@@ -79,8 +82,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_audit_before from public.audit_log where actor_id = v_coord and action = 'patient.upload_search';
-  select count(*) into v_n from public.find_patient_for_upload('cde2-0001') where patient_id = v_patient;
-  if v_n <> 1 then reset role; raise exception 'FAIL 1: not found by patient number'; end if;
+  select count(*) into v_n from public.find_patient_for_upload('cde2-0001') where patient_id = v_patient and patient_number_hint = '…0001';
+  if v_n <> 1 then reset role; raise exception 'FAIL 1: not found by patient number, or the number is not masked'; end if;
   select count(*) into v_n from public.find_patient_for_upload('08031234567') where patient_id = v_patient;
   if v_n <> 1 then reset role; raise exception 'FAIL 1: not found by local phone form'; end if;
   select count(*) into v_n from public.find_patient_for_upload('+234 803 123 4567') where patient_id = v_patient;
@@ -241,6 +244,38 @@ begin
   reset role;
   perform set_config('request.jwt.claims', null, true);
   if v_err is distinct from 'clinical_document_already_reviewed' then raise exception 'FAIL 3: a reviewed upload was corrected (%)', v_err; end if;
+
+  -- 2b. a record holding a single name can still be uploaded for (one shared word + date of birth)
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values ('0c0de200-0000-4000-8000-000000000001', 'cde2-single@example.invalid', 'x', now(), '{}', '{}');
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Adebayo', date_of_birth = date '1975-05-05', is_test = true
+   where id = '0c0de200-0000-4000-8000-000000000001';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_coord, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_out := public.coordinator_submit_lab_report('0c0de200-0000-4000-8000-000000000001',
+    jsonb_build_object('file_path', '0c0de200-0000-4000-8000-000000000001/cde2-s.pdf', 'original_filename', 's.pdf',
+                       'mime_type', 'application/pdf', 'file_size_bytes', 1000, 'content_sha256', repeat('5', 64)),
+    jsonb_build_object('name_on_report', 'ADEBAYO', 'date_of_birth_on_report', '1975-05-05'), v_lab, null, null, null);
+  -- 3b. a correction from a directory laboratory to a typed one replaces it, and an empty note clears the note
+  perform public.correct_clinical_document_metadata((v_out ->> 'document_id')::uuid, 'Wrong laboratory picked', null, null,
+    'Afriglobal Ikeja', '');
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  select * into v_cd from public.clinical_documents where id = (v_out ->> 'document_id')::uuid;
+  if v_cd.source_facility_id is not null or v_cd.source_facility_name <> 'Afriglobal Ikeja' or v_cd.admin_note is not null then
+    raise exception 'FAIL 3b: a typed laboratory did not replace the directory one (id %, name %, note %)',
+      v_cd.source_facility_id, v_cd.source_facility_name, v_cd.admin_note;
+  end if;
+
+  -- 5b. a laboratory assignment is only for a coordinator of the same organisation
+  v_err := null;
+  begin
+    insert into public.staff_lab_assignments (organisation_id, staff_profile_id, lab_provider_id) values (v_org, v_patient, v_lab);
+  exception when others then v_err := sqlerrm;
+  end;
+  if v_err is distinct from 'staff_lab_assignment_not_a_coordinator' then
+    raise exception 'FAIL 5b: a laboratory was assigned to a patient account (%)', v_err;
+  end if;
 
   -- 4. fingerprint gaps closed
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);

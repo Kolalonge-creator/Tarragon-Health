@@ -52278,7 +52278,7 @@ export type Database = {
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       replace_my_result_document: { Args: { p_document_id: string; p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_note?: string; p_content_sha256?: string }; Returns: string }
       // CDE step 2 (clinical document engine): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
-      find_patient_for_upload: { Args: { p_query: string; p_date_of_birth?: string }; Returns: { patient_id: string; patient_number: string | null; full_name: string | null; birth_year: number | null; sex: string | null; state: string | null; phone_last4: string | null }[] }
+      find_patient_for_upload: { Args: { p_query: string; p_date_of_birth?: string }; Returns: { patient_id: string; patient_number_hint: string | null; full_name: string | null; birth_year: number | null; sex: string | null; state: string | null; phone_last4: string | null }[] }
       coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
       correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }

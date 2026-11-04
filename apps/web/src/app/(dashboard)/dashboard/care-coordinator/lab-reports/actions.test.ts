@@ -104,16 +104,25 @@ describe("uploadLabReportForPatient", () => {
   });
 });
 
+describe("uploadLabReportForPatient after a lost response", () => {
+  it("keeps the stored file when the error is not a database refusal (the upload may have committed)", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "fetch failed" } });
+    const r = await uploadLabReportForPatient(undefined, form());
+    expect(r?.error).toBeTruthy();
+    expect(removeFile).not.toHaveBeenCalled();
+  });
+});
+
 describe("findPatientForUpload", () => {
   it("passes the date of birth only when given, and reshapes the answer", async () => {
     rpc.mockResolvedValue({
-      data: [{ patient_id: PATIENT, patient_number: "TH-1", full_name: "Ngozi Okafor", birth_year: 1980, sex: "female", state: "Lagos", phone_last4: "4567" }],
+      data: [{ patient_id: PATIENT, patient_number_hint: "…TH-1", full_name: "Ngozi Okafor", birth_year: 1980, sex: "female", state: "Lagos", phone_last4: "4567" }],
       error: null,
     });
     const r = await findPatientForUpload({ query: "TH-1" });
     expect(rpc).toHaveBeenCalledWith("find_patient_for_upload", { p_query: "TH-1" });
     expect(r).toEqual({
-      patients: [{ patientId: PATIENT, patientNumber: "TH-1", fullName: "Ngozi Okafor", birthYear: 1980, sex: "female", state: "Lagos", phoneLast4: "4567" }],
+      patients: [{ patientId: PATIENT, patientNumberHint: "…TH-1", fullName: "Ngozi Okafor", birthYear: 1980, sex: "female", state: "Lagos", phoneLast4: "4567" }],
     });
   });
 

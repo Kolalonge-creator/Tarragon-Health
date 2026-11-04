@@ -5,14 +5,16 @@
 -- Design: docs/plans/clinical-document-engine-2026-11-04.md §5; decisions CDE-03, CDE-04, CDE-06.
 --
 --   1. public.find_patient_for_upload(query, date_of_birth): patient number, phone, email, or name WITH date of birth. A name alone
---      is refused. Returns only what is needed to tell two patients apart (patient number, name, year of birth, sex, state, the last
---      four digits of the phone). Care coordinators (and the legacy lab_liaison role), own organisation, every search audited.
+--      is refused. Returns only what is needed to tell two patients apart (name, year of birth, sex, state, the last four characters
+--      of the patient number and of the phone). Neither the full date of birth nor the full patient number is shown, so the identity
+--      check on upload has to be answered from the report. Care coordinators (and the legacy lab_liaison role), own organisation, every search audited.
 --   2. public.coordinator_submit_lab_report(...): stores the file as a held S27 result exactly like the care-team path
 --      (team_submit_lab_result), so the clinician release machine, alerts and INV-03 (the patient sees nothing until a clinician has
 --      reviewed it) are unchanged. Before it does, the database checks the identity the coordinator read off the report against the
 --      record: two name words in common AND the date of birth or the patient number. A date of birth that does not match refuses the
 --      upload outright. The file fingerprint is required. The intake row records what matched, the laboratory and the test date.
---   3. public.correct_clinical_document_metadata(...): the uploader corrects administrative details (test date, laboratory, note)
+--   3. public.correct_clinical_document_metadata(...): the uploader corrects administrative details (test date, laboratory, note;
+--      a directory laboratory and a typed name replace each other, an empty note clears it)
 --      on their own upload until a clinician has reviewed it. Never a value, a finding or the patient. Audited with the old values.
 --   4. public.staff_lab_assignments: which laboratories a coordinator handles (admin-managed). For the coordinator's screen and the
 --      admin's statistics, not a restriction on whose result can be uploaded: a lab can send a result for any Tarragon patient.
@@ -50,6 +52,24 @@ create table public.staff_lab_assignments (
 );
 create unique index staff_lab_assignments_one_open on public.staff_lab_assignments (staff_profile_id, lab_provider_id)
   where active_to is null;
+-- Only a care coordinator (or the legacy lab_liaison account) of the same organisation can hold a laboratory assignment.
+create or replace function private.guard_staff_lab_assignment()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if not exists (select 1 from public.profiles p where p.id = new.staff_profile_id and p.organisation_id = new.organisation_id
+                   and p.role in ('care_coordinator', 'lab_liaison')) then
+    raise exception 'staff_lab_assignment_not_a_coordinator' using errcode = '22023';
+  end if;
+  return new;
+end;
+$function$;
+revoke all on function private.guard_staff_lab_assignment() from public;
+create trigger staff_lab_assignments_guard before insert or update of staff_profile_id, organisation_id on public.staff_lab_assignments
+  for each row execute function private.guard_staff_lab_assignment();
 create trigger staff_lab_assignments_set_updated_at before update on public.staff_lab_assignments
   for each row execute function private.set_updated_at();
 create trigger audit_row_change_trg after insert or delete or update on public.staff_lab_assignments
@@ -96,7 +116,7 @@ $function$;
 -- 3. Patient search: never a name alone
 -- ---------------------------------------------------------------------------------------------------------------------------
 create or replace function public.find_patient_for_upload(p_query text, p_date_of_birth date default null)
-returns table (patient_id uuid, patient_number text, full_name text, birth_year integer, sex text, state text, phone_last4 text)
+returns table (patient_id uuid, patient_number_hint text, full_name text, birth_year integer, sex text, state text, phone_last4 text)
 language plpgsql
 security definer
 set search_path to ''
@@ -135,17 +155,20 @@ begin
   end if;
 
   return query
-    select p.id, p.patient_number, p.full_name, extract(year from p.date_of_birth)::integer, p.sex::text, p.state,
+    -- The patient number is masked like the phone: the screen helps tell two people apart, but the identity check on upload must be
+    -- answered from the report, not copied from this result.
+    select p.id, case when p.patient_number is null then null else '…' || right(p.patient_number, 4) end, p.full_name, extract(year from p.date_of_birth)::integer, p.sex::text, p.state,
            case when p.phone is null then null else right(regexp_replace(p.phone, '\D', '', 'g'), 4) end
       from public.profiles p
       left join auth.users u on u.id = p.id
      where p.organisation_id = v_org and p.role = 'patient' and p.is_active
+       and (v_kind <> 'name' or p.date_of_birth = p_date_of_birth)
        and case v_kind
              when 'patient_number' then lower(p.patient_number) = lower(v_q)
              when 'email' then lower(u.email) = lower(v_q)
              -- the last 10 digits, so +2348031234567, 08031234567 and 8031234567 are the same number
              when 'phone' then right(regexp_replace(coalesce(p.phone, ''), '\D', '', 'g'), 10) = right(v_digits, 10)
-             else p.date_of_birth = p_date_of_birth and private.cde_name_words(p.full_name) @> v_words
+             else private.cde_name_words(p.full_name) @> v_words
            end
      order by p.full_name
      limit 10;
@@ -186,6 +209,7 @@ declare
   v_dob_on_report date;
   v_number_on_report text := nullif(btrim(coalesce(p_identity ->> 'patient_number_on_report', '')), '');
   v_shared integer;
+  v_record_words integer;
   v_matched text[] := '{}';
   v_out jsonb;
   v_cd uuid;
@@ -213,10 +237,12 @@ begin
   exception when others then
     raise exception 'identity_date_invalid' using errcode = '22023';
   end;
+  -- Two name words in common, or every word when the record holds only one (a single-name record must still be uploadable).
+  v_record_words := cardinality(private.cde_name_words(pr.full_name));
   select count(*) into v_shared
     from unnest(private.cde_name_words(v_name_on_report)) w
    where w = any (private.cde_name_words(pr.full_name));
-  if v_shared < 2 then
+  if v_shared < least(2, v_record_words) or v_shared = 0 then
     raise exception 'identity_name_mismatch' using errcode = '22023';
   end if;
   v_matched := array_append(v_matched, 'name');
@@ -306,9 +332,19 @@ begin
 
   update public.clinical_documents
      set investigation_date = coalesce(p_investigation_date, investigation_date),
-         source_facility_id = coalesce(p_source_facility_id, source_facility_id),
-         source_facility_name = coalesce(nullif(btrim(coalesce(p_source_facility_name, '')), ''), source_facility_name),
-         admin_note = coalesce(nullif(btrim(coalesce(p_admin_note, '')), ''), admin_note)
+         -- A laboratory is either a directory entry or a typed name: choosing one replaces the other.
+         source_facility_id = case
+                                when p_source_facility_id is not null then p_source_facility_id
+                                when nullif(btrim(coalesce(p_source_facility_name, '')), '') is not null then null
+                                else source_facility_id
+                              end,
+         source_facility_name = case
+                                  when p_source_facility_id is not null then null
+                                  when nullif(btrim(coalesce(p_source_facility_name, '')), '') is not null then btrim(p_source_facility_name)
+                                  else source_facility_name
+                                end,
+         -- null leaves the note as it is; an empty string clears it
+         admin_note = case when p_admin_note is null then admin_note else nullif(btrim(p_admin_note), '') end
    where id = cd.id;
   return jsonb_build_object('ok', true);
 end;

@@ -9,7 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { FilePicker } from "@/components/ui/file-picker";
 import { LAB_RESULT_FILE_ACCEPT } from "@/lib/lab-results/structured";
 import { STAFF_STATUS_LABEL, STATUS_TONE, type ClinicalDocumentStatus } from "@/lib/clinical-documents/status";
-import { findPatientForUpload, uploadLabReportForPatient, type UploadPatientMatch, type UploadState } from "./actions";
+import {
+  correctUploadDetails,
+  findPatientForUpload,
+  uploadLabReportForPatient,
+  type UploadPatientMatch,
+  type UploadState,
+} from "./actions";
 
 export type LabOption = { id: string; name: string; assigned: boolean };
 export type MyUpload = {
@@ -31,6 +37,98 @@ function formatLagosDate(iso: string): string {
  * Find the patient (patient number, phone, email, or name with date of birth), confirm the details printed on the report, upload.
  * The database checks the identity again and refuses a mismatch; the screen only explains it.
  */
+/**
+ * The uploader fixes administrative details (test date, laboratory, note) until a clinician has dealt with the report. Never a
+ * value or the patient: a wrong patient means asking the care team to withdraw it.
+ */
+function CorrectUpload({ upload, labs }: { upload: MyUpload; labs: LabOption[] }) {
+  const [open, setOpen] = useState(false);
+  const [lab, setLab] = useState("");
+  const [date, setDate] = useState("");
+  const [labName, setLabName] = useState("");
+  const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
+  const [result, setResult] = useState<UploadState>(undefined);
+  const [saving, setSaving] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const r = await correctUploadDetails({
+      documentId: upload.id,
+      reason,
+      ...(date ? { investigationDate: date } : {}),
+      ...(lab && lab !== OTHER_LAB ? { labProviderId: lab } : {}),
+      ...(lab === OTHER_LAB && labName ? { labName } : {}),
+      ...(note ? { note } : {}),
+    });
+    setSaving(false);
+    setResult(r);
+    if (r?.success) setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <span className="flex w-full items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+          Correct details
+        </Button>
+        {result?.success ? <span className="text-sm text-green-700 dark:text-green-300">Saved.</span> : null}
+      </span>
+    );
+  }
+  return (
+    <form onSubmit={save} className="w-full space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="space-y-1">
+          <Label htmlFor={`fix-date-${upload.id}`}>Test date</Label>
+          <Input id={`fix-date-${upload.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`fix-lab-${upload.id}`}>Laboratory</Label>
+          <select
+            id={`fix-lab-${upload.id}`}
+            value={lab}
+            onChange={(e) => setLab(e.target.value)}
+            className="h-9 w-full rounded-md border border-charcoal-ink/20 bg-transparent px-2 text-sm"
+          >
+            <option value="">Leave as it is</option>
+            {labs.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+            <option value={OTHER_LAB}>Another laboratory or centre</option>
+          </select>
+        </div>
+        {lab === OTHER_LAB ? (
+          <div className="space-y-1">
+            <Label htmlFor={`fix-labname-${upload.id}`}>Laboratory or centre name</Label>
+            <Input id={`fix-labname-${upload.id}`} value={labName} onChange={(e) => setLabName(e.target.value)} maxLength={200} />
+          </div>
+        ) : null}
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`fix-note-${upload.id}`}>Note for the care team</Label>
+        <Input id={`fix-note-${upload.id}`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`fix-reason-${upload.id}`}>Why are you changing it?</Label>
+        <Input id={`fix-reason-${upload.id}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={5} />
+      </div>
+      {result?.error ? <p className="text-sm text-red-700 dark:text-red-300">{result.error}</p> : null}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving" : "Save change"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads: MyUpload[] }) {
   const [query, setQuery] = useState("");
   const [dob, setDob] = useState("");
@@ -91,7 +189,7 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
                   <span>
                     <span className="font-medium">{p.fullName}</span>
                     {" · "}
-                    {p.patientNumber ?? "no patient number"}
+                    {p.patientNumberHint ? `patient no. ${p.patientNumberHint}` : "no patient number"}
                     {" · born "}
                     {p.birthYear ?? "unknown"}
                     {p.sex ? ` · ${p.sex}` : ""}
@@ -213,6 +311,7 @@ export function LabReportUpload({ labs, uploads }: { labs: LabOption[]; uploads:
                     {formatLagosDate(u.uploadedAt)}
                   </span>
                   <Badge variant={STATUS_TONE[u.status]}>{STAFF_STATUS_LABEL[u.status]}</Badge>
+                  {u.status !== "reviewed" && u.status !== "superseded" ? <CorrectUpload upload={u} labs={sortedLabs} /> : null}
                 </li>
               ))}
             </ul>

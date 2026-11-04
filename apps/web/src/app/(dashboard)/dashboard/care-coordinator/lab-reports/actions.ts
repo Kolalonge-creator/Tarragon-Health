@@ -17,9 +17,14 @@ import { describeDocumentRefusal } from "@/lib/clinical-documents/status";
 
 const UPLOADER_ROLES = new Set(["care_coordinator", "lab_liaison"]);
 
+/** A Postgres refusal carries a five-character SQLSTATE; a network failure or timeout does not. */
+function isDatabaseRefusal(error: { code?: string }): boolean {
+  return typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code);
+}
+
 export type UploadPatientMatch = {
   patientId: string;
-  patientNumber: string | null;
+  patientNumberHint: string | null;
   fullName: string;
   birthYear: number | null;
   sex: string | null;
@@ -48,7 +53,7 @@ export async function findPatientForUpload(
   return {
     patients: (data ?? []).map((r) => ({
       patientId: r.patient_id,
-      patientNumber: r.patient_number,
+      patientNumberHint: r.patient_number_hint,
       fullName: r.full_name ?? "Unnamed patient",
       birthYear: r.birth_year,
       sex: r.sex,
@@ -129,7 +134,10 @@ export async function uploadLabReportForPatient(_prev: UploadState, formData: Fo
     ...(v.note ? { p_admin_note: v.note } : {}),
   });
   if (error) {
-    await removeFile(stored.file_path);
+    // Remove the stored file only when the database clearly refused (an error with a SQLSTATE: nothing was written). After a
+    // timeout or a dropped response the upload may have committed, and deleting the file would leave a held result pointing at
+    // nothing; an orphaned object is the harmless side to err on (same rule as the patient's replace action).
+    if (isDatabaseRefusal(error)) await removeFile(stored.file_path);
     if (isDuplicateDocumentError(error)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: describeDocumentRefusal(error, "The report could not be uploaded. Try again.") };
   }
@@ -143,6 +151,7 @@ const correctSchema = z.object({
   investigationDate: isoDate.optional(),
   labProviderId: z.string().uuid().optional(),
   labName: z.string().trim().max(200).optional(),
+  // undefined leaves the note alone; an empty string clears it
   note: z.string().trim().max(1000).optional(),
 });
 
@@ -157,7 +166,7 @@ export async function correctUploadDetails(input: z.input<typeof correctSchema>)
     ...(v.investigationDate ? { p_investigation_date: v.investigationDate } : {}),
     ...(v.labProviderId ? { p_source_facility_id: v.labProviderId } : {}),
     ...(v.labName ? { p_source_facility_name: v.labName } : {}),
-    ...(v.note ? { p_admin_note: v.note } : {}),
+    ...(v.note !== undefined ? { p_admin_note: v.note } : {}),
   });
   if (error) return { error: describeDocumentRefusal(error, "The change could not be saved. Try again.") };
   revalidatePath("/dashboard/care-coordinator/lab-reports");
