@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { createClient } from "@/lib/supabase/client";
+import { useMyCircle } from "@/lib/queries/care-circle";
 
 const TOUCH = "min-h-11";
 
-interface SendResult { recipients_told: number; already_sent: boolean; location_shared: boolean; supporters?: number }
+interface SendResult { recipients_told: number; already_sent: boolean; location_shared: boolean; supporters?: number; circle_paused?: boolean }
 
 /** Reads the patient's own consent row. A missing row means no consent. */
 function useLocationConsent(patientId: string) {
@@ -48,6 +49,9 @@ function currentPosition(): Promise<{ lat: number; lng: number; accuracy: number
 export function HelpAlertCard({ patientId, locale }: { patientId: string; locale: Locale }) {
   const qc = useQueryClient();
   const consent = useLocationConsent(patientId);
+  // P1 (D-help): while the circle's alerts are paused the button still works; the patient is told so before pressing it
+  const circle = useMyCircle();
+  const alertsPaused = circle.data?.pause?.pause_alerts === true;
   const [result, setResult] = useState<SendResult | null>(null);
 
   const setConsent = useMutation({
@@ -75,6 +79,7 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
       <CardHeader><CardTitle>{t("circle.help.title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <p>{t("circle.help.intro", locale)}</p>
+        {alertsPaused ? <p className="text-sm font-medium">{t("circlep1.help.paused_warning", locale)}</p> : null}
         <Button className={`${TOUCH} w-full sm:w-auto`} disabled={send.isPending} onClick={() => send.mutate()}>{t("circle.help.button", locale)}</Button>
         {notOpen ? <p role="status">{t("circle.help.not_open", locale)}</p> : null}
         {send.isError && !notOpen ? <p role="alert">{t("circle.help.error", locale)}</p> : null}
@@ -88,6 +93,7 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
                   : t("circle.help.sent_none", locale)}
             </p>
             <p className="text-sm">{result.location_shared ? t("circle.help.location_on", locale) : t("circle.help.location_off", locale)}</p>
+            {result.circle_paused && result.recipients_told > 0 ? <p className="text-sm">{t("circlep1.help.sent_paused", locale)}</p> : null}
           </div>
         ) : null}
         {/* The help button comes first; the location choice sits right under it, with its current state in the heading so it is

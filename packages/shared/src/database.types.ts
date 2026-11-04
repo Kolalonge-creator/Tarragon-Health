@@ -58404,6 +58404,10 @@ export type Database = {
       set_family_note_shared: { Args: { p_note: string; p_share: boolean }; Returns: boolean };
       my_family_notes: { Args: never; Returns: Json };
       dismiss_gift_payer_offer: { Args: { p_payer: string }; Returns: boolean };
+      my_circle_share_offers: { Args: never; Returns: Json };
+      respond_to_circle_share_offer: { Args: { p_member: string; p_accept: boolean }; Returns: Json };
+      withdraw_circle_share_offer: { Args: { p_member: string }; Returns: boolean };
+      my_circle_sharing_history: { Args: { p_limit?: number }; Returns: Json };
       circle_unanswered_check_ins: { Args: never; Returns: Json };
       circle_ack_unanswered: { Args: { p_patient: string }; Returns: boolean };
       circle_checkin_window_enabled: { Args: never; Returns: boolean };

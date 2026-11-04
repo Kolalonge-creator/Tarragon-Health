@@ -859,8 +859,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }
   if (n.template === "circle_shared_with_you") {
-    // From public.share_circle_with_gift_payer (2026-11-03): to the payer. No name, nothing about what is shared (INV-07).
-    return { text: "Someone has added you to their Care Circle", href: "/patient/supporting" };
+    // From public.share_circle_with_gift_payer: to the payer. Since Care Circle P1 (D3, 2026-11-04) it is an invitation they answer.
+    // No name, nothing about what is shared (INV-07).
+    return { text: "Someone has asked you to join their Care Circle", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_share_widened") {
+    // Care Circle P1: to an existing member whose view the patient widened. No name, nothing about what (INV-07).
+    return { text: "Someone has changed what they share with you", href: "/patient/supporting" };
+  }
+  if (n.template === "family_note_waiting") {
+    // Care Circle P1: to the patient. Never the note, the doctor or anything clinical (INV-07).
+    return { text: "A note from your care team is waiting", href: "/patient/care-circle" };
   }
   // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral lines (INV-07), never the reading or the cause.
   if (n.template === "free_red_guidance") {

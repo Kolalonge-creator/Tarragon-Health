@@ -56,9 +56,25 @@ export type PendingInvite = z.infer<typeof pendingInviteSchema>;
 export const pauseSchema = z.object({ paused_until: z.string(), pause_alerts: z.boolean() });
 export type CirclePause = z.infer<typeof pauseSchema>;
 
-export const myCircleSchema = z.object({ members: z.array(memberSchema), invites: z.array(pendingInviteSchema), pause: pauseSchema.nullable().optional(), pause_days: z.number().optional() });
+/** Care Circle P1 (D3): a share with a person who paid, waiting for them to say yes. It grants nothing until they do. */
+export const pendingOfferSchema = z.object({
+  member_id: z.string(),
+  name: z.string(),
+  permissions: z.array(permissionSchema),
+  answer_by: z.string(),
+});
+export type PendingOffer = z.infer<typeof pendingOfferSchema>;
+
+export const myCircleSchema = z.object({
+  members: z.array(memberSchema),
+  invites: z.array(pendingInviteSchema),
+  /** P1: absent on a database without the migration, so it defaults to none. */
+  offers: z.array(pendingOfferSchema).optional().default([]),
+  pause: pauseSchema.nullable().optional(),
+  pause_days: z.number().optional(),
+});
 export type MyCircle = z.infer<typeof myCircleSchema>;
-export const EMPTY_CIRCLE: MyCircle = { members: [], invites: [] };
+export const EMPTY_CIRCLE: MyCircle = { members: [], invites: [], offers: [] };
 
 export function parseMyCircle(data: unknown): MyCircle {
   const r = myCircleSchema.safeParse(data);
@@ -238,6 +254,8 @@ export const giftPayerSchema = z.object({
   entitlement_ids: z.array(z.string()),
   last_gift_at: z.string().nullable(),
   is_member: z.boolean(),
+  /** P1 (D3): the patient already asked this payer to join and is waiting for their answer. */
+  offer_pending: z.boolean().optional().default(false),
 });
 export type GiftPayer = z.infer<typeof giftPayerSchema>;
 export function parseGiftPayers(data: unknown): GiftPayer[] {
@@ -285,7 +303,85 @@ export const giftShareInputSchema = z.object({
   monthlyReport: z.boolean(),
 });
 export type GiftShareInput = z.infer<typeof giftShareInputSchema>;
-export const giftShareResultSchema = z.object({ ok: z.literal(true), member_id: z.string(), created: z.boolean(), changed: z.boolean() });
+export const giftShareResultSchema = z.object({
+  ok: z.literal(true),
+  member_id: z.string(),
+  created: z.boolean(),
+  changed: z.boolean(),
+  /** P1 (D3): true when the share is an offer the payer must accept (no active membership yet). */
+  offered: z.boolean().optional().default(false),
+});
+
+/** P1 (D3): an offer to join someone's Care Circle, as the payer sees it. First name only. */
+export const shareOfferSchema = z.object({
+  member_id: z.string().uuid(),
+  patient_id: z.string().uuid(),
+  name: z.string(),
+  permissions: z.array(z.string()),
+  monthly_report: z.boolean(),
+  offered_at: z.string(),
+  answer_by: z.string(),
+});
+export type ShareOffer = z.infer<typeof shareOfferSchema>;
+export function parseShareOffers(data: unknown): ShareOffer[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = shareOfferSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+export const respondOfferInputSchema = z.object({ memberId: z.string().uuid(), accept: z.boolean() });
+export const respondOfferResultSchema = z.object({ ok: z.literal(true), accepted: z.boolean() });
+
+/** P1: one change in the patient's history of who may see what. Written only by the database. */
+export const SHARING_CHANGES = [
+  "added", "offered", "accepted", "declined", "withdrawn", "offer_lapsed", "permissions_changed", "renewed", "revoked", "expired",
+  "monthly_report_on", "monthly_report_off", "missed_dose_alert_on", "missed_dose_alert_off",
+  "paused", "resumed", "doctor_note_shared", "doctor_note_withdrawn",
+] as const;
+export type SharingChange = (typeof SHARING_CHANGES)[number];
+export const sharingHistoryRowSchema = z.object({
+  at: z.string(),
+  changes: z.array(z.enum(SHARING_CHANGES)).min(1),
+  by: z.enum(["patient", "supporter", "system"]),
+  supporter: z.string().nullable(),
+});
+export type SharingHistoryRow = z.infer<typeof sharingHistoryRowSchema>;
+export function parseSharingHistory(data: unknown): SharingHistoryRow[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = sharingHistoryRowSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+const SHARING_CHANGE_KEYS = {
+  added: "circlep1.history.added",
+  offered: "circlep1.history.offered",
+  accepted: "circlep1.history.accepted",
+  declined: "circlep1.history.declined",
+  withdrawn: "circlep1.history.withdrawn",
+  offer_lapsed: "circlep1.history.offer_lapsed",
+  permissions_changed: "circlep1.history.permissions_changed",
+  renewed: "circlep1.history.renewed",
+  revoked: "circlep1.history.revoked",
+  expired: "circlep1.history.expired",
+  monthly_report_on: "circlep1.history.monthly_report_on",
+  monthly_report_off: "circlep1.history.monthly_report_off",
+  missed_dose_alert_on: "circlep1.history.missed_dose_alert_on",
+  missed_dose_alert_off: "circlep1.history.missed_dose_alert_off",
+  paused: "circlep1.history.paused",
+  resumed: "circlep1.history.resumed",
+  doctor_note_shared: "circlep1.history.doctor_note_shared",
+  doctor_note_withdrawn: "circlep1.history.doctor_note_withdrawn",
+} as const satisfies Record<SharingChange, string>;
+/**
+ * The copy key for one change. A removal made by the supporter themself is "left"; everything else reads the same whoever did it
+ * (the patient sees their own history, so "you" is implied where the patient acted).
+ */
+export function sharingChangeKey(change: SharingChange, by: SharingHistoryRow["by"]): (typeof SHARING_CHANGE_KEYS)[SharingChange] | "circlep1.history.left" {
+  if (change === "revoked" && by === "supporter") return "circlep1.history.left";
+  return SHARING_CHANGE_KEYS[change];
+}
 
 /** S29e: a supporter's non-emergency check-in request. `reason` is only ever one of these two (the database says nothing else). */
 export const checkInRequestSchema = z.union([

@@ -1,6 +1,7 @@
 /**
  * Words for two Care Circle additions (2026-11-03): sharing with the person who paid for a gift (`giftshare.`), and the doctor's short
- * line for the family (`familynote.`). English only.
+ * line for the family (`familynote.`). English only. Care Circle Phase 1 (2026-11-04) added `circlep1.`: the help button while paused,
+ * the payer's accept/decline step (founder decision D3), and the patient's history of sharing changes.
  *
  * EVERY STRING IN THIS FILE IS PROPOSED COPY AWAITING CMO AND DPO REVIEW. The permission label and the "share" step are consent wording.
  * They sit under their own prefixes, not `circle.`, so the reviewed-strings ledger (whose baseline can only shrink) does not have to
@@ -22,7 +23,9 @@ export const familyCircleCopy = {
   "giftshare.not_now": "Not now",
   "giftshare.nothing_ticked": "Tick at least one thing, or choose Not now.",
   "giftshare.saving": "Saving",
-  "giftshare.done": "Done. {name} can now see what you chose. You can change or stop this any time in your Care Circle.",
+  "giftshare.done": "Done. We have asked {name} to join your Care Circle. They see nothing until they say yes, and you can change or stop this any time.",
+  "giftshare.waiting": "Waiting for {name} to say yes.",
+  "giftshare.done_member": "Done. {name} can now see what you chose. You can change or stop this any time in your Care Circle.",
   "giftshare.not_now_done": "Nothing was shared, and we will not ask again. You can still invite them to your Care Circle at any time.",
   "giftshare.error": "That could not be saved, so nothing was shared. Please try again.",
   "giftshare.error_full": "Your Care Circle is full. Remove someone first, then try again.",
@@ -65,6 +68,42 @@ export const familyCircleCopy = {
   "familynote.form.too_long": "Keep it to {max} characters.",
   "familynote.form.not_allowed": "Only the doctor who held this consultation can write this, once it has finished.",
   "familynote.form.error": "That could not be saved. Please try again.",
+  "circlep1.help.paused_warning": "Your Care Circle is paused. If you press this, it will still reach the people who can receive alerts.",
+  "circlep1.help.sent_paused": "Your circle is paused, but this alert was still sent.",
+  "circlep1.offer.title": "{name} has asked you to join their Care Circle",
+  "circlep1.offer.body": "You paid for their care, and they would like you to see a little of how they are doing. Nothing is shown to you until you say yes, and they can change or stop it at any time.",
+  "circlep1.offer.answer_by": "Please answer by {date}.",
+  "circlep1.offer.accept": "Yes, join",
+  "circlep1.offer.decline": "No, thank you",
+  "circlep1.offer.accepted": "You have joined {name}'s Care Circle.",
+  "circlep1.offer.declined": "You said no. Nothing will be shared with you.",
+  "circlep1.offer.error": "That did not work. Please try again.",
+  "circlep1.offers.title": "Waiting for a reply",
+  "circlep1.offers.row": "{name}, until {date}",
+  "circlep1.offers.withdraw": "Withdraw",
+  "circlep1.history.title": "Changes to sharing",
+  "circlep1.history.empty": "No changes yet.",
+  "circlep1.history.error": "We could not load this just now.",
+  "circlep1.history.added": "{name} joined your Care Circle",
+  "circlep1.history.offered": "You asked {name} to join",
+  "circlep1.history.accepted": "{name} said yes",
+  "circlep1.history.declined": "{name} said no",
+  "circlep1.history.withdrawn": "You withdrew the invitation to {name}",
+  "circlep1.history.offer_lapsed": "{name} did not answer in time",
+  "circlep1.history.permissions_changed": "What {name} can see was changed",
+  "circlep1.history.renewed": "{name}'s access was extended",
+  "circlep1.history.revoked": "{name} was removed",
+  "circlep1.history.left": "{name} left your Care Circle",
+  "circlep1.history.expired": "{name}'s access ended",
+  "circlep1.history.monthly_report_on": "{name} can see your monthly summary",
+  "circlep1.history.monthly_report_off": "{name} no longer sees your monthly summary",
+  "circlep1.history.missed_dose_alert_on": "{name} will be nudged about missed doses",
+  "circlep1.history.missed_dose_alert_off": "{name} will no longer be nudged about missed doses",
+  "circlep1.history.paused": "You paused sharing",
+  "circlep1.history.resumed": "Sharing started again",
+  "circlep1.history.doctor_note_shared": "You shared a doctor's note with your circle",
+  "circlep1.history.doctor_note_withdrawn": "You stopped sharing a doctor's note",
+  "circlep1.history.someone": "A supporter",
 } as const;
 
 export type FamilyCircleCopyKey = keyof typeof familyCircleCopy;
@@ -73,8 +112,8 @@ export const FAMILY_CIRCLE_COPY_REVIEW = {
   status: "pending_cmo_review",
   owner: "CMO",
   also: "DPO (consent wording)",
-  source: "supabase/migrations/20261103230825_family_doctor_note.sql, 20261103230906_circle_share_with_gift_payer.sql",
-  prefixes: ["giftshare.", "familynote."],
+  source: "supabase/migrations/20261103230825_family_doctor_note.sql, 20261103230906_circle_share_with_gift_payer.sql, 20261104172930_care_circle_p1_consent_pause_rls_history.sql, 20261104180415_care_circle_p1_payer_accepts_and_note_waiting.sql",
+  prefixes: ["giftshare.", "familynote.", "circlep1."],
 } as const;
 
 /** The longest line a doctor may write for the family. The database CHECK says the same (1 to 280 characters). */

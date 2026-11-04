@@ -1771,18 +1771,52 @@ export const TEMPLATE_MAP: Record<
   }),
   // 2026-11-03: a patient chose to share a little of how they are doing with the person who paid for their care. In-app only from the
   // database. Fixed neutral copy: no name, no condition, nothing about what is shared (INV-07); the payload is never echoed.
+  // Care Circle P1 (D3, 2026-11-04): to the person who paid, who is now ASKED to join (they see nothing until they say yes). No name, nothing
+  // about what is shared (INV-07).
   circle_shared_with_you: () => ({
-    smsText: "Someone has added you to their Care Circle. Open Tarragon Health. Tarragon Health",
+    smsText: "Someone has asked you to join their Care Circle. Open Tarragon Health to answer. Tarragon Health",
     pushUrl: "/patient/supporting",
     email: {
-      subject: "Someone has added you to their Care Circle",
+      subject: "Someone has asked you to join their Care Circle",
       html:
         `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-        `<p>Someone you paid for care for has added you to their Care Circle.</p>` +
-        `<p>Open Tarragon Health to see what they chose to share.</p>` +
+        `<p>Someone you paid for care for has asked you to join their Care Circle.</p>` +
+        `<p>Open Tarragon Health to say yes or no. Nothing is shared with you until you say yes.</p>` +
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
-      text: "Someone you paid for care for has added you to their Care Circle.\n\nOpen Tarragon Health to see what they chose to share.\n\nTarragon Health",
+      text: "Someone you paid for care for has asked you to join their Care Circle.\n\nOpen Tarragon Health to say yes or no. Nothing is shared with you until you say yes.\n\nTarragon Health",
+    },
+  }),
+  // Care Circle P1: to a person who paid and is ALREADY in the circle, when the patient shares more with them (they see it at once).
+  // No name, nothing about what is shared (INV-07).
+  circle_share_widened: () => ({
+    smsText: "Someone in your Care Circle has changed what they share with you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone has changed what they share with you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has changed what they share with you.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has changed what they share with you.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  }),
+  // Care Circle P1 (2026-11-04): to the PATIENT, when a doctor has written a line for their family. Fixed neutral copy: never the note,
+  // the doctor's name, a condition or a reading (INV-07). The note waits for the patient to decide whether to share it.
+  family_note_waiting: () => ({
+    smsText: "A doctor in your care team left a note you can choose to share with your Care Circle. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/care-circle",
+    email: {
+      subject: "A note from your care team is waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A doctor in your care team left a short note that you can choose to share with your Care Circle.</p>` +
+        `<p>Open Tarragon Health to read it. Nobody else sees it unless you share it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A doctor in your care team left a short note that you can choose to share with your Care Circle.\n\nOpen Tarragon Health to read it. Nobody else sees it unless you share it.\n\nTarragon Health",
     },
   }),
   // S38c: the monthly progress summary is ready. Fixed neutral copy: no condition, reading, number or name (INV-07); the payload is never echoed.
