@@ -56,6 +56,10 @@
         "track": "internal",
         "releaseStatus": "completed",
         "changesNotSentForReview": true
+      },
+      "ios": {
+        "ascAppId": "6830381039",
+        "appleTeamId": "3497HY24FD"
       }
     }
   }
