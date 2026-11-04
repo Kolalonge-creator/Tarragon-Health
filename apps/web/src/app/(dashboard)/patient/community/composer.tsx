@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useRef, useState } from "react";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
@@ -184,6 +185,12 @@ export function Composer({
           </div>
           <p id={`${id}-image-help`} className={`text-sm ${MUTED}`}>
             {t("community.image.help", locale)}
+          </p>
+          <p className={`text-sm ${MUTED}`}>
+            {t("community.image.records", locale)}{" "}
+            <Link href="/patient/documents" className="font-medium underline underline-offset-4">
+              {t("community.group.care_documents", locale)}
+            </Link>
           </p>
           {file ? (
             // The chosen file is shown by name (plain text), not as a live preview.

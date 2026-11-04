@@ -9,7 +9,7 @@ import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { extractLabReport, isLabReportExtractionConfigured } from "./extract";
 import { hintsFromConfirmedRows, mergeHints, type TemplateHints } from "./corpus";
 import { isReadableDocumentType, normaliseForVision } from "./heic";
-import { worstStatusOf, type PatientContext } from "./reference-ranges";
+import { raiseIfCriticalDraft } from "./escalation-bridge";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 import { deriveAiSummaryStatus, deriveAiFlaggedAnalytes } from "./ai-summary";
@@ -47,15 +47,6 @@ async function requireClinicalStaff() {
     return { error: "Only a Tarragon care-team doctor can file results from a report." as const };
   }
   return { user, supabase, staffId: staff.id };
-}
-
-/** Age in whole years, or null when the patient has no recorded date of birth. */
-function ageFrom(dateOfBirth: string | null): number | null {
-  if (!dateOfBirth) return null;
-  const dob = new Date(dateOfBirth);
-  if (Number.isNaN(dob.getTime())) return null;
-  const years = (Date.now() - dob.getTime()) / (365.2425 * 24 * 60 * 60 * 1000);
-  return years >= 0 && years < 130 ? Math.floor(years) : null;
 }
 
 /**
@@ -388,34 +379,7 @@ export async function runLabReportExtraction(
   // patient nothing — it moves a job a doctor was already going to do further
   // up their queue. That is the whole of it, and the RPC enforces the rest:
   // service-role only, raise-only, and never above 'urgent_escalation'.
-  try {
-    const { data: profile } = await service
-      .from("profiles")
-      .select("sex, date_of_birth")
-      .eq("id", patientId)
-      .maybeSingle();
-    const ctx: PatientContext = {
-      sex: profile?.sex === "male" || profile?.sex === "female" ? profile.sex : null,
-      ageYears: ageFrom(profile?.date_of_birth ?? null),
-    };
-
-    const { status, reason } = worstStatusOf(rows, ctx);
-    if (status === "critical" && reason) {
-      await service.rpc("raise_lab_extraction_alert", {
-        p_document_id: documentId,
-        p_level: "urgent_escalation",
-        p_reason: reason,
-      });
-      await service
-        .from("lab_report_extractions")
-        .update({ critical_suspected: true })
-        .eq("document_id", documentId);
-    }
-  } catch (error) {
-    // A failure to escalate must never lose the draft. The alert still exists
-    // at its normal priority and the document is still in the review queue.
-    console.error("lab-reports: escalation bridge failed", error);
-  }
+  await raiseIfCriticalDraft(service, { documentId, patientId, rows });
 
   return {
     status: "extracted",

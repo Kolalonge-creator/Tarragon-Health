@@ -16,6 +16,7 @@ let circle: { data: unknown; isSuccess: boolean };
 let log: { data: unknown[]; isSuccess: boolean };
 let history: { data: unknown[]; isSuccess: boolean; isError: boolean };
 const withdraw = jest.fn();
+const setContact = jest.fn();
 const create = jest.fn();
 const update = jest.fn();
 const revoke = jest.fn();
@@ -56,6 +57,7 @@ jest.mock("@/lib/queries/care-circle", () => {
     useDismissGiftPayer: () => ({ mutate: jest.fn(), isPending: false }),
     useWithdrawShareOffer: () => ({ mutate: withdraw, isPending: false }),
     useSharingHistory: () => history,
+    useSetContactRole: () => ({ mutate: setContact, isPending: false, isError: false }),
   };
 });
 
@@ -316,5 +318,13 @@ describe("CareCircleManager", () => {
     expect(screen.getByText(/What Ngozi can see was changed/)).toBeTruthy();
     expect(screen.getByText(/Ngozi can see your monthly summary/)).toBeTruthy();
     expect(screen.getByText(/You paused sharing/)).toBeTruthy();
+  });
+
+  it("Care Circle P4: the patient can name a member as main family contact; the hint says it grants nothing", () => {
+    render(<CareCircleManager locale="en" origin="https://app.example" />);
+    const select = screen.getAllByLabelText("Family contact")[0] as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "primary" } });
+    expect(setContact).toHaveBeenCalledWith({ memberId: expect.any(String), role: "primary" });
+    expect(screen.getAllByText(/does not let them see anything more/).length).toBeGreaterThan(0);
   });
 });

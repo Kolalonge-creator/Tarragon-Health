@@ -125,7 +125,11 @@ export const circleToolsCopy = {
 export type CircleToolsCopyKey = keyof typeof circleToolsCopy;
 
 export const CIRCLE_TOOLS_COPY_REVIEW = {
-  status: "pending_cmo_review",
+  // Approved as written by the founder acting as CMO and DPO, in chat, 2026-11-04 (docs/plans/care-circle-copy-review-pack-2026-11-04.md,
+  // docs/DECISIONS.md CC-COPY). Any change to a string here needs a fresh review.
+  status: "cmo_reviewed",
+  reviewer: "Kola Longe, Chief Medical Officer and DPO (approved in chat)",
+  reviewedOn: "2026-11-04",
   owner: "CMO",
   also: "DPO (consent wording)",
   source: "docs/design/S69b-care-circle.md",

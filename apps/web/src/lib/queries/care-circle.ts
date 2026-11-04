@@ -34,6 +34,8 @@ import {
   giftShareResultSchema,
   parseShareOffers,
   parseSharingHistory,
+  parseTimeline,
+  parseGiftsPaid,
   respondOfferInputSchema,
   respondOfferResultSchema,
   type GiftShareInput,
@@ -698,6 +700,51 @@ export function useSharingHistory(enabled: boolean) {
       if (isMissingFunction(error)) return [];
       if (error) throw new CircleError(error.message);
       return parseSharingHistory(data);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Care Circle P4: main/backup family contact, and the family timeline
+// ---------------------------------------------------------------------------
+/** P5: gifts the signed-in person paid for someone else (billing facts only). A missing function is "none". */
+export function useGiftsPaid() {
+  return useQuery({
+    queryKey: ["care-circle", "gifts-paid"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_gifts_paid");
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseGiftsPaid(data);
+    },
+  });
+}
+
+/** The patient names (or clears) a main or backup family contact. A label only: it grants nothing. */
+export function useSetContactRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { memberId: string; role: "primary" | "backup" | null }) => {
+      const { data, error } = await createClient().rpc("set_circle_contact_role", { p_member: input.memberId, p_role: input.role });
+      if (error) throw new CircleError(error.message);
+      return data === true;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: circleKeys.mine }),
+  });
+}
+/** The last 90 days of events this supporter may see. An audited read: no refetch on focus, so one visit is one logged look. */
+export function useSupporterTimeline(patientId: string) {
+  return useQuery({
+    queryKey: ["care-circle", "timeline", patientId] as const,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("circle_supporter_timeline", { p_patient: patientId });
+      if (isMissingFunction(error)) return [];
+      if (error) throw new CircleError(error.message);
+      return parseTimeline(data);
     },
   });
 }

@@ -8,12 +8,14 @@ import {
   appealRefusalKey,
   composeOutcome,
   feedSchema,
+  FEED_SORTS,
   groupListSchema,
   hiddenListSchema,
   joinRefusalKey,
   outcomeSchema,
   repliesSchema,
   reportReasonSchema,
+  setSavedSchema,
   submitResultSchema,
   type ComposeOutcome,
   type Feed,
@@ -48,9 +50,9 @@ function refresh(): void {
 // ---------------------------------------------------------------------------
 // Reading
 // ---------------------------------------------------------------------------
-const FeedInput = z.object({ groupId: Uuid, before: z.string().datetime({ offset: true }).optional() });
+const FeedInput = z.object({ groupId: Uuid, before: z.string().datetime({ offset: true }).optional(), sort: z.enum(FEED_SORTS).optional() });
 
-/** One page of posts, newest first. `before` is the created_at of the last post already shown. */
+/** One page of posts. "latest" (default) is newest first and pages by `before` (the created_at of the last post shown); "discussed" is one page. */
 export async function loadFeed(input: unknown): Promise<Feed | ActionFailure> {
   const parsed = FeedInput.safeParse(input);
   if (!parsed.success) return { ok: false, key: "community.feed.error" };
@@ -58,10 +60,24 @@ export async function loadFeed(input: unknown): Promise<Feed | ActionFailure> {
   const { data, error } = await supabase.rpc("community_feed", {
     p_group_id: parsed.data.groupId,
     ...(parsed.data.before ? { p_before: parsed.data.before } : {}),
+    ...(parsed.data.sort && parsed.data.sort !== "latest" ? { p_sort: parsed.data.sort } : {}),
   });
   if (error) return { ok: false, key: "community.feed.error" };
   const feed = feedSchema.safeParse(data);
   return feed.success ? feed.data : { ok: false, key: "community.feed.error" };
+}
+
+/** Save or unsave a top-level post. Private to the member. No page refresh: the button shows the new state itself. */
+export async function setSaved(input: unknown): Promise<{ ok: true; saved: boolean } | ActionFailure> {
+  const parsed = z.object({ postId: Uuid, saved: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: FAILED };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_set_saved", { p_post_id: parsed.data.postId, p_saved: parsed.data.saved });
+  if (error) return { ok: false, key: FAILED };
+  const outcome = setSavedSchema.safeParse(data);
+  if (!outcome.success) return { ok: false, key: FAILED };
+  if (!outcome.data.ok) return { ok: false, key: outcome.data.reason === "too_many" ? "community.saved.too_many" : FAILED };
+  return { ok: true, saved: outcome.data.saved };
 }
 
 export async function loadReplies(input: unknown): Promise<Replies | ActionFailure> {

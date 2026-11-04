@@ -142,7 +142,11 @@ export const familyCircleCopy = {
 export type FamilyCircleCopyKey = keyof typeof familyCircleCopy;
 
 export const FAMILY_CIRCLE_COPY_REVIEW = {
-  status: "pending_cmo_review",
+  // Approved as written by the founder acting as CMO and DPO, in chat, 2026-11-04 (docs/plans/care-circle-copy-review-pack-2026-11-04.md,
+  // docs/DECISIONS.md CC-COPY). Any change to a string here needs a fresh review.
+  status: "cmo_reviewed",
+  reviewer: "Kola Longe, Chief Medical Officer and DPO (approved in chat)",
+  reviewedOn: "2026-11-04",
   owner: "CMO",
   also: "DPO (consent wording)",
   source: "supabase/migrations/20261103230825_family_doctor_note.sql, 20261103230906_circle_share_with_gift_payer.sql, 20261104172930_care_circle_p1_consent_pause_rls_history.sql, 20261104180415_care_circle_p1_payer_accepts_and_note_waiting.sql",

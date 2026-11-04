@@ -680,6 +680,11 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your care team has updated something in your health record. Open the Tarragon Health app to see what changed.",
     pushUrl: "/patient/labs",
   }),
+  // CDE-08: fixed neutral wording (INV-07). Nothing from the payload is echoed.
+  lab_report_received: () => ({
+    smsText: "Your care team has added a report to your health record. Open the Tarragon Health app for details.",
+    pushUrl: "/patient/labs",
+  }),
   lab_result_ready: () => ({
     smsText: "Your care team has added something to your health record. Open the Tarragon Health app to see it.",
     pushUrl: "/patient/labs",

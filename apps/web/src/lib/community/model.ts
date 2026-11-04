@@ -118,6 +118,8 @@ export const feedPostSchema = z.object({
   support_count: z.number().int().nonnegative(),
   reply_count: z.number().int().nonnegative().optional(),
   i_supported: z.boolean(),
+  /** Whether this member saved the post. Private to them; the author is never told. Absent on replies. */
+  i_saved: z.boolean().optional(),
   pending_review: z.boolean(),
   /** One picture per post. Loaded through /api/community/images/{id}; never a URL. */
   image: z.object({ id: z.string(), width: z.number().int(), height: z.number().int() }).nullable().optional(),
@@ -132,6 +134,49 @@ export const feedSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), posts: z.array(feedPostSchema), has_more: z.boolean() }),
 ]);
 export type Feed = z.infer<typeof feedSchema>;
+
+/** The two orders a group's feed offers. "discussed": the last 30 days by visible replies, one page (no "show older"). */
+export const FEED_SORTS = ["latest", "discussed"] as const;
+export type FeedSort = (typeof FEED_SORTS)[number];
+export function feedSortFrom(value: unknown): FeedSort {
+  return value === "discussed" ? "discussed" : "latest";
+}
+
+/** A member's saved posts across their groups (community_saved_list). */
+export const savedPostSchema = z.object({
+  id: z.string(),
+  group_slug: z.string(),
+  group_name: z.string(),
+  author_handle: z.string(),
+  author_avatar: z.string().nullable(),
+  is_mine: z.boolean(),
+  body: z.string(),
+  created_at: z.string(),
+  saved_at: z.string(),
+  reply_count: z.number().int().nonnegative(),
+  pending_review: z.boolean(),
+});
+export type SavedPost = z.infer<typeof savedPostSchema>;
+export const savedListSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(false), reason: z.string() }),
+  z.object({ ok: z.literal(true), posts: z.array(savedPostSchema), has_more: z.boolean() }),
+]);
+export type SavedList = z.infer<typeof savedListSchema>;
+export const setSavedSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(false), reason: z.string() }),
+  z.object({ ok: z.literal(true), saved: z.boolean() }),
+]);
+
+/**
+ * Reading in the health library (/patient/learn) that sits beside each launch group. Keyed by the group's slug, which is stable; a group
+ * an admin adds later gets the general library link only, until it is listed here. Values are HealthEducationCategory codes.
+ */
+export const GROUP_READING: Readonly<Record<string, readonly string[]>> = {
+  "high-blood-pressure": ["hypertension", "medicines"],
+  diabetes: ["diabetes", "nutrition"],
+  "healthy-habits": ["weight", "nutrition", "exercise"],
+  "general-health": ["cancer_screening", "sleep"],
+};
 
 export const repliesSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), reason: z.string() }),

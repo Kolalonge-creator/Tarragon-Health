@@ -14,6 +14,7 @@ import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
 import { EcgReportDocuments } from "@/app/(dashboard)/patient/ecg-report-documents";
 import { ImagingReportDocuments } from "@/app/(dashboard)/patient/imaging-report-documents";
 import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-list";
+import { UnsortedDocuments } from "@/app/(dashboard)/patient/unsorted-documents";
 
 export default async function PatientLabsPage() {
   const { subjectId, uiLanguage } = await getPatientDashboardContext();
@@ -61,6 +62,7 @@ export default async function PatientLabsPage() {
       label: "Documents",
       content: (
         <>
+          <UnsortedDocuments patientId={subjectId} />
           <ResultDocuments patientId={subjectId} />
           <EcgReportDocuments patientId={subjectId} />
           <ImagingReportDocuments patientId={subjectId} />

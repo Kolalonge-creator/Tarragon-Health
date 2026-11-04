@@ -13,6 +13,7 @@ import { formatPatientDate } from "@/lib/format-date";
 import { useRevokeMember, useSupportedPeople, useSupporterView } from "@/lib/queries/care-circle";
 import { SupporterBlocks, SupporterBlocksEmpty, hasSharedBlocks } from "./supporter-blocks";
 import { PersonSwitcher } from "./person-switcher";
+import { SupporterTimeline } from "./supporter-timeline";
 import { WeeklyDigestCard } from "@/components/care-circle/weekly-digest-card";
 import { CircleTasksPanel } from "@/components/care-circle/circle-tasks-panel";
 
@@ -94,10 +95,16 @@ export function SupporterView({ patientId, locale, alertSlot }: { patientId: str
         }
       />
       <PersonSwitcher people={people.data ?? []} current={patientId} locale={locale} />
+      {v.contact_role ? (
+        <p className="text-sm font-medium">
+          {t(v.contact_role === "primary" ? "circlep4.contact.you_primary" : "circlep4.contact.you_backup", locale, { name: v.name })}
+        </p>
+      ) : null}
       {alertSlot}
 
       <h2 className="sr-only">{t("supporterjoin.view.shared_heading", locale, { name: v.name })}</h2>
       {hasSharedBlocks(v, locale) ? <SupporterBlocks view={v} locale={locale} name={v.name} /> : <SupporterBlocksEmpty view={v} locale={locale} />}
+      <SupporterTimeline patientId={patientId} name={v.name} locale={locale} />
       <WeeklyDigestCard patientId={patientId} locale={locale} />
       <CircleTasksPanel patientId={patientId} locale={locale} />
 
