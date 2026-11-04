@@ -33,7 +33,8 @@ import { POST } from "./route";
 function request(): Request {
   const form = new FormData();
   form.append("document_id", "11111111-1111-4111-8111-111111111111");
-  form.append("file", new File([new Uint8Array([1, 2, 3])], "new.pdf", { type: "application/pdf" }));
+  // The route checks the file really is a PDF (verifyResultDocSignature), so the fixture starts with a PDF header.
+  form.append("file", new File([new TextEncoder().encode("%PDF-1.7\n")], "new.pdf", { type: "application/pdf" }));
   return new Request("http://localhost/api/mobile/lab-result-replace", {
     method: "POST",
     headers: { authorization: "Bearer token" },

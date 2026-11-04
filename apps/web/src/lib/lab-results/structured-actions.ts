@@ -24,6 +24,7 @@ import {
   withholdSchema,
 } from "@/lib/lab-results/structured";
 import { loose } from "@/lib/clinician/loose-client";
+import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 import { getLabResultsSource } from "@/lib/lab-results/results-source";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
@@ -34,6 +35,8 @@ type StoredFile = { file_path: string; original_filename: string; mime_type: str
 async function storeFile(patientId: string, file: File): Promise<StoredFile | { error: string }> {
   const bad = validateLabResultFile(file);
   if (bad) return { error: bad };
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) return { error: signatureError };
   const path = `${patientId}/${randomUUID()}.${LAB_RESULT_EXT[file.type] ?? "bin"}`;
   const { error } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
   if (error) return { error: "The file could not be stored. Please try again." };

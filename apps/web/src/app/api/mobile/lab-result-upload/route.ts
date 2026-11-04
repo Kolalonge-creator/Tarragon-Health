@@ -9,6 +9,7 @@ import {
   patientResultUploadSchema,
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
+import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -75,6 +76,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const fileError = validateResultDocFile(file);
   if (fileError) {
     return NextResponse.json({ error: fileError }, { status: 400 });
+  }
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) {
+    return NextResponse.json({ error: signatureError }, { status: 400 });
   }
 
   const parsed = patientResultUploadSchema.safeParse({

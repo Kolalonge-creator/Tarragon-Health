@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { replaceResultDocumentSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
+import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
 
 /** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
 const REPLACE_REFUSAL_CODES: ReadonlySet<string> = new Set(["28000", "42501", "55000", "22023"]);
@@ -56,6 +57,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const fileError = validateResultDocFile(file);
   if (fileError) {
     return NextResponse.json({ error: fileError }, { status: 400 });
+  }
+  const signatureError = await verifyResultDocSignature(file);
+  if (signatureError) {
+    return NextResponse.json({ error: signatureError }, { status: 400 });
   }
 
   const parsed = replaceResultDocumentSchema.safeParse({

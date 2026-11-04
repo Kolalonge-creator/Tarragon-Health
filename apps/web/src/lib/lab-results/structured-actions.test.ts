@@ -18,7 +18,8 @@ import { addOwnLabResult, getOwnResultFileUrl, openLabResult, recordDisclosure, 
 
 const id = "11111111-1111-4111-8111-111111111111";
 const items = JSON.stringify([{ analyte_code: "creatinine", value_numeric: 1.9, unit: "mg/dL" }]);
-const pdf = () => new File([new Uint8Array([1, 2, 3])], "report.pdf", { type: "application/pdf" });
+// storeFile checks the bytes really are a PDF (verifyResultDocSignature), so the fixture starts with a PDF header.
+const pdf = () => new File([new TextEncoder().encode("%PDF-1.7\n")], "report.pdf", { type: "application/pdf" });
 const form = (entries: Record<string, string | File>): FormData => {
   const f = new FormData();
   for (const [k, v] of Object.entries(entries)) f.set(k, v);

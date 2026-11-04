@@ -4,13 +4,15 @@ import { z } from "zod";
  * 'lab-result-documents' bucket's own allowed_mime_types/file_size_limit. */
 export const RESULT_DOC_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,application/pdf";
 const RESULT_DOC_MAX_BYTES = 10 * 1024 * 1024;
-const RESULT_DOC_MIME = new Set([
+export const RESULT_DOC_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/heic",
   "application/pdf",
-]);
+] as const;
+export type ResultDocMime = (typeof RESULT_DOC_MIME_TYPES)[number];
+const RESULT_DOC_MIME: ReadonlySet<string> = new Set(RESULT_DOC_MIME_TYPES);
 
 export function validateResultDocFile(file: File): string | null {
   if (!RESULT_DOC_MIME.has(file.type)) {
