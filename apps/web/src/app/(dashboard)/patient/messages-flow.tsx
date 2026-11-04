@@ -20,6 +20,11 @@ import {
   careMessageCategories,
   type CareMessageCategory,
 } from "@/lib/validation/care-messages";
+import Link from "next/link";
+import {
+  isMemberOnlyCategory,
+  isMembershipRequiredError,
+} from "@/lib/care-messages/membership-gate";
 
 const CATEGORY_LABEL: Record<CareMessageCategory, string> = {
   clinical: "Clinical question",
@@ -69,10 +74,12 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const [body, setBody] = useState("");
   const [category, setCategory] = useState<CareMessageCategory>("general");
   const [error, setError] = useState<string | null>(null);
+  const [membershipRequired, setMembershipRequired] = useState(false);
   const [composing, setComposing] = useState(false);
 
   const startThread = () => {
     setError(null);
+    setMembershipRequired(false);
     start.mutate(
       { subject, body, category, patientId },
       {
@@ -83,7 +90,13 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           setComposing(false);
           setOpenId(id);
         },
-        onError: () => {
+        onError: (err) => {
+          // MSG-1: a clinical or medicine question from someone who is not a Member is refused by the database. Say what is
+          // included and where to go, not "try again". The message text stays in the box so it can be re-sent as a support question.
+          if (isMembershipRequiredError(err)) {
+            setMembershipRequired(true);
+            return;
+          }
           // Was `err.message`, i.e. the raw PostgREST string, under the Send
           // button. Nothing in it is actionable for a patient.
           setError("We could not send that just then. Please try again.");
@@ -228,9 +241,10 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 <select
                   id="category"
                   value={category}
-                  onChange={(e) =>
-                    setCategory(e.target.value as CareMessageCategory)
-                  }
+                  onChange={(e) => {
+                    setCategory(e.target.value as CareMessageCategory);
+                    setMembershipRequired(false);
+                  }}
                   className="h-10 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 bg-white dark:bg-night-card px-3 text-sm text-charcoal-ink dark:text-night-ink"
                 >
                   {careMessageCategories.map((c) => (
@@ -239,6 +253,12 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     </option>
                   ))}
                 </select>
+                {isMemberOnlyCategory(category) && (
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    Questions about your health and your medicines are answered by your care team as part of
+                    Membership.
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="body">Message</Label>
@@ -266,6 +286,31 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 </Button>
                 <FormError id={composeErrorId} message={error} />
               </div>
+              {membershipRequired && (
+                <div
+                  role="status"
+                  className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory dark:bg-night-ink/10 p-4 text-sm text-charcoal-ink dark:text-night-ink"
+                >
+                  <p className="font-medium">This kind of question is part of Membership</p>
+                  <p className="text-charcoal-ink/70 dark:text-night-ink/70">
+                    With Membership, your care team answers questions about your health, your results and your medicines, and
+                    a doctor follows up where you need one. You can still see your health record, and you can message us about
+                    appointments, labs, payments or the app by choosing one of those topics above.
+                  </p>
+                  <p className="text-charcoal-ink/70 dark:text-night-ink/70">
+                    If you feel unwell now, do not wait for a message. Use the emergency guidance on your dashboard or go to
+                    the nearest hospital.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button asChild size="sm">
+                      <Link href="/patient/membership">See Membership</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/patient">Emergency guidance</Link>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : openThread ? (
