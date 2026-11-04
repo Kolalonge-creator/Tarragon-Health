@@ -81,8 +81,11 @@ insert into results select 'a thread the patient has opened is not reminded', '0
 ------------------------------------------------------------------
 select set_config('request.jwt.claims', json_build_object('sub', (select v from ids where k='clinician'), 'role','authenticated')::text, true);
 set local role authenticated;
+-- MSG-3 (2026-11-04): the clinician's message above already made them the owner (a staff member who answers an unowned thread owns it),
+-- so this is the same upsert the inbox's "Take it" / "Hand over" sends.
 insert into public.care_thread_owners (thread_id, organisation_id, owner_id, handover_note)
-  select v, '00000000-0000-0000-0000-000000000001', (select v from ids where k='clinician'), 'Patient prefers mornings' from ids where k='thread';
+  select v, '00000000-0000-0000-0000-000000000001', (select v from ids where k='clinician'), 'Patient prefers mornings' from ids where k='thread'
+  on conflict (thread_id) do update set owner_id = excluded.owner_id, handover_note = excluded.handover_note;
 reset role;
 select set_config('request.jwt.claims', null, true);
 insert into results select 'staff can own a thread; assigned_by is server-derived', 'true',
