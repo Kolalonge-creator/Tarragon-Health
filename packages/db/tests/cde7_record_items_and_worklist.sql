@@ -7,11 +7,11 @@
 --   3. important_finding: the tied clinician sees true for a document whose review alert is urgent; the patient sees false for the
 --      same document (it never reveals a finding before a doctor has dealt with it).
 --   4. clinical_worklist lists an ECG and a kept letter waiting for a doctor under 'uploaded_documents', and does not list a lab
---      document there (it is in 'lab_results') or a reviewed one.
+--      document there (it is in 'lab_results'), a test patient's document (INV-13) or a reviewed one.
 --   5. SABOTAGE (automatic): with security_invoker switched off, another patient reads the first patient's documents through the
 --      view (so 1 proves the setting).
 --   Sabotage by hand (checked 2026-11-04): the staff-only condition removed from important_finding -> FAIL 1/3 (the patient saw
---   the urgent flag); the lab exclusion removed from the 'uploaded_documents' queue -> FAIL 4.
+--   the urgent flag); the lab exclusion or the test-patient filter removed from the 'uploaded_documents' queue -> FAIL 4.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/cde7_record_items_and_worklist.sql
 
@@ -43,7 +43,9 @@ begin
   values (v_pat, 'cde7-patient@example.invalid', 'x', now(), '{}', '{}'),
          (v_other, 'cde7-other@example.invalid', 'x', now(), '{}', '{}'),
          (v_doctor, 'cde7-doctor@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'CDE7 Patient', is_test = true where id in (v_pat, v_other);
+  -- v_pat is a real patient for this rolled-back proof: the shared queue counts real patients only (INV-13), checked in 4.
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'CDE7 Patient', is_test = false where id = v_pat;
+  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'CDE7 Other', is_test = true where id = v_other;
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'CDE7 Doctor', is_test = true where id = v_doctor;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
@@ -123,6 +125,14 @@ begin
                 and (e ->> 'item')::uuid in (select id from public.clinical_documents where routed_table = 'lab_result_documents')) then
     raise exception 'FAIL 4: a lab document is counted in the uploaded-documents queue as well';
   end if;
+  -- a test patient's document is never real work (INV-13)
+  update public.clinical_documents set is_test = true where id = v_letter;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.clinical_worklist() where kind = 'uploaded_documents' and item_id = v_letter;
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
+  if v_n <> 0 then raise exception 'FAIL 4: a test patient''s document is in the shared queue'; end if;
   update public.ecg_report_documents set reviewed_at = now() where id = v_ecg;
   perform set_config('request.jwt.claims', json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
   set local role authenticated;
