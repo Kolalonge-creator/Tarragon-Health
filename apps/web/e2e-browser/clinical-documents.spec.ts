@@ -173,5 +173,7 @@ test.describe("clinical document engine journeys", () => {
     await expect(patientPage.getByText(/Reviewed by a doctor/).first()).toBeVisible({ timeout: 30_000 });
     // The doctor's note is staff-only.
     await expect(patientPage.getByText("Nothing urgent; discussed at the next visit")).toHaveCount(0);
+    // The coordinator's laboratory report (journey 2) is held until a doctor releases it, so it is not on the patient's screen.
+    await expect(patientPage.getByRole("heading", { name: "Lab results" })).toHaveCount(0);
   });
 });
