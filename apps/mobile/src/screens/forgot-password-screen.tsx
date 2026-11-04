@@ -13,6 +13,7 @@ import {
   verifyPhoneCode,
 } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
+import { TEXT_CODES_ENABLED } from "@/lib/auth/text-codes";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { API_BASE_URL } from "@/lib/api";
@@ -102,7 +103,7 @@ function PasswordField({
  */
 export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
   const locale = DEFAULT_LOCALE;
-  const [tab, setTab] = useState<Tab>("phone");
+  const [tab, setTab] = useState<Tab>(TEXT_CODES_ENABLED ? "phone" : "email");
   // E.164 number the code was (apparently) sent to. Same screen whether or
   // not the number is registered: recovery never reveals who has an account.
   const [recoveryPhone, setRecoveryPhone] = useState<string | null>(null);
@@ -291,14 +292,16 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             flexWrap: "wrap",
           }}
         >
-          <TabButton
-            label="Phone"
-            active={tab === "phone"}
-            onPress={() => {
-              setTab("phone");
-              setError(null);
-            }}
-          />
+          {TEXT_CODES_ENABLED ? (
+            <TabButton
+              label="Phone"
+              active={tab === "phone"}
+              onPress={() => {
+                setTab("phone");
+                setError(null);
+              }}
+            />
+          ) : null}
           <TabButton
             label="Email"
             active={tab === "email"}
