@@ -56,7 +56,7 @@ describe("GiftShareStep", () => {
   });
 
   it("only 'Share what I ticked' sends, with exactly what was ticked, then confirms", async () => {
-    share.mockResolvedValue({ ok: true, member_id: "m1", created: true, changed: true });
+    share.mockResolvedValue({ ok: true, member_id: "m1", created: true, changed: true, offered: true });
     render(<GiftShareStep payer={PAYER} locale="en" />);
     await act(async () => fireEvent.click(box(/line from the doctor/)));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Share what I ticked" })));
@@ -82,7 +82,7 @@ describe("GiftShareStep", () => {
   });
 
   it("sharing never records a dismissal", async () => {
-    share.mockResolvedValue({ ok: true, member_id: "m1", created: true, changed: true });
+    share.mockResolvedValue({ ok: true, member_id: "m1", created: true, changed: true, offered: true });
     render(<GiftShareStep payer={PAYER} locale="en" />);
     await act(async () => fireEvent.click(box(/next appointment/)));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Share what I ticked" })));
@@ -102,5 +102,13 @@ describe("GiftShareStep", () => {
   it("every control is at least 44px tall (min-h-11)", () => {
     render(<GiftShareStep payer={PAYER} locale="en" />);
     for (const b of screen.getAllByRole("button")) expect(b.className).toContain("min-h-11");
+  });
+
+  it("Care Circle P1: widening an existing member says they can see it now, not that they were asked", async () => {
+    share.mockResolvedValue({ ok: true, member_id: "m1", created: false, changed: true, offered: false });
+    render(<GiftShareStep payer={PAYER} locale="en" />);
+    await act(async () => fireEvent.click(box(/line from the doctor/)));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Share what I ticked" })));
+    expect(screen.getByRole("status").textContent).toMatch(/Chinedu can now see what you chose/);
   });
 });

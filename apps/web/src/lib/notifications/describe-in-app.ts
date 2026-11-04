@@ -863,6 +863,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // No name, nothing about what is shared (INV-07).
     return { text: "Someone has asked you to join their Care Circle", href: "/patient/supporting" };
   }
+  if (n.template === "circle_share_widened") {
+    // Care Circle P1: to an existing member whose view the patient widened. No name, nothing about what (INV-07).
+    return { text: "Someone has changed what they share with you", href: "/patient/supporting" };
+  }
   if (n.template === "family_note_waiting") {
     // Care Circle P1: to the patient. Never the note, the doctor or anything clinical (INV-07).
     return { text: "A note from your care team is waiting", href: "/patient/care-circle" };

@@ -1787,6 +1787,22 @@ export const TEMPLATE_MAP: Record<
       text: "Someone you paid for care for has asked you to join their Care Circle.\n\nOpen Tarragon Health to say yes or no. Nothing is shared with you until you say yes.\n\nTarragon Health",
     },
   }),
+  // Care Circle P1: to a person who paid and is ALREADY in the circle, when the patient shares more with them (they see it at once).
+  // No name, nothing about what is shared (INV-07).
+  circle_share_widened: () => ({
+    smsText: "Someone in your Care Circle has changed what they share with you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone has changed what they share with you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has changed what they share with you.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has changed what they share with you.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  }),
   // Care Circle P1 (2026-11-04): to the PATIENT, when a doctor has written a line for their family. Fixed neutral copy: never the note,
   // the doctor's name, a condition or a reading (INV-07). The note waits for the patient to decide whether to share it.
   family_note_waiting: () => ({

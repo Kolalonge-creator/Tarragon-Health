@@ -153,8 +153,13 @@ begin
   values (v_org, pat, now() - interval '3 days', now() - interval '3 days' + interval '30 minutes', 'no_show', 'therapy', 'telemedicine', now() - interval '3 days');
   perform pg_temp.ck('B3 a missed therapy appointment is not counted as missed', '0', pg_temp.view(sup, pat) #>> '{appointments,missed_30d}');
 
-  -- C. help alert while the circle's alerts are paused
+  -- C. help alert while the circle's alerts are paused. First, an alert sent BEFORE the pause stays hidden by the pause (review fix).
+  r := pg_temp.q_as(pat, 'select public.send_circle_help_alert()::text');
+  update public.care_circle_help_alerts set created_at = now() - interval '20 minutes' where id = (r::jsonb ->> 'alert_id')::uuid;
   perform pg_temp.q_as(pat, 'select public.pause_care_circle(true)::text');
+  perform pg_temp.ck('C0 an alert sent before the pause cannot be opened while paused', 'ERR:42501',
+    pg_temp.q_as(sup, format('select public.circle_help_alert_view(%L::uuid)::text', pat)));
+  delete from public.notifications where template = 'circle_help_tap';
   r := pg_temp.q_as(pat, 'select public.send_circle_help_alert()::text');
   perform pg_temp.ck('C1 paused: the help alert is still sent, and says the circle is paused', '1/true',
     (r::jsonb ->> 'recipients_told') || '/' || (r::jsonb ->> 'circle_paused'));
@@ -250,7 +255,7 @@ begin
   perform pg_temp.q_as(pat, 'select public.pause_care_circle(true)::text');
   begin
     select pg_get_functiondef('public.circle_help_alert_view(uuid)'::regprocedure) into d;
-    d := replace(d, 'if m.id is null and a.id is not null then', 'if false then');
+    d := replace(d, 'if m.id is null and a.id is not null', 'if false and a.id is not null');
     if d = pg_get_functiondef('public.circle_help_alert_view(uuid)'::regprocedure) then raise exception 'sabotage S3 did not change the function'; end if;
     execute d;
     r := pg_temp.q_as(sup, format('select public.circle_help_alert_view(%L::uuid)::text', pat));

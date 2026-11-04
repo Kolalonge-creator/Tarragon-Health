@@ -18,11 +18,12 @@
 -- ---------------------------------------------------------------------------
 alter table public.care_circle_members drop constraint care_circle_members_state_check;
 alter table public.care_circle_members add constraint care_circle_members_state_check
-  check (state = any (array['active', 'revoked', 'expired', 'offered', 'declined']));
+  check (state = any (array['active', 'revoked', 'expired', 'offered', 'declined', 'withdrawn']));
 create unique index care_circle_one_offered_member on public.care_circle_members (patient_id, supporter_id) where state = 'offered';
 comment on column public.care_circle_members.state is
   'active: can see what permissions allow. offered (P1, D3): the patient chose to share with a person who paid for their care, who has not '
-  'yet accepted; grants nothing, expires_at is the deadline to answer. declined: that person said no. revoked / expired: ended.';
+  'yet accepted; grants nothing, expires_at is the deadline to answer. declined: that person said no. withdrawn: the patient took the '
+  'offer back before it was answered. revoked / expired: ended (an offer nobody answered in time also ends as expired).';
 
 CREATE OR REPLACE FUNCTION public.share_circle_with_gift_payer(p_payer uuid, p_permissions text[], p_monthly_report boolean DEFAULT false)
  RETURNS jsonb
@@ -78,7 +79,8 @@ begin
      returning * into m;
     perform private.log_care_access(v_uid, 'permission_changed', 'care_circle',
       jsonb_build_object('permissions', to_jsonb(m.permissions), 'monthly_report_shared', m.monthly_report_shared, 'by_patient', true, 'via', 'gift'), p_payer);
-    perform private.circle_notify(p_payer, m.organisation_id, 'circle_shared_with_you', 'care_circle_members', m.id, array['in_app'], 'routine', m.is_test);
+    -- P1: an existing member is not "asked to join"; they are told the patient changed what they share (they see it straight away)
+    perform private.circle_notify(p_payer, m.organisation_id, 'circle_share_widened', 'care_circle_members', m.id, array['in_app'], 'routine', m.is_test);
     return jsonb_build_object('ok', true, 'member_id', m.id, 'created', false, 'changed', true, 'offered', false, 'permissions', to_jsonb(m.permissions));
   end if;
 
@@ -123,7 +125,7 @@ as $$
            'permissions', to_jsonb(m.permissions), 'monthly_report', m.monthly_report_shared,
            'offered_at', m.created_at, 'answer_by', m.expires_at) order by m.created_at desc), '[]'::jsonb)
     from public.care_circle_members m
-    join public.profiles p on p.id = m.patient_id and p.is_active
+    join public.profiles p on p.id = m.patient_id and p.is_active and p.profile_status = 'active'
     join public.profiles s on s.id = m.supporter_id and s.is_active
    where m.supporter_id = (select auth.uid()) and m.state = 'offered' and m.expires_at > now()
      and not private.circle_patient_is_minor(m.patient_id)
@@ -144,9 +146,11 @@ begin
   if v_uid is null or p_accept is null then raise exception 'circle_not_authorised' using errcode = '42501'; end if;
   select * into m from public.care_circle_members
    where id = p_member and supporter_id = v_uid and state = 'offered' and expires_at > now() for update;
-  -- one answer for "not yours", "no such offer", "already answered" and "ran out"
+  -- one answer for "not yours", "no such offer", "already answered", "ran out", and a patient whose account has closed or who has died
+  -- (bereavement and account closure end ACTIVE memberships and pending invites; an open offer must not become active after either)
   if m.id is null or private.circle_patient_is_minor(m.patient_id)
-     or not exists (select 1 from public.profiles where id = v_uid and is_active) then
+     or not exists (select 1 from public.profiles where id = v_uid and is_active)
+     or not exists (select 1 from public.profiles where id = m.patient_id and is_active and profile_status = 'active') then
     raise exception 'circle_offer_not_found' using errcode = 'P0002';
   end if;
   if not p_accept then
@@ -247,7 +251,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare v_id uuid;
 begin
-  update public.care_circle_members set state = 'expired'
+  update public.care_circle_members set state = 'withdrawn'
    where id = p_member and patient_id = (select auth.uid()) and state = 'offered'
    returning id into v_id;
   return v_id is not null;
@@ -268,8 +272,13 @@ begin
       perform private.circle_notify(new.patient_id, new.organisation_id, 'family_note_waiting', 'family_doctor_notes', new.id,
                                     array['in_app', 'push'], 'routine', new.is_test);
     exception when others then
-      -- a failed notice must never undo the doctor's note; the card on the Care Circle page still shows it
-      raise warning 'family note % saved, but telling the patient failed: %', new.id, sqlerrm;
+      -- a failed notice must never undo the doctor's note (the card on the Care Circle page still shows it), but it must not be silent
+      begin
+        perform private.page_incident(new.organisation_id, 'family_note_waiting_failed:' || new.id, 'A "note waiting" notice could not be sent',
+          'A doctor''s family note (' || new.id || ') was saved, but telling the patient failed: ' || sqlerrm);
+      exception when others then
+        raise warning 'family note % saved, but the notice and its incident both failed: %', new.id, sqlerrm;
+      end;
     end;
   end if;
   return new;

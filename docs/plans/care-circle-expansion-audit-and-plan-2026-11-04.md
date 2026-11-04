@@ -442,7 +442,7 @@ Built on `feat/care-circle-phase1-foundation`. Two migrations, one new proof, th
 | 1.3 | Supporter sees own member row only while active | Done: policy `care_circle_members_own` |
 | 1.4 | Permission history with true actor | Done: `care_circle_permission_history`, written by triggers (every path, including sweeps and pauses) and by note release; patient reads it as "Changes to sharing". `log_care_access` left unchanged: its 1-hour de-duplication is fine for the "who looked" log now that history no longer depends on it |
 | 1.5 | List readers through the gate's checks | Done: `circle_open_alerts`, `circle_unanswered_check_ins`, `circle_recent_nudges`, `send_circle_digests` |
-| 1.6 | Sensitive appointments omitted | Done: therapy, or a reason/service in a confidential domain (`private.confidential_domain_of_text`) |
+| 1.6 | Sensitive appointments omitted | Done: therapy, laboratory and imaging appointments, and any reason/service in a confidential domain. Known limit: a specialist appointment with a blank reason is still shown |
 | 1.7 | "A note from your care team is waiting" | Done: template `family_note_waiting`, only when someone holds `doctor_note`. **Edge function redeploy needed** after merge |
 | 1.8 | Data registry | New table registered `reviewed=false`. The two #1669/#1670 tables stay `reviewed=false`: marking them reviewed is the founder's (DPO) judgement, never an agent's |
 | 1.9 | Digest ready to switch on | Done: consent, real `source_table`, minor check. **Founder switches on `care_circle_digest`** |
@@ -453,3 +453,17 @@ Built on `feat/care-circle-phase1-foundation`. Two migrations, one new proof, th
 
 Not in Phase 1: mobile has no screen for the payer's accept/decline yet (the payer answers on web; the mobile gift-share wording is
 updated through the shared copy). Push re-subscription on iPhone remains the separate VAPID issue.
+
+### Code review (`/code-review high`, 2026-11-04) and fixes
+
+Fixed before the PR:
+- An open gift-payer offer could be accepted after the patient's account closed or they died (closure and bereavement end only active
+  rows). `respond_to_circle_share_offer` now requires the patient active and `profile_status = 'active'`; proof 9g2.
+- Widening an EXISTING member sent "asked you to join" copy, and the patient's screen said they "see nothing until they say yes" though
+  they could see it at once. Own template `circle_share_widened`, and `GiftShareStep` branches on `offered`.
+- The paused help-alert fallback could open an alert sent BEFORE the pause; now only an alert sent during the current pause. Proof C0.
+- The history trigger could abort a revoke or sweep on an actor with no profile; the actor is looked up, null otherwise.
+- A withdrawn offer and a lapsed offer were recorded as "access ended"; now `withdrawn` and `offer_lapsed`.
+- The "note waiting" notice failure now raises an incident, not only a warning.
+
+Not fixed here: payer accept/decline on mobile (web only for now); the inline copy of the gate in the help-alert fallback (reuse).

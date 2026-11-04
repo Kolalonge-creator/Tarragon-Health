@@ -43,11 +43,16 @@ create function private.circle_appointment_shareable(p_type public.appointment_t
 returns boolean
 language sql immutable set search_path = ''
 as $$
+  -- therapy is mental health; laboratory and imaging appointments can be for a sensitive test (HIV, cervical, mammography, prostate), and
+  -- test progress reaches family only through the per-test sensitivity filter of investigation tracking (Phase 2), never as a bare time
   select p_type is distinct from 'therapy'::public.appointment_type
+     and p_type is distinct from 'laboratory'::public.appointment_type
+     and p_type is distinct from 'imaging'::public.appointment_type
      and private.confidential_domain_of_text(coalesce(p_reason, '') || ' ' || coalesce(p_service, '')) is null
 $$;
 comment on function private.circle_appointment_shareable(public.appointment_type, text, text) is
-  'Care Circle P1: false for an appointment a family supporter must not learn about (therapy, or a reason/service in a confidential domain).';
+  'Care Circle P1: false for an appointment a family supporter must not learn about (therapy, laboratory, imaging, or a reason/service in a '
+  'confidential domain). Known limit: a specialist appointment with a blank reason is still shown.';
 
 CREATE OR REPLACE FUNCTION private.circle_view_blocks(p_patient uuid, p_permissions text[])
  RETURNS jsonb
@@ -358,9 +363,11 @@ begin
   select * into a from public.care_circle_help_alerts where patient_id = p_patient
      and created_at > now() - make_interval(hours => (private.circle_rules() ->> 'alert_visible_hours')::integer) order by created_at desc limit 1;
   m := private.circle_member_for(p_patient, 'red_alerts');
-  if m.id is null and a.id is not null then
+  if m.id is null and a.id is not null
+     and exists (select 1 from public.care_circle_pauses p where p.patient_id = p_patient and p.paused_until > now() and p.pause_alerts
+                    and a.created_at >= p.paused_from) then
     -- P1 (D-help): the patient pressed help while their alerts were paused, so the alert was sent to them anyway; the member it reached may
-    -- read that alert. Every other check of the gate still applies (active, unexpired, adult patient, active supporter, red_alerts held).
+    -- read that alert. Only an alert sent DURING the current pause: one sent before the patient paused stays hidden by the pause. Every other check of the gate still applies (active, unexpired, adult patient, active supporter, red_alerts held).
     select mm.* into m from public.care_circle_members mm join public.profiles s on s.id = mm.supporter_id and s.is_active
      where mm.patient_id = p_patient and mm.supporter_id = (select auth.uid()) and mm.state = 'active' and mm.expires_at > now()
        and 'red_alerts' = any (mm.permissions) and not private.circle_patient_is_minor(mm.patient_id)
@@ -506,7 +513,7 @@ create table public.care_circle_permission_history (
   actor_id              uuid references public.profiles (id) on delete set null,
   actor_role            text not null check (actor_role in ('patient', 'supporter', 'system')),
   changes               text[] not null check (cardinality(changes) >= 1 and changes <@ array[
-                          'added', 'offered', 'accepted', 'declined', 'permissions_changed', 'renewed', 'revoked', 'expired',
+                          'added', 'offered', 'accepted', 'declined', 'withdrawn', 'offer_lapsed', 'permissions_changed', 'renewed', 'revoked', 'expired',
                           'monthly_report_on', 'monthly_report_off', 'missed_dose_alert_on', 'missed_dose_alert_off',
                           'paused', 'resumed', 'doctor_note_shared', 'doctor_note_withdrawn']::text[]),
   permissions           text[],
@@ -540,6 +547,13 @@ end $$;
 create trigger care_circle_permission_history_no_update before update on public.care_circle_permission_history
   for each row execute function private.care_circle_permission_history_immutable();
 
+-- the signed-in profile, or null (a sweep, a service call, or a token whose subject has no profile): a history row must never make the
+-- change it records fail, so the actor is looked up rather than trusted
+create function private.circle_history_actor() returns uuid
+language sql stable security definer set search_path = '' as $$
+  select id from public.profiles where id = (select auth.uid())
+$$;
+
 create function private.circle_history_actor_role(p_patient uuid, p_supporter uuid)
 returns text language sql stable set search_path = '' as $$
   select case (select auth.uid()) when p_patient then 'patient' when p_supporter then 'supporter' else 'system' end
@@ -555,7 +569,8 @@ begin
     if new.state is distinct from old.state then
       v_changes := v_changes || case
         when new.state = 'active' and old.state = 'offered' then 'accepted'
-        when new.state in ('revoked', 'expired', 'declined', 'offered') then new.state
+        when new.state = 'expired' and old.state = 'offered' then 'offer_lapsed'
+        when new.state in ('revoked', 'expired', 'declined', 'withdrawn', 'offered') then new.state
         else 'permissions_changed' end;
     end if;
     if new.permissions is distinct from old.permissions and not (new.permissions @> old.permissions and old.permissions @> new.permissions) then
@@ -575,7 +590,7 @@ begin
   insert into public.care_circle_permission_history
     (organisation_id, patient_id, member_id, supporter_id, actor_id, actor_role, changes, permissions, previous_permissions, state, expires_at, is_test)
   values
-    (new.organisation_id, new.patient_id, new.id, new.supporter_id, (select auth.uid()),
+    (new.organisation_id, new.patient_id, new.id, new.supporter_id, private.circle_history_actor(),
      private.circle_history_actor_role(new.patient_id, new.supporter_id),
      array(select distinct c from unnest(v_changes) c), new.permissions,
      case when tg_op = 'UPDATE' then old.permissions end, new.state, new.expires_at, coalesce(new.is_test, false));
@@ -597,7 +612,7 @@ begin
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = new.patient_id;
   if v_org is null then return new; end if;
   insert into public.care_circle_permission_history (organisation_id, patient_id, actor_id, actor_role, changes, is_test)
-  values (v_org, new.patient_id, (select auth.uid()), private.circle_history_actor_role(new.patient_id, null), array[v_change], v_test);
+  values (v_org, new.patient_id, private.circle_history_actor(), private.circle_history_actor_role(new.patient_id, null), array[v_change], v_test);
   return new;
 end $$;
 create trigger care_circle_pauses_history after insert or update on public.care_circle_pauses

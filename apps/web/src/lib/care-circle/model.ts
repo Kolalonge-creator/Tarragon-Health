@@ -335,7 +335,7 @@ export const respondOfferResultSchema = z.object({ ok: z.literal(true), accepted
 
 /** P1: one change in the patient's history of who may see what. Written only by the database. */
 export const SHARING_CHANGES = [
-  "added", "offered", "accepted", "declined", "permissions_changed", "renewed", "revoked", "expired",
+  "added", "offered", "accepted", "declined", "withdrawn", "offer_lapsed", "permissions_changed", "renewed", "revoked", "expired",
   "monthly_report_on", "monthly_report_off", "missed_dose_alert_on", "missed_dose_alert_off",
   "paused", "resumed", "doctor_note_shared", "doctor_note_withdrawn",
 ] as const;
@@ -359,6 +359,8 @@ const SHARING_CHANGE_KEYS = {
   offered: "circlep1.history.offered",
   accepted: "circlep1.history.accepted",
   declined: "circlep1.history.declined",
+  withdrawn: "circlep1.history.withdrawn",
+  offer_lapsed: "circlep1.history.offer_lapsed",
   permissions_changed: "circlep1.history.permissions_changed",
   renewed: "circlep1.history.renewed",
   revoked: "circlep1.history.revoked",

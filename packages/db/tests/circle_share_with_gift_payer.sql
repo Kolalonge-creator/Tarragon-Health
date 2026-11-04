@@ -157,7 +157,10 @@ begin
   r := pg_temp.share(pt, py, array['doctor_note'], false);
   select array_to_string(permissions, ',') || '/' || monthly_report_shared::text into v_perms from public.care_circle_members where patient_id = pt and supporter_id = py and state = 'active';
   perform pg_temp.ck('4h a wider choice widens an existing member, never narrows (monthly stays on)', 'adherence_summary,appointments,doctor_note,red_alerts,weekly_bp_trend/true', v_perms);
-  perform pg_temp.ck('4i the widening is logged once more and not re-notified', '2/2', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
+  perform pg_temp.ck('4i the widening is logged once more and not re-notified as an invitation', '2/2', pg_temp.events(pt, py) || '/' || pg_temp.notes(py));
+  perform pg_temp.ck('4i2 an existing member is told the patient changed what they share, naming nothing', '1/{}',
+    (select count(*)::text from public.notifications where recipient_id = py and template = 'circle_share_widened') || '/' ||
+    (select string_agg(distinct payload::text, ',') from public.notifications where recipient_id = py and template = 'circle_share_widened'));
   perform pg_temp.ck('4j the payer drops off the offer list', '[]', pg_temp.q_as(pt, 'select public.circle_gift_payers()::text'));
   perform pg_temp.ck('4k the answered offer is gone from the payer''s list', '[]', pg_temp.q_as(py, 'select public.my_circle_share_offers()::text'));
 
@@ -269,7 +272,7 @@ begin
     pg_temp.q_as(py3, 'select public.my_circle_share_offers()::text'));
   r := pg_temp.share(pt, py3, array['appointments']);
   v_perms := pg_temp.q_as(pt, format('select public.withdraw_circle_share_offer(%L::uuid)::text', (r::jsonb ->> 'member_id')));
-  perform pg_temp.ck('9d the patient withdraws a new offer before it is answered', 'true/expired',
+  perform pg_temp.ck('9d the patient withdraws a new offer before it is answered', 'true/withdrawn',
     v_perms || '/' || (select state from public.care_circle_members where id = (r::jsonb ->> 'member_id')::uuid));
   perform pg_temp.ck('9e a withdrawn offer cannot be accepted', 'ERR:P0002',
     pg_temp.q_as(py3, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text', (r::jsonb ->> 'member_id'))));
@@ -282,6 +285,16 @@ begin
   perform pg_temp.ck('9g a fresh share after a lapsed offer makes a new one, and the lapsed one is closed', 'true/1/expired',
     v_perms || '/' || (select count(*)::text from public.care_circle_members where patient_id = pt and supporter_id = py3 and state = 'offered')
     || '/' || (select state from public.care_circle_members where id = (r::jsonb ->> 'member_id')::uuid));
+  -- review fix: an open offer cannot be accepted once the patient's account is closed (closure ends only ACTIVE memberships)
+  update public.profiles set is_active = false where id = pt;
+  perform pg_temp.ck('9g2 the patient''s account closed: the open offer is not listed and cannot be accepted', '[]/ERR:P0002',
+    pg_temp.q_as(py3, 'select public.my_circle_share_offers()::text') || '/' ||
+    pg_temp.q_as(py3, format('select public.respond_to_circle_share_offer(%L::uuid, true)::text',
+                             (select id from public.care_circle_members where patient_id = pt and supporter_id = py3 and state = 'offered'))));
+  update public.profiles set is_active = true where id = pt;
+  perform pg_temp.ck('9g3 the history names the withdrawal and the lapse for what they were', 'true/true',
+    exists (select 1 from public.care_circle_permission_history where patient_id = pt and supporter_id = py3 and 'withdrawn' = any (changes))::text || '/' ||
+    exists (select 1 from public.care_circle_permission_history where patient_id = pt and supporter_id = py3 and 'offer_lapsed' = any (changes))::text);
   perform pg_temp.ck('9h anon cannot execute the offer functions', 'false/false/false',
     has_function_privilege('anon', 'public.respond_to_circle_share_offer(uuid, boolean)', 'EXECUTE')::text || '/' ||
     has_function_privilege('anon', 'public.my_circle_share_offers()', 'EXECUTE')::text || '/' ||
