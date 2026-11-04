@@ -123,6 +123,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          doctor_flag_reason: string | null
           handover_note: string | null
           organisation_id: string
           owner_id: string
@@ -131,6 +132,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          doctor_flag_reason?: string | null
           handover_note?: string | null
           organisation_id: string
           owner_id: string
@@ -139,6 +141,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          doctor_flag_reason?: string | null
           handover_note?: string | null
           organisation_id?: string
           owner_id?: string

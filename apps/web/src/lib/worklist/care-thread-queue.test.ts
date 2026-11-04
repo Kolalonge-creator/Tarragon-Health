@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { inView, isNeedsDoctorCloseError } from "./care-thread-queue";
+import { inView, isNeedsDoctorCloseError, isNoDoctorAvailableError } from "./care-thread-queue";
 
 describe("MSG-3 inbox views", () => {
   const support = { queue: "support" as const, needs_doctor: false };
@@ -13,6 +13,11 @@ describe("MSG-3 inbox views", () => {
     expect(inView(flagged, "needs_doctor")).toBe(true);
     expect(inView(clinical, "needs_doctor")).toBe(false);
     for (const t of [support, clinical, flagged]) expect(inView(t, "all")).toBe(true);
+  });
+
+  it("recognises the no-doctor-available refusal", () => {
+    expect(isNoDoctorAvailableError({ code: "P0001", hint: "no_doctor_available" })).toBe(true);
+    expect(isNoDoctorAvailableError({ code: "P0001", hint: "needs_doctor" })).toBe(false);
   });
 
   it("recognises only the needs-doctor refusal", () => {

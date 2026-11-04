@@ -29,6 +29,12 @@
 --    the routing columns are written only by the system paths in this file.
 -- 4. Reply clock. awaiting_reply_since is the first patient or supporter message since the last care-team reply; a second message from
 --    the patient does not reset it. A care-team reply clears it and stamps last_care_team_reply_at.
+-- 4b. Review fixes (ultra review, 2026-11-04): the guard also runs on INSERT, so a patient cannot create a thread with a forged clock
+--    or doctor flag; every owner candidate passes the same checks enforce_care_thread_owner makes (active profile, same organisation,
+--    staff role), and a routing failure raises an ops incident instead of blocking the patient's message; a doctor given a thread by a
+--    flag owns it as a human assignment (attributed to whoever flagged it), so continuity keeps it with that doctor; the flag reason
+--    has its own staff-only column (care_thread_owners.doctor_flag_reason) that ordinary owner writes never touch; the doctor is
+--    notified when flagged; closing a thread clears the flag; flagging fails loudly when no doctor can be assigned.
 -- 5. The unread-clinical sweep (private.raise_unread_clinical_message_alerts, redefined from its LIVE body) now also covers a clinical-
 --    queue thread and a thread that needs a doctor, on top of the clinical category it already watched. It only widens.
 --
@@ -44,13 +50,21 @@ alter table public.care_message_threads
   add column awaiting_reply_since timestamptz,
   add column last_care_team_reply_at timestamptz;
 
+-- The reason a thread needs a doctor. On the staff-only owner table (RLS: is_org_staff), never on the patient-readable thread row, and in
+-- its own column so a "Take it", a hand-over note or an automatic reassignment cannot overwrite it while the flag stands.
+alter table public.care_thread_owners
+  add column doctor_flag_reason text check (doctor_flag_reason is null or length(doctor_flag_reason) between 10 and 1000);
+
 comment on column public.care_message_threads.queue is 'MSG-3: clinical when the patient is a Member now and the topic is clinical, medication or laboratory; else support. Recomputed on every patient or supporter message.';
 comment on column public.care_message_threads.needs_doctor is 'MSG-3: set by flag_care_thread_for_doctor; cleared by a doctor''s reply. Only a doctor may close the thread while it is set.';
 comment on column public.care_message_threads.awaiting_reply_since is 'MSG-3: first patient or supporter message since the last care-team reply. The reply target counts from here.';
 
 -- Nobody sets routing fields directly, staff included: a coordinator clearing needs_doctor by hand would get round the rule that only
--- a doctor's reply clears it. Only the system paths below (routing flag on) and calls with no signed-in user (migrations, cron) write
--- them. A direct update of these columns is not refused, it is ignored, so an ordinary edit of the same row still works.
+-- a doctor's reply clears it, and a patient inserting a thread with a back-dated clock or a doctor flag would jump every queue. Only
+-- the system paths below (routing flag on) and calls with no signed-in user (migrations, cron) write them. A direct write of these
+-- columns is not refused, it is ignored (reset to the defaults on insert, kept as they were on update), so an ordinary write of the
+-- same row still works. Closing a thread clears the doctor flag: guard_care_thread_close (which fires first) has already refused
+-- anyone but a doctor closing a flagged thread.
 create or replace function private.guard_care_thread_routing_columns()
 returns trigger
 language plpgsql
@@ -58,22 +72,36 @@ security definer
 set search_path = ''
 as $$
 begin
-  if (select auth.uid()) is null or current_setting('tarragon.care_thread_routing', true) = 'on' then
-    return new;
+  if (select auth.uid()) is not null and current_setting('tarragon.care_thread_routing', true) is distinct from 'on' then
+    if tg_op = 'INSERT' then
+      new.queue := 'support';
+      new.needs_doctor := false;
+      new.needs_doctor_at := null;
+      new.needs_doctor_by := null;
+      new.awaiting_reply_since := null;
+      new.last_care_team_reply_at := null;
+    else
+      new.queue := old.queue;
+      new.needs_doctor := old.needs_doctor;
+      new.needs_doctor_at := old.needs_doctor_at;
+      new.needs_doctor_by := old.needs_doctor_by;
+      new.awaiting_reply_since := old.awaiting_reply_since;
+      new.last_care_team_reply_at := old.last_care_team_reply_at;
+    end if;
   end if;
-  new.queue := old.queue;
-  new.needs_doctor := old.needs_doctor;
-  new.needs_doctor_at := old.needs_doctor_at;
-  new.needs_doctor_by := old.needs_doctor_by;
-  new.awaiting_reply_since := old.awaiting_reply_since;
-  new.last_care_team_reply_at := old.last_care_team_reply_at;
+  if tg_op = 'UPDATE' and new.status = 'closed' and old.status is distinct from 'closed' then
+    new.needs_doctor := false;
+    new.needs_doctor_at := null;
+    new.needs_doctor_by := null;
+  end if;
   return new;
 end;
 $$;
 revoke all on function private.guard_care_thread_routing_columns() from public, anon, authenticated;
 
+-- Named to sort after care_message_threads_guard_close, so the close guard sees the flag before this clears it.
 create trigger care_message_threads_guard_routing
-  before update on public.care_message_threads
+  before insert or update on public.care_message_threads
   for each row execute function private.guard_care_thread_routing_columns();
 
 create or replace function private.care_thread_queue_for(p_patient uuid, p_category public.care_message_category)
@@ -90,7 +118,24 @@ as $$
 $$;
 revoke all on function private.care_thread_queue_for(uuid, public.care_message_category) from public, anon, authenticated;
 
--- A doctor for routing: an active Senior Medical Officer or CMO with a profile.
+-- Exactly what enforce_care_thread_owner demands of an owner. Every candidate the router considers passes this first, so an owner write
+-- inside the message trigger cannot be refused by that check.
+create or replace function private.is_eligible_thread_owner(p_profile uuid, p_org uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = p_profile and p.organisation_id = p_org and p.is_active
+      and p.role in ('clinician', 'care_coordinator', 'admin')
+  );
+$$;
+revoke all on function private.is_eligible_thread_owner(uuid, uuid) from public, anon, authenticated;
+
+-- A doctor for routing: an active Senior Medical Officer or CMO whose login is an active clinician account in the same organisation.
 create or replace function private.is_routable_doctor(p_profile uuid, p_org uuid)
 returns boolean
 language sql
@@ -100,8 +145,10 @@ set search_path = ''
 as $$
   select exists (
     select 1 from public.clinical_staff cs
+    join public.profiles p on p.id = cs.profile_id
     where cs.profile_id = p_profile and cs.organisation_id = p_org and cs.active
       and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer')
+      and p.organisation_id = p_org and p.is_active and p.role = 'clinician'
   );
 $$;
 revoke all on function private.is_routable_doctor(uuid, uuid) from public, anon, authenticated;
@@ -171,7 +218,8 @@ begin
   -- A test patient's conversation is the test cover's, never a working colleague's (same rule as escalations, 2026-11-03).
   if coalesce((select pr.is_test from public.profiles pr where pr.id = t.patient_id), false) then
     select cs.profile_id into v_pick from public.clinical_staff cs
-    where cs.id = private.test_patient_cover(t.organisation_id) and cs.profile_id is not null;
+    where cs.id = private.test_patient_cover(t.organisation_id) and cs.profile_id is not null
+      and private.is_eligible_thread_owner(cs.profile_id, t.organisation_id);
     if v_pick is not null then return v_pick; end if;
   end if;
 
@@ -187,8 +235,8 @@ begin
 
   select cs.profile_id into v_pick
   from public.clinical_staff cs
-  where cs.organisation_id = t.organisation_id and cs.active and cs.profile_id is not null
-    and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer')
+  where cs.organisation_id = t.organisation_id and cs.profile_id is not null
+    and private.is_routable_doctor(cs.profile_id, t.organisation_id)
     and not private.clinician_on_leave(cs.profile_id)
   order by private.clinician_deprioritised_now(cs.profile_id)::int, private.care_thread_owner_load(cs.profile_id), cs.created_at
   limit 1;
@@ -197,8 +245,8 @@ begin
   -- Last resort, so a message is never left with nobody: everyone qualifying is on leave. The CMO first, then any active doctor.
   select cs.profile_id into v_pick
   from public.clinical_staff cs
-  where cs.organisation_id = t.organisation_id and cs.active and cs.profile_id is not null
-    and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer')
+  where cs.organisation_id = t.organisation_id and cs.profile_id is not null
+    and private.is_routable_doctor(cs.profile_id, t.organisation_id)
   order by (cs.doctor_tier = 'chief_medical_officer') desc, cs.created_at
   limit 1;
   return v_pick;
@@ -221,9 +269,10 @@ declare
   v_org uuid;
 begin
   if p_owner is null then return null; end if;
+  select organisation_id into v_org from public.care_message_threads where id = p_thread;
+  if not private.is_eligible_thread_owner(p_owner, v_org) then return null; end if;
   select owner_id into v_current from public.care_thread_owners where thread_id = p_thread;
   if v_current = p_owner and not p_force_note then return p_owner; end if;
-  select organisation_id into v_org from public.care_message_threads where id = p_thread;
   perform set_config('tarragon.care_thread_routing', 'on', true);
   insert into public.care_thread_owners (thread_id, organisation_id, owner_id, assigned_by, handover_note)
   values (p_thread, v_org, p_owner, p_by, left(p_note, 2000))
@@ -235,15 +284,17 @@ end;
 $$;
 revoke all on function private.write_care_thread_owner(uuid, uuid, uuid, text, boolean) from public, anon, authenticated;
 
-create or replace function private.assign_care_thread_owner(p_thread uuid, p_note text, p_force_note boolean default false)
+-- p_by null = an automatic choice. A doctor flag passes the person who flagged it, so the doctor holds the thread as a human assignment
+-- and keeps it on the patient's next message (pick_care_thread_owner only takes back a support thread from a doctor the SYSTEM placed).
+create or replace function private.assign_care_thread_owner(p_thread uuid, p_note text, p_force_note boolean default false, p_by uuid default null)
 returns uuid
 language sql
 security definer
 set search_path = ''
 as $$
-  select private.write_care_thread_owner(p_thread, private.pick_care_thread_owner(p_thread), null, p_note, p_force_note);
+  select private.write_care_thread_owner(p_thread, private.pick_care_thread_owner(p_thread), p_by, p_note, p_force_note);
 $$;
-revoke all on function private.assign_care_thread_owner(uuid, text, boolean) from public, anon, authenticated;
+revoke all on function private.assign_care_thread_owner(uuid, text, boolean, uuid) from public, anon, authenticated;
 
 -- Redefined from the LIVE body (read 2026-11-04). Only change: a system write (flag on) is accepted without a signed-in staff caller,
 -- and keeps the attribution private.write_care_thread_owner chose (null = automatic) so the event log shows how it happened.
@@ -288,18 +339,30 @@ declare
   v_doctor_reply boolean;
   v_owner uuid;
   v_assigned_clinician uuid;
+  v_needs_doctor boolean;
+  v_flagged_by uuid;
 begin
+  -- Routing must never stop a message being sent. Anything that fails in here is rolled back to this block and raised as an ops
+  -- incident (thread id and error text only, no patient detail), and the message itself is kept.
+  begin
   perform set_config('tarragon.care_thread_routing', 'on', true);
   if new.author_role in ('patient', 'sponsor') then
-    select category into v_category from public.care_message_threads where id = new.thread_id;
+    select category, needs_doctor, needs_doctor_by into v_category, v_needs_doctor, v_flagged_by
+    from public.care_message_threads where id = new.thread_id;
     v_queue := private.care_thread_queue_for(new.patient_id, v_category);
     update public.care_message_threads
       set queue = v_queue,
           awaiting_reply_since = coalesce(awaiting_reply_since, new.created_at)
       where id = new.thread_id;
+    -- While the thread needs a doctor, a reassignment to a doctor is credited to whoever flagged it: a human decision, so continuity
+    -- keeps the thread with that doctor after they reply, instead of handing it back to a coordinator as a system placement would.
     v_owner := private.assign_care_thread_owner(
       new.thread_id,
-      case v_queue when 'clinical' then 'Assigned automatically: clinical question' else 'Assigned automatically: support question' end
+      case when v_needs_doctor then 'Still needs a doctor'
+           when v_queue = 'clinical' then 'Assigned automatically: clinical question'
+           else 'Assigned automatically: support question' end,
+      false,
+      case when v_needs_doctor then v_flagged_by end
     );
     -- Tell the owner. after_care_message_insert already tells the patient's assigned clinician, so they are not told twice.
     select clinician_id into v_assigned_clinician from public.care_team_assignment where patient_id = new.patient_id;
@@ -321,11 +384,24 @@ begin
           needs_doctor_by = case when v_doctor_reply then null else needs_doctor_by end
       where id = new.thread_id;
     -- A staff member who starts or answers a conversation nobody owns becomes its owner, so the patient's reply comes back to them.
+    if v_doctor_reply then
+      update public.care_thread_owners set doctor_flag_reason = null where thread_id = new.thread_id and doctor_flag_reason is not null;
+    end if;
+    -- write_care_thread_owner skips anyone enforce_care_thread_owner would refuse (e.g. an admin of another organisation).
     if not exists (select 1 from public.care_thread_owners where thread_id = new.thread_id) then
       perform private.write_care_thread_owner(new.thread_id, new.author_profile_id, new.author_profile_id, null, false);
     end if;
   end if;
   perform set_config('tarragon.care_thread_routing', 'off', true);
+  exception when others then
+    perform private.ops_alert_incident(
+      'care-thread-routing:' || new.thread_id::text,
+      'Message routing failed',
+      format('Routing a new message on care thread %s failed (%s: %s). The message was saved; check its owner and queue.',
+             new.thread_id, sqlstate, sqlerrm),
+      'sev3'
+    );
+  end;
   return new;
 end;
 $$;
@@ -370,6 +446,7 @@ declare
   v_org uuid;
   v_status public.care_message_thread_status;
   v_owner uuid;
+  v_patient uuid;
 begin
   if v_uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
   if length(coalesce(trim(p_reason), '')) < 10 then
@@ -380,13 +457,30 @@ begin
   if not private.is_org_staff(v_org) then raise exception 'not authorised' using errcode = '42501'; end if;
   if v_status = 'closed' then raise exception 'thread is closed'; end if;
 
+  select patient_id into v_patient from public.care_message_threads where id = p_thread;
+
   perform set_config('tarragon.care_thread_routing', 'on', true);
   update public.care_message_threads
     set needs_doctor = true, needs_doctor_at = now(), needs_doctor_by = v_uid
     where id = p_thread;
   perform set_config('tarragon.care_thread_routing', 'off', true);
 
-  v_owner := private.assign_care_thread_owner(p_thread, 'Needs a doctor: ' || left(trim(p_reason), 1000), true);
+  -- Attributed to the person who flagged it, so it counts as a human assignment and the doctor keeps the thread.
+  v_owner := private.assign_care_thread_owner(p_thread, 'Needs a doctor: ' || left(trim(p_reason), 1000), true, v_uid);
+  if v_owner is null then
+    -- Nothing has been kept: raising rolls back the flag above. Better a clear refusal than a flag nobody can see or clear.
+    raise exception 'No doctor can take this conversation right now. Ask the Chief Medical Officer to assign one.'
+      using errcode = 'P0001', hint = 'no_doctor_available';
+  end if;
+
+  perform set_config('tarragon.care_thread_routing', 'on', true);
+  update public.care_thread_owners set doctor_flag_reason = left(trim(p_reason), 1000) where thread_id = p_thread;
+  perform set_config('tarragon.care_thread_routing', 'off', true);
+
+  -- Tell the doctor now; they must not have to wait for the patient to write again. Ids only, never the reason.
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  values (v_org, v_owner, 'in_app', 'pending', 'clinician_care_thread_needs_doctor',
+          jsonb_build_object('thread_id', p_thread::text, 'patient_id', v_patient::text));
   return v_owner;
 end;
 $$;
@@ -460,6 +554,11 @@ begin
   end loop;
 end;
 $function$;
+
+-- The widened sweep filter no longer matches care_message_threads_unread_care_team_idx (category = 'clinical' only), so it would scan
+-- every thread every 15 minutes. This index carries the sweep's own predicate.
+create index care_message_threads_unread_sweep_idx on public.care_message_threads (last_message_at)
+  where status = 'open' and unread_alert_id is null and (category = 'clinical' or queue = 'clinical' or needs_doctor);
 
 -- Backfill: queue from today's Membership, the reply clock from the messages already sent, and an owner for every open thread still
 -- waiting on a reply.

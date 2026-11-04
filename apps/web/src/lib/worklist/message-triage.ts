@@ -97,9 +97,12 @@ export function isPastReplyTarget(
   if (thread.status !== "open") return false;
   if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
   const waited = now - new Date(waitStartedAt(thread)).getTime();
+  const sinceLastMessage = now - new Date(thread.last_message_at).getTime();
+  // The target counts from when the patient first asked; the lookback looks at recent activity, so a patient who has waited 15 days
+  // and nudged today stays badged rather than slipping into the quiet count.
   // Older than the lookback is not flagged: it shows in the quiet "older" count instead, so an old thread whose author role
   // was only just filled in cannot suddenly raise a wave of red badges.
-  return waited > targetHours * 3_600_000 && waited <= lookbackDays * 86_400_000;
+  return waited > targetHours * 3_600_000 && sinceLastMessage <= lookbackDays * 86_400_000;
 }
 
 /** Open conversations where the patient's side spoke last, past the lookback. Counted quietly, never badged. */
@@ -110,5 +113,5 @@ export function isOlderUnanswered(
 ): boolean {
   if (thread.status !== "open") return false;
   if (thread.last_message_author_role !== "patient" && thread.last_message_author_role !== "sponsor") return false;
-  return now - new Date(waitStartedAt(thread)).getTime() > lookbackDays * 86_400_000;
+  return now - new Date(thread.last_message_at).getTime() > lookbackDays * 86_400_000;
 }

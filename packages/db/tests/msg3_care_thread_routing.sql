@@ -12,6 +12,10 @@
 --   8. Continuity: the owner keeps the thread on the next message; an owner on leave loses it to the next in line.
 --   9. A lapsed Member's clinical thread moves to the support queue on the next message.
 --  10. The unread sweep now also raises an alert for a support thread that needs a doctor.
+--  12. Ultra-review fixes: a patient's direct insert cannot forge the clock or the flag; a doctor whose login is deactivated is never
+--      chosen; a cross-organisation admin can still reply; a flagged doctor keeps the thread on the patient's next message; the reason
+--      survives a "Take it"; the doctor is told when flagged; closing clears the flag; flagging with no doctor available is refused and
+--      leaves no flag; a routing failure raises an ops incident and the message is still saved; the sweep has a matching index.
 --  11. SABOTAGE: with the routing trigger dropped, a new thread gets no owner and no reply clock.
 -- BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
@@ -79,14 +83,18 @@ begin
   insert into msg3_fx values ('org', v_org), ('admin', admin), ('doc1', doc1), ('doc2', doc2), ('fp', fp), ('mp', mp);
 end $$;
 
--- 1. No coordinator: a doctor gets it, assigned by the system.
+-- 1. No coordinator: a doctor gets it, assigned by the system. Doctor One's login is switched off first: their clinical_staff row is
+--    still active, and they would otherwise be first in line, so this also proves a deactivated login is never chosen (ultra fix).
 do $$
 declare t1 uuid;
 begin
+  update public.profiles set is_active = false where id = pg_temp.f('doc1');
   perform pg_temp.ck('1a free patient starts a thread', 'ok',
     pg_temp.try_as(pg_temp.f('fp'), $q$select public.start_care_thread('MSG3 login', 'I cannot open my results page', null, null, null, 'general')$q$));
   t1 := pg_temp.thread_by_subject(pg_temp.f('fp'), 'MSG3 login');
   insert into msg3_fx values ('t1', t1);
+  perform pg_temp.ck('1a2 a doctor with a deactivated login is never the owner', pg_temp.f('doc2')::text, pg_temp.owner_of(t1)::text);
+  update public.profiles set is_active = true where id = pg_temp.f('doc1');
   perform pg_temp.ck('1b queue support', 'support', (select queue::text from public.care_message_threads where id = t1));
   perform pg_temp.ck('1c owner is a doctor', 'true',
     (pg_temp.owner_of(t1) in (pg_temp.f('doc1'), pg_temp.f('doc2')))::text);
@@ -238,6 +246,96 @@ begin
     ((select unread_alert_id from public.care_message_threads where id = t3) is not null)::text);
 end $$;
 
+-- 12. Ultra-review fixes.
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); co uuid := pg_temp.f('co'); fp uuid := pg_temp.f('fp');
+  t8 uuid; t9 uuid; v_doc uuid; v_org2 uuid; v_org3 uuid; xadmin uuid; p3 uuid; co3 uuid; t10 uuid; t11 uuid;
+begin
+  -- a. A patient's direct insert cannot forge the routing columns.
+  perform pg_temp.ck('12a patient direct insert runs', 'ok',
+    pg_temp.try_as(fp, format(
+      $q$insert into public.care_message_threads (organisation_id, patient_id, subject, created_by, category, queue, needs_doctor, awaiting_reply_since)
+         values (%L, %L, 'MSG3 forged', %L, 'general', 'clinical', true, '2026-10-01')$q$, v_org, fp, fp)));
+  perform pg_temp.ck('12a2 forged queue, flag and clock are reset', 'support/false/null',
+    (select queue::text || '/' || needs_doctor::text || '/' || coalesce(awaiting_reply_since::text, 'null')
+       from public.care_message_threads where patient_id = fp and subject = 'MSG3 forged'));
+
+  -- b. A cross-organisation admin (is_org_staff admits any admin) can still reply to an unowned thread.
+  insert into public.organisations (name, type) select 'MSG3 other org', type from public.organisations order by created_at limit 1 returning id into v_org2;
+  xadmin := pg_temp.mkuser('admin', 'MSG3 Admin Elsewhere', v_org2);
+  t9 := pg_temp.thread_by_subject(fp, 'MSG3 forged');
+  perform pg_temp.ck('12b cross-org admin reply is saved', 'ok',
+    pg_temp.try_as(xadmin, format($q$select public.post_care_message(%L, 'Replying from head office')$q$, t9)));
+  perform pg_temp.ck('12b2 and they are not made owner', 'true', (pg_temp.owner_of(t9) is distinct from xadmin)::text);
+
+  -- c. A coordinator flags a support thread; the doctor keeps it after replying, when the patient writes again.
+  delete from public.provider_time_off where clinician_id = co;
+  perform pg_temp.try_as(fp, $q$select public.start_care_thread('MSG3 refund', 'When will my refund arrive?', null, null, null, 'billing')$q$);
+  t8 := pg_temp.thread_by_subject(fp, 'MSG3 refund');
+  perform pg_temp.ck('12c support thread starts with the coordinator', co::text, pg_temp.owner_of(t8)::text);
+  v_doc := pg_temp.val_as(co, format($q$select public.flag_care_thread_for_doctor(%L, 'Patient mentions chest tightness with the refund question')::text$q$, t8))::uuid;
+  perform pg_temp.ck('12c2 flagged doctor holds it as a human assignment', co::text,
+    (select assigned_by::text from public.care_thread_owners where thread_id = t8));
+  perform pg_temp.ck('12c3 the doctor is told at once', 'true',
+    (exists (select 1 from public.notifications n where n.recipient_id = v_doc and n.template = 'clinician_care_thread_needs_doctor'
+              and n.payload->>'thread_id' = t8::text and n.payload ? 'patient_id' and not n.payload ? 'reason'))::text);
+  perform pg_temp.ck('12c4 reason kept in its own column', 'Patient mentions chest tightness with the refund question',
+    (select doctor_flag_reason from public.care_thread_owners where thread_id = t8));
+
+  -- d. "Take it" by the coordinator (the inbox upsert, no note) keeps the reason.
+  perform pg_temp.ck('12d coordinator takes it with no note', 'ok',
+    pg_temp.try_as(co, format(
+      $q$insert into public.care_thread_owners (thread_id, organisation_id, owner_id, handover_note) values (%L, %L, %L, null)
+         on conflict (thread_id) do update set owner_id = excluded.owner_id, handover_note = excluded.handover_note$q$, t8, v_org, co)));
+  perform pg_temp.ck('12d2 reason survives the take', 'Patient mentions chest tightness with the refund question',
+    (select doctor_flag_reason from public.care_thread_owners where thread_id = t8));
+  -- The patient writes: the thread still needs a doctor and a coordinator owns it, so it goes back to a doctor.
+  perform pg_temp.try_as(fp, format($q$select public.post_care_message(%L, 'It is getting worse')$q$, t8));
+  perform pg_temp.ck('12d3 back with a doctor while it still needs one', 'true',
+    private.is_routable_doctor(pg_temp.owner_of(t8), v_org)::text);
+  v_doc := pg_temp.owner_of(t8);
+  perform pg_temp.try_as(v_doc, format($q$select public.post_care_message(%L, 'Please go to the nearest hospital now if it is severe')$q$, t8));
+  perform pg_temp.ck('12d4 doctor reply clears flag and reason', 'false/null',
+    (select needs_doctor::text from public.care_message_threads where id = t8) || '/' ||
+    coalesce((select doctor_flag_reason from public.care_thread_owners where thread_id = t8), 'null'));
+  perform pg_temp.try_as(fp, format($q$select public.post_care_message(%L, 'Thank you doctor, it has eased')$q$, t8));
+  perform pg_temp.ck('12d5 the patient''s next message stays with that doctor', v_doc::text, pg_temp.owner_of(t8)::text);
+
+  -- e. A doctor closing a flagged thread without replying clears the flag.
+  perform pg_temp.val_as(co, format($q$select public.flag_care_thread_for_doctor(%L, 'Second look needed at the refund chest symptom')::text$q$, t8));
+  v_doc := pg_temp.owner_of(t8);
+  perform pg_temp.ck('12e doctor closes without replying', 'ok',
+    pg_temp.try_as(v_doc, format($q$update public.care_message_threads set status = 'closed' where id = %L$q$, t8)));
+  perform pg_temp.ck('12e2 closing clears the flag', 'closed/false',
+    (select status::text || '/' || needs_doctor::text from public.care_message_threads where id = t8));
+
+  -- f. No doctor available: the flag is refused and nothing is left behind.
+  insert into public.organisations (name, type) select 'MSG3 no doctor org', type from public.organisations order by created_at limit 1 returning id into v_org3;
+  p3 := pg_temp.mkuser('patient', 'MSG3 Patient No Doctor', v_org3);
+  co3 := pg_temp.mkuser('care_coordinator', 'MSG3 Coordinator No Doctor', v_org3);
+  perform pg_temp.try_as(p3, $q$select public.start_care_thread('MSG3 lonely', 'Can someone help me with my booking', null, null, null, 'appointment')$q$);
+  t10 := pg_temp.thread_by_subject(p3, 'MSG3 lonely');
+  perform pg_temp.ck('12f flag refused when no doctor exists', 'P0001:no_doctor_available',
+    pg_temp.try_as(co3, format($q$select public.flag_care_thread_for_doctor(%L, 'Patient needs a doctor for their symptoms')$q$, t10)));
+  perform pg_temp.ck('12f2 and no flag is left on the thread', 'false', (select needs_doctor::text from public.care_message_threads where id = t10));
+
+  -- g. A routing failure never blocks the message: it raises an ops incident instead.
+  perform pg_temp.try_as(fp, $q$select public.start_care_thread('MSG3 boom', 'First message', null, null, null, 'general')$q$);
+  t11 := pg_temp.thread_by_subject(fp, 'MSG3 boom');
+  execute $f$create or replace function private.pick_care_thread_owner(p_thread uuid) returns uuid language plpgsql stable security definer
+            set search_path = '' as $b$ begin raise exception 'MSG3 proof: forced routing failure'; end $b$ $f$;
+  perform pg_temp.ck('12g message saved although routing failed', 'ok',
+    pg_temp.try_as(fp, format($q$select public.post_care_message(%L, 'Second message')$q$, t11)));
+  perform pg_temp.ck('12g2 the message is there', '2', (select count(*)::text from public.care_messages where thread_id = t11));
+  perform pg_temp.ck('12g3 an ops incident was raised', 'true',
+    (exists (select 1 from public.ops_incidents where external_reference = 'care-thread-routing:' || t11::text))::text);
+
+  -- h. The widened sweep has an index carrying its own predicate.
+  perform pg_temp.ck('12h sweep index exists', 'true',
+    (exists (select 1 from pg_indexes where indexname = 'care_message_threads_unread_sweep_idx'))::text);
+end $$;
+
 -- 11. Sabotage.
 do $$
 declare t6 uuid;
@@ -257,7 +355,7 @@ begin
   select string_agg(check_name || ' (expected ' || coalesce(expected, 'null') || ', got ' || coalesce(observed, 'null') || ')', '; ')
     into v_fail from msg3_results where verdict <> 'PASS';
   if v_fail is not null then raise exception 'MSG-3 proof FAILED: %', v_fail; end if;
-  if (select count(*) from msg3_results) < 30 then raise exception 'MSG-3 proof FAILED: only % checks ran', (select count(*) from msg3_results); end if;
+  if (select count(*) from msg3_results) < 60 then raise exception 'MSG-3 proof FAILED: only % checks ran', (select count(*) from msg3_results); end if;
 end $$;
 
 rollback;

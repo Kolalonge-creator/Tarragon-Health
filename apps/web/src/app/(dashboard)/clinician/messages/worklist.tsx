@@ -12,7 +12,7 @@ import {
   useFlagThreadForDoctor,
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
-import { INBOX_VIEW_LABEL, QUEUE_LABEL, inView, isNeedsDoctorCloseError, type InboxView } from "@/lib/worklist/care-thread-queue";
+import { INBOX_VIEW_LABEL, QUEUE_LABEL, inView, isNeedsDoctorCloseError, isNoDoctorAvailableError, type InboxView } from "@/lib/worklist/care-thread-queue";
 import { CareMessageThread } from "@/components/care-message-thread";
 import { TimeCapture } from "@/components/clinician/time-capture";
 import { AgpDisclosure } from "@/components/agp-disclosure";
@@ -116,14 +116,15 @@ function ThreadOwnerBar({ threadId, organisationId }: { threadId: string; organi
 /** MSG-3: hand a conversation to a doctor with a reason. Anyone on the care team can; only a doctor's reply clears it. */
 function NeedsDoctorControl({ thread }: { thread: CareThreadWithPatient }) {
   const flag = useFlagThreadForDoctor();
+  const { data: owner } = useThreadOwner(thread.id);
   const [openForm, setOpenForm] = useState(false);
   const [reason, setReason] = useState("");
 
   if (thread.needs_doctor) {
     return (
       <p className="rounded-md bg-red-50 p-2 text-xs text-red-900">
-        Needs a doctor (the reason is in the hand-over note above). A doctor&apos;s reply clears this, and only a doctor can close the
-        conversation until then.
+        Needs a doctor{owner?.doctor_flag_reason ? `: ${owner.doctor_flag_reason}` : ""}. A doctor&apos;s reply clears this, and only a
+        doctor can close the conversation until then.
       </p>
     );
   }
@@ -165,7 +166,13 @@ function NeedsDoctorControl({ thread }: { thread: CareThreadWithPatient }) {
       {openForm && reason.trim().length > 0 && reason.trim().length < 10 && (
         <p className="text-charcoal-ink/60">Say in a sentence what the doctor needs to look at.</p>
       )}
-      {flag.isError && <p role="alert" className="text-red-600">Could not send this to a doctor. Please try again.</p>}
+      {flag.isError && (
+        <p role="alert" className="text-red-600">
+          {isNoDoctorAvailableError(flag.error)
+            ? "No doctor can take this conversation right now. Ask the Chief Medical Officer to assign one."
+            : "Could not send this to a doctor. Please try again."}
+        </p>
+      )}
     </div>
   );
 }

@@ -298,6 +298,9 @@ export function usePostMessage() {
       queryClient.invalidateQueries({ queryKey: ["care-messages", input.threadId] });
       queryClient.invalidateQueries({ queryKey: ["care-threads"] });
       queryClient.invalidateQueries({ queryKey: ["org-care-threads"] });
+      // MSG-3: a staff reply on an unowned thread makes the author its owner, and a patient message can move the owner.
+      queryClient.invalidateQueries({ queryKey: ["care-thread-owner", input.threadId] });
+      queryClient.invalidateQueries({ queryKey: ["my-owned-threads"] });
     },
   });
 }
@@ -527,7 +530,7 @@ export function useThreadOwner(threadId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("care_thread_owners")
-        .select("owner_id, assigned_by, handover_note, assigned_at, organisation_id, owner:profiles!care_thread_owners_owner_id_fkey(full_name)")
+        .select("owner_id, assigned_by, handover_note, doctor_flag_reason, assigned_at, organisation_id, owner:profiles!care_thread_owners_owner_id_fkey(full_name)")
         .eq("thread_id", threadId)
         .maybeSingle();
       if (error) throw error;
@@ -536,6 +539,8 @@ export function useThreadOwner(threadId: string) {
         /** Null when the system assigned it (MSG-3 routing). */
         assigned_by: string | null;
         handover_note: string | null;
+        /** MSG-3: why the thread needs a doctor. Its own column, so a hand-over or "Take it" cannot overwrite it. */
+        doctor_flag_reason: string | null;
         assigned_at: string;
         organisation_id: string;
         owner: { full_name: string | null } | null;

@@ -66,6 +66,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "care_message_reminder") {
     return { text: "You have an unread message from your care team", href: "/patient/messages" };
   }
+  if (n.template === "clinician_care_thread_needs_doctor") {
+    // MSG-3: a colleague sent a conversation to this doctor. Ids only in the payload; the reason is in the inbox, staff-only.
+    return { text: "A patient conversation needs a doctor", href: "/clinician/messages" };
+  }
   if (n.template === "clinician_new_care_message") {
     // Provider-facing counterpart to new_care_message — a patient or their
     // sponsor posted and the assigned clinician hadn't been told (see

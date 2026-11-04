@@ -26,6 +26,11 @@ export function inView(thread: QueuedThread, view: InboxView): boolean {
   return thread.queue === view;
 }
 
+/** True when flagging failed because no doctor in the organisation can take the thread (hint 'no_doctor_available'). */
+export function isNoDoctorAvailableError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "hint" in error && (error as { hint?: unknown }).hint === "no_doctor_available";
+}
+
 /** True when the database refused to close a thread because it still needs a doctor (hint 'needs_doctor'). */
 export function isNeedsDoctorCloseError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "hint" in error && (error as { hint?: unknown }).hint === "needs_doctor";
