@@ -37,6 +37,7 @@ export const testingDaySchema = z.object({
   city: z.string(),
   lga: z.string().nullable(),
   state: z.string().nullable(),
+  directions: z.string().nullable().optional(),
   seats_left: z.number().int().min(0),
   full: z.boolean(),
   my_booking_id: z.string().uuid().nullable(),
@@ -53,9 +54,14 @@ export const myBookingSchema = z.object({
   event_id: z.string().uuid(),
   event_date: z.string(),
   starts_at: z.string().nullable(),
+  ends_at: z.string().nullable().optional(),
   venue_name: z.string(),
   address: z.string(),
   city: z.string(),
+  lga: z.string().nullable().optional(),
+  /** The venue's state (named state_name because `state` is the booking's state). */
+  state_name: z.string().nullable().optional(),
+  directions: z.string().nullable().optional(),
   event_status: z.string(),
   waitlist_position: z.number().int().nullable(),
 });
@@ -110,6 +116,9 @@ export const staffEventSchema = z.object({
   kind: z.enum(["public_day", "employer_visit"]),
   status: z.enum(["requested", "scheduled", "open", "closed", "completed", "cancelled"]),
   event_date: z.string(),
+  starts_at: z.string().nullable().optional(),
+  ends_at: z.string().nullable().optional(),
+  directions: z.string().nullable().optional(),
   venue_name: z.string(),
   address: z.string(),
   city: z.string(),
@@ -284,7 +293,47 @@ export const createEventSchema = z.object({
   employerOrgId: z.string().uuid().optional().or(z.literal("")),
   headcount: z.coerce.number().int().min(1).max(5000).optional(),
   notes: z.string().trim().max(500).optional(),
+  directions: z.string().trim().max(500).optional(),
 });
+
+/** A day's opening hours as "09:00 to 15:00", "from 09:00", or "" when neither is set. Times arrive as HH:MM[:SS]. */
+export function hoursLabel(startsAt: string | null | undefined, endsAt: string | null | undefined): string {
+  const from = startsAt ? startsAt.slice(0, 5) : "";
+  const to = endsAt ? endsAt.slice(0, 5) : "";
+  if (from && to) return `${from} to ${to}`;
+  if (from) return `from ${from}`;
+  if (to) return `until ${to}`;
+  return "";
+}
+
+/** A map search for the venue. Built from the venue's public address only, never anything about the Member. */
+export function mapLink(venue: { venue_name: string; address: string; city: string; state?: string | null }): string {
+  const q = [venue.venue_name, venue.address, venue.city, venue.state].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
+/** The states and cities that have an open day, sorted, so the filter only offers places with something to book. */
+export function placeOptions(days: Pick<TestingDay, "state" | "city">[]): { states: string[]; cities: string[] } {
+  // One entry per place whatever its spelling ("Lagos", " lagos "); the first spelling seen is the one shown.
+  const states = new Map<string, string>();
+  const cities = new Map<string, string>();
+  for (const d of days) {
+    const st = d.state?.trim();
+    if (st && !states.has(st.toLowerCase())) states.set(st.toLowerCase(), st);
+    const ct = d.city.trim();
+    if (ct && !cities.has(ct.toLowerCase())) cities.set(ct.toLowerCase(), ct);
+  }
+  const sort = (m: Map<string, string>) => [...m.values()].sort((a, b) => a.localeCompare(b));
+  return { states: sort(states), cities: sort(cities) };
+}
+
+/** Keep the days in the chosen state and city. Matching ignores case and spaces at the ends; an empty choice keeps everything. */
+export function filterDaysByPlace<T extends Pick<TestingDay, "state" | "city">>(days: T[], place: { state?: string; city?: string }): T[] {
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  const wantState = norm(place.state);
+  const wantCity = norm(place.city);
+  return days.filter((d) => (!wantState || norm(d.state) === wantState) && (!wantCity || norm(d.city) === wantCity));
+}
 
 export const employerVisitRequestSchema = z.object({
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
