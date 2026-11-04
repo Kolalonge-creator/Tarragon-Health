@@ -22,11 +22,11 @@ Two live facts make Phase 1 low-risk to change and high-priority to get right:
 - `lab_result_documents` has **0 rows ever**. No patient has used the upload path yet.
 - Both live memberships (`plus`, `evergreen`) belong to **test accounts**. No real member is affected by retiring Plus.
 
-## 2. Blocker before any rollout: the AI vendor agreement
+## 2. AI vendor agreement (decided: proceed, T2-03)
 
 AI-005 "Lab report extraction" (`apps/web/src/lib/lab-reports/extract.ts`) is live, enabled, high risk, assist-only, and sends the whole report (PDF or image, which carries the patient's name and date of birth) to Anthropic's API in the United States. The `ai_vendors` row records: *"A Data Processing Agreement and an NDPR-facing transfer assessment are outstanding."* AI-005 is also grandfathered with validation, evaluation and bias assessment outstanding.
 
-The brief says: "Do not send patient documents to an external AI service without an approved data-processing arrangement and suitable safeguards." That holds today only because nobody has uploaded. Before the upload path is promoted to members, either the DPA and transfer assessment are completed, or patient identifiers are removed from the document before it is sent (cropping/redacting the header is unreliable on photos, so the DPA is the realistic route). This is the founder's (DPO's) item, not engineering.
+The brief says not to send patient documents to an external AI without an approved data-processing arrangement. The founder, acting as DPO, decided on 2026-11-04 to proceed on the current commercial terms (T2-03). The DPA and transfer assessment remain an open compliance item; they are not a blocker for Phase 1 or its rollout, and the `ai_vendors` row must keep saying they are outstanding until they are done.
 
 ## 3. Stage-by-stage map of the lab intelligence engine
 
@@ -55,7 +55,7 @@ The brief says: "Do not send patient documents to an external AI service without
 |---|---|---|
 | Free + Membership only, Plus retired | Two paid tiers live | Membership `membership_annual_no_panel` ₦84,000; Plus `membership_annual` ₦129,000; upgrade ₦45,000. Plus = 17-test yearly panel at a testing day or Tarragon collection in Lagos, Oyo, Osun, Ogun. About 43 non-test files say "Membership Plus" (19 marketing, 5 mobile), 29 strings in `packages/i18n/src/en.ts`, about 14 migrations and 9 DB tests. The self-arranged annual bundle (`start_annual_bundle`, patient pays lab) is already open to every plan. |
 | ₦100,000 single price | Not in code | Versioned `prices` rows and `commerce.membership_prices` in `proposed-config/registry.ts`; a new version row, never an edit. Renewals are dormant (`membership_auto_renew` OFF), instalments already removed. |
-| Monthly doctor check-in | Exists | 12 follow-up months a year, one per month, extra meeting ₦5,000 (CON-07); `clinician/followups`. |
+| Monthly doctor check-in | Exists | 12 follow-up months a year, one per month, extra meeting 8,000 naira (raised from 5,000 on 2026-11-03); `clinician/followups`. |
 | Doctor result review within SLA | Exists for screening | results inbox, S27 release machine. |
 | Annual health report | Partial, OFF | S46 `health_reports`, guard `health_report_generation_enabled` off, config unsigned. |
 | Personal preventive plan | Mostly exists | risk questionnaire (signable), `screening_schedules`, S45 CMO-signed `screening_rule_sets`, nightly scheduler (live since 2026-10-30), S47 risk-based HIV/HCV, HPV DNA, S98 automatic test requests with sensitive-test opt-in. Missing: a single "baseline at enrolment" step that ties these together. |
@@ -74,8 +74,8 @@ The brief says: "Do not send patient documents to an external AI service without
 
 1. **WhatsApp and SMS reminders** in the brief: WhatsApp was removed (F-02) and SMS is phone verification only (OQ-05). Use in-app, push and email. Note: `escalation_slas` v9 `channel_sequence` still names whatsapp/sms as text; the sender ignores the dead channel, but the config should be cleaned in its next version.
 2. **Django / Celery stack**: Stack A is final.
-3. **Anthropic DPA and transfer assessment outstanding** (see §2).
-4. **Reference ranges and critical limits**: the agent must not sign them (standing rule). The 16 yearly-panel tests already have signed ranges and critical limits (sign-off v5, 2026-10-30). Ranges for anything else the brief lists (urine ACR, PSA, thyroid, LFT extras) need a new panel version the CMO signs; until then those results go to a doctor unclassified.
+3. **Anthropic DPA and transfer assessment outstanding** (see §2; proceeding by founder decision T2-03, kept as an open compliance item).
+4. **Reference ranges and critical limits**: the agent must not sign them (standing rule). The 17 yearly-panel tests already have signed ranges and critical limits (sign-off v5, 2026-10-30); three of them (HIV, HBsAg, anti-HCV) are qualitative and every reactive result is held for a doctor. Ranges for anything else the brief lists (urine ACR, PSA, thyroid, LFT extras) need a new panel version the CMO signs; until then those results go to a doctor unclassified.
 5. **Health Score**: existing composite score vs the brief's "no score until validated".
 6. **Testing days**: founder answered 2026-11-04, stop Tarragon-run testing days and collection for new bookings, honour existing ones. Employer visits and outreach screening days are a separate question (§7).
 7. **Prices**: no production price change until the migration and commercial decisions are approved (brief §18 rule 14).
