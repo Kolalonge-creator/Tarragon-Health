@@ -8,6 +8,9 @@ packages:
 # @sentry/cli downloads the prebuilt Sentry CLI binary used for source-map
 # upload during build (apps/web/next.config.ts's withSentryConfig).
 allowBuilds:
+  # @firebase/util and protobufjs come in with @react-native-firebase (apps/mobile App Check). Their postinstall
+  # scripts only matter to the Firebase JS web SDK; the native Android SDK does the work, so neither is run.
+  '@firebase/util': false
   '@sentry/cli': true
   # Optional native DTrace-probe addon pulled in transitively by bunyan (a
   # logging dep of eas-cli, added below for local `eas` builds). bunyan
@@ -20,6 +23,7 @@ allowBuilds:
   # an optional dependency, and the script was verified working with this build
   # skipped — so there is no reason to approve another postinstall here.
   esbuild: false
+  protobufjs: false
   sharp: true
   unrs-resolver: true
 
