@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { YourCareTeam } from "@/components/your-care-team";
 import { OnboardingFlow } from "./onboarding-flow";
+import { PhoneStep } from "./phone-step";
 import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 
 export const metadata = { referrer: "no-referrer" as const };
@@ -20,6 +21,17 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   }
   if (profile.onboarding_completed_at) {
     redirect(joinRedirect ?? "/patient");
+  }
+
+  // A Google sign-up arrives with no phone number (email and phone sign-up always carry one). Ask for it before anything else;
+  // the date-of-birth step that follows is where under-18s are refused. Only while onboarding is unfinished, so an established
+  // account is never stopped here.
+  if (!profile.phone) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
+        <PhoneStep firstName={profile.full_name?.trim().split(/\s+/)[0] ?? null} asksDateOfBirth={profile.receives_care !== false} />
+      </div>
+    );
   }
 
   const supabase = await createClient();
