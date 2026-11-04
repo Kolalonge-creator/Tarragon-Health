@@ -11430,4 +11430,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-03",
     source: "Founder decision 2026-11-03 (docs/DECISIONS.md, Rota cover minimum); supabase/migrations/*_rota_cover_policy_two_clinicians.sql",
   },
+  {
+    key: "documents.classifier",
+    // Clinical document engine step 4: when AI-024's suggested type is acted on without asking the patient. A suggestion at or above
+    // auto_apply_min_confidence that the file name or note does not contradict is applied; anything lower asks the patient one question.
+    // max_classify_attempts: automatic tries before the patient is simply asked. An operational setting (G-01): a wrong type sends a
+    // document to the wrong reader, whose own human review still applies; it never decides that a result is normal.
+    value: { auto_apply_min_confidence: 0.85, max_classify_attempts: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "docs/plans/clinical-document-engine-2026-11-04.md §16; supabase/migrations/20261104184341_cde5_document_classifier.sql",
+  },
 ];

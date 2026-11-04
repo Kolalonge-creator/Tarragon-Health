@@ -60,6 +60,7 @@ export async function retryUnreadLabReports(
   const due = (docs ?? []).filter((d) => isRetryable(d, now)).slice(0, limit);
 
   for (const doc of due) {
+    if (!doc.routed_id) continue;
     const { data: source } = await service
       .from("lab_result_documents")
       .select("id, organisation_id, patient_id, file_path, mime_type, test_code, source")

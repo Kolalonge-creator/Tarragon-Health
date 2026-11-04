@@ -61,6 +61,7 @@ export const AI_SYSTEM_SURFACES: Readonly<Record<string, AiSystemSurface>> = {
   "AI-021": { noText: CONFIRM_FIELDS },
   "AI-022": { noText: CONFIRM_FIELDS },
   "AI-023": { surfaces: [`${WEB}/app/(marketing)/_components/frontdesk-chat.tsx`] },
+  "AI-024": { noText: "A document type code and a confidence; the patient sees only the type's fixed label, never model-written text." },
 };
 
 /** Every surface above that shows model-written text. Derived, so the map and the list cannot disagree. */
@@ -96,6 +97,8 @@ export const AI_SURFACE_REVIEWED: Readonly<Record<string, string>> = {
   [`${WEB}/app/(dashboard)/patient/nutrition-flow.tsx`]: "AI-008 meal photo estimate: items matched to the food list, nutrient numbers the person confirms; no model-written prose.",
   [`${WEB}/app/(dashboard)/patient/nutrition-foundation.tsx`]: "Imports the deterministic nutrition foundation actions (analysis, favourites, barcode) that sit beside the AI-008 and AI-011 actions; shows no model output.",
   [`${WEB}/app/(dashboard)/patient/nutrition-support-card.tsx`]: "Imports only requestNutritionReferralAction, which sits in the file that also holds AI-008 and AI-011; shows no model output.",
+  [`${WEB}/app/(dashboard)/patient/unsorted-documents-panel.tsx`]:
+    "AI-024 (step 4 of the clinical document engine) suggests a document type code; the patient sees only that type's fixed taxonomy label, pre-selected in a list they confirm or change. No model-written prose.",
 };
 
 export const registeredAiSystemCodes = (registrySource: string): string[] =>

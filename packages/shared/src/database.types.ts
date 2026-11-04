@@ -12238,30 +12238,40 @@ export type Database = {
         Row: {
           access_category: Database["public"]["Enums"]["care_access_category"]
           admin_note: string | null
+          classified_by_system: string | null
+          clinician_alert_id: string | null
           content_sha256: string | null
           created_at: string
           entered_by_hand: boolean
           extraction_attempts: number
           failed_attempts: number
           file_count: number
+          file_path: string | null
+          file_size_bytes: number | null
           id: string
           identity_check: Json | null
           investigation_date: string | null
           is_superseded: boolean
           is_test: boolean
-          kind_code: string
-          kind_source: string
+          kind_code: string | null
+          kind_confidence: number | null
+          kind_confirmed_at: string | null
+          kind_confirmed_by: string | null
+          kind_source: string | null
           last_error: string | null
           mime_type: string | null
           organisation_id: string
+          original_filename: string | null
           patient_id: string
-          routed_id: string
-          routed_table: string
+          patient_note: string | null
+          routed_id: string | null
+          routed_table: string | null
           source_facility_id: string | null
           source_facility_name: string | null
           status: string
           status_changed_at: string
           status_reason: string | null
+          suggested_kind_code: string | null
           updated_at: string
           upload_channel: string
           uploaded_by: string | null
@@ -12270,30 +12280,40 @@ export type Database = {
         Insert: {
           access_category: Database["public"]["Enums"]["care_access_category"]
           admin_note?: string | null
+          classified_by_system?: string | null
+          clinician_alert_id?: string | null
           content_sha256?: string | null
           created_at?: string
           entered_by_hand?: boolean
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
+          file_path?: string | null
+          file_size_bytes?: number | null
           id?: string
           identity_check?: Json | null
           investigation_date?: string | null
           is_superseded?: boolean
           is_test?: boolean
-          kind_code: string
-          kind_source: string
+          kind_code?: string | null
+          kind_confidence?: number | null
+          kind_confirmed_at?: string | null
+          kind_confirmed_by?: string | null
+          kind_source?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id: string
+          original_filename?: string | null
           patient_id: string
-          routed_id: string
-          routed_table: string
+          patient_note?: string | null
+          routed_id?: string | null
+          routed_table?: string | null
           source_facility_id?: string | null
           source_facility_name?: string | null
           status: string
           status_changed_at?: string
           status_reason?: string | null
+          suggested_kind_code?: string | null
           updated_at?: string
           upload_channel: string
           uploaded_by?: string | null
@@ -12302,30 +12322,40 @@ export type Database = {
         Update: {
           access_category?: Database["public"]["Enums"]["care_access_category"]
           admin_note?: string | null
+          classified_by_system?: string | null
+          clinician_alert_id?: string | null
           content_sha256?: string | null
           created_at?: string
           entered_by_hand?: boolean
           extraction_attempts?: number
           failed_attempts?: number
           file_count?: number
+          file_path?: string | null
+          file_size_bytes?: number | null
           id?: string
           identity_check?: Json | null
           investigation_date?: string | null
           is_superseded?: boolean
           is_test?: boolean
-          kind_code?: string
-          kind_source?: string
+          kind_code?: string | null
+          kind_confidence?: number | null
+          kind_confirmed_at?: string | null
+          kind_confirmed_by?: string | null
+          kind_source?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id?: string
+          original_filename?: string | null
           patient_id?: string
-          routed_id?: string
-          routed_table?: string
+          patient_note?: string | null
+          routed_id?: string | null
+          routed_table?: string | null
           source_facility_id?: string | null
           source_facility_name?: string | null
           status?: string
           status_changed_at?: string
           status_reason?: string | null
+          suggested_kind_code?: string | null
           updated_at?: string
           upload_channel?: string
           uploaded_by?: string | null
@@ -12333,11 +12363,25 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "clinical_documents_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinical_documents_kind_code_fkey"
             columns: ["kind_code"]
             isOneToOne: false
             referencedRelation: "clinical_document_kinds"
             referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "clinical_documents_kind_confirmed_by_fkey"
+            columns: ["kind_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "clinical_documents_organisation_id_fkey"
@@ -12366,6 +12410,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lab_providers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_suggested_kind_code_fkey"
+            columns: ["suggested_kind_code"]
+            isOneToOne: false
+            referencedRelation: "clinical_document_kinds"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "clinical_documents_uploaded_by_fkey"
@@ -52303,6 +52354,9 @@ export type Database = {
       find_patient_for_upload: { Args: { p_query: string; p_date_of_birth?: string }; Returns: { patient_id: string; patient_number_hint: string | null; full_name: string | null; birth_year: number | null; sex: string | null; state: string | null; phone_last4: string | null }[] }
       coordinator_submit_lab_report: { Args: { p_patient: string; p_file: Json; p_identity: Json; p_source_facility_id?: string; p_source_facility_name?: string; p_investigation_date?: string; p_admin_note?: string }; Returns: Json }
       correct_clinical_document_metadata: { Args: { p_document: string; p_reason: string; p_investigation_date?: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
+      confirm_clinical_document_kind: { Args: { p_document: string; p_kind: string }; Returns: string }
+      record_document_classification: { Args: { p_document: string; p_suggested_kind: string; p_confidence: number; p_source: string; p_system: string; p_apply: boolean; p_error?: string }; Returns: string }
+      submit_unsorted_document: { Args: { p_file_path: string; p_original_filename: string; p_mime_type: string; p_file_size_bytes: number; p_content_sha256: string; p_note?: string }; Returns: string }
       coordinator_submit_manual_results: { Args: { p_patient: string; p_identity: Json; p_file: Json; p_original_attached: boolean; p_rows: Json; p_manual_details: Json; p_report_date: string; p_source_description: string; p_source_facility_id?: string; p_source_facility_name?: string; p_admin_note?: string }; Returns: Json }
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       update_visit_summary_draft: { Args: { p_items?: Json; p_summary: string; p_text: string }; Returns: undefined }
