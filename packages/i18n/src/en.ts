@@ -5141,6 +5141,7 @@ export const en = {
   "terms.late": "Cancel later than that and the credit is used.",
   "terms.care_team_cancels": "If your care team cancels or does not come, your credit always comes back and you can rebook for free.",
   "terms.adult": "These visits are for people aged {age} and over.",
+  "terms.outcome": "A visit with a doctor can end in advice, a referral, a plan to change your medicine, or a prescription. A prescription comes as a form you download in the app and take to your nearest pharmacy.",
   "terms.load_failed": "We could not load the price and rules just now. Please try again before paying.",
   "intake.title": "Tell your care team about this visit",
   "intake.help": "Your answers reach your care team only after you press Send. You can change them until then.",

@@ -36,6 +36,9 @@ export function coordinatorTermsLines(args: { patientName: string; isMember: boo
   );
   lines.push("If the care team cancels or does not come, the credit always comes back and the visit can be rebooked for free.");
   lines.push(`These visits are for people aged ${terms.min_age_years} and over.`);
+  if (!PER_ITEM_TYPES.includes(appointmentType)) {
+    lines.push("A visit with a doctor can end in advice, a referral, a plan to change medicine, or a prescription. A prescription comes as a form the patient downloads and takes to their nearest pharmacy.");
+  }
   return lines;
 }
 

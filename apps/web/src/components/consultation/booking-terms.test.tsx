@@ -23,6 +23,18 @@ const terms = (over: Partial<BookingTerms> = {}): BookingTerms => ({
 });
 
 describe("BookingTermsView", () => {
+  it("tells a doctor-visit patient what the visit can end in, and that a prescription is a form to take to a pharmacy", () => {
+    render(<BookingTermsView terms={terms()} included />);
+    const text = screen.getByTestId("booking-terms").textContent ?? "";
+    expect(text).toContain("advice, a referral, a plan to change your medicine, or a prescription");
+    expect(text).toContain("form you download in the app and take to your nearest pharmacy");
+  });
+
+  it("leaves the outcome line off a dietitian or pharmacist visit", () => {
+    render(<BookingTermsView terms={terms()} />);
+    expect(screen.getByTestId("booking-terms").textContent).not.toContain("prescription");
+  });
+
   it("shows the price in naira from integer kobo, the cancel window, what happens when late, and when the care team cancels", () => {
     render(<BookingTermsView terms={terms()} />);
     const text = screen.getByTestId("booking-terms").textContent ?? "";
