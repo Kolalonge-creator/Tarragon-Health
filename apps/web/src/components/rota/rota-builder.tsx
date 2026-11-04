@@ -185,16 +185,24 @@ export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: st
       </Section>
 
       {overview.pending_blocks.length > 0 ? (
-        <Section title="On-call hours to confirm" hint="A contracted clinician can only be rostered inside confirmed on-call hours.">
+        <Section
+          title="Hours to confirm"
+          hint="On-call hours: a contracted clinician can only be rostered inside confirmed on-call hours. Bookable consultation hours: patients can only pick a time inside confirmed bookable hours."
+        >
           <ul className="divide-y divide-charcoal-ink/10 text-sm">
             {overview.pending_blocks.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>
+                <span className="flex flex-wrap items-center gap-2">
                   {b.name ?? "Clinician"}: {formatLagosRange(b.starts_at, b.ends_at)}
+                  <Badge variant={b.kind === "bookable_consultations" ? "blue" : "grey"}>
+                    {b.kind === "bookable_consultations" ? "Bookable consultations" : "On call"}
+                  </Badge>
+                  {b.is_test ? <Badge variant="amber">Test</Badge> : null}
                 </span>
                 <form action={confirmHours}>
                   <Hidden name="returnTo" value={returnTo} />
                   <Hidden name="blockId" value={b.id} />
+                  <Hidden name="kind" value={b.kind} />
                   <SubmitButton>Confirm</SubmitButton>
                 </form>
               </li>

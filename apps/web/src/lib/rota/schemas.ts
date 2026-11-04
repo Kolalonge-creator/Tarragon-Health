@@ -28,7 +28,18 @@ export const rotaOverviewSchema = z.object({
       override_reason: z.string().nullable(),
     }),
   ),
-  pending_blocks: z.array(z.object({ id: z.uuid(), clinician_id: z.uuid(), name: z.string().nullable(), starts_at: iso, ends_at: iso })),
+  pending_blocks: z.array(
+    z.object({
+      id: z.uuid(),
+      clinician_id: z.uuid(),
+      name: z.string().nullable(),
+      starts_at: iso,
+      ends_at: iso,
+      // Older databases listed on-call blocks only and sent no kind; treat a missing kind as on-call.
+      kind: z.enum(["on_call", "bookable_consultations"]).default("on_call"),
+      is_test: z.boolean().default(false),
+    }),
+  ),
   swaps: z.array(z.object({ id: z.uuid(), rota_id: z.uuid(), role: z.string(), state: z.string(), reason: z.string(), from_name: z.string().nullable(), to_name: z.string().nullable() })),
   clinicians: z.array(z.object({ id: z.uuid(), name: z.string().nullable(), employment_type: z.string() })),
 });
