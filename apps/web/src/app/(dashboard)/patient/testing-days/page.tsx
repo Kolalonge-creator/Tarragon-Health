@@ -24,7 +24,9 @@ export const metadata = { title: "Testing days" };
  * Members book a place at a testing day (annual check: blood test, urine test, ECG, the basics). Free accounts see what
  * Membership includes instead. Results appear here only after a doctor has released them (INV-03).
  */
-export default async function TestingDaysPage() {
+export default async function TestingDaysPage({ searchParams }: { searchParams: Promise<{ state?: string; city?: string }> }) {
+  const { state: stateParam, city: cityParam } = await searchParams;
+  const place = { state: typeof stateParam === "string" ? stateParam.slice(0, 80) : "", city: typeof cityParam === "string" ? cityParam.slice(0, 80) : "" };
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
@@ -56,7 +58,7 @@ export default async function TestingDaysPage() {
       {notMember ? (
         <FreeTestingDaysOffer offer={offer} />
       ) : (
-        <TestingDaysPanel days={days} bookings={bookings} />
+        <TestingDaysPanel days={days} bookings={bookings} place={place} />
       )}
       <PocResultsList results={poc} />
     </div>
