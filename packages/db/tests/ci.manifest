@@ -1871,3 +1871,5 @@ care_circle_p5_payer_view_and_metrics.sql
 diag_p1_investigation_search.sql
 # Diagnostic directory Phase 2a (2026-11-04): a patient cannot call admin_dx_* or read directory tables; a listed lab branch's HbA1c service is eligible only with a verified, unexpired MLSCN credential; expiry, a serious incident, unavailability, a stale location check and an unknown outsourced performer each make it ineligible; ISO 15189 needs a scope; a lab branch cannot list mammography; the audit trail is append-only; a partner imaging order needs a contracted provider. Sabotage x2: requirement retired, imaging guard dropped.
 diag_p2_listings_eligibility.sql
+# Diagnostic directory Phase 2b (2026-11-04): admin_dx_overview / admin_dx_provider_detail are verifier-only; admin_dx_create_facility makes an UNCONTRACTED provider with draft listings; detail carries each service's eligibility reasons; a contracted provider cannot be given a new (orderable) branch here. Sabotage: contracted check removed.
+diag_p2b_admin_reads.sql
