@@ -23,6 +23,9 @@ jest.mock("@/lib/queries/care-circle", () => ({
   useCircleTasks: () => ({ isPending: false, isError: true, data: undefined }),
   usePostTask: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useTaskAction: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useMyCircle: () => ({ data: undefined }),
+  // P4: the timeline is still loading in these tests, so it renders nothing
+  useSupporterTimeline: () => ({ isPending: true, isError: false, isSuccess: false, data: undefined }),
 }));
 
 const BASE = { patient_id: "p1", name: "Mama Eze", relationship: "Mother", permissions: [], shared_until: "2027-06-01T00:00:00Z" };

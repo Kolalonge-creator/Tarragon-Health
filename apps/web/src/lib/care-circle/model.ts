@@ -53,6 +53,8 @@ export const memberSchema = z.object({
   monthly_report_shared: z.boolean().optional().default(false),
   /** S69b: the patient chose to let this supporter be nudged. Absent means off. */
   missed_dose_alert: z.boolean().optional().default(false),
+  /** P4: main or backup family contact. A label only: it grants nothing. */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional().default(null),
 });
 export type CircleMember = z.infer<typeof memberSchema>;
 
@@ -180,7 +182,55 @@ export const supporterViewSchema = z.object({
     })
     .optional(),
   plan_progress: z.object({ done: z.number(), due: z.number(), overdue: z.number(), next_due: z.string().nullable() }).optional(),
+  /** P4: this supporter is the patient's main or backup family contact (a label only). */
+  contact_role: z.enum(["primary", "backup"]).nullable().optional(),
 });
+
+/** P5: one gift the signed-in person paid for someone else. Billing facts only; paying grants no access. */
+export const giftPaidSchema = z.object({
+  order_id: z.string(),
+  name: z.string(),
+  name_key: z.string().nullable(),
+  paid_at: z.string().nullable(),
+  state: z.enum(["waiting", "accepted", "declined", "not_answered", "not_accepted"]),
+  starts_at: z.string().nullable(),
+  ends_at: z.string().nullable(),
+  refund_state: z.string().nullable(),
+});
+export type GiftPaid = z.infer<typeof giftPaidSchema>;
+export function parseGiftsPaid(data: unknown): GiftPaid[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = giftPaidSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
+/** P5: an accepted Membership ending within this many days shows "give another year". */
+export const RENEW_SOON_DAYS = 30;
+export function endsSoonForRenewal(endsAt: string | null, nowMs: number): boolean {
+  if (!endsAt) return false;
+  const left = new Date(endsAt).getTime() - nowMs;
+  return left > 0 && left <= RENEW_SOON_DAYS * 86_400_000;
+}
+
+/** P4: one event on the family timeline. Never a value or free text; `code` is a test code or a help-request kind. */
+export const TIMELINE_KINDS = [
+  "doctor_note_shared", "appointment_attended", "appointment_missed", "test_requested", "test_reviewed", "help_requested", "help_done",
+] as const;
+export const timelineEventSchema = z.object({
+  at: z.string(),
+  kind: z.enum(TIMELINE_KINDS),
+  code: z.string().optional(),
+  source: z.enum(["clinician", "patient", "system"]),
+});
+export type TimelineEvent = z.infer<typeof timelineEventSchema>;
+export function parseTimeline(data: unknown): TimelineEvent[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const r = timelineEventSchema.safeParse(row);
+    return r.success ? [r.data] : [];
+  });
+}
 export type SupporterView = z.infer<typeof supporterViewSchema>;
 
 /** Null means the access has ended or never existed: the screen shows one neutral message either way. */

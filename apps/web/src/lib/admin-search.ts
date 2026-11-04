@@ -47,6 +47,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/outcomes/control-by-adjustment", "blood pressure control medicine adjusted doctor changed dose hypertension titration split not on medicine group figures not causal"],
   ["/admin/outcomes/export", "export outcomes csv download pilot report renewal sponsor file blood pressure control aggregate"],
   ["/admin/outcomes/response-times", "response times care team claim time complete overdue pages acknowledge follow up median slowest tasks priority class data quality"],
+  ["/admin/care-circle", "care circle family supporters invitations gifts paid for someone help requests adoption engagement metrics figures diaspora abroad"],
   ["/admin/sponsors", "sponsors programme code cohort insurer hmo employer corporate ngo members join group figures sponsor report aggregate consent share"],
   ["/admin/sponsors/institution", "institution console configuration request approve usage statement invoice link code overlap enrolment employer join code programme code collision procurement pack sponsor rewards budget pathways"],
   ["/admin/triage-agreement", "triage agreement accuracy automatic grade symptom checker clinician review coverage switch on off green amber red"],

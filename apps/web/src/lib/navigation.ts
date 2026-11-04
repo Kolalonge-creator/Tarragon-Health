@@ -836,6 +836,8 @@ export function getNavSections(
             { label: "Control by medicine adjustment", href: "/admin/outcomes/control-by-adjustment", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
+            // Care Circle adoption, engagement, gifts and safety: counts only, no names (Care Circle P5).
+            { label: "Care Circle", href: "/admin/care-circle", icon: "analytics" },
             { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
             { label: "Institution console", href: "/admin/sponsors/institution", icon: "members" },
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },

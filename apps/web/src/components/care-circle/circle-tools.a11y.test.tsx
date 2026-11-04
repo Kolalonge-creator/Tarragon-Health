@@ -185,4 +185,11 @@ describe("NudgesCard", () => {
     expect(screen.getByText("Ada can't help")).toBeTruthy();
     expect(screen.getByText("Chidi has not answered yet")).toBeTruthy();
   });
+
+  it("Care Circle P4: a helper is not offered 'Something else' (only the patient can write the note it needs)", () => {
+    render(<CircleTasksPanel patientId="p" locale="en" />);
+    const options = Array.from((screen.getByLabelText("What is it?") as HTMLSelectElement).options).map((o) => o.value);
+    expect(options).not.toContain("other");
+    expect(options).toContain("transport");
+  });
 });

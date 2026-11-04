@@ -514,3 +514,29 @@ answers** a person the patient names may answer that request even if they only v
 | Not an emergency route | Nothing here reads a page, triage or emergency event |
 
 Also fixed: the weekly digest no longer counts requests addressed to someone else.
+
+## 16. Phase 4 build status (2026-11-04)
+
+Built on `feat/care-circle-phase4-timeline-contacts`. One migration (`20261104211059_care_circle_p4_timeline_contacts.sql`), one proof
+(`care_circle_p4_timeline_contacts.sql`, 19 checks, 3 sabotage), web changes. New wording is under `circlep4.` in
+`packages/i18n/src/care-circle-p4-copy.ts`, approved by the founder as CMO and DPO on 2026-11-04 (CC-COPY-P4).
+
+| Spec item | Status |
+|---|---|
+| 11 Timeline | `circle_supporter_timeline`: last 90 days, read-time, from the same permissions as the blocks: doctor's note released, appointment attended/missed (never sensitive), everyday test requested/reviewed (allow-list), help request asked/done (only those the reader may see). Source on each event. No value or free text. Shown as "Recent activity" on the supporter page |
+| 13 Roles | No new role field: the presets ("Can see", "Can see and help") are the labels; a role must never grant anything |
+| 13.1 Main/backup contact | `contact_role` on the member, one of each per circle, set only by the patient (`set_circle_contact_role`), grants nothing, not the emergency contact; shown to that person; in the sharing history |
+| Also | The shared-tasks module description updated; web no longer offers "Something else" to helpers (only the patient can write its note) |
+
+## 17. Phase 5 build status (2026-11-04)
+
+Built on `feat/care-circle-phase5-payer-metrics`. One migration (`20261104214130_care_circle_p5_payer_view_and_metrics.sql`), one
+proof (`care_circle_p5_payer_view_and_metrics.sql`), web changes. New wording is under `circlep5.` in
+`packages/i18n/src/care-circle-p5-copy.ts`, approved by the founder as CMO and DPO on 2026-11-04 (CC-COPY-P5).
+
+| Spec item | Status |
+|---|---|
+| 12.2 Payer view | `my_gifts_paid`: billing facts only for the person who paid (who, what, paid on, waiting/accepted/declined/not answered, active until, refund state). Never health information, and the card says paying grants no access. "Give another year" shows only when an accepted Membership ends within 30 days |
+| 21 Metrics | `admin_care_circle_metrics` (admin only, test accounts excluded): adoption, engagement (30 days), gifts with revenue from accepted gifts, safety and privacy. Counts only, never a name, nothing clinical. Admin page `/admin/care-circle`, in the console search and side menu |
+| Website | The "For family abroad" list now names the ten live items (approved, CC-WEB-1); the "Coming soon" note line is gone because the care-team note is live |
+| Not built | Split payments between family members (assessment only, no build without an explicit ask) |
