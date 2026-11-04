@@ -680,3 +680,10 @@ and the 2026-10-31 clinician-accounts change carried in six functions. `private.
 and `clinical_staff`: a global moderator grant for every active, non-test internal account, plus safety reviewer for a working doctor;
 `community_staff.source` says `automatic` or `admin`, `revoked_by` says who withdrew it, and a withdrawn grant is never re-given by the
 trigger. Staff alerts and the overdue notice route to the reader's console (`area`: clinician, coordinator, admin, analyst, finance).
+
+## 20. Name (2026-11-04, COM-29)
+
+In the app the feature is **Community** (menus, page titles, staff desks, unchanged). On the website and in marketing it is
+**Tarragon Community**, subtitle "Support groups for people living with blood pressure, diabetes and more." No coined sub-brand
+name (`docs/BRAND_GUIDE.md` section 11). Not to be confused with the separate "Community groups" feature (`community.title` in
+`packages/i18n`: private church, mosque or workplace groups sharing one combined total), which keeps its own name.
