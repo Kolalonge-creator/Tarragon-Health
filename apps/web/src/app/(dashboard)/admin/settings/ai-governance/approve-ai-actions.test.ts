@@ -7,6 +7,7 @@ jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/ai-governance/run-coach-eval-suites", () => ({ runAiCoachGovernanceSuites: jest.fn() }));
 jest.mock("@/lib/ai-governance/run-document-capture-eval-suites", () => ({ runAiDocumentCaptureEvalSuites: jest.fn() }));
 jest.mock("@/lib/ai-governance/run-imaging-eval-suites", () => ({ runAiImagingReportEvalSuites: jest.fn() }));
+jest.mock("@/lib/ai-governance/run-classifier-eval-suites", () => ({ runAiDocumentClassifierEvalSuites: jest.fn() }));
 jest.mock("@/lib/ai-governance/run-scribe-eval-suites", () => ({ runAiScribeEvalSuites: jest.fn() }));
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentClinicalStaff: jest.fn(), getCurrentProfile: jest.fn() }));
 
