@@ -32,7 +32,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "TarragonHealth reads the blood pressure, blood sugar, weight, oxygen level, heart rate and step data you already keep in Apple Health, so your care team sees it alongside the rest of your record.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "TarragonHealth only reads from Apple Health. It does not save or change anything in Apple Health.",
           "background": true
         }
       ],
