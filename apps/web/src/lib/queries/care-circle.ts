@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { CIRCLE_TASK_NOTE_MAX } from "@tarragon/shared";
 import { parseInviteStatus } from "@/lib/care-circle/join-link";
 import {
   inviteMadeSchema,
@@ -525,7 +526,7 @@ export function useCircleTasks(patientId: string, enabled: boolean) {
   });
 }
 
-export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task";
+export type TaskAction = "claim_circle_task" | "release_circle_task" | "complete_circle_task" | "cancel_circle_task" | "decline_circle_task";
 /** claim, release, complete and cancel share a shape: one task id in, a boolean out (false means it was no longer possible). */
 export function useTaskAction(patientId: string) {
   const qc = useQueryClient();
@@ -542,8 +543,17 @@ export function useTaskAction(patientId: string) {
 export function usePostTask(patientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { kind: string; neededBy: string | null }) => {
-      const { error } = await createClient().rpc("post_circle_task", { p_patient: patientId, p_kind: input.kind, ...(input.neededBy ? { p_needed_by: input.neededBy } : {}) });
+    mutationFn: async (input: { kind: string; neededBy: string | null; recipients?: string[] | null; note?: string | null }) => {
+      const note = input.note?.trim() ? input.note.trim() : null;
+      if (note && note.length > CIRCLE_TASK_NOTE_MAX) throw new CircleError("task_note_too_long");
+      const recipients = input.recipients && input.recipients.length > 0 ? input.recipients : null;
+      const { error } = await createClient().rpc("post_circle_task", {
+        p_patient: patientId,
+        p_kind: input.kind,
+        ...(input.neededBy ? { p_needed_by: input.neededBy } : {}),
+        ...(recipients ? { p_recipients: recipients } : {}),
+        ...(note ? { p_note: note } : {}),
+      });
       if (error) throw new CircleError(error.message);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle", "tasks", patientId] }),

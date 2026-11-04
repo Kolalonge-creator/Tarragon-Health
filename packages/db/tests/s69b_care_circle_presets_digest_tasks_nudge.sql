@@ -222,7 +222,8 @@ begin
   perform pg_temp.ck('a viewer cannot post', 'ERR:circle_task_needs_help_preset', pg_temp.q_as(v_see, format($q$select public.post_circle_task(%L, 'errand')::text$q$, v_pat)));
   perform pg_temp.ck('a viewer can read the list and is a viewer', 'viewer', pg_temp.q_as(v_see, format($q$select (public.circle_tasks(%L) ->> 'role')$q$, v_pat)));
   perform pg_temp.ck('a stranger gets the same not-found', 'ERR:circle_not_found', pg_temp.q_as(v_stranger, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
-  perform pg_temp.ck('a red_alerts-only member reads no job', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
+  -- Care Circle P3 (2026-11-04): a member who may not see jobs now gets an empty list (a request may be addressed to them), never a job
+  perform pg_temp.ck('a red_alerts-only member reads no job', '0', coalesce(jsonb_array_length(pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat))::jsonb -> 'tasks')::text, 'ERR'));
   perform pg_temp.ck('a red_alerts-only member cannot claim', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.claim_circle_task(%L)::text$q$, v_task)));
   perform pg_temp.ck('a red_alerts-only member cannot post', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.post_circle_task(%L, 'errand')::text$q$, v_pat)));
   perform pg_temp.ck('a member with only appointments is a viewer of the jobs (control)', 'viewer', pg_temp.q_as(v_late, format($q$select (public.circle_tasks(%L) ->> 'role')$q$, v_pat)));
@@ -465,7 +466,7 @@ begin
   d := replace(d, ' or not private.circle_perms_see_tasks(m.permissions)', '');
   if d = pg_get_functiondef('private.circle_task_role(uuid)'::regprocedure) then raise exception 'sabotage (e) did not change the function'; end if;
   execute d;
-  insert into results values ('sabotaged', 'a red_alerts-only member reads no job', 'ERR:circle_not_found', pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat)));
+  insert into results values ('sabotaged', 'a red_alerts-only member reads no job', '0', coalesce(jsonb_array_length(pg_temp.q_as(v_red, format($q$select public.circle_tasks(%L)::text$q$, v_pat))::jsonb -> 'tasks')::text, 'ERR'));
   -- (f) "not now" made to change the invite's state: the sender can tell at the table
   select pg_get_functiondef('public.decline_care_circle_invite(text)'::regprocedure) into d;
   d := replace(d, 'set attempts = greatest(attempts, (private.circle_rules() ->> ''max_attempts'')::integer)', 'set state = ''cancelled''');

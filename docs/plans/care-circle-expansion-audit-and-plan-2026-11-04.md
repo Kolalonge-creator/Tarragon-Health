@@ -493,3 +493,24 @@ here). No S42 consent cell exists for test results x Care Circle; the per-suppor
 
 **Open:** D5 (pregnancy and STI sensitivity platform-wide), the allow-list itself (operational privacy setting, founder may adjust), mobile
 blocks, CMO/DPO review of the `circlep2.` strings.
+
+## 15. Phase 3 build status (2026-11-04)
+
+Built on `feat/care-circle-phase3-help-requests`. One migration (`20261104190227_care_circle_p3_help_requests.sql`), one proof
+(`care_circle_p3_help_requests.sql`, 27 checks, 3 sabotage), web panel changes. Extends the existing shared jobs (S69b) rather than adding
+a second feature. **Still behind the `care_circle_tasks` module, which is OFF: the founder switches it on.**
+
+Founder decisions 2026-11-04: **D4** a patient may add a note of up to 140 characters (patient only, never in a notification); **who
+answers** a person the patient names may answer that request even if they only view.
+
+| Spec 8 item | Status |
+|---|---|
+| Categories | appointment, lab, medicines, visit, phone call, errand (existing) + transport, help paying for a test, help paying for medicines, help with a consultation, something else (needs a note) |
+| Recipients | The patient may tick people; an addressed request is seen, notified and answerable only by them (an unaddressed one behaves as before) |
+| Answers | "I can help" (claims), "I can't help" (recorded), done; the patient sees each named person's answer by first name |
+| Statuses | open, claimed (accepted), done, cancelled, expired (new: a passed date is no longer shown as cancelled) |
+| Notifications | Only the chosen people; payload is the patient id only; the note never leaves the request |
+| Audit | A supporter's look is logged when they saw at least one request (an empty list is no longer a "look") |
+| Not an emergency route | Nothing here reads a page, triage or emergency event |
+
+Also fixed: the weekly digest no longer counts requests addressed to someone else.
