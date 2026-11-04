@@ -39,6 +39,14 @@ export function HomeEntryChips() {
           </li>
         ))}
       </ul>
+      {/* Added 2026-11-04 on founder ask: "Where we work" was reachable only from the footer and one line on /partners. Same claim
+          the /coverage page itself leads with, so no new promise. */}
+      <p className="mt-4 text-center text-sm text-charcoal-ink/70">
+        Tarragon works anywhere in Nigeria.{" "}
+        <Link href={MARKETING_ROUTES.coverage} className="font-medium text-brand-green hover:underline">
+          See where we work
+        </Link>
+      </p>
     </Section>
   );
 }
