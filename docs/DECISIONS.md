@@ -809,6 +809,21 @@ Source brief: `docs/plans/tarragon-2-0-founder-brief-2026-11-04.md`. Discovery r
 | **T2-09** | Phase 4 is built and put live as soon as CI passes, not held behind a switch: one annual Membership at 100,000 naira; Membership Plus and the Plus upgrade closed to new purchases; Tarragon-run testing days closed to new bookings (existing bookings honoured, T2-02); employer seats at 90,000 naira granting the Membership (T2-05); website and app copy updated. | The founder chose "build and go live" over "build, founder switches it on". Both live memberships today are test accounts, so no real member is moved or charged differently. Price rows are new versions, never edits. | Phase 4 PR. |
 | **T2-10** | A filed upload whose values are all in range, held by S27 only because the panel is incomplete, is released by the filing clinician instead of opening a second review. Anything abnormal, critical or sensitive still goes through review. | Most uploads are partial; each normal one became a duplicate task for the doctor who had just filed it. | `20261104041620_t2_filed_normal_partial_released_by_filer.sql`. |
 
+## Founder decisions, 2026-11-04 (Care Circle expansion and D5, chosen in chat prompts)
+
+Plan: `docs/plans/care-circle-expansion-audit-and-plan-2026-11-04.md`. Phases 1 to 3 shipped as PRs #1698, #1699, #1700.
+
+| ID | Decision | Rationale | Where it lands |
+|---|---|---|---|
+| **CC-D1** | The missed-dose nudge is switched on (each patient still opts in per supporter, max 3 a day); the 5-minute patient-first check-in window stays off (OQ-700 open). | Founder choice. | Platform modules `care_circle_missed_dose_alert` (on), `care_circle_checkin_window` (off). |
+| **CC-D2** | Family may see actual test values behind a separate per-supporter permission, only for results a doctor reviewed and released, never a sensitive test. | Founder choice over "status only". | `investigation_values`, #1699. |
+| **CC-D3** | A person who paid for a gift must accept before joining the patient's Care Circle. | Every other way into a circle is opt-in for the supporter. | #1698. |
+| **CC-D4** | A patient may add a note of up to 140 characters to a help request; patient only, never in a notification. A person the patient names on a request may answer it even if they only view. | Founder choice. | #1700. |
+| **CC-HELP** | The one-tap help alert still sends while the circle's alerts are paused, after warning the patient. | A help tap while paused is deliberate. | #1698. |
+| **CC-LIST** | Family may ever see test progress or values for 19 everyday tests only (allow-list); anything else, and any future test, stays hidden until added on purpose. The per-supporter tick is the consent; no extra privacy-centre switch. | Founder kept the recommended list. | `private.circle_screen_shareable`, #1699. |
+| **CC-ON** | Switch on the weekly digest, the missed-dose nudge and help requests. | Founder choice, 2026-11-04. | Platform modules, from the founder's admin session. |
+| **D5** | Pregnancy and STI tests are sensitive across the platform **for access only**: hidden from caregivers and family. The patient's own results, messages and doctor-disclosure rules are unchanged (no change to `screen_types.sensitive`, analyte flags, sensitive result codes or release policies). STI conditions are kept off the emergency card, like pregnancy. | Founder choice. Changing the release flags would alter what the patient herself is told, a separate CMO decision. | `20261104194246_d5_pregnancy_sti_sensitive_access.sql`. |
+| **D5-EMERG** | Break-glass emergency access (an active clinician from another organisation, logged, 8 hours, reason required) still shows sensitive tests. OQ-S98-7 stands. | The founder first answered "hide even in emergencies" to a question that wrongly described this as a caregiver's access; asked again with the correct description, the founder chose "clinicians see them": emergency treatment can depend on pregnancy or infection status. | Unchanged `has_emergency_access` branches. |
 ## CMO and DPO sign-offs, 2026-11-04 (Care Circle, chosen in chat prompts)
 
 | ID | Decision | Where it lands |
