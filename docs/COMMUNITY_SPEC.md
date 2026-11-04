@@ -687,6 +687,7 @@ In the app the feature is **Community** (menus, page titles, staff desks, unchan
 **Tarragon Community**, subtitle "Support groups for people living with blood pressure, diabetes and more." No coined sub-brand
 name (`docs/BRAND_GUIDE.md` section 11). Not to be confused with the separate "Community groups" feature (`community.title` in
 `packages/i18n`: private church, mosque or workplace groups sharing one combined total), which keeps its own name.
+
 ## 21. Saved posts, feed order and the private way out (2026-11-04, COM-30)
 
 Migration `20261104165453_community_saved_posts_and_feed_sort.sql`, proof `community_saved_posts_and_feed_sort.sql`.
