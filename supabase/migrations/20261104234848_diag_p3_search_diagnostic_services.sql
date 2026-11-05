@@ -150,7 +150,8 @@ begin
     raise exception 'p_limit must be 1 to 50 (read it from versioned config) and p_offset at least 0' using errcode = '22023';
   end if;
 
-  select pr.role::text, coalesce(pr.is_test, false) into v_role, v_test from public.profiles pr where pr.id = v_uid;
+  select case when pr.is_active then pr.role::text end, coalesce(pr.is_test, false) into v_role, v_test
+    from public.profiles pr where pr.id = v_uid;
   v_verifier := private.can_verify_diagnostic_directory();
   v_staff := v_verifier or v_role in ('clinician', 'care_coordinator', 'admin');
 
@@ -205,9 +206,18 @@ begin
          case when v_staff then (
            select coalesce(array_agg(distinct dc.regulator order by dc.regulator), '{}'::text[])
              from public.diagnostic_credentials dc
+            -- Only credentials that would count for THIS test under the eligibility rules: in date, the right state
+            -- for a state licence, inside a stated scope, and "registered, accreditation unverified" only for the
+            -- registrations where that status is enough. An accreditation that does not cover the test is never shown.
             where (dc.branch_listing_id = g.bid or dc.provider_listing_id = g.plid)
-              and private.diagnostic_credential_effective_status(dc.status, dc.expires_on)
-                    in ('verified_current', 'accreditation_verified', 'registered_accreditation_unverified', 'scope_partially_verified'))
+              and private.diagnostic_credential_effective_status(dc.status, dc.expires_on) <> 'expired'
+              and (dc.regulator <> 'state_facility_licence' or lower(btrim(dc.state)) = lower(btrim(g.st)))
+              and (
+                (dc.status in ('verified_current', 'accreditation_verified')
+                   and (dc.scope_concept_ids is null or p_concept_id = any (dc.scope_concept_ids)))
+                or (dc.status = 'registered_accreditation_unverified'
+                   and dc.regulator in ('mlscn_registration', 'nnra_authorisation', 'state_facility_licence'))
+                or (dc.status = 'scope_partially_verified' and p_concept_id = any (dc.scope_concept_ids))))
          end,
          count(*) over ()
     from grouped g

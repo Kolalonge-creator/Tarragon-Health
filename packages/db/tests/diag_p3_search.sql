@@ -15,7 +15,9 @@
 --      ranked below EVERY eligible one even when nearer; it is left out when not asked for; a draft branch never appears
 --   C  an expired credential removes every branch that relied on it, with no other change
 --   D  a state search with no point returns the state's branches with no distance
---   E  a patient gets no confirmation date or credential list; a clinician gets both
+--   E  a patient gets no confirmation date or credential list; a clinician gets both, listing only credentials that count
+--      for the test searched (an out-of-scope accreditation or another state's licence is left out); a deactivated
+--      clinician gets neither
 --   F  a test listing is hidden from a real user and shown to a test user
 --   G  bad input is refused: ambiguous concept, no location, zero radius, page size out of range
 --   H  paging: offset 1 returns the second row and total_count stays the full count
@@ -96,6 +98,16 @@ begin
   v_cred2 := public.admin_dx_record_credential('provider', v_pl2, 'mlscn_registration', 'MLSCN', null, null, 'MLSCN/PROOF/P3T',
                                                null, null, current_date - 100, current_date + 200, 'https://web.mlscn.gov.ng/proof', null);
   perform public.admin_dx_set_credential_status(v_cred2, 'verified_current', 'Checked against the MLSCN approved list', current_date + 180);
+  -- Credentials that do NOT count for HbA1c: ISO 15189 scoped to FBC only, and a state licence for another state.
+  perform public.admin_dx_set_credential_status(
+    public.admin_dx_record_credential('provider', v_pl, 'iso15189', 'MLSCN Accreditation Service', 'MLSCN', null, 'ISO/PROOF/P3',
+      array[(select id from public.reference_concepts where code = 'inv.fbc')], 'FBC only', current_date - 100, current_date + 200,
+      'https://web.mlscn.gov.ng/proof', null),
+    'verified_current', 'Checked against the accreditation certificate', current_date + 180);
+  perform public.admin_dx_set_credential_status(
+    public.admin_dx_record_credential('provider', v_pl, 'state_facility_licence', 'Kano State Ministry of Health', null, 'Kano', 'KN/PROOF/P3',
+      null, null, current_date - 100, current_date + 200, 'https://example.org/proof', null),
+    'verified_current', 'Checked against the state register', current_date + 180);
   perform pg_temp.as_postgres();
   insert into fx values ('cred', v_cred);
 
@@ -199,7 +211,15 @@ begin
     from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 50, 0) r
    where r.branch_listing_id = f.vi;
   perform pg_temp.as_postgres();
-  insert into results values ('E2 clinician gets both', v_conf is not null and v_creds = array['mlscn_registration'], array_to_string(v_creds, ','));
+  insert into results values ('E2 clinician gets both, and only credentials that count for HbA1c in Lagos (no FBC-only ISO, no Kano licence)',
+    v_conf is not null and v_creds = array['mlscn_registration'], array_to_string(v_creds, ','));
+  update public.profiles set is_active = false where id = f.clin;
+  perform pg_temp.as_user(f.clin);
+  select r.last_confirmed_at, r.credentials_on_file into v_conf, v_creds
+    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 50, 0) r
+   where r.branch_listing_id = f.vi;
+  perform pg_temp.as_postgres();
+  insert into results values ('E3 a deactivated clinician gets neither', v_conf is null and v_creds is null, null);
 
   -- F: test listing visibility
   perform pg_temp.as_user(f.pr);
@@ -286,7 +306,7 @@ begin
     if not r.ok then v_fail := v_fail + 1; end if;
   end loop;
   if v_fail > 0 then raise exception '% check(s) failed', v_fail; end if;
-  if (select count(*) from results) < 24 then raise exception 'expected at least 24 checks, ran %', (select count(*) from results); end if;
+  if (select count(*) from results) < 25 then raise exception 'expected at least 25 checks, ran %', (select count(*) from results); end if;
 end;
 $$;
 

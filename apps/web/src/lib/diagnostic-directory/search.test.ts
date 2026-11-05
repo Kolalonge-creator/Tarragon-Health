@@ -39,6 +39,13 @@ describe("searchDiagnosticServices", () => {
     expect(res).toEqual(expect.objectContaining({ ok: true, total: 0, radiusKm: null }));
   });
 
+  it("leaves unconfirmed branches out unless asked, and a page past the end has an unknown total, not 0", async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    const res = await searchDiagnosticServices({ conceptId: C, location: { state: "Lagos" }, page: 3 });
+    expect(rpc).toHaveBeenCalledWith("search_diagnostic_services", expect.objectContaining({ p_include_unconfirmed: false }));
+    expect(res).toEqual(expect.objectContaining({ ok: true, total: null }));
+  });
+
   it("refuses bad input before calling the database", async () => {
     expect(await searchDiagnosticServices({ conceptId: "nope", location: { state: "Lagos" } })).toEqual({ ok: false, reason: "invalid" });
     expect(rpc).not.toHaveBeenCalled();

@@ -23,7 +23,8 @@ export const searchInputSchema = z.object({
     z.object({ lat: latitude, lng: longitude, radiusKm: z.number().positive().optional() }),
     z.object({ state: z.string().trim().min(2).max(60), lga: z.string().trim().min(2).max(80).optional() }),
   ]),
-  includeUnconfirmed: z.boolean().default(true),
+  // Off unless a screen asks for it and labels those rows: they are never normal recommendations (§10).
+  includeUnconfirmed: z.boolean().default(false),
   page: z.number().int().min(0).max(1000).default(0),
 });
 export type SearchInput = z.input<typeof searchInputSchema>;
@@ -56,7 +57,8 @@ export const searchRowSchema = z.object({
 export type SearchRow = z.infer<typeof searchRowSchema>;
 
 export type SearchResult =
-  | { ok: true; rows: SearchRow[]; total: number; radiusKm: number | null; pageSize: number }
+  // total is null when the page is past the end (no row carries the count); it is never reported as 0 then.
+  | { ok: true; rows: SearchRow[]; total: number | null; radiusKm: number | null; pageSize: number }
   | { ok: false; reason: "invalid" | "denied" | "closed" | "failed" };
 
 export async function searchDiagnosticServices(input: SearchInput): Promise<SearchResult> {
@@ -87,5 +89,6 @@ export async function searchDiagnosticServices(input: SearchInput): Promise<Sear
   }
   const rows = z.array(searchRowSchema).safeParse(data ?? []);
   if (!rows.success) return { ok: false, reason: "failed" };
-  return { ok: true, rows: rows.data, total: rows.data[0]?.total_count ?? 0, radiusKm, pageSize: config.page_size };
+  const total = rows.data[0]?.total_count ?? (page === 0 ? 0 : null);
+  return { ok: true, rows: rows.data, total, radiusKm, pageSize: config.page_size };
 }
