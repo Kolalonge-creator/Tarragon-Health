@@ -229,6 +229,8 @@ The first coverage target is Lagos and Abuja, for roughly the 30 most-requested 
 
 **P4 as built (2026-11-05):** `diagnostic_branch_partnerships` holds the commercial relationship per branch (dated, admin-only, ended rather than edited). A commission partnership cannot be recorded without a legal review reference, which is how the §Known limits legal-review requirement is enforced without a new guard. Search adds the `partner` group (eligible partner within d0 + `partner_band_km`, config v2, 3 km) and `is_partner`. An unconfirmed row is never badged, and a state search without a point has no band. Patient copy for the badge and explainer is in `diagnostic-search-copy.ts`, pending CMO and DPO review.
 
+**P7 as built (2026-11-05):** `/admin/ops/diagnostic-directory/import` stages a CSV (template and guide in `docs/plans/diagnostic-directory-import-*`). Every row is checked in the database; a verifier applies good rows one at a time, which creates drafts only (tests `awaiting_confirmation`, credentials `pending`). Partner, record-status and verification-date columns are kept for reference and never applied. Contracted providers are refused. The data collection itself (Lagos and Abuja first) is people's work, not code.
+
 P1 to P3 are additive, and nothing becomes patient-visible until a branch is listed by a person. `directory_enabled` is already ON, so verification is the gate. No new guard is needed, per G-01.
 
 ## 13. Test plan

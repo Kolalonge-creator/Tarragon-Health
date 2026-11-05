@@ -23,10 +23,13 @@ export const LISTING_STATUSES = ["draft", "listed", "suspended", "deactivated"] 
 export const NOTICES = [
   "facility_created", "listing_started", "branch_added", "branch_added_to_directory", "location_verified", "status_set",
   "service_saved", "credential_recorded", "credential_set", "incident_opened", "incident_closed", "partner_set", "partner_ended",
+  "import_staged", "import_applied", "import_rejected", "import_bad_file", "import_duplicate",
   "denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found",
 ] as const;
 export type Notice = (typeof NOTICES)[number];
-export const BAD_NOTICES: ReadonlySet<Notice> = new Set(["denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found"]);
+export const BAD_NOTICES: ReadonlySet<Notice> = new Set([
+  "denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found", "import_bad_file", "import_duplicate",
+]);
 export const asNotice = (v: unknown): Notice | null => (NOTICES as readonly string[]).includes(String(v)) ? (v as Notice) : null;
 
 /** Database error code to a fixed notice. 42501 = not allowed, 22023 = bad input, 23514/23503/23505 = a rule refused it. */
@@ -191,3 +194,19 @@ export const partnershipsSchema = z.array(z.object({
   ended_at: nullableString, ended_by: nullableString, end_reason: nullableString, in_force: z.boolean(), lapsed: z.boolean(),
 }));
 export type Partnership = z.infer<typeof partnershipsSchema>[number];
+
+// ---- import (Phase 7) ------------------------------------------------------------------------------------------------
+export const importBatchesSchema = z.array(z.object({
+  id: uuid, source: z.string(), note: nullableString, created_at: z.string(), created_by: nullableString,
+  rows: z.number(), staged: z.number(), invalid: z.number(), applied: z.number(), rejected: z.number(),
+}));
+export type ImportBatch = z.infer<typeof importBatchesSchema>[number];
+export const importRowsSchema = z.array(z.object({
+  id: uuid, row_number: z.number(), data: z.record(z.string(), z.unknown()), problems: z.array(z.string()),
+  status: z.enum(["staged", "invalid", "applied", "rejected"]), outcome: nullableString,
+  provider_listing_id: uuid.nullable(), branch_listing_id: uuid.nullable(), decided_at: nullableString, decided_by: nullableString,
+}));
+export type ImportRow = z.infer<typeof importRowsSchema>[number];
+export const stageImportSchema = z.object({ source: text(3, 200), note: optText(1000) });
+export const importRowSchema = z.object({ batch_id: uuid, row_id: uuid });
+export const rejectImportRowSchema = importRowSchema.extend({ reason: text(10, 500) });

@@ -30,6 +30,7 @@ export default async function DiagnosticDirectoryPage({ searchParams }: { search
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("dxdir.title", locale)}</h1>
         <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("dxdir.intro", locale)}</p>
+        <Link href="/admin/ops/diagnostic-directory/import" className="mt-2 inline-block text-sm font-semibold text-brand-green hover:underline">{t("dxdir.import.link", locale)}</Link>
       </div>
       {notice && <FlashClean />}
       {notice && <Notice notice={notice} bad={BAD_NOTICES.has(notice)} />}
