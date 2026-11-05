@@ -22,7 +22,13 @@ export async function recordFailedSignIn(identifier: string, method: FailedSignI
     const hashKey = process.env.AUTH_AUDIT_HASH_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!hashKey) return;
     const ip = await getClientIp();
-    await createServiceRoleClient().from("audit_log").insert(failedSignInRow(identifier, method, ip, hashKey));
+    // Capped so a slow database can never hold the "wrong password" answer open.
+    const { error } = await createServiceRoleClient()
+      .from("audit_log")
+      .insert(failedSignInRow(identifier, method, ip, hashKey))
+      .abortSignal(AbortSignal.timeout(2000));
+    // A rejected insert would otherwise blind the failed_sign_in_spike alert silently. No identifier in the log line.
+    if (error) console.error("recordFailedSignIn: audit insert failed", { method, code: error.code });
   } catch {
     // never let security bookkeeping break or slow down the sign-in answer
   }
