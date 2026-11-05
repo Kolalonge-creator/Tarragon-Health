@@ -41,6 +41,17 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   const input = parsed.data;
 
+  // Check authority BEFORE any login is created (security audit 2026-11-05, H-1): the
+  // same question payer_administrators_manage asks. Without this, any signed-in user
+  // could mint a confirmed payer_admin login for any email, even though the seat insert
+  // below would then be refused.
+  const supabase = await createClient();
+  const { data: allowed, error: allowedError } = await supabase.rpc("can_manage_payer_seats", {
+    p_insurer_id: input.insurerId,
+  });
+  if (allowedError) console.error(`invitePayerAdminAction: pre-flight check failed`, allowedError);
+  if (allowedError || allowed !== true) return { error: "You don't have access to do that" };
+
   const svc = createServiceRoleClient();
   const { data: created, error: createError } = await svc.auth.admin.createUser({
     email: input.email,
@@ -54,12 +65,11 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
   }
 
   // Insert through the CALLER's own RLS-scoped client, not the service role
-  // — payer_administrators_manage is the real authorisation check (is this
+  // — payer_administrators_manage is still the real authorisation check (is this
   // caller an owner/insurance admin for THIS insurer), and a role guard
   // trigger on the table separately confirms the new login really is
-  // payer_admin. If either refuses, the auth user above still exists but
-  // administers nothing, same trust posture as every other invite flow here.
-  const supabase = await createClient();
+  // payer_admin. If either refuses, the login just created is deleted again so
+  // no confirmed privileged account is left behind.
   const { error: seatError } = await supabase.from("payer_administrators").insert({
     insurer_id: input.insurerId,
     profile_id: created.user.id,
@@ -67,7 +77,14 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
     job_title: input.jobTitle ?? null,
     invited_by: actor.id,
   });
-  if (seatError) return { error: seatError.message };
+  if (seatError) {
+    const { error: deleteError } = await svc.auth.admin.deleteUser(created.user.id);
+    if (deleteError) {
+      // Loud on purpose: a confirmed privileged-role login now exists with no seat.
+      console.error(`invitePayerAdminAction: could not delete the login after the seat was refused`, created.user.id, deleteError);
+    }
+    return { error: seatError.message };
+  }
 
   revalidatePath("/payer/team");
   return { message: `${input.fullName} added.` };
