@@ -21,7 +21,7 @@ export function MfaSettingsCard({
   if (verifiedFactorId) {
     return <MfaEnabledView factorId={verifiedFactorId} required={required} />;
   }
-  return <MfaSetupView />;
+  return <MfaSetupView required={required} />;
 }
 
 function MfaEnabledView({ factorId, required }: { factorId: string; required: boolean }) {
@@ -60,7 +60,7 @@ function MfaEnabledView({ factorId, required }: { factorId: string; required: bo
   );
 }
 
-function MfaSetupView() {
+function MfaSetupView({ required }: { required: boolean }) {
   const [enrollState, setEnrollState] = useState<MfaEnrollState>(undefined);
   const [starting, setStarting] = useState(false);
   const [verifyState, verifyAction, verifyPending] = useActionState(verifyMfaEnrollment, undefined);
@@ -151,8 +151,9 @@ function MfaSetupView() {
           Two-factor authentication
         </CardTitle>
         <CardDescription>
-          Optional extra protection for your account using an authenticator app on your phone.
-          Turn it on whenever you&apos;re ready. Your password still works on its own until you do.
+          {required
+            ? "Your account needs a code from an authenticator app on your phone, as well as your password. Set it up now to continue."
+            : "Optional extra protection for your account using an authenticator app on your phone. Turn it on whenever you're ready. Your password still works on its own until you do."}
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -120,7 +120,8 @@ export default async function AccountPage({
                 : "Your account now needs a code from an authenticator app as well as your password. Set it up below. Everything else opens as soon as it is on."}
             </p>
           </div>
-          {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} required={mfaRequirement === true} />}
+          {/* The set-up card itself: without it a held account has nothing to do on the only page it may open. */}
+          <MfaSettingsCard verifiedFactorId={verifiedFactorId} required />
         </>
       )}
 
