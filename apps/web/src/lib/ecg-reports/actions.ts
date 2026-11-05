@@ -1,6 +1,7 @@
 "use server";
 
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
 import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
@@ -243,7 +244,7 @@ export async function uploadEcgReportAsPatient(formData: FormData): Promise<EcgU
     .select("id")
     .single();
   if (insertError || !inserted) {
-    await supabase.storage.from(ECG_REPORT_BUCKET).remove([path]);
+    await discardUnfiledUpload(ECG_REPORT_BUCKET, path, user.id);
     if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }

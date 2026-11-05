@@ -59673,6 +59673,12 @@ export type Database = {
       }
       symptom_check_context: { Args: { p_subject?: string; p_window_days?: number }; Returns: Json }
       withdraw_skin_photo: { Args: { p_photo: string }; Returns: Json }
+      discard_unfiled_clinical_upload: { Args: { p_bucket: string; p_name: string; p_patient: string }; Returns: boolean }
+      storage_deletions_due: {
+        Args: { p_limit?: number }
+        Returns: { bucket_id: string; id: string; name: string }[]
+      }
+      mark_storage_deletion_done: { Args: { p_error?: string; p_id: string }; Returns: undefined }
       respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
       run_symptom_accuracy_audit_now: {
         Args: { p_include_test?: boolean; p_month: string }

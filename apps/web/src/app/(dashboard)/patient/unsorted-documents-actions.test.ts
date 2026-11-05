@@ -10,6 +10,7 @@ const upload = jest.fn();
 const remove = jest.fn();
 const runDocumentClassification = jest.fn();
 const startReader = jest.fn();
+const discard = jest.fn();
 const routedRow = { data: { routed_table: "lab_result_documents", routed_id: "33333333-3333-4333-8333-333333333333" } };
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -21,6 +22,8 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true }) }));
+// S4 (2026-11-05): a patient has no DELETE on the bucket; the clean-up goes through the server-side discard, never the session.
+jest.mock("@/lib/uploads/discard-unfiled-upload", () => ({ discardUnfiledUpload: (...a: unknown[]) => discard(...a) }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/validation/result-doc-signature", () => ({
   ...jest.requireActual("@/lib/validation/result-doc-signature"),
@@ -78,7 +81,8 @@ describe("uploadUnsortedDocument", () => {
     rpc.mockResolvedValue({ data: null, error: { code: "23505", message: "clinical_document_duplicate" } });
     const res = await uploadUnsortedDocument(form());
     expect(res.ok).toBe(false);
-    expect(remove).toHaveBeenCalledWith([upload.mock.calls[0][0]]);
+    expect(discard).toHaveBeenCalledWith("lab-result-documents", upload.mock.calls[0][0], "11111111-1111-4111-8111-111111111111");
+    expect(remove).not.toHaveBeenCalled();
     expect(runDocumentClassification).not.toHaveBeenCalled();
     if (!res.ok) expect(res.error).toMatch(/already/i);
   });

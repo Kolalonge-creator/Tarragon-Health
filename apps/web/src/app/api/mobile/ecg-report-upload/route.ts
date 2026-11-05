@@ -1,4 +1,5 @@
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
@@ -137,7 +138,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .select("id")
     .single();
   if (insertError || !inserted) {
-    await supabase.storage.from(ECG_REPORT_BUCKET).remove([path]);
+    await discardUnfiledUpload(ECG_REPORT_BUCKET, path, user.id);
     if (isDuplicateDocumentError(insertError)) return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
     return NextResponse.json(
       { error: safeErrorMessage(insertError, "mobile/ecg-report-upload", "Could not save that upload.") },

@@ -4,7 +4,7 @@
 -- For each of the four buckets (lab-result-documents, ecg-reports, imaging-reports,
 -- specialist-referral-outcome-documents), patient A's folder holds two objects: one A uploaded
 -- (owner_id = A) and one the care team or a lab wrote with the service role (owner_id null).
---   1. A can update and delete A's own upload.
+--   1. A can update A's own upload (and delete it only in the referral bucket: S4, 20261105164215, removed patient DELETE in the other three).
 --   2. A can update and delete NEITHER the care team's file, even though it sits in A's folder.
 --   3. Patient B can touch nothing in A's folder.
 --   4. SABOTAGE: with the old folder-only UPDATE and DELETE policies put back on lab-result-documents, A can
@@ -54,13 +54,16 @@ insert into results
 select 'patient A cannot update or delete the care team''s file in ' || bucket, '0/0', pg_temp.try_change(bucket, 'staff')
 from (values ('lab-result-documents'), ('ecg-reports'), ('imaging-reports'), ('specialist-referral-outcome-documents')) b(bucket);
 insert into results
-select 'patient A can update and delete A''s own upload in ' || bucket, '1/1', pg_temp.try_change(bucket, 'own')
+-- Since S4 (20261105164215) a patient can no longer delete in the three clinical-report buckets at all (only update an unfiled upload);
+-- the referral-outcome bucket keeps its owner-only delete.
+select 'patient A can update (and, in the referral bucket only, delete) A''s own upload in ' || bucket,
+       case bucket when 'specialist-referral-outcome-documents' then '1/1' else '1/0' end, pg_temp.try_change(bucket, 'own')
 from (values ('lab-result-documents'), ('ecg-reports'), ('imaging-reports'), ('specialist-referral-outcome-documents')) b(bucket);
 reset role;
 
 -- 4. Sabotage: put back the pre-fix lab-result-documents policies (folder check only).
-drop policy "lab result doc patient update" on storage.objects;
-drop policy "lab result doc patient delete" on storage.objects;
+drop policy if exists "lab result doc patient update" on storage.objects;
+drop policy if exists "lab result doc patient delete" on storage.objects;
 create policy "lab result doc patient update" on storage.objects for update to authenticated
   using (bucket_id = 'lab-result-documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy "lab result doc patient delete" on storage.objects for delete to authenticated

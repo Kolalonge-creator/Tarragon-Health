@@ -1,6 +1,7 @@
 "use server";
 
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
@@ -243,7 +244,7 @@ export async function uploadImagingReportAsPatient(
     .select("id")
     .single();
   if (insertError || !inserted) {
-    await supabase.storage.from(IMAGING_REPORT_BUCKET).remove([path]);
+    await discardUnfiledUpload(IMAGING_REPORT_BUCKET, path, user.id);
     if (isDuplicateDocumentError(insertError)) return { error: DUPLICATE_DOCUMENT_MESSAGE };
     return { error: insertError?.message ?? "Could not save that upload." };
   }

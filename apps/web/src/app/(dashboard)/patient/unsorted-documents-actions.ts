@@ -1,6 +1,7 @@
 "use server";
 
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
 import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
@@ -74,7 +75,7 @@ export async function uploadUnsortedDocument(formData: FormData): Promise<Unsort
     p_note: (note.data ?? null) as string,
   });
   if (error || !documentId) {
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     if (isDuplicateDocumentError(error)) return { ok: false, error: DUPLICATE_DOCUMENT_MESSAGE };
     if (error?.message?.includes("only a patient")) return { ok: false, error: "Only the account holder can upload here." };
     return { ok: false, error: "Could not save that upload. Please try again." };
