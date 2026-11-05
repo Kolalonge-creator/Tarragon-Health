@@ -12,7 +12,7 @@ import {
   submitPost,
 } from "@/lib/community/api";
 import { fromSubmit, type ComposerEffect } from "@/lib/community/compose";
-import { TEAM_ROLE_KEY, type FeedPost, type GroupView, type HiddenAuthor } from "@/lib/community/model";
+import { TEAM_ROLE_KEY, type FeedPost, type FeedSort, type GroupView, type HiddenAuthor } from "@/lib/community/model";
 import { space } from "@/ui/design";
 import { AppText, Badge, Button, Card, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { Avatar, CheckRow, Section, Status, TextAction, formatDate, useCopy } from "./common";
@@ -41,14 +41,22 @@ export function GroupDetail({
   onOpenAppeals,
   onOpenEmergency,
   onOpenMessages,
+  onOpenSaved,
+  onOpenDocuments,
+  onOpenLearn,
 }: {
   slug: string;
   onOpenAppeals: () => void;
   onOpenEmergency: () => void;
   onOpenMessages: () => void;
+  onOpenSaved: () => void;
+  /** The member's private record (photos of documents): where lab results and hospital letters belong, never a group. */
+  onOpenDocuments: () => void;
+  onOpenLearn: () => void;
 }) {
   const copy = useCopy();
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const [sort, setSort] = useState<FeedSort>("latest");
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // The token pictures are fetched with expires; refresh it while the group stays open so pictures do not quietly go blank.
@@ -71,6 +79,8 @@ export function GroupDetail({
   const [digest, setDigestOn] = useState(false);
   const [controlNote, setControlNote] = useState<MessageKey | null>(null);
   const alive = useRef(true);
+  /** Each reload takes a number; only the newest one may write, so a slow answer for the old order never replaces the new one. */
+  const latestLoad = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -81,8 +91,10 @@ export function GroupDetail({
 
   /** Reads the group, and for an active member the first page of posts and the hidden list. A reload keeps showing the old screen until it lands. */
   const reload = useCallback(async () => {
+    const ticket = ++latestLoad.current;
+    const current = () => alive.current && ticket === latestLoad.current;
     const view = await loadGroupView(slug).catch(() => null);
-    if (!alive.current) return;
+    if (!current()) return;
     if (!view) {
       setLoaded({ state: "failed" });
       return;
@@ -97,11 +109,11 @@ export function GroupDetail({
     let hidden: HiddenAuthor[] = [];
     if (view.membership.status === "active") {
       const [feed, hiddenList, token] = await Promise.all([
-        loadFeed(view.group.id).catch(() => null),
+        loadFeed(view.group.id, undefined, sort).catch(() => null),
         loadHidden(view.group.id).catch(() => null),
         getAccessToken(),
       ]);
-      if (!alive.current) return;
+      if (!current()) return;
       if (feed && feed.ok) {
         posts = feed.posts;
         hasMore = feed.has_more;
@@ -117,7 +129,7 @@ export function GroupDetail({
     setMuted(view.membership.status !== "none" && view.membership.notifications_muted);
     setDigestOn(view.membership.status !== "none" && view.membership.digest_opt_in === true);
     setLoaded({ state: "ready", view, posts, hasMore, feedFailed, hidden });
-  }, [slug]);
+  }, [slug, sort]);
 
   useEffect(() => {
     void reload();
@@ -166,8 +178,10 @@ export function GroupDetail({
     if (!last) return;
     setLoadingMore(true);
     setFeedMessage(null);
-    const result = await loadFeed(group.id, last.created_at).catch(() => null);
+    const ticket = latestLoad.current;
+    const result = await loadFeed(group.id, last.created_at, sort).catch(() => null);
     setLoadingMore(false);
+    if (ticket !== latestLoad.current) return; // the group reloaded (or the order changed) meanwhile; this page belongs to the old list
     if (result && result.ok) {
       setOlder((o) => [...o, ...result.posts]);
       setOlderHasMore(result.has_more);
@@ -318,6 +332,16 @@ export function GroupDetail({
       ) : null}
       {needsRules ? <JoinForm groupId={group.id} rulesText={group.rules_text} rulesVersion={group.rules_version} onJoined={() => void reload()} /> : null}
 
+      <Section title={copy("community.group.care_title")}>
+        {/* A private route, never a promise that a doctor will answer: a Free member may not have a clinical thread (MSG-1). */}
+        <AppText variant="body">{copy("community.group.care_body")}</AppText>
+        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+          <TextAction label={copy("community.group.care_messages")} onPress={onOpenMessages} />
+          <TextAction label={copy("community.group.care_documents")} onPress={onOpenDocuments} />
+          <TextAction label={copy("community.group.reading_all")} onPress={onOpenLearn} />
+        </View>
+      </Section>
+
       {canPost ? (
         <Composer
           maxChars={limits.post_max_chars}
@@ -336,9 +360,30 @@ export function GroupDetail({
 
       {isMember ? (
         <View style={{ gap: space.md }}>
+          {/* The two orders are buttons with a selected state; the visible label names the group for everyone, screen reader or not. */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
+            <AppText variant="label" tone="textMuted">
+              {copy("community.sort.label")}
+            </AppText>
+            {(["latest", "discussed"] as const).map((option) => (
+              <TextAction
+                key={option}
+                label={copy(option === "latest" ? "community.sort.latest" : "community.sort.discussed")}
+                selected={sort === option}
+                tone={sort === option ? "brandText" : "textMuted"}
+                onPress={() => setSort(option)}
+              />
+            ))}
+          </View>
+          <TextAction label={copy("community.saved.link")} onPress={onOpenSaved} />
+          {sort === "discussed" ? (
+            <AppText variant="caption" tone="textMuted">
+              {copy("community.sort.discussed_note")}
+            </AppText>
+          ) : null}
           {posts.length === 0 && !feedMessage ? (
             <AppText variant="body" tone="textMuted">
-              {copy("community.feed.empty")}
+              {copy(sort === "discussed" ? "community.sort.discussed_empty" : "community.feed.empty")}
             </AppText>
           ) : null}
           {posts.map((p) => (
