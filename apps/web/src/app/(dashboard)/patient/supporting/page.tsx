@@ -30,7 +30,12 @@ import { RecoveryDutiesCard } from "@/components/account/recovery-duties-card";
  * felt hardest at distance, because distance is what removes every other way of
  * checking.
  */
-export default async function SupportingPage() {
+export default async function SupportingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ join?: string }>;
+}) {
+  const { join } = await searchParams;
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
@@ -105,6 +110,12 @@ export default async function SupportingPage() {
             the care consents and a short intake. Those answers are what build your screening
             calendar and your risk scoring, so there is no useful shortcut past them.
           </p>
+          {join === "failed" ? (
+            <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-400">
+              We could not switch your account just now. Nothing has changed. Please try again,
+              and if it keeps happening, message us in the app.
+            </p>
+          ) : null}
           <button
             type="submit"
             className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white"
