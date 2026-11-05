@@ -73,6 +73,13 @@ describe("AmendMedicationForm safety handling", () => {
     expect(mutate.mock.calls[0]![0]).toMatchObject({ safety: { allergiesConfirmed: true } });
   });
 
+  it("T2-11: a closed prescribing master says so plainly instead of showing the raw database code", () => {
+    mutationState = { error: { code: "55000", message: "prescribing_guard_off", details: null, hint: null }, isError: true, isPending: false };
+    render(<AmendMedicationForm medication={MEDICATION} patientId="p1" onDone={jest.fn()} />);
+    expect(screen.getByText(/Prescribing is not switched on yet/)).toBeTruthy();
+    expect(screen.queryByText(/prescribing_guard_off/)).toBeNull();
+  });
+
   it("a controlled medicine shows one message and no override control, and signing stays off", () => {
     mutationState = { error: { code: "P0001", message: "m", details: "SAFETY_BLOCKED", hint: "[]" }, isError: true, isPending: false };
     render(<AmendMedicationForm medication={MEDICATION} patientId="p1" onDone={jest.fn()} />);

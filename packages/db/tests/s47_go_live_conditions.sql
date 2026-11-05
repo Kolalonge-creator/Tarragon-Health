@@ -188,7 +188,7 @@ begin
 
   -- 4. nothing regressed
   perform pg_temp.rec('clinical_operations_enabled keeps its five conditions', 'admin_confirmation,clinical_safety_case_current,hypertension_protocol_approved,tier2_clinician_active,triage_rule_set_approved', pg_temp.codes('clinical_operations_enabled'));
-  perform pg_temp.rec('prescribing_enabled keeps its six', 'clinical_lead_signoff,clinical_safety_case_current,notification_sender_deployed,pharmacy_licence_current,pharmacy_partner_active,pharmacy_rules_confirmed', pg_temp.codes('prescribing_enabled'));
+  perform pg_temp.rec('prescribing_enabled keeps its three (T2-11: no partner pharmacy condition)', 'clinical_lead_signoff,clinical_safety_case_current,prescriber_registration_verified', pg_temp.codes('prescribing_enabled'));
   perform pg_temp.rec('lab_booking_enabled keeps its three', 'collection_sites,results_flow_tested,synlab_active', pg_temp.codes('lab_booking_enabled'));
   perform pg_temp.rec('scribe, payouts, signup, on-call keep theirs', 'clinical_safety_case_current,con001_legal_review_recorded,speech_provider_configured|fee_schedule_approved,paystack_transfers_configured|stage2_exit_criteria_met|rota_covers_next_7_days',
     pg_temp.codes('scribe_enabled') || '|' || pg_temp.codes('payouts_enabled') || '|' || pg_temp.codes('public_signup_enabled') || '|' || pg_temp.codes('on_call_cover_ok'));

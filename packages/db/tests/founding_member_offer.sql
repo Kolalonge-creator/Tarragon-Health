@@ -115,16 +115,18 @@ begin
   perform pg_temp.ck('a code made without a badge has none', 'none', (select coalesce(badge, 'none') from public.discount_codes where code = 'FMOPLAIN'));
   perform pg_temp.ck('an unknown badge is refused', 'true',
     (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FMOBAD', 'percent', 10, null, null, '{}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'vip')::text$q$) like '%discount_code_invalid%')::text);
-  r := pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FOUNDING10', 'percent', 10, null, null, '{membership_annual,membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$);
+  r := pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FOUNDING10', 'percent', 10, null, null, '{membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$);
   perform pg_temp.ck('a founding code limited to nothing (so also the upgrade) is refused', 'true',
     (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FMOALL', 'percent', 10, null, null, '{}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%founding_items_invalid%')::text);
-  perform pg_temp.ck('a founding code that includes the upgrade is refused', 'true',
-    (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FMOUPG', 'percent', 10, null, null, '{membership_annual,membership_annual_no_panel,membership_upgrade_plus}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%founding_items_invalid%')::text);
+  perform pg_temp.ck('a founding code that includes the upgrade is refused (T2-13: a retired Plus item on any code)', 'true',
+    (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FMOUPG', 'percent', 10, null, null, '{membership_annual_no_panel,membership_upgrade_plus}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%retired_item%')::text);
+  perform pg_temp.ck('T2-13: a founding code that still names Membership Plus is refused', 'true',
+    (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FMOPLUS', 'percent', 10, null, null, '{membership_annual,membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%retired_item%')::text);
   perform pg_temp.ck('admin creates the founding code with the badge', 'FOUNDING10', r);
   perform pg_temp.setf('code', (select id from public.discount_codes where code = 'FOUNDING10'));
   perform pg_temp.ck('the badge is stored on the code', 'founding_member', (select badge from public.discount_codes where code = 'FOUNDING10'));
   perform pg_temp.ck('a second live founding code is refused', 'true',
-    (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FOUNDING2', 'percent', 10, null, null, '{membership_annual,membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%founding_offer_exists%')::text);
+    (pg_temp.q_as(v_admin, $q$select public.admin_create_discount_code('FOUNDING2', 'percent', 10, null, null, '{membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')::text$q$) like '%founding_offer_exists%')::text);
   perform pg_temp.ck('the badge cannot be removed once the code exists', 'true',
     (pg_temp.owner_sql(format($q$update public.discount_codes set badge = null where id = %L$q$, pg_temp.f('code'))) like '%discount_code_immutable%')::text);
   perform pg_temp.ck('the badge cannot be added to an existing code', 'true',
@@ -175,14 +177,14 @@ end $$;
 do $$
 declare v_t text; s jsonb;
 begin
-  v_t := pg_temp.q_as(pg_temp.f('tadmin'), $q$select public.admin_create_discount_code('FMOTEST10', 'percent', 10, null, null, '{membership_annual,membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$);
+  v_t := pg_temp.q_as(pg_temp.f('tadmin'), $q$select public.admin_create_discount_code('FMOTEST10', 'percent', 10, null, null, '{membership_annual_no_panel}', null, 100, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$);
   perform pg_temp.ck('a test admin can rehearse a founding code beside the real one', 'FMOTEST10', v_t);
   perform pg_temp.ck('the rehearsal code is a test code', 'true', (select is_test::text from public.discount_codes where code = 'FMOTEST10'));
   perform pg_temp.owner_sql(format($q$update public.discount_codes set status = 'paused' where id = %L$q$, pg_temp.f('code')));
   perform pg_temp.ck('with the real code paused, a live test code is never the public offer', '{"open": false}', pg_temp.status_anon()::text);
   perform pg_temp.owner_sql(format($q$update public.discount_codes set status = 'ended' where id = %L$q$, pg_temp.f('code')));
   perform pg_temp.ck('a fresh one-place offer can start once the old one ended', 'FMOONE',
-    pg_temp.q_as(pg_temp.f('admin'), $q$select public.admin_create_discount_code('FMOONE', 'percent', 10, null, null, '{membership_annual_no_panel,membership_annual}', null, 1, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$));
+    pg_temp.q_as(pg_temp.f('admin'), $q$select public.admin_create_discount_code('FMOONE', 'percent', 10, null, null, '{membership_annual_no_panel}', null, 1, 1, now() - interval '1 day', now() + interval '365 days', 'proof', 'founding_member')->>'code'$q$));
   perform pg_temp.mkorder((select id from public.discount_codes where code = 'FMOONE'), pg_temp.f('other'), pg_temp.f('other'), 'paid', 'redeemed');
   s := pg_temp.status_anon();
   perform pg_temp.ck('a full offer is closed with no places left', 'false 0', (s ->> 'open') || ' ' || (s ->> 'places_left'));
