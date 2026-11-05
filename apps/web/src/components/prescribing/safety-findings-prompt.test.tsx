@@ -27,6 +27,15 @@ describe("SafetyFindingsPrompt", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
+  it("T2-11b: a contraindicated pair is a hard stop that names the other medicine and offers no override", () => {
+    renderPrompt({ kind: "blocked", interactions: [{ withDrug: "Lisinopril", title: "Dual blockade of the renin-angiotensin system" }] });
+    const alert = screen.getByRole("alert").textContent ?? "";
+    expect(alert).toMatch(/must not be given with a medicine the patient already takes/);
+    expect(alert).toMatch(/Lisinopril: Dual blockade/);
+    expect(alert).not.toMatch(/controlled/);
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
   it("lists each finding in words, names the allergen, and never pre-ticks the allergy checkbox", () => {
     renderPrompt({
       kind: "findings",

@@ -9,6 +9,8 @@
 --      still waiting; the confirmed audit row names the patient; replay does nothing.
 --   3. SABOTAGE: the identity assertion's restore removed (the function must then refuse), and approve_protocol's CMO check removed (a non-CMO then gets in).
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
