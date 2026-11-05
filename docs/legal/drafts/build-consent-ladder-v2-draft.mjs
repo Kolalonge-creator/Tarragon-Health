@@ -7,6 +7,9 @@
 // and refuses to run. Pass the final version string only after the owner has
 // signed. The patient text starts at the first "## " heading of each file;
 // everything above it (the title and the italic draft banner) is not published.
+// Superseded 2026-11-05: the Terms and Telehealth sources now hold v3 (published by
+// 20261105130954_consent_remove_membership_plus_v3.sql), so --check against the v2 migration
+// is expected to fail. Kept for the history of how v2 was built.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
