@@ -23961,6 +23961,7 @@ export type Database = {
       imaging_studies: {
         Row: {
           code: string
+          concept_id: string | null
           created_at: string
           default_safety_questionnaire_key: string | null
           duration_minutes: number | null
@@ -23977,6 +23978,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          concept_id?: string | null
           created_at?: string
           default_safety_questionnaire_key?: string | null
           duration_minutes?: number | null
@@ -23993,6 +23995,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          concept_id?: string | null
           created_at?: string
           default_safety_questionnaire_key?: string | null
           duration_minutes?: number | null
@@ -24008,6 +24011,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imaging_studies_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imaging_studies_provider_id_fkey"
             columns: ["provider_id"]
@@ -40983,6 +40993,7 @@ export type Database = {
           id: string
           language: string
           term: string
+          term_kind: string
         }
         Insert: {
           concept_id: string
@@ -40990,6 +41001,7 @@ export type Database = {
           id?: string
           language?: string
           term: string
+          term_kind?: string
         }
         Update: {
           concept_id?: string
@@ -40997,6 +41009,7 @@ export type Database = {
           id?: string
           language?: string
           term?: string
+          term_kind?: string
         }
         Relationships: [
           {
@@ -41011,6 +41024,7 @@ export type Database = {
       reference_concepts: {
         Row: {
           attributes: Json
+          body_region: string | null
           code: string
           code_system_id: string
           created_at: string
@@ -41018,7 +41032,11 @@ export type Database = {
           display: string
           domain: Database["public"]["Enums"]["reference_concept_domain"]
           id: string
+          investigation_category: string | null
+          is_ambiguous: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id: string | null
+          patient_description: string | null
           status: Database["public"]["Enums"]["reference_concept_status"]
           updated_at: string
           valid_from: string | null
@@ -41026,6 +41044,7 @@ export type Database = {
         }
         Insert: {
           attributes?: Json
+          body_region?: string | null
           code: string
           code_system_id: string
           created_at?: string
@@ -41033,7 +41052,11 @@ export type Database = {
           display: string
           domain: Database["public"]["Enums"]["reference_concept_domain"]
           id?: string
+          investigation_category?: string | null
+          is_ambiguous?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id?: string | null
+          patient_description?: string | null
           status?: Database["public"]["Enums"]["reference_concept_status"]
           updated_at?: string
           valid_from?: string | null
@@ -41041,6 +41064,7 @@ export type Database = {
         }
         Update: {
           attributes?: Json
+          body_region?: string | null
           code?: string
           code_system_id?: string
           created_at?: string
@@ -41048,7 +41072,11 @@ export type Database = {
           display?: string
           domain?: Database["public"]["Enums"]["reference_concept_domain"]
           id?: string
+          investigation_category?: string | null
+          is_ambiguous?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id?: string | null
+          patient_description?: string | null
           status?: Database["public"]["Enums"]["reference_concept_status"]
           updated_at?: string
           valid_from?: string | null
@@ -42015,6 +42043,7 @@ export type Database = {
           clinical_basis: string | null
           code: string
           commission_rate: number | null
+          concept_id: string | null
           created_at: string
           frequency_months: number | null
           fulfilment_dormant: boolean
@@ -42052,6 +42081,7 @@ export type Database = {
           clinical_basis?: string | null
           code: string
           commission_rate?: number | null
+          concept_id?: string | null
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
@@ -42089,6 +42119,7 @@ export type Database = {
           clinical_basis?: string | null
           code?: string
           commission_rate?: number | null
+          concept_id?: string | null
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
@@ -42153,6 +42184,13 @@ export type Database = {
           screen_type_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "screen_types_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "screening_completions_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -58188,6 +58226,22 @@ export type Database = {
           module: Database["public"]["Enums"]["lpe_module"]
           similarity: number
           title: string
+        }[]
+      }
+      search_investigations: {
+        Args: { p_limit?: number; p_min_score: number; p_text: string }
+        Returns: {
+          body_region: string
+          clarifies_concept_id: string
+          clarifies_display: string
+          code: string
+          concept_id: string
+          display: string
+          investigation_category: string
+          matched_on: string
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          patient_description: string
+          score: number
         }[]
       }
       search_patient_record: {
