@@ -50,8 +50,10 @@ create index staff_access_review_items_review on public.staff_access_review_item
 
 alter table public.staff_access_reviews enable row level security;
 alter table public.staff_access_review_items enable row level security;
-create policy staff_access_reviews_admin_read on public.staff_access_reviews for select to authenticated using ((select private.is_admin()));
-create policy staff_access_review_items_admin_read on public.staff_access_review_items for select to authenticated using ((select private.is_admin()));
+create policy staff_access_reviews_admin_read on public.staff_access_reviews for select to authenticated
+  using ((select private.is_admin()) and organisation_id = (select private.current_org_id()));
+create policy staff_access_review_items_admin_read on public.staff_access_review_items for select to authenticated
+  using ((select private.is_admin()) and organisation_id = (select private.current_org_id()));
 revoke all on public.staff_access_reviews, public.staff_access_review_items from anon, authenticated;
 grant select on public.staff_access_reviews, public.staff_access_review_items to authenticated;
 
@@ -74,6 +76,7 @@ declare v_me uuid := auth.uid(); v_org uuid; v_review uuid; v_n integer;
 begin
   if not private.is_admin() then raise exception 'Only an admin can start a staff access review.' using errcode = '42501'; end if;
   select organisation_id into v_org from public.profiles where id = v_me;
+  if v_org is null then raise exception 'Your account has no organisation on file, so there is nothing to review.'; end if;
   if exists (select 1 from public.staff_access_reviews where organisation_id = v_org and completed_at is null) then
     raise exception 'A staff access review is already open. Finish it first.';
   end if;
