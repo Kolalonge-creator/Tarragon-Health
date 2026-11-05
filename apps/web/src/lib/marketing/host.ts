@@ -17,7 +17,10 @@ export function wwwRedirectTarget(url: string, hostHeader?: string | null): stri
   // URL's host, which a framework may have normalised.
   const host = (hostHeader ?? u.host).toLowerCase();
   if (!host.startsWith("www.")) return null;
-  u.host = host.slice(4);
+  // Set hostname and port separately: assigning `host` without a port keeps the URL's old port.
+  const [hostname, port] = host.slice(4).split(":");
+  u.hostname = hostname ?? "";
+  u.port = port ?? "";
   return u.toString();
 }
 
