@@ -1,6 +1,6 @@
 -- Proof: an audit_log row written from a user session always names that user as the actor
 -- (migration *_audit_log_actor_is_the_session_user.sql, security audit 2026-11-05 M-9).
---   1. A staff session that names ANOTHER person as actor_id gets its own id recorded instead.
+--   1. A staff session that names ANOTHER person as actor_id is refused (42501) and nothing is written.
 --   2. A staff session that names no actor (null) gets its own id recorded.
 --   3. A patient session's row records the patient.
 --   4. A SECURITY DEFINER / postgres write keeps the actor it names (server code chooses it).
@@ -26,9 +26,16 @@ end $$;
 
 select set_config('request.jwt.claims', json_build_object('sub', (select v from ids where k = 'staff'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-insert into public.audit_log (organisation_id, actor_id, action, entity_type) values
-  ((select v from ids where k = 'org'), (select v from ids where k = 'victim'), 'ala.forged', 'test'),
-  ((select v from ids where k = 'org'), null, 'ala.null_actor', 'test');
+do $$
+begin
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type)
+  values ((select v from ids where k = 'org'), (select v from ids where k = 'victim'), 'ala.forged', 'test');
+  insert into results values ('staff naming another person is refused', '42501', 'inserted');
+exception when others then
+  insert into results values ('staff naming another person is refused', '42501', sqlstate);
+end $$;
+insert into public.audit_log (organisation_id, actor_id, action, entity_type)
+values ((select v from ids where k = 'org'), null, 'ala.null_actor', 'test');
 reset role;
 
 select set_config('request.jwt.claims', json_build_object('sub', (select v from ids where k = 'patient'), 'role', 'authenticated')::text, true);
@@ -42,7 +49,7 @@ insert into public.audit_log (organisation_id, actor_id, action, entity_type)
 values ((select v from ids where k = 'org'), (select v from ids where k = 'victim'), 'ala.server', 'test');
 
 insert into results
-select 'staff naming another person is recorded as staff', (select v from ids where k = 'staff')::text, actor_id::text from public.audit_log where action = 'ala.forged'
+select 'the refused forgery left no row', '0', count(*)::text from public.audit_log where action = 'ala.forged'
 union all select 'staff naming no actor is recorded as staff', (select v from ids where k = 'staff')::text, actor_id::text from public.audit_log where action = 'ala.null_actor'
 union all select 'patient row records the patient', (select v from ids where k = 'patient')::text, actor_id::text from public.audit_log where action = 'ala.patient'
 union all select 'server write keeps its named actor', (select v from ids where k = 'victim')::text, actor_id::text from public.audit_log where action = 'ala.server';
@@ -69,7 +76,7 @@ begin
   select string_agg(check_name || ' (expected ' || expected || ', got ' || coalesce(actual, 'null') || ')', '; ') into v_fail
   from results where expected is distinct from actual;
   if v_fail is not null then raise exception 'audit_log_actor_is_the_session_user FAILED: %', v_fail; end if;
-  if (select count(*) from results) <> 5 then raise exception 'audit_log_actor_is_the_session_user: expected 5 checks'; end if;
+  if (select count(*) from results) <> 6 then raise exception 'audit_log_actor_is_the_session_user: expected 6 checks'; end if;
 end $$;
 
 rollback;

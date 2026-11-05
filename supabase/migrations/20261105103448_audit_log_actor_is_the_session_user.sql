@@ -3,10 +3,11 @@
 -- Security audit 2026-11-05, finding M-9. audit_log_insert let org staff insert rows with ANY actor_id (another
 -- person's id, or null) for their organisation, so a staff session could write entries attributed to someone else.
 --
--- Fix, chosen so no existing write is refused: a BEFORE INSERT trigger sets actor_id := auth.uid() whenever the row
--- is written directly by the `authenticated` role. Rows written by SECURITY DEFINER functions (current_user is the
--- function owner) and by the service role keep the actor they name, since that is server code choosing it. A BEFORE
--- trigger runs before the policy's WITH CHECK, so the policy below then holds for every authenticated row.
+-- Fix: a BEFORE INSERT trigger on rows written directly by the `authenticated` role fills a missing actor_id with
+-- auth.uid() (some callers pass null) and REFUSES a row naming anyone else, so a forgery is an error, never silently
+-- rewritten (an existing proof, prescription_pdf_license_flag_and_download_audit.sql, already expects the refusal).
+-- Rows written by SECURITY DEFINER functions (current_user is the function owner) and by the service role keep the
+-- actor they name, since that is server code choosing it. The policy below then holds for every authenticated row.
 
 create or replace function private.audit_log_actor_is_session_user()
 returns trigger
@@ -15,7 +16,11 @@ set search_path to ''
 as $$
 begin
   if current_user = 'authenticated' then
-    new.actor_id := (select auth.uid());
+    if new.actor_id is null then
+      new.actor_id := (select auth.uid());
+    elsif new.actor_id is distinct from (select auth.uid()) then
+      raise exception 'An audit entry can only name the signed-in user as its actor.' using errcode = '42501';
+    end if;
   end if;
   return new;
 end;
