@@ -1,7 +1,7 @@
 -- Proves 20261105103048_audit_log_writes_through_record_audit_event.sql (master architecture assessment finding S2).
 --
 --  1. A care-team staff member can no longer insert an audit row naming another person as the actor.
---  2. A direct insert naming the caller still works (transitional, until step 2 removes direct inserts).
+--  2. A signed-in caller cannot insert directly at all, even naming themselves (step 2, 20261105135451).
 --  3. record_audit_event writes actor = auth.uid() and the caller's organisation for the caller's own doctor summary.
 --  4. It refuses an action that is not on its allowlist.
 --  5. A patient cannot record a download of another patient's prescription (no access), nor name another patient's medication
@@ -12,7 +12,7 @@
 --     dependant's organisation, not the caregiver's.
 --  9. record_audit_events is all-or-nothing: one refused row and none is written.
 -- 10. A doctor summary row cannot name another profile.
--- Sabotage: with the old audit_log_insert policy restored, the staff forgery in check 1 succeeds.
+-- Sabotage: with the old audit_log_insert policy and the INSERT grant restored, the staff forgery in check 1 succeeds.
 --
 -- Each attempt runs in pg_temp.attempt: the role switch is EXECUTEd so it takes effect before the next statement is planned.
 
@@ -94,7 +94,7 @@ insert into results select '01 staff cannot insert a row naming another actor', 
     $q$insert into public.audit_log (organisation_id, actor_id, action) values (%L, %L, 'proof.forged')$q$, pg_temp.id('org'), pg_temp.id('other_patient')));
 
 -- 2. transitional self insert
-insert into results select '02 a direct self-attributed insert still works', 'ok',
+insert into results select '02 a direct insert is refused even when it names the caller', '42501',
   pg_temp.attempt('doctor', format(
     $q$insert into public.audit_log (organisation_id, actor_id, action) values (%L, %L, 'proof.self')$q$, pg_temp.id('org'), pg_temp.id('doctor')));
 
@@ -155,7 +155,8 @@ insert into results select '10 a doctor summary row cannot name another profile'
   pg_temp.attempt('patient', format(
     $q$select public.record_audit_event('patient.doctor_summary_requested', 'profiles', %L)$q$, pg_temp.id('other_patient')));
 
--- Sabotage: restore the old policy; the forgery from check 1 now succeeds.
+-- Sabotage: restore the old policy and the grant; the forgery from check 1 now succeeds.
+grant insert on public.audit_log to authenticated;
 create policy audit_log_insert on public.audit_log for insert to authenticated
   with check ((actor_id = (select auth.uid())) or ((organisation_id is not null) and private.is_org_staff(organisation_id)));
 insert into results select '99 SABOTAGE: with the old policy the forgery succeeds (check 01 would fail)', 'ok',
