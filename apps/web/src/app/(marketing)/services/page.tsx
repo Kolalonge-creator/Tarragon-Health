@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
 import { DashboardPreview } from "../_components/dashboard-preview";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { PageHero } from "../_components/page-hero";
 import { Section } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { ConditionsMarquee } from "../_components/conditions-marquee";
 import { StepsExplorer } from "../_components/steps-explorer";
 import { HOW_IT_WORKS_STEPS, SERVICE_CARDS, WHAT_WE_TRACK } from "../_content/services";
-import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import { cn } from "@/lib/utils";
@@ -23,20 +22,12 @@ export const metadata: Metadata = pageMetadata({
 export default function ServicesPage() {
   return (
     <>
-      {/* Rendered outside Section on purpose — full-bleed spans the full
-          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
-      <PhotoBannerHero
+      <PageHero
         eyebrow="Services"
-        title="What we help you manage"
-        description="Long-term conditions, preventive health, medication and laboratory tests, all on one shared record so that nothing is missed between visits."
-        primaryHref="/signup"
-        primaryLabel="Get started"
-        secondaryHref={MARKETING_ROUTES.pricing}
-        secondaryLabel="View pricing"
-        imageSrc={MARKETING_MEDIA.pageHero.services.imageSrc ?? ""}
-        imageAlt={MARKETING_MEDIA.pageHero.services.imageAlt ?? ""}
-        imagePosition={MARKETING_MEDIA.pageHero.services.imageFocus}
-        videoSrc={MARKETING_MEDIA.pageHero.services.videoSrc}
+        title="What Tarragon helps you with."
+        description="Preventive care, long-term conditions, laboratory results, medicines and family support, all on one record so that nothing is missed between visits."
+        primary={{ href: "/signup", label: "Get started" }}
+        secondary={{ href: MARKETING_ROUTES.howItWorks, label: "How it works" }}
       />
 
       <Section className="pt-14">
@@ -115,8 +106,8 @@ export default function ServicesPage() {
           description="Get started today, for yourself or for someone you care for."
           primaryHref="/signup"
           primaryLabel="Get started"
-          secondaryHref={MARKETING_ROUTES.pricing}
-          secondaryLabel="View pricing"
+          secondaryHref={MARKETING_ROUTES.membership}
+          secondaryLabel="Explore Membership"
         />
       </Section>
     </>

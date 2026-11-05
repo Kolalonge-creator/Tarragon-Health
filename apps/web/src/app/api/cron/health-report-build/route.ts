@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildHealthReportDraft } from "@/lib/health-report/build";
 import { createAiSummaryDrafter } from "@/lib/health-report/ai-summary";
@@ -11,7 +12,7 @@ import { createAiSummaryDrafter } from "@/lib/health-report/ai-summary";
  * pressure reading that year; chosen by public.health_report_candidates). Each draft goes to the clinician sign-off queue; nothing is visible to a patient until a doctor signs.
  */
 export async function GET(request: Request): Promise<Response> {
-  if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(request.headers.get("authorization"))) {
     return new Response("Not authorised", { status: 401 });
   }
   const url = new URL(request.url);

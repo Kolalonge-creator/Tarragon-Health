@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -83,7 +84,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       })
       .select("id")
       .single();
-    if (referralError) return NextResponse.json({ error: referralError.message }, { status: 400 });
+    if (referralError) return NextResponse.json({ error: safeErrorMessage(referralError, "mobile/sexual-health/fertility-assessment") }, { status: 400 });
     specialistReferralId = referral.id;
   }
 
@@ -100,7 +101,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     specialist_referral_id: specialistReferralId,
   });
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/sexual-health/fertility-assessment") }, { status: 400 });
   }
 
   return NextResponse.json({ success: true, recommendedAction });

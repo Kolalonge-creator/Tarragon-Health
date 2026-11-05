@@ -31,7 +31,7 @@ import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { useControlledMedicineList } from "@/lib/queries/controlled-medicine-list";
-import { isPrescribingSwitchedOff, isSafetyResubmitReady, parseSafetyError, PRESCRIBING_SWITCHED_OFF_MESSAGE } from "@/lib/prescriptions/parse-safety-error";
+import { describePrescribingRefusal, isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
 import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -415,9 +415,8 @@ export function AddMedicationForm({
   const safetyError = source === "clinician" && addMedication.isError ? parseSafetyError(addMedication.error) : null;
   const mutationError =
     addMedication.isError && !safetyError
-      ? source === "clinician" && isPrescribingSwitchedOff(addMedication.error)
-        ? PRESCRIBING_SWITCHED_OFF_MESSAGE
-        : "We could not save this medication just then. Please try again."
+      ? (source === "clinician" ? describePrescribingRefusal(addMedication.error) : null) ??
+        "We could not save this medication just then. Please try again."
       : null;
   const safetyReady = safetyError ? isSafetyResubmitReady(safetyError, { allergiesConfirmed, overrideReason }) : true;
   const displayError = validationError ?? mutationError;

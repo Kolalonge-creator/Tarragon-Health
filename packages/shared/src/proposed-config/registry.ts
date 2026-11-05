@@ -1505,6 +1505,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "security.abuse_rate_limits",
+    // Security audit 2026-11-05, Phase 2 (M-8): limits on four things nothing limited before. Read at runtime by
+    // apps/web/src/lib/security/abuse-limits.ts (no database copy). PROPOSED, owned by the founder: each kind has a short burst
+    // window and a daily cap, set well above anything a real patient does (the busiest real patient uploaded a handful of
+    // documents in a day) and low enough to stop a script running up AI and storage costs. page_view is per source IP because
+    // /api/track takes anonymous visitors. These are per-instance unless Upstash Redis is configured (see packages/auth/src/rate-limit.ts).
+    value: {
+      page_view: [{ limit: 120, window_seconds: 60 }],
+      upload: [
+        { limit: 30, window_seconds: 3600 },
+        { limit: 100, window_seconds: 86400 },
+      ],
+      meal_photo_ai: [
+        { limit: 20, window_seconds: 3600 },
+        { limit: 60, window_seconds: 86400 },
+      ],
+      add_dependant: [
+        { limit: 5, window_seconds: 3600 },
+        { limit: 10, window_seconds: 86400 },
+      ],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "security audit 2026-11-05 (M-8); apps/web/src/lib/security/abuse-limits.ts",
+  },
+  {
     key: "security.staff_access_review",
     // Security audit 2026-11-05, Phase 3: the quarterly staff access review (/admin/staff-access-review) and the dormant-account
     // line on /admin/security. Live values are the two private functions in the migration's marked block; this entry mirrors them
@@ -4061,6 +4089,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-12",
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
+  },
+  {
+    key: "ops.security_alert_rules",
+    // Security audit 2026-11-05, Phase 2 (H-7): four security rules on the SR5 alert framework. Live values are the rows of
+    // `ops_alert_rules`; this entry mirrors the migration seed and security-alert-rules-mirror.test.ts fails if they drift. Every
+    // number is a proposal for the founder: 10 failures for one account or 50 platform-wide in 15 minutes, and 30 different
+    // patients opened by one staff member in an hour (the busiest real hour on 2026-11-05 was 4). Role changes and exports alert
+    // on every event. The action lists name the audit actions that exist live today.
+    value: {
+      failed_sign_in_spike: { severity: "sev2", params: { window_minutes: 15, max_per_account: 10, max_total: 50 } },
+      staff_bulk_record_access: {
+        severity: "sev2",
+        params: { window_minutes: 60, max_distinct_patients: 30, actions: ["staff.chart_read", "consult_checkin.read", "clinician.patient_record_viewed"] },
+      },
+      privileged_change: { severity: "sev3", params: { window_minutes: 60 } },
+      patient_data_export: {
+        severity: "sev3",
+        params: { window_minutes: 60, actions: ["admin.patient_directory_exported", "consultations.log_export", "research_export.created"] },
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105105817_security_sign_in_logging_and_alerts.sql; security audit 2026-11-05 (H-7)",
   },
   {
     key: "community.rules",
@@ -11526,5 +11579,66 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104225509_diag_p1_investigation_catalogue_and_search.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §7",
+  },
+  {
+    key: "directory.diagnostic_cadence",
+    // Diagnostic directory Phase 2a: how often a branch's services and contact details must be re-confirmed, how far past
+    // that a listing is hidden (stale_multiple, as in S65), and how early credential expiry shows on the admin queue.
+    // Live value is the active row of public.diagnostic_directory_settings; a mirror test pins the seed to this entry.
+    value: { service_confirm_days: 90, contact_confirm_days: 90, stale_multiple: 2, credential_due_soon_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
+  },
+  {
+    key: "screening.reminder_cadence",
+    // When screening reminders go, relative to the due date. An OPERATIONAL setting (G-01 rule 3): versioned, no signature. Live value is the
+    // active row of `screening_reminder_configs`; screening-reminder-cadence-mirror.test.ts fails if this and the migration seed drift.
+    // v1 is the timing that lived in code before T2-12 (upcoming within 7 days, due, overdue after 6 days, escalated after 20), kept for history.
+    value: {
+      steps: [
+        { code: "upcoming", offsetDays: -7, untilDays: 0, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due", offsetDays: 0, untilDays: 7, stage: "due", template: "screening_due", push: false },
+        { code: "overdue", offsetDays: 7, untilDays: null, stage: "overdue", template: "screening_overdue", push: false },
+        { code: "escalated", offsetDays: 21, untilDays: null, stage: "escalated", template: "screening_escalated", push: true },
+      ],
+      coordinatorFollowUp: { afterStage: "escalated", taskType: "screening_result_chase", membersOnly: true },
+      defer: null,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-08-28",
+    source: "supabase/migrations/20260828183145_escalating_preventive_reminders.sql and 20261030110000 (the code before T2-12)",
+  },
+  {
+    key: "screening.reminder_cadence",
+    // v2, founder decision T2-12 (2026-11-04): 14, 7 and 1 day before due, 7 and 30 days overdue, then a care coordinator follows up a Member
+    // (the existing screening_result_chase sweep reads stage 'escalated'). In-app, push and email only. A patient may move a test with a
+    // recorded reason (defer), at most maxPerSchedule times; a tied clinician has no limit. Mirrors *_t2_screening_reminder_cadence_and_defer.sql.
+    value: {
+      steps: [
+        { code: "due_in_14", offsetDays: -14, untilDays: -7, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due_in_7", offsetDays: -7, untilDays: -1, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due_in_1", offsetDays: -1, untilDays: 7, stage: "due", template: "screening_due", push: true },
+        { code: "overdue_7", offsetDays: 7, untilDays: null, stage: "overdue", template: "screening_overdue", push: false },
+        { code: "overdue_30", offsetDays: 30, untilDays: null, stage: "escalated", template: "screening_escalated", push: true },
+      ],
+      coordinatorFollowUp: { afterStage: "escalated", taskType: "screening_result_chase", membersOnly: true },
+      defer: {
+        maxDaysAhead: 90,
+        maxPerSchedule: 3,
+        reasonCodes: ["travelling", "unwell", "cost", "waiting_for_doctor_advice", "booked_for_later", "other"],
+        noteRequiredFor: ["other"],
+        noteMaxChars: 500,
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "Founder decision T2-12, 2026-11-04 (docs/DECISIONS.md); brief section 6.4; supabase/migrations/*_t2_screening_reminder_cadence_and_defer.sql",
   },
 ];

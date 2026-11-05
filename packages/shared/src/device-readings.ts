@@ -51,7 +51,10 @@ const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345
  * Hermes/Jest, so this is a self-contained implementation.
  */
 export function base64ToBytes(base64: string): Uint8Array {
-  const clean = base64.replace(/=+$/, "");
+  // Trim trailing padding with a loop, not /=+$/, which backtracks polynomially on a long run of "=" (CodeQL js/polynomial-redos).
+  let end = base64.length;
+  while (end > 0 && base64[end - 1] === "=") end--;
+  const clean = base64.slice(0, end);
   const bytes: number[] = [];
   let buffer = 0;
   let bitsCollected = 0;

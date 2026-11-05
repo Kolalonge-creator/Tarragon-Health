@@ -233,6 +233,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Security audit 2026-11-05 (L-6): every signed-in area, and every page opened by a token in its link (emergency card,
+        // shared records, verification links), is never kept by a browser, proxy or CDN, so a shared or public computer cannot show
+        // the last person's health pages from cache. Declared after the catch-all and before the stricter per-page rules below,
+        // which set the same header and so still win on their own paths.
+        source:
+          "/(patient|clinician|admin|account|analytics|credentialing|dashboard|doctor|finance|lab-liaison|lab-partner|payer|pharmacist|provider-org|reader|rota|onboarding|circle|emergency|share|claim|d|verify-report|verify-rx)/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+      },
+      {
         // S36i: the speak-up screens show private words and who wrote them (spec INV-07). Never cached by a browser, a proxy or
         // the CDN, and the address is never sent on as a referrer. This entry comes after the catch-all above so it wins for these paths.
         source: "/clinician/(quality/concerns|my-concerns)",

@@ -1,3 +1,4 @@
+import { sessionCookieOptions } from "@tarragon/auth/supabase/cookie-options";
 import { createBrowserClient } from "@supabase/ssr";
 import { fromRow, type NotificationSettingsValue } from "@tarragon/shared";
 
@@ -28,7 +29,9 @@ type SettingsDatabase = {
 };
 
 const client = () =>
-  createBrowserClient<SettingsDatabase>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  createBrowserClient<SettingsDatabase>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookieOptions: sessionCookieOptions(),
+  });
 
 export async function loadNotificationSettings(profileId: string): Promise<NotificationSettingsValue> {
   const supabase = client();

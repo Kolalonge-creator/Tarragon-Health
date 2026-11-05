@@ -16,6 +16,7 @@ type Result = { data: unknown; error: { message: string } | null };
 function fakeClient(results: Record<string, Result>, rpcResults: Record<string, Result> = {}) {
   const tables: string[] = [];
   const rpcs: string[] = [];
+  const rpcCalls: { name: string; args: unknown }[] = [];
   const inserts: { table: string; row: unknown }[] = [];
   const builder = (table: string) => {
     const b: Record<string, unknown> = {};
@@ -39,12 +40,13 @@ function fakeClient(results: Record<string, Result>, rpcResults: Record<string, 
       // a second read of the same table uses the "<table>#2" entry when there is one
       return builder(n > 0 && results[`${table}#${n + 1}`] ? `${table}#${n + 1}` : table);
     },
-    rpc: async (name: string) => {
+    rpc: async (name: string, args?: unknown) => {
       rpcs.push(name);
+      rpcCalls.push({ name, args });
       return rpcDefault(rpcResults, name);
     },
   };
-  return { client: client as unknown as SupabaseClient<Database>, tables, rpcs, inserts };
+  return { client: client as unknown as SupabaseClient<Database>, tables, rpcs, rpcCalls, inserts };
 }
 const rpcDefault = (r: Record<string, Result>, name: string): Result => r[name] ?? { data: [], error: null };
 
@@ -197,25 +199,26 @@ describe("allergies, conditions and medicines", () => {
 
 describe("audit row", () => {
   it("records the sections and period, never a value from the record, as the patient on her own record", async () => {
-    const f = fakeClient({});
+    const f = fakeClient({}, { record_audit_event: { data: "row-1", error: null } });
     const r = await recordSummaryGeneration(f.client, { id: "p1", organisationId: "o1" }, { days: 30, sections: ["bp", "symptoms"] });
     expect(r).toEqual({ ok: true });
-    expect(f.inserts).toHaveLength(1);
-    expect(f.inserts[0]).toEqual({
-      table: "audit_log",
-      row: {
-        organisation_id: "o1",
-        actor_id: "p1",
-        action: "patient.doctor_summary_requested",
-        entity_type: "profiles",
-        entity_id: "p1",
-        subject_patient_id: "p1",
-        event: { sections: ["bp", "symptoms"], period_days: 30, config_key: "record.doctor_summary_pdf" },
+    // No direct insert: the row goes through record_audit_event, which stamps the actor and organisation itself.
+    expect(f.inserts).toHaveLength(0);
+    expect(f.rpcCalls).toEqual([
+      {
+        name: "record_audit_event",
+        args: {
+          p_action: "patient.doctor_summary_requested",
+          p_entity_type: "profiles",
+          p_entity_id: "p1",
+          p_subject_patient_id: "p1",
+          p_event: { sections: ["bp", "symptoms"], period_days: 30, config_key: "record.doctor_summary_pdf" },
+        },
       },
-    });
+    ]);
   });
   it("reports failure when the row cannot be written", async () => {
-    const f = fakeClient({ "audit_log:insert": { data: null, error: { message: "denied" } } });
+    const f = fakeClient({}, { record_audit_event: { data: null, error: { message: "denied" } } });
     expect(await recordSummaryGeneration(f.client, { id: "p1", organisationId: "o1" }, { days: 30, sections: ["bp"] })).toEqual({ ok: false });
   });
 });

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
 import {
   parseAllowance,
   parseWrittenQuestions,
@@ -67,8 +68,11 @@ function browserGateway(): WrittenQuestionGateway {
         contentType: "image/jpeg",
         upsert: false,
       });
-      if (error && isAlreadyThere(error)) return { path, error: null };
-      return { path: error ? null : path, error: error?.message ?? null };
+      if (error && !isAlreadyThere(error)) return { path: null, error: error.message };
+      // Server check of the bytes and photo location before the question points at it (security audit 2026-11-05, M-4/L-4).
+      const refused = await confirmDirectUpload(PHOTO_BUCKET, path);
+      if (refused) return { path: null, error: refused };
+      return { path, error: null };
     },
     async attachPhoto({ consultId, path, mime, bytes }) {
       const { error } = await supabase.rpc("attach_written_question_photo", {

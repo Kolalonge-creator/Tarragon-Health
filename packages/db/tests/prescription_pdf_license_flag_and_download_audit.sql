@@ -4,8 +4,9 @@
 -- The PDF issuing rule needs "is the prescriber's licence currently verified?" from a PATIENT session, which cannot read clinical_staff.
 -- Proves, with simulated sessions: a patient in the same organisation reads license_verified = true for a verified licence, false for a
 -- never-verified one and false for an expired one; the view still exposes no licence dates, verifier or indemnity columns; anon cannot
--- read the view; another organisation's patient sees none of these staff. Also proves the download audit write: a patient inserts an
--- audit_log row naming themself as actor, and cannot insert one naming somebody else. SABOTAGE: redefining the flag as a constant true
+-- read the view; another organisation's patient sees none of these staff. Also proves a patient cannot write audit_log directly at
+-- all, naming themself or anyone else (S2 step 2, 20261105135451: the download row is written by public.record_audit_events, proved
+-- in audit_log_no_forged_actor.sql). SABOTAGE: redefining the flag as a constant true
 -- makes the never-verified licence read as verified, and the same assertion catches it.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
@@ -83,17 +84,21 @@ begin
   execute 'reset role';
   if v_n <> 0 then raise exception 'FAIL: other organisation saw % staff rows', v_n; end if;
 
-  -- 5. the download audit write: a patient may record their own download, never someone else's
+  -- 5. a patient cannot write audit_log directly, naming themself or anyone else (the download row goes through record_audit_events)
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, subject_patient_id, result, event)
-  values (v_org, v_pat, 'prescription.pdf_downloaded', 'medications', gen_random_uuid(), v_pat, 'success',
-          '{"rx_number":"TRG-RX-PROOF","version":1,"channel":"web","bundle":false}'::jsonb);
+  v_failed := false;
+  begin
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, subject_patient_id, result, event)
+    values (v_org, v_pat, 'prescription.pdf_downloaded', 'medications', gen_random_uuid(), v_pat, 'success',
+            '{"rx_number":"TRG-RX-PROOF","version":1,"channel":"web","bundle":false}'::jsonb);
+  exception when insufficient_privilege then v_failed := true; end;
+  if not v_failed then raise exception 'FAIL: a patient wrote an audit row directly (naming themself)'; end if;
   v_failed := false;
   begin
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, subject_patient_id, result)
     values (v_org, v_ok, 'prescription.pdf_downloaded', 'medications', gen_random_uuid(), v_pat, 'success');
-  exception when others then v_failed := true; end;
+  exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL: a patient wrote an audit row naming another actor'; end if;
 

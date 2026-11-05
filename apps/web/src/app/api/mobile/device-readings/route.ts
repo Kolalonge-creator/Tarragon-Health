@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -137,11 +138,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     // insert failure must be visible there, not just in this response.
     await supabase.rpc("bump_patient_device_ingestion_counters", {
       p_device_id: device_id,
-      p_last_error: insertError.message,
+      p_last_error: safeErrorMessage(insertError, "mobile/device-readings"),
     });
     const refused = assistedRefusalResponse(insertError);
     if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/device-readings") }, { status: 500 });
   }
 
   // S70a: with either switch on, a successful insert can still have stored nothing in the record. Ask the database which it was.

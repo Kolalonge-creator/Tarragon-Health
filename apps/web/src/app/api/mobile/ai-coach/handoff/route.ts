@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { CoachChatMessage } from "@tarragon/shared";
@@ -80,7 +81,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   if (error || !threadId) {
     return NextResponse.json(
-      { error: error?.message ?? "Could not start a conversation with your care team" },
+      { error: safeErrorMessage(error, "mobile/ai-coach/handoff", "Could not start a conversation with your care team") },
       { status: 500 }
     );
   }

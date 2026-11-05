@@ -133,7 +133,7 @@ export const CLASS_LABEL: Record<TherapeuticClass, string> = {
  * of another must come first — `ccb_non_dihydropyridine` before the -dipine
  * stem, `potassium_sparing_diuretic` before the generic potassium match.
  */
-const CLASS_PATTERNS: { cls: TherapeuticClass; pattern: RegExp }[] = [
+export const CLASS_PATTERNS: { cls: TherapeuticClass; pattern: RegExp }[] = [
   { cls: "ccb_non_dihydropyridine", pattern: /\b(verapamil|diltiazem)\b/ },
   { cls: "ccb_dihydropyridine", pattern: /(amlodipine|nifedipine|felodipine|lercanidipine|nimodipine|\w+dipine)\b/ },
   { cls: "ace_inhibitor", pattern: /(lisinopril|ramipril|enalapril|perindopril|captopril|\w+pril)\b/ },
