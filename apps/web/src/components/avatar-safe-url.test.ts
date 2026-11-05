@@ -8,6 +8,7 @@ describe("isSafeImageUrl", () => {
     "/brand/logo.png",
     "blob:https://app.tarragonhealth.ng/1234",
     "data:image/png;base64,AAAA",
+    "http://127.0.0.1:54321/storage/v1/object/public/patient-avatars/u/1.png",
   ])("allows %s", (url) => expect(isSafeImageUrl(url)).toBe(true));
 
   it.each([

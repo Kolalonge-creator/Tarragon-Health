@@ -62,7 +62,10 @@ export function isSafeImageUrl(url: string): boolean {
   if (url.startsWith("/") && !url.startsWith("//")) return true;
   if (url.startsWith("blob:") || url.startsWith("data:image/")) return true;
   try {
-    return new URL(url).protocol === "https:";
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") return true;
+    // The local Supabase stack serves storage over plain http on localhost.
+    return parsed.protocol === "http:" && (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
   } catch {
     return false;
   }
