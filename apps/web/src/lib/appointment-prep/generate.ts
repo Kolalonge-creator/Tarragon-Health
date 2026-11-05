@@ -7,6 +7,7 @@ import {
   AI_SYSTEMS,
   governedSystemPrompt,
   runGovernedAi,
+  governedModelId,
 } from "@/lib/ai-governance";
 import {
   buildAppointmentPrepSnapshot,
@@ -99,11 +100,12 @@ export async function generateAppointmentPrepSuggestions(
     subjectProfileId: patientId,
 
     run: async ({ config }) => {
+      const modelId = governedModelId(config, MODEL_ID);
       const chatModel =
         model ??
         new ChatAnthropic({
           apiKey: process.env.ANTHROPIC_API_KEY,
-          model: MODEL_ID,
+          model: modelId,
           maxTokens: 400,
           // Same claude-*-5-generation workaround as ai-coach/model.ts --
           // @langchain/anthropic@0.3.x unconditionally sends temperature/top_p/
@@ -131,7 +133,7 @@ export async function generateAppointmentPrepSuggestions(
           patient_id: patientId,
           consultation_id: consultationId,
           status: "generated",
-          model_id: MODEL_ID,
+          model_id: modelId,
           questions: result.questions as unknown as Json,
           input_snapshot: resolvedSnapshot as unknown as Json,
           error_message: null,
@@ -142,7 +144,7 @@ export async function generateAppointmentPrepSuggestions(
 
       return {
         value: { status: "generated" as const, questions: result.questions },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         outputSummary: `${result.questions.length} suggested questions`,
         resultingAction: "appointment_prep_suggestions_generated",
         resultingEntityType: "appointment_prep_suggestions",

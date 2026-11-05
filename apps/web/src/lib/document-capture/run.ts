@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
-import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, runGovernedAi } from "@/lib/ai-governance";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import {
   DOCUMENT_CAPTURE_MODEL_ID,
@@ -90,17 +90,20 @@ export async function runDocumentCapture(
 
   const documentType = asDocumentType(doc.document_type);
   let governedValue: DocumentCaptureResult | null = null;
+  // The model actually sent, so the stored suggestion names the same model the audit row does.
+  let sentModelId = DOCUMENT_CAPTURE_MODEL_ID;
   try {
     const governed = await runGovernedAi<DocumentCaptureResult | null>({
       supabase: service,
       systemCode: AI_SYSTEMS.documentCapture.code,
       inputCategory: "patient_document_photo",
       subjectProfileId: doc.patient_id,
-      run: async () => {
-        const result = await extract({ fileBase64, mediaType, documentType });
+      run: async ({ config }) => {
+        sentModelId = governedModelId(config, DOCUMENT_CAPTURE_MODEL_ID);
+        const result = await extract({ fileBase64, mediaType, documentType, modelId: sentModelId });
         return {
           value: result,
-          modelIdentifier: DOCUMENT_CAPTURE_MODEL_ID,
+          modelIdentifier: sentModelId,
           // Counts only: the transcribed values stay on the patient's own row.
           outputSummary: result.ok ? `${result.suggestions.fields.length} suggested field(s)` : `failed: ${result.reason}`,
           resultingAction: result.ok ? "suggestions_awaiting_patient_confirmation" : "manual_entry_required",
@@ -139,7 +142,7 @@ export async function runDocumentCapture(
     p_document: documentId,
     p_ocr_text: suggestions.ocrText,
     p_extracted: toSuggestionPayload(suggestions) as unknown as Json,
-    p_model: DOCUMENT_CAPTURE_MODEL_ID,
+    p_model: sentModelId,
     p_failed: false,
   });
   if (error) {

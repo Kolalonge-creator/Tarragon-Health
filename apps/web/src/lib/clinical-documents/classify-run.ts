@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProposedConfig, type ConfigValue, type Database } from "@tarragon/shared";
-import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, runGovernedAi } from "@/lib/ai-governance";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { normaliseForVision } from "@/lib/lab-reports/heic";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
@@ -106,10 +106,12 @@ export async function runDocumentClassification(
       inputCategory: "clinical_document",
       subjectProfileId: doc.patient_id,
       run: async ({ config }) => {
+        const modelId = governedModelId(config, CLASSIFIER_MODEL_ID);
+        aiSystem = `${AI_SYSTEMS.documentClassifier.code}:${modelId}`;
         const promptVersion = config?.prompt?.version ?? null;
         if (promptVersion !== null) aiSystem = `${aiSystem}:prompt-v${promptVersion}`;
         const { data: file, error } = await service.storage.from(RESULT_DOC_BUCKET).download(filePath);
-        if (error || !file) return { value: null, modelIdentifier: CLASSIFIER_MODEL_ID, degradedReason: "Could not open the stored file" };
+        if (error || !file) return { value: null, modelIdentifier: modelId, degradedReason: "Could not open the stored file" };
         const normalised = await normaliseForVision(Buffer.from(await file.arrayBuffer()), doc.mime_type);
         const result = await classifyDocument({
           fileBase64: normalised.buffer.toString("base64"),
@@ -117,13 +119,14 @@ export async function runDocumentClassification(
           kinds,
           // An activated governed prompt (AI governance console) replaces the in-repo one; the code list is always appended.
           governedSystemPrompt: config?.prompt?.system_prompt ?? null,
+          modelId,
         });
         if (!result.ok) {
-          return { value: null, modelIdentifier: CLASSIFIER_MODEL_ID, degradedReason: `Classifier: ${result.reason}` };
+          return { value: null, modelIdentifier: modelId, degradedReason: `Classifier: ${result.reason}` };
         }
         return {
           value: { kindCode: result.kindCode, confidence: result.confidence, error: null },
-          modelIdentifier: CLASSIFIER_MODEL_ID,
+          modelIdentifier: modelId,
           outputSummary: result.kindCode ? `${result.kindCode} (${result.confidence.toFixed(2)})` : "no type",
           resultingAction: "document_type_suggested",
           resultingEntityType: "clinical_documents",

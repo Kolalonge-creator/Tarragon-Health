@@ -113,6 +113,8 @@ export async function extractImagingReport(input: {
   mediaType: string;
   /** Test-injectable model, same shape as extractLabReport/extractEcgReport. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<ImagingReportExtractionResult> {
   if (!input.model && !isImagingReportExtractionConfigured()) {
     return { ok: false, reason: "unavailable" };
@@ -128,7 +130,7 @@ export async function extractImagingReport(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
+        model: input.modelId ?? MODEL_ID,
         maxTokens: 2000,
         // Same claude-*-5-generation workaround as lab-reports/ecg-reports
         // extract.ts: @langchain/anthropic@0.3.x unconditionally sends these,

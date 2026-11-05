@@ -11,7 +11,7 @@ import { hintsFromConfirmedRows, mergeHints, type TemplateHints } from "./corpus
 import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { raiseIfCriticalDraft } from "./escalation-bridge";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
-import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, decideAiGovernance, recordAiInteraction, recordAiCredentialMissing } from "@/lib/ai-governance";
 import { deriveAiSummaryStatus, deriveAiFlaggedAnalytes } from "./ai-summary";
 
 export type ExtractionActionResult = { error?: string; success?: boolean; message?: string };
@@ -76,6 +76,9 @@ export async function runLabReportExtraction(
 ): Promise<{ status: "extracted" | "failed"; readyCount: number; message: string }> {
   const { documentId, patientId, organisationId, filePath, mimeType } = params;
 
+  // The model actually sent: the governed model once governance allows the call, so every stored row and audit
+  // record names the same model the request used.
+  let sentModelId: string = EXTRACTION_MODEL_ID;
   const fail = async (message: string, errorMessage: string) => {
     try {
       await service.from("lab_report_extractions").upsert(
@@ -83,7 +86,7 @@ export async function runLabReportExtraction(
           organisation_id: organisationId,
           patient_id: patientId,
           document_id: documentId,
-          model_id: EXTRACTION_MODEL_ID,
+          model_id: sentModelId,
           status: "failed",
           rows: [] as unknown as Json,
           error_message: errorMessage,
@@ -137,6 +140,13 @@ export async function runLabReportExtraction(
     );
   }
   if (!isLabReportExtractionConfigured()) {
+    await recordAiCredentialMissing(service, {
+      systemCode: AI_SYSTEMS.labReportExtraction.code,
+      inputCategory: "lab_report_document",
+      subjectProfileId: patientId,
+      resultingEntityType: "lab_report_documents",
+      resultingEntityId: documentId,
+    });
     return fail(
       "Automatic reading is not configured on this environment.",
       "ANTHROPIC_API_KEY is not set.",
@@ -172,6 +182,7 @@ export async function runLabReportExtraction(
       `AI governance: ${governance.reason}`,
     );
   }
+  sentModelId = governedModelId(governance.config, EXTRACTION_MODEL_ID);
 
   let fileBase64: string;
   // The media type actually sent to the model, which is not always the one the
@@ -204,6 +215,7 @@ export async function runLabReportExtraction(
   // A laboratory we have never seen is the common case early on, and it must
   // stay the well-tested path. Hints only enter on the retry below.
   let result = await extractLabReport({
+    modelId: sentModelId,
     fileBase64,
     mediaType: visionMediaType,
     contextHint: params.contextHint ?? null,
@@ -212,7 +224,7 @@ export async function runLabReportExtraction(
   if (!result.ok) {
     await recordAiInteraction(service, {
       systemCode: AI_SYSTEMS.labReportExtraction.code,
-      modelIdentifier: EXTRACTION_MODEL_ID,
+      modelIdentifier: sentModelId,
       inputCategory: "lab_report_document",
       status: "failed",
       subjectProfileId: patientId,
@@ -265,6 +277,7 @@ export async function runLabReportExtraction(
 
   if (needsHelp && hasHints) {
     const retry = await extractLabReport({
+      modelId: sentModelId,
       fileBase64,
       mediaType: visionMediaType,
       contextHint: params.contextHint ?? null,
@@ -311,7 +324,7 @@ export async function runLabReportExtraction(
       organisation_id: organisationId,
       patient_id: patientId,
       document_id: documentId,
-      model_id: EXTRACTION_MODEL_ID,
+      model_id: sentModelId,
       status: "extracted",
       rows: rows as unknown as Json,
       report_date: extraction.reportDate,
@@ -359,7 +372,7 @@ export async function runLabReportExtraction(
   // would widen PHI exposure for no governance benefit.
   await recordAiInteraction(service, {
     systemCode: AI_SYSTEMS.labReportExtraction.code,
-    modelIdentifier: EXTRACTION_MODEL_ID,
+    modelIdentifier: sentModelId,
     inputCategory: "lab_report_document",
     status: "completed",
     subjectProfileId: patientId,

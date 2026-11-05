@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import type { ComposedReport } from "@tarragon/clinical";
-import { runGovernedAi, governedSystemPrompt } from "@/lib/ai-governance";
+import { runGovernedAi, governedSystemPrompt, governedModelId } from "@/lib/ai-governance";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 import { isSensitiveResultCode } from "@/lib/lab-results/guidance";
 
@@ -49,11 +49,12 @@ export function createAiSummaryDrafter(supabase: SupabaseClient<Database>, model
       inputCategory: "health_report_summary_draft",
       subjectProfileId: patientId,
       run: async ({ config }) => {
+        const modelId = governedModelId(config, MODEL_ID);
         const chat =
           model ??
           new ChatAnthropic({
             apiKey: process.env.ANTHROPIC_API_KEY,
-            model: MODEL_ID,
+            model: modelId,
             maxTokens: 400,
             invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
           });
@@ -61,7 +62,7 @@ export function createAiSummaryDrafter(supabase: SupabaseClient<Database>, model
           .withStructuredOutput(outputSchema)
           .invoke([new SystemMessage(governedSystemPrompt(config) ?? SYSTEM_PROMPT), new HumanMessage(snapshot(composed))]);
         const text = out.summary.replace(/—/g, ",");
-        return { value: text, modelIdentifier: MODEL_ID, outputSummary: "draft summary for clinician review", resultingAction: "draft_saved_on_unsigned_report" };
+        return { value: text, modelIdentifier: modelId, outputSummary: "draft summary for clinician review", resultingAction: "draft_saved_on_unsigned_report" };
       },
       fallback: () => null,
     });

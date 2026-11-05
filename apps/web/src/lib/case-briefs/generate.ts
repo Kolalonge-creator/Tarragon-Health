@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
 import { buildCaseSnapshot, formatSnapshotForPrompt, type CaseSnapshot } from "./snapshot";
 import { resolveProtocolsForPatient, primaryProtocol } from "@/lib/case-cockpit/protocol";
-import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi, governedModelId } from "@/lib/ai-governance";
 
 const briefSchema = z.object({
   summary: z.string(),
@@ -140,6 +140,7 @@ export async function generateCaseBrief(
     subjectProfileId: patientId,
 
     run: async ({ config }) => {
+      const modelId = governedModelId(config, MODEL_ID);
       // Built inside the run callback, not passed as a bare default param --
       // a missing/invalid ANTHROPIC_API_KEY must degrade this call, not throw
       // before we can catch it. Same shape as ai-coach/graph.ts's llmTurn.
@@ -147,7 +148,7 @@ export async function generateCaseBrief(
         model ??
         new ChatAnthropic({
           apiKey: process.env.ANTHROPIC_API_KEY,
-          model: MODEL_ID,
+          model: modelId,
           maxTokens: 400,
           // Same claude-*-5-generation workaround as lib/ai-coach/graph.ts's
           // buildModel() -- @langchain/anthropic@0.3.x unconditionally sends
@@ -169,7 +170,7 @@ export async function generateCaseBrief(
           clinician_alert_id: clinicianAlertId,
           patient_id: patientId,
           status: "generated",
-          model_id: MODEL_ID,
+          model_id: modelId,
           summary_text: result.summary,
           suggested_action_text: result.suggestedAction,
           draft_review_note: result.draftReviewNote,
@@ -192,7 +193,7 @@ export async function generateCaseBrief(
           suggestedAction: result.suggestedAction,
           draftReviewNote: result.draftReviewNote,
         },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         outputSummary: result.summary,
         resultingAction: "case_brief_drafted",
         resultingEntityType: "clinician_alerts",

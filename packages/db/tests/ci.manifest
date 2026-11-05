@@ -1881,3 +1881,5 @@ msg5_care_operations_summary.sql
 t2_13_plus_renews_as_membership.sql
 # T2-11 (2026-11-04): with zero partner pharmacies the prescribing master names no pharmacy condition; a real senior doctor signs, the patient reads the rx number, code and QR token, and anon verifies it at /verify-rx; partner collection is still refused (pharmacy_collection_on false, patient list 55000); tier and controlled-medicine rules hold. Sabotage x2: partner readiness replaced by true; the old partner conditions.
 t2_11_prescribing_take_anywhere.sql
+# Ops alert ai_call_failures (2026-11-05): the AI vendor was the one outside service with no ops rule. Per vendor over 60 min: 3 failures with none reaching the model breach; 2 is under minimum volume; 1 in 10 is clean; a degraded fallback carrying an error_message counts, a kill-switch fallback does not; test subjects excluded unless p_include_test; the evaluator opens one alert and, at sev3, no incident; anon/authenticated cannot execute. Sabotage x2: every fallback counted as a failure; test-subject exclusion dropped.
+ops_alert_ai_call_failures.sql
