@@ -539,4 +539,13 @@ proof (`care_circle_p5_payer_view_and_metrics.sql`), web changes. New wording is
 | 12.2 Payer view | `my_gifts_paid`: billing facts only for the person who paid (who, what, paid on, waiting/accepted/declined/not answered, active until, refund state). Never health information, and the card says paying grants no access. "Give another year" shows only when an accepted Membership ends within 30 days |
 | 21 Metrics | `admin_care_circle_metrics` (admin only, test accounts excluded): adoption, engagement (30 days), gifts with revenue from accepted gifts, safety and privacy. Counts only, never a name, nothing clinical. Admin page `/admin/care-circle`, in the console search and side menu |
 | Website | The "For family abroad" list now names the ten live items (approved, CC-WEB-1); the "Coming soon" note line is gone because the care-team note is live |
-| Not built | Split payments between family members (assessment only, no build without an explicit ask) |
+| Not built | Split payments between family members: founder decided **not now** (CC-SPLIT-1) |
+
+## 18. Leftovers closed (2026-11-04)
+
+| Gap | Status |
+|---|---|
+| A specialist appointment with a blank reason reached family | Closed (CC-APPT-1): the filter fails closed for specialist/procedure appointments with nothing to check and for sensitive referrals; proof `care_circle_appointment_filter_fails_closed.sql` |
+| "Circle full" answered as "That did not work" | Closed (CC-COPY-P5b): web here, mobile in PR #1704 |
+| Split payments | Not now (CC-SPLIT-1) |
+| Mobile on a real phone | Still owed: needs a device build |

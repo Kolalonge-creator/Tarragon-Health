@@ -132,6 +132,10 @@ export function Composer({
               </AppText>
             </>
           )}
+          {/* Shown before AND after a picture is chosen: the moment a photo is picked is when this matters most. */}
+          <AppText variant="caption" tone="textMuted">
+            {copy("community.image.records")}
+          </AppText>
         </View>
       ) : null}
 

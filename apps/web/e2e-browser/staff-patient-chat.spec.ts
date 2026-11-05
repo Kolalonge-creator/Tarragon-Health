@@ -180,7 +180,9 @@ test.describe("staff to patient chat", () => {
         set local role authenticated;
         select public.start_care_thread('${subject}', 'A question from the patient');
         commit;`);
-      psql(`update public.care_message_threads set last_message_at = now() - interval '${hoursAgo} hours', care_team_last_read_at = null
+      // MSG-3: the reply target counts from awaiting_reply_since (the first unanswered patient message), so move it back with the last message.
+      psql(`update public.care_message_threads set last_message_at = now() - interval '${hoursAgo} hours',
+               awaiting_reply_since = now() - interval '${hoursAgo} hours', care_team_last_read_at = null
              where patient_id = '${patient.userId}' and subject = '${subject}'`);
     };
     asPatient("[e2e-test] Badge recent", 25);

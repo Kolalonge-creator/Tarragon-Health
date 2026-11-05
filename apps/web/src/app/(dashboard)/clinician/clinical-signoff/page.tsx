@@ -89,6 +89,7 @@ import { readThresholdHubState } from "@/lib/queries/threshold-overrides";
 import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
 import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-panel";
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
+import { CLINICAL_PROPOSED_ITEM_KEY } from "@/lib/queries/pending-clinical-proposed-values";
 import { S06S10Banner } from "./s06-s10-banner";
 import { OpenOnHash } from "./open-on-hash";
 import { AdvanceToNext } from "./advance-to-next";
@@ -264,6 +265,16 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE))) inlinePanels[attestItemKey(CUFF_FLAG_GUARD, CUFF_FLAG_CODE)] = <WordingAttestationPanel kind="cuff_flag" />;
   if (keys.has(attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE))) inlinePanels[attestItemKey(CUFF_PROMPT_GUARD, CUFF_PROMPT_CODE)] = <WordingAttestationPanel kind="cuff_prompt" />;
   if (keys.has(PROPOSED_VALUES_ITEM_KEY)) inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel rows={hub.s06s10.openProposed} />;
+  // CDE-09: the narrative urgent-finding rules (and any later CMO-owned patient-harm registry value), confirmed right here.
+  if (keys.has(CLINICAL_PROPOSED_ITEM_KEY)) {
+    inlinePanels[CLINICAL_PROPOSED_ITEM_KEY] = (
+      <ProposedValuesPanel
+        rows={hub.clinicalProposed}
+        title="Clinical values waiting for your confirmation"
+        intro="Confirming records your name against the exact value shown, and that confirmation is the signature. Read the whole value first: every term, the QTc line and the paging tier for each rule."
+      />
+    );
+  }
 
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 

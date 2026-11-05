@@ -97,3 +97,16 @@ export function isSafetyResubmitReady(error: SafetyError, input: SafetyResubmit)
   if (needsOverrideReason(error) && input.overrideReason.trim() === "") return false;
   return true;
 }
+
+/**
+ * T2-11: signing is closed while the prescribing master (`prescribing_enabled`) is off; the database refuses with
+ * `prescribing_guard_off` (SQLSTATE 55000). The form shows this sentence instead of a generic "try again", because retrying cannot help.
+ */
+export const PRESCRIBING_SWITCHED_OFF_MESSAGE =
+  "Prescribing is not switched on yet, so this prescription was not signed. The Chief Medical Officer switches it on from the go-live page.";
+
+export function isPrescribingSwitchedOff(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const message = (error as Record<string, unknown>).message;
+  return typeof message === "string" && message.includes("prescribing_guard_off");
+}

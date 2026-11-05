@@ -72,14 +72,17 @@ async function countOutreachTasks(supabase: Client, testPatientIds: readonly str
   return count ?? 0;
 }
 
-async function countAsyncConsults(supabase: Client, testPatientIds: readonly string[] = []) {
-  const { count, error } = await excludeTestPatients(
-    supabase
-      .from("async_consults")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["submitted", "in_review"]),
-    testPatientIds
-  );
+/**
+ * async_consults hides patient_id from staff on purpose (S22, INV-10/INV-12: a clinician reaches a question only through the audited
+ * read), so filtering by test-patient id is refused with a 403 and the badge never loads. The table carries its own is_test, stamped
+ * from the patient's profile when the question is created, and staff may read that column, so INV-13 is applied through it instead.
+ */
+async function countAsyncConsults(supabase: Client) {
+  const { count, error } = await supabase
+    .from("async_consults")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"])
+    .eq("is_test", false);
   if (error) throw error;
   return count ?? 0;
 }

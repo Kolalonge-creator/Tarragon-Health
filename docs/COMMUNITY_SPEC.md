@@ -702,4 +702,10 @@ Migration `20261104165453_community_saved_posts_and_feed_sort.sql`, proof `commu
   group's reading in the Learn library (`GROUP_READING` in `lib/community/model.ts`, keyed by slug; `/patient/learn?category=` opens a
   category). The picture form says lab results, prescriptions and hospital letters do not belong in a group. The wording promises a
   private route, not a doctor: Free members are refused clinical threads (MSG-1).
-- Not done here: mobile (`apps/mobile` still reads the feed in the default order and has no Save control or care links).
+- **Mobile (2026-11-05).** `apps/mobile` has the same pieces: Save on top-level posts, a Saved posts page, the Latest / Most discussed
+  order, and the care card (care-team messages, Photos of documents, Learn) plus the records line under the picture form. The phone's
+  Learn screen cannot open at one category, so the group's reading link opens Learn as a whole.
+- **`is_mine` is never null.** An erased member's posts keep their text with `author_profile_id` null. `community_replies` and
+  `community_search_posts` used to send `is_mine: null` for them, and both apps' parsers require a boolean, so one such row made a whole
+  reply list or search fail to load. Both now coalesce to false, like the feed and the saved list
+  (`20261104235707_community_is_mine_never_null_in_replies_and_search.sql`, proof `community_is_mine_never_null.sql`).

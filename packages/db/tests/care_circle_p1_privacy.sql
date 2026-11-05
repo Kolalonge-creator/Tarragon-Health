@@ -244,8 +244,8 @@ begin
   perform pg_temp.ck('S1 after undo the doses are hidden again', 'false', (pg_temp.digest(sup, pat) ? 'doses')::text);
   perform pg_temp.consent(pat, true);
   begin
-    create or replace function private.circle_appointment_shareable(p_type public.appointment_type, p_reason text, p_service text) returns boolean
-      language sql immutable set search_path = '' as $f$ select true $f$;
+    create or replace function private.circle_appointment_shareable(p_type public.appointment_type, p_reason text, p_service text, p_referral uuid) returns boolean
+      language sql stable set search_path = '' as $f$ select true $f$;
     v := pg_temp.view(sup, pat);
     raise exception using errcode = 'P0099';
   exception when sqlstate 'P0099' then null;

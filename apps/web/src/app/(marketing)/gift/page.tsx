@@ -74,13 +74,13 @@ function giftFaq(price: string): FaqItem[] {
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Tell us who the gift is for",
-    body: "Their name, their phone number and how you know them. They do not need to sign up or do anything before you pay.",
+    title: "They add you to their Care Circle",
+    body: "Joining Tarragon is free. In their own Care Circle they add you with \"Paying for my care\" ticked. That lets you pay for their Membership and nothing else: you do not see their health records.",
   },
   {
     step: 2,
     title: "Choose Membership",
-    body: "From Buy care for someone on your dashboard, choose the yearly Membership. The price is shown before you pay.",
+    body: "They then appear under People you support on your dashboard. Choose Pay for their care and the yearly Membership; the price is shown before you pay.",
   },
   {
     step: 3,
@@ -116,7 +116,7 @@ export default function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already a member? Open Buy care for someone on your dashboard to give a year of Membership, whether or not they use Tarragon yet, or share your referral link.
+          Already on Tarragon? Once they have added you to their Care Circle, open People you support on your dashboard to give a year of Membership. Not on Tarragon yet? Share your referral link; joining is free.
         </p>
       </Section>
 
