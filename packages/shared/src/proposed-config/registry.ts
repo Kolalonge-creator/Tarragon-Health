@@ -4050,6 +4050,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
   },
   {
+    key: "ops.security_alert_rules",
+    // Security audit 2026-11-05, Phase 2 (H-7): four security rules on the SR5 alert framework. Live values are the rows of
+    // `ops_alert_rules`; this entry mirrors the migration seed and security-alert-rules-mirror.test.ts fails if they drift. Every
+    // number is a proposal for the founder: 10 failures for one account or 50 platform-wide in 15 minutes, and 30 different
+    // patients opened by one staff member in an hour (the busiest real hour on 2026-11-05 was 4). Role changes and exports alert
+    // on every event. The action lists name the audit actions that exist live today.
+    value: {
+      failed_sign_in_spike: { severity: "sev2", params: { window_minutes: 15, max_per_account: 10, max_total: 50 } },
+      staff_bulk_record_access: {
+        severity: "sev2",
+        params: { window_minutes: 60, max_distinct_patients: 30, actions: ["staff.chart_read", "consult_checkin.read", "clinician.patient_record_viewed"] },
+      },
+      privileged_change: { severity: "sev3", params: { window_minutes: 60 } },
+      patient_data_export: {
+        severity: "sev3",
+        params: { window_minutes: 60, actions: ["admin.patient_directory_exported", "consultations.log_export", "research_export.created"] },
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105105817_security_sign_in_logging_and_alerts.sql; security audit 2026-11-05 (H-7)",
+  },
+  {
     key: "community.rules",
     // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
     // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate

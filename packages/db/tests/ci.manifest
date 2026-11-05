@@ -1887,3 +1887,5 @@ t2_11_prescribing_take_anywhere.sql
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Security audit H-7 (2026-11-05): every sign-in now writes patient.logged_in or clinician.logged_in, and four security alert rules (failed sign-in spike, staff bulk record access, privileged change, patient data export) breach at their thresholds and not below, skip test accounts, never output a patient reference, and the evaluator opens the alert. Sabotage: the old trigger body (patients skipped) and an empty spike check.
+security_sign_in_logging_and_alerts.sql
