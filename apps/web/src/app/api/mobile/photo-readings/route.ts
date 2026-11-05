@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
@@ -91,7 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (insertError.code === "23505") return NextResponse.json({ success: true, deduped: true });
     const refused = assistedRefusalResponse(insertError);
     if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/photo-readings") }, { status: 500 });
   }
 
   // The insert can succeed and store nothing in the record: an impossible value is held for the person, a duplicate of a better source is linked.

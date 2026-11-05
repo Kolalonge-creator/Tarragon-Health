@@ -1505,6 +1505,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "security.abuse_rate_limits",
+    // Security audit 2026-11-05, Phase 2 (M-8): limits on four things nothing limited before. Read at runtime by
+    // apps/web/src/lib/security/abuse-limits.ts (no database copy). PROPOSED, owned by the founder: each kind has a short burst
+    // window and a daily cap, set well above anything a real patient does (the busiest real patient uploaded a handful of
+    // documents in a day) and low enough to stop a script running up AI and storage costs. page_view is per source IP because
+    // /api/track takes anonymous visitors. These are per-instance unless Upstash Redis is configured (see packages/auth/src/rate-limit.ts).
+    value: {
+      page_view: [{ limit: 120, window_seconds: 60 }],
+      upload: [
+        { limit: 30, window_seconds: 3600 },
+        { limit: 100, window_seconds: 86400 },
+      ],
+      meal_photo_ai: [
+        { limit: 20, window_seconds: 3600 },
+        { limit: 60, window_seconds: 86400 },
+      ],
+      add_dependant: [
+        { limit: 5, window_seconds: 3600 },
+        { limit: 10, window_seconds: 86400 },
+      ],
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "security audit 2026-11-05 (M-8); apps/web/src/lib/security/abuse-limits.ts",
+  },
+  {
     key: "security.rules",
     // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
     // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a

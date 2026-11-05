@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -113,7 +114,7 @@ export async function POST(
     .eq("recipient_id", user.id);
 
   if (updateError) {
-    return NextResponse.json({ ok: false, error: updateError.message }, { status: 200 });
+    return NextResponse.json({ ok: false, error: safeErrorMessage(updateError, "notifications/[id]/respond") }, { status: 200 });
   }
 
   return NextResponse.json({ ok: true, actionCompleted, redirect });

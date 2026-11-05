@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { cgmReadingBatchHoldSchema, cgmReadingBatchSchema } from "@/lib/validation/cgm-reading";
@@ -110,11 +111,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       if (!rowError) {
         inserted += 1;
       } else if (rowError.code !== "23505") {
-        return NextResponse.json({ error: rowError.message }, { status: 500 });
+        return NextResponse.json({ error: safeErrorMessage(rowError, "mobile/cgm-readings") }, { status: 500 });
       }
     }
   } else {
-    return NextResponse.json({ error: batchError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(batchError, "mobile/cgm-readings") }, { status: 500 });
   }
 
   // S70a: with a switch on, "inserted" must mean landed in the record. Held values wait for the person; merged ones are linked to a better source.
