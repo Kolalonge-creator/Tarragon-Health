@@ -347,3 +347,4 @@ export * from "./testing-days-offer";
 export * from "./screening-day-date";
 export * from "./screening-day-steps";
 export * from "./test-code-labels";
+export * from "./health-status-domains";

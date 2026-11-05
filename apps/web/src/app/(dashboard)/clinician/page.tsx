@@ -178,8 +178,13 @@ export default async function ClinicianPage() {
     staff?.doctor_tier && staff.doctor_tier !== "care_coordinator"
       ? loadWorklist(supabase).then((r) =>
           r.ok
-            ? { count: r.groups.find((g) => g.kind === "uploaded_documents")?.total ?? 0, error: null }
-            : { count: null, error: { message: r.message } },
+            ? {
+                count: r.groups.find((g) => g.kind === "uploaded_documents")?.total ?? 0,
+                // T2 Phase 2: open alerts from the CMO-signed lab trend rules (zero until the rules are signed)
+                trends: r.groups.find((g) => g.kind === "deteriorating_trends")?.total ?? 0,
+                error: null,
+              }
+            : { count: null, trends: null, error: { message: r.message } },
         )
       : Promise.resolve(null),
   ]);
@@ -330,7 +335,10 @@ export default async function ClinicianPage() {
           { label: "Medicine reviews due", figure: medReviewsFigure, href: "/clinician/medication-reviews", note: "to review" },
           { label: "Care plan reviews due", figure: carePlanReviewsFigure, href: "/clinician/care-plan-review", note: "to review" },
           ...(uploadsToReviewRes
-            ? [{ label: "Uploaded reports", figure: figure(uploadsToReviewRes.count, uploadsToReviewRes.error !== null), href: "/clinician/worklists", note: "waiting for a doctor" }]
+            ? [
+                { label: "Uploaded reports", figure: figure(uploadsToReviewRes.count, uploadsToReviewRes.error !== null), href: "/clinician/worklists", note: "waiting for a doctor" },
+                { label: "Lab trends to review", figure: figure(uploadsToReviewRes.trends, uploadsToReviewRes.error !== null), href: "/clinician/worklists", note: "getting worse over time" },
+              ]
             : []),
         ]}
       />

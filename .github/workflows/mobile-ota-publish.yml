@@ -48,6 +48,11 @@ on:
           - production
           - development
 
+# Least privilege (security audit 2026-11-05, M-10): the token can only read the repository. Caches and artifacts use their own
+# runtime token, not this one.
+permissions:
+  contents: read
+
 concurrency:
   group: mobile-ota-publish-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -57,7 +62,7 @@ jobs:
     name: Publish EAS Update (OTA)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -91,11 +96,11 @@ jobs:
 
       - name: Install pnpm
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Set up Node
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: pnpm
@@ -121,5 +126,6 @@ jobs:
           for v in EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_PLATFORM_URL; do
             if [ -z "${!v}" ]; then echo "::error::$v is empty, refusing to publish an update the app cannot start with."; exit 1; fi
           done
-          npx eas-cli@latest update --branch "$CHANNEL" --non-interactive \
+          # Pinned to the lockfile version, never @latest: this step holds EXPO_TOKEN (security audit 2026-11-05, M-10).
+          npx --yes eas-cli@22.6.0 update --branch "$CHANNEL" --non-interactive \
             --message "$SUBJECT (${GITHUB_SHA::7})"

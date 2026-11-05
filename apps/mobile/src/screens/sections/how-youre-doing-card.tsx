@@ -1,34 +1,44 @@
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
+import {
+  HEALTH_STATUS_DISCLAIMER,
+  healthStatusWord,
+  INDICATOR_FLAG_WORDS,
+  healthStatusSummary,
+  trendWords,
+  type HealthStatusDomain,
+} from "@tarragon/shared";
 import { useUiLanguage } from "@/lib/ui-language";
-import { getLatestHealthScore, type LatestHealthScore } from "@/lib/health-score";
-import { HEALTH_STATUS_METER, HEALTH_STATUS_WORD } from "@/lib/health-status";
+import { getHealthStatusDomains } from "@/lib/health-status-domains";
+import { HEALTH_STATUS_WORD } from "@/lib/health-status";
 import { getLagosGreetingWord } from "@/lib/greeting";
-import { radii, space } from "@/ui/design";
+import { space } from "@/ui/design";
 import { AppText, Card, Skeleton } from "@/ui/kit";
 
 type CardState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "ready"; data: LatestHealthScore | null };
+  | { status: "ready"; domains: HealthStatusDomain[] };
 
 interface HowYoureDoingCardProps {
   patientId: string;
-  /** Bump to refetch without resetting to a loading state -- wired to the
-   * screen's own pull-to-refresh, same as its other cards. */
+  /** Bump to refetch without resetting to a loading state -- wired to the screen's own pull-to-refresh, same as its other cards. */
   reloadToken?: number;
 }
 
+/** Clinical status colours (a separate system from brand colour): the same green and amber the web dot uses, grey for "no range yet". */
+const DOT: Record<HealthStatusDomain["status"], string> = {
+  within_range: HEALTH_STATUS_WORD.low.dot,
+  worth_discussing: HEALTH_STATUS_WORD.moderate.dot,
+  not_enough_yet: "#9CA3AF",
+};
+
 /**
- * Native counterpart to web's Overview hero-score-zone.tsx ("How you're
- * doing" -- HeroScoreZone). Self-contained fetch so a slow or failed score
- * read never blocks the rest of Overview from rendering, same reasoning as
- * web's client-side useLatestHealthScore. Deliberately a surface Card, never
- * the green hero band below it -- clinical status colours (the dot/meter
- * here) are a separate system from brand colour and must never share a
- * surface with it (CLAUDE.md). The status dot and meter keep their fixed
- * clinical colours in both schemes; the word beside them carries the meaning.
+ * Native counterpart to web's Overview hero-score-zone.tsx ("How you're doing"). T2-06 (founder, 2026-11-04): the composite Health Score
+ * number is no longer shown; this card shows health status BY DOMAIN (each result against its own printed range or the person's own
+ * target, which way it moved, what is outstanding), from the same shared builder web uses. Self-contained fetch so a slow read never
+ * blocks the rest of Overview.
  */
 export function HowYoureDoingCard({ patientId, reloadToken = 0 }: HowYoureDoingCardProps) {
   const locale = asLocale(useUiLanguage());
@@ -36,13 +46,15 @@ export function HowYoureDoingCard({ patientId, reloadToken = 0 }: HowYoureDoingC
   const [state, setState] = useState<CardState>({ status: "loading" });
 
   const load = useCallback(async () => {
-    const result = await getLatestHealthScore(patientId);
-    setState(result.ok ? { status: "ready", data: result.data } : { status: "error" });
+    const result = await getHealthStatusDomains(patientId);
+    setState(result.ok ? { status: "ready", domains: result.data } : { status: "error" });
   }, [patientId]);
 
   useEffect(() => {
     void load();
   }, [load, reloadToken]);
+
+  const summary = state.status === "ready" ? healthStatusSummary(state.domains) : null;
 
   return (
     <Card style={{ gap: space.sm }}>
@@ -61,43 +73,43 @@ export function HowYoureDoingCard({ patientId, reloadToken = 0 }: HowYoureDoingC
         </AppText>
       ) : null}
 
-      {state.status === "ready" && !state.data ? (
+      {state.status === "ready" && !summary ? (
         <AppText variant="body" tone="textMuted">
           {tr("home.score.empty")}
         </AppText>
       ) : null}
 
-      {state.status === "ready" && state.data ? (
+      {state.status === "ready" && summary ? (
         <>
-          <AppText variant="hero">
-            {state.data.score}
-            <AppText variant="bodyLarge" tone="textMuted">
-              {" "}
-              /100
-            </AppText>
-          </AppText>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: HEALTH_STATUS_WORD[state.data.riskLevel].dot }} />
-            <AppText variant="bodyStrong">{tr(`home.score.word.${state.data.riskLevel}` as MessageKey)}</AppText>
-          </View>
-          <View
-            accessible
-            accessibilityRole="progressbar"
-            accessibilityValue={{ min: 0, max: 100, now: state.data.score }}
-            accessibilityLabel={tr("home.score.a11y")}
-            style={{ height: 8, borderRadius: radii.sm, overflow: "hidden", backgroundColor: HEALTH_STATUS_METER[state.data.riskLevel].track }}
-          >
-            <View
-              style={{
-                height: "100%",
-                borderRadius: radii.sm,
-                width: `${Math.min(100, Math.max(0, state.data.score))}%`,
-                backgroundColor: HEALTH_STATUS_METER[state.data.riskLevel].fill,
-              }}
-            />
-          </View>
+          <AppText variant="bodyStrong">{summary}</AppText>
+          {state.domains.map((d) => (
+            <View key={d.key} style={{ gap: 2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: DOT[d.status] }} />
+                <AppText variant="bodyStrong">
+                  {d.label}: {healthStatusWord(d).toLowerCase()}
+                </AppText>
+              </View>
+              {d.indicators.map((i) => {
+                const trend = trendWords(i);
+                return (
+                  <AppText key={i.key} variant="caption" tone="textMuted">
+                    {i.label} {i.value}
+                    {i.unit ? ` ${i.unit}` : ""}, {i.at.slice(0, 10)}
+                    {i.rangeText ? `, range ${i.rangeText}` : ""}, {INDICATOR_FLAG_WORDS[i.flag]}
+                    {trend ? `. ${trend}` : ""}
+                  </AppText>
+                );
+              })}
+              {d.actions.map((a) => (
+                <AppText key={a} variant="caption">
+                  {a}
+                </AppText>
+              ))}
+            </View>
+          ))}
           <AppText variant="caption" tone="textMuted">
-            {tr("home.score.note")}
+            {HEALTH_STATUS_DISCLAIMER}
           </AppText>
         </>
       ) : null}

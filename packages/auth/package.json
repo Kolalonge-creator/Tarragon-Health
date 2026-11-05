@@ -26,7 +26,8 @@
     "./recovery": "./src/recovery.ts",
     "./breached-password": "./src/breached-password.ts",
     "./password-check": "./src/password-check.ts",
-    "./auth-error-key": "./src/auth-error-key.ts"
+    "./auth-error-key": "./src/auth-error-key.ts",
+    "./mfa-policy": "./src/mfa-policy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

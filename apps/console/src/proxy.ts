@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@tarragon/auth/supabase/middleware";
 import { evaluateConsoleAccess, consoleRoles } from "@tarragon/auth/console-areas";
 import { getRoleHomePath } from "@tarragon/auth/roles";
+import { isMfaRequiredForCaller } from "@tarragon/auth/mfa-policy";
 
 /**
  * The console's single choke point for authentication and role gating, the
@@ -40,8 +41,10 @@ export async function proxy(request: NextRequest) {
     return toLogin();
   }
 
+  let mfaNextLevel: string | undefined;
   if (pathname !== "/login/mfa-challenge") {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    mfaNextLevel = aal?.nextLevel ?? undefined;
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);
       challengeUrl.searchParams.set("redirect", pathname);
@@ -66,7 +69,23 @@ export async function proxy(request: NextRequest) {
     return pathname === "/login" || pathname === "/login/mfa-challenge" ? response : toLogin();
   }
 
+  // 2FA required per group (admin switch on the main app, every group ships OFF; @tarragon/auth/mfa-policy). A console account
+  // in a required group with no verified factor is held on the set-up page, which points it at the main app's Profile & settings
+  // and lets it sign out; an /api call gets a 403. One WITH a factor was already sent to the challenge above. The challenge page
+  // is exempt: the level is not read there, and the page itself sends anyone without a pending step-up back to /login.
+  if (pathname !== "/login/mfa-challenge" && mfaNextLevel !== "aal2" && (await isMfaRequiredForCaller(supabase, Date.now(), "required", profile.role))) {
+    if (pathname === "/login/mfa-setup") return response;
+    if (pathname === "/api" || pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Turn on two-factor sign-in to continue.", code: "mfa_enrolment_required" },
+        { status: 403 },
+      );
+    }
+    return NextResponse.redirect(new URL("/login/mfa-setup", request.url));
+  }
+
   const home = getRoleHomePath(profile.role);
+  if (pathname === "/login/mfa-setup") return NextResponse.redirect(new URL(home, request.url));
   if (pathname === "/" || pathname === "/login") {
     return NextResponse.redirect(new URL(home, request.url));
   }

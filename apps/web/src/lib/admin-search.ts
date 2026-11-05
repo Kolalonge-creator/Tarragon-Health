@@ -198,6 +198,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/settings/reward-rules", "health points rewards rules earn earning points caps limits daily decay badges levels tiers redemption checkout discount engagement gamification wellness"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
+  ["/admin/settings/two-factor", "two factor 2fa mfa two-step two step authenticator totp aal2 aal code sign in security require required lock staff doctors clinicians cmo admin patients group mfa_group_requirements"],
   ["/admin/directory-queues", "directory queues rating ratings moderate moderation reject publish held comment reported wrong listing verification reverify re-verify phone confirmed licence checked facility report"],
 ];
 

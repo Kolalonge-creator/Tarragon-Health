@@ -9,6 +9,9 @@ on:
     # alone, with no app-code PR to trigger a scan.
     - cron: "17 3 * * 1"
 
+# Nothing by default; the analyze job grants itself exactly what CodeQL needs (security audit 2026-11-05, M-10).
+permissions: {}
+
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -30,14 +33,14 @@ jobs:
         language: ["javascript-typescript", "python"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: ${{ matrix.language }}
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
