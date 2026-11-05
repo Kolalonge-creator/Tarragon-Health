@@ -28,6 +28,8 @@
 -- Nothing persists: the whole file runs inside begin/rollback.
 
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temporary table test_result (case_num int, label text, outcome text, detail text) on commit drop;
 
@@ -57,8 +59,9 @@ begin
   values (v_pat, v_org, 'patient', 'Amend Spec Patient', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true),
          (v_clin, v_org, 'clinician', 'Amend Spec Doctor', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '40 years')::date, true)
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true, is_active = true;
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-  values (v_org, v_clin, 'Amend Spec Probe', true, now(), 'senior_medical_officer');
+  -- T2-11b: signing needs a verified licence with a real credential number (private.prescriber_licence_ok)
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, credential_type, credential_number)
+  values (v_org, v_clin, 'Amend Spec Probe', true, now(), 'senior_medical_officer', 'MDCN', 'AMS-4410');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_clin, now())
   on conflict (patient_id) do update set clinician_id = v_clin;

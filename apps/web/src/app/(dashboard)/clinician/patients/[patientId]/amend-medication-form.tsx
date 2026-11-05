@@ -7,7 +7,7 @@ import type { MedicationWithCarePlan } from "@/lib/queries/medications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isPrescribingSwitchedOff, isSafetyResubmitReady, parseSafetyError, PRESCRIBING_SWITCHED_OFF_MESSAGE } from "@/lib/prescriptions/parse-safety-error";
+import { describePrescribingRefusal, isSafetyResubmitReady, parseSafetyError } from "@/lib/prescriptions/parse-safety-error";
 import { SafetyFindingsPrompt } from "@/components/prescribing/safety-findings-prompt";
 
 /**
@@ -86,9 +86,7 @@ export function AmendMedicationForm({
   const safetyError = amendMedication.isError ? parseSafetyError(amendMedication.error) : null;
   const mutationError = safetyError
     ? null
-    : isPrescribingSwitchedOff(amendMedication.error)
-      ? PRESCRIBING_SWITCHED_OFF_MESSAGE
-      : ((amendMedication.error as Error | null)?.message ?? null);
+    : (describePrescribingRefusal(amendMedication.error) ?? ((amendMedication.error as Error | null)?.message ?? null));
   const displayError = validationError ?? mutationError;
   const safetyReady = safetyError ? isSafetyResubmitReady(safetyError, { allergiesConfirmed, overrideReason }) : true;
 

@@ -22,7 +22,10 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true }) }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
-jest.mock("@/lib/validation/result-doc-signature", () => ({ verifyResultDocSignature: jest.fn().mockResolvedValue(null) }));
+jest.mock("@/lib/validation/result-doc-signature", () => ({
+  ...jest.requireActual("@/lib/validation/result-doc-signature"),
+  verifyResultDocSignature: jest.fn().mockResolvedValue(null),
+}));
 jest.mock("@/lib/clinical-documents/classify-run", () => ({
   runDocumentClassification: (...a: unknown[]) => runDocumentClassification(...a),
   startReader: (...a: unknown[]) => startReader(...a),

@@ -5,6 +5,8 @@
 -- (private.prescription_safety_findings and check_prescription_safety); a brand held only in a signed item is seen; the anonymous QR page refuses to record a supply of a
 -- brand and the read-only QR view says controlled_medicine. SABOTAGE: the list put back to generic names only; the brand checks must then flip, or the test is vacuous.
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;

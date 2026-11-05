@@ -53032,6 +53032,14 @@ export type Database = {
         Args: never
         Returns: { authorised_distributor: string; category: Database["public"]["Enums"]["device_catalog_category"]; description: string; device_name: string; display_order: number; id: string; nafdac_number: string; pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]; validated_source_url: string; validation_basis: string; vendor_name: string }[]
       }
+      record_audit_event: {
+        Args: { p_action: string; p_entity_id?: string; p_entity_type?: string; p_event?: Json; p_result?: string; p_subject_patient_id?: string }
+        Returns: string
+      }
+      record_audit_events: {
+        Args: { p_action: string; p_rows: Json }
+        Returns: number
+      }
       record_device_rhythm_result: {
         Args: { p_device_label: string; p_device_name?: string; p_external_id: string; p_patient_id?: string; p_recorded_at: string; p_source: string; p_symptoms?: string[] }
         Returns: Json
@@ -58935,6 +58943,7 @@ export type Database = {
         Args: { p_content_hash: string; p_report_number: string }
         Returns: Json
       }
+      verify_prescription_by_code: { Args: { p_code: string; p_rx_number: string }; Returns: string }
       verify_prescription_public: {
         Args: { p_token: string }
         Returns: {

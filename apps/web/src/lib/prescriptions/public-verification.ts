@@ -137,3 +137,29 @@ export function parseProof(data: unknown): PublicPrescriptionProof | null {
 }
 
 export { stripDoctorTitle } from "./doctor-name";
+
+/**
+ * T2-11b (safety case HZ-RX-06/11): a pharmacist without a camera types the Rx number and the verification code printed on the form.
+ * Only the shape is checked here; the database (public.verify_prescription_by_code) does the lookup and locks a number after ten wrong
+ * codes in an hour. Spaces are dropped and letters upper-cased, so "trg-rx-2026-000123" and " ab12cd" are read as printed.
+ */
+export function normaliseRxLookup(rxNumber: string, code: string): { rxNumber: string; code: string } | null {
+  const rx = rxNumber.replace(/\s+/g, "").toUpperCase();
+  const c = code.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (!/^[A-Z0-9-]{4,40}$/.test(rx) || !/^[A-Z0-9]{4,12}$/.test(c)) return null;
+  return { rxNumber: rx, code: c };
+}
+
+export type CodeLookupNotice = "invalid" | "not_found" | "rate_limited" | "locked" | "unavailable";
+
+export const CODE_LOOKUP_MESSAGE: Record<CodeLookupNotice, string> = {
+  invalid: "That does not look like an Rx number and code. Type them exactly as printed on the prescription.",
+  not_found: "No prescription matches that Rx number and code. Check both against the printed form, or call TarragonHealth.",
+  rate_limited: "Too many checks from this connection. Please wait a few minutes and try again.",
+  locked: "This Rx number has had too many wrong codes in the last hour, so it is locked for now. Scan the QR code instead, or call TarragonHealth.",
+  unavailable: "The check is not available just now. Please try again shortly, or call TarragonHealth.",
+};
+
+export function isCodeLookupNotice(value: unknown): value is CodeLookupNotice {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(CODE_LOOKUP_MESSAGE, value);
+}
