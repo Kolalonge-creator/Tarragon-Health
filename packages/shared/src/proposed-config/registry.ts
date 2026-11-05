@@ -11470,11 +11470,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       negation_words_before: ["no", "not", "without"],
       negation_phrases_before: ["negative for", "no evidence of", "free of"],
       negations_after: ["ruled out", "excluded", "is ruled out", "has been excluded"],
+      // CMO decision 2026-11-04 (OQ-CDE-11, in chat): beyond raising the review to urgent, a match pages on the escalation ladder
+      // (escalation_slas, pathway screening_abnormal_result). Acute ECG and radiology findings use the critical tier ("emergency",
+      // 720 minutes in v9); cancer and pre-cancer findings use the non-critical abnormal tier ("urgent_escalation", 1440 minutes in
+      // v9). The minutes are read from escalation_slas, never from here.
+      paging_tier_by_rule: {
+        birads: "urgent_escalation",
+        cervical_cytology: "urgent_escalation",
+        hpv_genotype: "urgent_escalation",
+        pathology: "urgent_escalation",
+        ecg: "emergency",
+        ecg_qtc: "emergency",
+        imaging: "emergency",
+      },
     },
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-11-04",
-    source: "CDE-01 draft from ACR BI-RADS 5th ed., NICE NG12, NHS Cervical Screening Programme colposcopy standards and the Bethesda system, ASCCP 2019, RCPath datasets, ESC 2022/2023 guidance, RCR critical-finding guidance (docs/plans/narrative-urgent-finding-rules-draft-2026-11-04.md). NOT signed (OQ-CDE-11).",
+    source: "CDE-01 draft from ACR BI-RADS 5th ed., NICE NG12, NHS Cervical Screening Programme colposcopy standards and the Bethesda system, ASCCP 2019, RCPath datasets, ESC 2022/2023 guidance, RCR critical-finding guidance (docs/plans/narrative-urgent-finding-rules-draft-2026-11-04.md). CMO decided every row, the 500 ms QTc line and the paging split in chat on 2026-11-04 (CDE-09); confirmation of this value on the sign-off hub is the signature (OQ-CDE-11).",
   },
 ];

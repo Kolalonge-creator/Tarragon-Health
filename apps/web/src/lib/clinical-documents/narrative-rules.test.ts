@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import { describe, expect, it } from "@jest/globals";
-import { draftNarrativeRules, matchNarrativeRules } from "./narrative-rules";
+import { draftNarrativeRules, matchNarrativeRules, pagingTierFor } from "./narrative-rules";
 
 describe("draft narrative urgent-finding rules (CDE-01, unsigned)", () => {
   it("is a PROPOSED rule set owned by the CMO", () => {
@@ -44,5 +44,44 @@ describe("draft narrative urgent-finding rules (CDE-01, unsigned)", () => {
     expect(matchNarrativeRules({ imagingImpression: "No effusion. Right pneumothorax." })[0]?.matched).toBe("pneumothorax");
     expect(matchNarrativeRules({ pathologyDiagnosis: "No change in the known carcinoma" })[0]?.matched).toBe("carcinoma");
     expect(matchNarrativeRules({ pathologyDiagnosis: "No residual carcinoma" })).toEqual([]);
+  });
+});
+
+describe("paging tier per rule (CMO decision 2026-11-04, CDE-09)", () => {
+  it("covers every rule, with acute ECG and radiology at the critical tier and cancer findings at the non-critical abnormal tier", () => {
+    expect(draftNarrativeRules().paging_tier_by_rule).toEqual({
+      birads: "urgent_escalation",
+      cervical_cytology: "urgent_escalation",
+      hpv_genotype: "urgent_escalation",
+      pathology: "urgent_escalation",
+      ecg: "emergency",
+      ecg_qtc: "emergency",
+      imaging: "emergency",
+    });
+  });
+
+  it("keeps the decided rows: HPV 16/18 urgent, BI-RADS 0 urgent, QTc 500 ms", () => {
+    const rules = draftNarrativeRules();
+    expect(rules.hpv_genotypes_urgent).toEqual(["16", "18"]);
+    expect(rules.birads_urgent).toContain("0");
+    expect(rules.ecg_qtc_urgent_ms).toBe(500);
+  });
+
+  it("returns no tier without a match, the critical tier when any acute rule matched, otherwise the non-critical tier", () => {
+    const rules = draftNarrativeRules();
+    expect(pagingTierFor([], rules)).toBeNull();
+    expect(pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "Invasive ductal carcinoma" }), rules)).toBe("urgent_escalation");
+    expect(pagingTierFor(matchNarrativeRules({ ecgQtcMs: 512 }), rules)).toBe("emergency");
+    expect(
+      pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "carcinoma", imagingImpression: "Right-sided pneumothorax" }), rules),
+    ).toBe("emergency");
+  });
+
+  it("pages at the critical tier when a rule's tier is missing or mistyped, never lower", () => {
+    const base = draftNarrativeRules();
+    const typo = { ...base, paging_tier_by_rule: { ...base.paging_tier_by_rule, pathology: "critical" } } as unknown as typeof base;
+    expect(pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "carcinoma" }), typo)).toBe("emergency");
+    const missing = { ...base, paging_tier_by_rule: {} } as unknown as typeof base;
+    expect(pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "carcinoma" }), missing)).toBe("emergency");
   });
 });
