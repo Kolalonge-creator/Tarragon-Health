@@ -49,11 +49,27 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if new.reviewed_at is not null and new.next_review_at is null then
-    new.next_review_at := new.reviewed_at + interval '1 year';
-  end if;
   if new.reviewed_by_name is not null and btrim(new.reviewed_by_name) = '' then
     new.reviewed_by_name := null;
+  end if;
+
+  -- Next review: a year after the review, unless an editor set a date. A fresh review (reviewed_at changes)
+  -- moves it on too, unless the same save also changed next_review_at on purpose.
+  if new.reviewed_at is not null and (
+       new.next_review_at is null
+       or (tg_op = 'UPDATE' and new.reviewed_at is distinct from old.reviewed_at
+           and new.next_review_at is not distinct from old.next_review_at)
+     ) then
+    new.next_review_at := new.reviewed_at + interval '1 year';
+  end if;
+
+  -- A live article that has a review cannot lose it and stay live (the grandfathered set never had one).
+  if tg_op = 'UPDATE' and old.is_published and new.is_published
+     and old.reviewed_by_name is not null
+     and (new.reviewed_by_name is null or new.reviewed_at is null) then
+    raise exception 'clinical_review_required'
+      using errcode = '23514',
+            hint = 'A published article cannot have its clinical review removed. Unpublish it first.';
   end if;
 
   if new.is_published
@@ -136,6 +152,9 @@ create policy marketing_resources_authenticated_select
 -- Assertions: provable, not hopeful.
 do $$
 begin
+  if exists (select 1 from pg_trigger where tgname = 'marketing_resources_set_updated_at' and tgenabled = 'D') then
+    raise exception 'ASSERT: set_updated_at was left disabled after the backfill';
+  end if;
   if exists (select 1 from public.marketing_resources where reviewed_at is not null and next_review_at is null) then
     raise exception 'ASSERT: a reviewed article has no next review date after the backfill';
   end if;

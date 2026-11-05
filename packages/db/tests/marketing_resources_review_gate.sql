@@ -50,6 +50,25 @@ begin
     raise exception 'FAIL: next_review_at is %, expected a year after the review', v_next;
   end if;
 
+  -- 2b. a fresh review moves the next review on; an explicit date in the same save wins
+  update public.marketing_resources set reviewed_at = '2027-12-01T00:00:00Z' where id = v_id;
+  select next_review_at into v_next from public.marketing_resources where id = v_id;
+  if v_next is distinct from '2028-12-01T00:00:00Z'::timestamptz then
+    raise exception 'FAIL: a re-review left next_review_at at %', v_next;
+  end if;
+  update public.marketing_resources set reviewed_at = '2028-01-01T00:00:00Z', next_review_at = '2028-06-01T00:00:00Z' where id = v_id;
+  if (select next_review_at from public.marketing_resources where id = v_id) is distinct from '2028-06-01T00:00:00Z'::timestamptz then
+    raise exception 'FAIL: an explicit next review date was overwritten';
+  end if;
+
+  -- 2c. a live reviewed article cannot have its review removed
+  v_failed := false;
+  begin
+    update public.marketing_resources set reviewed_by_name = null, reviewed_at = null where id = v_id;
+  exception when sqlstate '23514' then v_failed := true;
+  end;
+  if not v_failed then raise exception 'FAIL: a live article lost its review and stayed published'; end if;
+
   -- 3. the grandfathered case: an article already live without a review can still be edited and stays live
   insert into public.marketing_resources (slug, title, description, category, sections, is_published)
   values ('proof-legacy', 'Legacy', 'Legacy', 'General', '[{"heading":"H","paragraphs":["p"]}]', false)

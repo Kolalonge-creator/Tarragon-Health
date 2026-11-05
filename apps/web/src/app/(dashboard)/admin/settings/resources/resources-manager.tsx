@@ -379,7 +379,8 @@ export function ResourcesManager() {
       reviewedAt: r.reviewed_at ?? "",
       authorName: r.author_name ?? "",
       references: referencesToLines(r.source_references),
-      nextReviewAt: r.next_review_at ? r.next_review_at.slice(0, 10) : "",
+      // Read back in Lagos time: the value was saved as Lagos midnight (23:00 UTC the day before).
+      nextReviewAt: r.next_review_at ? toLocalInput(r.next_review_at).slice(0, 10) : "",
       publishAt: r.publish_at ? toLocalInput(r.publish_at) : "",
     });
 
@@ -442,9 +443,20 @@ export function ResourcesManager() {
                     size="sm"
                     variant="outline"
                     disabled={setPublished.isPending}
-                    onClick={() =>
-                      setPublished.mutate({ id: r.id, isPublished: !r.is_published })
-                    }
+                    onClick={() => {
+                      // One of the grandfathered live articles with no review (W-12): once it is
+                      // unpublished, the database will only republish it after a clinical review.
+                      if (
+                        r.is_published &&
+                        !r.reviewed_by_name &&
+                        !window.confirm(
+                          "This article has no recorded clinical review. If you unpublish it, it can only be published again after a clinician reviews it. Unpublish anyway?"
+                        )
+                      ) {
+                        return;
+                      }
+                      setPublished.mutate({ id: r.id, isPublished: !r.is_published });
+                    }}
                   >
                     {r.is_published ? "Unpublish" : "Publish"}
                   </Button>
