@@ -8,3 +8,11 @@ export function isCronAuthorised(authHeader: string | null): boolean {
   const given = Buffer.from(authHeader);
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
+
+/** True only when both values are non-empty and identical. The comparison takes the same time wherever they differ. */
+export function isSameSecret(provided: string | null | undefined, expected: string | null | undefined): boolean {
+  if (!provided || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}

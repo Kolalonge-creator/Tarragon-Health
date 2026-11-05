@@ -32,13 +32,15 @@ export async function GET(request: Request): Promise<Response> {
       // Org-scoped exactly like /api/integrations/device-readings: a
       // patient_number outside the key's organisation resolves to a clean
       // 404, never a cross-tenant read.
-      const { data: patient } = await supabase
+      let lookup = supabase
         .from("profiles")
         .select("id, patient_number, full_name, date_of_birth, sex, phone")
         .eq("patient_number", patientNumber)
         .eq("organisation_id", verified.organisationId)
-        .eq("role", "patient")
-        .maybeSingle();
+        .eq("role", "patient");
+      // A sandbox (th_test_) key only ever sees test patients, never a real person (security audit 2026-11-05, M-2).
+      if (verified.environment === "sandbox") lookup = lookup.eq("is_test", true);
+      const { data: patient } = await lookup.maybeSingle();
 
       if (!patient) {
         return { status: 404, body: { error: "Patient not found in this organisation" } };

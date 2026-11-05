@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { runPatientDuplicateDetection } from "@/lib/patient-duplicates/run";
 
 /**
@@ -8,7 +9,7 @@ import { runPatientDuplicateDetection } from "@/lib/patient-duplicates/run";
  */
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(authHeader)) {
     return new Response("Not authorised", { status: 401 });
   }
 
