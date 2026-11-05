@@ -10,14 +10,21 @@ import { Badge } from "@/components/ui/badge";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { APP_ICON } from "@/lib/icons";
 
-export function MfaSettingsCard({ verifiedFactorId }: { verifiedFactorId: string | null }) {
+export function MfaSettingsCard({
+  verifiedFactorId,
+  required = false,
+}: {
+  verifiedFactorId: string | null;
+  /** An admin requires 2FA for this account's group (/admin/settings/two-factor): no turn-off control is offered. */
+  required?: boolean;
+}) {
   if (verifiedFactorId) {
-    return <MfaEnabledView factorId={verifiedFactorId} />;
+    return <MfaEnabledView factorId={verifiedFactorId} required={required} />;
   }
-  return <MfaSetupView />;
+  return <MfaSetupView required={required} />;
 }
 
-function MfaEnabledView({ factorId }: { factorId: string }) {
+function MfaEnabledView({ factorId, required }: { factorId: string; required: boolean }) {
   const [state, formAction, pending] = useActionState(turnOffMfa, undefined);
   const errorId = fieldErrorId("mfa-turn-off");
 
@@ -34,19 +41,26 @@ function MfaEnabledView({ factorId }: { factorId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-3">
-          <input type="hidden" name="factorId" value={factorId} />
-          <FormError id={errorId} message={state?.error} />
-          <Button type="submit" variant="outline" disabled={pending}>
-            {pending ? "Turning off…" : "Turn off two-factor authentication"}
-          </Button>
-        </form>
+        {required ? (
+          <p className="text-sm text-charcoal-ink/70">
+            Two-factor sign-in is required for your account, so it stays on. If you have a new phone, ask an admin to reset
+            it.
+          </p>
+        ) : (
+          <form action={formAction} className="space-y-3">
+            <input type="hidden" name="factorId" value={factorId} />
+            <FormError id={errorId} message={state?.error} />
+            <Button type="submit" variant="outline" disabled={pending}>
+              {pending ? "Turning off…" : "Turn off two-factor authentication"}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function MfaSetupView() {
+function MfaSetupView({ required }: { required: boolean }) {
   const [enrollState, setEnrollState] = useState<MfaEnrollState>(undefined);
   const [starting, setStarting] = useState(false);
   const [verifyState, verifyAction, verifyPending] = useActionState(verifyMfaEnrollment, undefined);
@@ -137,8 +151,9 @@ function MfaSetupView() {
           Two-factor authentication
         </CardTitle>
         <CardDescription>
-          Optional extra protection for your account using an authenticator app on your phone.
-          Turn it on whenever you&apos;re ready. Your password still works on its own until you do.
+          {required
+            ? "Your account needs a code from an authenticator app on your phone, as well as your password. Set it up now to continue."
+            : "Optional extra protection for your account using an authenticator app on your phone. Turn it on whenever you're ready. Your password still works on its own until you do."}
         </CardDescription>
       </CardHeader>
       <CardContent>

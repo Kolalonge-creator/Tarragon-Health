@@ -21,8 +21,16 @@ jest.mock("@/lib/supabase/middleware", () => ({
   updateSession: (...args: unknown[]) => updateSession(...args),
 }));
 
+// The phone app's bearer client, for the 2FA requirement on /api/mobile/*.
+const bearerRpc = jest.fn();
+jest.mock("@/lib/supabase/bearer", () => ({
+  createBearerClient: () => ({ rpc: (...args: unknown[]) => bearerRpc(...args) }),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { proxy, config } = require("./proxy") as typeof import("./proxy");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { resetMfaRequirementCache } = require("@tarragon/auth/mfa-policy") as typeof import("@tarragon/auth/mfa-policy");
 
 type ProfileRow = {
   role: string;
@@ -35,9 +43,13 @@ type SessionOptions = {
   profile?: ProfileRow;
   /** What auth.mfa.getAuthenticatorAssuranceLevel() reports. */
   aal?: { currentLevel: string | null; nextLevel: string | null } | null;
+  /** The 2FA group requirement RPCs. Default: no group is on (the shipped state). */
+  mfa?: { anyOn: boolean; required: boolean; error?: { code: string } };
 };
 
-function stubSession({ user, profile = null, aal = null }: SessionOptions) {
+const rpcCalls: string[] = [];
+
+function stubSession({ user, profile = null, aal = null, mfa = { anyOn: false, required: false } }: SessionOptions) {
   const { NextResponse } = jest.requireActual<typeof import("next/server")>(
     "next/server"
   );
@@ -57,6 +69,16 @@ function stubSession({ user, profile = null, aal = null }: SessionOptions) {
           }),
         }),
       }),
+      rpc: async (fn: string) => {
+        rpcCalls.push(fn);
+        if (fn === "mfa_required_roles") return { data: mfa.anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null };
+        if (fn === "my_mfa_requirement") {
+          return mfa.error
+            ? { data: null, error: mfa.error }
+            : { data: [{ required: mfa.required, has_verified_factor: false }], error: null };
+        }
+        throw new Error(`unexpected rpc ${fn}`);
+      },
     },
   }));
 }
@@ -75,6 +97,10 @@ const PREFETCH_HEADERS = {
 
 beforeEach(() => {
   updateSession.mockReset();
+  rpcCalls.length = 0;
+  resetMfaRequirementCache();
+  bearerRpc.mockReset();
+  bearerRpc.mockResolvedValue({ data: [], error: null });
 });
 
 describe("matcher config", () => {
@@ -367,5 +393,179 @@ describe("mobile API rate limit (OQ-267)", () => {
     expect(other.status).not.toBe(429);
     const web = await proxy(request("/login", { authorization: "Bearer proxy-test-session-a", "x-forwarded-for": "10.20.30.1" }));
     expect(web.status).not.toBe(429);
+  });
+});
+
+describe("2FA required per group", () => {
+  const clinician = { role: "clinician", custom_role_id: null, receives_care: null };
+  const patient = { role: "patient", custom_role_id: null, receives_care: true };
+  const noFactor = { currentLevel: "aal1", nextLevel: "aal1" };
+
+  it("changes nothing while no group is on (the shipped state), and never asks for the caller's own answer", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
+    const res = await proxy(request("/clinician/patients"));
+    expect(res.headers.get("location")).toBeNull();
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
+  });
+
+  it("caches 'no group is on' so a second request costs no database call", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
+    await proxy(request("/clinician/patients"));
+    await proxy(request("/clinician/escalations"));
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
+  });
+
+  it("sends a required account without a factor to Profile & settings, keeping where it was going", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/clinician/patients?tab=open"));
+    const loc = new URL(res.headers.get("location") ?? "");
+    expect(loc.pathname).toBe("/account");
+    expect(loc.searchParams.get("mfa")).toBe("required");
+    expect(loc.searchParams.get("redirect")).toBe("/clinician/patients?tab=open");
+  });
+
+  it("applies to patients when the patient group is on", async () => {
+    stubSession({ user: { id: "u1" }, profile: patient, aal: noFactor, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/patient/vitals"));
+    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/account");
+  });
+
+  it("refuses an API call with 403 instead of redirecting it", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/api/admin/search"));
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("mfa_enrolment_required");
+  });
+
+  it("lets the account reach the set-up page itself, so it is never trapped in a loop", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/account?mfa=required"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("leaves the public pages open, so a held account can still sign out and sign in again", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/login"));
+    expect(new URL(res.headers.get("location") ?? "").pathname).not.toBe("/account");
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it("asks nothing per request for a role with no group on, while another group is on", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    // Only the patient group is on: the clinician is never asked about, so a wrong "required" answer cannot hold them.
+    updateSession.mockImplementationOnce((req: NextRequest) => {
+      const base = updateSession.getMockImplementation()!(req) as { supabase: { rpc: (fn: string) => Promise<unknown> } };
+      return {
+        ...base,
+        supabase: {
+          ...base.supabase,
+          rpc: async (fn: string) => {
+            rpcCalls.push(fn);
+            if (fn === "mfa_required_roles") return { data: ["patient"], error: null };
+            return { data: [{ required: true, has_verified_factor: false }], error: null };
+          },
+        },
+      };
+    });
+    const res = await proxy(request("/clinician/patients"));
+    expect(res.headers.get("location")).toBeNull();
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
+  });
+
+  it("does not hold an account in another group", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: false } });
+    const res = await proxy(request("/clinician/patients"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("sends a required account WITH a factor to the challenge, not to set-up", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: { currentLevel: "aal1", nextLevel: "aal2" }, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/clinician/patients"));
+    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/login/mfa-challenge");
+  });
+
+  it("lets a required account through once its session is AAL2, without asking the database", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: { currentLevel: "aal2", nextLevel: "aal2" }, mfa: { anyOn: true, required: true } });
+    const res = await proxy(request("/clinician/patients"));
+    expect(res.headers.get("location")).toBeNull();
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it("fails closed when the account's own requirement cannot be read", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: false, error: { code: "57014" } } });
+    const res = await proxy(request("/clinician/patients"));
+    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/account");
+  });
+});
+
+describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () => {
+  const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const tokenWith = (aal: string) => `${b64url({ alg: "HS256" })}.${b64url({ sub: "u1", aal })}.sig`;
+  const mobile = (path: string, aal: string, method = "GET") =>
+    new NextRequest(new URL(path, "https://app.tarragonhealth.ng"), {
+      method,
+      headers: { host: "app.tarragonhealth.ng", authorization: `Bearer ${tokenWith(aal)}` },
+    });
+  const answers = (anyOn: boolean, mine: { data: unknown; error: unknown }) =>
+    bearerRpc.mockImplementation(async (fn: string) =>
+      fn === "mfa_required_roles" ? { data: anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null } : mine,
+    );
+
+  beforeEach(() => {
+    bearerRpc.mockReset();
+    // No cookie session on a phone request.
+    stubSession({ user: null });
+  });
+
+  it("changes nothing while no group is on", async () => {
+    answers(false, { data: [], error: null });
+    const res = await proxy(mobile("/api/mobile/lifestyle", "aal1"));
+    expect(res.status).not.toBe(403);
+    expect(bearerRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an AAL1 token from an account in a required group, factor or not", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: true }], error: null });
+    const res = await proxy(mobile("/api/mobile/lifestyle", "aal1"));
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("mfa_required");
+  });
+
+  it("lets an account in another group through", async () => {
+    answers(true, { data: [{ required: false, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1"))).status).not.toBe(403);
+  });
+
+  it("lets an AAL2 token through without asking", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: true }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal2"))).status).not.toBe(403);
+    expect(bearerRpc).not.toHaveBeenCalled();
+  });
+
+  it("never refuses SENDING to a safety route (a reading, a symptom, an emergency)", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1", "POST"))).status).not.toBe(403);
+    expect((await proxy(mobile("/api/mobile/emergency-card", "aal1"))).status).not.toBe(403);
+  });
+
+  it("never refuses the safety flows' own reads either (the symptom checker's open state, check-backs due)", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/symptom-check", "aal1", "GET"))).status).not.toBe(403);
+    expect((await proxy(mobile("/api/mobile/symptom-checkback", "aal1", "GET"))).status).not.toBe(403);
+  });
+
+  it("finds an AAL1 token in ?token= too, the way the PDF routes do", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    const res = await proxy(
+      new NextRequest(new URL(`/api/mobile/prescriptions/pdf?token=${tokenWith("aal1")}`, "https://app.tarragonhealth.ng"), {
+        headers: { host: "app.tarragonhealth.ng" },
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("passes a failed lookup through, so an expired token still gets the route's 401", async () => {
+    answers(true, { data: null, error: { code: "PGRST303", message: "JWT expired" } });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1"))).status).not.toBe(403);
   });
 });
