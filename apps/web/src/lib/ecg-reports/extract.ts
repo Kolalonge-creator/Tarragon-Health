@@ -291,6 +291,8 @@ export async function extractEcgReport(input: {
   contextHint?: string | null;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<EcgReportExtractionResult> {
   if (!input.model && !isEcgReportExtractionConfigured()) {
     return { ok: false, reason: "unavailable" };
@@ -306,7 +308,7 @@ export async function extractEcgReport(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
+        model: input.modelId ?? MODEL_ID,
         maxTokens: 2000,
         // Same claude-*-5-generation workaround as lib/lab-reports/extract.ts:
         // @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) these, and this

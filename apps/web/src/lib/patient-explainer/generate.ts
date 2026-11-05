@@ -12,7 +12,7 @@ import {
   type MedicationSnapshot,
   type ResultSnapshot,
 } from "./snapshot";
-import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi, governedModelId } from "@/lib/ai-governance";
 import { isSensitiveResultCode } from "@/lib/lab-results/guidance";
 
 const explanationSchema = z.object({ explanation: z.string() });
@@ -177,11 +177,12 @@ async function generateResultExplanation(
     subjectProfileId: patientId,
 
     run: async ({ config }) => {
+      const modelId = governedModelId(config, MODEL_ID);
       const chatModel =
         model ??
         new ChatAnthropic({
           apiKey: process.env.ANTHROPIC_API_KEY,
-          model: MODEL_ID,
+          model: modelId,
           maxTokens: 300,
           // Same claude-*-5-generation workaround as case-briefs/generate.ts --
           // @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) temperature/top_p/
@@ -206,7 +207,7 @@ async function generateResultExplanation(
           subject_key: subjectKey,
           language,
           status: "generated",
-          model_id: MODEL_ID,
+          model_id: modelId,
           explanation_text: result.explanation,
           input_snapshot: snapshot as unknown as Json,
           error_message: null,
@@ -217,7 +218,7 @@ async function generateResultExplanation(
 
       return {
         value: { status: "generated", explanation: result.explanation },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         outputSummary: result.explanation,
         resultingAction: "explanation_shown_to_patient",
       };
@@ -278,11 +279,12 @@ async function generateMedicationExplanation(
     subjectProfileId: patientId,
 
     run: async ({ config }) => {
+      const modelId = governedModelId(config, MODEL_ID);
       const chatModel =
         model ??
         new ChatAnthropic({
           apiKey: process.env.ANTHROPIC_API_KEY,
-          model: MODEL_ID,
+          model: modelId,
           maxTokens: 400,
           invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
         });
@@ -302,7 +304,7 @@ async function generateMedicationExplanation(
           subject_key: subjectKey,
           language,
           status: "generated",
-          model_id: MODEL_ID,
+          model_id: modelId,
           explanation_text: result.explanation,
           input_snapshot: snapshot as unknown as Json,
           error_message: null,
@@ -313,7 +315,7 @@ async function generateMedicationExplanation(
 
       return {
         value: { status: "generated" as const, explanation: result.explanation },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         outputSummary: result.explanation,
         resultingAction: "explanation_shown_to_patient",
       };

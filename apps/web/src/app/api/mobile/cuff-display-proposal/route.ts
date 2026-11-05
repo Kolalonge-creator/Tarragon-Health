@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { readDeviceFlags } from "@/lib/devices/flags";
 import { rateLimit } from "@/lib/rate-limit";
-import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, runGovernedAi } from "@/lib/ai-governance";
 import { CUFF_VISION_MODEL_ID, isCuffVisionConfigured, readCuffDisplay } from "@/lib/vitals/cuff-display-vision";
 import { normaliseCuffProposal, proposalToRecognisedLines, type CuffProposal } from "@/lib/vitals/cuff-display-proposal";
 
@@ -81,13 +81,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     systemCode: AI_SYSTEMS.cuffDisplayReader.code,
     inputCategory: "cuff_display_photo",
     subjectProfileId: user.id,
-    run: async () => {
-      const read = await readCuffDisplay({ imageBase64, mediaType: file.type });
-      if (!read.ok) return { value: { ok: false as const }, modelIdentifier: CUFF_VISION_MODEL_ID, outputSummary: "model_error", resultingAction: "none", degradedReason: `vision_${read.reason}` };
+    run: async ({ config }) => {
+      const modelId = governedModelId(config, CUFF_VISION_MODEL_ID);
+      const read = await readCuffDisplay({ imageBase64, mediaType: file.type, modelId });
+      if (!read.ok) return { value: { ok: false as const }, modelIdentifier: modelId, outputSummary: "model_error", resultingAction: "none", degradedReason: `vision_${read.reason}` };
       const proposal = normaliseCuffProposal(read.output);
       return {
         value: { ok: true as const, proposal },
-        modelIdentifier: CUFF_VISION_MODEL_ID,
+        modelIdentifier: modelId,
         // Never the numbers: only whether a proposal was made, or why the photo was refused.
         outputSummary: proposal.ok ? "proposal_made" : `refused:${proposal.reason}`,
         resultingAction: proposal.ok ? "cuff_proposal_for_patient_confirmation" : "retake_requested",

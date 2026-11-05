@@ -10,7 +10,7 @@ import {
   type DiaryDraftRow,
   type RawDiaryPage,
 } from "@tarragon/shared";
-import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, runGovernedAi } from "@/lib/ai-governance";
 import type { AiGovernanceClient } from "@/lib/ai-governance/registry";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 
@@ -59,6 +59,8 @@ export async function extractDiaryPage(input: {
   mediaType: string;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<ExtractDiaryResult> {
   if (!input.model && !isDiaryReaderConfigured()) return { ok: false, reason: "unavailable" };
   const controller = new AbortController();
@@ -68,7 +70,7 @@ export async function extractDiaryPage(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: DIARY_READER_MODEL_ID,
+        model: input.modelId ?? DIARY_READER_MODEL_ID,
         maxTokens: 4000,
         // Same claude-*-5-generation workaround as the other vision call sites.
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
@@ -145,11 +147,12 @@ export async function readDiaryPage(
       systemCode: AI_SYSTEMS.paperDiaryReader.code,
       inputCategory: "diary_page_photo",
       subjectProfileId: input.patientId,
-      run: async () => {
-        const out = await extract({ fileBase64, mediaType });
+      run: async ({ config }) => {
+        const modelId = governedModelId(config, DIARY_READER_MODEL_ID);
+        const out = await extract({ fileBase64, mediaType, modelId });
         return {
           value: out,
-          modelIdentifier: DIARY_READER_MODEL_ID,
+          modelIdentifier: modelId,
           // Counts only: the transcribed values are never recorded anywhere, the audit trail included.
           outputSummary: out.ok ? `${out.page.rows.length} suggested row(s)` : `failed: ${out.reason}`,
           resultingAction: out.ok ? "suggestions_shown_to_patient" : "manual_entry_required",

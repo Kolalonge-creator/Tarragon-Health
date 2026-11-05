@@ -40,9 +40,10 @@ let killSwitch = false;
 let lastSummary: string | null | undefined;
 jest.mock("@/lib/ai-governance", () => ({
   AI_SYSTEMS: { cuffDisplayReader: { code: "AI-022" } },
-  runGovernedAi: async (p: { run: () => Promise<{ value: unknown; outputSummary?: string | null }>; fallback: (r: string) => unknown }) => {
+  governedModelId: jest.requireActual<typeof import("@/lib/ai-governance/model-id")>("@/lib/ai-governance/model-id").governedModelId,
+  runGovernedAi: async (p: { run: (ctx: { config: null }) => Promise<{ value: unknown; outputSummary?: string | null }>; fallback: (r: string) => unknown }) => {
     if (killSwitch) return { value: p.fallback("kill_switch"), status: "fallback", fallbackReason: "kill_switch" };
-    const out = await p.run();
+    const out = await p.run({ config: null });
     lastSummary = out.outputSummary;
     return { value: out.value, status: "completed", fallbackReason: null };
   },

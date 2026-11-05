@@ -74,6 +74,8 @@ export async function classifyDocument(input: {
   governedSystemPrompt?: string | null;
   /** Injectable for tests and the evaluation harness; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<DocumentClassificationResult> {
   if (!input.model && !isDocumentClassifierConfigured()) return { ok: false, reason: "unavailable" };
   if (!(CLASSIFIABLE_MIME_TYPES as readonly string[]).includes(input.mediaType)) return { ok: false, reason: "unsupported_type" };
@@ -85,7 +87,7 @@ export async function classifyDocument(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: CLASSIFIER_MODEL_ID,
+        model: input.modelId ?? CLASSIFIER_MODEL_ID,
         maxTokens: 300,
         // Same claude-*-5-generation workaround as lab-reports/extract.ts.
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },

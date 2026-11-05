@@ -8,7 +8,7 @@ import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 import { extractImagingReport, isImagingReportExtractionConfigured } from "./extract";
 import { deriveImagingAiSummaryStatus } from "./ai-summary";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
-import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, decideAiGovernance, recordAiInteraction, recordAiCredentialMissing } from "@/lib/ai-governance";
 
 // Same convention as EXTRACTION_MODEL_ID in lib/lab-reports/extraction-actions.ts
 // and lib/ecg-reports/extraction-actions.ts — named once rather than repeated
@@ -50,6 +50,9 @@ export async function runImagingReportExtraction(
   // T2-08: a file held for the malware scan is not read and nothing is persisted; the retry reads it once it is clean.
   if (await isPathHeld(service, filePath)) return { status: "failed", message: HELD_FOR_SCAN_MESSAGE };
 
+  // The model actually sent: the governed model once governance allows the call, so every stored row and audit
+  // record names the same model the request used.
+  let sentModelId: string = EXTRACTION_MODEL_ID;
   const fail = async (message: string, errorMessage: string) => {
     try {
       await service
@@ -75,6 +78,13 @@ export async function runImagingReportExtraction(
     return fail("This file type cannot be read automatically.", `Unsupported media type: ${mimeType}`);
   }
   if (!isImagingReportExtractionConfigured()) {
+    await recordAiCredentialMissing(service, {
+      systemCode: AI_SYSTEMS.imagingReportExtraction.code,
+      inputCategory: "imaging_report_document",
+      subjectProfileId: patientId,
+      resultingEntityType: "imaging_report_documents",
+      resultingEntityId: documentId,
+    });
     return fail("Automatic reading is not configured on this environment.", "ANTHROPIC_API_KEY is not set.");
   }
 
@@ -99,6 +109,7 @@ export async function runImagingReportExtraction(
     });
     return fail("Automatic reading is not turned on for imaging reports yet.", `AI governance: ${governance.reason}`);
   }
+  sentModelId = governedModelId(governance.config, EXTRACTION_MODEL_ID);
 
   let fileBase64: string;
   let visionMediaType: string = mimeType;
@@ -119,12 +130,12 @@ export async function runImagingReportExtraction(
   }
 
   const startedAt = Date.now();
-  const result = await extractImagingReport({ fileBase64, mediaType: visionMediaType });
+  const result = await extractImagingReport({ fileBase64, mediaType: visionMediaType, modelId: sentModelId });
 
   if (!result.ok) {
     await recordAiInteraction(service, {
       systemCode: AI_SYSTEMS.imagingReportExtraction.code,
-      modelIdentifier: EXTRACTION_MODEL_ID,
+      modelIdentifier: sentModelId,
       inputCategory: "imaging_report_document",
       status: "failed",
       subjectProfileId: patientId,
@@ -170,7 +181,7 @@ export async function runImagingReportExtraction(
   // provenance, same discipline as the lab/ECG pipelines' own audit rows.
   await recordAiInteraction(service, {
     systemCode: AI_SYSTEMS.imagingReportExtraction.code,
-    modelIdentifier: EXTRACTION_MODEL_ID,
+    modelIdentifier: sentModelId,
     inputCategory: "imaging_report_document",
     status: "completed",
     subjectProfileId: patientId,

@@ -1,14 +1,11 @@
 "use server";
 
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
-import { readMedicationPack, isPackVisionConfigured, type PackReading } from "./pack-vision";
+import { readMedicationPack, PACK_VISION_MODEL_ID, type PackReading } from "./pack-vision";
 import { checkPackAgainstPrescription, type PackCheckResult } from "./pack-check";
-import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, runGovernedAi } from "@/lib/ai-governance";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-/** Mirrors pack-vision.ts's own MODEL_ID, so a drift shows up in
- * ai_vendor_model_observations rather than passing unnoticed (40.19). */
-const PACK_VISION_MODEL_ID = "claude-sonnet-5";
 // HEIC/HEIF deliberately excluded: Anthropic's vision API only accepts
 // jpeg/png/gif/webp, so a HEIC photo (the default iPhone camera format) was
 // silently forwarded to readMedicationPack, always failed the model call,
@@ -40,10 +37,9 @@ export async function checkMedicationPack(formData: FormData): Promise<PackCheck
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
 
-  if (!isPackVisionConfigured()) {
-    return { error: "Pack checking is not set up on this environment yet." };
-  }
-
+  // No early "not configured" return: a missing ANTHROPIC_API_KEY must reach the governed run below, where
+  // readMedicationPack answers `unavailable` and the audit row records a degraded fallback. An early return wrote
+  // no audit row, so the ai_call_failures ops alert could not see a revoked or missing key.
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Take or choose a photo of the pack." };
@@ -74,20 +70,26 @@ export async function checkMedicationPack(formData: FormData): Promise<PackCheck
     systemCode: AI_SYSTEMS.medicationPackVision.code,
     inputCategory: "medication_pack_photo",
     subjectProfileId: user.id,
-    run: async () => {
-      const read = await readMedicationPack({ imageBase64, mediaType: file.type });
+    run: async ({ config }) => {
+      // The same id is sent and audited, so a drift shows up in ai_vendor_model_observations (40.19).
+      const modelId = governedModelId(config, PACK_VISION_MODEL_ID);
+      const read = await readMedicationPack({ imageBase64, mediaType: file.type, modelId });
       return {
         value: read.ok ? { ok: true as const, reading: read.reading } : { ok: false as const },
-        modelIdentifier: PACK_VISION_MODEL_ID,
+        modelIdentifier: modelId,
         // The pack check is stateless by design (see this function's
         // docstring), so the audit row records what was read at the level of
         // "a name and a strength", not the photo or the patient's medicines.
-        // An unreadable photo is a legitimate answer, not a model failure, so
-        // it is recorded as a completed interaction that read nothing.
+        // An unreadable photo is a legitimate answer (ok: true with an
+        // unreadable_reason), recorded as a completed interaction. ok: false
+        // means the model was not reached or failed (`unavailable` | `error`),
+        // so it is a degraded fallback carrying the reason, which is what the
+        // ai_call_failures ops alert counts.
         outputSummary: read.ok
           ? `read drug_name=${read.reading.drug_name ?? "none"}, strength=${read.reading.strength ?? "none"}`
-          : "unreadable",
-        resultingAction: read.ok ? "pack_read_for_patient_confirmation" : "unreadable_photo",
+          : "model_error",
+        resultingAction: read.ok ? "pack_read_for_patient_confirmation" : "none",
+        degradedReason: read.ok ? null : `vision_${read.reason}`,
       };
     },
     fallback: () => ({ ok: false as const }),

@@ -11,7 +11,7 @@ import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
-import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, decideAiGovernance, recordAiInteraction, recordAiCredentialMissing } from "@/lib/ai-governance";
 import { deriveEcgAiSummaryStatus, extractMachineRhythmStatement } from "./ai-summary";
 
 export type EcgExtractionActionResult = { error?: string; success?: boolean; message?: string };
@@ -81,6 +81,9 @@ export async function runEcgReportExtraction(
   // T2-08: a file held for the malware scan is not read and nothing is persisted; the retry reads it once it is clean.
   if (await isPathHeld(service, filePath)) return { status: "failed", readyCount: 0, message: HELD_FOR_SCAN_MESSAGE };
 
+  // The model actually sent: the governed model once governance allows the call, so every stored row and audit
+  // record names the same model the request used.
+  let sentModelId: string = EXTRACTION_MODEL_ID;
   const fail = async (message: string, errorMessage: string) => {
     try {
       await service.from("ecg_report_extractions").upsert(
@@ -88,7 +91,7 @@ export async function runEcgReportExtraction(
           organisation_id: organisationId,
           patient_id: patientId,
           document_id: documentId,
-          model_id: EXTRACTION_MODEL_ID,
+          model_id: sentModelId,
           status: "failed",
           parameters: [] as unknown as Json,
           error_message: errorMessage,
@@ -140,6 +143,13 @@ export async function runEcgReportExtraction(
     );
   }
   if (!isEcgReportExtractionConfigured()) {
+    await recordAiCredentialMissing(service, {
+      systemCode: AI_SYSTEMS.ecgReportExtraction.code,
+      inputCategory: "ecg_report_document",
+      subjectProfileId: patientId,
+      resultingEntityType: "ecg_report_documents",
+      resultingEntityId: documentId,
+    });
     return fail(
       "Automatic reading is not configured on this environment.",
       "ANTHROPIC_API_KEY is not set.",
@@ -181,6 +191,7 @@ export async function runEcgReportExtraction(
       `AI governance: ${governance.reason}`,
     );
   }
+  sentModelId = governedModelId(governance.config, EXTRACTION_MODEL_ID);
 
   let fileBase64: string;
   let visionMediaType: string = mimeType;
@@ -202,6 +213,7 @@ export async function runEcgReportExtraction(
   const startedAt = Date.now();
 
   const result = await extractEcgReport({
+    modelId: sentModelId,
     fileBase64,
     mediaType: visionMediaType,
     contextHint: params.contextHint ?? null,
@@ -210,7 +222,7 @@ export async function runEcgReportExtraction(
   if (!result.ok) {
     await recordAiInteraction(service, {
       systemCode: AI_SYSTEMS.ecgReportExtraction.code,
-      modelIdentifier: EXTRACTION_MODEL_ID,
+      modelIdentifier: sentModelId,
       inputCategory: "ecg_report_document",
       status: "failed",
       subjectProfileId: patientId,
@@ -239,7 +251,7 @@ export async function runEcgReportExtraction(
       organisation_id: organisationId,
       patient_id: patientId,
       document_id: documentId,
-      model_id: EXTRACTION_MODEL_ID,
+      model_id: sentModelId,
       status: "extracted",
       parameters: parameters as unknown as Json,
       report_date: extraction.reportDate,
@@ -284,7 +296,7 @@ export async function runEcgReportExtraction(
   // ecg_report_extractions under the patient's own RLS.
   await recordAiInteraction(service, {
     systemCode: AI_SYSTEMS.ecgReportExtraction.code,
-    modelIdentifier: EXTRACTION_MODEL_ID,
+    modelIdentifier: sentModelId,
     inputCategory: "ecg_report_document",
     status: "completed",
     subjectProfileId: patientId,
