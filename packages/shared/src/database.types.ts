@@ -48405,6 +48405,7 @@ export type Database = {
       video_consultations: {
         Row: {
           annual_review_id: string | null
+          clinician_id: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at: string
           ended_at: string | null
@@ -48430,6 +48431,7 @@ export type Database = {
         }
         Insert: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48455,6 +48457,7 @@ export type Database = {
         }
         Update: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context?: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48484,6 +48487,13 @@ export type Database = {
             columns: ["annual_review_id"]
             isOneToOne: false
             referencedRelation: "annual_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
