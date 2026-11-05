@@ -125,6 +125,8 @@ describe("matcher config", () => {
     // SR1: the deep health check is secret-authenticated and must answer even when Supabase Auth is down.
     expect(pattern.test("/api/health/deep")).toBe(false);
     expect(pattern.test("/api/healthcheck-lookalike")).toBe(true);
+    // Anonymous CSP violation reports skip the session and 2FA work.
+    expect(pattern.test("/api/csp-report")).toBe(false);
     expect(pattern.test("/_next/static/chunk.js")).toBe(false);
   });
 });
@@ -567,5 +569,44 @@ describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () =
   it("passes a failed lookup through, so an expired token still gets the route's 401", async () => {
     answers(true, { data: null, error: { code: "PGRST303", message: "JWT expired" } });
     expect((await proxy(mobile("/api/mobile/vitals", "aal1"))).status).not.toBe(403);
+  });
+});
+
+describe("report-only nonce script policy", () => {
+  it("puts the same fresh nonce policy on the forwarded request and the response for an app-host page", async () => {
+    stubSession({ user: null });
+    const res = await proxy(request("/login"));
+    const policy = res.headers.get("content-security-policy-report-only");
+    expect(policy).toMatch(/script-src 'nonce-[A-Za-z0-9+/=]{24}' 'strict-dynamic'/);
+    expect(policy).toContain("report-uri /api/csp-report");
+    // Next reads the nonce from the request header; updateSession forwards it (x-middleware-request-*).
+    expect(res.headers.get("x-middleware-request-content-security-policy-report-only")).toBe(policy);
+    // Never the enforcing header: this step only reports.
+    expect(res.headers.get("content-security-policy")).toBeNull();
+  });
+
+  it("uses a different nonce on every request", async () => {
+    stubSession({ user: null });
+    const a = (await proxy(request("/login"))).headers.get("content-security-policy-report-only");
+    const b = (await proxy(request("/login"))).headers.get("content-security-policy-report-only");
+    expect(a).not.toEqual(b);
+  });
+
+  it("adds wasm eval only on the in-app consultation call pages", async () => {
+    stubSession({ user: null });
+    const call = await proxy(request("/patient/consultation/0b7e2f7a-1111-4a4a-9999-123456789abc"));
+    expect(call.headers.get("content-security-policy-report-only")).toContain("'wasm-unsafe-eval'");
+    const other = await proxy(request("/login"));
+    expect(other.headers.get("content-security-policy-report-only")).not.toContain("wasm-unsafe-eval");
+  });
+
+  it("leaves the marketing host and API routes alone", async () => {
+    stubSession({ user: null });
+    const marketing = await proxy(
+      new NextRequest(new URL("/pricing", "https://tarragonhealth.ng"), { headers: { host: "tarragonhealth.ng" } }),
+    );
+    expect(marketing.headers.get("content-security-policy-report-only")).toBeNull();
+    const api = await proxy(request("/api/csp-report"));
+    expect(api.headers.get("content-security-policy-report-only")).toBeNull();
   });
 });
