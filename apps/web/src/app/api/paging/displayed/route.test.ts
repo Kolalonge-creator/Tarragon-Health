@@ -58,8 +58,10 @@ describe("POST /api/paging/displayed", () => {
     expect((await POST(req({ notificationId: ID }))).status).toBe(200);
   });
 
-  it("returns ok false with the message when the database errors, without throwing", async () => {
+  it("returns ok false with a plain message when the database errors, without throwing or echoing the raw text", async () => {
+    // Security audit 2026-11-05, L-2: the raw database message is logged, never returned.
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
     rpcResult = { data: null, error: { message: "boom" } };
-    expect(await (await POST(req({ notificationId: ID }))).json()).toEqual({ ok: false, error: "boom" });
+    expect(await (await POST(req({ notificationId: ID }))).json()).toEqual({ ok: false, error: "Something went wrong. Please try again." });
   });
 });

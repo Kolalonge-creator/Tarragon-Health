@@ -1876,6 +1876,10 @@ care_circle_p4_timeline_contacts.sql
 care_circle_p5_payer_view_and_metrics.sql
 # Diagnostic directory Phase 1 (2026-11-04): search_investigations resolves standard, abbreviation, lay and misspelt terms (mammogram, abdo USS, HbA1c, kidney function); ambiguous terms (breast scan, pelvic scan, heart scan, MRI) return choices instead of a guess; a loose word does not pick a parent; anon cannot search; screen_types cannot link an ambiguous concept. Sabotage x2: ambiguity flag removed, link trigger dropped.
 diag_p1_investigation_search.sql
+# Diagnostic directory Phase 2a (2026-11-04): a patient cannot call admin_dx_* or read directory tables; a listed lab branch's HbA1c service is eligible only with a verified, unexpired MLSCN credential; expiry, a serious incident, unavailability, a stale location check and an unknown outsourced performer each make it ineligible; ISO 15189 needs a scope; a lab branch cannot list mammography; the audit trail is append-only; a partner imaging order needs a contracted provider. Sabotage x2: requirement retired, imaging guard dropped.
+diag_p2_listings_eligibility.sql
+# Diagnostic directory Phase 2b (2026-11-04): admin_dx_overview / admin_dx_provider_detail are verifier-only; admin_dx_create_facility makes an UNCONTRACTED provider with draft listings; detail carries each service's eligibility reasons; a contracted provider cannot be given a new (orderable) branch here. Sabotage: contracted check removed.
+diag_p2b_admin_reads.sql
 care_circle_appointment_filter_fails_closed.sql
 # MSG-5 care operations summary: in its own organisation, a patient is refused and bad arguments are refused; support and clinical waits, needs a doctor, past target from the first unanswered message, older than the lookback, unowned and today's new messages match the fixture; a danger-phrase emergency alert is counted; workload has one row per active clinician and coordinator with what each owns and no patient detail; another organisation's staff see none of it. Sabotage: making the test patient real raises support_waiting.
 msg5_care_operations_summary.sql
@@ -1889,3 +1893,5 @@ t2_11_prescribing_take_anywhere.sql
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Test flag follows the profile: marking a real patient as a test account re-stamps their existing rows (an append-only table and a guarded one) without firing row triggers, another patient is untouched, one audit row records the counts, unmarking turns them back, an admin session works and the replication setting is restored afterwards, and no client can call the re-stamp. Sabotage: without the profiles trigger the rows stay real.
+test_flag_follows_profile.sql

@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { deviceFaultReportSchema } from "@/lib/validation/device-fault-report";
@@ -86,7 +87,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .single();
 
   if (insertError || !report) {
-    return NextResponse.json({ error: insertError?.message ?? "Failed to file report" }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/device-faults", "Failed to file report") }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, report_id: report.id, status: report.status });

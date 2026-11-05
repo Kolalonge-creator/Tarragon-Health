@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentUser } from "@/lib/supabase/server";
 import type { TablesInsert } from "@tarragon/shared";
+import { getClientIp } from "@/lib/rate-limit";
+import { checkAbuseLimit } from "@/lib/security/abuse-limits";
 
 /**
  * First-party page-view collector for the analytics console (Acquisition +
@@ -45,6 +47,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Honour Do-Not-Track — record nothing.
   if (request.headers.get("dnt") === "1") {
     return NextResponse.json({ ok: true, skipped: "dnt" });
+  }
+
+  // Anonymous writes through the service role: capped per source IP so a script cannot flood web_events (security audit
+  // 2026-11-05, M-8). The IP is used only as the limiter key, never stored.
+  const limited = await checkAbuseLimit("page_view", await getClientIp());
+  if (!limited.ok) {
+    return NextResponse.json({ ok: false }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
   let json: unknown;
