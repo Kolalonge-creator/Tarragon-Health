@@ -55072,6 +55072,7 @@ export type Database = {
           subscriber_key: string
         }[]
       }
+      partner_pharmacy_collection_available: { Args: never; Returns: boolean }
       partner_webhook_admin_overview: {
         Args: never
         Returns: {

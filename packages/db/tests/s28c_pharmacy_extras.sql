@@ -95,6 +95,15 @@ begin
   update public.go_live_guards
      set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end, change_note = case when p_on then 'S28c proof' end
    where key = 'prescribing_enabled';
+  -- T2-11: partner collection also needs its own readiness (a choosable partner, which the fixtures create, the collection rules
+  -- confirmed and the pharmacy notification sender attested). Recorded here, inside the rolled-back transaction.
+  if p_on then
+    insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)
+    select 'pharmacy.collection_rules', c.version, repeat('0', 64), 'Founder', 'confirmed', 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1)
+      from public.pharmacy_config c where c.is_active;
+    insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+    values ('prescribing_enabled', 'notification_sender_deployed', true, 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1));
+  end if;
 end $f$;
 -- a clinician with a staff row (so the tie and the tier checks have something to read)
 create function pg_temp.mkdoc(p_org uuid, p_label text, p_admin uuid) returns uuid language plpgsql as $f$
@@ -165,11 +174,12 @@ begin
   perform pg_temp.ck('real', '1d while off, the pharmacy list refuses', 'ERR:55000', pg_temp.q_as(pg_temp.f('phA'), 'select count(*)::text from public.pharmacist_prescriptions()'));
   perform pg_temp.ck('real', '1e while off, asking a question refuses', 'ERR:55000', pg_temp.q_as(pg_temp.f('phA'), format($q$select public.pharmacist_ask_prescriber(%L, 'call_me')::text$q$, v_rx)));
   v_cond := private.go_live_conditions('prescribing_enabled', pg_temp.f('org'));
-  perform pg_temp.ck('real', '1f the guard lists the pharmacy conditions', 'clinical_lead_signoff,clinical_safety_case_current,notification_sender_deployed,pharmacy_licence_current,pharmacy_partner_active,pharmacy_rules_confirmed',
+  -- T2-11: the master no longer names a partner pharmacy; partner collection keeps those conditions as its own readiness check.
+  perform pg_temp.ck('real', '1f the master lists the take-anywhere conditions (T2-11), no pharmacy condition', 'clinical_lead_signoff,clinical_safety_case_current,prescriber_registration_verified',
     (select string_agg(c ->> 'code', ',' order by c ->> 'code') from jsonb_array_elements(v_cond) c));
-  perform pg_temp.ck('real', '1g a verified licence with a verified location is met; unconfirmed rules and an unattested sender are not', 'true|false|false',
-    (select max(c ->> 'met') filter (where c ->> 'code' = 'pharmacy_licence_current') || '|' || max(c ->> 'met') filter (where c ->> 'code' = 'pharmacy_rules_confirmed') || '|' ||
-            max(c ->> 'met') filter (where c ->> 'code' = 'notification_sender_deployed') from jsonb_array_elements(v_cond) c));
+  perform pg_temp.ck('real', '1g a choosable partner exists, but unconfirmed rules and an unattested sender keep partner collection not ready', 'true|false',
+    ((select exists (select 1 from public.pharmacy_partners pp join public.pharmacy_partner_locations l on l.pharmacy_partner_id = pp.id where private.pharmacy_location_choosable(pp.id, l.id)))::text
+     || '|' || private.pharmacy_partner_collection_ready()::text));
   perform pg_temp.guard(true);
   perform pg_temp.ck('real', '1h with the guard on, the patient list works', 'true', (pg_temp.q_as(v_pat, format($q$select count(*)::text from public.patient_collection_pharmacies(%L)$q$, v_rx))::integer >= 2)::text);
 end $$;
