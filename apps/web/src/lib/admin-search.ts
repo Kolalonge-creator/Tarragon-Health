@@ -20,6 +20,8 @@ export interface AdminSearchEntry {
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/worklists", "queue worklist inbox pending waiting results lab abnormal screening flags reviews vaccination therapy approvals shared pool"],
   ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
+  ["/admin/security", "security dashboard failed sign in login attempts password guessing alerts mfa two-step dormant export privileged role change"],
+  ["/admin/staff-access-review", "staff access review quarterly accounts who has access remove deactivate leaver role tier mfa dormant"],
   ["/clinician/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate no date missing date record dates cover"],
   ["/clinician/credentialing/content", "training test scenarios questions modules approve content exam"],
@@ -196,6 +198,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/settings/reward-rules", "health points rewards rules earn earning points caps limits daily decay badges levels tiers redemption checkout discount engagement gamification wellness"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
+  ["/admin/settings/two-factor", "two factor 2fa mfa two-step two step authenticator totp aal2 aal code sign in security require required lock staff doctors clinicians cmo admin patients group mfa_group_requirements"],
   ["/admin/directory-queues", "directory queues rating ratings moderate moderation reject publish held comment reported wrong listing verification reverify re-verify phone confirmed licence checked facility report"],
 ];
 
@@ -210,6 +213,8 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Health education feedback", href: "/admin/settings/health-education/feedback", group: "Health education library", hint: "Patient reports that a learning item is wrong or unclear." },
   { label: "Health education analytics", href: "/admin/settings/health-education/analytics", group: "Health education library", hint: "Views, completion and quiz results per learning item." },
   { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Security", href: "/admin/security", group: "Security and privacy", hint: "Failed sign-ins, open security alerts, staff two-step sign-in, dormant accounts, privileged changes and exports." },
+  { label: "Staff access review", href: "/admin/staff-access-review", group: "Security and privacy", hint: "Every quarter, confirm each staff account still needs its access; keep, change or remove." },
   { label: "Providers", href: "/admin/ops/providers", group: "Operations", hint: "Whether Paystack, Zoom and Resend are answering, settlement breaks against the ledger, and the webhook inbox with replay." },
   { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
   { label: "Partner webhooks", href: "/admin/ops/partner-webhooks", group: "Operations", hint: "Partner webhook endpoints, rotate a signing key, switch an auto-disabled endpoint back on, and which events go to partners." },

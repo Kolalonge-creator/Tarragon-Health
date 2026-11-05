@@ -16,14 +16,18 @@ jest.mock("@tarragon/auth/supabase/middleware", () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { proxy, config } = require("./proxy") as typeof import("./proxy");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { resetMfaRequirementCache } = require("@tarragon/auth/mfa-policy") as typeof import("@tarragon/auth/mfa-policy");
 
 type SessionOptions = {
   user: { id: string } | null;
   profile?: { role: string } | null;
   aal?: { currentLevel: string | null; nextLevel: string | null } | null;
+  /** The 2FA group requirement. Default: no group is on (the shipped state). */
+  mfa?: { anyOn: boolean; required: boolean };
 };
 
-function stubSession({ user, profile = null, aal = null }: SessionOptions) {
+function stubSession({ user, profile = null, aal = null, mfa = { anyOn: false, required: false } }: SessionOptions) {
   const { NextResponse } = jest.requireActual<typeof import("next/server")>("next/server");
   updateSession.mockImplementation((request: NextRequest) => ({
     response: NextResponse.next({ request }),
@@ -31,6 +35,11 @@ function stubSession({ user, profile = null, aal = null }: SessionOptions) {
     supabase: {
       auth: { mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: aal }) } },
       from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: profile }) }) }) }),
+      rpc: async (fn: string) => {
+        if (fn === "mfa_required_roles") return { data: mfa.anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null };
+        if (fn === "my_mfa_requirement") return { data: [{ required: mfa.required, has_verified_factor: false }], error: null };
+        throw new Error(`unexpected rpc ${fn}`);
+      },
     },
   }));
 }
@@ -47,7 +56,10 @@ const location = (res: Response) => {
   return raw ? new URL(raw) : null;
 };
 
-beforeEach(() => updateSession.mockReset());
+beforeEach(() => {
+  updateSession.mockReset();
+  resetMfaRequirementCache();
+});
 
 describe("matcher config", () => {
   it("never lets a request header decide whether the proxy runs", () => {
@@ -165,5 +177,47 @@ describe("a console role", () => {
     expect(location(await proxy(request("/clinician")))!.pathname).toBe("/ngo");
     expect(location(await proxy(request("/patient/vitals")))!.pathname).toBe("/ngo");
     expect(location(await proxy(request("/anything-else")))!.pathname).toBe("/ngo");
+  });
+});
+
+describe("2FA required per group", () => {
+  const noFactor = { currentLevel: "aal1", nextLevel: "aal1" };
+  const on = { anyOn: true, required: true };
+
+  it("changes nothing while no group is on (the shipped state)", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: noFactor });
+    expect(location(await proxy(request("/ngo")))).toBeNull();
+  });
+
+  it("holds a console account in a required group with no factor on the set-up page", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: noFactor, mfa: on });
+    expect(location(await proxy(request("/ngo")))!.pathname).toBe("/login/mfa-setup");
+    expect(location(await proxy(request("/")))!.pathname).toBe("/login/mfa-setup");
+    expect(location(await proxy(request("/ngo", PREFETCH_HEADERS)))!.pathname).toBe("/login/mfa-setup");
+  });
+
+  it("lets that account open the set-up page itself", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: noFactor, mfa: on });
+    expect(location(await proxy(request("/login/mfa-setup")))).toBeNull();
+  });
+
+  it("refuses an API call with 403", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: noFactor, mfa: on });
+    expect((await proxy(request("/api/anything"))).status).toBe(403);
+  });
+
+  it("fails closed when the assurance level cannot be read", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: null, mfa: on });
+    expect(location(await proxy(request("/ngo")))!.pathname).toBe("/login/mfa-setup");
+  });
+
+  it("serves the challenge page to an enrolled account mid sign-in (no redirect loop)", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal1", nextLevel: "aal2" }, mfa: on });
+    expect(location(await proxy(request("/login/mfa-challenge")))).toBeNull();
+  });
+
+  it("sends an account that is not held away from the set-up page to its home", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal2", nextLevel: "aal2" }, mfa: on });
+    expect(location(await proxy(request("/login/mfa-setup")))!.pathname).toBe("/ngo");
   });
 });

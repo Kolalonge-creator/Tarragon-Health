@@ -1,6 +1,6 @@
 # Schedule C: Terms of Service
 
-*Draft v2 for the owner to sign. Version label 2026-10-30-v2-draft. It merges the 2026-10-13 redraft (merged to main-dev as #1068) with the three-tier decision of 2026-10-21 (Free, Membership, Membership Plus) and the product as it stood on 2026-10-30. Not approved by counsel and not signed. Everything above the first heading is not patient text and is removed before publishing. The decisions this text rests on, and the values the owner confirms, are in `membership-terms-signoff.md`; the legal research is in `membership-terms-nigeria-review.md`. The page that shows this text prints its own version and date, so the text carries none. This file is the canonical source for the `terms_of_service` consent content; edit here first, then re-sync.*
+*Version 2026-11-05-v3, approved by the founder on 2026-11-05 (removes the retired Membership Plus plan, decisions T2-01, T2-09, T2-13; side-by-side in `consent-v3-remove-membership-plus-review.md`). It replaces 2026-10-30-v2. History of v2: It merges the 2026-10-13 redraft (merged to main-dev as #1068) with the three-tier decision of 2026-10-21 (Free, Membership, Membership Plus) and the product as it stood on 2026-10-30. Not approved by counsel and not signed. Everything above the first heading is not patient text and is removed before publishing. The decisions this text rests on, and the values the owner confirms, are in `membership-terms-signoff.md`; the legal research is in `membership-terms-nigeria-review.md`. The page that shows this text prints its own version and date, so the text carries none. This file is the canonical source for the `terms_of_service` consent content; edit here first, then re-sync.*
 
 ## About this document
 These are the terms on which TarragonHealth provides its services. They are Schedule C of our legal documents. The others are our Data Processing Consent and our Telehealth Consent.
@@ -27,8 +27,8 @@ You can join and pay for a plan yourself. An employer, HMO or other organisation
 
 When an organisation pays, you have no payment relationship with TarragonHealth, and only the organisation that paid can claim the 21-day refund. Any refund goes back to that organisation. If the organisation claims a refund, we tell you, and your Member access ends at once, as it does for any approved refund. You keep your right to a make-good if we fail to deliver the service itself (see "Refunds, and if we do not deliver" below), and your records stay with you.
 
-## The plans: Free, Membership and Membership Plus
-There are three plans.
+## The plans: Free and Membership
+There are two plans.
 
 **Free.** The app, including health tracking, reminders, the screening calendar, education and guidance. Free does not include time with a doctor. See "If you are on the Free plan" below for what that means when a reading or symptom looks dangerous.
 
@@ -38,15 +38,9 @@ There are three plans.
 - written questions to your care team between calls; and
 - prescriptions that your care team signs, for you to take to any pharmacy.
 
-The yearly blood test is not included in Membership.
-
-**Membership Plus.** Everything in Membership, plus a yearly blood test. Your results are uploaded to your account, and your care team talks them through with you.
-
-Membership and Membership Plus are the same care. You get the same care team, the same monthly video call and the same urgent-care guidance. The only difference is the yearly blood test. What you pay buys scope, never a lower standard of care.
+Laboratory tests are not included in Membership. You take the laboratory request form to any laboratory you choose and pay the laboratory directly.
 
 **How the monthly call works.** Each month your doctor offers you times and you choose one. The call is by video. If video does not work for you, it can be by audio only or by phone. "Every month" is the pace we plan for. It is not a promise that a call can never move by a few days. If we miss a month for a reason on our side, "Refunds, and if we do not deliver" below applies.
-
-**The yearly blood test.** The yearly blood panel is a fixed set of tests. The list is shown on our pricing page. Membership Plus blood tests are collected in the state you choose when you buy, and that state stays fixed. If you later move somewhere we do not collect, you will need to come back to that state for your yearly tests. On any plan, including Free, you can ask for the yearly test request, take it to a laboratory and pay the laboratory directly. We do not collect blood on that route.
 
 **Not included.**
 
@@ -65,7 +59,7 @@ The price of each plan is shown on the screen where you pay, before you pay, tog
 
 Your plan starts when we receive confirmation of payment from Paystack and runs for 12 months from that day.
 
-**Moving up to Membership Plus.** You can move from Membership to Membership Plus at any time in the year. You pay only the difference, once, and your year does not change. Moving the other way can only happen when your year ends.
+**If you bought a plan we no longer sell.** A plan year you have already bought continues until its end date, even if we no longer sell that plan. When it ends, you can buy Membership, and we will tell you before your year ends.
 
 ## No automatic renewal
 Your plan does not renew by itself. Nothing is charged to your card again unless you choose to buy again. We aim to remind you 30, 14 and 7 days before your year ends, so that you can buy another year if you want to. If you do nothing, your plan ends on its end date. If we ever offer automatic renewal, it will be something you choose when you pay, and we will change these terms first.
@@ -91,26 +85,26 @@ When you pay for a health check or screening ahead of time, you receive a Care V
 **Rewards are vouchers too.** Credit earned through referrals, prevention activities, or wellness points is issued as a discount voucher on these same terms. It has no cash value, was not bought with your money, and cannot be exchanged for money.
 
 ## Refunds, and if we do not deliver
-**The 21-day refund.** You can ask for a refund of your Membership or Membership Plus within 21 days of buying it. The 21 days start at the time we receive confirmation of your payment and end at the same time of day, 21 days later. A request made before then is in time. If you ask in time, we refund the full price you paid. If you moved up from Membership to Membership Plus, the 21 days for that extra payment start on the day you paid it.
+**The 21-day refund.** You can ask for a refund of your Membership within 21 days of buying it. The 21 days start at the time we receive confirmation of your payment and end at the same time of day, 21 days later. A request made before then is in time. If you ask in time, we refund the full price you paid.
 
 **After 21 days.** After 21 days, a plan is not refundable, except as set out under "If we do not deliver" below and except where the law requires a refund.
 
-**What happens to your access.** When we approve a refund, your Member access ends straight away. You move to the Free plan, with no 14-day grace period. Your health record is kept and stays yours. The one exception is a refund of only the extra payment for moving up to Membership Plus. In that case you go back to Membership for the rest of your year, and you keep your Member access.
+**What happens to your access.** When we approve a refund, your Member access ends straight away. You move to the Free plan, with no 14-day grace period. Your health record is kept and stays yours.
 
 **How to ask.** Use the Request a refund option on your Membership page in the app, or write to legal@tarragonhealth.ng from the email address on your account. Tell us your name and the date you bought. Please add a few words on why you are asking. If an organisation paid for your Membership, only the organisation can ask, and we will not accept a refund request from the Member.
 
 **How long it takes.** We reply within 5 working days. If we approve, we send the money back, through Paystack, to the card or bank account that paid, within 5 working days. Your bank then usually shows it within 3 to 10 working days after that. We do not charge you for a refund.
 
-**If we do not deliver.** The 21-day limit does not take away any right you have if we fail to provide what you paid for. Suppose that, during your year, we cannot provide your yearly blood test (Membership Plus), or we repeatedly cannot provide your monthly calls, for a reason on our side. For example, no collection is available in the state you chose, or no doctor can offer you times. We will tell you, and offer you a choice:
+**If we do not deliver.** The 21-day limit does not take away any right you have if we fail to provide what you paid for. Suppose that, during your year, we repeatedly cannot provide your monthly calls, for a reason on our side. For example, no doctor can offer you times. We will tell you, and offer you a choice:
 
 1. a make-good, meaning we deliver the missing item by a new date we agree with you, and extend your Member access by the time it was missing if you ask; or
 2. a refund of a fair share of the price for the part we did not deliver.
 
 You choose. If an organisation paid for your Membership, you are entitled to the make-good for the service itself, and any refund goes to the organisation that paid.
 
-This is how the share in option 2 is worked out. The yearly blood test is valued at the difference between the price of Membership Plus and the price of Membership. Each of the 12 monthly calls is valued at one twelfth of the price of Membership. We refund the value of the part we did not deliver, even if more than 21 days have passed.
+This is how the share in option 2 is worked out. Each of the 12 monthly calls is valued at one twelfth of the price of Membership. We refund the value of the part we did not deliver, even if more than 21 days have passed.
 
-If a missed item is your doing, it is not a reason on our side. For example, you booked a collection appointment and did not attend. We will still offer to rebook you once. Moving to a state where we do not collect is also not a reason on our side.
+If a missed item is your doing, it is not a reason on our side. We will still offer to rebook you once.
 
 **Cancelling early.** You can stop using your plan at any time. After the first 21 days, we do not refund the unused part of a plan that you choose to give up, apart from the cases above.
 
@@ -137,7 +131,7 @@ If you record a reading or a symptom that looks dangerous, the app shows you str
 
 An abnormal screening result, or a critical laboratory result, that reaches us is sent to a doctor on every plan.
 
-On Membership and Membership Plus, a dangerous reading is seen by our care team as part of your care. You can join at any time. Please do not rely on the Free plan, or on the app, to watch your readings for you. If you feel unwell, get care.
+On Membership, a dangerous reading is seen by our care team as part of your care. You can join at any time. Please do not rely on the Free plan, or on the app, to watch your readings for you. If you feel unwell, get care.
 
 ## Records
 We keep your health record while you use TarragonHealth and afterwards, including after a plan ends, after a refund and when you return to the Free plan, for the periods set out in our Data Processing Consent and as the law requires. You can read and download your record at any time.
