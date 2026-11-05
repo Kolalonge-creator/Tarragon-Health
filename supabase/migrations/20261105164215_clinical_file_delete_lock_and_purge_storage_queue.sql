@@ -262,6 +262,8 @@ end $function$;
 insert into public.automations (name, kind, schedule, source_ref) values
   ('vercel:storage-deletion-sweep', 'vercel_cron', '45 4 * * *', '/api/cron/storage-deletion-sweep')
 on conflict (name) do nothing;
+insert into public.automation_jobs (job_name, schedule, source)
+values ('/api/cron/storage-deletion-sweep', '45 4 * * *', 'vercel') on conflict (job_name) do nothing;
 
 -- Self-checks.
 do $$
