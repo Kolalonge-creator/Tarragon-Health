@@ -13,7 +13,9 @@ import {
   parseMyActions,
   parseOutcome,
   parseReplies,
+  parseSavedList,
   parseSearchResult,
+  parseSetSaved,
   parseSubmitResult,
   refusalKey,
   isSearchQuery,
@@ -29,6 +31,8 @@ import {
   type ReportReason,
   type Replies,
   type FeedPost,
+  type FeedSort,
+  type SavedPost,
 } from "./model";
 import { IMAGES_PATH, interpretUploadResponse, networkFailure, toFormData, type PostUpload, type UploadReply } from "./upload";
 
@@ -73,9 +77,16 @@ export async function loadGroupView(slug: string): Promise<GroupView | null> {
   return parseGroupView(data) ?? null;
 }
 
-/** One page of posts, newest first. `before` is the created_at of the last post already shown. */
-export async function loadFeed(groupId: string, before?: string): Promise<Extract<Feed, { ok: true }> | Failure> {
-  const { data, error } = await supabase.rpc("community_feed", { p_group_id: groupId, ...(before ? { p_before: before } : {}) });
+/**
+ * One page of posts. `before` is the created_at of the last post already shown. The order is sent only when it is not the default, so
+ * the Latest call is exactly the one the app always made; Most discussed is a single page (the database answers has_more false).
+ */
+export async function loadFeed(groupId: string, before?: string, sort: FeedSort = "latest"): Promise<Extract<Feed, { ok: true }> | Failure> {
+  const { data, error } = await supabase.rpc("community_feed", {
+    p_group_id: groupId,
+    ...(before ? { p_before: before } : {}),
+    ...(sort === "discussed" ? { p_sort: "discussed" } : {}),
+  });
   if (error) return failure(FEED_ERROR);
   const feed = parseFeed(data);
   return feed && feed.ok ? feed : failure(FEED_ERROR);
@@ -100,6 +111,14 @@ export async function searchPosts(q: string): Promise<SearchResult | null> {
   const { data, error } = await supabase.rpc("community_search_posts", { p_query: q.trim() });
   if (error) return null;
   return parseSearchResult(data) ?? null;
+}
+
+/** The member's saved posts, newest save first. `before` is the saved_at of the last one shown. Only what they can still read comes back. */
+export async function loadSaved(before?: string): Promise<{ ok: true; posts: SavedPost[]; has_more: boolean } | Failure> {
+  const { data, error } = await supabase.rpc("community_saved_list", before ? { p_before: before } : {});
+  if (error) return failure(FEED_ERROR);
+  const list = parseSavedList(data);
+  return list && list.ok ? list : failure(FEED_ERROR);
 }
 
 export async function loadMyActions(): Promise<MyActions | null> {
@@ -233,6 +252,16 @@ export async function reportPost(postId: string, reason: ReportReason, detail: s
   if (outcome.status === "reported") return { ok: true, key: "community.report.thanks" };
   if (outcome.status === "already_reported") return { ok: true, key: "community.report.already" };
   return failure(refusalKey(outcome.reason));
+}
+
+/** Saves or unsaves a top-level post for this member only. The author is never told. The 500 cap has its own message. */
+export async function setSaved(postId: string, saved: boolean): Promise<{ ok: true; saved: boolean } | Failure> {
+  const { data, error } = await supabase.rpc("community_set_saved", { p_post_id: postId, p_saved: saved });
+  if (error) return failure(FAILED_KEY);
+  const result = parseSetSaved(data);
+  if (!result) return failure(FAILED_KEY);
+  if (!result.ok) return failure(result.reason === "too_many" ? "community.saved.too_many" : FAILED_KEY);
+  return { ok: true, saved: result.saved };
 }
 
 const HIDE_FAILED: MessageKey = "community.post.hide_failed";

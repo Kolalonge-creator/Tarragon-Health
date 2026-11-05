@@ -408,7 +408,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
       {/* Only where a Membership year can actually be bought here: not to someone who already holds one (a gift for someone else still can). */}
       {foundingOffer && !memberUntil && items.some((i) => i.kind === "membership") ? <FoundingCodeHint hint={foundingOffer} locale={locale} /> : null}
       {memberUntil ? (
-        <p role="status">{ladder && tierNow === "plus" ? t("shop.tier.you_have_plus", locale, { date: memberDate }) : ladder && tierNow === "evergreen" ? t("shop.tier.you_have_evergreen", locale, { date: memberDate }) : t("shop.member_until", locale, { date: memberDate })}</p>
+        <p role="status">{tierNow === "plus" ? t("shop.tier.you_have_plus", locale, { date: memberDate }) : ladder && tierNow === "evergreen" ? t("shop.tier.you_have_evergreen", locale, { date: memberDate }) : t("shop.member_until", locale, { date: memberDate })}</p>
       ) : null}
       {ladder && !memberUntil ? (
         <div className="space-y-1">

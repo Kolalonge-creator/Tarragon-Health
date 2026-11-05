@@ -53,6 +53,7 @@ export function RenewalCard({ locale }: { locale: Locale }) {
                 ? t("renewal.on", locale, { date, last4: r.card?.last4 ?? "", amount: `₦${formatNaira(r.amount_kobo)}` })
                 : t("renewal.on_no_amount", locale, { date, last4: r.card?.last4 ?? "" })}
             </p>
+            {r.tier === "plus" ? <p className={`text-sm ${MUTED}`}>{t("renewal.plus_as_membership", locale)}</p> : null}
             <p className={`text-sm ${MUTED}`}>{t("renewal.cancel_keeps", locale, { date })}</p>
             <Button type="button" variant="outline" className="min-h-11" onClick={stop} disabled={cancel.isPending}>
               {cancel.isPending ? t("renewal.cancelling", locale) : t("renewal.cancel", locale)}

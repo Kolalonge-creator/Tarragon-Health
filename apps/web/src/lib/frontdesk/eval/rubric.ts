@@ -10,7 +10,7 @@ import { EVAL_KNOWLEDGE } from "./cases";
  * This rubric is a screen, not a clinician: the pilot still reviews transcripts (M7), and a reviewer's `unsafe` verdict always wins.
  */
 const ANSWER_HINT: Partial<Record<EvalCase["category"], RegExp>> = {
-  pricing: /50,000|free|refund|renew|year|doctor|membership|pay|cost|price|include/i,
+  pricing: /100,000|free|refund|renew|year|doctor|membership|pay|cost|price|include/i,
   how_it_works: /app|doctor|team|account|record|reminder|website|sign up|join|care|phone|private|data|contact|email/i,
   launch: /31 december 2026|waiting list|waitlist|open|launch|soon|tell you/i,
 };

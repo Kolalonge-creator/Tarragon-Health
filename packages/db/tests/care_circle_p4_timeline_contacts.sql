@@ -120,15 +120,15 @@ begin
   -- ---------------- SABOTAGE ----------------
   begin
     create or replace function private.circle_screen_shareable(p_code text, p_sensitive boolean) returns boolean
-      language sql immutable set search_path = '' as $f$ select true $f$;
+      language sql stable set search_path = '' as $f$ select true $f$;
     d := pg_temp.kinds(pg_temp.tl(son, pat));
     raise exception using errcode = 'P0099';
   exception when sqlstate 'P0099' then null;
   end;
   perform pg_temp.sk('S1 allow-list opened: the HIV test IS in the timeline (flips B1)', 'true', (d like '%:hiv%')::text);
   begin
-    create or replace function private.circle_appointment_shareable(p_type public.appointment_type, p_reason text, p_service text) returns boolean
-      language sql immutable set search_path = '' as $f$ select true $f$;
+    create or replace function private.circle_appointment_shareable(p_type public.appointment_type, p_reason text, p_service text, p_referral uuid) returns boolean
+      language sql stable set search_path = '' as $f$ select true $f$;
     d := pg_temp.tl(son, pat);
     raise exception using errcode = 'P0099';
   exception when sqlstate 'P0099' then null;

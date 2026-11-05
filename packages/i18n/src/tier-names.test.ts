@@ -42,6 +42,8 @@ describe("membership tier display names", () => {
       "catalog.membership_annual_no_panel.incl.1",
       "catalog.membership_annual_no_panel.incl.2",
       "catalog.membership_annual_no_panel.incl.3",
+      "catalog.membership_annual_no_panel.incl.4",
+      "catalog.membership_annual_no_panel.incl.5",
     ] as const;
     const offenders = buying.filter((k) => /Membership Plus|blood panel|move up|upgrade|testing day/i.test(en[k]));
     expect(offenders).toEqual([]);

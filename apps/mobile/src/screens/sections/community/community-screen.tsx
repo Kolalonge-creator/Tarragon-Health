@@ -2,17 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { JoinWaitlist } from "../join-waitlist";
 import { BackHandler, View } from "react-native";
 import type { MessageKey } from "@tarragon/i18n";
-import { loadGroupList, loadMyActions, searchGroups, searchPosts } from "@/lib/community/api";
+import { loadGroupList, loadMyActions, loadSaved, searchGroups, searchPosts, setSaved } from "@/lib/community/api";
 import { communityGate } from "@/lib/community/entry";
-import { isPostSearchQuery, isSearchQuery, memberCountKey, type GroupList, type GroupSummary, type MyActions, type SearchResult } from "@/lib/community/model";
+import { isPostSearchQuery, isSearchQuery, memberCountKey, replyCountKey, type GroupList, type GroupSummary, type MyActions, type SavedPost, type SearchResult } from "@/lib/community/model";
 import type { SectionId } from "@/lib/sections";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, Field, InlineAlert, Screen, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { AppealsView } from "./appeals-view";
-import { Status, TextAction, useCopy } from "./common";
+import { Status, TextAction, formatDateTime, useCopy } from "./common";
 import { GroupDetail } from "./group-detail";
 
-type Route = { view: "list" } | { view: "group"; slug: string } | { view: "appeals" } | { view: "search" };
+type Route = { view: "list" } | { view: "group"; slug: string } | { view: "appeals" } | { view: "search" } | { view: "saved" };
 
 /**
  * Community: members-only topic groups (docs/COMMUNITY_SPEC.md). The menu entry only exists while Community is open for an adult with
@@ -36,22 +36,43 @@ export function CommunityScreen({ onNavigate }: { onNavigate: (section: SectionI
   return (
     <Screen>
       {route.view !== "list" ? <TextAction label={copy("common.back")} accessibilityLabel={`${copy("common.back")}: ${copy("community.page.title")}`} onPress={() => setRoute({ view: "list" })} /> : null}
-      {route.view === "list" ? <GroupListView onOpen={(slug) => setRoute({ view: "group", slug })} onOpenAppeals={() => setRoute({ view: "appeals" })} onOpenSearch={() => setRoute({ view: "search" })} /> : null}
+      {route.view === "list" ? (
+        <GroupListView
+          onOpen={(slug) => setRoute({ view: "group", slug })}
+          onOpenAppeals={() => setRoute({ view: "appeals" })}
+          onOpenSearch={() => setRoute({ view: "search" })}
+          onOpenSaved={() => setRoute({ view: "saved" })}
+        />
+      ) : null}
       {route.view === "group" ? (
         <GroupDetail
           slug={route.slug}
           onOpenAppeals={() => setRoute({ view: "appeals" })}
           onOpenEmergency={() => onNavigate("emergency")}
           onOpenMessages={() => onNavigate("messages")}
+          onOpenSaved={() => setRoute({ view: "saved" })}
+          onOpenDocuments={() => onNavigate("documents")}
+          onOpenLearn={() => onNavigate("learn")}
         />
       ) : null}
       {route.view === "appeals" ? <AppealsPage /> : null}
       {route.view === "search" ? <PostSearchPage onOpen={(slug) => setRoute({ view: "group", slug })} /> : null}
+      {route.view === "saved" ? <SavedPostsPage onOpen={(slug) => setRoute({ view: "group", slug })} /> : null}
     </Screen>
   );
 }
 
-function GroupListView({ onOpen, onOpenAppeals, onOpenSearch }: { onOpen: (slug: string) => void; onOpenAppeals: () => void; onOpenSearch: () => void }) {
+function GroupListView({
+  onOpen,
+  onOpenAppeals,
+  onOpenSearch,
+  onOpenSaved,
+}: {
+  onOpen: (slug: string) => void;
+  onOpenAppeals: () => void;
+  onOpenSearch: () => void;
+  onOpenSaved: () => void;
+}) {
   const copy = useCopy();
   const [list, setList] = useState<GroupList | null | undefined>(undefined);
   const [groups, setGroups] = useState<readonly GroupSummary[]>([]);
@@ -142,6 +163,7 @@ function GroupListView({ onOpen, onOpenAppeals, onOpenSearch }: { onOpen: (slug:
       )}
 
       <TextAction label={copy("community.search.link")} onPress={onOpenSearch} />
+      <TextAction label={copy("community.saved.link")} onPress={onOpenSaved} />
       <TextAction label={copy("community.appeals.link")} onPress={onOpenAppeals} />
     </View>
   );
@@ -268,6 +290,127 @@ function PostSearchPage({ onOpen }: { onOpen: (slug: string) => void }) {
           {copy("community.search.more")}
         </AppText>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * The member's saved posts, newest save first. Private: nobody else is told what a member saved. A post drops out while the member is no
+ * longer in its group, has hidden its author, or the post is no longer visible; it comes back if that changes.
+ */
+function SavedPostsPage({ onOpen }: { onOpen: (slug: string) => void }) {
+  const copy = useCopy();
+  const [posts, setPosts] = useState<SavedPost[] | null | undefined>(undefined);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [note, setNote] = useState<MessageKey | null>(null);
+  const [removing, setRemoving] = useState<ReadonlySet<string>>(new Set());
+
+  const load = useCallback(async () => {
+    const result = await loadSaved().catch(() => null);
+    if (result && result.ok) {
+      setPosts(result.posts);
+      setHasMore(result.has_more);
+    } else {
+      setPosts(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function more() {
+    const last = posts ? posts[posts.length - 1] : undefined;
+    if (!last || loadingMore) return;
+    setLoadingMore(true);
+    setNote(null);
+    const result = await loadSaved(last.saved_at).catch(() => null);
+    setLoadingMore(false);
+    if (result && result.ok) {
+      setPosts((p) => {
+        const known = new Set((p ?? []).map((x) => x.id));
+        return [...(p ?? []), ...result.posts.filter((x) => !known.has(x.id))];
+      });
+      setHasMore(result.has_more);
+    } else {
+      setNote("community.feed.error");
+    }
+  }
+
+  async function remove(id: string) {
+    if (removing.has(id)) return;
+    setNote(null);
+    setRemoving((r) => new Set(r).add(id));
+    const result = await setSaved(id, false).catch(() => null);
+    setRemoving((r) => {
+      const next = new Set(r);
+      next.delete(id);
+      return next;
+    });
+    if (result && result.ok) {
+      const remaining = (posts ?? []).filter((x) => x.id !== id);
+      setPosts(remaining);
+      setNote("community.saved.undone");
+      // Emptied the page while more are saved: read the first page again rather than say "nothing saved" over a dead Show more.
+      if (remaining.length === 0 && hasMore) void load();
+    } else {
+      setNote(result ? result.key : "community.compose.refused.other");
+    }
+  }
+
+  return (
+    <View style={{ gap: space.md }}>
+      <View style={{ gap: space.xs }}>
+        <AppText variant="headline" heading>
+          {copy("community.saved.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {copy("community.saved.help")}
+        </AppText>
+      </View>
+      {posts === undefined ? (
+        <SkeletonGroup label={copy("community.feed.loading")}>
+          <Skeleton height={90} />
+          <Skeleton height={90} />
+        </SkeletonGroup>
+      ) : posts === null ? (
+        <View style={{ gap: space.md }}>
+          <InlineAlert message={copy("community.feed.error")} tone="warn" />
+          <Button title={copy("common.try_again")} onPress={() => void load()} variant="secondary" fullWidth={false} />
+        </View>
+      ) : posts.length === 0 ? (
+        <AppText variant="body" tone="textMuted">
+          {copy("community.saved.empty")}
+        </AppText>
+      ) : (
+        posts.map((post) => (
+          <Card key={post.id}>
+            <View style={{ gap: space.sm }}>
+              <AppText variant="caption" tone="textMuted">
+                {`${post.group_name}. ${post.author_handle}${post.is_mine ? ` ${copy("community.search.mine")}` : ""}. ${formatDateTime(post.created_at)}`}
+              </AppText>
+              <AppText variant="body">{post.body}</AppText>
+              {post.pending_review ? (
+                <AppText variant="caption" tone="textMuted">
+                  {copy("community.saved.waiting")}
+                </AppText>
+              ) : null}
+              {post.reply_count > 0 ? (
+                <AppText variant="caption" tone="textMuted">
+                  {copy(replyCountKey(post.reply_count), { count: post.reply_count })}
+                </AppText>
+              ) : null}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm }}>
+                <Button title={copy("community.search.open")} onPress={() => onOpen(post.group_slug)} variant="secondary" fullWidth={false} accessibilityHint={post.group_name} />
+                <TextAction label={copy("community.saved.remove")} onPress={() => void remove(post.id)} tone="textMuted" disabled={removing.has(post.id)} />
+              </View>
+            </View>
+          </Card>
+        ))
+      )}
+      <Status text={loadingMore ? copy("community.feed.loading") : note ? copy(note) : null} />
+      {posts && hasMore ? <Button title={copy("community.feed.more")} onPress={() => void more()} variant="secondary" loading={loadingMore} /> : null}
     </View>
   );
 }
