@@ -48,6 +48,9 @@ describe("adherence report data", () => {
     const [none] = toAdherenceMedicines([{ ...meds[0]!, medication_schedule_starts: [] }], logs);
     const [plain] = toAdherenceMedicines([meds[0]!], logs);
     expect(none!.activeFromMs).toBe(plain!.activeFromMs);
+    // T2-15: flagged and not collected: signing + 3 days
+    const [waiting] = toAdherenceMedicines([{ ...meds[0]!, schedule_starts_on_collection: true, medication_schedule_starts: [] }], logs);
+    expect(waiting!.activeFromMs).toBe(Math.max(plain!.activeFromMs, Date.parse(meds[0]!.created_at as string) + 3 * 86_400_000));
   });
 
   function client(opts: { cfg?: unknown; medsErr?: boolean; pages?: unknown[][] }) {

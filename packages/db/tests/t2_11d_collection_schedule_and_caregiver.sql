@@ -2,16 +2,19 @@
 -- Proof: 20261105135508_t2_11d_collection_schedule_and_caregiver.sql
 --
 -- Proves: (S1) a new prescription's missed-dose tracking starts on the collection date the patient gives (no "missed" before it, missed
--- after it); (S2) never collected, it falls back to signing as before; (S3) a pharmacy that records first sets the start (source
+-- after it); (S2) never collected, it starts 3 days after signing (versioned fallback), not at signing; (S3) a pharmacy that records first sets the start (source
 -- 'pharmacy'); (S4) an existing medicine (flag false) and a patient-added medicine never move; (S5) an undo that leaves no collection
--- puts the start back to signing; (C1) a caregiver with a manage grant carrying manage_pharmacy confirms for the patient: the row is
+-- puts the start back to the 3-day fallback; (C1) a caregiver with a manage grant carrying manage_pharmacy confirms for the patient: the row is
 -- the patient's, recorded_by the caregiver, labelled with the Care Circle relationship ('Daughter'), audited with the caregiver as actor
 -- and the patient as subject, and the start is labelled 'caregiver'; an unrestricted manage grant is labelled 'caregiver'; (C2) a caregiver
 -- whose grant lacks manage_pharmacy, and a stranger, get not_found and write nothing; (C3) undo by another caregiver or a stranger is
 -- refused, by the recording caregiver is accepted and audited as a caregiver withdrawal; once the grant is revoked that caregiver can no
 -- longer undo, the patient still can; (C4) the care team reads the label.
+-- (R) dose reminders: none before collection, one after it, one once 3 days pass with no collection, none at 2 days, existing and
+-- patient-added medicines unchanged. Missed-dose counting for an uncollected prescription starts at the 3-day fallback, not at signing.
 -- SABOTAGE: (1) the shared start without the collection: a pre-collection slot is marked missed again; (2) the caregiver gate opened to
--- anyone: a stranger can confirm; (3) the recompute trigger off: a confirmation leaves no start. Each must flip.
+-- anyone: a stranger can confirm; (3) the recompute trigger off: a confirmation leaves no start; (4) the reminder job without the wait
+-- reminds an uncollected prescription. Each must flip.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -29,7 +32,10 @@ declare
   v_m1 uuid; v_m2 uuid; v_m3 uuid; v_m4 uuid; v_m5 uuid; v_m6 uuid; v_m7 uuid; v_mp uuid;
   v_t4 text;
   v_today date := (now() at time zone 'Africa/Lagos')::date;
-  v_old timestamptz := now() - interval '5 days';
+  -- signed at midnight Lagos four days ago: the 3-day fallback (prescription_supply_config v2) is then midnight yesterday
+  v_old timestamptz := ((((now() at time zone 'Africa/Lagos')::date) - 4)::timestamp at time zone 'Africa/Lagos');
+  v_slot text := to_char(now() at time zone 'Africa/Lagos', 'HH24:MI');
+  v_r1 uuid; v_r2 uuid; v_r3 uuid; v_r4 uuid; v_r5 uuid; v_r6 uuid;
   r record;
   v_n integer;
   v_out text;
@@ -122,9 +128,12 @@ begin
   if not exists (select 1 from public.medication_logs where medication_id = v_m1 and scheduled_for_date = v_today - 2 and status = 'missed') then
     raise exception 'FAIL S1e: a dose after collection was not marked missed';
   end if;
-  -- (S2) never collected: as before, from signing
-  if not exists (select 1 from public.medication_logs where medication_id = v_m2 and scheduled_for_date = v_today - 3 and status = 'missed') then
-    raise exception 'FAIL S2: an uncollected prescription no longer falls back to signing';
+  -- (S2) never collected: counting starts at the fallback (signing + 3 days = midnight yesterday), not at signing
+  if exists (select 1 from public.medication_logs where medication_id = v_m2 and scheduled_for_date in (v_today - 3, v_today - 2)) then
+    raise exception 'FAIL S2a: an uncollected prescription counted a missed dose before the 3-day fallback';
+  end if;
+  if not exists (select 1 from public.medication_logs where medication_id = v_m2 and scheduled_for_date = v_today - 1 and status = 'missed') then
+    raise exception 'FAIL S2b: an uncollected prescription does not count from the 3-day fallback';
   end if;
   -- (S4) an existing medicine and a patient-added one do not move
   if exists (select 1 from public.medication_schedule_starts where medication_id in (v_m3, v_mp))
@@ -143,8 +152,8 @@ begin
   v_out := public.undo_prescription_collected(v_c);
   execute 'reset role';
   if v_out <> 'undone' then raise exception 'FIXTURE S5: %', v_out; end if;
-  if exists (select 1 from public.medication_schedule_starts where medication_id = v_m1) or private.medication_active_from(v_m1) <> v_old then
-    raise exception 'FAIL S5: the start did not fall back to signing after undo';
+  if exists (select 1 from public.medication_schedule_starts where medication_id = v_m1) or private.medication_active_from(v_m1) <> v_old + interval '3 days' then
+    raise exception 'FAIL S5: after undo the start is not the 3-day fallback (%)', private.medication_active_from(v_m1);
   end if;
 
   -- (C1) a caregiver with manage_pharmacy confirms for the patient ------------------------------------------------------------------
@@ -283,6 +292,58 @@ begin
   perform private.recompute_medication_schedule_start(v_m2);
   if not exists (select 1 from public.medication_schedule_starts where medication_id = v_m2) then
     raise exception 'FAIL S3y: recompute did not create the start';
+  end if;
+
+  -- (R) dose reminders wait for collection, or the 3-day fallback; other medicines unchanged --------------------------------------
+  perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, quantity, source, added_by, repeats_allowed, schedule_times)
+  select v_org, v_pat, 'T211d Rem ' || n, '5 mg', 'Once daily', '30 tablets', 'clinician', v_doc, 0, jsonb_build_array(v_slot) from generate_series(1, 5) n;
+  select id into v_r1 from public.medications where patient_id = v_pat and drug_name = 'T211d Rem 1';
+  select id into v_r2 from public.medications where patient_id = v_pat and drug_name = 'T211d Rem 2';
+  select id into v_r3 from public.medications where patient_id = v_pat and drug_name = 'T211d Rem 3';
+  select id into v_r4 from public.medications where patient_id = v_pat and drug_name = 'T211d Rem 4';
+  select id into v_r5 from public.medications where patient_id = v_pat and drug_name = 'T211d Rem 5';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, schedule_times)
+  values (v_org, v_pat, 'T211d Rem Own', '1 tab', 'Daily', 'patient', jsonb_build_array(v_slot)) returning id into v_r6;
+  set local session_replication_role = replica;
+  update public.medications set created_at = now() - interval '3 days 1 hour', schedule_effective_from = now() - interval '3 days 1 hour' where id = v_r3;
+  update public.medications set created_at = now() - interval '2 days', schedule_effective_from = now() - interval '2 days' where id = v_r4;
+  update public.medications set schedule_starts_on_collection = false where id = v_r5;   -- stands for a medicine signed before this change
+  set local session_replication_role = origin;
+  execute 'set local role authenticated';
+  select * into r from public.confirm_prescription_collected(v_r2);
+  execute 'reset role';
+  if r.outcome <> 'recorded' then raise exception 'FIXTURE R: %', r; end if;
+  perform set_config('request.jwt.claims', '', true);
+  perform private.queue_medication_dose_reminders();
+  if exists (select 1 from public.medication_dose_reminders where medication_id = v_r1) then
+    raise exception 'FAIL R1: a reminder before collection';
+  end if;
+  if not exists (select 1 from public.medication_dose_reminders where medication_id = v_r2 and scheduled_for_date = v_today) then
+    raise exception 'FAIL R2: no reminder after collection';
+  end if;
+  if not exists (select 1 from public.medication_dose_reminders where medication_id = v_r3 and scheduled_for_date = v_today) then
+    raise exception 'FAIL R3: no reminder once 3 days passed without a collection';
+  end if;
+  if exists (select 1 from public.medication_dose_reminders where medication_id = v_r4) then
+    raise exception 'FAIL R4: a reminder 2 days after signing with no collection';
+  end if;
+  if not exists (select 1 from public.medication_dose_reminders where medication_id = v_r5)
+     or not exists (select 1 from public.medication_dose_reminders where medication_id = v_r6) then
+    raise exception 'FAIL R5: an existing or patient-added medicine lost its reminder';
+  end if;
+
+  -- SABOTAGE 4: the reminder job without the wait: a prescription not yet collected is reminded ---------------------------------------
+  v_def := pg_get_functiondef('private.queue_medication_dose_reminders()'::regprocedure);
+  if position('and (not m.schedule_starts_on_collection or private.medication_active_from(m.id) <= now())' in v_def) = 0 then
+    raise exception 'FIXTURE S4: the reminder wait is not where the sabotage expects it';
+  end if;
+  execute replace(v_def, 'and (not m.schedule_starts_on_collection or private.medication_active_from(m.id) <= now())', 'and true');
+  perform private.queue_medication_dose_reminders();
+  execute v_def;
+  if not exists (select 1 from public.medication_dose_reminders where medication_id = v_r1) then
+    raise exception 'SABOTAGE 4 did not flip: without the wait the uncollected prescription is still not reminded';
   end if;
 
   raise notice 'PASS: t2_11d collection schedule and caregiver';

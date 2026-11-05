@@ -11,9 +11,10 @@
 --    greatest(created_at, coalesce(schedule_effective_from, created_at)): private.mark_overdue_doses_missed (the server "missed" job),
 --    private.weekly_adherence, private.care_gap_scoped_adherence, public.supporter_todays_doses and private.sweep_circle_missed_doses.
 --    The web adherence report and the phone (activeFromMs, offline store) use the same two columns.
---  * private.queue_medication_dose_reminders reads neither: it reminds for today's slots of every active medicine. It is not changed. A
---    collection date can never be in the future, so "start on collection" cannot hold back a reminder that is due today, and the founder's
---    fallback ("if collection is never confirmed, the signing date, as today") means reminders keep running from signing until then.
+--  * private.queue_medication_dose_reminders reads neither: it reminds for today's slots of every active medicine from the moment it is
+--    signed. Founder/CMO answer (2026-11-05, second question): for a prescription that starts on collection, reminders WAIT for the
+--    first collection too; if none is confirmed within uncollected_reminder_fallback_days of signing (3, versioned config), they start
+--    from then anyway. Missed-dose counting follows the same start: the collection, or the fallback, never the signing.
 --  * Why the start is NOT written into medications.schedule_effective_from: an update of a prescribed medicines row runs the patient
 --    allow-list guard (refuses the patient), enforce_medication_confirm_only (stamps last_confirmed_at for anyone else, a false "refill
 --    checked"), the blood-pressure prescribing safety re-check and a dose-history snapshot. A collection is none of those things.
@@ -28,8 +29,10 @@
 --     day in Lagos. An undo or a dispute that leaves no collection removes the row, so the start falls back to signing. Readable under
 --     exactly the medications_select rule (the patient, a category-scoped clinical reader of 'medications', a caregiver with
 --     view_medication), so the web and phone screens can use it; written only by the trigger.
---  3. private.medication_active_from(medication): greatest(created_at, schedule_effective_from, the collection start). Patched into the
---     five functions above from their live bodies, one occurrence each or the migration fails.
+--  3. private.medication_active_from(medication): greatest(created_at, schedule_effective_from, S) where, for a prescription that starts
+--     on collection, S is its first collection or, if it has none, signing + uncollected_reminder_fallback_days; for every other medicine
+--     S is signing (unchanged). Patched into the five functions above and into queue_medication_dose_reminders (which now also waits for
+--     S, for these prescriptions only) from their live bodies, one occurrence each or the migration fails.
 --  4. Caregiver confirmation: confirm_prescription_collected gains p_for_patient (default null = the caller). A caregiver may act only
 --     with a live profile_access 'manage' grant carrying the 'manage_pharmacy' permission (private.can_act_for), the same gate as choosing
 --     a pharmacy for that person's prescription (private.rx_patient). Care Circle membership alone is not enough: its permissions are
@@ -139,17 +142,56 @@ create trigger pharmacy_order_dispenses_schedule_start
   after insert or update of source, medication_id, dispensed_on, disputed_at, withdrawn_at, matched_dispense_id on public.pharmacy_order_dispenses
   for each row execute function private.dispense_recompute_schedule_start();
 
+-- 2b. The fallback window, a versioned operational setting (prescription_supply_config v2) ----------------------------------------
+-- The T2-11c validator requires its three keys; it now also checks the new one when present (a v1 row has none, and must stay valid
+-- so it can be deactivated). private.rx_supply_window raises if the ACTIVE row lacks a key, so v2 must carry it.
+create or replace function private.prescription_supply_rules_valid(r jsonb) returns boolean
+language plpgsql immutable set search_path = '' as $$
+declare k text;
+begin
+  foreach k in array array['patient_undo_hours', 'report_match_days', 'patient_duplicate_minutes'] loop
+    if (r ->> k) is null or (r ->> k) !~ '^[0-9]{1,4}$' or (r ->> k)::integer < 1 then return false; end if;
+  end loop;
+  if r ? 'uncollected_reminder_fallback_days'
+     and ((r ->> 'uncollected_reminder_fallback_days') !~ '^[0-9]{1,2}$' or (r ->> 'uncollected_reminder_fallback_days')::integer not between 1 and 30) then
+    return false;
+  end if;
+  return (r ->> 'patient_undo_hours')::integer <= 168
+     and (r ->> 'report_match_days')::integer <= 60
+     and (r ->> 'patient_duplicate_minutes')::integer <= 1440;
+exception when others then
+  return false;
+end;
+$$;
+revoke all on function private.prescription_supply_rules_valid(jsonb) from public, anon, authenticated;
+
+update public.prescription_supply_config set is_active = false where is_active and version < 2;
+-- rx-supply-windows-v2-begin
+insert into public.prescription_supply_config (version, is_active, rules, note) values (2, true, $json$
+{
+  "patient_undo_hours": 24,
+  "report_match_days": 7,
+  "patient_duplicate_minutes": 10,
+  "uncollected_reminder_fallback_days": 3
+}
+$json$::jsonb, 'PROPOSED, T2-11d (2026-11-05, founder/CMO answer). v1 plus uncollected_reminder_fallback_days: a prescription that starts on collection gets no dose reminders and no missed-dose counting until it is collected, or until this many days after signing if no collection is confirmed.')
+on conflict (version) do nothing;
+-- rx-supply-windows-v2-end
+
 -- 3. The one start used by every slot-counting function -----------------------------------------------------------------------------
 create or replace function private.medication_active_from(p_medication uuid) returns timestamptz
 language sql stable security definer set search_path = '' as $$
-  select greatest(m.created_at, coalesce(m.schedule_effective_from, m.created_at), coalesce(s.starts_at, m.created_at))
+  select greatest(m.created_at, coalesce(m.schedule_effective_from, m.created_at),
+                  case when m.schedule_starts_on_collection
+                       then coalesce(s.starts_at, m.created_at + make_interval(days => private.rx_supply_window('uncollected_reminder_fallback_days')))
+                       else m.created_at end)
     from public.medications m
     left join public.medication_schedule_starts s on s.medication_id = m.id
    where m.id = p_medication
 $$;
 revoke all on function private.medication_active_from(uuid) from public, anon, authenticated;
 comment on function private.medication_active_from(uuid) is
-  'T2-11d: when a medicine''s dose slots start counting: signing, a later schedule edit, or (for a prescription that starts on collection) its first collection, whichever is latest.';
+  'T2-11d: when a medicine''s dose slots start (reminders and missed-dose counting): signing or a later schedule edit; for a prescription that starts on collection, its first collection, or signing + uncollected_reminder_fallback_days if it has none.';
 
 do $patch$
 declare
@@ -176,6 +218,22 @@ begin
     end if;
     execute replace(v_def, r.old_text, r.new_text);
   end loop;
+end $patch$;
+
+-- 3b. Dose reminders wait for the same start, for prescriptions that start on collection only (patched from the live body) ------------
+do $patch$
+declare
+  v_fn constant text := 'private.queue_medication_dose_reminders()';
+  v_old constant text := E'     where m.is_active\n  ),';
+  v_new constant text := E'     where m.is_active\n       -- T2-11d: a prescription that starts on collection is not reminded before it is collected (or the fallback day)\n       and (not m.schedule_starts_on_collection or private.medication_active_from(m.id) <= now())\n  ),';
+  v_def text;
+begin
+  v_def := pg_get_functiondef(v_fn::regprocedure);
+  if v_def like '%schedule_starts_on_collection%' then return; end if;
+  if (char_length(v_def) - char_length(replace(v_def, v_old, ''))) / char_length(v_old) <> 1 then
+    raise exception 'T2-11d: queue_medication_dose_reminders no longer has exactly one "where m.is_active" candidate filter; patch it by hand' using errcode = '55000';
+  end if;
+  execute replace(v_def, v_old, v_new);
 end $patch$;
 
 -- 4. A caregiver can confirm and undo ------------------------------------------------------------------------------------------------
@@ -388,6 +446,12 @@ begin
       raise exception 'T2-11d: % does not use the shared schedule start', v_fn;
     end if;
   end loop;
+  if pg_get_functiondef('private.queue_medication_dose_reminders()'::regprocedure) not like '%not m.schedule_starts_on_collection or private.medication_active_from(m.id) <= now()%' then
+    raise exception 'T2-11d: dose reminders do not wait for collection';
+  end if;
+  if private.rx_supply_window('uncollected_reminder_fallback_days') <> 3 then
+    raise exception 'T2-11d: the reminder fallback is not 3 days';
+  end if;
   if exists (select 1 from public.medications where schedule_starts_on_collection) then
     raise exception 'T2-11d: an existing medicine was switched to start on collection';
   end if;

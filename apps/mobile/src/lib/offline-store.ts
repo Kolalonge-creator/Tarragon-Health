@@ -381,7 +381,7 @@ export async function readLocalShiftRows<T>(subjectId: string): Promise<T[]> {
 async function pullMedications(db: SQLite.SQLiteDatabase, owner: string, subjectId: string, result: PullResult) {
   const { data, error } = await supabase
     .from("medications")
-    .select("id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from, medication_schedule_starts(starts_at)")
+    .select("id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, superseded_at, created_at, schedule_effective_from, schedule_starts_on_collection, medication_schedule_starts(starts_at)")
     .eq("patient_id", subjectId)
     .eq("is_active", true);
   result.pages += 1;

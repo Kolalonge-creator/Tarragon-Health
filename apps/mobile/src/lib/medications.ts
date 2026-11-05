@@ -80,8 +80,14 @@ type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "
   /** Stamped when the schedule is edited, so a newly added time owes nothing from before the edit. */
   schedule_effective_from?: string | null;
   medication_schedule_starts?: ScheduleStartEmbed;
+  schedule_starts_on_collection?: boolean | null;
   dose?: string | null;
 };
+
+/** T2-15: days after signing when an uncollected prescription that starts on collection starts anyway (prescription_supply_config). */
+export const UNCOLLECTED_FALLBACK_DAYS = (
+  getProposedConfig("prescriptions.patient_supply_windows").value as { uncollected_reminder_fallback_days: number }
+).uncollected_reminder_fallback_days;
 
 /** T2-11d: the embedded first-collection start of a prescription that starts on collection (one row or none). */
 export type ScheduleStartEmbed = { starts_at: string } | { starts_at: string }[] | null | undefined;
@@ -90,12 +96,24 @@ export type ScheduleStartEmbed = { starts_at: string } | { starts_at: string }[]
  * When a medicine's current schedule began to apply: the latest of when it was added, when its times last changed and (T2-11d, for a
  * prescription that starts on collection) when it was first collected. Mirrors private.medication_active_from on the server.
  */
-export function activeFromMs(m: { created_at?: string | null; schedule_effective_from?: string | null; medication_schedule_starts?: ScheduleStartEmbed }): number {
+export function activeFromMs(m: {
+  created_at?: string | null;
+  schedule_effective_from?: string | null;
+  medication_schedule_starts?: ScheduleStartEmbed;
+  schedule_starts_on_collection?: boolean | null;
+}): number {
   const created = m.created_at ? Date.parse(m.created_at) : 0;
+  const createdMs = Number.isFinite(created) ? created : 0;
   const edited = m.schedule_effective_from ? Date.parse(m.schedule_effective_from) : 0;
   const start = Array.isArray(m.medication_schedule_starts) ? m.medication_schedule_starts[0] : m.medication_schedule_starts;
-  const collected = start?.starts_at ? Date.parse(start.starts_at) : 0;
-  return Math.max(Number.isFinite(created) ? created : 0, Number.isFinite(edited) ? edited : 0, Number.isFinite(collected) ? collected : 0);
+  const collected = start?.starts_at ? Date.parse(start.starts_at) : NaN;
+  // T2-15: not collected yet, so the start is signing + the fallback days (never signing itself)
+  const collection = Number.isFinite(collected)
+    ? collected
+    : m.schedule_starts_on_collection && createdMs > 0
+      ? createdMs + UNCOLLECTED_FALLBACK_DAYS * 24 * 60 * 60 * 1000
+      : 0;
+  return Math.max(createdMs, Number.isFinite(edited) ? edited : 0, collection);
 }
 // Sourced from medication_logs_latest_per_slot (20261004214531), not the raw
 // append-only table: it keeps one row per slot and lets a row a person wrote beat
@@ -215,7 +233,7 @@ export async function loadTodaysDoses(patientId: string): Promise<QueryResult<Do
     const [medsRes, logsRes] = await Promise.all([
       supabase
         .from("medications")
-        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec, medication_schedule_starts(starts_at)")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_starts_on_collection, schedule_times, schedule_spec, medication_schedule_starts(starts_at)")
         .eq("patient_id", patientId)
         .eq("is_active", true)
         .is("superseded_at", null),
@@ -359,7 +377,7 @@ export async function loadCatchUpDoses(patientId: string, nowMs: number = Date.n
     const [medsRes, logsRes] = await Promise.all([
       supabase
         .from("medications")
-        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_times, schedule_spec, medication_schedule_starts(starts_at)")
+        .select("id, drug_name, dose, source, created_at, schedule_effective_from, schedule_starts_on_collection, schedule_times, schedule_spec, medication_schedule_starts(starts_at)")
         .eq("patient_id", patientId)
         .eq("is_active", true)
         .is("superseded_at", null),
@@ -429,6 +447,7 @@ interface AdherenceMedRow {
   created_at: string | null;
   schedule_effective_from?: string | null;
   medication_schedule_starts?: ScheduleStartEmbed;
+  schedule_starts_on_collection?: boolean | null;
   schedule_times: unknown;
   schedule_spec: unknown;
 }

@@ -150,6 +150,13 @@ describe("today's list with structured schedules", () => {
     expect(buildTodaysDoseChecklist([collected], [], NOW).map((i) => i.time)).toEqual(["20:00"]);
     expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", medication_schedule_starts: [{ starts_at: "2026-09-03T00:00:00Z" }] })).toBe(Date.parse("2026-09-03T00:00:00Z"));
     expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", medication_schedule_starts: [] })).toBe(Date.parse("2026-09-01T00:00:00Z"));
+    // T2-15: a prescription that starts on collection and has none yet starts at signing + 3 days (prescription_supply_config)
+    expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", schedule_starts_on_collection: true, medication_schedule_starts: [] })).toBe(
+      Date.parse("2026-09-04T00:00:00Z"),
+    );
+    expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", schedule_starts_on_collection: true, medication_schedule_starts: [{ starts_at: "2026-09-02T10:00:00Z" }] })).toBe(
+      Date.parse("2026-09-02T10:00:00Z"),
+    );
     expect(collectionReporterLabel({ patient_id: "p", recorded_by: "c", reported_by_relationship: "Daughter" })).toBe("Reported by your daughter");
     expect(collectionReporterLabel({ patient_id: "p", recorded_by: "c", reported_by_relationship: null })).toBe("Reported by your caregiver");
     expect(collectionReporterLabel({ patient_id: "p", recorded_by: "p", reported_by_relationship: null })).toBeNull();

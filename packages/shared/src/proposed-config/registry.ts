@@ -11677,12 +11677,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "prescriptions.patient_supply_windows",
-    // T2-11c (founder decision 2026-11-05, T2-14 in docs/DECISIONS.md): a patient can say they collected their own signed prescription,
-    // and it counts as a supply. Live values are the active row of `prescription_supply_config` (an operational setting under G-01:
-    // versioned, audited, no signature); this entry mirrors the seed and a test fails if they drift. patient_undo_hours: how long the
-    // patient can take back their own confirmation. report_match_days: how long a patient report blocks a second fill and can be
-    // confirmed by the pharmacy that supplied it, and how far apart a patient confirmation and a pharmacy record may be to be the same
-    // supply. patient_duplicate_minutes: a second tap within this is a duplicate. All PROPOSED.
+    // Version 1 (T2-14), superseded by version 2 below; kept so the history runs 1..n.
     value: {
       patient_undo_hours: 24,
       report_match_days: 7,
@@ -11693,5 +11688,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-11-05",
     source: "Founder decision T2-14, 2026-11-05 (docs/DECISIONS.md); supabase/migrations/*_t2_11c_patient_confirms_supply.sql",
+  },
+  {
+    key: "prescriptions.patient_supply_windows",
+    // T2-11c (founder decision 2026-11-05, T2-14 in docs/DECISIONS.md): a patient can say they collected their own signed prescription,
+    // and it counts as a supply. Live values are the active row of `prescription_supply_config` (an operational setting under G-01:
+    // versioned, audited, no signature); this entry mirrors the seed and a test fails if they drift. patient_undo_hours: how long the
+    // patient can take back their own confirmation. report_match_days: how long a patient report blocks a second fill and can be
+    // confirmed by the pharmacy that supplied it, and how far apart a patient confirmation and a pharmacy record may be to be the same
+    // supply. patient_duplicate_minutes: a second tap within this is a duplicate. Version 2 (T2-15, founder/CMO answer 2026-11-05):
+    // uncollected_reminder_fallback_days: a prescription that starts on collection gets no dose reminders and no missed-dose counting
+    // until it is collected, or until this many days after signing if no collection is confirmed. All PROPOSED.
+    value: {
+      patient_undo_hours: 24,
+      report_match_days: 7,
+      patient_duplicate_minutes: 10,
+      uncollected_reminder_fallback_days: 3,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-05",
+    source: "Founder decisions T2-14 and T2-15, 2026-11-05 (docs/DECISIONS.md); supabase/migrations/*_t2_11c_patient_confirms_supply.sql (v1), *_t2_11d_collection_schedule_and_caregiver.sql (v2)",
   },
 ];
