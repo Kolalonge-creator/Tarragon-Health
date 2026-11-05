@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+/**
+ * The contact form's hidden spam-trap field: people never see it, so anything
+ * typed into it came from a bot. Deliberately a name no browser autofill
+ * recognises: a trap called "company" or "website" can be filled from a saved
+ * profile, which would silently discard a real person's enquiry.
+ */
+export const LEAD_HONEYPOT_FIELD = "th_hp_x7q";
+
 export const LEAD_ROLES = ["patient", "family", "employer", "hmo", "ngo", "other"] as const;
 
 export type LeadRole = (typeof LEAD_ROLES)[number];

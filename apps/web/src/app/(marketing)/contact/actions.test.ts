@@ -18,6 +18,7 @@ jest.mock("@/lib/supabase/service-role", () => ({
 }));
 
 import { submitLead } from "./actions";
+import { LEAD_HONEYPOT_FIELD } from "@/lib/validation/lead";
 
 function formDataFor(overrides: Record<string, string> = {}) {
   const fd = new FormData();
@@ -117,7 +118,7 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
     jest.doMock("@/lib/supabase/service-role", () => ({
       createServiceRoleClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }), rpc: (fn: string, args: Record<string, unknown>) => rpcImpl(fn, args) }),
     }));
-    jest.doMock("@/lib/rate-limit", () => ({ getClientIp: async () => "203.0.113.9", rateLimit: () => limiter() }));
+    jest.doMock("@/lib/rate-limit", () => ({ getClientIp: async () => "203.0.113.9", rateLimit: (key: string) => limiter(key) }));
     limiter.mockResolvedValue({ success: true, retryAfterSeconds: 0 });
     process.env.SUPABASE_SERVICE_ROLE_KEY = "k";
     return (await import("./actions")).submitLead;
@@ -145,9 +146,38 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
   it("over the capture rate limit the enquiry is still saved but nothing is captured", async () => {
     rpc.mockReset();
     const submit = await load((fn, args) => rpc(fn, args));
-    limiter.mockResolvedValue({ success: false, retryAfterSeconds: 600 });
+    // Only the capture limit is spent; saving the enquiry has its own, separate limit.
+    limiter.mockImplementation(async (key: string) =>
+      key.startsWith("lead-capture:") ? { success: false, retryAfterSeconds: 600 } : { success: true, retryAfterSeconds: 0 }
+    );
     expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("over the insert burst limit the enquiry is still saved (shared mobile addresses), tagged, and not captured", async () => {
+    rpc.mockReset();
+    const inserted: Array<Record<string, unknown>> = [];
+    jest.doMock("@/lib/supabase/service-role", () => ({
+      createServiceRoleClient: () => ({
+        from: () => ({ insert: async (row: Record<string, unknown>) => (inserted.push(row), { error: null }) }),
+        rpc: (fn: string, args: Record<string, unknown>) => rpc(fn, args),
+      }),
+    }));
+    jest.doMock("@/lib/rate-limit", () => ({ getClientIp: async () => "203.0.113.9", rateLimit: (key: string) => limiter(key) }));
+    limiter.mockImplementation(async (key: string) =>
+      key.startsWith("lead-insert:") ? { success: false, retryAfterSeconds: 600 } : { success: true, retryAfterSeconds: 0 }
+    );
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "k";
+    const submit = (await import("./actions")).submitLead;
+    const r = await submit(undefined, formDataFor({ consent: "on" }));
+    expect(r).toEqual({ success: true });
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].source).toBe("homepage:burst");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("the trap field name is one browser autofill does not recognise", () => {
+    expect(LEAD_HONEYPOT_FIELD).not.toMatch(/company|website|url|org|email|phone|name|address/i);
   });
 
   it("a limiter fault fails open: the lead is still captured", async () => {
@@ -172,5 +202,25 @@ describe("submitLead: Front Desk capture needs the explicit consent tick", () =>
     const submit = await load(async () => { throw new Error("network"); });
     expect(await submit(undefined, formDataFor({ consent: "on" }))).toEqual({ success: true });
     spy.mockRestore();
+  });
+});
+
+describe("submitLead: spam trap", () => {
+  beforeEach(() => {
+    insert.mockReset();
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+  });
+
+  it("saves nothing, and reports success, when the hidden trap field is filled", async () => {
+    const result = await submitLead(undefined, formDataFor({ [LEAD_HONEYPOT_FIELD]: "http://spam.example" }));
+    expect(result).toEqual({ success: true });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("still saves a real enquiry when the trap is empty", async () => {
+    insert.mockResolvedValue({ error: null });
+    const result = await submitLead(undefined, formDataFor({ [LEAD_HONEYPOT_FIELD]: "" }));
+    expect(result?.success).toBe(true);
+    expect(insert).toHaveBeenCalledTimes(1);
   });
 });

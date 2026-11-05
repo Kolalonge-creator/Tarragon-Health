@@ -52,7 +52,7 @@ export const DEFAULT_HERO: ChannelHeroCopy = {
     "Tarragon brings your health profile, a preventive plan, your laboratory results, doctor reviews and follow-up together in one place, so you can stay ahead of your health.",
   primaryHref: "/signup",
   primaryLabel: "Get started",
-  secondaryHref: MARKETING_ROUTES.services,
+  secondaryHref: MARKETING_ROUTES.howItWorks,
   secondaryLabel: "See how it works",
 };
 

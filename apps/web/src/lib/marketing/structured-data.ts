@@ -24,6 +24,9 @@ export type JsonLd = Record<string, unknown>;
 export const BREADCRUMB_LABELS: Partial<Record<MarketingRouteKey, string>> = {
   home: "Home",
   services: "Services",
+  howItWorks: "How it works",
+  membership: "Membership",
+  clinicalApproach: "Our clinical approach",
   chronicCare: "Chronic care",
   careCoordination: "Care coordination",
   whoItsFor: "Who it's for",

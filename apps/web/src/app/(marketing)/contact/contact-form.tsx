@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
-import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL } from "@/lib/validation/lead";
+import { LEAD_ROLES, LEAD_GOALS, LEAD_GOAL_LABEL, LEAD_HONEYPOT_FIELD } from "@/lib/validation/lead";
 import { useRemountOnActionResult } from "@/lib/forms/use-remount-on-action-result";
 import { ENQUIRY_CONSENT_WORDING } from "@/lib/frontdesk/lead-consent";
 
@@ -99,6 +99,12 @@ export function ContactForm() {
       className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-8"
     >
       <input type="hidden" name="source" value={source} />
+      {/* Spam trap: off-screen and out of the tab order, so people never fill
+          it; a bot that fills every field does, and is quietly ignored. */}
+      <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor={LEAD_HONEYPOT_FIELD}>Leave this empty</label>
+        <input id={LEAD_HONEYPOT_FIELD} name={LEAD_HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" data-1p-ignore data-lpignore="true" />
+      </div>
       <FormError id={ERROR_ID} message={errorMessage} />
       <div className="space-y-1.5">
         <Label htmlFor="name">Name</Label>

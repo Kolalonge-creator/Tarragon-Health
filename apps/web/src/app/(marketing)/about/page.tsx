@@ -4,10 +4,9 @@ import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { TestimonialsSection } from "../_components/testimonials-section";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { PageHero } from "../_components/page-hero";
 import { TrustPillars } from "../_components/trust-pillars";
 import { LeadershipGrid } from "../_components/leadership-panel";
-import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { paidProductName } from "@/lib/marketing/membership";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -59,19 +58,12 @@ export const metadata: Metadata = pageMetadata({
 export default function AboutPage() {
   return (
     <>
-      {/* Rendered outside Section on purpose — full-bleed spans the full
-          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
-      <PhotoBannerHero
+      <PageHero
         eyebrow="About TarragonHealth"
-        title="Care should not stop when the appointment ends."
-        description="Chronic disease is managed in the weeks after a consultation: the dose that is missed, the reading nobody sees, the follow-up call that never comes. TarragonHealth exists to close that gap."
-        primaryHref="/signup"
-        primaryLabel="Get started"
-        secondaryHref="#team"
-        secondaryLabel="Meet our team"
-        imageSrc={MARKETING_MEDIA.pageHero.about.imageSrc ?? ""}
-        imageAlt={MARKETING_MEDIA.pageHero.about.imageAlt ?? ""}
-        imagePosition={MARKETING_MEDIA.pageHero.about.imageFocus}
+        title="Your health deserves more than a single appointment."
+        description="Many health problems are found late because care stops between visits: the test that is not repeated, the result nobody explains, the reading nobody sees. TarragonHealth exists to close that gap, for people in Nigeria and for the relatives who look out for them from abroad."
+        primary={{ href: "/signup", label: "Get started" }}
+        secondary={{ href: "#team", label: "Meet our team" }}
       />
 
       <Section className="pt-14">
