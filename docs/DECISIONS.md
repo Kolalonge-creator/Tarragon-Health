@@ -882,3 +882,16 @@ Design record: `docs/design/MESSAGING-2.md` (audit of the live system against th
 |----|----------|-----------|----------------|
 | **SEC-01** | Two-step sign-in is **not** made mandatory for staff accounts for now. It stays opt-in (set up from `/account`), as before. The built enforcement (PR #1737, closed unmerged, branch `fix/staff-mfa-required`) can be reopened later. | The founder: it would be difficult for many Nigerian users, and it is not needed for now. The assessment's finding S1 (0 of 8 staff accounts enrolled) stays open as a known risk. | Assessment §10 and §15; no code change. |
 
+
+## Founder decisions, 2026-11-05 (marketing website upgrade, docs/plans/website-redesign/00-phase0-plan.md)
+
+| ID | Decision | Rationale | Where it lands |
+|----|----------|-----------|----------------|
+| **W-01** | Plan first, build after approval, one PR per phase, each checked on a Vercel preview. | The spec asks for approval between phases. | Phase 0 docs PR #1752; this PR is Phase 1. |
+| **W-02** | Imagery: real app screens with synthetic data, plus licensed stock photos of Nigerian people, never presented as Tarragon patients or staff. The image-generator hero and body photos are replaced. | Credibility; the spec bans invented images of patients, doctors and facilities. | Phase 1 homepage uses drawn example screens; licensed photos follow once chosen. |
+| **W-03** | The Guard Leaf logo stays; a new palette is chosen. | Founder open to a fresh palette. | See W-08. |
+| **W-04** | Overlapping or retired pages (/parentcare, /annual-health-check, /advanced-diagnostics, /who-its-for, /screening-journey, /health-education, /care-coordination) get 301 redirects to their new homes. | Keeps search traffic and links working while the site gets simpler. | Footer stops linking them in Phase 1; redirects land in Phase 5. |
+| **W-05** | /hmo merges into one Employers and Organisations page with an HMO and insurer section; /hmo redirects there. | The payer platform is dormant and no insurer contract is signed. | Phase 3. |
+| **W-06** | Synlab is named as "our laboratory partner" with its logo, only on the homepage diagnostic section, the /labs partner panel and one Membership FAQ answer; never "contracted", "approved" or "accredited", never in the hero, nav, footer or trust strip. | Builds on the trust people have in Synlab without suggesting patients must use it; partner status is not an accreditation. | `SYNLAB_PARTNER_LINE` in `_content/partners.ts`. |
+| **W-07** | Cookie consent on the public site is opt-in: no analytics until the visitor accepts. The signed-in app stays opt-out (disclosed in the Terms). | NDPA guidance expects consent before non-essential analytics. | `lib/consent.ts`, `page-tracker.tsx`, banner, Cookie Policy. |
+| **W-08** | Palette A "Evergreen" (forest #0B5D45, sage #DCE8DF, warm off-white #FAF7F2, marigold accent #E0A23B, deep #0E3B2E) with Fraunces headings over Inter body text, on the public site only. | Chosen from three palettes and two type options in the Phase 0 mock-up. | `.marketing-scope` in `globals.css`; the app keeps the standard palette. |

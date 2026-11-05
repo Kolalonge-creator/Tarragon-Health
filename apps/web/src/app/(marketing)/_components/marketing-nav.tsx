@@ -3,37 +3,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLockup } from "./brand-logo";
-import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { cn } from "@/lib/utils";
 
-// Collapsed 2026-09-22 (launch-scope audit reconciliation, EPIC 6) from a
-// 6-item nav (chronic care / prevention / care coordination / who it's for /
-// pricing / contact) to 5, then adjusted again 2026-09-24: chronic care is
-// back (it's the platform's core wedge per CLAUDE.md and was too easy to
-// miss reduced to a Prevention sub-link), and "For organisations" was
-// dropped — it duplicated AUDIENCE_LINKS' "For employers" below, same
-// MARKETING_ROUTES.corporate route under a different label on every page.
-// careCoordination, whoItsFor, devices and monitoring remain live pages,
-// reachable from Prevention or the footer (marketing-footer.tsx already
-// links every one of them). No invented geography or cohort-size language
-// anywhere in this change, per the founder's explicit rejection of the
-// audit's pilot-cohort framing.
-const NAV_LINKS = [
-  { key: "chronicCare" as const, label: "Chronic care" },
-  { key: "prevention" as const, label: "Prevention" },
-  { key: "services" as const, label: "How it works" },
-  { key: "pricing" as const, label: "Pricing" },
-  { key: "about" as const, label: "About" },
-];
-
-/** Oscar/Omada-style audience split, surfaced above the nav instead of buried in the footer. */
-const AUDIENCE_LINKS = [
-  { key: "forYou" as const, label: "For individuals" },
-  { key: "corporate" as const, label: "For employers" },
-  { key: "hmo" as const, label: "For HMOs" },
+/**
+ * Main navigation, redesigned 2026-11-05 (website upgrade Phase 1,
+ * docs/plans/website-redesign/00-phase0-plan.md section 3.1). Seven items in
+ * the order a first-time visitor needs them, then Log in and Get started.
+ * The audience strip that used to sit above the bar is gone: families and
+ * employers are now first-class items in the bar itself, and on a phone the
+ * strip plus the bar took about a quarter of the first screen.
+ *
+ * Phase 1 points each item at the page that exists today. Phase 2 and 3 add
+ * the dedicated How it works, Membership and Families pages and repoint the
+ * three items marked below; nothing else in this file changes then.
+ */
+export const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: MARKETING_ROUTES.services, label: "How it works" }, // Phase 2: /how-it-works
+  { href: `${MARKETING_ROUTES.home}#services`, label: "Services" },
+  { href: MARKETING_ROUTES.pricing, label: "Membership" }, // Phase 2: /membership
+  { href: MARKETING_ROUTES.gift, label: "For families" }, // Phase 3: /families
+  { href: MARKETING_ROUTES.corporate, label: "For employers" },
+  { href: MARKETING_ROUTES.resources, label: "Resources" },
+  { href: MARKETING_ROUTES.about, label: "About" },
 ];
 
 const MOBILE_MENU_ID = "marketing-mobile-menu";
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-mk-canvas";
 
 /** Everything inside the panel that can hold focus, in DOM order. */
 function focusableWithin(root: HTMLElement | null): HTMLElement[] {
@@ -55,9 +53,8 @@ export function MarketingNav() {
   }, []);
 
   // Escape closes; Tab is trapped inside the open panel (the toggle button is
-  // treated as part of the loop, so the hamburger stays reachable). Without
-  // this, tabbing out of an open full-screen menu lands on links that are
-  // visually behind the overlay — a keyboard/screen-reader dead end.
+  // part of the loop, so it stays reachable). Without this, tabbing out of an
+  // open full-screen menu lands on links hidden behind the overlay.
   useEffect(() => {
     if (!open) return;
 
@@ -91,156 +88,106 @@ export function MarketingNav() {
   }, [open, close]);
 
   return (
-    <>
-      {/* Utility strip: scrolls away, leaving the floating nav bar sticky. */}
-      <div className="bg-deep-forest text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-0.5 sm:px-6">
-          <p className="hidden text-xs text-white/70 sm:block">Care that stays with you.</p>
-          <nav aria-label="Audiences" className="flex items-center gap-1 text-xs">
-            {AUDIENCE_LINKS.map(({ key, label }) => (
-              <Link
-                key={key}
-                href={MARKETING_ROUTES[key]}
-                className="inline-flex min-h-9 items-center rounded-sm px-2 text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
+    <header className="sticky top-0 z-50 border-b border-mk-border bg-mk-canvas/95 backdrop-blur-sm">
+      <div className="mx-auto flex min-h-16 max-w-6xl items-center gap-4 px-4 sm:min-h-[72px] sm:px-6">
+        <Link href={MARKETING_ROUTES.home} aria-label="TarragonHealth home" className={cn("shrink-0 rounded-sm", FOCUS_RING)}>
+          {/* The wordmark now shows at every width: the old bar hid it below
+              `sm` because a pill-shaped bar with three controls overflowed at
+              360px. This bar drops the header Get started pill below `sm`
+              instead (the hero and the sticky bar carry it), which keeps the
+              brand name visible on the phones most visitors use. */}
+          <BrandLockup markClassName="h-8 w-8 sm:h-9 sm:w-9" wordmarkClassName="text-base sm:text-lg" />
+        </Link>
+
+        <nav aria-label="Main" className="ml-6 hidden items-center gap-6 whitespace-nowrap xl:flex">
+          {NAV_LINKS.map(({ href, label }) => (
+            <Link
+              key={label}
+              href={href}
+              className={cn("rounded-sm text-[15px] font-medium text-charcoal-ink/80 transition-colors hover:text-brand-green", FOCUS_RING)}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/login"
+            className={cn("hidden whitespace-nowrap rounded-sm px-1 text-[15px] font-medium text-charcoal-ink hover:text-brand-green sm:inline", FOCUS_RING)}
+          >
+            Log in
+          </Link>
+          <Link
+            href="/signup"
+            className={cn(
+              "hidden h-11 shrink-0 items-center justify-center rounded-full bg-brand-green px-5 text-[15px] font-semibold text-white transition-colors hover:bg-brand-green/90 sm:inline-flex",
+              FOCUS_RING
+            )}
+          >
+            Get started
+          </Link>
+          <button
+            type="button"
+            ref={toggleRef}
+            onClick={() => (open ? close() : setOpen(true))}
+            aria-expanded={open}
+            aria-controls={MOBILE_MENU_ID}
+            className={cn(
+              "inline-flex h-11 items-center gap-2 rounded-full border border-mk-border bg-white px-4 text-[15px] font-semibold text-charcoal-ink xl:hidden",
+              FOCUS_RING
+            )}
+          >
+            <span aria-hidden className="flex w-4 flex-col gap-[3px]">
+              <span className={cn("block h-0.5 rounded-full bg-charcoal-ink transition-transform", open && "translate-y-[5px] rotate-45")} />
+              <span className={cn("block h-0.5 rounded-full bg-charcoal-ink transition-opacity", open && "opacity-0")} />
+              <span className={cn("block h-0.5 rounded-full bg-charcoal-ink transition-transform", open && "-translate-y-[5px] -rotate-45")} />
+            </span>
+            {open ? "Close" : "Menu"}
+          </button>
         </div>
       </div>
 
-      <header className="sticky top-0 z-50 px-3 pt-3 sm:px-4">
-        <div
-          className={cn(
-            "mx-auto max-w-6xl border border-charcoal-ink/10 bg-warm-ivory/95 shadow-lg shadow-charcoal-ink/5 backdrop-blur-sm",
-            open ? "rounded-3xl" : "rounded-full"
-          )}
-        >
-          <div className="flex items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6">
-            <Link
-              href={MARKETING_ROUTES.home}
-              aria-label="TarragonHealth home"
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm"
-            >
-              {/* Mark only below `sm`. Measured at 360px: the full lockup is
-                  ~188px, and the row has ~321px for lockup + CTA + hamburger,
-                  so keeping the wordmark here overflowed the bar by ~26px (and
-                  far more at 320px) the moment the "Get started" pill became
-                  visible on phones. The pill is the point; the Guard Leaf mark
-                  carries the brand at that size, and the link keeps its
-                  "TarragonHealth home" accessible name either way. */}
-              <BrandLockup wordmarkClassName="hidden text-lg sm:inline" />
-            </Link>
-
-            <nav aria-label="Main" className="hidden items-center gap-6 lg:flex">
-              {NAV_LINKS.map(({ key, label }) => (
-                <Link
-                  key={key}
-                  href={MARKETING_ROUTES[key]}
-                  className={cn(
-                    "text-sm font-medium text-charcoal-ink/80 transition-colors hover:text-brand-green",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm",
-                    !MARKETING_ROUTES_BUILT.includes(key) && "opacity-50 pointer-events-none"
-                  )}
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* Always in the DOM (just `hidden` when closed) so `aria-controls`
+          always resolves; `hidden` also removes it from the tab order. */}
+      <nav
+        id={MOBILE_MENU_ID}
+        ref={panelRef}
+        hidden={!open}
+        aria-label="Mobile"
+        className="max-h-[calc(100dvh-64px)] overflow-y-auto border-t border-mk-border bg-mk-canvas px-4 pb-6 sm:px-6 xl:hidden"
+      >
+        <ul className="mx-auto max-w-6xl">
+          {NAV_LINKS.map(({ href, label }) => (
+            <li key={label}>
               <Link
-                href="/login"
-                className="hidden text-sm font-medium text-charcoal-ink/70 hover:text-brand-green sm:inline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm px-1"
-              >
-                Sign in
-              </Link>
-              {/* Visible at every width. Nigeria's traffic is overwhelmingly
-                  mobile, and this used to be `hidden … sm:inline-flex`, so on a
-                  phone the sticky header offered a hamburger and nothing else:
-                  no primary action anywhere above the fold. */}
-              <Link
-                href="/signup"
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand-green px-3.5 text-sm font-medium text-white transition-colors hover:bg-brand-green/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 sm:px-4"
-              >
-                Get started
-              </Link>
-              <button
-                type="button"
-                ref={toggleRef}
-                onClick={() => (open ? close() : setOpen(true))}
-                aria-label={open ? "Close menu" : "Open menu"}
-                aria-expanded={open}
-                aria-controls={MOBILE_MENU_ID}
-                className="flex flex-col gap-1.5 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm lg:hidden"
-              >
-                <span
-                  className={cn(
-                    "block h-0.5 w-5 rounded-full bg-charcoal-ink transition-transform",
-                    open && "translate-y-2 rotate-45"
-                  )}
-                />
-                <span
-                  className={cn("block h-0.5 w-5 rounded-full bg-charcoal-ink transition-opacity", open && "opacity-0")}
-                />
-                <span
-                  className={cn(
-                    "block h-0.5 w-5 rounded-full bg-charcoal-ink transition-transform",
-                    open && "-translate-y-2 -rotate-45"
-                  )}
-                />
-              </button>
-            </div>
-          </div>
-
-          {/* Always in the DOM (just `hidden` when closed) so `aria-controls`
-              on the toggle always resolves to a real element; `hidden` also
-              takes the whole panel out of the tab order and the a11y tree, so
-              nothing behind the closed menu is focusable. */}
-          <nav
-            id={MOBILE_MENU_ID}
-            ref={panelRef}
-            hidden={!open}
-            aria-label="Mobile"
-            className="flex flex-col border-t border-charcoal-ink/10 px-5 pb-5 sm:px-6 lg:hidden"
-          >
-              {NAV_LINKS.map(({ key, label }) => (
-                <Link
-                  key={key}
-                  href={MARKETING_ROUTES[key]}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    "border-b border-charcoal-ink/10 py-3 text-sm font-medium text-charcoal-ink/80",
-                    !MARKETING_ROUTES_BUILT.includes(key) && "opacity-50 pointer-events-none"
-                  )}
-                >
-                  {label}
-                </Link>
-              ))}
-              {AUDIENCE_LINKS.map(({ key, label }) => (
-                <Link
-                  key={key}
-                  href={MARKETING_ROUTES[key]}
-                  onClick={() => setOpen(false)}
-                  className="border-b border-charcoal-ink/10 py-3 text-sm text-charcoal-ink/60"
-                >
-                  {label}
-                </Link>
-              ))}
-              <Link href="/login" onClick={() => setOpen(false)} className="py-3 text-sm font-medium text-charcoal-ink/80">
-                Sign in
-              </Link>
-              <Link
-                href="/signup"
+                href={href}
                 onClick={() => setOpen(false)}
-                className="mt-2 inline-flex h-10 items-center justify-center rounded-full bg-brand-green px-4 text-sm font-medium text-white"
+                className={cn("flex min-h-12 items-center justify-between border-b border-mk-border text-base font-medium text-charcoal-ink", FOCUS_RING)}
               >
-                Get started
+                {label}
+                <span aria-hidden className="text-brand-green">›</span>
               </Link>
-          </nav>
+            </li>
+          ))}
+        </ul>
+        <div className="mx-auto mt-5 grid max-w-6xl gap-3">
+          <Link
+            href="/signup"
+            onClick={() => setOpen(false)}
+            className={cn("inline-flex h-12 items-center justify-center rounded-full bg-brand-green px-5 text-base font-semibold text-white", FOCUS_RING)}
+          >
+            Get started
+          </Link>
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className={cn("inline-flex h-12 items-center justify-center rounded-full border border-brand-green px-5 text-base font-semibold text-brand-green", FOCUS_RING)}
+          >
+            Log in
+          </Link>
         </div>
-      </header>
-    </>
+      </nav>
+    </header>
   );
 }

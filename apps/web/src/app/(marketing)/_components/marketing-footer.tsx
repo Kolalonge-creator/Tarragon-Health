@@ -2,67 +2,63 @@ import Link from "next/link";
 import { BrandLockup } from "./brand-logo";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { SITE } from "@/lib/marketing/site";
+import { CookieSettingsLink } from "./cookie-settings-link";
 
+const FOOTER_FOCUS =
+  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sprout-gold focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy";
+
+/**
+ * Footer, reorganised 2026-11-05 (website upgrade Phase 1, plan section 3.4):
+ * four columns by what a visitor is looking for, instead of five columns and
+ * about 40 links where Medication and Laboratories sat under "Conditions".
+ * Pages planned for a 301 redirect (parentcare, annual-health-check,
+ * advanced-diagnostics, who-its-for, screening-journey, health-education,
+ * care-coordination, hmo) are no longer linked; they stay live and in the
+ * sitemap until the redirects land in Phase 5.
+ */
 const FOOTER_LINKS = {
   care: [
-    { href: MARKETING_ROUTES.services, label: "Services" },
+    { href: MARKETING_ROUTES.services, label: "How it works" },
+    { href: MARKETING_ROUTES.pricing, label: "Membership" },
+    { href: MARKETING_ROUTES.prevention, label: "Preventive care" },
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
-    { href: MARKETING_ROUTES.prevention, label: "Prevention" },
-    // Kept in sync with the top-nav relabel in marketing-nav.tsx
-    // (2026-09-22) — same route, same label, so a visitor doesn't see two
-    // different names for the identical page.
-    { href: MARKETING_ROUTES.careCoordination, label: "Laboratories and medication" },
-    { href: MARKETING_ROUTES.devices, label: "Devices" },
-  ],
-  programmes: [
-    { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
-    { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
-    { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
-    { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
-    { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
-    { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental Wellbeing Check" },
-    { href: MARKETING_ROUTES.symptomChecker, label: "Symptom Checker" },
-    { href: MARKETING_ROUTES.parentcare, label: "Caring for a parent" },
-  ],
-  conditions: [
-    { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
-    { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
-    { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
-    { href: MARKETING_ROUTES.monitoring, label: "Continuous monitoring" },
-    { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your laboratory results" },
-    { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
+    { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
+    { href: MARKETING_ROUTES.monitoring, label: "Ongoing monitoring" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
-    { href: MARKETING_ROUTES.labs, label: "Laboratories" },
-    { href: MARKETING_ROUTES.bmiCalculator, label: "BMI & Calorie Calculator" },
-    { href: MARKETING_ROUTES.activityCalculator, label: "Activity Calculator" },
+    { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
+  ],
+  forYou: [
+    { href: MARKETING_ROUTES.forYou, label: "For individuals" },
+    { href: MARKETING_ROUTES.gift, label: "For families" },
+    { href: MARKETING_ROUTES.corporate, label: "For employers" },
+    { href: MARKETING_ROUTES.labs, label: "Diagnostic services" },
+    { href: MARKETING_ROUTES.partners, label: "Our partners" },
+    { href: MARKETING_ROUTES.coverage, label: "Where we work" },
+  ],
+  library: [
+    { href: MARKETING_ROUTES.resources, label: "Health library" },
+    { href: MARKETING_ROUTES.hypertension, label: "Blood pressure" },
+    { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
+    { href: MARKETING_ROUTES.obesity, label: "Weight health" },
+    { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
+    { href: MARKETING_ROUTES.bmiCalculator, label: "BMI calculator" },
+    { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental wellbeing check" },
+    { href: MARKETING_ROUTES.symptomChecker, label: "Symptom checker" },
   ],
   company: [
-    { href: MARKETING_ROUTES.pricing, label: "Pricing" },
-    { href: MARKETING_ROUTES.gift, label: "Gift Tarragon" },
-    { href: MARKETING_ROUTES.whoItsFor, label: "Who it is for" },
-    { href: MARKETING_ROUTES.forYou, label: "For individuals" },
     { href: MARKETING_ROUTES.about, label: "About" },
-    { href: MARKETING_ROUTES.careers, label: "Careers" },
-    { href: MARKETING_ROUTES.resources, label: "Resources" },
-    { href: MARKETING_ROUTES.impact, label: "Our impact" },
-    { href: MARKETING_ROUTES.partners, label: "Our partners" },
     { href: MARKETING_ROUTES.accountability, label: "How we are accountable" },
-    { href: MARKETING_ROUTES.coverage, label: "Where we work" },
+    { href: MARKETING_ROUTES.impact, label: "Our impact" },
+    { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.faq, label: "FAQ" },
     { href: MARKETING_ROUTES.contact, label: "Contact" },
   ],
-  business: [
-    { href: MARKETING_ROUTES.corporate, label: "Corporate Health" },
-    { href: MARKETING_ROUTES.hmo, label: "HMO Support" },
-    { href: "/login", label: "Sign in" },
-    { href: "/signup", label: "Get started" },
-  ],
   legal: [
     { href: MARKETING_ROUTES.privacy, label: "Privacy" },
-    { href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth consent" },
     { href: MARKETING_ROUTES.terms, label: "Terms of service" },
+    { href: MARKETING_ROUTES.telehealthConsent, label: "Telehealth consent" },
+    { href: MARKETING_ROUTES.cookies, label: "Cookie Policy" },
     { href: MARKETING_ROUTES.accessibility, label: "Accessibility" },
-    { href: MARKETING_ROUTES.cookies, label: "Cookies" },
   ],
 };
 
@@ -129,7 +125,7 @@ function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="text-sm text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+      className={`inline-block py-1 text-[15px] text-white/75 hover:text-white ${FOOTER_FOCUS}`}
     >
       {label}
     </Link>
@@ -149,10 +145,10 @@ function FooterGroup({
           per page, so every page's heading outline ended with "Care",
           "Programmes", "Conditions", "Company", "Business" at the same level
           as its real section headings. */}
-      <h3 className="font-heading text-sm font-semibold uppercase tracking-wide text-white/90">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
         {title}
       </h3>
-      <ul className="mt-4 space-y-2.5">
+      <ul className="mt-4 space-y-1">
         {links.map((link) => (
           <li key={link.label}>
             <FooterLink {...link} />
@@ -167,7 +163,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-charcoal-ink/10 bg-clinical-navy text-white">
       <h2 className="sr-only">Site footer</h2>
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-5">
           <BrandLockup tone="on-navy" markClassName="h-10 w-10" wordmarkClassName="text-xl" />
           <div className="space-y-2">
@@ -175,20 +171,20 @@ export function MarketingFooter() {
               Care that stays with you.
             </p>
             <p className="max-w-xs text-sm leading-relaxed text-white/65">
-              Continuous monitoring for chronic disease, preventive health
-              and family care, with follow-up between visits.
+              Preventive and ongoing healthcare for people in Nigeria: your
+              plan, your results and your doctor, in one place.
             </p>
             <p className="text-sm text-white/65">
               <a
                 href="mailto:hello@tarragonhealth.ng"
-                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+                className={`inline-block py-1 text-white/90 hover:text-white ${FOOTER_FOCUS}`}
               >
                 hello@tarragonhealth.ng
               </a>
               <span className="text-white/40"> · </span>
               <a
                 href="mailto:support@tarragonhealth.ng"
-                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+                className={`inline-block py-1 text-white/90 hover:text-white ${FOOTER_FOCUS}`}
               >
                 support@tarragonhealth.ng
               </a>
@@ -196,7 +192,7 @@ export function MarketingFooter() {
             <p className="text-sm text-white/65">
               <a
                 href="tel:+2348061197940"
-                className="text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+                className={`inline-block py-1 text-white/90 hover:text-white ${FOOTER_FOCUS}`}
               >
                 +234 806 119 7940
               </a>
@@ -212,10 +208,9 @@ export function MarketingFooter() {
         </div>
 
         <FooterGroup title="Care" links={FOOTER_LINKS.care} />
-        <FooterGroup title="Programmes" links={FOOTER_LINKS.programmes} />
-        <FooterGroup title="Conditions" links={FOOTER_LINKS.conditions} />
+        <FooterGroup title="For you" links={FOOTER_LINKS.forYou} />
+        <FooterGroup title="Health library" links={FOOTER_LINKS.library} />
         <FooterGroup title="Company" links={FOOTER_LINKS.company} />
-        <FooterGroup title="Business" links={FOOTER_LINKS.business} />
       </div>
 
       <div className="border-t border-white/10 px-4 py-5 sm:px-6">
@@ -227,7 +222,7 @@ export function MarketingFooter() {
 
       <div className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/70 sm:px-6">
         <p>
-          © {new Date().getFullYear()} TarragonHealth. Health monitoring for Nigerians.
+          © {new Date().getFullYear()} TarragonHealth
           <span className="text-white/40"> · </span>
           RC 9702108
           <span className="text-white/40"> · </span>
@@ -239,12 +234,16 @@ export function MarketingFooter() {
               {i > 0 ? <span className="text-white/30">·</span> : null}
               <Link
                 href={link.href}
-                className="inline-block py-2 text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-clinical-navy rounded-sm"
+                className={`inline-block py-2 text-white/70 hover:text-white ${FOOTER_FOCUS}`}
               >
                 {link.label}
               </Link>
             </span>
           ))}
+          <span className="flex items-center gap-x-3">
+            <span className="text-white/30">·</span>
+            <CookieSettingsLink className={`inline-block py-2 text-white/70 hover:text-white ${FOOTER_FOCUS}`} />
+          </span>
         </p>
       </div>
     </footer>

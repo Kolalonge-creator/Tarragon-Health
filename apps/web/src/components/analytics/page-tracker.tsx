@@ -3,15 +3,18 @@
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { isAnalyticsAllowedNow, useAnalyticsAllowed } from "@/lib/consent";
+import { isMarketingPath } from "@/lib/marketing/routes";
 
 /**
  * First-party page-view tracker. Fires a beacon to /api/track on each
  * navigation so the analytics console can report acquisition (anonymous
  * visitors, geo, referrers) and engagement (logged-in DAU/WAU/MAU, retention).
  *
- * Opt-out — runs by default, everywhere (marketing and the signed-in app
- * alike), and stops immediately the moment someone rejects via
- * cookie-consent-banner.tsx or their browser sends Do Not Track.
+ * Consent (founder decision W-07, 2026-11-05): on the public marketing site
+ * it is OPT-IN, sending nothing until the visitor accepts in
+ * cookie-consent-banner.tsx. In the signed-in app it stays opt-out (disclosed
+ * in the Terms, no banner), stopping only on an explicit rejection. Do Not
+ * Track always stops it.
  *
  * Deliberately dependency-light and marketing-safe: it imports nothing from
  * auth/platform modules (the marketing route group must not), and it never
@@ -61,7 +64,8 @@ function send(payload: Record<string, string | undefined>) {
 export function PageTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const consented = useAnalyticsAllowed();
+  const optIn = isMarketingPath(pathname);
+  const consented = useAnalyticsAllowed(optIn);
 
   useEffect(() => {
     if (!consented) return;
@@ -70,7 +74,7 @@ export function PageTracker() {
     // after hydration on a fresh page load, before it self-corrects — this
     // reads localStorage directly, so a real rejection is honoured on the
     // very first effect run of every navigation, not just from the second.
-    if (!isAnalyticsAllowedNow()) return;
+    if (!isAnalyticsAllowedNow(optIn)) return;
     // Skip automated browsers/bots best-effort.
     if (typeof navigator !== "undefined" && navigator.webdriver) return;
     // Honour Do Not Track client-side too — don't even send the beacon
@@ -102,7 +106,7 @@ export function PageTracker() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", beat);
     };
-  }, [pathname, searchParams, consented]);
+  }, [pathname, searchParams, consented, optIn]);
 
   return null;
 }

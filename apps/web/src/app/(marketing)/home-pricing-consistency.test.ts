@@ -19,6 +19,8 @@ const HOME_FILES = [
   "_components/home-entry-chips.tsx",
   "_components/home-business-door.tsx",
   "_content/channel-heroes.ts",
+  "_components/home-hero.tsx",
+  "_components/home-sections.tsx",
 ];
 
 describe("homepage pricing copy", () => {

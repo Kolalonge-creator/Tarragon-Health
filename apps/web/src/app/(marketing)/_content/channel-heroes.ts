@@ -42,14 +42,18 @@ export type ChannelHeroCopy = {
  * is the reader's own experience, not a statistic this site cannot source.
  */
 export const DEFAULT_HERO: ChannelHeroCopy = {
-  eyebrow: "Free to join. No card needed.",
-  title: "Care that stays with you.",
+  // Rewritten 2026-11-05 (website upgrade Phase 1): the headline the founder's
+  // spec recommends, chosen in the Phase 0 plan for saying what is different
+  // about Tarragon without fear language. Lab tests are paid to the lab, so
+  // the description says "your laboratory results", never "your tests".
+  eyebrow: "Preventive and ongoing care in Nigeria",
+  title: "Your health deserves more than an annual check-up.",
   description:
-    "For most people, care ends when they leave the hospital. Tarragon continues it: your readings are monitored, your screenings are tracked, and a doctor is available when you need one.",
+    "Tarragon brings your health profile, a preventive plan, your laboratory results, doctor reviews and follow-up together in one place, so you can stay ahead of your health.",
   primaryHref: "/signup",
-  primaryLabel: "Create your free account",
-  secondaryHref: MARKETING_ROUTES.pricing,
-  secondaryLabel: "See what it costs",
+  primaryLabel: "Get started",
+  secondaryHref: MARKETING_ROUTES.services,
+  secondaryLabel: "See how it works",
 };
 
 export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
