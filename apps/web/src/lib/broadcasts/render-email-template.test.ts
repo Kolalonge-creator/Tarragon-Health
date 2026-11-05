@@ -112,3 +112,25 @@ describe("renderBroadcastEmailHtml", () => {
     expect(html).toContain("<p>Paragraph two.</p>");
   });
 });
+
+// Security audit 2026-11-05 (CodeQL js/incomplete-html-attribute-sanitization): a quote in a URL must not break out of
+// the src/href attribute it is placed in.
+describe("renderBroadcastEmailHtml attribute escaping", () => {
+  it("escapes quotes inside image and button URLs", () => {
+    const html = renderBroadcastEmailHtml(
+      {
+        headline: "H",
+        bodyText: "B",
+        imageUrl: 'https://img.example/a.png" onerror="alert(1)',
+        buttonText: "Go",
+        buttonUrl: "https://go.example/?q=' onclick='x",
+      },
+      "S",
+      "B",
+    );
+    expect(html).not.toContain('" onerror="');
+    expect(html).not.toContain("' onclick='");
+    expect(html).toContain("&quot; onerror=&quot;");
+    expect(html).toContain("&#39; onclick=&#39;");
+  });
+});
