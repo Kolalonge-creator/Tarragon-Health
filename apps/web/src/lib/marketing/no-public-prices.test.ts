@@ -19,6 +19,7 @@ const NAIRA_TEMPLATE_ALLOWED: Record<string, string> = {
   "app/(marketing)/pricing/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/gift/page.tsx": "the Membership price, from commerce.membership_prices",
   "app/(marketing)/page.tsx": "the Membership price on the homepage, from commerce.membership_prices (same source as /pricing)",
+  "app/(marketing)/membership/page.tsx": "the Membership price on the Membership page, from commerce.membership_prices (same source as /pricing)",
   "lib/marketing/membership.ts": "the employer seat price in the shared employer line, from commerce.membership_prices",
   "app/(marketing)/_components/roi-calculator.tsx":
     "an employer sketch whose every figure is a visitor-editable assumption and a modelled saving; it quotes no Tarragon price",
@@ -83,7 +84,7 @@ describe("public prices: the Membership price and the employer seat price, nothi
     for (const rel of Object.keys(NAIRA_TEMPLATE_ALLOWED)) {
       const f = files.find((x) => x.rel === rel);
       expect(f).toBeDefined();
-      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx") || rel === "app/(marketing)/page.tsx") {
+      if (rel.endsWith("pricing/page.tsx") || rel.endsWith("gift/page.tsx") || rel.endsWith("membership/page.tsx") || rel === "app/(marketing)/page.tsx") {
         // The price comes from the one shared reader, which itself reads versioned config.
         expect(f!.text).toContain("@/lib/marketing/membership");
       }

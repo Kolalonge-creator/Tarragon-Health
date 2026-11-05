@@ -149,8 +149,8 @@ export default async function MarketingHomePage() {
         </div>
         <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
         <p className="mt-6 text-center">
-          <Link href={MARKETING_ROUTES.pricing} className="inline-block py-2 font-semibold text-brand-green hover:underline">
-            Compare plans in full
+          <Link href={MARKETING_ROUTES.membership} className="inline-block py-2 font-semibold text-brand-green hover:underline">
+            See everything Membership includes
           </Link>
         </p>
       </Section>

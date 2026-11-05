@@ -1,7 +1,7 @@
 "use server";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { leadSchema } from "@/lib/validation/lead";
+import { LEAD_HONEYPOT_FIELD, leadSchema } from "@/lib/validation/lead";
 import { pickFormValues } from "@/lib/forms/pick-form-values";
 import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -42,10 +42,34 @@ export type ContactActionState =
   | { error?: string; success?: boolean; values?: LeadSubmittedValues }
   | undefined;
 
+/**
+ * Saving an enquiry is limited per connection too (website upgrade Phase 2,
+ * 2026-11-05: the live audit found the leads insert had no spam protection at
+ * all). Generous on purpose, because a real lead must not be lost: a person
+ * rarely sends more than a couple of messages an hour. Fails open, like the
+ * capture limit above.
+ */
+async function insertLimited(): Promise<boolean> {
+  try {
+    const ip = await getClientIp();
+    const r = await rateLimit(`lead-insert:${ip}`, { limit: 10, windowSeconds: 3600 });
+    return !r.success;
+  } catch {
+    return false;
+  }
+}
+
 export async function submitLead(
   _prevState: ContactActionState,
   formData: FormData
 ): Promise<ContactActionState> {
+  // A bot that fills every field fills this one too. Report success so it
+  // learns nothing, and save nothing.
+  const trap = formData.get(LEAD_HONEYPOT_FIELD);
+  if (typeof trap === "string" && trap.trim() !== "") {
+    return { success: true };
+  }
+
   const parsed = leadSchema.safeParse({
     name: formData.get("name"),
     contact: formData.get("contact"),
@@ -65,6 +89,13 @@ export async function submitLead(
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return {
       error: "Lead capture is not configured yet. Please email us directly.",
+      values: submittedValues(formData),
+    };
+  }
+
+  if (await insertLimited()) {
+    return {
+      error: "We have received several messages from you in the last hour. Please email hello@tarragonhealth.ng instead.",
       values: submittedValues(formData),
     };
   }

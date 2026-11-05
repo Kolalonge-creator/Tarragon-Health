@@ -57,7 +57,7 @@ function Heading({ id, children, invert = false }: { id: string; children: React
 /* 2. Audience router ------------------------------------------------------ */
 
 const AUDIENCES = [
-  { href: MARKETING_ROUTES.pricing, title: "For me", detail: "A free account, or Membership", Icon: UserRound },
+  { href: MARKETING_ROUTES.membership, title: "For me", detail: "A free account, or Membership", Icon: UserRound },
   { href: MARKETING_ROUTES.gift, title: "For a parent or relative", detail: "Support someone in Nigeria from anywhere", Icon: HeartHandshake },
   { href: MARKETING_ROUTES.corporate, title: "For my employees", detail: "Membership for your whole team", Icon: BriefcaseBusiness },
 ] as const;
@@ -134,7 +134,7 @@ export function HomeProblem() {
 
 const STEPS = [
   { title: "Create your health profile", body: "Answer a short assessment about your history, family and lifestyle." },
-  { title: "Get your personal plan", body: "A doctor reviews your assessment and approves the checks that fit you." },
+  { title: "Get your personal plan", body: "A plan built from signed care protocols, fitted to your age, history and family." },
   { title: "Do the recommended tests", body: "Download your request form and use any eligible laboratory you choose." },
   { title: "Upload and understand results", body: "Upload the report. We organise the values and a doctor reviews them." },
   { title: "Keep going", body: "Reminders, a monthly online doctor meeting and follow-up keep you on track." },
@@ -161,7 +161,7 @@ export function HomeJourney() {
           <RefreshCw aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" />
           Each new result updates your plan, so next year starts from what we learned this year.
         </p>
-        <p className="text-sm text-mk-muted">Doctor review of your plan and results is part of Membership.</p>
+        <p className="text-sm text-mk-muted">Your plan and a doctor&apos;s review of your results are part of Membership.</p>
       </div>
     </Section>
   );
@@ -207,7 +207,7 @@ export function HomeShowcase() {
 const SERVICES = [
   {
     title: "Personal preventive care",
-    items: ["Health assessment and risk review", "A doctor-approved plan", "Screening that fits your age and history"],
+    items: ["Health assessment and risk review", "A personal preventive plan", "Screening that fits your age and history"],
     href: MARKETING_ROUTES.prevention,
     cta: "Explore preventive care",
     Icon: ShieldCheck,
@@ -389,7 +389,7 @@ export function HomeFamilies() {
 export function HomeEmployers({ seatPrice }: { seatPrice: string }) {
   const points = [
     "Every employee gets the same full Membership",
-    "Health assessments, plans, doctor review and education",
+    "Health assessments, plans, doctor review of results and education",
     "You see group figures only, never anyone's results",
     "Health insurers and HMOs: talk to us about working together",
   ];

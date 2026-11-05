@@ -18,8 +18,10 @@ const FOOTER_FOCUS =
  */
 const FOOTER_LINKS = {
   care: [
-    { href: MARKETING_ROUTES.services, label: "How it works" },
-    { href: MARKETING_ROUTES.pricing, label: "Membership" },
+    { href: MARKETING_ROUTES.howItWorks, label: "How it works" },
+    { href: MARKETING_ROUTES.services, label: "Services" },
+    { href: MARKETING_ROUTES.membership, label: "Membership" },
+    { href: MARKETING_ROUTES.pricing, label: "Pricing" },
     { href: MARKETING_ROUTES.prevention, label: "Preventive care" },
     { href: MARKETING_ROUTES.chronicCare, label: "Chronic care" },
     { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
@@ -49,6 +51,7 @@ const FOOTER_LINKS = {
   ],
   company: [
     { href: MARKETING_ROUTES.about, label: "About" },
+    { href: MARKETING_ROUTES.clinicalApproach, label: "Our clinical approach" },
     { href: MARKETING_ROUTES.accountability, label: "How we are accountable" },
     { href: MARKETING_ROUTES.impact, label: "Our impact" },
     { href: MARKETING_ROUTES.careers, label: "Careers" },

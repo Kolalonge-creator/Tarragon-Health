@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** The contact form's hidden spam-trap field: people never see it, so anything typed into it came from a bot. */
+export const LEAD_HONEYPOT_FIELD = "company_website";
+
 export const LEAD_ROLES = ["patient", "family", "employer", "hmo", "ngo", "other"] as const;
 
 export type LeadRole = (typeof LEAD_ROLES)[number];

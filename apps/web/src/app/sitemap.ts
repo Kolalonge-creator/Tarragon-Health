@@ -16,6 +16,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const priorityByKey: Partial<Record<(typeof MARKETING_ROUTES_BUILT)[number], number>> = {
     home: 1,
     services: 0.9,
+    howItWorks: 0.9,
+    membership: 0.95,
+    clinicalApproach: 0.7,
     pricing: 0.9,
     chronicCare: 0.8,
     prevention: 0.8,
