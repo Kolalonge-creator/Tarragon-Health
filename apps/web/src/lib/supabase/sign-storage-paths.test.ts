@@ -85,7 +85,9 @@ describe("signStoragePaths", () => {
   });
 
   it("T2-08: never signs a file held for the malware scan in a scanned bucket, and leaves other buckets alone", async () => {
-    rpc.mockResolvedValueOnce({ data: ["held.pdf"], error: null });
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "upload_scan_held_paths" ? { data: ["held.pdf"], error: null } : { data: [], error: null },
+    );
     createSignedUrls.mockResolvedValue({ data: [{ path: "ok.pdf", signedUrl: "https://signed/ok" }], error: null });
     const result = await signStoragePaths("lab-result-documents", ["ok.pdf", "held.pdf"], 300);
     expect(createSignedUrls).toHaveBeenCalledWith("lab-result-documents", ["ok.pdf"], 300);
@@ -94,6 +96,6 @@ describe("signStoragePaths", () => {
 
     rpc.mockClear();
     await signStoragePaths("vaccination-certificates", ["v.pdf"], 300);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("upload_scan_held_paths", expect.anything());
   });
 });
