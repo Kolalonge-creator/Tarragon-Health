@@ -912,7 +912,7 @@
     },
     {
       "file": "apps/web/src/app/api/cron/verify-client-uploads/route.ts",
-      "category": "cron route, CRON_SECRET bearer check before any work (security audit M-4/L-4, 2026-11-05). Claims queued client-direct uploads, downloads each object, runs prepareUpload, writes back a metadata-free copy or moves a mismatch to the private upload-quarantine bucket, and records the outcome via service-role-only RPCs."
+      "category": "cron route (security audit M-4/L-4, 2026-11-05). Runs only with the CRON_SECRET bearer (Vercel daily) or a one-time code the database made and the server-only consume_client_upload_check_kick spends (pg_cron, every two minutes); checked before any work. Claims queued client-direct uploads, runs prepareUpload, writes back a metadata-free copy or moves a mismatch to the private upload-quarantine bucket, and records the outcome via service-role-only RPCs."
     },
     {
       "file": "apps/web/src/lib/uploads/check-my-upload.ts",

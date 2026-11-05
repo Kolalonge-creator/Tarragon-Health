@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { runClientUploadChecks } from "@/lib/uploads/verify-stored-upload";
@@ -6,12 +7,24 @@ import { runClientUploadChecks } from "@/lib/uploads/verify-stored-upload";
  * Checks files a browser or the phone app wrote straight to Storage (security audit 2026-11-05, M-4/L-4): bytes must match the
  * declared type, photo location is removed, a mismatch is quarantined. See lib/uploads/verify-stored-upload.ts.
  *
- * Called every two minutes by pg_cron (private.kick_client_upload_checks, POST, once the app_base_url and cron_secret Vault
- * secrets exist) and daily by Vercel cron (GET) as a backstop. Both carry the CRON_SECRET bearer.
+ * Two callers, two proofs:
+ * - pg_cron every two minutes (private.kick_client_upload_checks, POST) sends a one-time code in x-upload-check-kick. The code
+ *   is accepted only if public.consume_client_upload_check_kick spends it (made by the database in the last ten minutes, never
+ *   used before), so no shared secret has to be copied into the database.
+ * - Vercel cron daily (GET) as a backstop, with the CRON_SECRET bearer.
  */
+const kickCodeSchema = z.string().uuid();
+
+async function isAuthorised(request: Request): Promise<boolean> {
+  if (isCronAuthorised(request.headers.get("authorization"))) return true;
+  const code = kickCodeSchema.safeParse(request.headers.get("x-upload-check-kick"));
+  if (!code.success) return false;
+  const { data, error } = await createServiceRoleClient().rpc("consume_client_upload_check_kick", { p_code: code.data });
+  return !error && data === true;
+}
+
 async function handle(request: Request): Promise<Response> {
-  const authHeader = request.headers.get("authorization");
-  if (!isCronAuthorised(authHeader)) {
+  if (!(await isAuthorised(request))) {
     return new Response("Not authorised", { status: 401 });
   }
   const service = createServiceRoleClient();
