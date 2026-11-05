@@ -5,7 +5,6 @@ import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
-import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
 import { BP_TARGET_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY, SYMPTOM_UX_ITEM_KEY, VITALS_TASK_TYPE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, POST_CHECKIN_ITEM_KEY, CASCADE_CONFIG_ITEM_KEY, CARE_GAP_CONFIG_ITEM_KEY, RELIABLE_CHANGE_ITEM_KEY, ADJUSTMENT_CONFIG_ITEM_KEY, BASELINE_LABS_ITEM_KEY, AI_MONITORING_ITEM_KEY, MSK_PROGRAMMES_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, FAST_SUGAR_ITEM_KEY, BP_DEVICE_REVIEW_ITEM_KEY, OPS_DESK_CONFIG_ITEM_KEY, PAGING_DELIVERY_CONFIG_ITEM_KEY, TASK_LAYER_CONFIG_ITEM_KEY, CAPACITY_CONFIG_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, LEGACY_NOTICE_RETIREMENT_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
@@ -100,7 +99,8 @@ import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { attestItemKey, C4_CODE, CUFF_FLAG_CODE, CUFF_FLAG_GUARD, CUFF_PROMPT_CODE, CUFF_PROMPT_GUARD, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
-import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
+import { HubOverview } from "./hub-overview";
+import { buildHubSections } from "./hub-sections";
 import {
   ContentLibraryManager,
   type ContentBlockRow,
@@ -396,14 +396,33 @@ export default async function ClinicianClinicalSignoffPage({
   }));
   const hasSigned = checklist.signedRules.length > 0 || settledConfigs.length > 0;
 
+  const sections = buildHubSections(hub, inlinePanels);
+  // Never an all-clear when a read failed: the warnings above say what is missing, and the empty section says so too.
+  if (hub.failed || checklistFailed) {
+    sections[0] = { ...sections[0], emptyText: "Nothing loaded here, but a read failed above, so this is not an all-clear." };
+  } else {
+    sections[0] = {
+      ...sections[0],
+      emptyText:
+        "Nothing is waiting on your signature. Every clinical protocol on the patient-harm list carries a signature. Operational settings owe no signature.",
+    };
+  }
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-xl font-semibold text-charcoal-ink">Sign-off hub</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold text-charcoal-ink">Sign-off hub</h1>
+          <Link
+            href="/clinician/go-live"
+            className="inline-flex min-h-11 items-center rounded-full border border-brand-green/40 px-4 text-sm font-medium text-brand-green hover:bg-brand-green/5"
+          >
+            Switches (go-live)
+          </Link>
+        </div>
         <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">
-          Everything on the platform that needs your signature, in one list, most urgent first. Open a
-          line to see what it is and sign it, or follow it to its own page when you need to review the
-          actual values first. Nothing is signed until you press the sign button.
+          Everything that needs your signature, one line each, most urgent first. Tap a line to open it,
+          read what it is and sign it there. Nothing is signed until you press the sign button.
         </p>
       </div>
 
@@ -434,62 +453,7 @@ export default async function ClinicianClinicalSignoffPage({
         </LoadFailure>
       )}
 
-      {hub.items.length === 0 && (hub.failed || checklistFailed) ? null : hub.items.length === 0 ? (
-        <Card className="border-brand-green/30 bg-brand-green/5">
-          <CardContent className="pt-6 text-sm text-charcoal-ink/70">
-            Nothing is waiting on your signature. Every clinical protocol on the patient-harm list (triage rules,
-            thresholds, escalation SLAs, prescribing and interaction rules, screening and result-release rules,
-            mental-health follow-up, fasting wording, AI system versions) carries a signature. Operational settings,
-            if any are waiting, are listed below and owe no signature.
-          </CardContent>
-        </Card>
-      ) : (
-        <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
-      )}
-
-      {hub.operational.length > 0 && (
-        <details className="rounded-md border border-mist-grey/40 p-4">
-          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
-            Operational settings ({hub.operational.length}): not clinical protocols, no signature owed
-          </summary>
-          <p className="mt-2 max-w-3xl text-sm text-charcoal-ink/70">
-            Capacity, quality, the ops desk, paging delivery, task-layer rules, care-gap and cascade definitions, wording and screen
-            attestations, device lists and the proposed registry values. Each is versioned and audited, but it is a setting, not a
-            protocol: it does not count above and it blocks nothing live. Set one when the feature that reads it needs it (decision G-01).
-          </p>
-          <div className="mt-4">
-            <SignoffQueueList items={hub.operational} inlinePanels={inlinePanels} variant="operational" />
-          </div>
-        </details>
-      )}
-
-      {hub.live.length > 0 && (
-        <details className="rounded-md border border-mist-grey/40 p-4">
-          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
-            Signed and running ({hub.live.length}): nothing to sign, open to switch off
-          </summary>
-          <div className="mt-4">
-            <SignoffQueueList items={hub.live} inlinePanels={inlinePanels} variant="live" />
-          </div>
-        </details>
-      )}
-
-      {hub.attention.length > 0 && (
-        <section aria-label="Needs your attention" className="space-y-2">
-          <h2 className="text-base font-semibold text-charcoal-ink">Needs your attention (not a signature)</h2>
-          <ul className="space-y-2">
-            {hub.attention.map((a) => (
-              <li key={a.key} className="rounded-xl border border-mist-grey/40 p-4 text-sm">
-                <p className="font-medium text-charcoal-ink">{a.title}</p>
-                <p className="mt-1 text-charcoal-ink/70">{a.detail}</p>
-                <Link href={a.href} className="mt-2 inline-block font-medium text-brand-green underline underline-offset-4">
-                  Open the credentialing page
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <HubOverview sections={sections} />
 
       {hasSigned && (
         <details className="rounded-md border border-mist-grey/40 p-4">
