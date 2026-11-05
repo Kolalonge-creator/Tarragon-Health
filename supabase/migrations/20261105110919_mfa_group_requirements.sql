@@ -11,8 +11,9 @@
 -- WHERE IT IS ENFORCED.
 --   1. apps/web proxy.ts: an account in a required group without a verified factor is sent to Profile & settings to set one
 --      up; an account with a factor is sent to the existing challenge (it already was, whether required or not).
---   2. Here, in the database, for the two helpers that open patient data to staff: private.is_org_staff(uuid) and
---      private.is_admin(). Each gains `and private.mfa_requirement_met()`. For an account in a required group whose session is
+--   2. Here, in the database, for the helpers that open patient data to staff: private.is_org_staff(uuid) (and so
+--      private.staff_may_read / staff_may_write, which call it), private.is_admin() and private.has_emergency_access
+--      (break-glass). Each gains `and private.mfa_requirement_met()`. For an account in a required group whose session is
 --      not AAL2 both return false, so a stolen AAL1 token sent straight to the API reads no patient data through either. With
 --      every group off, mfa_requirement_met() is true for everybody and both helpers behave exactly as before.
 --   Not covered at the database layer: a patient's own-row and caregiver policies (auth.uid() = patient_id, can_read_clinical)
@@ -186,6 +187,25 @@ as $function$
   select exists (
     select 1 from public.profiles
     where id = (select auth.uid()) and role = 'admin' and is_active
+  )
+  -- 2FA group requirement (20261105110919): see private.is_org_staff.
+  and private.mfa_requirement_met();
+$function$;
+
+-- Break-glass reads. A grant already open must not be usable from an AAL1 session of an account whose group requires 2FA.
+create or replace function private.has_emergency_access(p_patient uuid, p_category public.care_access_category default null::public.care_access_category)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$
+  select exists (
+    select 1 from public.emergency_record_access_grants g
+    where g.patient_id = p_patient
+      and g.requester_id = (select auth.uid())
+      and g.ended_at is null
+      and g.expires_at > now()
+      and (p_category is null or p_category <> 'reproductive_health')
   )
   -- 2FA group requirement (20261105110919): see private.is_org_staff.
   and private.mfa_requirement_met();
@@ -422,7 +442,8 @@ begin
     raise exception 'mfa_group_requirements tables carry a grant they must not';
   end if;
   if position('mfa_requirement_met' in pg_get_functiondef('private.is_org_staff(uuid)'::regprocedure)) = 0
-     or position('mfa_requirement_met' in pg_get_functiondef('private.is_admin()'::regprocedure)) = 0 then
-    raise exception 'is_org_staff / is_admin do not check the 2FA requirement';
+     or position('mfa_requirement_met' in pg_get_functiondef('private.is_admin()'::regprocedure)) = 0
+     or position('mfa_requirement_met' in pg_get_functiondef('private.has_emergency_access(uuid, public.care_access_category)'::regprocedure)) = 0 then
+    raise exception 'is_org_staff / is_admin / has_emergency_access do not check the 2FA requirement';
   end if;
 end $$;
