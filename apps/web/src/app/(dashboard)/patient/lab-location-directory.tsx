@@ -176,7 +176,7 @@ export function LabLocationDirectory() {
   const state = listQueryState({ isLoading, isError, count: locations?.length });
 
   if (state === "error") {
-    return <LoadErrorCard title="Contracted lab branches" what="the lab directory" />;
+    return <LoadErrorCard title="Labs you can book through Tarragon" what="the labs you can book" />;
   }
   if (state === "empty") return null;
   if (state !== "ready" || !locations) return null;
@@ -184,12 +184,13 @@ export function LabLocationDirectory() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Contracted lab branches</CardTitle>
+        <CardTitle>Labs you can book through Tarragon</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-          Real branches Tarragon has contracted, with ratings from patients who actually completed a
-          test there.
+          Branches where you can book and pay for a test through Tarragon, with ratings from patients who
+          actually had a test there. To find any checked lab or imaging centre for a specific test, use the
+          search above.
         </p>
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {locations.map((location) => (

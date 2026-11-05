@@ -7,6 +7,8 @@ import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
 import { ImagingRequestsList } from "@/app/(dashboard)/patient/imaging-requests-list";
 import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
+import { DiagnosticSearchCard } from "@/app/(dashboard)/patient/diagnostic-search-card";
+import { createClient } from "@/lib/supabase/server";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { ReleasedLabResults } from "@/app/(dashboard)/patient/released-lab-results";
 import { LabTrendCard } from "@/app/(dashboard)/patient/lab-trend-card";
@@ -19,6 +21,8 @@ import { UnsortedDocuments } from "@/app/(dashboard)/patient/unsorted-documents"
 
 export default async function PatientLabsPage() {
   const { subjectId, uiLanguage } = await getPatientDashboardContext();
+  // Diagnostic directory Phase 6: the search starts from the patient's own saved state and LGA.
+  const { data: where } = await (await createClient()).from("profiles").select("state, lga").eq("id", subjectId).maybeSingle();
 
   const tabs: PreventionTab[] = [
     {
@@ -46,6 +50,7 @@ export default async function PatientLabsPage() {
           {/* BookingRequestsList stays because vaccination bookings still
               create real requests a patient needs to see. */}
           <BookingRequestsList patientId={subjectId} />
+          <DiagnosticSearchCard defaultState={where?.state ?? null} defaultLga={where?.lga ?? null} />
           <AnnualBundleCard patientId={subjectId} />
           <LabCatalogue />
           {/* Synlab Nigeria was contracted 2026-08-21 and this branch
