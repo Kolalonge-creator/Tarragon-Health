@@ -141,7 +141,7 @@ export default async function VerifyPrescriptionPage({
                       <p className="mt-2 rounded-md border-l-4 border-amber-600 bg-amber-50 p-3 text-sm">{describePatientReportForPharmacist(p)}</p>
                     )}
                     <p className="mt-1 text-sm">{describeSupply(p)}</p>
-                    {(p.supply_available || p.patient_report_awaiting_pharmacy === true) && (
+                    {(p.supply_available || p.self_report_awaiting_pharmacy === true) && (
                       <form action={recordSupplyAction} className="mt-4 space-y-3">
                         <input type="hidden" name="token" value={token} />
                         <p className="text-sm font-medium">Record that you are supplying this now</p>

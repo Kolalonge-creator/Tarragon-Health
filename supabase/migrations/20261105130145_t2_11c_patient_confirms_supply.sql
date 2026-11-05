@@ -28,7 +28,7 @@
 --     medication, dispute fields) directly through the table policy, which changes the supply count without the dispute function's audit
 --     row. From a client session, a patient may now only insert their own source 'patient', recorded_via 'app' row, and no client may change
 --     the columns the count depends on. The SECURITY DEFINER functions (which run as their owner) are unaffected.
---  6. verify_prescription_public gains patient_reported_supplies, last_patient_report_on and patient_report_awaiting_pharmacy, so the QR page
+--  6. verify_prescription_public gains self_reported_supplies, last_self_report_on and self_report_awaiting_pharmacy, so the QR page
 --     can say "collected, as reported by the patient". Dates and counts only: nothing that identifies the patient. OUT parameters change,
 --     so the function is dropped and recreated with the same grants (same name and argument list, so the anon allowlist is unchanged).
 --
@@ -129,7 +129,7 @@ create function public.verify_prescription_public(p_token text)
 returns table(status text, rx_number text, drug_name text, dose text, frequency text, quantity text, duration_days integer, repeats_allowed integer, repeats_used integer,
               repeats_remaining integer, supplies_dispensed integer, supplies_permitted integer, supply_available boolean, last_supplied_on date, signed_at timestamp with time zone,
               expires_at timestamp with time zone, version integer, prescriber_name text, prescriber_credential text,
-              patient_reported_supplies integer, last_patient_report_on date, patient_report_awaiting_pharmacy boolean)
+              self_reported_supplies integer, last_self_report_on date, self_report_awaiting_pharmacy boolean)
 language plpgsql stable security definer set search_path = '' as $function$
 #variable_conflict use_column
 declare

@@ -77,8 +77,8 @@ begin
   execute 'set local role anon';
   select * into r from public.verify_prescription_public(v_t1);
   execute 'reset role';
-  if r.supplies_dispensed <> 1 or r.supply_available is not false or r.patient_reported_supplies <> 1
-     or r.last_patient_report_on is distinct from v_today or r.patient_report_awaiting_pharmacy is not true or r.last_supplied_on is distinct from v_today then
+  if r.supplies_dispensed <> 1 or r.supply_available is not false or r.self_reported_supplies <> 1
+     or r.last_self_report_on is distinct from v_today or r.self_report_awaiting_pharmacy is not true or r.last_supplied_on is distinct from v_today then
     raise exception 'FAIL A4: QR page after a patient confirmation: %', r;
   end if;
   execute 'set local role authenticated';
@@ -127,7 +127,7 @@ begin
   execute 'set local role anon';
   select * into r from public.verify_prescription_public(v_t1);
   execute 'reset role';
-  if r.supplies_dispensed <> 1 or r.patient_reported_supplies <> 0 or r.patient_report_awaiting_pharmacy is not false or r.supply_available is not false then
+  if r.supplies_dispensed <> 1 or r.self_reported_supplies <> 0 or r.self_report_awaiting_pharmacy is not false or r.supply_available is not false then
     raise exception 'FAIL B4: QR page after the match: %', r;
   end if;
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where id = v_p1;
@@ -187,7 +187,7 @@ begin
   execute 'set local role anon';
   select * into r from public.verify_prescription_public(v_t3);
   execute 'reset role';
-  if r.supplies_dispensed <> 0 or r.supply_available is not true or r.patient_reported_supplies <> 0 then raise exception 'FAIL E6: QR page after undo: %', r; end if;
+  if r.supplies_dispensed <> 0 or r.supply_available is not true or r.self_reported_supplies <> 0 then raise exception 'FAIL E6: QR page after undo: %', r; end if;
   -- confirm again, then the window passes
   execute 'set local role authenticated';
   select * into r from public.confirm_prescription_collected(v_m3);
@@ -264,7 +264,7 @@ begin
   execute 'set local role anon';
   select * into r from public.verify_prescription_public(v_t1);
   execute 'reset role';
-  if r.supplies_dispensed <> 1 or r.patient_reported_supplies <> 1 or r.supply_available is not false then raise exception 'FAIL G3: after dispute: %', r; end if;
+  if r.supplies_dispensed <> 1 or r.self_reported_supplies <> 1 or r.supply_available is not false then raise exception 'FAIL G3: after dispute: %', r; end if;
 
   -- SABOTAGE 1: the count without patient confirmations -----------------------------------------------------------------------------
   v_def := pg_get_functiondef('private.dispense_counts_as_supply(public.pharmacy_order_dispenses)'::regprocedure);

@@ -120,14 +120,14 @@ export function isUndoOutcome(value: unknown): value is UndoOutcome {
 
 /** What the anonymous QR page says about patient-reported supplies. No patient identity: dates only. */
 export function describePatientReportForPharmacist(proof: {
-  patient_reported_supplies?: number | null;
-  last_patient_report_on?: string | null;
-  patient_report_awaiting_pharmacy?: boolean | null;
+  self_reported_supplies?: number | null;
+  last_self_report_on?: string | null;
+  self_report_awaiting_pharmacy?: boolean | null;
 }): string | null {
-  if (!proof.patient_reported_supplies || proof.patient_reported_supplies < 1) return null;
-  const when = proof.last_patient_report_on ? ` on ${formatDay(proof.last_patient_report_on)}` : "";
+  if (!proof.self_reported_supplies || proof.self_reported_supplies < 1) return null;
+  const when = proof.last_self_report_on ? ` on ${formatDay(proof.last_self_report_on)}` : "";
   const head = `Collected, as reported by the patient${when}. No pharmacy recorded this supply.`;
-  return proof.patient_report_awaiting_pharmacy
+  return proof.self_report_awaiting_pharmacy
     ? `${head} If your pharmacy supplied it, record it below to confirm it. If you did not supply it, do not dispense.`
     : head;
 }

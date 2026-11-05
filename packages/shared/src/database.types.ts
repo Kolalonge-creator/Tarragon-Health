@@ -59301,9 +59301,9 @@ export type Database = {
           signed_at: string
           status: string
           version: number
-          patient_reported_supplies: number
-          last_patient_report_on: string
-          patient_report_awaiting_pharmacy: boolean
+          self_reported_supplies: number
+          last_self_report_on: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       verify_lab_request_public: {

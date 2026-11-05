@@ -62,16 +62,16 @@ describe("T2-11c patient-reported supply", () => {
   });
 
   it("tells a pharmacist it was collected, as reported by the patient, with no identity", () => {
-    const text = describePatientReportForPharmacist({ patient_reported_supplies: 1, last_patient_report_on: "2026-11-05", patient_report_awaiting_pharmacy: true });
+    const text = describePatientReportForPharmacist({ self_reported_supplies: 1, last_self_report_on: "2026-11-05", self_report_awaiting_pharmacy: true });
     expect(text).toMatch(/^Collected, as reported by the patient on 5 Nov 2026\./);
     expect(text).toMatch(/record it below to confirm/);
-    expect(describePatientReportForPharmacist({ patient_reported_supplies: 0 })).toBeNull();
+    expect(describePatientReportForPharmacist({ self_reported_supplies: 0 })).toBeNull();
     expect(describePatientReportForPharmacist({})).toBeNull();
   });
 
   it("explains why the record form is still shown when no supply is available", () => {
     const base = { supplies_dispensed: 1, supplies_permitted: 1, supply_available: false, repeats_allowed: 0, repeats_remaining: 0 };
-    expect(describeSupply({ ...base, patient_report_awaiting_pharmacy: true })).toMatch(/only if your pharmacy is the one that supplied/);
+    expect(describeSupply({ ...base, self_report_awaiting_pharmacy: true })).toMatch(/only if your pharmacy is the one that supplied/);
     expect(describeSupply(base)).toMatch(/Do not dispense again/);
   });
 
