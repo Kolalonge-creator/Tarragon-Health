@@ -42,4 +42,16 @@ describe("checkAbuseLimit", () => {
     expect((await checkAbuseLimit("add_dependant", b)).ok).toBe(true);
     expect((await checkAbuseLimit("upload", a)).ok).toBe(true);
   });
+
+  it("does not spend the daily allowance on attempts the burst window refused", async () => {
+    const subject = `burst-${Math.random()}`;
+    const [burst, daily] = [...abuseLimitRules("upload")].sort((a, b) => a.window_seconds - b.window_seconds);
+    if (!burst || !daily) throw new Error("upload needs a burst and a daily window");
+    for (let i = 0; i < burst.limit; i++) await checkAbuseLimit("upload", subject);
+    for (let i = 0; i < daily.limit; i++) expect((await checkAbuseLimit("upload", subject)).ok).toBe(false);
+    const { rateLimit } = await import("@/lib/rate-limit");
+    // the daily window has seen exactly burst.limit attempts, so it still has room
+    const peek = await rateLimit(`abuse:upload:${daily.window_seconds}:${subject}`, { limit: daily.limit, windowSeconds: daily.window_seconds });
+    expect(peek.success).toBe(true);
+  });
 });

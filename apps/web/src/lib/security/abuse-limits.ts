@@ -26,11 +26,12 @@ export async function checkAbuseLimit(
   kind: AbuseLimitKind,
   subject: string
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
-  const rules = abuseLimitRules(kind);
-  const results = await Promise.all(
-    rules.map((r) => rateLimit(`abuse:${kind}:${r.window_seconds}:${subject}`, { limit: r.limit, windowSeconds: r.window_seconds }))
-  );
-  const denied = results.filter((r) => !r.success);
-  if (denied.length === 0) return { ok: true };
-  return { ok: false, retryAfterSeconds: Math.max(1, ...denied.map((d) => d.retryAfterSeconds)) };
+  // Shortest window first, stopping at the first refusal, so attempts the burst window already refused do not also use up
+  // the daily allowance.
+  const rules = [...abuseLimitRules(kind)].sort((a, b) => a.window_seconds - b.window_seconds);
+  for (const r of rules) {
+    const result = await rateLimit(`abuse:${kind}:${r.window_seconds}:${subject}`, { limit: r.limit, windowSeconds: r.window_seconds });
+    if (!result.success) return { ok: false, retryAfterSeconds: Math.max(1, result.retryAfterSeconds) };
+  }
+  return { ok: true };
 }
