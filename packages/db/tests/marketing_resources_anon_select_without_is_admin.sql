@@ -22,9 +22,11 @@ declare
   v_draft int;
   v_all   int;
 begin
-  insert into public.marketing_resources (slug, title, description, category, is_published)
-  values ('zz-proof-published', 'proof published', 'd', 'Proof', true),
-         ('zz-proof-draft',     'proof draft',     'd', 'Proof', false);
+  -- The published fixture carries a review: since 20261105172209 the database refuses to publish an
+  -- article without one (marketing_resources_review_gate.sql proves that rule).
+  insert into public.marketing_resources (slug, title, description, category, is_published, reviewed_by_name, reviewed_at)
+  values ('zz-proof-published', 'proof published', 'd', 'Proof', true, 'Dr Proof', now()),
+         ('zz-proof-draft',     'proof draft',     'd', 'Proof', false, null, null);
 
   insert into auth.users (id, email) values
     (v_admin, 'mr-anon-proof-admin@example.invalid'),
@@ -80,8 +82,9 @@ begin
   -- 5. anon cannot write
   begin
     set local role anon;
-    insert into public.marketing_resources (slug, title, description, category, is_published)
-    values ('zz-proof-anon-write', 'x', 'd', 'Proof', true);
+    -- Reviewed, so the review gate (which fires before RLS) passes and the refusal under test is anon's.
+    insert into public.marketing_resources (slug, title, description, category, is_published, reviewed_by_name, reviewed_at)
+    values ('zz-proof-anon-write', 'x', 'd', 'Proof', true, 'Dr Proof', now());
     reset role;
     raise exception 'anon was able to insert into marketing_resources';
   exception when insufficient_privilege then
