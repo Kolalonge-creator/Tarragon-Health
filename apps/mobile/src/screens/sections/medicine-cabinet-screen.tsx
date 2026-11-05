@@ -71,6 +71,13 @@ import {
   loadMedicationCollections,
   loadRepeatRequests,
   logMedicationCollection,
+  confirmPrescriptionCollected,
+  undoPrescriptionCollected,
+  isSignedPrescription,
+  canUndoCollection,
+  CONFIRM_COLLECTED_MESSAGE,
+  UNDO_COLLECTED_MESSAGE,
+  PATIENT_CONFIRMATION,
   NAFDAC_MAS,
   requestMedicationRepeat,
   respondToCheckin,
@@ -417,6 +424,10 @@ function MedicationCard({
   const [pharmacyName, setPharmacyName] = useState("");
   const [collectPending, setCollectPending] = useState(false);
   const [collectError, setCollectError] = useState<string | null>(null);
+  const [pharmacyTown, setPharmacyTown] = useState("");
+  const [collectNotice, setCollectNotice] = useState<string | null>(null);
+  const [undoPending, setUndoPending] = useState(false);
+  const signed = isSignedPrescription(medication);
 
   const [requestPending, setRequestPending] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -436,6 +447,27 @@ function MedicationCard({
   async function submitCollection() {
     setCollectPending(true);
     setCollectError(null);
+    setCollectNotice(null);
+    if (signed) {
+      // T2-11c: a signed prescription records a patient-reported supply that counts against it.
+      const confirmed = await confirmPrescriptionCollected(medication.id, collectedOn, pharmacyName, pharmacyTown);
+      setCollectPending(false);
+      if (confirmed.error || !confirmed.outcome) {
+        setCollectError(confirmed.error ?? "Could not save that. Please try again.");
+        return;
+      }
+      const message = CONFIRM_COLLECTED_MESSAGE[confirmed.outcome];
+      if (!message?.ok) {
+        setCollectError(message?.text ?? "Could not save that. Please try again.");
+        return;
+      }
+      setCollectNotice(message.text);
+      setCollectOpen(false);
+      setPharmacyName("");
+      setPharmacyTown("");
+      await onChanged();
+      return;
+    }
     const result = await logMedicationCollection(
       patientId,
       organisationId,
@@ -505,16 +537,33 @@ function MedicationCard({
         </View>
       ) : null}
       <SupplySection medication={medication} patientId={patientId} organisationId={organisationId} supply={supply} onSaved={onChanged} />
-      {latestCollection ? (
+      {latestCollection && !latestCollection.withdrawn_at ? (
         <MutedText>
-          Last picked up {formatDate(latestCollection.dispensed_on)}
+          {latestCollection.recorded_via === PATIENT_CONFIRMATION ? "You told us you collected this on " : "Last picked up "}
+          {formatDate(latestCollection.dispensed_on)}
           {latestCollection.pharmacy_name ? ` · ${latestCollection.pharmacy_name}` : ""}
+          {latestCollection.pharmacy_town ? `, ${latestCollection.pharmacy_town}` : ""}
         </MutedText>
       ) : null}
+      {latestCollection && canUndoCollection(latestCollection) ? (
+        <SmallGhostButton
+          title={undoPending ? "Undoing…" : "Undo, I tapped this by mistake"}
+          disabled={undoPending}
+          onPress={async () => {
+            setUndoPending(true);
+            const undone = await undoPrescriptionCollected(latestCollection.id);
+            setUndoPending(false);
+            setCollectNotice(undone.outcome ? (UNDO_COLLECTED_MESSAGE[undone.outcome] ?? null) : null);
+            if (undone.error) setCollectError("That could not be undone just now. Please try again.");
+            await onChanged();
+          }}
+        />
+      ) : null}
+      {collectNotice ? <MutedText>{collectNotice}</MutedText> : null}
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
         {!collectOpen ? (
-          <SmallGhostButton title="I picked this up" onPress={() => setCollectOpen(true)} />
+          <SmallGhostButton title={signed ? "I've got this medicine" : "I picked this up"} onPress={() => setCollectOpen(true)} />
         ) : null}
         {medication.source === "clinician" &&
         medication.rx_number &&
@@ -572,6 +621,23 @@ function MedicationCard({
               placeholderTextColor={colors.subtle}
             />
           </View>
+          {signed ? (
+            <View>
+              <MutedText>Town (optional)</MutedText>
+              <TextInput keyboardAppearance={scheme}
+                value={pharmacyTown}
+                onChangeText={setPharmacyTown}
+                style={inputStyle(colors)}
+                placeholder="e.g. Ikeja"
+                placeholderTextColor={colors.subtle}
+              />
+            </View>
+          ) : null}
+          {signed ? (
+            <MutedText>
+              If the pharmacy did not record this supply, tell us here. It will be marked on your prescription as collected, as reported by you, so it cannot be filled again elsewhere.
+            </MutedText>
+          ) : null}
           <MutedText>{`${tr("medicines.mas.collect_prompt")} ${tr("medicines.mas.caveat")}`}</MutedText>
           {collectError ? <ErrorText>{collectError}</ErrorText> : null}
           <View style={{ flexDirection: "row", gap: 8 }}>

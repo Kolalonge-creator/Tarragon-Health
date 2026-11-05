@@ -28,6 +28,11 @@ export interface PublicPrescriptionProof {
   version: number;
   prescriber_name: string;
   prescriber_credential: string | null;
+  /** T2-11c: supplies the patient reported themselves (no pharmacy recorded them). Optional so an older response still parses. */
+  patient_reported_supplies?: number;
+  last_patient_report_on?: string | null;
+  /** A patient report from the last 7 days that a pharmacy recording now would confirm rather than add to. */
+  patient_report_awaiting_pharmacy?: boolean;
 }
 
 export const TOKEN_PATTERN = /^[0-9a-f]{64}$/;
@@ -110,8 +115,13 @@ export function isSupplyOutcome(value: unknown): value is SupplyOutcome {
 }
 
 /** What the supply panel says for an ACTIVE prescription, from the three numbers the check returns. */
-export function describeSupply(proof: Pick<PublicPrescriptionProof, "supplies_dispensed" | "supplies_permitted" | "supply_available" | "repeats_allowed" | "repeats_remaining">): string {
+export function describeSupply(
+  proof: Pick<PublicPrescriptionProof, "supplies_dispensed" | "supplies_permitted" | "supply_available" | "repeats_allowed" | "repeats_remaining" | "patient_report_awaiting_pharmacy">,
+): string {
   if (proof.supply_available) return "A supply is available on this prescription.";
+  if (proof.patient_report_awaiting_pharmacy) {
+    return "No further supply is available. Record a supply below only if your pharmacy is the one that supplied the collection the patient reported.";
+  }
   if (proof.repeats_remaining > 0) {
     return "No supply is available now. The patient can request their next supply in the TarragonHealth app, and a doctor has to approve it.";
   }
