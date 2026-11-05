@@ -464,18 +464,22 @@ export function useConfirmPrescriptionCollected(patientId: string) {
       collectedOn: string;
       pharmacyName?: string;
       pharmacyTown?: string;
-    }): Promise<ConfirmOutcome> => {
+    }): Promise<{ outcome: ConfirmOutcome; dispenseId: string | null }> => {
       const supabase = createClient();
+      // T2-11d: always name the patient. For the signed-in patient it is themselves; for a caregiver acting for them the database
+      // checks the manage_pharmacy permission and labels the confirmation as theirs.
       const { data, error } = await supabase.rpc("confirm_prescription_collected", {
         p_medication_id: input.medicationId,
         p_collected_on: input.collectedOn,
+        p_for_patient: patientId,
         ...(input.pharmacyName?.trim() ? { p_pharmacy_name: input.pharmacyName.trim() } : {}),
         ...(input.pharmacyTown?.trim() ? { p_pharmacy_town: input.pharmacyTown.trim() } : {}),
       });
       if (error) throw error;
-      const outcome = (Array.isArray(data) ? data[0] : data)?.outcome;
+      const row = Array.isArray(data) ? data[0] : data;
+      const outcome = row?.outcome;
       if (!isConfirmOutcome(outcome)) throw new Error("Unexpected response");
-      return outcome;
+      return { outcome, dispenseId: outcome === "recorded" ? (row?.dispense_id ?? null) : null };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });

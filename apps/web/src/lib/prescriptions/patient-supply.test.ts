@@ -8,6 +8,7 @@ import {
   describePatientReportForPharmacist,
   isConfirmOutcome,
   isUndoOutcome,
+  reportedByCaregiver,
   suppliedReportedCollectionLabel,
   UNDO_WINDOW_HOURS,
   type SupplyRecordLike,
@@ -34,7 +35,19 @@ describe("T2-11c patient-reported supply", () => {
   it("labels the patient's confirmation for the care team", () => {
     expect(describeForCareTeam(confirmation())).toBe("Patient says they collected it on 5 Nov 2026 at Corner Chemist, Ikeja");
     expect(describeForCareTeam(confirmation({ pharmacy_name: null, pharmacy_town: null }))).toBe("Patient says they collected it on 5 Nov 2026");
-    expect(describeForCareTeam(confirmation({ withdrawn_at: "2026-11-05T11:00:00Z" }))).toMatch(/taken back by the patient/);
+    expect(describeForCareTeam(confirmation({ withdrawn_at: "2026-11-05T11:00:00Z" }))).toMatch(/\(taken back\)$/);
+  });
+
+  it("T2-11d: labels a caregiver's confirmation as theirs, never as the patient's", () => {
+    const byDaughter = confirmation({ patient_id: "p1", recorded_by: "c1", reported_by_relationship: "Daughter" });
+    expect(reportedByCaregiver(byDaughter)).toBe(true);
+    expect(describeForCareTeam(byDaughter)).toBe("The patient's daughter says it was collected on 5 Nov 2026 at Corner Chemist, Ikeja");
+    expect(describeForPatient(byDaughter)).toBe("Your daughter told us this was collected on 5 Nov 2026 at Corner Chemist, Ikeja.");
+    const byHelper = confirmation({ patient_id: "p1", recorded_by: "c2", reported_by_relationship: null });
+    expect(describeForCareTeam(byHelper)).toMatch(/^The patient's caregiver says/);
+    const bySelf = confirmation({ patient_id: "p1", recorded_by: "p1" });
+    expect(reportedByCaregiver(bySelf)).toBe(false);
+    expect(describeForCareTeam(bySelf)).toMatch(/^Patient says they collected it/);
   });
 
   it("keeps the pharmacy wording for a pharmacy record", () => {
@@ -75,7 +88,7 @@ describe("T2-11c patient-reported supply", () => {
       last_self_report_pharmacy: "Corner Chemist, Ikeja",
       self_report_awaiting_pharmacy: true,
     });
-    expect(text).toMatch(/^Collected, as reported by the patient on 5 Nov 2026 at Corner Chemist, Ikeja\./);
+    expect(text).toMatch(/^Collected, as reported by the patient or their caregiver on 5 Nov 2026 at Corner Chemist, Ikeja\./);
     expect(text).toMatch(/Only the pharmacy that supplied it may record it/);
     expect(text).toMatch(/Anyone else: do not dispense/);
     expect(suppliedReportedCollectionLabel({ last_self_report_on: "2026-11-05", last_self_report_pharmacy: "Corner Chemist, Ikeja" })).toBe(

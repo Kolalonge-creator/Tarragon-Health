@@ -25,6 +25,11 @@ export interface ReminderMedicine {
   id: string;
   active: boolean;
   spec: ScheduleSpec;
+  /**
+   * T2-15: no reminder for a dose before this instant. Set for a prescription that starts on collection (its first collection, or
+   * signing + the fallback days if none), mirroring private.medication_active_from. Absent means no such limit (every other medicine).
+   */
+  startsAtMs?: number;
 }
 
 /** "unconfirmed": the one follow-up a set number of minutes after a dose time that has no answer (item 4). Never planned for a dose that already has the window-middle follow-up, so a dose gets at most one. */
@@ -90,6 +95,7 @@ export function planDoseNotifications(
       const key = slotKey(med.id, slot);
       if (closedSlots.has(key)) continue;
       const start = lagosTimeToUtcMs(slot.date, slot.time);
+      if (med.startsAtMs !== undefined && start < med.startsAtMs) continue;
       if (start > nowMs && start <= horizonMs) add(start, key, "due", slot.anchored ?? null);
       if (windowMinutes >= cfg.followUpMinWindowMinutes) {
         const middle = start + Math.floor(windowMinutes / 2) * MINUTE_MS;

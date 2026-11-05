@@ -24,7 +24,7 @@ import { readLocalMedications, readLocalRecords } from "./offline-store";
 import { listOutbox, type DosePayload } from "./outbox";
 import { loadReminderBehaviour } from "./s07-config";
 import { refreshAnchorProfile } from "./anchor-profile";
-import { scheduleOf } from "./medications";
+import { activeFromMs, scheduleOf, type ScheduleStartEmbed } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
 import { exactAlarmsAllowed } from "./exact-alarms";
@@ -115,13 +115,23 @@ interface MedRow {
   is_active?: boolean | null;
   schedule_times: unknown;
   schedule_spec?: unknown;
+  created_at?: string | null;
+  schedule_effective_from?: string | null;
+  schedule_starts_on_collection?: boolean | null;
+  medication_schedule_starts?: ScheduleStartEmbed;
+}
+
+/** T2-15: a prescription that starts on collection is not reminded before its start (collection, or the fallback day). */
+function reminderMedicine(m: MedRow, subjectId: string): ReminderMedicine {
+  const base: ReminderMedicine = { id: m.id, active: m.is_active !== false, spec: scheduleOf(m, subjectId) };
+  return m.schedule_starts_on_collection ? { ...base, startsAtMs: activeFromMs(m) } : base;
 }
 
 async function loadMedicines(patientId: string): Promise<MedRow[]> {
   try {
     const { data, error } = await supabase
       .from("medications")
-      .select("id, is_active, schedule_times, schedule_spec")
+      .select("id, is_active, schedule_times, schedule_spec, created_at, schedule_effective_from, schedule_starts_on_collection, medication_schedule_starts(starts_at)")
       .eq("patient_id", patientId)
       .eq("is_active", true)
       .is("superseded_at", null);
@@ -187,7 +197,7 @@ export async function replanDoseReminders(
     const meds = await loadMedicines(patientId);
     const closed = await loadClosedSlots(patientId, nowMs);
     await refreshAnchorProfile(patientId);
-    const reminderMeds: ReminderMedicine[] = meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) }));
+    const reminderMeds: ReminderMedicine[] = meds.map((m) => reminderMedicine(m, patientId));
     // The dependants this person manages are reminded about too (OQ-70): one plan, one cap, their first name in the text.
     const loadedDependants = await loadManagedDependants(patientId);
     // Could not find out who is managed (offline, a failed read): leave the plan exactly as it is. Replanning from the person's own doses
@@ -201,7 +211,7 @@ export async function replanDoseReminders(
         await refreshAnchorProfile(dep.profileId);
         for (const slot of await loadClosedSlots(dep.profileId, nowMs)) closed.add(slot);
         for (const m of depMeds) {
-          reminderMeds.push({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, dep.profileId) });
+          reminderMeds.push(reminderMedicine(m, dep.profileId));
           dependantOfMedicine.set(m.id, dep.firstName);
         }
       } catch {
@@ -355,7 +365,7 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       await refreshAnchorProfile(patientId);
       const closed = await loadClosedSlots(patientId, nowMs);
       plannedCount = planDoseNotifications(
-        meds.map((m) => ({ id: m.id, active: m.is_active !== false, spec: scheduleOf(m, patientId) })),
+        meds.map((m) => reminderMedicine(m, patientId)),
         closed,
         nowMs,
         planConfig()

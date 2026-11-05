@@ -40,6 +40,9 @@ export interface RecordedSupply {
   pharmacy_town?: string | null;
   withdrawn_at?: string | null;
   matched_dispense_id?: string | null;
+  patient_id?: string | null;
+  recorded_by?: string | null;
+  reported_by_relationship?: string | null;
 }
 
 /** T2-11c: the patient's own confirmation, labelled as theirs, with an undo for a short window. */
@@ -55,6 +58,9 @@ function PatientConfirmationLine({ supply, patientId }: { supply: RecordedSupply
     pharmacy_town: supply.pharmacy_town ?? null,
     withdrawn_at: supply.withdrawn_at ?? null,
     matched_dispense_id: supply.matched_dispense_id ?? null,
+    patient_id: supply.patient_id ?? null,
+    recorded_by: supply.recorded_by ?? null,
+    reported_by_relationship: supply.reported_by_relationship ?? null,
   };
   return (
     <li className="space-y-1">

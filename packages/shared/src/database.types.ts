@@ -29073,6 +29073,47 @@ export type Database = {
           },
         ]
       }
+      medication_schedule_starts: {
+        Row: {
+          collected_on: string
+          from_dispense_id: string | null
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          source: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          collected_on: string
+          from_dispense_id?: string | null
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          source: string
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          collected_on?: string
+          from_dispense_id?: string | null
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          source?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_schedule_starts_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: true
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
           added_by: string | null
@@ -29106,6 +29147,7 @@ export type Database = {
           rx_number: string | null
           schedule_times: Json
           schedule_effective_from: string | null
+          schedule_starts_on_collection: boolean
           schedule_spec: Json | null
           search_vector: unknown
           source: Database["public"]["Enums"]["medication_source"]
@@ -29148,6 +29190,7 @@ export type Database = {
           rx_number?: string | null
           schedule_times?: Json
           schedule_effective_from?: string | null
+          schedule_starts_on_collection?: boolean
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
@@ -29190,6 +29233,7 @@ export type Database = {
           rx_number?: string | null
           schedule_times?: Json
           schedule_effective_from?: string | null
+          schedule_starts_on_collection?: boolean
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
@@ -36616,6 +36660,7 @@ export type Database = {
           pharmacist_registration: string | null
           pharmacy_name: string | null
           pharmacy_town: string | null
+          reported_by_relationship: string | null
           withdrawn_at: string | null
           withdrawn_by: string | null
           withdraw_reason: string | null
@@ -36655,6 +36700,7 @@ export type Database = {
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
           pharmacy_town?: string | null
+          reported_by_relationship?: string | null
           withdrawn_at?: string | null
           withdrawn_by?: string | null
           withdraw_reason?: string | null
@@ -36694,6 +36740,7 @@ export type Database = {
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
           pharmacy_town?: string | null
+          reported_by_relationship?: string | null
           withdrawn_at?: string | null
           withdrawn_by?: string | null
           withdraw_reason?: string | null
@@ -59377,6 +59424,7 @@ export type Database = {
           p_pharmacy_name?: string
           p_pharmacy_town?: string
           p_quantity?: string
+          p_for_patient?: string
         }
         Returns: {
           outcome: string
