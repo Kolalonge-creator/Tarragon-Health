@@ -348,7 +348,10 @@ export interface MlClient {
 }
 
 function joinUrl(baseUrl: string, path: string): string {
-  const base = baseUrl.replace(/\/+$/, "");
+  // Trim trailing slashes with a loop, not /\/+$/, which backtracks polynomially on a long run of slashes (CodeQL js/polynomial-redos).
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl[end - 1] === "/") end--;
+  const base = baseUrl.slice(0, end);
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
 }

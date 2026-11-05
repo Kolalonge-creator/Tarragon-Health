@@ -28,8 +28,15 @@ const STRENGTH_OR_FORM = /\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|iu|units?)\b|\b(
  * The separate ingredients named in one generic name: "Amoxicillin and clavulanic acid" is two. A strength or dose form typed after the
  * name ("Lisinopril 10mg tablets") is dropped. Sorted, no repeats, no blanks.
  */
+/**
+ * Bounds the regex work on hostile input (CodeQL js/polynomial-redos). Set far above any real generic name, including
+ * long multivitamin/mineral combinations, so no real ingredient is ever cut off before the interaction check.
+ */
+const MAX_GENERIC_NAME_LENGTH = 5000;
+
 export function splitIngredients(generic: string): string[] {
   const parts = generic
+    .slice(0, MAX_GENERIC_NAME_LENGTH)
     .toLowerCase()
     .split(SPLITTER)
     .map((part) => normaliseIngredient(part.replace(STRENGTH_OR_FORM, " ")))

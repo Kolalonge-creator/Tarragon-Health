@@ -17,11 +17,13 @@
 --      duplicate suppression switched on for abnormal_result (off live), a second finding for that patient is still not suppressed.
 --   7. Access: anon and authenticated cannot execute the functions or read the rule sets; the patient cannot read the findings; the
 --      tied doctor can.
+--   9. CDE-11: with nobody assigned by the router, the organisation's CMO is told (and recorded in notified_profile_ids); with no CMO,
+--      every active doctor is told.
 --   8. SABOTAGE (automatic): with the fingerprint check removed from private.narrative_rules_in_force, a confirmation of a different
 --      value makes the rules act (so 2 proves the check).
 --   Sabotage by hand (checked 2026-11-05): raising the existing alert replaced by always inserting a new one -> FAIL 3 (the review alert
 --   stays at routine review); the never-lower comparison loosened -> FAIL 5 (lowered); the negation check removed -> FAIL 1; the
---   unsuppress step removed -> FAIL 6.
+--   unsuppress step removed -> FAIL 6; the CMO fallback removed -> FAIL 9.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/cde10_apply_narrative_urgent_rules.sql
 
@@ -30,7 +32,7 @@ begin;
 do $$
 declare
   -- CASES-BEGIN
-  v_cases jsonb := '[{"name":"BI-RADS 4A raises, 1 does not","fields":{"birads":["1","4A"]},"expected":[{"rule":"birads","matched":"4A"}]},{"name":"BI-RADS 0 raises","fields":{"birads":["0"]},"expected":[{"rule":"birads","matched":"0"}]},{"name":"BI-RADS 2 and 3 do not raise","fields":{"birads":["2","3",null]},"expected":[]},{"name":"HSIL raises","fields":{"cervicalCytology":"High-grade squamous intraepithelial lesion (HSIL)"},"expected":[{"rule":"cervical_cytology","matched":"HSIL"}]},{"name":"NILM does not raise","fields":{"cervicalCytology":"Negative for intraepithelial lesion or malignancy (NILM)"},"expected":[]},{"name":"HPV 18 raises","fields":{"hpvGenotypes":"HPV 18 detected"},"expected":[{"rule":"hpv_genotype","matched":"18"}]},{"name":"Other HPV types do not raise","fields":{"hpvGenotypes":"Other high-risk types (31, 33)"},"expected":[]},{"name":"Carcinoma in a diagnosis raises","fields":{"pathologyDiagnosis":"Invasive ductal carcinoma, grade 2"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"No evidence of malignancy does not raise","fields":{"pathologyDiagnosis":"Benign. No evidence of malignancy."},"expected":[]},{"name":"Negative for malignancy does not raise","fields":{"pathologyDiagnosis":"Negative for malignancy"},"expected":[]},{"name":"ST elevation raises","fields":{"ecgInterpretation":"Sinus rhythm. ST elevation in V1-V4."},"expected":[{"rule":"ecg","matched":"st elevation"}]},{"name":"QTc 499 and a normal ECG do not raise","fields":{"ecgInterpretation":"Sinus rhythm. Normal ECG.","ecgQtcMs":499},"expected":[]},{"name":"QTc 512 raises","fields":{"ecgQtcMs":512},"expected":[{"rule":"ecg_qtc","matched":"QTc 512 ms"}]},{"name":"QTc 500 exactly raises","fields":{"ecgQtcMs":500},"expected":[{"rule":"ecg_qtc","matched":"QTc 500 ms"}]},{"name":"Pneumothorax raises","fields":{"imagingImpression":"Large right pneumothorax."},"expected":[{"rule":"imaging","matched":"pneumothorax"}]},{"name":"No pneumothorax, no free air","fields":{"imagingImpression":"No pneumothorax. No free air."},"expected":[]},{"name":"Pulmonary embolism excluded","fields":{"imagingImpression":"Pulmonary embolism excluded."},"expected":[]},{"name":"A negation elsewhere does not hide carcinoma","fields":{"pathologyDiagnosis":"Lesion is not benign; carcinoma present"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"A long-range negation does not hide carcinoma","fields":{"pathologyDiagnosis":"No change since the previous biopsy, which showed carcinoma"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"Another clause''s negation does not hide pneumothorax","fields":{"imagingImpression":"No effusion. Right pneumothorax."},"expected":[{"rule":"imaging","matched":"pneumothorax"}]},{"name":"No change in the known carcinoma still raises","fields":{"pathologyDiagnosis":"No change in the known carcinoma"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"No residual carcinoma does not raise","fields":{"pathologyDiagnosis":"No residual carcinoma"},"expected":[]},{"name":"A term inside a longer word does not raise","fields":{"imagingImpression":"Hydropneumothoraxes not seen; carcinomatosis query"},"expected":[]},{"name":"Several rules at once, in rule order","fields":{"birads":["5"],"pathologyDiagnosis":"Metastatic adenocarcinoma","imagingImpression":"Suspicious for malignancy"},"expected":[{"rule":"birads","matched":"5"},{"rule":"pathology","matched":"adenocarcinoma"},{"rule":"imaging","matched":"suspicious for malignancy"}]}]'::jsonb;
+  v_cases jsonb := '[{"name":"BI-RADS 4A raises, 1 does not","fields":{"birads":["1","4A"]},"expected":[{"rule":"birads","matched":"4A"}]},{"name":"BI-RADS 0 raises","fields":{"birads":["0"]},"expected":[{"rule":"birads","matched":"0"}]},{"name":"BI-RADS 2 and 3 do not raise","fields":{"birads":["2","3",null]},"expected":[]},{"name":"HSIL raises","fields":{"cervicalCytology":"High-grade squamous intraepithelial lesion (HSIL)"},"expected":[{"rule":"cervical_cytology","matched":"HSIL"}]},{"name":"NILM does not raise","fields":{"cervicalCytology":"Negative for intraepithelial lesion or malignancy (NILM)"},"expected":[]},{"name":"HPV 18 raises","fields":{"hpvGenotypes":"HPV 18 detected"},"expected":[{"rule":"hpv_genotype","matched":"18"}]},{"name":"Other HPV types do not raise","fields":{"hpvGenotypes":"Other high-risk types (31, 33)"},"expected":[]},{"name":"Carcinoma in a diagnosis raises","fields":{"pathologyDiagnosis":"Invasive ductal carcinoma, grade 2"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"No evidence of malignancy does not raise","fields":{"pathologyDiagnosis":"Benign. No evidence of malignancy."},"expected":[]},{"name":"Negative for malignancy does not raise","fields":{"pathologyDiagnosis":"Negative for malignancy"},"expected":[]},{"name":"ST elevation raises","fields":{"ecgInterpretation":"Sinus rhythm. ST elevation in V1-V4."},"expected":[{"rule":"ecg","matched":"st elevation"}]},{"name":"QTc 499 and a normal ECG do not raise","fields":{"ecgInterpretation":"Sinus rhythm. Normal ECG.","ecgQtcMs":499},"expected":[]},{"name":"QTc 512 raises","fields":{"ecgQtcMs":512},"expected":[{"rule":"ecg_qtc","matched":"QTc 512 ms"}]},{"name":"QTc 500 exactly raises","fields":{"ecgQtcMs":500},"expected":[{"rule":"ecg_qtc","matched":"QTc 500 ms"}]},{"name":"Pneumothorax raises","fields":{"imagingImpression":"Large right pneumothorax."},"expected":[{"rule":"imaging","matched":"pneumothorax"}]},{"name":"No pneumothorax, no free air","fields":{"imagingImpression":"No pneumothorax. No free air."},"expected":[]},{"name":"Pulmonary embolism excluded","fields":{"imagingImpression":"Pulmonary embolism excluded."},"expected":[]},{"name":"A negation elsewhere does not hide carcinoma","fields":{"pathologyDiagnosis":"Lesion is not benign; carcinoma present"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"A long-range negation does not hide carcinoma","fields":{"pathologyDiagnosis":"No change since the previous biopsy, which showed carcinoma"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"Another clause''s negation does not hide pneumothorax","fields":{"imagingImpression":"No effusion. Right pneumothorax."},"expected":[{"rule":"imaging","matched":"pneumothorax"}]},{"name":"No change in the known carcinoma still raises","fields":{"pathologyDiagnosis":"No change in the known carcinoma"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"No residual carcinoma does not raise","fields":{"pathologyDiagnosis":"No residual carcinoma"},"expected":[]},{"name":"A term inside a longer word does not raise","fields":{"imagingImpression":"Hydropneumothoraxes not seen; carcinomatosis query"},"expected":[]},{"name":"Several rules at once, in rule order","fields":{"birads":["5"],"pathologyDiagnosis":"Metastatic adenocarcinoma","imagingImpression":"Suspicious for malignancy"},"expected":[{"rule":"birads","matched":"5"},{"rule":"pathology","matched":"adenocarcinoma"},{"rule":"imaging","matched":"suspicious for malignancy"}]},{"name":"An accented term still matches (accents removed)","fields":{"pathologyDiagnosis":"Carcinóma ductal infiltrante"},"expected":[{"rule":"pathology","matched":"carcinoma"}]},{"name":"An accented letter before ''no'' makes it part of a word, not a negation","fields":{"imagingImpression":"examéno pneumothorax"},"expected":[{"rule":"imaging","matched":"pneumothorax"}]},{"name":"An accented negation still negates","fields":{"imagingImpression":"Ñó pneumothorax"},"expected":[]},{"name":"An accented finding in an impression matches","fields":{"imagingImpression":"Pnéumothorax gauche"},"expected":[{"rule":"imaging","matched":"pneumothorax"}]}]'::jsonb;
   -- CASES-END
   v_rules jsonb;
   v_hash text;
@@ -214,6 +216,55 @@ begin
   reset role;
   perform set_config('request.jwt.claims', null, true);
   if v_n < 1 then raise exception 'FAIL 7: the tied doctor cannot read the findings (control)'; end if;
+
+  -- 9 (CDE-11). nobody assigned: the CMO is told; with no CMO, every active doctor is told
+  declare v_cmo uuid := gen_random_uuid(); v_f public.narrative_urgent_findings; begin
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_cmo, 'cde11-cmo@example.invalid', 'x', now(), '{}', '{}');
+    update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'CDE11 CMO' where id = v_cmo;
+    update public.clinical_staff set active = false where organisation_id = v_org and doctor_tier = 'chief_medical_officer';
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+        license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by)
+    values (v_org, v_cmo, 'CDE11 CMO', 'MDCN', 'CDE11-001', true, 'active', now(), v_admin,
+        'chief_medical_officer', 'employed', 2, true, v_admin);
+    -- the router assigns nobody for abnormal_result
+    update public.alert_rules set config = (
+      select jsonb_agg(case when e->>'type_code' = 'abnormal_result' then e - 'owner_tier' - 'backup_tier' - 'senior_tier' else e end)
+      from jsonb_array_elements(config) e)
+    where is_active;
+    v_alert := private.apply_narrative_urgent_rules(v_org, v_pat2, 'pathology_reports', gen_random_uuid(),
+      '{"pathologyDiagnosis":"Squamous cell carcinoma"}', 'doctor', 'labs_results', null);
+    select * into v_f from public.narrative_urgent_findings where clinician_alert_id = v_alert;
+    if (select responsible_clinician_id from public.clinician_alerts where id = v_f.clinician_alert_id) is not null then
+      raise exception 'SETUP 9: the router still assigned an owner';
+    end if;
+    -- a test CMO row is never told about a real patient
+    declare v_test_cmo uuid := gen_random_uuid(); begin
+      insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+      values (v_test_cmo, 'cde11-test-cmo@example.invalid', 'x', now(), '{}', '{}');
+      update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'CDE11 test CMO', is_test = true where id = v_test_cmo;
+      insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+          license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+      values (v_org, v_test_cmo, 'CDE11 test CMO', 'MDCN', 'CDE11-T01', true, 'active', now(), v_admin,
+          'chief_medical_officer', 'employed', 2, true, v_admin, true);
+      v_alert := private.apply_narrative_urgent_rules(v_org, v_pat2, 'pathology_reports', gen_random_uuid(),
+        '{"pathologyDiagnosis":"Small cell carcinoma"}', 'doctor', 'labs_results', null);
+      if v_test_cmo = any((select f.notified_profile_ids from public.narrative_urgent_findings f where f.clinician_alert_id = v_alert)::uuid[]) then
+        raise exception 'FAIL 9: a test staff account was told about a real patient';
+      end if;
+    end;
+    if v_f.notified_profile_ids <> array[v_cmo] or not exists (
+         select 1 from public.notifications where recipient_id = v_cmo and template = 'abnormal_result_clinician_alert' and source_id = v_f.clinician_alert_id) then
+      raise exception 'FAIL 9: with nobody assigned the CMO was not told (told %)', v_f.notified_profile_ids;
+    end if;
+    update public.clinical_staff set active = false where id = (select id from public.clinical_staff where profile_id = v_cmo);
+    v_alert := private.apply_narrative_urgent_rules(v_org, v_pat2, 'pathology_reports', gen_random_uuid(),
+      '{"pathologyDiagnosis":"Malignant melanoma"}', 'doctor', 'labs_results', null);
+    select * into v_f from public.narrative_urgent_findings where clinician_alert_id = v_alert;
+    if not (v_doctor = any(v_f.notified_profile_ids)) then
+      raise exception 'FAIL 9: with no owner and no CMO the active doctors were not told (told %)', v_f.notified_profile_ids;
+    end if;
+  end;
 
   -- 2 (continued). a newer request for changes, or a confirmation of another value, stops the rules
   insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)

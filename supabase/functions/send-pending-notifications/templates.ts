@@ -100,7 +100,7 @@ export interface BroadcastEmailContent {
 }
 
 export function escapeHtmlForBroadcast(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // The ack-timeout ladder (backup, senior, admin) writes push, email and in-app rows (SMS is refused for notifications,
