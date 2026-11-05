@@ -42,8 +42,9 @@ export function TwoFactorManager({
     formData.set("required", String(required));
     formData.set("note", notes[group.id] ?? "");
     // The confirmation dialog showed how many accounts have no factor yet, and who; confirming it is the confirmation the
-    // database asks for.
-    formData.set("confirmUnenrolled", "true");
+    // database asks for, but only when the dialog actually showed some. If the counts were stale (somebody removed their
+    // factor since the page loaded), the database refuses and names the new numbers instead of switching on silently.
+    formData.set("confirmUnenrolled", String(group.member_count - group.enrolled_count > 0));
     startTransition(async () => {
       const result = await setTwoFactorRequirementAction(undefined, formData);
       setFeedback(result ? { id: group.id, ...result } : null);
@@ -71,6 +72,11 @@ export function TwoFactorManager({
           : `${onCount} group${onCount === 1 ? "" : "s"} require${onCount === 1 ? "s" : ""} two-factor sign-in.`}{" "}
         A group under Doctors narrows the switch to one doctor tier. To switch on a group you belong to, turn on two-factor
         sign-in for your own account in Profile &amp; settings and sign in with it first.
+      </p>
+      <p className="text-sm text-charcoal-ink/70">
+        The phone app cannot set up or ask for the code yet. While a group is required, its members can use only the
+        website (the app keeps its emergency features). Nobody can reset a lost authenticator from this console yet: that
+        needs the Supabase dashboard (Authentication, the user, remove the factor).
       </p>
 
       {groups.map((g) => {

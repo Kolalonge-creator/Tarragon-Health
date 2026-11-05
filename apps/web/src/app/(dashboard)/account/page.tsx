@@ -120,7 +120,7 @@ export default async function AccountPage({
                 : "Your account now needs a code from an authenticator app as well as your password. Set it up below. Everything else opens as soon as it is on."}
             </p>
           </div>
-          {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} />}
+          {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} required={mfaRequirement === true} />}
         </>
       )}
 
@@ -208,7 +208,7 @@ export default async function AccountPage({
 
       <ChangePasswordForm />
       <ChangePhoneCard />
-      {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} />}
+      {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} required={mfaRequirement === true} />}
       {isPatient && <PasskeysCard />}
       <SignOutOtherDevicesCard />
     </div>

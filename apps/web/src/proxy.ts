@@ -13,7 +13,32 @@ import { rateLimit } from "@/lib/rate-limit";
 import { JOIN_PATH_PREFIX, isJoinToken, joinLandingPath } from "@/lib/care-circle/join-link";
 import { isMobileApiPath, isSafetyRoute, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
 import { appCheckShouldRefuse } from "@/lib/app-check/verify";
-import { MFA_SETUP_PATH, isMfaRequiredForCaller, mfaEnrolmentVerdict } from "@tarragon/auth/mfa-policy";
+import {
+  MFA_SETUP_PATH,
+  aalFromAccessToken,
+  anyMfaGroupRequired,
+  bearerToken,
+  isMfaRequiredForCaller,
+  readMyMfaRequirement,
+  mfaEnrolmentVerdict,
+} from "@tarragon/auth/mfa-policy";
+import { createBearerClient } from "@/lib/supabase/bearer";
+
+/**
+ * For the phone app: is the caller in a required group without an AAL2 token? Unlike the cookie gate, an account WITH a factor
+ * is refused too: the phone app cannot run the challenge, and an AAL1 token from an account with a factor is exactly what a
+ * stolen password produces. Lookup failures pass through (see the call site).
+ */
+async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
+  try {
+    const client = createBearerClient(token);
+    if ((await anyMfaGroupRequired(client)) === false) return false;
+    return (await readMyMfaRequirement(client)) === true;
+  } catch {
+    // A lookup that throws passes through, like one that errors: the route still verifies the token itself.
+    return false;
+  }
+}
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -48,6 +73,30 @@ export async function proxy(request: NextRequest) {
         { error: "This app could not be verified. Update TarragonHealth from the Play Store and try again.", code: "app_check_failed" },
         { status: 403 },
       );
+    }
+    // 2FA required per group, for the phone app. Its routes authenticate with a bearer token, never a cookie, so the cookie gate
+    // further down never sees them. A token whose own `aal` claim says AAL2 needs no lookup (a forged one is refused by the
+    // route when it verifies the signature). Otherwise the caller's group is asked; a lookup that fails passes through, because
+    // that is most often an expired token, which the route answers with the 401 the app refreshes on. Sending to a safety
+    // route is never refused, for the same reason as App Check above. The phone app has no 2FA set-up or challenge screens yet, so while a
+    // group is required its members cannot use the phone app beyond its safety features (the admin page says so).
+    const token = bearerToken(request.headers);
+    // The safety exemption covers SENDING something (a reading, a symptom, an emergency) and the emergency card, never reading
+    // history back: GET /api/mobile/vitals is the patient's record, which a required account must not read at AAL1.
+    const safetyExempt =
+      isSafetyRoute(request.nextUrl.pathname) &&
+      (request.method !== "GET" || request.nextUrl.pathname.startsWith("/api/mobile/emergency-card"));
+    if (token && !safetyExempt && aalFromAccessToken(token) !== "aal2") {
+      const mustEnrolOrChallenge = await isMfaRequiredForPhoneCaller(token);
+      if (mustEnrolOrChallenge) {
+        return NextResponse.json(
+          {
+            error: "Your account needs two-factor sign-in. Sign in on the TarragonHealth website to set it up, then use the app.",
+            code: "mfa_required",
+          },
+          { status: 403 },
+        );
+      }
     }
   }
 

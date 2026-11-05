@@ -21,6 +21,12 @@ jest.mock("@/lib/supabase/middleware", () => ({
   updateSession: (...args: unknown[]) => updateSession(...args),
 }));
 
+// The phone app's bearer client, for the 2FA requirement on /api/mobile/*.
+const bearerRpc = jest.fn();
+jest.mock("@/lib/supabase/bearer", () => ({
+  createBearerClient: () => ({ rpc: (...args: unknown[]) => bearerRpc(...args) }),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { proxy, config } = require("./proxy") as typeof import("./proxy");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -93,6 +99,8 @@ beforeEach(() => {
   updateSession.mockReset();
   rpcCalls.length = 0;
   resetMfaRequirementCache();
+  bearerRpc.mockReset();
+  bearerRpc.mockResolvedValue({ data: false, error: null });
 });
 
 describe("matcher config", () => {
@@ -465,5 +473,66 @@ describe("2FA required per group", () => {
     stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: false, error: { code: "57014" } } });
     const res = await proxy(request("/clinician/patients"));
     expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/account");
+  });
+});
+
+describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () => {
+  const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const tokenWith = (aal: string) => `${b64url({ alg: "HS256" })}.${b64url({ sub: "u1", aal })}.sig`;
+  const mobile = (path: string, aal: string, method = "GET") =>
+    new NextRequest(new URL(path, "https://app.tarragonhealth.ng"), {
+      method,
+      headers: { host: "app.tarragonhealth.ng", authorization: `Bearer ${tokenWith(aal)}` },
+    });
+  const answers = (anyOn: boolean, mine: { data: unknown; error: unknown }) =>
+    bearerRpc.mockImplementation(async (fn: string) =>
+      fn === "mfa_any_group_required" ? { data: anyOn, error: null } : mine,
+    );
+
+  beforeEach(() => {
+    bearerRpc.mockReset();
+    // No cookie session on a phone request.
+    stubSession({ user: null });
+  });
+
+  it("changes nothing while no group is on", async () => {
+    answers(false, { data: [], error: null });
+    const res = await proxy(mobile("/api/mobile/lifestyle", "aal1"));
+    expect(res.status).not.toBe(403);
+    expect(bearerRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an AAL1 token from an account in a required group, factor or not", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: true }], error: null });
+    const res = await proxy(mobile("/api/mobile/lifestyle", "aal1"));
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("mfa_required");
+  });
+
+  it("lets an account in another group through", async () => {
+    answers(true, { data: [{ required: false, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1"))).status).not.toBe(403);
+  });
+
+  it("lets an AAL2 token through without asking", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: true }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal2"))).status).not.toBe(403);
+    expect(bearerRpc).not.toHaveBeenCalled();
+  });
+
+  it("never refuses SENDING to a safety route (a reading, a symptom, an emergency)", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1", "POST"))).status).not.toBe(403);
+    expect((await proxy(mobile("/api/mobile/emergency-card", "aal1"))).status).not.toBe(403);
+  });
+
+  it("does refuse READING history back from a safety route", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1", "GET"))).status).toBe(403);
+  });
+
+  it("passes a failed lookup through, so an expired token still gets the route's 401", async () => {
+    answers(true, { data: null, error: { code: "PGRST303", message: "JWT expired" } });
+    expect((await proxy(mobile("/api/mobile/vitals", "aal1"))).status).not.toBe(403);
   });
 });

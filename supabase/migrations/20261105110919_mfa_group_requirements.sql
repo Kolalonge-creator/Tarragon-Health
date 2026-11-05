@@ -5,6 +5,9 @@
 -- `clinician`, and patients as the `patient` role row. `required` says whether every account in the group must have a verified
 -- TOTP factor and pass it (Supabase AAL2) before it may use the app. Every row ships OFF. Nothing here switches a group on.
 --
+-- NO organisation_id on either table, deliberately: like go_live_guards, this is one platform-wide setting per group (the
+-- groups are account roles, which are platform-wide), not tenant data. Nothing tenant-scoped is stored here.
+--
 -- GATE MODEL (docs/design/GATE-MODEL.md). This is an operational setting: versioned, audited, a change note, no CMO
 -- signature, never counted on the sign-off hub. It is not a go-live master and not a feature guard, and adds neither.
 --
@@ -12,8 +15,9 @@
 --   1. apps/web proxy.ts: an account in a required group without a verified factor is sent to Profile & settings to set one
 --      up; an account with a factor is sent to the existing challenge (it already was, whether required or not).
 --   2. Here, in the database, for the helpers that open patient data to staff: private.is_org_staff(uuid) (and so
---      private.staff_may_read / staff_may_write, which call it), private.is_admin() and private.has_emergency_access
---      (break-glass). Each gains `and private.mfa_requirement_met()`. For an account in a required group whose session is
+--      private.staff_may_read / staff_may_write, which call it), private.is_admin(), private.has_permission (delegated
+--      capabilities, which admits an admin by its own check), private.task_is_mine (clinical tasks offered to or claimed by the
+--      caller) and private.has_emergency_access (break-glass). Each gains `and private.mfa_requirement_met()`. For an account in a required group whose session is
 --      not AAL2 both return false, so a stolen AAL1 token sent straight to the API reads no patient data through either. With
 --      every group off, mfa_requirement_met() is true for everybody and both helpers behave exactly as before.
 --   Not covered at the database layer: a patient's own-row and caregiver policies (auth.uid() = patient_id, can_read_clinical)
@@ -191,6 +195,55 @@ as $function$
   -- 2FA group requirement (20261105110919): see private.is_org_staff.
   and private.mfa_requirement_met();
 $function$;
+
+-- Delegated capabilities. has_permission grants an admin every capability through its own profiles check, not through
+-- is_admin, so it needs the same clause or a required admin at AAL1 would keep every permission-gated read (about 150 policies).
+create or replace function private.has_permission(perm text)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$
+  select (
+  -- super admin ⇒ holds every capability, provided the account is active
+  exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.role = 'admin' and p.is_active
+  )
+  -- direct per-user grant (active grant, active account)
+  or exists (
+    select 1 from public.user_permission_grants g
+    join public.profiles p on p.id = g.profile_id
+    where g.profile_id = (select auth.uid())
+      and g.permission_key = perm
+      and g.revoked_at is null
+      and p.is_active
+  )
+  -- inherited from the caller's assigned custom role bundle (active account)
+  or exists (
+    select 1
+    from public.profiles p
+    join public.role_permissions rp on rp.custom_role_id = p.custom_role_id
+    where p.id = (select auth.uid())
+      and rp.permission_key = perm
+      and p.is_active
+  ))
+  -- 2FA group requirement (20261105110919): see private.is_org_staff.
+  and private.mfa_requirement_met();
+$function$;
+
+-- Clinical tasks offered to or claimed by the caller (clinical_tasks, task_claims, transitions): patient-identifying work
+-- items read without is_org_staff.
+create or replace function private.task_is_mine(p_pushed uuid, p_claimed uuid, p_lead uuid, p_state public.clinical_task_state)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$ select (select auth.uid()) is not null and (
+       (p_state = 'offered_to_lead' and (select auth.uid()) in (p_pushed, p_lead))
+    or (p_state in ('claimed', 'escalated') and p_claimed = (select auth.uid())))
+  -- 2FA group requirement (20261105110919): see private.is_org_staff.
+  and private.mfa_requirement_met(); $function$;
 
 -- Break-glass reads. A grant already open must not be usable from an AAL1 session of an account whose group requires 2FA.
 create or replace function private.has_emergency_access(p_patient uuid, p_category public.care_access_category default null::public.care_access_category)
@@ -443,7 +496,9 @@ begin
   end if;
   if position('mfa_requirement_met' in pg_get_functiondef('private.is_org_staff(uuid)'::regprocedure)) = 0
      or position('mfa_requirement_met' in pg_get_functiondef('private.is_admin()'::regprocedure)) = 0
-     or position('mfa_requirement_met' in pg_get_functiondef('private.has_emergency_access(uuid, public.care_access_category)'::regprocedure)) = 0 then
-    raise exception 'is_org_staff / is_admin / has_emergency_access do not check the 2FA requirement';
+     or position('mfa_requirement_met' in pg_get_functiondef('private.has_emergency_access(uuid, public.care_access_category)'::regprocedure)) = 0
+     or position('mfa_requirement_met' in pg_get_functiondef('private.has_permission(text)'::regprocedure)) = 0
+     or position('mfa_requirement_met' in pg_get_functiondef('private.task_is_mine(uuid, uuid, uuid, public.clinical_task_state)'::regprocedure)) = 0 then
+    raise exception 'a staff data helper does not check the 2FA requirement';
   end if;
 end $$;

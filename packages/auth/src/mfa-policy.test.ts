@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import {
   ANY_GROUP_CACHE_MS,
+  aalFromAccessToken,
+  bearerToken,
   isMfaEnrolmentExemptPath,
   isMfaRequiredForCaller,
   mfaEnrolmentVerdict,
@@ -52,7 +54,7 @@ describe("mfaEnrolmentVerdict", () => {
   });
 
   it("never blocks the set-up page, the challenge or the auth callbacks, so nobody is trapped in a redirect loop", () => {
-    for (const pathname of ["/account", "/account/anything", "/login/mfa-challenge", "/auth/callback", "/auth/signout"]) {
+    for (const pathname of ["/account", "/login/mfa-challenge", "/auth/callback", "/auth/signout"]) {
       expect(mfaEnrolmentVerdict({ pathname, required: true, nextLevel: "aal1" })).toBe("allow");
     }
   });
@@ -61,6 +63,9 @@ describe("mfaEnrolmentVerdict", () => {
     expect(isMfaEnrolmentExemptPath("/accounts")).toBe(false);
     expect(isMfaEnrolmentExemptPath("/account-settings")).toBe(false);
     expect(isMfaEnrolmentExemptPath("/login/mfa-challenge/x")).toBe(false);
+    // The credentialing pages under /account do not inherit the exemption.
+    expect(isMfaEnrolmentExemptPath("/account/clinician")).toBe(false);
+    expect(isMfaEnrolmentExemptPath("/account/clinician/test")).toBe(false);
     expect(mfaEnrolmentVerdict({ pathname: "/accounts", required: true, nextLevel: "aal1" })).toBe("setup");
   });
 });
@@ -119,5 +124,46 @@ describe("isMfaRequiredForCaller", () => {
       my_mfa_requirement: { data: [], error: null },
     });
     expect(await isMfaRequiredForCaller(client, 1)).toBe(false);
+  });
+});
+
+describe("isMfaRequiredForCaller and a session cookie that has not caught up", () => {
+  beforeEach(() => resetMfaRequirementCache());
+
+  it("does not send an account the database shows WITH a factor to set-up (no /account loop)", async () => {
+    const { client } = fakeClient({
+      mfa_any_group_required: { data: true, error: null },
+      my_mfa_requirement: { data: [{ required: true, has_verified_factor: true }], error: null },
+    });
+    expect(await isMfaRequiredForCaller(client, 1)).toBe(false);
+  });
+
+  it("can be told to pass a failed lookup through (the phone API: most often an expired token)", async () => {
+    const { client } = fakeClient({
+      mfa_any_group_required: { data: true, error: null },
+      my_mfa_requirement: { data: null, error: { code: "PGRST303" } },
+    });
+    expect(await isMfaRequiredForCaller(client, 1, "not_required")).toBe(false);
+  });
+});
+
+describe("bearer token helpers", () => {
+  const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const token = (claims: object) => `${b64url({ alg: "HS256" })}.${b64url(claims)}.sig`;
+
+  it("reads the aal claim", () => {
+    expect(aalFromAccessToken(token({ sub: "u", aal: "aal2" }))).toBe("aal2");
+    expect(aalFromAccessToken(token({ sub: "u", aal: "aal1" }))).toBe("aal1");
+    expect(aalFromAccessToken(token({ sub: "u" }))).toBeUndefined();
+  });
+
+  it("never throws on garbage", () => {
+    for (const bad of ["", "abc", "a.b.c", "a.!!!.c"]) expect(aalFromAccessToken(bad)).toBeUndefined();
+  });
+
+  it("extracts a bearer token", () => {
+    expect(bearerToken(new Headers({ authorization: "Bearer abc.def.ghi" }))).toBe("abc.def.ghi");
+    expect(bearerToken(new Headers({ authorization: "Basic xyz" }))).toBeNull();
+    expect(bearerToken(new Headers())).toBeNull();
   });
 });

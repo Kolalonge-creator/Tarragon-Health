@@ -9,10 +9,10 @@
 --      history row is written; an admin cannot UPDATE the table directly.
 --   3. Enforcement, clinician group on: an AAL1 doctor reads ZERO rows of the staff-only table and is_org_staff, staff_may_read
 --      and has_emergency_access are all false; the same doctor at AAL2 reads the row; a care coordinator (another group) at AAL1
---      is unaffected; my_mfa_requirement says required for the doctor and not for the coordinator.
+--      is unaffected; task_is_mine is false for the doctor's own claimed task at AAL1 and true at AAL2; my_mfa_requirement says required for the doctor and not for the coordinator.
 --   4. Tier group: with only the chief_medical_officer tier on, the CMO at AAL1 is held and a senior medical officer is not.
 --   5. Lock-out guards: an admin at AAL1 cannot switch on the admin group (they are in it); an admin at AAL2 can; then an AAL1
---      admin is no longer is_admin; turning a group OFF needs no confirmation.
+--      admin is no longer is_admin and holds no capability through has_permission; turning a group OFF needs no confirmation.
 --   6. The admin page function: right member and enrolled counts, unenrolled CMO counted, empty for a non-admin.
 --   7. SABOTAGE, each MUST flip: (a) mfa_requirement_met always true (the AAL1 doctor reads the row again); (b) the "caller in
 --      group must be AAL2" guard removed (an AAL1 admin can switch on the admin group); (c) the unenrolled-confirmation guard
@@ -105,6 +105,9 @@ select pg_temp.rec('1 shipped', 'AAL1 doctor reads the staff-only row', '1',
   pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format('select count(*) from public.clinical_incident_reports where id = %L', pg_temp.f('inc'))));
 select pg_temp.rec('1 shipped', 'AAL1 CMO break-glass grant usable', 'true',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', format('select private.has_emergency_access(%L, null)', pg_temp.f('pat'))));
+select pg_temp.rec('1 shipped', 'AAL1 doctor task_is_mine on own claimed task', 'true',
+  pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format($q$select private.task_is_mine(null, %L, null, 'claimed')$q$, pg_temp.f('smo'))));
+select pg_temp.rec('1 shipped', 'AAL1 admin has_permission', 'true', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', $q$select private.has_permission('anything.at_all')$q$));
 select pg_temp.rec('1 shipped', 'AAL1 admin is_admin', 'true', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', 'select private.is_admin()'));
 select pg_temp.rec('1 shipped', 'AAL1 doctor not required', 'false',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', 'select required from public.my_mfa_requirement()'));
@@ -149,6 +152,10 @@ select pg_temp.rec('3 enforce', 'AAL1 doctor staff_may_read false', 'false',
     format('select coalesce(private.staff_may_read(%L, %L, %L), false)', pg_temp.f('pat'), pg_temp.f('org'), 'vitals_readings')));
 select pg_temp.rec('3 enforce', 'AAL1 CMO break-glass grant unusable', 'false',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', format('select private.has_emergency_access(%L, null)', pg_temp.f('pat'))));
+select pg_temp.rec('3 enforce', 'AAL1 doctor task_is_mine false', 'false',
+  pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format($q$select private.task_is_mine(null, %L, null, 'claimed')$q$, pg_temp.f('smo'))));
+select pg_temp.rec('3 enforce', 'AAL2 doctor task_is_mine true', 'true',
+  pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2', format($q$select private.task_is_mine(null, %L, null, 'claimed')$q$, pg_temp.f('smo'))));
 select pg_temp.rec('3 enforce', 'AAL2 doctor reads the row', '1',
   pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2', format('select count(*) from public.clinical_incident_reports where id = %L', pg_temp.f('inc'))));
 select pg_temp.rec('3 enforce', 'AAL1 coordinator (other group) unaffected', '1',
@@ -185,6 +192,8 @@ select pg_temp.rec('5 lockout', 'AAL2 admin can', '2', pg_temp.as_val(pg_temp.f(
   $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', true)$q$));
 select pg_temp.rec('5 lockout', 'AAL1 admin no longer is_admin', 'false',
   pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', 'select private.is_admin()'));
+select pg_temp.rec('5 lockout', 'AAL1 admin has no delegated capability either', 'false',
+  pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', $q$select private.has_permission('anything.at_all')$q$));
 select pg_temp.rec('5 lockout', 'AAL2 admin still is_admin', 'true',
   pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2', 'select private.is_admin()'));
 

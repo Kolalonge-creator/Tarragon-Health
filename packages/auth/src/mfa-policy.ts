@@ -27,16 +27,12 @@ export const MFA_SETUP_PATH = "/account";
 
 /**
  * Paths an account in a required group without a factor may still open on the main app: the account page where the factor is
- * set up (its server actions post to the same path), the challenge page, and the auth callbacks that finish a sign-in or a
- * sign-out.
+ * set up (its server actions, sign-out included, post to the same path), the challenge page, and the auth callbacks that
+ * finish a sign-in or a sign-out.
  */
 export function isMfaEnrolmentExemptPath(pathname: string): boolean {
-  return (
-    pathname === MFA_SETUP_PATH ||
-    pathname.startsWith(`${MFA_SETUP_PATH}/`) ||
-    pathname === "/login/mfa-challenge" ||
-    pathname.startsWith("/auth/")
-  );
+  // Exactly /account, not /account/*: the credentialing pages live under /account/clinician and must not inherit the exemption.
+  return pathname === MFA_SETUP_PATH || pathname === "/login/mfa-challenge" || pathname.startsWith("/auth/");
 }
 
 export type MfaEnrolmentVerdict = "allow" | "setup" | "refuse_api";
@@ -77,8 +73,15 @@ export function isMissingFunction(error: { code?: string } | null | undefined): 
   return error?.code === "PGRST202" || error?.code === "42883";
 }
 
+/** What the proxy does when the caller's own answer cannot be read. */
+export type MfaLookupFailure = "required" | "not_required";
+
 /**
- * Whether the signed-in caller must have 2FA, read from the database.
+ * Whether the signed-in caller must still SET UP 2FA, read from the database: its group is required AND the database shows no
+ * verified factor. An account the database shows WITH a factor is never sent to set-up, even when its session cookie has not
+ * caught up (a factor enrolled on another device stays invisible to getAuthenticatorAssuranceLevel until the token refreshes);
+ * sending it to set-up would bounce it between /account and its destination. Such a session is still AAL1, so the database
+ * layer keeps refusing it patient data until it passes the challenge.
  *
  * While no group is on (today, and the shipped default) this costs one small, cached RPC per proxy instance every 30 seconds,
  * not one per request. Only when a group is on is the caller's own answer read, uncached, so a change applies within the
@@ -101,23 +104,54 @@ export async function readMyMfaRequirement(supabase: Client): Promise<boolean | 
   return row?.required === true;
 }
 
-export async function isMfaRequiredForCaller(supabase: Client, now: number = Date.now()): Promise<boolean> {
-  const cached = anyGroupCache && now - anyGroupCache.at < ANY_GROUP_CACHE_MS ? anyGroupCache.value : null;
-  if (cached === false) return false;
-
-  if (cached === null) {
-    const anyOn = await supabase.rpc("mfa_any_group_required");
-    if (anyOn.error) {
-      if (isMissingFunction(anyOn.error)) return false;
-    } else {
-      anyGroupCache = { value: anyOn.data === true, at: now };
-      if (anyOn.data !== true) return false;
-    }
-  }
+export async function isMfaRequiredForCaller(
+  supabase: Client,
+  now: number = Date.now(),
+  onFailure: MfaLookupFailure = "required",
+): Promise<boolean> {
+  if ((await anyMfaGroupRequired(supabase, now)) === false) return false;
 
   const mine = await supabase.rpc("my_mfa_requirement");
-  if (mine.error) return !isMissingFunction(mine.error);
+  if (mine.error) return isMissingFunction(mine.error) ? false : onFailure === "required";
   const row = Array.isArray(mine.data) ? mine.data[0] : mine.data;
   // No row means no signed-in user, which the proxies handle before calling this.
-  return row?.required === true;
+  return row?.required === true && row.has_verified_factor !== true;
+}
+
+/**
+ * Is any group on at all: true, false, or null when it could not be read (not cached). Cached per instance for
+ * ANY_GROUP_CACHE_MS; the value is platform-wide, never per account. Missing functions (code deployed before the migration)
+ * read as false.
+ */
+export async function anyMfaGroupRequired(supabase: Client, now: number = Date.now()): Promise<boolean | null> {
+  if (anyGroupCache && now - anyGroupCache.at < ANY_GROUP_CACHE_MS) return anyGroupCache.value;
+  const anyOn = await supabase.rpc("mfa_any_group_required");
+  if (anyOn.error) return isMissingFunction(anyOn.error) ? false : null;
+  anyGroupCache = { value: anyOn.data === true, at: now };
+  return anyGroupCache.value;
+}
+
+/** The bearer token of a request, or null. */
+export function bearerToken(headers: Headers): string | null {
+  const raw = headers.get("authorization");
+  if (!raw) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(raw.trim());
+  return match ? match[1]! : null;
+}
+
+/**
+ * The `aal` claim of a Supabase access token, decoded WITHOUT verifying the signature. Safe only as a shortcut to skip a lookup:
+ * a forged "aal2" token is refused by the route (and PostgREST) when it verifies the signature, so it gains nothing here.
+ */
+export function aalFromAccessToken(token: string): string | undefined {
+  const part = token.split(".")[1];
+  if (!part) return undefined;
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const json = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))) as unknown;
+    if (json && typeof json === "object" && "aal" in json && typeof json.aal === "string") return json.aal;
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
