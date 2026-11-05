@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -53,7 +54,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     p_consultation_id: parsed.data.consultId,
     p_slot: parsed.data.slot,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: safeErrorMessage(error, "mobile/health-check/confirm-video-slot") }, { status: 400 });
 
   const service = createServiceRoleClient();
   let joinUrl: string | null = null;

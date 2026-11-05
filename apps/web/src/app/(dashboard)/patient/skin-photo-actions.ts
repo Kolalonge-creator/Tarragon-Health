@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { checkAbuseLimit } from "@/lib/security/abuse-limits";
 import * as Sentry from "@sentry/nextjs";
 import { BODY_AREAS, skinPhotoPolicy } from "./skin-photo-config";
 import { t } from "@tarragon/i18n";
@@ -28,6 +29,7 @@ export async function uploadSkinPhoto(formData: FormData): Promise<UploadSkinPho
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: "unavailable" };
+  if (!(await checkAbuseLimit("upload", user.id)).ok) return { status: "error", reason: "other" };
 
   const file = formData.get("photo");
   const area = String(formData.get("body_area") ?? "");

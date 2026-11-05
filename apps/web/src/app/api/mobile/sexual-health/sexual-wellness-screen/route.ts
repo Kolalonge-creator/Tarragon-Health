@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -76,7 +77,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     item_responses: { items } as Json,
   });
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/sexual-health/sexual-wellness-screen") }, { status: 400 });
   }
 
   return NextResponse.json({ success: true, instrument, totalScore, severityBand, cardiometabolicFlag });

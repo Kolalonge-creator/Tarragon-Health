@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
 import { derivedUuid } from "@/lib/vitals/derived-uuid";
 import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
@@ -254,7 +255,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       // Nothing is saved yet, so a retry from the phone's queue is safe and nothing is lost.
       const refusedKetone = assistedRefusalResponse(ketoneError);
       if (refusedKetone) return NextResponse.json({ error: refusedKetone.message }, { status: refusedKetone.status });
-      return NextResponse.json({ error: ketoneError.message }, { status: 500 });
+      return NextResponse.json({ error: safeErrorMessage(ketoneError, "mobile/vitals") }, { status: 500 });
     }
   }
 
@@ -282,7 +283,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // A helper's entry refused by the assisted-entry guard: say why in plain words, with a status the phone's queue understands.
     const refused = assistedRefusalResponse(insertError);
     if (refused) return NextResponse.json({ error: refused.message }, { status: refused.status });
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/vitals") }, { status: 500 });
   }
 
   // S70a (18.9): with the plausibility hold on, the database can accept a typed value without storing it (a number that cannot be real is
