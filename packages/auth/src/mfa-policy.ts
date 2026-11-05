@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import type { Database, UserRole } from "@tarragon/shared";
 
 /**
  * Two-factor sign-in (2FA) required per group of accounts.
@@ -56,16 +56,17 @@ export function mfaEnrolmentVerdict(input: {
   return "setup";
 }
 
-/** How long a proxy instance trusts its answer to "is any group on at all". The per-account answer is never cached. */
+/** How long a proxy instance trusts its list of roles with a group on. The per-account answer is never cached. */
 export const ANY_GROUP_CACHE_MS = 30_000;
 
-// `at` is when the value was read. The value is kept after the window as the last known answer: a failed read is only
-// treated as "a group may be on" when the last answer this instance saw was that one is.
-let anyGroupCache: { value: boolean; at: number } | null = null;
+// `at` is when the list was read. The list is kept after the window as the last known answer: a failed read answers it (or
+// nothing, if this instance never read one), so a fault while every group is off never sends anybody to set-up.
+let rolesCache: { roles: ReadonlySet<UserRole>; at: number } | null = null;
+const NO_ROLES: ReadonlySet<UserRole> = new Set<UserRole>();
 
 /** Test hook. */
 export function resetMfaRequirementCache(): void {
-  anyGroupCache = null;
+  rolesCache = null;
 }
 
 type Client = SupabaseClient<Database>;
@@ -105,14 +106,14 @@ export async function readMyMfaRequirement(supabase: Client): Promise<boolean | 
  * sending it to set-up would bounce it between /account and its destination. Such a session is still AAL1, so the database
  * layer keeps refusing it patient data until it passes the challenge.
  *
- * While no group is on (today, and the shipped default) this costs one small, cached RPC per proxy instance every 30 seconds,
- * not one per request. Only when a group is on is the caller's own answer read, uncached, so a change applies within the
- * cache window and an account can never be served another account's verdict.
+ * The list of roles with a group on is one small, cached RPC per proxy instance every 30 seconds, not one per request. Only when
+ * the caller's role is in it (or the role is not known) is the caller's own answer read, uncached, so a change applies within
+ * the cache window and an account can never be served another account's verdict.
  *
  * Failure handling:
  *  - the functions do not exist yet (code deployed before the migration): not required, exactly today's behaviour;
- *  - "is any group on" fails: not required, unless the last answer this instance saw was "a group is on", in which case the
- *    caller's own answer is asked (a brief fault while every group is off never sends everybody to set-up);
+ *  - the list of roles fails: the last list this instance saw, or none (a brief fault while every group is off never sends
+ *    everybody to set-up);
  *  - the caller's own answer fails: `onFailure`, REQUIRED by default (fail closed): the person lands on Profile & settings,
  *    which reads the true state. The mobile API passes "not_required": there a failed lookup is most often an expired token,
  *    which the route itself must answer with a 401 so the app refreshes.
@@ -122,24 +123,33 @@ export async function isMfaRequiredForCaller(
   supabase: Client,
   now: number = Date.now(),
   onFailure: MfaLookupFailure = "required",
+  /** The caller's account role, when known (the proxies read it from profiles). A role with no group on is never asked about. */
+  role?: UserRole,
 ): Promise<boolean> {
-  if ((await anyMfaGroupRequired(supabase, now)) === false) return false;
+  const roles = await mfaRequiredRoles(supabase, now);
+  if (roles.size === 0) return false;
+  if (role !== undefined && !roles.has(role)) return false;
   const row = await readMyRow(supabase);
   if (row === null) return onFailure === "required";
   return row.required && !row.hasVerifiedFactor;
 }
 
 /**
- * Is any group on at all: true or false. Cached per instance for ANY_GROUP_CACHE_MS; the value is platform-wide, never per
- * account. Missing functions (code deployed before the migration) read as false. A failed read is not cached and answers the
- * last known value, or false if this instance never read one.
+ * The account roles that have any group on (a whole-role group, or a doctor-tier group under clinician), from
+ * public.mfa_required_roles. Cached per instance for ANY_GROUP_CACHE_MS; platform-wide, never per account. Missing function (code
+ * deployed before the migration): none. A failed read is not cached and answers the last known list, or none.
  */
+export async function mfaRequiredRoles(supabase: Client, now: number = Date.now()): Promise<ReadonlySet<UserRole>> {
+  if (rolesCache && now - rolesCache.at < ANY_GROUP_CACHE_MS) return rolesCache.roles;
+  const { data, error } = await supabase.rpc("mfa_required_roles");
+  if (error) return isMissingFunction(error) ? NO_ROLES : (rolesCache?.roles ?? NO_ROLES);
+  rolesCache = { roles: new Set<UserRole>(Array.isArray(data) ? data : []), at: now };
+  return rolesCache.roles;
+}
+
+/** Is any group on at all (the phone API, which has no role to hand before the route runs). */
 export async function anyMfaGroupRequired(supabase: Client, now: number = Date.now()): Promise<boolean> {
-  if (anyGroupCache && now - anyGroupCache.at < ANY_GROUP_CACHE_MS) return anyGroupCache.value;
-  const anyOn = await supabase.rpc("mfa_any_group_required");
-  if (anyOn.error) return isMissingFunction(anyOn.error) ? false : (anyGroupCache?.value ?? false);
-  anyGroupCache = { value: anyOn.data === true, at: now };
-  return anyGroupCache.value;
+  return (await mfaRequiredRoles(supabase, now)).size > 0;
 }
 
 /**

@@ -71,7 +71,7 @@ function stubSession({ user, profile = null, aal = null, mfa = { anyOn: false, r
       }),
       rpc: async (fn: string) => {
         rpcCalls.push(fn);
-        if (fn === "mfa_any_group_required") return { data: mfa.anyOn, error: null };
+        if (fn === "mfa_required_roles") return { data: mfa.anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null };
         if (fn === "my_mfa_requirement") {
           return mfa.error
             ? { data: null, error: mfa.error }
@@ -100,7 +100,7 @@ beforeEach(() => {
   rpcCalls.length = 0;
   resetMfaRequirementCache();
   bearerRpc.mockReset();
-  bearerRpc.mockResolvedValue({ data: false, error: null });
+  bearerRpc.mockResolvedValue({ data: [], error: null });
 });
 
 describe("matcher config", () => {
@@ -405,14 +405,14 @@ describe("2FA required per group", () => {
     stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
     const res = await proxy(request("/clinician/patients"));
     expect(res.headers.get("location")).toBeNull();
-    expect(rpcCalls).toEqual(["mfa_any_group_required"]);
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
   });
 
   it("caches 'no group is on' so a second request costs no database call", async () => {
     stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
     await proxy(request("/clinician/patients"));
     await proxy(request("/clinician/escalations"));
-    expect(rpcCalls).toEqual(["mfa_any_group_required"]);
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
   });
 
   it("sends a required account without a factor to Profile & settings, keeping where it was going", async () => {
@@ -448,6 +448,28 @@ describe("2FA required per group", () => {
     const res = await proxy(request("/login"));
     expect(new URL(res.headers.get("location") ?? "").pathname).not.toBe("/account");
     expect(rpcCalls).toEqual([]);
+  });
+
+  it("asks nothing per request for a role with no group on, while another group is on", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor, mfa: { anyOn: true, required: true } });
+    // Only the patient group is on: the clinician is never asked about, so a wrong "required" answer cannot hold them.
+    updateSession.mockImplementationOnce((req: NextRequest) => {
+      const base = updateSession.getMockImplementation()!(req) as { supabase: { rpc: (fn: string) => Promise<unknown> } };
+      return {
+        ...base,
+        supabase: {
+          ...base.supabase,
+          rpc: async (fn: string) => {
+            rpcCalls.push(fn);
+            if (fn === "mfa_required_roles") return { data: ["patient"], error: null };
+            return { data: [{ required: true, has_verified_factor: false }], error: null };
+          },
+        },
+      };
+    });
+    const res = await proxy(request("/clinician/patients"));
+    expect(res.headers.get("location")).toBeNull();
+    expect(rpcCalls).toEqual(["mfa_required_roles"]);
   });
 
   it("does not hold an account in another group", async () => {
@@ -486,7 +508,7 @@ describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () =
     });
   const answers = (anyOn: boolean, mine: { data: unknown; error: unknown }) =>
     bearerRpc.mockImplementation(async (fn: string) =>
-      fn === "mfa_any_group_required" ? { data: anyOn, error: null } : mine,
+      fn === "mfa_required_roles" ? { data: anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null } : mine,
     );
 
   beforeEach(() => {

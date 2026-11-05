@@ -116,8 +116,10 @@ select pg_temp.rec('1 shipped', 'AAL1 admin has_permission', 'true', pg_temp.as_
 select pg_temp.rec('1 shipped', 'AAL1 admin is_admin', 'true', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', 'select private.is_admin()'));
 select pg_temp.rec('1 shipped', 'AAL1 doctor not required', 'false',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', 'select required from public.my_mfa_requirement()'));
-select pg_temp.rec('1 shipped', 'mfa_any_group_required false', 'false',
-  pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', 'select public.mfa_any_group_required()'));
+select pg_temp.rec('1 shipped', 'mfa_required_roles is empty', '{}',
+  pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', 'select public.mfa_required_roles()::text'));
+select pg_temp.rec('1 shipped', 'anon cannot read mfa_required_roles', 'ERR:42501',
+  pg_temp.as_val(null, 'anon', null, 'select public.mfa_required_roles()::text'));
 select pg_temp.rec('1 shipped', 'anon cannot read my_mfa_requirement', 'ERR:42501',
   pg_temp.as_val(null, 'anon', null, 'select required from public.my_mfa_requirement()'));
 
@@ -153,6 +155,8 @@ select pg_temp.rec('2 switch', 'admin cannot UPDATE the table directly', 'ERR:42
 -- ---------------------------------------------------------------------------
 -- 3. Enforcement with the clinician group on.
 -- ---------------------------------------------------------------------------
+select pg_temp.rec('3 enforce', 'mfa_required_roles lists clinician only', '{clinician}',
+  pg_temp.as_val(pg_temp.f('coord'), 'authenticated', 'aal1', 'select public.mfa_required_roles()::text'));
 select pg_temp.rec('3 enforce', 'AAL1 doctor reads ZERO staff-only rows', '0',
   pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format('select count(*) from public.clinical_incident_reports where id = %L', pg_temp.f('inc'))));
 select pg_temp.rec('3 enforce', 'AAL1 doctor is_org_staff false', 'false',
@@ -188,6 +192,8 @@ select pg_temp.rec('3 enforce', 'off again: AAL1 doctor reads the row', '1',
 -- ---------------------------------------------------------------------------
 select pg_temp.rec('4 tier', 'CMO tier on', '2', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
   $q$select public.set_mfa_group_requirement('clinician', 'chief_medical_officer', true, 'The CMO account must use 2FA now', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'))$q$));
+select pg_temp.rec('4 tier', 'a tier group lists its role, clinician', '{clinician}',
+  pg_temp.as_val(pg_temp.f('coord'), 'authenticated', 'aal1', 'select public.mfa_required_roles()::text'));
 select pg_temp.rec('4 tier', 'AAL1 CMO held', 'false',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', format('select private.is_org_staff(%L)', pg_temp.f('org'))));
 select pg_temp.rec('4 tier', 'AAL1 senior medical officer not held', 'true',

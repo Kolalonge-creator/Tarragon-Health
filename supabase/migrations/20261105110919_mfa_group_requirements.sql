@@ -283,16 +283,19 @@ as $$
    where (select auth.uid()) is not null;
 $$;
 
--- Is any group on at all? Lets the proxy skip the per-account lookup on every request while everything is off. One boolean,
--- no account detail.
-create or replace function public.mfa_any_group_required()
-returns boolean
+-- Which account roles have any group switched on (a whole-role group, or a doctor-tier group under clinician)? Lets the proxy
+-- cache one small list per instance and skip the per-account lookup for every role not in it, so switching on one group costs
+-- nothing for everybody else. Role names only, no account detail; empty while every group is off.
+create or replace function public.mfa_required_roles()
+returns public.user_role[]
 language sql
 stable
 security definer
 set search_path to ''
 as $$
-  select exists (select 1 from public.mfa_group_requirements where required);
+  select coalesce(array_agg(distinct role order by role), '{}'::public.user_role[])
+    from public.mfa_group_requirements
+   where required;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -461,12 +464,12 @@ end;
 $$;
 
 revoke all on function public.my_mfa_requirement() from public, anon;
-revoke all on function public.mfa_any_group_required() from public, anon;
+revoke all on function public.mfa_required_roles() from public, anon;
 revoke all on function public.admin_mfa_group_requirements() from public, anon;
 revoke all on function public.admin_mfa_group_requirement_changes(integer) from public, anon;
 revoke all on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer) from public, anon;
 grant execute on function public.my_mfa_requirement() to authenticated;
-grant execute on function public.mfa_any_group_required() to authenticated;
+grant execute on function public.mfa_required_roles() to authenticated;
 grant execute on function public.admin_mfa_group_requirements() to authenticated;
 grant execute on function public.admin_mfa_group_requirement_changes(integer) to authenticated;
 grant execute on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer) to authenticated;
@@ -647,7 +650,7 @@ begin
   end if;
   if has_function_privilege('anon', 'public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer)', 'EXECUTE')
      or has_function_privilege('anon', 'public.my_mfa_requirement()', 'EXECUTE')
-     or has_function_privilege('anon', 'public.mfa_any_group_required()', 'EXECUTE')
+     or has_function_privilege('anon', 'public.mfa_required_roles()', 'EXECUTE')
      or has_function_privilege('anon', 'public.admin_mfa_group_requirements()', 'EXECUTE')
      or has_function_privilege('anon', 'public.admin_mfa_group_requirement_changes(integer)', 'EXECUTE')
      or has_function_privilege('anon', 'private.mfa_requirement_met()', 'EXECUTE')

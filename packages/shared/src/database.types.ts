@@ -52680,7 +52680,7 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: { required: boolean; has_verified_factor: boolean }[]
       }
-      mfa_any_group_required: { Args: Record<PropertyKey, never>; Returns: boolean }
+      mfa_required_roles: { Args: Record<PropertyKey, never>; Returns: Database["public"]["Enums"]["user_role"][] }
       admin_mfa_group_requirements: {
         Args: Record<PropertyKey, never>
         Returns: {

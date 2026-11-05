@@ -25,7 +25,7 @@ jest.mock("./roles", () => ({
 }));
 
 const aal = jest.fn().mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
-const rpcStub = jest.fn().mockResolvedValue({ data: false, error: null });
+const rpcStub = jest.fn().mockResolvedValue({ data: [], error: null });
 const supabaseStub = {
   auth: { mfa: { getAuthenticatorAssuranceLevel: () => aal() } },
   rpc: (...a: unknown[]) => rpcStub(...a),
@@ -94,7 +94,7 @@ describe("gateLoginDestination (a Server Action redirect never passes through pr
     resetMfaRequirementCache();
     aal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
     rpcStub.mockReset();
-    rpcStub.mockResolvedValue({ data: false, error: null });
+    rpcStub.mockResolvedValue({ data: [], error: null });
   });
 
   it("keeps the destination for an account with no factor while no group is on (today)", async () => {
@@ -108,8 +108,8 @@ describe("gateLoginDestination (a Server Action redirect never passes through pr
 
   it("sends a required account with no factor to set-up, keeping the destination", async () => {
     rpcStub.mockImplementation(async (fn: string) =>
-      fn === "mfa_any_group_required"
-        ? { data: true, error: null }
+      fn === "mfa_required_roles"
+        ? { data: ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"], error: null }
         : { data: [{ required: true, has_verified_factor: false }], error: null },
     );
     expect(await gateLoginDestination(supabaseStub, "/clinician")).toBe("/account?mfa=required&redirect=%2Fclinician");

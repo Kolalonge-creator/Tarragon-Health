@@ -37,7 +37,7 @@ function form() {
 beforeEach(() => {
   redirect.mockClear();
   resetMfaRequirementCache();
-  rpc.mockResolvedValue({ data: false, error: null });
+  rpc.mockResolvedValue({ data: [], error: null });
 });
 
 describe("signInToConsole and 2FA", () => {
@@ -54,8 +54,8 @@ describe("signInToConsole and 2FA", () => {
   it("sends a required account with no factor to the set-up page", async () => {
     aal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
     rpc.mockImplementation(async (fn: string) =>
-      fn === "mfa_any_group_required"
-        ? { data: true, error: null }
+      fn === "mfa_required_roles"
+        ? { data: ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"], error: null }
         : { data: [{ required: true, has_verified_factor: false }], error: null },
     );
     await expect(signInToConsole(undefined, form())).rejects.toThrow("NEXT_REDIRECT:/login/mfa-setup");

@@ -73,7 +73,7 @@ export async function proxy(request: NextRequest) {
   // in a required group with no verified factor is held on the set-up page, which points it at the main app's Profile & settings
   // and lets it sign out; an /api call gets a 403. One WITH a factor was already sent to the challenge above. The challenge page
   // is exempt: the level is not read there, and the page itself sends anyone without a pending step-up back to /login.
-  if (pathname !== "/login/mfa-challenge" && mfaNextLevel !== "aal2" && (await isMfaRequiredForCaller(supabase))) {
+  if (pathname !== "/login/mfa-challenge" && mfaNextLevel !== "aal2" && (await isMfaRequiredForCaller(supabase, Date.now(), "required", profile.role))) {
     if (pathname === "/login/mfa-setup") return response;
     if (pathname === "/api" || pathname.startsWith("/api/")) {
       return NextResponse.json(

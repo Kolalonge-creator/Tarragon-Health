@@ -298,10 +298,11 @@ export async function proxy(request: NextRequest) {
   // account whose group requires 2FA and that has no verified factor reaches only Profile & settings, the challenge page, the
   // auth callbacks and the public pages (so it can always sign out); an /api call gets a 403. One WITH a factor was already sent
   // to the challenge by the step-up gate above. Public and marketing paths are skipped before the database is asked, and so is
-  // an account with a factor, so while every group is off this costs one cached lookup per instance, not one per request. The
+  // an account with a factor. The roles with a group on are cached per instance, so an account whose role has no group on costs
+  // no per-request lookup at all, even while another group is on. The
   // database holds the same line independently (private.is_org_staff / is_admin / has_emergency_access).
   if (mfaNextLevel !== "aal2" && !isPublicPath(pathname)) {
-    const required = await isMfaRequiredForCaller(supabase);
+    const required = await isMfaRequiredForCaller(supabase, Date.now(), "required", profile.role);
     const verdict = mfaEnrolmentVerdict({ pathname, required, nextLevel: mfaNextLevel });
     if (verdict === "refuse_api") {
       return NextResponse.json(

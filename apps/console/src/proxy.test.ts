@@ -36,7 +36,7 @@ function stubSession({ user, profile = null, aal = null, mfa = { anyOn: false, r
       auth: { mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: aal }) } },
       from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: profile }) }) }) }),
       rpc: async (fn: string) => {
-        if (fn === "mfa_any_group_required") return { data: mfa.anyOn, error: null };
+        if (fn === "mfa_required_roles") return { data: mfa.anyOn ? ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"] : [], error: null };
         if (fn === "my_mfa_requirement") return { data: [{ required: mfa.required, has_verified_factor: false }], error: null };
         throw new Error(`unexpected rpc ${fn}`);
       },
