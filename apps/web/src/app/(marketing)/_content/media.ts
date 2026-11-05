@@ -105,18 +105,11 @@ export const MARKETING_MEDIA = {
       imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      // A real screenshot of the patient dashboard (the Health Score card and
-      // the "next best step" that follows it), captured on a real iOS
-      // Simulator against a QA fixture account with a placeholder Nigerian
-      // name; never a mockup or a generated image, per the standing
-      // "anatomically-wrong prevention hero clip" lesson on this codebase.
-      // The only edit is a crop below the simulator's status bar (the
-      // original is kept beside it as how-it-works-health-score.jpg).
-      // Swapped 2026-11-03 from the health-domains capture, which showed
-      // four "Not tracked yet / Nothing logged here yet" empty states: an
-      // empty app is the wrong thing to put in the homepage phone.
-      imageSrc: "/marketing/photos/app/how-it-works-health-score-cropped.jpg",
-      imageAlt: "The Tarragon app's dashboard, showing a stable Health Score and the next step, a blood pressure check that is due",
+      // A real screenshot of the patient overview ("How you're doing": health by area, T2-06), captured with Playwright at a
+      // 402 by 627 phone viewport (3x) from the web app running against a local stack, for a synthetic demo patient with a placeholder
+      // Nigerian name and made-up readings. Never a mockup, never real patient data.
+      imageSrc: "/marketing/photos/app/how-it-works-health-by-area.jpg",
+      imageAlt: "The Tarragon app's overview, showing six areas of health with one worth discussing with the care team, and the next step",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {

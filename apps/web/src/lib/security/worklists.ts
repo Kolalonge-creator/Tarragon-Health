@@ -16,7 +16,8 @@ export type WorklistKind =
   | "therapy_approvals"
   | "vaccination_verification"
   | "outside_records"
-  | "uploaded_documents";
+  | "uploaded_documents"
+  | "deteriorating_trends";
 
 export interface WorklistItem {
   kind: WorklistKind;
@@ -39,6 +40,7 @@ export const WORKLIST_TITLES: Record<WorklistKind, string> = {
   vaccination_verification: "Vaccination records to verify",
   outside_records: "Records from other hospitals to check",
   uploaded_documents: "Uploaded reports waiting for a doctor (ECG, scans, letters, pathology)",
+  deteriorating_trends: "Lab trends getting worse, to review (found by the CMO-signed trend rules)",
 };
 
 /** Where an item in a queue opens. Most open the patient's chart (logged); an outside record opens its own check page, which logs the same way. */

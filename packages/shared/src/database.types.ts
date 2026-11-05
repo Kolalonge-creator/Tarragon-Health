@@ -53145,6 +53145,9 @@ export type Database = {
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_bp_target_config: { Args: { p_version: number }; Returns: undefined };
       bp_target_config_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_lab_trend_rules: { Args: { p_version: number }; Returns: undefined };
+      lab_trend_rules_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_health_status: { Args: { p_patient?: string }; Returns: Json };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
       clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };

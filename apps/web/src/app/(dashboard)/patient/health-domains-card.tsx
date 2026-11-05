@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { HealthDomainArt } from "@/app/(dashboard)/patient/health-domain-art";
+import { useHealthStatusDomains } from "@/lib/queries/health-status";
+import { HealthStatusDomains } from "@/app/(dashboard)/patient/health-status-domains";
 
 const GROUP_META: Record<HealthDomainGroup, { label: string; blurb: string }> = {
   energy: {
@@ -103,8 +105,9 @@ export function HealthDomainsCard({
   const { data: riskSignals, isLoading: riskLoading } = usePatientRiskSignals(patientId);
   const { data: biomarkerCategories, isLoading: biomarkerLoading } = useBiomarkerCategories(patientId);
   const { data: sleepSummary, isLoading: sleepLoading } = useSleepSummary(patientId);
+  const { data: statusDomains, isLoading: statusLoading, isError: statusError } = useHealthStatusDomains(patientId);
 
-  if (riskLoading || biomarkerLoading || sleepLoading) return <Skeleton />;
+  if (riskLoading || biomarkerLoading || sleepLoading || statusLoading) return <Skeleton />;
 
   const domains = buildHealthDomains({
     riskSignals: riskSignals ?? [],
@@ -113,7 +116,9 @@ export function HealthDomainsCard({
     canViewReproductive,
   });
 
-  if (domains.every((d) => d.status === "no_data")) return null;
+  const results = statusDomains ?? [];
+  const signalsEmpty = domains.every((d) => d.status === "no_data");
+  if (signalsEmpty && results.length === 0 && !statusError) return null;
 
   const energy = domains.filter((d) => d.group === "energy");
   const futureHealth = domains.filter((d) => d.group === "future_health");
@@ -130,13 +135,24 @@ export function HealthDomainsCard({
           Your health, by area
         </CardTitle>
         <CardDescription>
-          The same readings and results you already track, grouped by what they mean for you:
-          today&apos;s energy, and the health you&apos;re protecting for later.
+          Your results and readings by area: the latest value, the range it is compared with, which way it has moved and what is
+          still to do. There is no overall score.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <GroupSection group="energy" domains={energy} />
-        <GroupSection group="future_health" domains={futureHealth} />
+        {statusError ? (
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            Your results by area are taking a moment to load. They will be back the next time this page refreshes.
+          </p>
+        ) : (
+          <HealthStatusDomains domains={results} />
+        )}
+        {!signalsEmpty && (
+          <>
+            <GroupSection group="energy" domains={energy} />
+            <GroupSection group="future_health" domains={futureHealth} />
+          </>
+        )}
       </CardContent>
     </Card>
   );
