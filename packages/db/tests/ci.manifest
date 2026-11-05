@@ -1881,3 +1881,5 @@ msg5_care_operations_summary.sql
 t2_13_plus_renews_as_membership.sql
 # T2-11 (2026-11-04): with zero partner pharmacies the prescribing master names no pharmacy condition; a real senior doctor signs, the patient reads the rx number, code and QR token, and anon verifies it at /verify-rx; partner collection is still refused (pharmacy_collection_on false, patient list 55000); tier and controlled-medicine rules hold. Sabotage x2: partner readiness replaced by true; the old partner conditions.
 t2_11_prescribing_take_anywhere.sql
+# Security audit M-9 (2026-11-05): an audit_log row written from a user session names that user as actor: a staff session naming another person or null is recorded as the staff member, a patient's row as the patient; server (postgres) writes keep their named actor. Sabotage: without the trigger and with the old staff branch, the forged actor survives.
+audit_log_actor_is_the_session_user.sql

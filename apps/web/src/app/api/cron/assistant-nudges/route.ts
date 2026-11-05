@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { lagosDay, lagosWeekday } from "@/lib/ai-coach/nudges";
 import { readAssistantGuardIsOn } from "@/lib/ai-coach/guard";
@@ -27,7 +28,7 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(authHeader)) {
     return new Response("Not authorised", { status: 401 });
   }
 

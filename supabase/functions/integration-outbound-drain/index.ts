@@ -103,7 +103,24 @@ async function deliverOne(
   return { ok, deadLettered: status === "dead_letter" };
 }
 
-Deno.serve(withSentry("integration-outbound-drain", async () => {
+// Constant-time comparison so the secret cannot be guessed by timing.
+function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
+
+Deno.serve(withSentry("integration-outbound-drain", async (req) => {
+  // Security audit 2026-11-05, M-3: the publishable key is public, so on its own it must not be enough to start a
+  // drain. pg_cron sends the internal cron secret (the same Vault secret process-events uses). Fails closed.
+  const expected = Deno.env.get("PROCESS_EVENTS_SECRET");
+  if (!expected) return Response.json({ error: "not configured" }, { status: 503 });
+  if (!sameSecret(req.headers.get("x-internal-cron-secret") ?? "", expected)) {
+    return Response.json({ error: "unauthorised" }, { status: 401 });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
