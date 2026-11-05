@@ -177,7 +177,7 @@ export function MarketingFooter() {
             </p>
             <p className="max-w-xs text-sm leading-relaxed text-white/65">
               Preventive and ongoing healthcare for people in Nigeria: your
-              plan, your results and your doctor, in one place.
+              plan, your results and your care team, in one place.
             </p>
             <p className="text-sm text-white/65">
               <a
