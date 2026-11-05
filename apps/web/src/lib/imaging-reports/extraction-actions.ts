@@ -1,5 +1,6 @@
 "use server";
 
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { IMAGING_REPORT_BUCKET } from "./documents";
@@ -142,19 +143,24 @@ export async function runImagingReportExtraction(
   const { extraction } = result;
   const status = deriveImagingAiSummaryStatus(extraction);
 
-  try {
-    await service
-      .from("imaging_report_documents")
-      .update({
+  // CDE-10: this write also runs the narrative urgent-finding rules (a database trigger). supabase-js RETURNS a failure rather than
+  // throwing, so the error is read and reported: an urgent finding must never be lost without a trace.
+  const summaryWriteFailed = await runBestEffort(
+    async () => {
+      const { error } = await service
+        .from("imaging_report_documents")
+        .update({
         ai_summary_status: status,
         ai_impression_text: extraction.impressionText,
         ai_impression_flagged: extraction.impressionIndicatesFinding,
         ai_summary_generated_at: new Date().toISOString(),
       })
-      .eq("id", documentId);
-  } catch (error) {
-    console.error("imaging-reports: could not persist AI summary status", error);
-  }
+        .eq("id", documentId);
+      if (error) throw new Error(`imaging_report_documents AI summary write failed: ${error.message}`);
+    },
+    { documentId, step: "ai_summary_write" },
+  );
+  if (summaryWriteFailed) console.error("imaging-reports: could not persist AI summary status", documentId);
 
   // 40.11. Never the transcribed impression text itself — only counts and
   // provenance, same discipline as the lab/ECG pipelines' own audit rows.
