@@ -10,6 +10,8 @@ import { __setCardPhotoStoreForTests, type CardPhotoStore } from "./card-photo-s
 import type { CardPhotoPayload, ChildEventPayload } from "./child-log-payloads";
 
 jest.mock("expo-image-manipulator", () => ({ ImageManipulator: { manipulate: jest.fn() }, SaveFormat: { JPEG: "jpeg" } }));
+const mockConfirm = jest.fn();
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), confirmDirectUpload: (...a: unknown[]) => mockConfirm(...a) }));
 jest.mock("expo-image-picker", () => ({ requestCameraPermissionsAsync: jest.fn(), launchCameraAsync: jest.fn() }));
 
 const mockInserts: { table: string; row: Record<string, unknown> }[] = [];
@@ -204,6 +206,27 @@ describe("the paper card photo", () => {
       store,
     };
   }
+
+  beforeEach(() => {
+    mockConfirm.mockReset();
+    mockConfirm.mockResolvedValue(null);
+  });
+
+  it("after the upload the server is asked to check the file; a refused photo is a rejection, not confirmed and never retried (security audit M-4/L-4)", async () => {
+    const store = fakeStore();
+    mockConfirm.mockResolvedValue("That file is not what it says it is.");
+    await takeCardPhoto(CHILD, "", deps(store));
+    expect(mockConfirm).toHaveBeenCalledWith("child-card-photos", mockUploads[0]?.path);
+    expect(mockRpcs.some((r) => r.fn === "confirm_child_card_photo_uploaded")).toBe(false);
+    expect((await listOutbox("card_photo"))[0]?.state).toBe("rejected");
+  });
+
+  it("no answer from the check (offline) still confirms and sends: the server sweep checks the file later", async () => {
+    const store = fakeStore();
+    mockConfirm.mockResolvedValue(null);
+    expect(await takeCardPhoto(CHILD, "", deps(store))).toBe("sent");
+    expect(mockRpcs.some((r) => r.fn === "confirm_child_card_photo_uploaded")).toBe(true);
+  });
 
   it("is compressed, stripped of metadata, stored in the app's own folder and queued; the queue holds the location, not the bytes", async () => {
     const store = fakeStore();

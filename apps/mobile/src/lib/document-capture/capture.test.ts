@@ -26,7 +26,8 @@ const mockRpcs: { fn: string; args: Record<string, unknown> }[] = [];
 const mockPost = jest.fn();
 
 const mockRemoves: string[][] = [];
-jest.mock("../api", () => ({ postDocumentReading: (...a: unknown[]) => mockPost(...a) }));
+const mockConfirm = jest.fn();
+jest.mock("../api", () => ({ postDocumentReading: (...a: unknown[]) => mockPost(...a), confirmDirectUpload: (...a: unknown[]) => mockConfirm(...a) }));
 jest.mock("../supabase", () => ({
   supabase: {
     auth: { getSession: async () => ({ data: { session: { user: { id: "user-1" } } } }) },
@@ -73,6 +74,8 @@ const ID = "11111111-1111-4111-8111-111111111111";
 const input: SaveDocumentInput = { userId: "user-1", organisationId: "org-1", attemptId: ID, type: "prescription", bytes: Uint8Array.from([1, 2, 3]), mime: "image/jpeg", filename: "scan.jpg" };
 
 beforeEach(() => {
+  mockConfirm.mockReset();
+  mockConfirm.mockResolvedValue(null);
   mockGuard = { data: false, error: null };
   mockUploadError = null;
   mockInsertError = null;
@@ -88,6 +91,19 @@ beforeEach(() => {
 });
 
 describe("photo capture on the phone (S43m)", () => {
+  it("asks the server to check the stored file; a refused file gets no record and is reported as the wrong type (security audit M-4/L-4)", async () => {
+    mockConfirm.mockResolvedValue("That file is not what it says it is.");
+    expect(await saveDocument(input)).toEqual({ ok: false, reason: "bad_type" });
+    expect(mockConfirm).toHaveBeenCalledWith("patient-documents", `user-1/${ID}.jpg`);
+    expect(mockInserts).toHaveLength(0);
+  });
+
+  it("no answer from the check (offline) never blocks the save: the server sweep checks the file later", async () => {
+    mockConfirm.mockResolvedValue(null);
+    expect(await saveDocument(input)).toMatchObject({ ok: true });
+    expect(mockInserts).toHaveLength(1);
+  });
+
   it("reading is open only when the guard answers true: an error or a refusal counts as closed", async () => {
     expect(await isReadingOpen()).toBe(false);
     mockGuard = { data: true, error: null };

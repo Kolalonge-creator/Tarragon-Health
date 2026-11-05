@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Care coordination",
     subtitle:
-      "We work out which tests you need, write the request, and read every result. You pay the lab directly and we take nothing on it.",
+      "We work out which tests you need, write the request, and read every result. You pay the lab directly, at its price.",
   });
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Section } from "./section";
 import type { LegalDocument } from "@/lib/marketing/legal-data";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { InlineEmphasis } from "@/lib/legal/inline-emphasis";
 
 /** "Deleting your account" -> "deleting-your-account"; stable, URL-safe. */
 export function legalSectionId(heading: string): string {
@@ -94,7 +95,7 @@ export function LegalDocumentPage({
                   </h2>
                   {section.paragraphs.map((p, i) => (
                     <p key={i} className="mt-3 leading-relaxed text-charcoal-ink/80">
-                      {p}
+                      <InlineEmphasis text={p} />
                     </p>
                   ))}
                 </section>

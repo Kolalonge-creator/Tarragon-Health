@@ -15,6 +15,7 @@ import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { isRateLimitOtpError, isUnknownUserOtpError } from "@/lib/auth/otp-errors";
+import { recordFailedSignIn } from "@tarragon/auth/record-failed-sign-in";
 
 /** `field` names the control that failed, so the form can mark exactly that
  *  one `aria-invalid` and point its `aria-describedby` at the error text. */
@@ -50,6 +51,7 @@ export async function signInWithEmail(
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
+    await recordFailedSignIn(parsed.data.email, "email_password");
     // Never the raw GoTrue string, and never anything that would confirm
     // whether this address has an account here.
     return { error: authErrorMessage(error, "sign_in") };
@@ -133,6 +135,7 @@ export async function verifyPhoneOtp(
     type: "sms",
   });
   if (error || !data.user) {
+    await recordFailedSignIn(parsed.data.phone, "phone_code");
     return {
       error: authErrorMessage(error, "otp_verify"),
       field: "token",
@@ -200,6 +203,8 @@ export async function signInWithPhonePassword(
       }
       return { step: "verify", phone: parsed.data.phone, notice: t("auth.signin.unverified", locale) };
     }
+    // Not for the unverified branch above: there the password was right.
+    await recordFailedSignIn(parsed.data.phone, "phone_password");
     return { error: t(authErrorKey(error, "sign_in"), locale) };
   }
 

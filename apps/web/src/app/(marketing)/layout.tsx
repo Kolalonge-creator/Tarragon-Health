@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
+import { Fraunces } from "next/font/google";
 import { MarketingNav } from "./_components/marketing-nav";
 import { MarketingFooter } from "./_components/marketing-footer";
 import { BreadcrumbJsonLd } from "./_components/breadcrumb-json-ld";
 import { StickyCtaBar } from "./_components/sticky-cta-bar";
 import { FrontDeskChat } from "./_components/frontdesk-chat";
 import { SITE, SITE_URL, absoluteUrl } from "@/lib/marketing/site";
+
+/**
+ * Heading face for the public site only (founder decision W-08, 2026-11-05).
+ * Loaded here, not in the root layout, so the signed-in app never downloads
+ * it. Self-hosted by next/font, so no runtime Google request and no CSP change.
+ */
+const fraunces = Fraunces({
+  // latin-ext carries the naira sign (U+20A6); the plain latin subset does
+  // not, so prices fell back to a different font. Browsers download the
+  // latin-ext file only on pages that actually show a naira sign.
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-fraunces",
+  axes: ["opsz"],
+  display: "swap",
+});
 
 const DEFAULT_TITLE = `${SITE.name} | ${SITE.tagline}`;
 
@@ -93,7 +109,7 @@ const organizationJsonLd = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-white text-charcoal-ink">
+    <div className={`marketing-scope ${fraunces.variable} flex min-h-screen flex-col`}>
       <script
         type="application/ld+json"
         // Static, first-party JSON; safe to inline for rich results.

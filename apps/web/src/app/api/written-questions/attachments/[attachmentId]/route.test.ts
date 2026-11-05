@@ -1,3 +1,5 @@
+const mockCleared = jest.fn(async (...args: unknown[]) => args.length >= 0);
+jest.mock("@/lib/uploads/cleared-for-reading", () => ({ isClearedForReading: (...a: unknown[]) => mockCleared(...a) }));
 const order: string[] = [];
 const rpc = jest.fn();
 const createSignedUrl = jest.fn();
@@ -38,6 +40,7 @@ const call = (attachment: string, c: string | null) =>
   });
 
 beforeEach(() => {
+  mockCleared.mockReset().mockResolvedValue(true);
   order.length = 0;
   rpc.mockReset();
   createSignedUrl.mockReset().mockResolvedValue({ data: { signedUrl: "https://signed.example/file" } });
@@ -72,4 +75,12 @@ it("rejects malformed ids before any database call", async () => {
   expect((await call("not-a-uuid", consult)).status).toBe(404);
   expect((await call(photo, null)).status).toBe(404);
   expect(rpc).not.toHaveBeenCalled();
+});
+
+it("withholds a photo the server has not cleared (still being checked, or refused): no signed URL (security audit M-4/L-4)", async () => {
+  rpc.mockResolvedValue({ data: question([photo]), error: null });
+  mockCleared.mockResolvedValue(false);
+  const res = await call(photo, consult);
+  expect(res.status).toBe(409);
+  expect(createSignedUrl).not.toHaveBeenCalled();
 });

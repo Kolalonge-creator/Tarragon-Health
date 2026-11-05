@@ -216,7 +216,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "labs",
     headline: "Know which tests are due, use any laboratory, and have every result followed up.",
     intro:
-      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a request form you can take to any reputable laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, and we take no commission. Contact the laboratory for current pricing.",
+      "Laboratory tests are where care between visits most often lapses. Tarragon keeps a calendar of the tests you are due, gives you a request form you can take to any reputable laboratory, and makes sure an abnormal result reaches a doctor. You pay the laboratory directly, at its price. Contact the laboratory for current pricing.",
     included: [
       "A test calendar linked to your chronic care and screening record",
       "A written request you can take to any laboratory near you",

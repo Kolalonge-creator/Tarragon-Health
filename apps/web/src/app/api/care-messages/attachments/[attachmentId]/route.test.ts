@@ -1,3 +1,5 @@
+// The upload-check read gate (security audit M-4/L-4) is covered in lib/care-messages/attachments.upload-check.test.ts.
+jest.mock("@/lib/uploads/cleared-for-reading", () => ({ isClearedForReading: async () => true }));
 const order: string[] = [];
 const rpc = jest.fn();
 const directRead = jest.fn();

@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
-    "Free app: we work out which tests you need, write a request for any lab you choose, read every result and follow up. You pay the lab, we take no cut.",
+    "Free app: we work out which tests you need, write a request for any lab you choose, read every result and follow up. You pay the lab directly, at its price.",
   path: MARKETING_ROUTES.careCoordination,
 });
 
@@ -48,7 +48,7 @@ const JOURNEY = [
   },
   {
     title: "You choose where to go",
-    body: "We write the request and you take it to whichever laboratory you trust. You pay the laboratory directly at its price, and we take no commission.",
+    body: "We write the request and you take it to whichever laboratory you trust. You pay the laboratory directly at its price, and we add nothing to it.",
   },
   {
     title: "You get a request to take with you",

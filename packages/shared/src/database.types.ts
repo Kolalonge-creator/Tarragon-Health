@@ -55380,6 +55380,22 @@ export type Database = {
         Args: { p_lab_order_id: string; p_patient_id: string }
         Returns: string
       }
+      claim_client_upload_checks: {
+        Args: { p_limit?: number; p_bucket?: string; p_name?: string; p_owner?: string }
+        Returns: { bucket_id: string; object_name: string; mimetype: string | null; owner_id: string }[]
+      }
+      client_upload_check_statuses: {
+        Args: { p_bucket: string; p_names: string[] }
+        Returns: { object_name: string; status: string; owner_id: string }[]
+      }
+      client_upload_check_outcome: {
+        Args: { p_bucket: string; p_name: string; p_owner: string }
+        Returns: string | null
+      }
+      finish_client_upload_check: {
+        Args: { p_bucket: string; p_name: string; p_status: string; p_detail?: string }
+        Returns: boolean
+      }
       clear_vitals_validation_flag: {
         Args: { p_reading_id: string }
         Returns: undefined

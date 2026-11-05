@@ -181,8 +181,8 @@ export default function AnnualHealthCheckPage() {
       <Section>
         <SectionHeading
           eyebrow="On every plan"
-          title="Any test, any laboratory, no commission"
-          description="We tell you which tests you need and write the request, you take it to any reputable laboratory you choose, and you pay the laboratory directly. Tarragon takes no cut."
+          title="Any test, any laboratory, nothing added"
+          description="We tell you which tests you need and write the request, you take it to any reputable laboratory you choose, and you pay the laboratory directly, at its price. Tarragon adds nothing to it."
         />
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/70">
           Your screening calendar is free on every plan. The screenings recommended by the World

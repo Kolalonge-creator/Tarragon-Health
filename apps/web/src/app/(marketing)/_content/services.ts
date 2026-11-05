@@ -62,54 +62,6 @@ export const SERVICE_CARDS: ServiceCard[] = [
   },
 ];
 
-/**
- * Rewritten 2026-09-22. The previous four entries ("4 priority programmes",
- * "1 place to message your care team", "4 escalation levels", "1 shared
- * record") were internal architecture facts formatted as stat tiles. Two of
- * them had the value "1", which is not a statistic, and "escalation levels"
- * / "shared record" are words from the build spec rather than words a
- * patient would use or care about.
- *
- * This platform is pre-launch, so there are no volume numbers to show and
- * none may be invented (same discipline as the empty testimonials and the
- * single-entry partner strip). The honest substitute for popularity is a
- * specific, checkable promise, so each entry below is one commitment a
- * visitor can hold Tarragon to:
- *
- *   - "Free"      the app, founder decision 2026-09-02 (_content/pricing.ts).
- *   - "12 hrs"    escalation_slas v8, the live active config: 720 minutes for
- *                 a critical screening result, 1440 for any other abnormal
- *                 one. Verified live 2026-09-22 — re-read the active row
- *                 before changing this number, never the value in CLAUDE.md.
- *   - "Any lab"   self-arranged fulfilment (2026-08-03): Tarragon decides
- *                 which test you need, you take the request anywhere.
- *   - "Next of kin" emergency_event channel sequence, which contacts the
- *                 named next of kin when a dangerous reading is not
- *                 acknowledged.
- */
-export const PROOF_STATS = [
-  {
-    value: "Free",
-    label: "to join",
-    detail: "The app is free, with no time limit. Membership adds a year of care with your care team and an online meeting with a doctor every month. Laboratory tests are paid to the laboratory directly.",
-  },
-  {
-    value: "12 hrs",
-    label: "on a critical result",
-    detail: "A critical test result gets doctor follow-up within 12 hours, and any other abnormal result within 24.",
-  },
-  {
-    value: "Any lab",
-    label: "near you",
-    detail: "We work out which test you need. You take the request to whichever lab you like and pay them directly.",
-  },
-  {
-    value: "Next of kin",
-    label: "told in an emergency",
-    detail: "If a dangerous reading goes unacknowledged, the person you named is contacted too.",
-  },
-] as const;
-
 /** Everything the shared record actually watches (services page capability
  * cloud + homepage marquee). Real capabilities only, matching what's built
  * per CLAUDE.md; never add an item that isn't actually tracked. */
@@ -144,8 +96,8 @@ export const WHAT_WE_TRACK = [
  * Relabelled 2026-09-22: the step titles used to be the pipeline's own
  * internal stage names ("Onboard", "Monitor", "Care protocol checks",
  * "Escalation"), which read as a state machine rather than as something
- * happening to a person. The sequence itself is unchanged, and the homepage
- * now uses the shorter HOME_HOW_IT_WORKS below instead of this list.
+ * happening to a person. The sequence itself is unchanged. (The homepage has
+ * its own five-step journey since the 2026-11-05 redesign, in home-sections.tsx.)
  *
  * Corrected in the same pass: step 5 promised doctor alerting "on the
  * doctor-supported programme", naming `chronic_doctor_supported_pack`, which
@@ -168,27 +120,6 @@ export const HOW_IT_WORKS_STEPS = [
     step: 6,
     title: "A family member stays informed",
     body: "Name a next of kin who can follow your care and who is contacted first in an emergency.",
-  },
-] as const;
-
-/**
- * The homepage version: three steps, not six. A visitor on the homepage has
- * not yet decided they care how the machinery works, and a numbered
- * six-stage pipeline on a first visit reads as documentation. Same truth,
- * told from the reader's side, with the detail left to /services.
- */
-export const HOME_HOW_IT_WORKS = [
-  {
-    title: "Tell us about your health",
-    body: "Add your conditions, your medication and your age. It takes a few minutes, for yourself or for a parent.",
-  },
-  {
-    title: "Record your readings",
-    body: "Enter your blood pressure, blood sugar, weight and medication doses, or let a connected cuff, phone or watch send them for you.",
-  },
-  {
-    title: "We contact you when it matters",
-    body: "When your readings are stable, you hear very little from us. A worrying reading brings you clear guidance straight away and alerts the person you named. An abnormal test result is passed to a doctor.",
   },
 ] as const;
 
