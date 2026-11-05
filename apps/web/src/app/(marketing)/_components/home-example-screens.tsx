@@ -56,7 +56,7 @@ function Screen({ screen }: { screen: ExampleScreen }) {
           <Card>
             <Tag>New note</Tag>
             <p className="mt-1.5 font-semibold">HbA1c result</p>
-            <p>Your doctor added a note</p>
+            <p>Your care team added a note</p>
           </Card>
           <Card>
             <Tag tone="amber">Due this month</Tag>
