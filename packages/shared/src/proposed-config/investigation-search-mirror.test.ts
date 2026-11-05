@@ -26,3 +26,13 @@ describe("directory.investigation_search mirrors search_investigations", () => {
     expect(Number(value)).toBe(getProposedConfig<{ min_score: number }>("directory.investigation_search").value.min_score);
   });
 });
+
+describe("directory.diagnostic_cadence mirrors diagnostic_directory_settings v1", () => {
+  it("the seeded rules equal the config entry", () => {
+    const sql = migrationSql("_diag_p2_listings_services_credentials_eligibility.sql");
+    const block = /diag-settings-v1-begin([\s\S]*?)diag-settings-v1-end/.exec(sql)?.[1] ?? "";
+    const json = /'(\{[^']*\})'::jsonb/.exec(block)?.[1];
+    expect(json).toBeDefined();
+    expect(JSON.parse(json ?? "{}")).toEqual(getProposedConfig("directory.diagnostic_cadence").value);
+  });
+});
