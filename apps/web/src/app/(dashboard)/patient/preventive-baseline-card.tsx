@@ -61,9 +61,9 @@ export function PreventiveBaselineCard({ patientId }: { patientId: string }) {
             <div className="flex items-center gap-2">
               <p>Sent {formatPatientDate(b.submitted_at.slice(0, 10))}.</p>
               {b.state === "submitted" && <Badge variant="amber">Waiting for a doctor</Badge>}
-              {b.state !== "submitted" && <Badge variant="green">Reviewed by your doctor</Badge>}
+              {b.state !== "submitted" && <Badge variant="green">Reviewed by a doctor</Badge>}
             </div>
-            {b.review_note && <p className="rounded-md bg-gray-50 p-2 text-xs dark:bg-white/5">Your doctor&apos;s note: {b.review_note}</p>}
+            {b.review_note && <p className="rounded-md bg-gray-50 p-2 text-xs dark:bg-white/5">The doctor&apos;s note: {b.review_note}</p>}
             <PlanTable plan={data.plan} />
           </>
         )}
@@ -92,7 +92,7 @@ function ItemLine({ code, done }: { code: string; done: boolean }) {
 function planStatus(p: PlanItem): string {
   if (p.status === "declined") return "Not for me";
   if (p.status === "not_applicable") return "Not needed";
-  if (p.needs_choice) return "Your choice first: talk to your doctor";
+  if (p.needs_choice) return "Your choice first: discuss it with your care team";
   if (p.deferred) return "Moved";
   if (p.status === "booked") return "Booked";
   return p.status === "overdue" ? "Overdue" : "Due";

@@ -19,7 +19,7 @@ export const DEFER_REASON_LABELS: Record<string, string> = {
   travelling: "I am travelling",
   unwell: "I am unwell at the moment",
   cost: "I cannot afford it yet",
-  waiting_for_doctor_advice: "I am waiting for my doctor's advice",
+  waiting_for_doctor_advice: "I am waiting for advice from my care team",
   booked_for_later: "I have booked it for a later date",
   other: "Another reason",
 };
