@@ -85,7 +85,7 @@ export function OrderLabTestForm({
         {bundle && (
           <p className="text-xs text-charcoal-ink/60">
             Roughly ₦{koboToNaira(bundle.price_kobo).toLocaleString()} at a typical Nigerian laboratory, as
-            a guide only. The patient pays the laboratory directly, and Tarragon takes no part of the fee.
+            a guide only. The patient pays the laboratory directly, and Tarragon does not charge them for the test.
           </p>
         )}
         {bundle?.preparation_instructions && (

@@ -78,7 +78,7 @@ export default function VaccinationsPage() {
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             A personal vaccination schedule, a reminder before each dose is due, and a
             doctor-verified certificate that stays safe even if the paper one is lost. Have the
-            dose wherever suits you and pay the provider directly. We take no commission.
+            dose wherever suits you and pay the provider directly. We add nothing to the price.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">

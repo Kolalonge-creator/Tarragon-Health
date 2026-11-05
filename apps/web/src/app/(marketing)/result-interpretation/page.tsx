@@ -65,7 +65,7 @@ const FAQ = [
   {
     question: "Which laboratories do you accept results from?",
     answer:
-      "All of them. We accept results from any registered laboratory or hospital in Nigeria, and from abroad. You choose the laboratory and pay it directly; we take no commission on what it charged you.",
+      "All of them. We accept results from any registered laboratory or hospital in Nigeria, and from abroad. You choose the laboratory and pay it directly, at its price.",
   },
   {
     question: "Can a doctor diagnose me from this?",
@@ -85,7 +85,7 @@ const FAQ = [
   {
     question: "Do you sell the tests too?",
     answer:
-      "No. We work out which tests you need and write the request, free of charge, and you take it to whichever laboratory you choose and pay the laboratory directly at its price. We add nothing and take no commission.",
+      "No. We work out which tests you need and write the request, free of charge, and you take it to whichever laboratory you choose and pay the laboratory directly at its price. We add nothing to its price.",
   },
 ];
 

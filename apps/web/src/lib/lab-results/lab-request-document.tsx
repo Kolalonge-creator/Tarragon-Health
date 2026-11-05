@@ -314,7 +314,7 @@ export function LabRequestDocument({ data }: { data: LabRequestData }) {
           <Text style={styles.calloutTitle}>For the patient</Text>
           <Text>
             Take this to any registered laboratory you choose. You pay the laboratory directly, at
-            their price; TarragonHealth does not take a fee or commission on this test. When you
+            their price. TarragonHealth does not charge you for this test. When you
             get the result, upload it in the app and a doctor will read it with you — including if
             everything is normal.
           </Text>
