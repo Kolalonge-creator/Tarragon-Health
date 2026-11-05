@@ -26,6 +26,7 @@ import {
 } from "./_components/home-sections";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { faqPageJsonLd } from "@/lib/marketing/faq-json-ld";
 import { employerSeatPriceLabel, LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
@@ -101,21 +102,11 @@ export default async function MarketingHomePage() {
   const autoRenews = await membershipAutoRenews();
   const seatPrice = employerSeatPriceLabel();
   const faq = homeFaq(price, refundDays, autoRenews);
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faq.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
-
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: faqPageJsonLd(faq) }}
       />
 
       {/* 1. Hero. `?channel=` campaign copy is read on the client so the page

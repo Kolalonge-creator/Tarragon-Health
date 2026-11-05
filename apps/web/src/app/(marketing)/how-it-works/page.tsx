@@ -9,6 +9,7 @@ import { ExamplePhone } from "../_components/home-example-screens";
 import { SAFETY_STATEMENT } from "../_content/pricing-ladder";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { faqPageJsonLd } from "@/lib/marketing/faq-json-ld";
 import { paidProductName } from "@/lib/marketing/membership";
 
 export const metadata: Metadata = pageMetadata({
@@ -56,7 +57,7 @@ function steps(member: string): Step[] {
     },
     {
       title: "Upload the report",
-      body: "Take a photo of the report or upload the PDF. Software reads the values into your record, anything unclear is checked by a person, and a doctor reviews the result.",
+      body: "Take a photo of the report or upload the PDF. The values are read into your record, and a doctor reviews the result.",
       plan: "Membership",
     },
     {
@@ -85,7 +86,7 @@ const FAQ = [
   {
     question: "Who reviews my results?",
     answer:
-      "On Membership, a doctor on our care team reviews every report you upload. Software helps by reading the values off the report, but a doctor makes the clinical decision. When a doctor has reviewed something, the app shows their name.",
+      "On Membership, a doctor on our care team reviews the laboratory reports you upload. Software helps by reading the values off the report, but a doctor makes the clinical decision. When a doctor has reviewed something, the app shows their name.",
   },
   {
     question: "What if my result is worrying?",
@@ -105,14 +106,9 @@ const FAQ = [
 export default function HowItWorksPage() {
   const member = paidProductName();
   const list = steps(member);
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
-  };
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqPageJsonLd(FAQ) }} />
       <PageHero
         eyebrow="How it works"
         title="One connected way to look after your health."

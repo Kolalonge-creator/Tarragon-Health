@@ -14,6 +14,7 @@ import { NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 import { SYNLAB_PARTNER_LINE } from "../_content/partners";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { faqPageJsonLd } from "@/lib/marketing/faq-json-ld";
 import {
   employerSeatLine,
   employerSeatPriceLabel,
@@ -46,7 +47,6 @@ const PAID_SEPARATELY = [
   { title: "Laboratory tests", body: "You pay the laboratory directly. Contact the laboratory for current pricing." },
   { title: "Medicines", body: "Your care team signs the prescription; you buy the medicine at any pharmacy." },
   { title: "Extra doctor meetings", body: "One online meeting a month is included. You can buy an extra one if you need it." },
-  { title: "Hospital and emergency care", body: "Tarragon is not an emergency service and does not replace hospital care." },
 ] as const;
 
 const MEMBER_YEAR = [
@@ -75,15 +75,9 @@ export default async function MembershipPage() {
     },
     ...planFaq(refundDays, autoRenews),
   ];
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faq.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
-  };
-
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqPageJsonLd(faq) }} />
       <PageHero
         eyebrow={name}
         title="A doctor working with you, all year."
@@ -92,7 +86,7 @@ export default async function MembershipPage() {
         secondary={{ href: "#compare", label: "Compare plans" }}
       >
         <p className="font-heading text-3xl text-charcoal-ink" data-testid="membership-price">
-          {`₦${price}`} <span className="font-sans text-base text-mk-muted">a year, paid once</span>
+          {`₦${price}`} <span className="font-sans text-base text-mk-muted">a year</span>
         </p>
       </PageHero>
 
@@ -156,7 +150,7 @@ export default async function MembershipPage() {
         <dl className="grid gap-6 md:grid-cols-2">
           <div className="grid gap-1 border-t border-mk-border pt-4">
             <dt className="font-semibold text-charcoal-ink">Price</dt>
-            <dd className="text-mk-muted">{`₦${price}`} for a year, paid once. {NAIRA_ONLY_STATEMENT}</dd>
+            <dd className="text-mk-muted">{`₦${price}`} for a year. {NAIRA_ONLY_STATEMENT}</dd>
           </div>
           <div className="grid gap-1 border-t border-mk-border pt-4">
             <dt className="font-semibold text-charcoal-ink">Renewal</dt>

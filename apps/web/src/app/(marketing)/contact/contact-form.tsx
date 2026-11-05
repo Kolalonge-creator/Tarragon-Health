@@ -103,7 +103,7 @@ export function ContactForm() {
           it; a bot that fills every field does, and is quietly ignored. */}
       <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
         <label htmlFor={LEAD_HONEYPOT_FIELD}>Leave this empty</label>
-        <input id={LEAD_HONEYPOT_FIELD} name={LEAD_HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" />
+        <input id={LEAD_HONEYPOT_FIELD} name={LEAD_HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" data-1p-ignore data-lpignore="true" />
       </div>
       <FormError id={ERROR_ID} message={errorMessage} />
       <div className="space-y-1.5">

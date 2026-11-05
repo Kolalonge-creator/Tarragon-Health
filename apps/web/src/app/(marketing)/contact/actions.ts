@@ -43,16 +43,17 @@ export type ContactActionState =
   | undefined;
 
 /**
- * Saving an enquiry is limited per connection too (website upgrade Phase 2,
- * 2026-11-05: the live audit found the leads insert had no spam protection at
- * all). Generous on purpose, because a real lead must not be lost: a person
- * rarely sends more than a couple of messages an hour. Fails open, like the
- * capture limit above.
+ * Burst detection on saving an enquiry (website upgrade Phase 2, 2026-11-05:
+ * the live audit found the leads insert had no spam protection). It never
+ * refuses: many Nigerian mobile users share one address (carrier NAT), so a
+ * per-address block would turn real people away. Over the limit the enquiry
+ * is still saved, but tagged in `source` so staff can sort a flood of spam
+ * from real leads, and nothing is sent to the CRM. Fails open.
  */
 async function insertLimited(): Promise<boolean> {
   try {
     const ip = await getClientIp();
-    const r = await rateLimit(`lead-insert:${ip}`, { limit: 10, windowSeconds: 3600 });
+    const r = await rateLimit(`lead-insert:${ip}`, { limit: 20, windowSeconds: 3600 });
     return !r.success;
   } catch {
     return false;
@@ -93,12 +94,7 @@ export async function submitLead(
     };
   }
 
-  if (await insertLimited()) {
-    return {
-      error: "We have received several messages from you in the last hour. Please email hello@tarragonhealth.ng instead.",
-      values: submittedValues(formData),
-    };
-  }
+  const burst = await insertLimited();
 
   const supabase = createServiceRoleClient();
   const { error } = await supabase.from("leads").insert({
@@ -107,7 +103,7 @@ export async function submitLead(
     role: parsed.data.role,
     goal: parsed.data.goal ?? null,
     message: parsed.data.message ?? null,
-    source: parsed.data.source,
+    source: burst ? `${parsed.data.source}:burst`.slice(0, 100) : parsed.data.source,
   });
 
   if (error) {
@@ -120,7 +116,7 @@ export async function submitLead(
   // Front Desk F4. Only with the explicit, separate consent tick: the enquiry above is stored and answered by a person either way, but it
   // joins the CRM and the follow-up emails only if the visitor agreed to exactly the wording shown beside the box. Best effort: the lead is
   // already saved, so a failure here is logged and never shown to the visitor as a failed submission.
-  if (formData.get("consent") === "on" && !(await captureLimited())) {
+  if (formData.get("consent") === "on" && !burst && !(await captureLimited())) {
     try {
       const details = parseLeadContact(parsed.data.contact);
       const captured = await fdRpcData(supabase, "service_fd_capture_lead", {

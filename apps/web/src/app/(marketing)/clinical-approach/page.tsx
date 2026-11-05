@@ -43,10 +43,9 @@ const PRINCIPLES = [
 ] as const;
 
 const REVIEW_STEPS = [
-  { title: "Your report arrives", body: "You upload a photo or PDF of a report from any laboratory. The original is kept unchanged." },
-  { title: "Values are read and checked", body: "Software reads each test, value, unit and range. Anything unclear is held for a person to check rather than guessed." },
-  { title: "Results are compared with care rules", body: "Each value is checked against ranges in protocols our Chief Medical Officer signs, and against your earlier results." },
-  { title: "A doctor reviews it", body: "On Membership, a doctor reviews your result, writes a plain-English explanation and sets the next step." },
+  { title: "Your report arrives", body: "You upload a photo or PDF of a report from any laboratory, and it is read into your record." },
+  { title: "Results are compared with care rules", body: "Values are checked against ranges in protocols our Chief Medical Officer signs." },
+  { title: "A doctor reviews it", body: "On Membership, a doctor reviews your result, explains it in plain English and sets the next step." },
   { title: "Anything urgent is moved up", body: "An abnormal result is put in front of a doctor ahead of routine work, and a critical one is followed up urgently." },
 ] as const;
 
@@ -92,7 +91,6 @@ export default function ClinicalApproachPage() {
             />
             <ul className="grid gap-3 text-charcoal-ink/85">
               <li>A test is recommended only when your age, sex, history or risk makes it useful.</li>
-              <li>Some tests, such as HIV or hepatitis B, are offered only with your consent.</li>
               <li>When a protocol changes, the new version is signed before it is used, and the old version is kept on record.</li>
             </ul>
           </div>
