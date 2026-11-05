@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { HubLine, HubSection } from "./hub-sections";
@@ -19,11 +19,17 @@ function matches(line: HubLine, query: string): boolean {
  */
 function HubLineRow({ line, hidden }: { line: HubLine; hidden: boolean }) {
   const [mounted, setMounted] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  // A tap before the page's scripts loaded opens the element without a toggle we heard: mount the panel on hydration then.
+  useEffect(() => {
+    if (detailsRef.current?.open) setMounted(true);
+  }, []);
   const bodyId = `${line.id}-body`;
 
   return (
     <li hidden={hidden}>
       <details
+        ref={detailsRef}
         id={line.id}
         data-hub-line={line.key}
         onToggle={(e) => {
