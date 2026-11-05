@@ -24,8 +24,9 @@
 --        a. a doctor note is owed unless the call was a non-doctor visit (S64 dietitian / pharmacist, or other non-doctor appointment
 --           types) or the recorded clinician's care_role is not 'doctor'. A non-doctor visit gets the timeline row only, quietly;
 --        b. the draft note (as before) when a doctor note is owed and the doctor is known;
---        c. a consultation_note task, offered through the queue's normal offer rules (eligible, offerable: leave, post-call rest,
---           declared hours; no conflict; the lead_window_cap_fraction cap) to the doctor who ran the call, else routed normally;
+--        c. a consultation_note task, straight to the pool and never offered or pushed: an offered task is a chart-access grant,
+--           which would outlive the S21 after-Finish window (72 hours) for the doctor who ran the call. That doctor keeps exactly
+--           the after-Finish access to write the note; anyone else gets access only by claiming the task;
 --        d. one patient_timeline row (generic wording, no consultation context in the text or metadata, no actor: trust tier
 --           'system');
 --        e. anything owed that could not be done opens an ops incident (sev2, clinical). The incident write itself can fail
@@ -201,7 +202,7 @@ insert into public.task_types
 values
   ('consultation_note', 1, 8, 1440, 'senior_medical_officer', '{}', 1440, 60, true, true, '{}', false,
    'A video consultation with a doctor ended. The doctor who ran it writes and signs the note (an auto-drafted note is waiting when the '
-   'doctor is known). Offered to that doctor under the normal offer rules, then to the pool. Completed automatically when the note is '
+   'doctor is known). Goes straight to the pool, never offered (an offer would widen chart access). Completed automatically when the note is '
    'finalised; closing it by hand as action taken needs the signed note, any other outcome a written reason. Ids only. '
    'PROPOSED class, due time and windows (20261105164409).')
 on conflict do nothing;
@@ -325,11 +326,13 @@ end;
 $function$;
 
 -- ---------------------------------------------------------------------------
--- 3. Owned task creation: private.create_clinical_task's offer rules, with the named clinician in place of the patient's lead.
---    Same insert, transition row, event, window cap and offerability checks; anything that stops the named clinician taking the
---    offer falls back to private.create_clinical_task's normal routing.
+-- 3. The note task goes straight to the pool. It is never offered or pushed to anyone, because an offered or pushed task is itself
+--    a chart-access grant (private.clinician_has_patient_access, S16 INV-12) and that would outlive the S21 after-Finish window
+--    (chartAccessAfterFinishMaxHours) for the doctor who ran the call. That doctor already has exactly that bounded access to write
+--    the note; anyone else gets access only by claiming the task, the queue's normal audited path. The doctor who ran the call is
+--    named in the creating transition (an id only).
 -- ---------------------------------------------------------------------------
-create function private.create_owned_clinical_task(p_patient uuid, p_type text, p_owner uuid, p_dedup_key text)
+create function private.create_pool_clinical_task(p_patient uuid, p_type text, p_dedup_key text, p_ran_by uuid)
 returns uuid
 language plpgsql
 security definer
@@ -339,15 +342,9 @@ declare
   ty public.task_types%rowtype;
   pr public.profiles%rowtype;
   v_req text[];
-  v_due timestamptz;
   v_id uuid;
-  v_frac numeric := (private.task_layer_setting('lead_window_cap_fraction') #>> '{}')::numeric;
-  v_cap_minutes integer;
-  v_window_ends timestamptz;
-  v_employed boolean;
 begin
-  if p_dedup_key is null then raise exception 'an owned task needs a dedup key' using errcode = '22023'; end if;
-  if v_frac is null then raise exception 'queue_task_layer_config has no active row' using errcode = 'P0001'; end if;
+  if p_dedup_key is null then raise exception 'a pool note task needs a dedup key' using errcode = '22023'; end if;
   select * into ty from public.task_types where code = p_type and is_active;
   if not found or not ty.creatable then raise exception 'unknown or non-creatable task type %', p_type using errcode = '22023'; end if;
   select * into pr from public.profiles where id = p_patient and role = 'patient';
@@ -359,30 +356,11 @@ begin
 
   v_req := (select coalesce(array_agg(distinct x order by x), '{}')
               from unnest(ty.required_competencies || private.task_extra_competencies(ty.code, p_dedup_key)) x);
-  v_due := now() + make_interval(mins => ty.default_due_minutes);
-  -- D1, as create_clinical_task: the type's window or a fraction of the task's life, whichever is shorter
-  v_cap_minutes := floor(least(ty.lead_window_minutes::numeric, v_frac * extract(epoch from (v_due - now())) / 60));
-  v_window_ends := least(v_due, now() + make_interval(mins => greatest(v_cap_minutes, 0)));
-
-  if p_owner is null
-     or ty.priority_class <= 1
-     or v_cap_minutes < 1
-     or coalesce(array_length(private.clinician_missing_competencies(p_owner, v_req), 1), 0) > 0
-     or not private.clinician_offerable(p_owner, now(), v_window_ends)
-     or private.has_conflict(p_owner, p_patient)
-     or not exists (select 1 from public.clinical_staff cs where cs.profile_id = p_owner and cs.active and cs.doctor_tier is not null
-                     and cs.organisation_id = pr.organisation_id
-                     and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank(ty.min_doctor_tier)) then
-    return private.create_clinical_task(p_patient, p_type, null, p_dedup_key, null, null, null, '{}');
-  end if;
-
-  v_employed := ty.pushable and exists (select 1 from public.clinical_staff cs where cs.profile_id = p_owner and cs.employment_type = 'employed');
   perform set_config('tarragon.task_transition', 'on', true);
   insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id,
-      required_competencies, min_tier, due_at, dedup_key, is_test, lead_clinician_id, lead_window_ends_at, delivery_path, pushed_to)
+      required_competencies, min_tier, due_at, dedup_key, is_test)
   values (pr.organisation_id, ty.code, ty.version, ty.priority_class, ty.priority_class, p_patient,
-      v_req, ty.min_doctor_tier, v_due, p_dedup_key, pr.is_test, p_owner, v_window_ends,
-      case when v_employed then 'push' else 'pull' end, case when v_employed then p_owner end)
+      v_req, ty.min_doctor_tier, now() + make_interval(mins => ty.default_due_minutes), p_dedup_key, pr.is_test)
   returning id into v_id;
   perform set_config('tarragon.task_transition', 'off', true);
 
@@ -391,11 +369,12 @@ begin
   perform private.emit_domain_event('clinical_task.created', pr.organisation_id,
     jsonb_build_object('task_id', v_id, 'type', ty.code, 'priority_class', ty.priority_class),
     'clinical_task.created:' || v_id, p_patient, 'clinical_task', v_id);
-  perform private.apply_task_transition(v_id, 'offered_to_lead', 'system', null, 'offered to the clinician who ran the consultation');
+  perform private.apply_task_transition(v_id, 'open', 'system', null,
+    'to the pool (never offered: no chart access beyond the after-Finish window); call run by ' || coalesce(p_ran_by::text, 'unknown'));
   return v_id;
 end;
 $function$;
-revoke all on function private.create_owned_clinical_task(uuid, text, uuid, text) from public, anon, authenticated;
+revoke all on function private.create_pool_clinical_task(uuid, text, text, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. The loud failure: an ops incident per consultation, updated rather than duplicated. Never raises: if the incident itself
@@ -532,7 +511,7 @@ begin
     begin
       if not exists (select 1 from public.clinical_encounter_notes
                       where video_consultation_id = vc.id and status = 'finalized') then
-        perform private.create_owned_clinical_task(vc.patient_id, 'consultation_note', v_clin, 'consult_note:' || vc.id);
+        perform private.create_pool_clinical_task(vc.patient_id, 'consultation_note', 'consult_note:' || vc.id, v_clin);
       end if;
     exception when others then
       v_problems := v_problems || ('the note task could not be created (' || sqlstate || ': ' || left(sqlerrm, 200) || ')');

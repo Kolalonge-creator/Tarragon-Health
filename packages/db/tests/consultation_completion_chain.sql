@@ -1,8 +1,8 @@
 -- Tarragon Health: the consultation completion chain (20261105164409_consultation_completion_chain.sql).
 --
 --  A. a booking records the doctor on appointments; the consultation takes it into video_consultations.clinician_id;
---  B. completing the call drafts the note (authored by that doctor), creates ONE consultation_note task offered to that doctor
---     under the normal offer rules (window capped, ends before the due time), and writes ONE generic timeline row; no incident;
+--  B. completing the call drafts the note (authored by that doctor), creates ONE consultation_note task in the pool, offered or
+--     pushed to nobody (an offer would widen chart access past the after-Finish window), and writes ONE generic timeline row;
 --  C. running the chain again creates nothing new;
 --  D. a call with no clinician fails LOUDLY: an open ops incident, a pool task, the timeline row, no note;
 --  E. the doctor who ran the call finalising the note completes the task (claim row ended, outcome names the note);
@@ -11,8 +11,8 @@
 --  1. a dietitian visit owes no doctor note: no incident, no task, no note, but the timeline row;
 --  2. the call ending is never blocked and a failed incident write never undoes the steps that worked: with ops_incidents
 --     refusing every insert, a no-clinician call still completes with its task and timeline row;
---  3. a note finalised by a doctor other than the one the task was offered to, or than the one who claimed it, still completes
---     the task for the finaliser (the offer / the other claim ended by a recorded system move);
+--  3. a note finalised by another doctor while the task is in the pool (3a, which also checks the pool task gives the doctor
+--     who ran the call no chart access), or while another doctor holds the claim (3b), completes the task for the finaliser;
 --  5. a signed-in staff member cannot set clinician_id directly; an ordinary update still works;
 --  6. the timeline row is a sensitive source for a 10-17-year-old (hidden from caregiver reads), not for an adult;
 --  8. closing the task by hand as "action taken" needs the finalised note; any other outcome needs a written reason;
@@ -138,19 +138,18 @@ begin
                      and prosrc like '%Pre-referral triage video consultation%' and prosrc like '%Specialist video consultation%') then
     raise exception 'FAIL B: the note reason is not the context-specific text the live trigger wrote';
   end if;
+  -- the task is in the pool and offered or pushed to nobody: an offer would be a chart-access grant outliving the after-Finish window
   select * into tk from public.clinical_tasks
-   where dedup_key = 'consult_note:' || v_vc and type = 'consultation_note' and state = 'offered_to_lead' and lead_clinician_id = v_doc;
+   where dedup_key = 'consult_note:' || v_vc and type = 'consultation_note' and state = 'open'
+     and lead_clinician_id is null and pushed_to is null and lead_window_ends_at is null;
   if tk.id is null then
-    raise exception 'FAIL B: no consultation_note task offered to the doctor (%)',
-      (select jsonb_agg(jsonb_build_object('state', state, 'lead', lead_clinician_id)) from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc);
+    raise exception 'FAIL B: no consultation_note task in the pool, offered to nobody (%)',
+      (select jsonb_agg(jsonb_build_object('state', state, 'lead', lead_clinician_id, 'pushed', pushed_to)) from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc);
   end if;
   v_task := tk.id;
-  if not exists (select 1 from public.clinical_task_transitions where task_id = v_task and to_state = 'offered_to_lead'
-                  and reason = 'offered to the clinician who ran the consultation') then
-    raise exception 'FAIL B: the task was routed by the generic path, not to the clinician who ran the call';
-  end if;
-  if tk.lead_window_ends_at is null or tk.lead_window_ends_at >= tk.due_at or tk.lead_window_ends_at <= now() then
-    raise exception 'FAIL B: the offer window is not capped inside the due time (window %, due %)', tk.lead_window_ends_at, tk.due_at;
+  if not exists (select 1 from public.clinical_task_transitions where task_id = v_task and to_state = 'open'
+                  and reason like 'to the pool%call run by ' || v_doc::text) then
+    raise exception 'FAIL B: the creating transition does not name the clinician who ran the call';
   end if;
   if (select count(*) from public.patient_timeline where source_table = 'video_consultations' and source_id = v_vc
         and title = 'Video consultation completed' and summary = 'Video consultation' and metadata ->> 'kind' = 'consultation_completed'
@@ -211,16 +210,17 @@ begin
     raise exception 'FAIL 8: action taken refused although the note is finalised';
   end if;
 
-  -- 3a. offered to doc (who ran the call), finalised by doc2 (the patient's tied doctor): completes for doc2
+  -- 3a. run by doc, finalised by doc2 (the patient's tied doctor) while the task sits in the pool: completes for doc2.
+  --     The pool task gives doc no chart access of its own (the chart-access check: no widening; s21g owns the after-Finish rules).
   v_vc4 := pg_temp.book_and_complete(v_org, v_pat4, v_doc);
-  select id into v_task from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc4 and state = 'offered_to_lead' and lead_clinician_id = v_doc;
-  if v_task is null then raise exception 'fixture FAIL 3a: no task offered to the doctor who ran the call'; end if;
+  select id into v_task from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc4 and state = 'open';
+  if v_task is null then raise exception 'fixture FAIL 3a: no pool task for the call'; end if;
+  r := pg_temp.as_user(v_doc, format('select private.clinician_has_patient_access(%L)::text', v_pat4));
+  if r <> 'false' then raise exception 'FAIL 3a: the note task gave the doctor who ran the call chart access (%)', r; end if;
   select id into v_note from public.clinical_encounter_notes where video_consultation_id = v_vc4;
   perform pg_temp.finalise(v_doc2, v_note);
   select * into tk from public.clinical_tasks where id = v_task;
-  if tk.state <> 'completed' or tk.claimed_by is distinct from v_doc2
-     or not exists (select 1 from public.clinical_task_transitions where task_id = v_task and actor_kind = 'system' and to_state = 'open'
-                     and reason like 'the consultation note was finalised by another clinician%') then
+  if tk.state <> 'completed' or tk.claimed_by is distinct from v_doc2 then
     raise exception 'FAIL 3a: a note finalised by another doctor did not complete the task (state %)', tk.state;
   end if;
 
@@ -422,7 +422,12 @@ begin
       end loop;
       return null;
     end $sab$;
-    v_vc := pg_temp.book_and_complete(v_org, v_pat4, v_doc);
+    -- the 3b situation: doc holds the claim, doc2 finalises
+    v_vc := pg_temp.book_and_complete(v_org, v_pat5, v_doc);
+    select id into v_task from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc;
+    insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, is_test)
+    values (v_org, v_task, v_doc, now() + interval '30 minutes', true);
+    perform private.apply_task_transition(v_task, 'claimed', 'clinician', v_doc, 'fixture claim', v_doc, now() + interval '30 minutes');
     select id into v_note from public.clinical_encounter_notes where video_consultation_id = v_vc;
     perform pg_temp.finalise(v_doc2, v_note);
     select state::text into v_sab_state from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc;
