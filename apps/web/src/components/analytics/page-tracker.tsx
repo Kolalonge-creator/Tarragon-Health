@@ -2,17 +2,17 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { isAnalyticsAllowedNow, useAnalyticsAllowed } from "@/lib/consent";
-import { isMarketingPath } from "@/lib/marketing/routes";
+import { isAnalyticsAllowedNow, isSignedInAppPath, useAnalyticsAllowed } from "@/lib/consent";
 
 /**
  * First-party page-view tracker. Fires a beacon to /api/track on each
  * navigation so the analytics console can report acquisition (anonymous
  * visitors, geo, referrers) and engagement (logged-in DAU/WAU/MAU, retention).
  *
- * Consent (founder decision W-07, 2026-11-05): on the public marketing site
- * it is OPT-IN, sending nothing until the visitor accepts in
- * cookie-consent-banner.tsx. In the signed-in app it stays opt-out (disclosed
+ * Consent (founder decision W-07, 2026-11-05): on every public page (the
+ * marketing site, /signup, /login and the like) it is OPT-IN, sending nothing
+ * until the visitor accepts in cookie-consent-banner.tsx. In the signed-in
+ * app (isSignedInAppPath) it stays opt-out (disclosed
  * in the Terms, no banner), stopping only on an explicit rejection. Do Not
  * Track always stops it.
  *
@@ -64,7 +64,7 @@ function send(payload: Record<string, string | undefined>) {
 export function PageTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const optIn = isMarketingPath(pathname);
+  const optIn = !isSignedInAppPath(pathname);
   const consented = useAnalyticsAllowed(optIn);
 
   useEffect(() => {

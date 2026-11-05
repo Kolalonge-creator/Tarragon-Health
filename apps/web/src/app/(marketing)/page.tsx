@@ -9,6 +9,9 @@ import { EmergencyNotice } from "./_components/emergency-notice";
 import { FaqAccordion } from "./_components/marketing-faq-accordion";
 import { HomePlanCompare } from "./_components/home-plan-compare";
 import { FoundingMembersStrip } from "./_components/founding-members-strip";
+import { TarragonCommunity } from "./_components/tarragon-community";
+import { MarketingVideo } from "./_components/marketing-video";
+import { MARKETING_MEDIA } from "./_content/media";
 import { HomeHero, HomeHeroFallback } from "./_components/home-hero";
 import {
   HomeAudienceRouter,
@@ -92,6 +95,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
  * (membershipPriceLabel, employerSeatPriceLabel), never typed.
  */
 export default async function MarketingHomePage() {
+  const { walkthroughVideo } = MARKETING_MEDIA.homepage;
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const autoRenews = await membershipAutoRenews();
@@ -159,6 +163,21 @@ export default async function MarketingHomePage() {
 
       {/* 9. Families, 10. employers, 11. clinical oversight. */}
       <HomeFamilies />
+
+      {/* Tarragon Community, the patient support groups (COM-29). */}
+      <TarragonCommunity variant="sage" />
+
+      {/* Rendered only once a YouTube id is set in _content/media.ts. */}
+      {walkthroughVideo.youtubeId.trim() ? (
+        <Section variant="sage">
+          <MarketingVideo
+            youtubeId={walkthroughVideo.youtubeId}
+            title={walkthroughVideo.title}
+            caption={walkthroughVideo.caption}
+            poster={walkthroughVideo.poster}
+          />
+        </Section>
+      ) : null}
       <HomeEmployers seatPrice={`₦${seatPrice}`} />
       <HomeClinicalOversight />
 

@@ -13,16 +13,21 @@ import { cn } from "@/lib/utils";
  * today: a preventive plan, a result trend under doctor review, a written
  * doctor review, and request forms for any laboratory.
  *
+ * No badge here claims a doctor reviewed anything: CLAUDE.md allows that
+ * claim only from a real reviewed_by record (and a 2026-11-03 pass already
+ * removed a "Doctor reviewed" badge from an illustrative preview), so the
+ * example tags say "New note" or "Doctor to review", never "Reviewed".
+ *
  * Not interactive and hidden from assistive technology except for a single
  * description, so a screen reader hears one sentence, not a fake app.
  */
 export type ExampleScreen = "today" | "plan" | "trend" | "review";
 
 const DESCRIPTIONS: Record<ExampleScreen, string> = {
-  today: "Example screen: a member's home page showing a reviewed HbA1c result and a kidney function test that is due.",
-  plan: "Example screen: a preventive plan approved by a doctor, listing this year's tests.",
+  today: "Example screen: a member's home page showing an HbA1c result with a new note and a kidney function test that is due.",
+  plan: "Example screen: a preventive plan listing this year's tests.",
   trend: "Example screen: an HbA1c trend over four tests, rising from 5.8 to 6.7 percent, marked for doctor review.",
-  review: "Example screen: a doctor's plain-English review of a kidney function result, with a next step.",
+  review: "Example screen: a plain-English explanation of a kidney function result, with a next step.",
 };
 
 function Tag({ tone = "green", children }: { tone?: "green" | "amber"; children: React.ReactNode }) {
@@ -49,7 +54,7 @@ function Screen({ screen }: { screen: ExampleScreen }) {
         <>
           <Top title="Good morning, Ada" subtitle="Your plan for November" />
           <Card>
-            <Tag>Reviewed by your doctor</Tag>
+            <Tag>New note</Tag>
             <p className="mt-1.5 font-semibold">HbA1c result</p>
             <p>Your doctor added a note</p>
           </Card>
@@ -67,7 +72,7 @@ function Screen({ screen }: { screen: ExampleScreen }) {
     case "plan":
       return (
         <>
-          <Top title="Your preventive plan" subtitle="Approved by your doctor" />
+          <Top title="Your preventive plan" subtitle="Your checks for this year" />
           <Card>
             <p className="font-semibold">This year</p>
             <p>Full blood count, HbA1c, lipids, kidney function</p>
@@ -112,9 +117,9 @@ function Screen({ screen }: { screen: ExampleScreen }) {
     case "review":
       return (
         <>
-          <Top title="Doctor review" subtitle="Kidney function, 3 October" />
+          <Top title="Your result explained" subtitle="Kidney function, 3 October" />
           <Card>
-            <Tag>Reviewed</Tag>
+            <Tag>New</Tag>
             <p className="mt-1.5">
               Your results are in the expected range. Keep taking your blood pressure medicine and repeat this test in a year.
             </p>

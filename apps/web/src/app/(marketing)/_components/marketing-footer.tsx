@@ -26,6 +26,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.monitoring, label: "Ongoing monitoring" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
+    { href: MARKETING_ROUTES.devices, label: "Devices" },
   ],
   forYou: [
     { href: MARKETING_ROUTES.forYou, label: "For individuals" },
@@ -42,6 +43,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.obesity, label: "Weight health" },
     { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
     { href: MARKETING_ROUTES.bmiCalculator, label: "BMI calculator" },
+    { href: MARKETING_ROUTES.activityCalculator, label: "Activity calculator" },
     { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental wellbeing check" },
     { href: MARKETING_ROUTES.symptomChecker, label: "Symptom checker" },
   ],

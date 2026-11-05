@@ -54,15 +54,49 @@ export function useCookieConsent(): CookieConsentChoice | null {
   return useSyncExternalStore(subscribe, readConsent, getServerSnapshot);
 }
 
+/**
+ * Signed-in app areas, where analytics is disclosed in the Terms and stays
+ * opt-out. Everything else (the marketing site AND anonymous public pages such
+ * as /signup, /login, /checkout, /claim or /share) is opt-in: a code review
+ * found that keying opt-in to the marketing route list alone left /signup
+ * tracking an anonymous visitor who had never been asked. Missing an area
+ * here fails safe (that area becomes opt-in), and consent-opt-in.test.ts
+ * checks every folder under app/(dashboard) is listed.
+ */
+export const SIGNED_IN_APP_PREFIXES = [
+  "/account",
+  "/admin",
+  "/analytics",
+  "/clinician",
+  "/credentialing",
+  "/dashboard",
+  "/doctor",
+  "/finance",
+  "/lab-liaison",
+  "/lab-partner",
+  "/onboarding",
+  "/patient",
+  "/payer",
+  "/pharmacist",
+  "/provider-org",
+  "/reader",
+  "/rota",
+] as const;
+
+/** True for a path inside the signed-in app (opt-out analytics); false for every public page (opt-in). */
+export function isSignedInAppPath(pathname: string): boolean {
+  return SIGNED_IN_APP_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 /** Whether a stored choice permits analytics under the given model. */
 function allows(choice: CookieConsentChoice | null, optIn: boolean): boolean {
   return optIn ? choice === "accepted" : choice !== "rejected";
 }
 
 /**
- * Whether analytics may run. `optIn` is true on the public marketing site
- * (only an explicit "accepted" allows it) and false in the signed-in app
- * (anything but an explicit "rejected" allows it).
+ * Whether analytics may run. `optIn` is true on every public page (only an
+ * explicit "accepted" allows it) and false in the signed-in app (anything but
+ * an explicit "rejected" allows it); see isSignedInAppPath.
  */
 export function useAnalyticsAllowed(optIn: boolean): boolean {
   return allows(useCookieConsent(), optIn);

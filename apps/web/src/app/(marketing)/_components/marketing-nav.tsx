@@ -84,7 +84,13 @@ export function MarketingNav() {
     }
 
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    // Lock the page behind the open menu, so a swipe scrolls the menu, not the page.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, close]);
 
   return (

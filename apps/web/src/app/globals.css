@@ -12,26 +12,35 @@
  * Contrast: forest #0b5d45 on sage #dce8df is about 6.2:1 (the old green on
  * sage was 4.41:1 and failed AA for body-size links).
  */
-.marketing-scope {
-  --brand-green: #0b5d45;
-  --deep-forest: #0b5d45;
-  --clinical-navy: #0e3b2e;
-  --charcoal-ink: #14231e;
-  --soft-sage: #dce8df;
-  --warm-ivory: #faf7f2;
-  --sprout-gold: #e0a23b;
-  --mk-canvas: #faf7f2;
-  --mk-border: #e3ded5;
-  --mk-muted: #5e6b66;
-  --marketing-heading-font: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  background: var(--mk-canvas);
-  color: var(--charcoal-ink);
-}
+/* In `@layer base` so Tailwind utilities still win: unlayered, these rules
+   overrode every tracking-* on a heading and the cookie banner's bg-white. */
+@layer base {
+  .marketing-scope {
+    --brand-green: #0b5d45;
+    --deep-forest: #0b5d45;
+    --clinical-navy: #0e3b2e;
+    --charcoal-ink: #14231e;
+    --soft-sage: #dce8df;
+    --warm-ivory: #faf7f2;
+    --sprout-gold: #e0a23b;
+    --mk-canvas: #faf7f2;
+    --mk-border: #e3ded5;
+    --mk-muted: #5e6b66;
+    --marketing-heading-font: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    background: var(--mk-canvas);
+    color: var(--charcoal-ink);
+  }
 
-/* Fraunces reads best a step lighter than the old Sora headings. */
-.marketing-scope .font-heading {
-  font-optical-sizing: auto;
-  letter-spacing: -0.01em;
+  /* Fraunces reads best a step lighter than the old Sora headings. */
+  .marketing-scope .font-heading {
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  /* Anchor jumps (/#services, #how) land below the sticky header. */
+  .marketing-scope [id] {
+    scroll-margin-top: 88px;
+  }
 }
 
 @keyframes marketing-fade-in {

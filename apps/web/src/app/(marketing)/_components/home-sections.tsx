@@ -84,6 +84,14 @@ export function HomeAudienceRouter() {
           </li>
         ))}
       </ul>
+      {/* Kept from the old entry chips: where we work belongs near the top of
+          the page, not only in the footer. */}
+      <p className="mx-auto mt-4 max-w-6xl text-[15px] text-mk-muted">
+        Tarragon works anywhere in Nigeria.{" "}
+        <Link href={MARKETING_ROUTES.coverage} className={`inline-block rounded-sm py-1 font-semibold text-brand-green hover:underline ${FOCUS}`}>
+          See where we work
+        </Link>
+      </p>
     </nav>
   );
 }
@@ -234,7 +242,7 @@ const SERVICES = [
   },
   {
     title: "Community and learning",
-    items: ["Tarragon Circles groups", "Clinically reviewed articles", "Free health tools"],
+    items: ["Tarragon Community support groups", "Health articles and guides", "Free health tools"],
     href: MARKETING_ROUTES.resources,
     cta: "Explore the health library",
     Icon: BookOpen,
