@@ -111,8 +111,8 @@ begin
   select po.id into v_top from public.community_posts po join public.community_groups g on g.id = po.group_id
    where g.slug = 'proof-is-mine' and po.parent_post_id is null;
   v_j := pg_temp.asj(v_p2, format('select public.community_replies(%L)', v_top));
-  insert into results values ('sabotage', 'without the coalesce a reply has a null is_mine', '0',
-    (select count(*)::text from jsonb_array_elements(v_j -> 'replies') e where jsonb_typeof(e -> 'is_mine') <> 'boolean'));
+  insert into results values ('sabotage', 'without the coalesce a reply has a null is_mine', 'true',
+    (select (count(*) > 0)::text from jsonb_array_elements(v_j -> 'replies') e where jsonb_typeof(e -> 'is_mine') <> 'boolean'));
 end $$;
 
 -- SABOTAGE 2: put the bare comparison back in search; the erased author's post comes back with a null is_mine.
@@ -123,8 +123,8 @@ begin
   execute replace(v_src, 'coalesce(x.author_profile_id = v_uid, false)', '(x.author_profile_id = v_uid)');
   select p.id into v_p2 from public.profiles p where p.full_name = 'CIM p2';
   v_j := pg_temp.asj(v_p2, 'select public.community_search_posts(''pedometer'')');
-  insert into results values ('sabotage', 'without the coalesce a search hit has a null is_mine', '0',
-    (select count(*)::text from jsonb_array_elements(v_j -> 'items') e where jsonb_typeof(e -> 'is_mine') <> 'boolean'));
+  insert into results values ('sabotage', 'without the coalesce a search hit has a null is_mine', 'true',
+    (select (count(*) > 0)::text from jsonb_array_elements(v_j -> 'items') e where jsonb_typeof(e -> 'is_mine') <> 'boolean'));
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase desc, check_name;
@@ -133,7 +133,7 @@ do $$
 declare v_fail integer; v_sab integer;
 begin
   select count(*) into v_fail from results where phase = 'real' and expected is distinct from actual;
-  select count(*) into v_sab from results where phase = 'sabotage' and expected is distinct from actual;
+  select count(*) into v_sab from results where phase = 'sabotage' and expected = actual;
   if v_fail > 0 then raise exception 'community_is_mine_never_null: % real check(s) failed', v_fail; end if;
   if v_sab <> 2 then raise exception 'community_is_mine_never_null: sabotage did not flip (% of 2)', v_sab; end if;
 end $$;
