@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Security audit 2026-11-05 (Phase 2): a new CRITICAL advisory in any dependency the apps ship now blocks the
+      # merge. High and below still surface through Dependabot and are triaged weekly; the two known highs
+      # (image-size via metro, zod 3.x via eas-cli) are build tooling with no fix in their major version.
+      - name: Dependency audit (critical blocks)
+        run: pnpm audit --prod --audit-level=critical
+
       # Turbo local cache persisted through the GitHub Actions cache (no Vercel remote-cache token exists). Each run saves under a unique sha key
       # and restores the newest entry for this job, so unchanged packages replay from cache. Turbo hashes task inputs itself; a stale entry can
       # only be reused when the hash matches, so this cannot hide a real change.
