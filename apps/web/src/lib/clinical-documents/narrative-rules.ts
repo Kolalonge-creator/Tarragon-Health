@@ -20,7 +20,11 @@ export interface NarrativeRules {
   readonly negation_words_before: readonly string[];
   readonly negation_phrases_before: readonly string[];
   readonly negations_after: readonly string[];
+  /** The escalation_slas tier (pathway screening_abnormal_result) a match on each rule pages at; the minutes live in escalation_slas. */
+  readonly paging_tier_by_rule: Readonly<Record<NarrativeMatch["rule"], PagingTier>>;
 }
+
+export type PagingTier = "emergency" | "urgent_escalation";
 
 export interface NarrativeFields {
   readonly birads?: readonly (string | null | undefined)[];
@@ -97,4 +101,14 @@ export function matchNarrativeRules(fields: NarrativeFields, rules: NarrativeRul
   }
   add("imaging", fields.imagingImpression, rules.imaging_urgent_terms);
   return out;
+}
+
+/**
+ * The highest paging tier among the matches ("emergency" outranks "urgent_escalation"), or null when nothing matched. `rules` is required
+ * on purpose: the caller must pass the value the CMO confirmed (checked against proposed_config_signoffs), never the unconfirmed draft.
+ * A tier that is missing or not one of the two known values counts as "emergency": a typo in the registry must page higher, never lower.
+ */
+export function pagingTierFor(matches: readonly NarrativeMatch[], rules: NarrativeRules): PagingTier | null {
+  if (matches.length === 0) return null;
+  return matches.some((m) => rules.paging_tier_by_rule[m.rule] !== "urgent_escalation") ? "emergency" : "urgent_escalation";
 }

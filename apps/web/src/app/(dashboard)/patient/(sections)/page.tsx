@@ -43,8 +43,6 @@ import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-c
 import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
 import { ServicesPromoCard } from "@/app/(dashboard)/patient/services-promo-card";
 import { YourCareTeam } from "@/components/your-care-team";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { formatPatientDate } from "@/lib/format-date";
@@ -319,13 +317,8 @@ export default async function PatientOverviewPage() {
               <Suspense fallback={<CardSkeleton className="h-40" />}>
                 <YourCareTeam patientId={subjectId} />
               </Suspense>
-              {/* Inside the first-run gate: an upgrade prompt must not be the last thing a brand-new patient sees. */}
-              <RequiresEntitlement
-                feature="doctor_checkin"
-                fallback={<UpgradePrompt feature="doctor_checkin" />}
-              >
-                <CareTeamContact patientId={subjectId} />
-              </RequiresEntitlement>
+              {/* MSG-1: messaging is open to every plan; only clinical and medicine topics need Membership, and the database enforces that. */}
+              <CareTeamContact patientId={subjectId} />
             </div>
           </details>
         </>

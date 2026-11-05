@@ -26,7 +26,7 @@ export const revalidate = 3600;
 
 /**
  * Two plans only (decisions T2-01, T2-05, T2-09, 2026-11-04): Free and Membership. Membership Plus is retired and is not offered here,
- * whatever marketing.membership_ladder_public says. The two figures on this page, the Membership price and the employer seat price,
+ * and the old public-ladder flag is retired (T2-13 cleanup). The two figures on this page, the Membership price and the employer seat price,
  * come from versioned config (commerce.membership_prices) through lib/marketing/membership.ts, never typed.
  */
 export default async function PricingPage() {

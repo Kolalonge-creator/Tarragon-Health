@@ -103,6 +103,11 @@ const readPendingBpTargetSignoff = jest.fn<(...args: unknown[]) => Promise<{ ver
 jest.mock("@/lib/queries/pending-bp-target-signoff", () => ({
   readPendingBpTargetSignoff: (...args: unknown[]) => readPendingBpTargetSignoff(...args),
 }));
+const readPendingClinicalProposedValues = jest.fn<(...args: unknown[]) => Promise<{ rows: unknown[]; item: SignoffQueueItem | null; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-clinical-proposed-values", () => ({
+  ...jest.requireActual<object>("@/lib/queries/pending-clinical-proposed-values"),
+  readPendingClinicalProposedValues: (...args: unknown[]) => readPendingClinicalProposedValues(...args),
+}));
 const readBaselineLabsOverrideAttention = jest.fn<(...args: unknown[]) => Promise<{ overdue: number; used30d: number; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-baseline-labs-override-attention", () => ({
   ...jest.requireActual<object>("@/lib/queries/pending-baseline-labs-override-attention"),
@@ -248,6 +253,8 @@ beforeEach(() => {
   readPendingBaselineLabsRuleSignoff.mockResolvedValue({ version: null, rule: null, failed: false });
   readPendingBpTargetSignoff.mockReset();
   readPendingBpTargetSignoff.mockResolvedValue({ version: null, view: null, liveVersion: null, failed: false });
+  readPendingClinicalProposedValues.mockReset();
+  readPendingClinicalProposedValues.mockResolvedValue({ rows: [], item: null, failed: false });
   readBaselineLabsOverrideAttention.mockReset();
   readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 0, used30d: 0, failed: false });
   readPendingSymptomUxSignoff.mockReset();
@@ -645,7 +652,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await hubAll(supabase)).toEqual({ items: [], operational: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [], live: [] });
+    expect(await hubAll(supabase)).toEqual({ items: [], operational: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [], live: [], clinicalProposed: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
@@ -1145,5 +1152,32 @@ describe("readCmoSigningHub: Stage 2 launch attestation", () => {
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the Stage 2 launch attestation");
+  });
+});
+
+describe("readCmoSigningHub: clinical values confirmed through the registry (CDE-09)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  const item: SignoffQueueItem = {
+    key: "proposed_values_clinical",
+    title: "Narrative urgent-finding rules",
+    detail: "x",
+    href: "/clinician/go-live#proposed-values",
+    severity: "draft_pending",
+    count: 1,
+  };
+  it("counts the narrative rules as a clinical signature on the hub and passes the rows to the panel", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingClinicalProposedValues.mockResolvedValue({ rows: [{ key: "documents.narrative_urgent_rules" }], item, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === "proposed_values_clinical")?.count).toBe(1);
+    expect(hub.operational.find((i) => i.key === "proposed_values_clinical")).toBeUndefined();
+    expect(hub.clinicalProposed).toHaveLength(1);
+  });
+  it("names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingClinicalProposedValues.mockResolvedValue({ rows: [], item: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the clinical values confirmed through the registry");
   });
 });

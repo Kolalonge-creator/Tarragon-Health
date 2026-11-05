@@ -88,7 +88,8 @@ end $f$;
 create function pg_temp.buy(p_patient uuid, p_consent boolean) returns text language plpgsql as $f$
 declare v_org uuid := pg_temp.f('org'); v_item uuid := pg_temp.f('item'); q jsonb; v_amt bigint; v_ref text := 'tho_' || replace(gen_random_uuid()::text, '-', '');
 begin
-  q := private.price_quote_calc(p_patient, p_patient, 'membership_annual', null, false);
+  -- T2-13 (2026-11-04): Membership Plus is retired, so the purchase here is the Membership
+  q := private.price_quote_calc(p_patient, p_patient, 'membership_annual_no_panel', null, false);
   v_amt := (q ->> 'amount_due_kobo')::bigint;
   insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, components, paystack_reference, is_test,
                              list_amount_kobo, sponsor_share_kobo, discount_kobo, points_applied, points_reduction_kobo, price_book_entry_id, pricing_rules_version, quote, renewal_consent_at)
@@ -101,7 +102,7 @@ end $f$;
 do $$
 declare v_org uuid; v_item uuid;
 begin
-  select organisation_id, id into v_org, v_item from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
+  select organisation_id, id into v_org, v_item from public.catalog_items where code = 'membership_annual_no_panel' order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
   perform pg_temp.setf('item', v_item);
   for i in 1..14 loop perform pg_temp.setf('p' || i, pg_temp.mkuser(v_org, 'p' || i)); end loop;
@@ -135,7 +136,7 @@ begin
   v_ref := pg_temp.buy(v_p2, true);
   perform pg_temp.ck('a consenting, reusable, paid order saves the card', 'saved',
     (pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p2', true, 'sig2', 'visa', '4081', '12', '2030', 'CUS_p2', 'p2@example.invalid')::text$q$, v_ref))::jsonb ->> 'result'));
-  perform pg_temp.ck('and the membership is on auto-renew with its item and consent time', 'true/membership_annual/true',
+  perform pg_temp.ck('and the membership is on auto-renew with its item and consent time', 'true/membership_annual_no_panel/true',
     (select auto_renew::text || '/' || renewal_item_code || '/' || (renewal_consent_at is not null)::text from public.patient_memberships where patient_id = v_p2));
   perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p2', true, 'sig2', 'visa', '4081', '12', '2030', 'CUS_p2', 'p2@example.invalid')::text$q$, v_ref));
   perform pg_temp.ck('exactly one card row exists for p2', '1', (select count(*)::text from public.membership_cards where patient_id = v_p2));
@@ -304,7 +305,10 @@ begin
   v_ref := pg_temp.buy(v_pq, true);
   perform pg_temp.q_svc(format($q$select public.save_membership_card(%L, 'AUTH_p16', true, 'sig16', 'visa', '4081', '12', '2030', 'CUS_p16', 'p16@example.invalid')::text$q$, v_ref));
   select id into v_m from public.patient_memberships where patient_id = v_pq and state = 'active';
-  update public.patient_memberships set ends_at = now() + interval '2 days', renewal_item_code = 'membership_annual_no_panel' where id = v_m;
+  -- the year that runs is a Plus year bought before T2-01; T2-13: it renews as the Membership only after the Plus notice (2+ days old)
+  update public.patient_memberships set tier = 'plus', ends_at = now() + interval '2 days', renewal_item_code = 'membership_annual_no_panel' where id = v_m;
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, created_at)
+  values (pg_temp.f('org'), v_pq, 'in_app', 'pending', 'membership_plus_auto_renews_as_membership', jsonb_build_object('membership_id', v_m), now() - interval '3 days');
   select ends_at into v_end from public.patient_memberships where id = v_m;
   r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
   perform pg_temp.ck('a Plus member renewing onto the Membership item gets a renewal order', 'true', (r ? 'order_id')::text);
@@ -351,7 +355,7 @@ begin
   perform pg_temp.q_svc(format($q$select public.record_order_payment(%L, %s, 0, %s, 'NGN', 'success', 'sweep')::text$q$, r ->> 'reference', v_amt, v_amt));
   perform pg_temp.ck('a late-confirmed renewal leaves exactly one active membership, and the old one is ended', '1/ended',
     (select count(*)::text from public.patient_memberships where patient_id = v_p9 and state = 'active') || '/' || (select state from public.patient_memberships where id = v_m));
-  perform pg_temp.ck('the NEW membership inherits auto-renew, the item and the consent time', 'true/membership_annual/true',
+  perform pg_temp.ck('the NEW membership inherits auto-renew, the item and the consent time', 'true/membership_annual_no_panel/true',
     (select auto_renew::text || '/' || renewal_item_code || '/' || (renewal_consent_at is not null)::text from public.patient_memberships where patient_id = v_p9 and state = 'active'));
   select ends_at into v_new from public.patient_memberships where patient_id = v_p9 and state = 'active';
   v_note := (select payload ->> 'ends_at' from public.notifications where recipient_id = v_p9 and template = 'membership_renewed');
@@ -423,7 +427,7 @@ begin
   r := pg_temp.q_svc(format($q$select public.service_prepare_membership_renewal(%L)::text$q$, v_m))::jsonb;
   v_amt := (r ->> 'amount_kobo')::bigint;
   perform pg_temp.ck('a price that fell is charged at the current, lower price', 'true',
-    (v_amt = (private.price_quote_calc(v_p13, v_p13, 'membership_annual', null, false) ->> 'amount_due_kobo')::bigint and v_amt < (select renewal_notified_kobo from public.patient_memberships where id = v_m))::text);
+    (v_amt = (private.price_quote_calc(v_p13, v_p13, 'membership_annual_no_panel', null, false) ->> 'amount_due_kobo')::bigint and v_amt < (select renewal_notified_kobo from public.patient_memberships where id = v_m))::text);
 end $$;
 
 -- 6e. The watchdog: a sweep that silently stops, a failing sweep, and a membership nobody attempted ------------------------------------------

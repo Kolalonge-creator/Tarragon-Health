@@ -118,6 +118,12 @@ begin
   -- S28c put collection behind the S37 prescribing guard (fail closed); this proof exercises the open path, so switch it on the way the guard's trigger allows (a log row, then the update)
   insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('prescribing_enabled', 'switched_on', v_adm, 'admin', 'S54c proof', '[]'::jsonb);
   update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_adm, change_note = 'S54c proof' where key = 'prescribing_enabled';
+  -- T2-11: partner collection also needs its own readiness (collection rules confirmed, notification sender attested); recorded inside the rollback.
+  insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)
+  select 'pharmacy.collection_rules', c.version, repeat('0', 64), 'Founder', 'confirmed', 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1)
+    from public.pharmacy_config c where c.is_active;
+  insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+  values ('prescribing_enabled', 'notification_sender_deployed', true, 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1));
   v_doc := pg_temp.mkuser(v_org, 'doc', 'clinician', 'S54c Prescriber'); perform pg_temp.setf('doc', v_doc);
   perform pg_temp.mkstaff(v_org, v_doc, 'senior_medical_officer', v_adm);
   perform pg_temp.setf('doc2', pg_temp.mkuser(v_org, 'doc2', 'clinician', 'S54c Untied Clinician'));
