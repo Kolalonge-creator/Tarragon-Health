@@ -97,12 +97,32 @@ update public.video_consultations set zoom_meeting_id = null, join_url = null, h
 insert into results select '4. clearing the meeting deletes the stale link', '0',
   (select count(*) from public.video_consultation_host_links where video_consultation_id = (select v from ids where k='consult'))::text;
 
-update public.video_consultations set status = 'cancelled' where id = (select v from ids where k='consult');
+update public.video_consultations set scheduled_at = now() + interval '1 day' where id = (select v from ids where k='consult');
 insert into results select '4. an unrelated update leaves the consultation row NULL', 'true',
   ((select host_start_url from public.video_consultations where id = (select v from ids where k='consult')) is null)::text;
 
+-- 6. a cancelled call loses its host link
+update public.video_consultations
+   set zoom_meeting_id = '81000000004', join_url = 'https://zoom.example/j/4', host_start_url = 'https://zoom.example/s/4?zak=SECRET4'
+ where id = (select v from ids where k='consult');
+update public.video_consultations set status = 'cancelled' where id = (select v from ids where k='consult');
+insert into results select '6. cancelling the call deletes its host link', '0',
+  (select count(*) from public.video_consultation_host_links where video_consultation_id = (select v from ids where k='consult'))::text;
+
+-- 7. INSERT ... ON CONFLICT DO NOTHING on an existing id with a new link: no orphan, no failure, the row's link is unchanged.
+insert into public.video_consultations (id, organisation_id, patient_id, context, zoom_meeting_id, host_start_url)
+values ((select v from ids where k='consult'), (select v from ids where k='org'), (select v from ids where k='patient'),
+        'general_checkin', '81000000009', 'https://zoom.example/s/9?zak=ORPHAN')
+on conflict (id) do nothing;
+insert into results select '7. a conflicting insert writes no side row', '0',
+  (select count(*) from public.video_consultation_host_links where host_start_url like '%ORPHAN')::text;
+update public.video_consultations set scheduled_at = now() + interval '2 days' where id = (select v from ids where k='consult');
+insert into results select '7. nor does a later unrelated update pick up the parked link', '0',
+  (select count(*) from public.video_consultation_host_links where host_start_url like '%ORPHAN')::text;
+
 ---------------------------------------------------------------------- sabotage: remove the fix, the patient can read the link
 alter table public.video_consultations disable trigger "000_move_host_link";
+alter table public.video_consultations disable trigger "zzz_store_host_link";
 alter table public.video_consultations drop constraint video_consultations_host_start_url_moved;
 update public.video_consultations set host_start_url = 'https://zoom.example/s/3?zak=SECRET3'
  where id = (select v from ids where k='consult');
@@ -124,8 +144,8 @@ begin
   if v_fail > 0 then
     raise exception 'video_consultation_host_link_staff_only: % check(s) failed', v_fail;
   end if;
-  if (select count(*) from results) <> 11 then
-    raise exception 'video_consultation_host_link_staff_only: expected 11 checks, got %', (select count(*) from results);
+  if (select count(*) from results) <> 14 then
+    raise exception 'video_consultation_host_link_staff_only: expected 14 checks, got %', (select count(*) from results);
   end if;
 end;
 $$;
