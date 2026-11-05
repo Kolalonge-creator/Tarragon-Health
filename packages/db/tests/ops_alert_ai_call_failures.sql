@@ -113,7 +113,7 @@ begin
   -- 1. Shape
   perform pg_temp.rec('real', 'the rule is seeded on, sev3, without an incident', 'true|sev3|false',
     (select enabled::text || '|' || severity::text || '|' || open_incident::text from public.ops_alert_rules where code = 'ai_call_failures'));
-  perform pg_temp.rec('anon and authenticated cannot execute the check', 'false|false',
+  perform pg_temp.rec('real', 'anon and authenticated cannot execute the check', 'false|false',
     has_function_privilege('anon', 'private.ops_check_ai_call_failures(jsonb,boolean)', 'EXECUTE')::text || '|' ||
     has_function_privilege('authenticated', 'private.ops_check_ai_call_failures(jsonb,boolean)', 'EXECUTE')::text);
 
