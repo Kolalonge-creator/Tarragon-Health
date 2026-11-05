@@ -14,6 +14,7 @@ import { PasskeysCard } from "@/components/account/passkeys-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
+import { staffMustEnrolMfa } from "@tarragon/auth/mfa-policy";
 
 // The seeded default consumer org (20260706084837) every self-serve signup
 // lands on until claimed by a real employer/HMO/clinic roster — the same
@@ -78,6 +79,8 @@ export default async function AccountPage() {
   const ownFolio = staff ? (ownFolioMap.get(staff.id) ?? null) : null;
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
+  // SEC-01: a staff account cannot open anything else until it has a verified factor (apps/web/src/proxy.ts sends it here).
+  const mfaRequired = staffMustEnrolMfa(profile.role, verifiedFactorId ? "aal2" : "aal1");
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -85,6 +88,19 @@ export default async function AccountPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Profile &amp; settings</h1>
         <p className="text-charcoal-ink/60">Your account details and sign-in settings.</p>
       </div>
+
+      {mfaRequired && (
+        <>
+          <div role="status" className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-charcoal-ink">
+            <p className="font-semibold">Turn on two-step sign-in to continue</p>
+            <p className="mt-1 text-charcoal-ink/70">
+              Every Tarragon staff account needs a code from an authenticator app as well as a password, because staff
+              accounts can open patient records. Set it up below. Your dashboard opens as soon as it is on.
+            </p>
+          </div>
+          <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
+        </>
+      )}
 
       <Card>
         <CardHeader>
@@ -170,7 +186,7 @@ export default async function AccountPage() {
 
       <ChangePasswordForm />
       <ChangePhoneCard />
-      <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
+      {!mfaRequired && <MfaSettingsCard verifiedFactorId={verifiedFactorId} />}
       {isPatient && <PasskeysCard />}
       <SignOutOtherDevicesCard />
     </div>

@@ -13,10 +13,10 @@ const DISMISSED_KEY = "th_mfa_nudge_dismissed";
  * Roles this security-hardening pass treats as higher-risk (broad
  * platform/PHI access via /clinician, /admin, /pharmacist, or a partner
  * console). This is only a display filter for the nudge below, never an
- * enforcement list — self-service TOTP MFA stays fully opt-in for every
- * role, per the founder's explicit decision not to make MFA mandatory while
- * real clinical-staff enrollment is still low (a hard requirement risks
- * locking out active doctors mid-rollout).
+ * enforcement list. Since SEC-01 (2026-11-05) two-step sign-in is REQUIRED
+ * for every staff role and enforced in apps/web/src/proxy.ts (a staff account
+ * without a factor can only open /account), so for staff this banner is
+ * normally never seen; it stays for any role the gate does not cover.
  */
 const MFA_NUDGE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
   "clinician",

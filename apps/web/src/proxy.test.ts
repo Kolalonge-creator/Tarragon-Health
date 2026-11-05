@@ -331,6 +331,7 @@ describe("staff areas extracted to apps/console", () => {
     stubSession({
       user: { id: "u1" },
       profile: { role: "clinician", custom_role_id: null, receives_care: null },
+      aal: { currentLevel: "aal2", nextLevel: "aal2" },
     });
     const res = await proxy(request("/clinician/worklist"));
 
@@ -367,5 +368,46 @@ describe("mobile API rate limit (OQ-267)", () => {
     expect(other.status).not.toBe(429);
     const web = await proxy(request("/login", { authorization: "Bearer proxy-test-session-a", "x-forwarded-for": "10.20.30.1" }));
     expect(web.status).not.toBe(429);
+  });
+});
+
+describe("staff two-step sign-in is required (SEC-01)", () => {
+  const clinician = { role: "clinician", custom_role_id: null, receives_care: null } as const;
+  const noFactor = { currentLevel: "aal1", nextLevel: "aal1" };
+
+  it("sends a staff account with no verified factor to /account?mfa=required", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
+    const loc = new URL((await proxy(request("/clinician/worklist"))).headers.get("location")!);
+    expect(loc.pathname).toBe("/account");
+    expect(loc.searchParams.get("mfa")).toBe("required");
+  });
+
+  it("applies to admin, finance and partner roles too, and to a prefetch", async () => {
+    for (const role of ["admin", "finance", "lab_partner"]) {
+      stubSession({ user: { id: "u1" }, profile: { role, custom_role_id: null, receives_care: null }, aal: noFactor });
+      expect(new URL((await proxy(request("/admin", PREFETCH_HEADERS))).headers.get("location")!).pathname).toBe("/account");
+    }
+  });
+
+  it("fails closed when the assurance level cannot be read", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: null });
+    expect(new URL((await proxy(request("/clinician"))).headers.get("location")!).pathname).toBe("/account");
+  });
+
+  it("lets that account open /account, where the factor is set up", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: noFactor });
+    expect((await proxy(request("/account"))).headers.get("location")).toBeNull();
+  });
+
+  it("never applies to a patient or a supporter", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "patient", custom_role_id: null, receives_care: true }, aal: noFactor });
+    expect((await proxy(request("/patient"))).headers.get("location")).toBeNull();
+    stubSession({ user: { id: "u1" }, profile: { role: "patient", custom_role_id: null, receives_care: false }, aal: noFactor });
+    expect((await proxy(request("/patient/supporting/x"))).headers.get("location")).toBeNull();
+  });
+
+  it("lets an enrolled staff account through once the challenge is done", async () => {
+    stubSession({ user: { id: "u1" }, profile: clinician, aal: { currentLevel: "aal2", nextLevel: "aal2" } });
+    expect((await proxy(request("/clinician/worklist"))).headers.get("location")).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@tarragon/auth/supabase/middleware";
 import { evaluateConsoleAccess, consoleRoles } from "@tarragon/auth/console-areas";
 import { getRoleHomePath } from "@tarragon/auth/roles";
+import { staffMustEnrolMfa } from "@tarragon/auth/mfa-policy";
 
 /**
  * The console's single choke point for authentication and role gating, the
@@ -40,8 +41,10 @@ export async function proxy(request: NextRequest) {
     return toLogin();
   }
 
+  let mfaNextLevel: string | undefined;
   if (pathname !== "/login/mfa-challenge") {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    mfaNextLevel = aal?.nextLevel ?? undefined;
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);
       challengeUrl.searchParams.set("redirect", pathname);
@@ -65,6 +68,13 @@ export async function proxy(request: NextRequest) {
   if (!isConsoleRole) {
     return pathname === "/login" || pathname === "/login/mfa-challenge" ? response : toLogin();
   }
+
+  // SEC-01: every staff account needs a verified authenticator factor. One without is held on the set-up page (it sets the
+  // factor up on the main app's /account), and can still sign out from it.
+  if (staffMustEnrolMfa(profile.role, mfaNextLevel)) {
+    return pathname === "/login/mfa-setup" ? response : NextResponse.redirect(new URL("/login/mfa-setup", request.url));
+  }
+  if (pathname === "/login/mfa-setup") return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));
 
   const home = getRoleHomePath(profile.role);
   if (pathname === "/" || pathname === "/login") {

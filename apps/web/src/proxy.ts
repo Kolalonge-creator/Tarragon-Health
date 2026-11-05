@@ -13,6 +13,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { JOIN_PATH_PREFIX, isJoinToken, joinLandingPath } from "@/lib/care-circle/join-link";
 import { isMobileApiPath, isSafetyRoute, mobileApiRateLimitResponse } from "@/lib/mobile-api-rate-limit";
 import { appCheckShouldRefuse } from "@/lib/app-check/verify";
+import { MFA_SETUP_PATH, isMfaEnrolmentExemptPath, staffMustEnrolMfa } from "@tarragon/auth/mfa-policy";
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
@@ -151,8 +152,11 @@ export async function proxy(request: NextRequest) {
   // protected route is added. `/auth/*` is exempt because those routes are
   // themselves mid-flow token exchanges (email confirm, mobile bridge) that
   // must be allowed to complete.
+  // The assurance level is kept for the staff enrolment gate further down (SEC-01).
+  let mfaNextLevel: string | undefined;
   if (user && pathname !== "/login/mfa-challenge" && !pathname.startsWith("/auth/")) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    mfaNextLevel = aal?.nextLevel ?? undefined;
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);
       // Keep the query: a signed document link (/d/<kind>/<id>?e=..&s=..) is useless without it (OQ-336). The challenge page sanitises it.
@@ -238,6 +242,20 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Two-step sign-in is required for every staff account (SEC-01, master architecture assessment S1). A staff account with no
+  // verified factor reaches only /account, where it sets one up, plus the challenge page and auth callbacks. Once a factor
+  // exists, the step-up gate above makes every session complete the challenge. Public and marketing paths stay open so the
+  // person can still sign out from the login page. Patients and supporters (role patient) are unaffected.
+  if (
+    staffMustEnrolMfa(profile.role, mfaNextLevel) &&
+    !isMfaEnrolmentExemptPath(pathname) &&
+    !isPublicPath(pathname)
+  ) {
+    const setupUrl = new URL(MFA_SETUP_PATH, request.url);
+    setupUrl.searchParams.set("mfa", "required");
+    return NextResponse.redirect(setupUrl);
   }
 
   // Somebody who signed up only to fund a relative's care is refused the

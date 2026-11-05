@@ -148,8 +148,34 @@ describe("MFA step-up gate", () => {
   });
 });
 
+describe("staff two-step sign-in is required (SEC-01)", () => {
+  it("holds a console role with no verified factor on the set-up page", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal1", nextLevel: "aal1" } });
+    expect(location(await proxy(request("/ngo")))!.pathname).toBe("/login/mfa-setup");
+    expect(location(await proxy(request("/")))!.pathname).toBe("/login/mfa-setup");
+    expect(location(await proxy(request("/ngo", PREFETCH_HEADERS)))!.pathname).toBe("/login/mfa-setup");
+  });
+
+  it("lets that account open the set-up page itself", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal1", nextLevel: "aal1" } });
+    expect(location(await proxy(request("/login/mfa-setup")))).toBeNull();
+  });
+
+  it("fails closed when the assurance level cannot be read", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: null });
+    expect(location(await proxy(request("/ngo")))!.pathname).toBe("/login/mfa-setup");
+  });
+
+  it("sends an enrolled account away from the set-up page to its home", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal2", nextLevel: "aal2" } });
+    expect(location(await proxy(request("/login/mfa-setup")))!.pathname).toBe("/ngo");
+  });
+});
+
 describe("a console role", () => {
-  beforeEach(() => stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" } }));
+  beforeEach(() =>
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal2", nextLevel: "aal2" } }),
+  );
 
   it("reaches its own area", async () => {
     expect(location(await proxy(request("/ngo")))).toBeNull();
