@@ -132,6 +132,8 @@ create table if not exists private.storage_deletion_queue (
   unique (bucket_id, name)
 );
 revoke all on private.storage_deletion_queue from public, anon, authenticated;
+-- RLS on with no policy (S39 catalog rule: RLS on for every table): only the owner and the definer functions below reach it.
+alter table private.storage_deletion_queue enable row level security;
 comment on table private.storage_deletion_queue is
   'S5: stored files to remove through the Storage API (never by deleting storage.objects rows). Filled by public.purge_test_account; drained daily by /api/cron/storage-deletion-sweep via storage_deletions_due / mark_storage_deletion_done.';
 
