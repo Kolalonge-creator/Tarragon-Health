@@ -9,7 +9,7 @@ const row = {
   branch_listing_id: "22222222-2222-4222-8222-222222222222",
   kind: "lab", provider_name: "Lab", branch_name: "VI", address: "1 Road", neighbourhood: null, town: "VI", lga: "Eti-Osa",
   state: "Lagos", phone: "+2348000000001", latitude: 6.43, longitude: 3.42, distance_km: 1.2, availability: "available",
-  appointment_required: false, preparation_note: null, performed_elsewhere: false, result_group: "eligible",
+  appointment_required: false, preparation_note: null, performed_elsewhere: false, result_group: "eligible", is_partner: false,
   last_confirmed_at: null, credentials_on_file: null, total_count: 7,
 };
 
@@ -21,7 +21,7 @@ describe("searchDiagnosticServices", () => {
     const cfg = diagnosticSearchConfig();
     const res = await searchDiagnosticServices({ conceptId: C, location: { lat: 6.43, lng: 3.42 }, page: 2 });
     expect(rpc).toHaveBeenCalledWith("search_diagnostic_services", expect.objectContaining({
-      p_concept_id: C, p_radius_km: cfg.default_radius_km, p_limit: cfg.page_size, p_offset: 2 * cfg.page_size, p_state: null,
+      p_concept_id: C, p_radius_km: cfg.default_radius_km, p_partner_band_km: cfg.partner_band_km, p_limit: cfg.page_size, p_offset: 2 * cfg.page_size, p_state: null,
     }));
     expect(res).toEqual(expect.objectContaining({ ok: true, total: 7 }));
   });
@@ -54,7 +54,7 @@ describe("searchDiagnosticServices", () => {
   it("a database error is a failure, never an empty list", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "55000" } });
     expect(await searchDiagnosticServices({ conceptId: C, location: { state: "Lagos" } })).toEqual({ ok: false, reason: "closed" });
-    rpc.mockResolvedValue({ data: [{ ...row, result_group: "partner" }], error: null });
+    rpc.mockResolvedValue({ data: [{ ...row, result_group: "sponsored" }], error: null });
     expect(await searchDiagnosticServices({ conceptId: C, location: { state: "Lagos" } })).toEqual({ ok: false, reason: "failed" });
   });
 });

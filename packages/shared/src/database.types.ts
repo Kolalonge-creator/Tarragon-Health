@@ -58195,6 +58195,7 @@ export type Database = {
           p_limit: number
           p_lng: number
           p_offset?: number
+          p_partner_band_km: number
           p_radius_km: number
           p_state: string
         }
@@ -58206,6 +58207,7 @@ export type Database = {
           branch_name: string
           credentials_on_file: string[]
           distance_km: number
+          is_partner: boolean
           kind: string
           last_confirmed_at: string
           latitude: number

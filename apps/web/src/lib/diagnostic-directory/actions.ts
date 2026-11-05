@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import {
   addBranchSchema, branchToDirectorySchema, closeIncidentSchema, createFacilitySchema, credentialSchema, credentialStatusSchema,
-  noticeForError, openIncidentSchema, serviceSchema, startListingSchema, statusSchema, verifyLocationSchema, type Notice,
+  endPartnerSchema, noticeForError, openIncidentSchema, serviceSchema, setPartnerSchema, startListingSchema, statusSchema,
+  verifyLocationSchema, type Notice,
 } from "./model";
 
 /**
@@ -148,4 +149,22 @@ export async function closeIncidentAction(formData: FormData): Promise<void> {
 function backOrOverview(formData: FormData, n: Notice): never {
   const id = String(formData.get("listing_id") ?? "");
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) ? detail(id, n) : overview(n);
+}
+
+export async function setPartnerAction(formData: FormData): Promise<void> {
+  const p = setPartnerSchema.safeParse(fields(formData, [
+    "listing_id", "branch_listing_id", "starts_on", "ends_on", "has_commission", "legal_review_reference", "note"]));
+  if (!p.success) return backOrOverview(formData, "invalid");
+  const { error } = await call("admin_dx_set_partner", {
+    p_branch_listing_id: p.data.branch_listing_id, p_starts_on: p.data.starts_on, p_ends_on: p.data.ends_on ?? null,
+    p_has_commission: p.data.has_commission === "yes", p_legal_review_reference: p.data.legal_review_reference ?? null, p_note: p.data.note,
+  });
+  return detail(p.data.listing_id, error ? noticeForError(error.code) : "partner_set");
+}
+
+export async function endPartnerAction(formData: FormData): Promise<void> {
+  const p = endPartnerSchema.safeParse(fields(formData, ["listing_id", "partnership_id", "reason"]));
+  if (!p.success) return backOrOverview(formData, "invalid");
+  const { error } = await call("admin_dx_end_partner", { p_partnership_id: p.data.partnership_id, p_reason: p.data.reason });
+  return detail(p.data.listing_id, error ? noticeForError(error.code) : "partner_ended");
 }

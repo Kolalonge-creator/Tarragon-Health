@@ -11513,4 +11513,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104234848_diag_p3_search_diagnostic_services.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §9",
   },
+  {
+    key: "directory.diagnostic_search",
+    // v2 (Phase 4, DIR-1): partner_band_km. An eligible Preferred Partner is listed first only when it is within this many
+    // km of the nearest eligible branch; a farther partner is sorted by distance with everyone else.
+    value: { radii_km: [5, 10, 20, 50], default_radius_km: 10, page_size: 20, partner_band_km: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105092110_diag_p4_preferred_partner_band.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §9, §10; DIR-1",
+  },
 ];

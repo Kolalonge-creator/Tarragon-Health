@@ -61,7 +61,7 @@ create function pg_temp.ids(p_concept uuid, p_lat double precision, p_lng double
 returns text language sql as $f$
   select coalesce(string_agg(s.branch_listing_id::text || ':' || s.result_group, ',' order by s.ord), '')
     from (select r.*, row_number() over () as ord
-            from public.search_diagnostic_services(p_concept, p_lat, p_lng, p_r, p_state, null, p_unconf, p_limit, p_offset) r) s;
+            from public.search_diagnostic_services(p_concept, p_lat, p_lng, p_r, p_state, null, p_unconf, 0, p_limit, p_offset) r) s;
 $f$;
 
 create temp table fx (fk text primary key, fv uuid);
@@ -158,7 +158,7 @@ begin
 
   -- A
   insert into results values ('A1 anon cannot execute',
-    not has_function_privilege('anon', 'public.search_diagnostic_services(uuid, double precision, double precision, numeric, text, text, boolean, integer, integer)', 'EXECUTE'), null);
+    not has_function_privilege('anon', 'public.search_diagnostic_services(uuid, double precision, double precision, numeric, text, text, boolean, numeric, integer, integer)', 'EXECUTE'), null);
   -- Guard changes normally go through set_go_live_guard(); the proof flips it directly, inside the rolled-back transaction.
   set local session_replication_role = replica;
   update public.go_live_guards set is_on = false where key = 'directory_enabled';
@@ -187,7 +187,7 @@ begin
   v_expect := f.vi || ':eligible,' || f.ikeja || ':eligible';
   insert into results values ('B3 unconfirmed left out when not asked for', v = v_expect, v);
   insert into results values ('B4 the draft branch never appears', position(f.draft::text in pg_temp.ids(f.hba1c, 6.43, 3.422, 1000, null, true)) = 0, null);
-  select r.distance_km into v_dist from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 30, null, null, false, 50, 0) r
+  select r.distance_km into v_dist from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 30, null, null, false, 0, 50, 0) r
    where r.branch_listing_id = f.ikeja;
   insert into results values ('B5 Ikeja distance about 21 km, rounded', v_dist between 20 and 22 and v_dist = round(v_dist::numeric, 1)::double precision, v_dist::text);
   perform pg_temp.as_postgres();
@@ -196,19 +196,19 @@ begin
   perform pg_temp.as_user(f.pr);
   v := pg_temp.ids(f.hba1c, null, null, null, 'fct', true);
   insert into results values ('D1 state search (case-insensitive) returns Abuja only', v = f.abuja || ':eligible', v);
-  select r.distance_km into v_dist from public.search_diagnostic_services(f.hba1c, null, null, null, 'FCT', null, true, 50, 0) r limit 1;
+  select r.distance_km into v_dist from public.search_diagnostic_services(f.hba1c, null, null, null, 'FCT', null, true, 0, 50, 0) r limit 1;
   insert into results values ('D2 no distance without a point', v_dist is null, coalesce(v_dist::text, 'null'));
   perform pg_temp.as_postgres();
 
   -- E: field visibility
   perform pg_temp.as_user(f.pr);
   select r.last_confirmed_at, r.credentials_on_file into v_conf, v_creds
-    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 50, 0) r limit 1;
+    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 0, 50, 0) r limit 1;
   perform pg_temp.as_postgres();
   insert into results values ('E1 patient gets no confirmation date or credential list', v_conf is null and v_creds is null, null);
   perform pg_temp.as_user(f.clin);
   select r.last_confirmed_at, r.credentials_on_file into v_conf, v_creds
-    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 50, 0) r
+    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 0, 50, 0) r
    where r.branch_listing_id = f.vi;
   perform pg_temp.as_postgres();
   insert into results values ('E2 clinician gets both, and only credentials that count for HbA1c in Lagos (no FBC-only ISO, no Kano licence)',
@@ -216,7 +216,7 @@ begin
   update public.profiles set is_active = false where id = f.clin;
   perform pg_temp.as_user(f.clin);
   select r.last_confirmed_at, r.credentials_on_file into v_conf, v_creds
-    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 50, 0) r
+    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 10, null, null, false, 0, 50, 0) r
    where r.branch_listing_id = f.vi;
   perform pg_temp.as_postgres();
   insert into results values ('E3 a deactivated clinician gets neither', v_conf is null and v_creds is null, null);
@@ -250,7 +250,7 @@ begin
 
   -- H: paging
   select string_agg(r.branch_listing_id::text, ','), max(r.total_count) into v, v_n
-    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 30, null, null, true, 1, 1) r;
+    from public.search_diagnostic_services(f.hba1c, 6.4281, 3.4219, 30, null, null, true, 0, 1, 1) r;
   insert into results values ('H1 offset 1 limit 1 returns Ikeja with total 3', v = f.ikeja::text and v_n = 3, v || ' / ' || v_n);
   perform pg_temp.as_postgres();
 

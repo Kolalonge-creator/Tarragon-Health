@@ -9,7 +9,7 @@ import { loose } from "@/lib/clinician/loose-client";
  * eligibility and who sees which columns. A failed read is reported as a failure, never as "no branches nearby".
  */
 
-type SearchConfig = { radii_km: number[]; default_radius_km: number; page_size: number };
+type SearchConfig = { radii_km: number[]; default_radius_km: number; page_size: number; partner_band_km: number };
 export const diagnosticSearchConfig = (): SearchConfig =>
   getProposedConfig<SearchConfig>("directory.diagnostic_search").value;
 
@@ -49,7 +49,9 @@ export const searchRowSchema = z.object({
   appointment_required: z.boolean(),
   preparation_note: nullableString,
   performed_elsewhere: z.boolean(),
-  result_group: z.enum(["eligible", "unconfirmed"]),
+  // partner: an eligible Tarragon Preferred Partner inside the band (DIR-1). The placement is commercial and the screen says so.
+  result_group: z.enum(["partner", "eligible", "unconfirmed"]),
+  is_partner: z.boolean(),
   last_confirmed_at: nullableString,
   credentials_on_file: z.array(z.string()).nullable(),
   total_count: z.number(),
@@ -80,6 +82,7 @@ export async function searchDiagnosticServices(input: SearchInput): Promise<Sear
     p_state: byPoint ? null : location.state,
     p_lga: byPoint ? null : (location.lga ?? null),
     p_include_unconfirmed: includeUnconfirmed,
+    p_partner_band_km: config.partner_band_km,
     p_limit: config.page_size,
     p_offset: page * config.page_size,
   });

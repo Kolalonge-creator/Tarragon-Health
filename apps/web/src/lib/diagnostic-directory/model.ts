@@ -22,7 +22,7 @@ export const LISTING_STATUSES = ["draft", "listed", "suspended", "deactivated"] 
 
 export const NOTICES = [
   "facility_created", "listing_started", "branch_added", "branch_added_to_directory", "location_verified", "status_set",
-  "service_saved", "credential_recorded", "credential_set", "incident_opened", "incident_closed",
+  "service_saved", "credential_recorded", "credential_set", "incident_opened", "incident_closed", "partner_set", "partner_ended",
   "denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found",
 ] as const;
 export type Notice = (typeof NOTICES)[number];
@@ -107,6 +107,19 @@ export const closeIncidentSchema = z.object({
   listing_id: uuid, incident_id: uuid, decision: text(10, 1000), corrective_action: optText(1000), reinstate: z.enum(["yes", "no"]),
 });
 
+// Preferred Partner (Phase 4, DIR-1). Admin only in the database; a commission needs a legal review reference.
+const reqDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const setPartnerSchema = z.object({
+  listing_id: uuid,
+  branch_listing_id: uuid,
+  starts_on: reqDate,
+  ends_on: optDate,
+  has_commission: z.enum(["yes", "no"]),
+  legal_review_reference: optText(200),
+  note: text(10, 1000),
+}).refine((v) => v.has_commission === "no" || (v.legal_review_reference ?? "").length >= 5, { path: ["legal_review_reference"] });
+export const endPartnerSchema = z.object({ listing_id: uuid, partnership_id: uuid, reason: text(10, 500) });
+
 // ---- what the screens read ----------------------------------------------------------------------------------------------
 const nullableString = z.string().nullable();
 const ref = z.object({ id: uuid, listing_id: uuid.nullable() });
@@ -170,3 +183,10 @@ export type DetailBranch = Detail["branches"][number];
 
 export const investigationOptionsSchema = z.array(z.object({ id: uuid, display: z.string(), investigation_category: z.string() }));
 export type InvestigationOption = z.infer<typeof investigationOptionsSchema>[number];
+
+export const partnershipsSchema = z.array(z.object({
+  id: uuid, branch_listing_id: uuid, starts_on: z.string(), ends_on: nullableString, has_commission: z.boolean(),
+  legal_review_reference: nullableString, note: z.string(), created_at: z.string(), created_by: nullableString,
+  ended_at: nullableString, ended_by: nullableString, end_reason: nullableString, in_force: z.boolean(),
+}));
+export type Partnership = z.infer<typeof partnershipsSchema>[number];

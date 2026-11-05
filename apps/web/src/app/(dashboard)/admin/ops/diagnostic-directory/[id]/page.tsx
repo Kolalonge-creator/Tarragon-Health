@@ -4,14 +4,14 @@ import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { FlashClean } from "@/components/go-live/flash-clean";
-import { loadDiagnosticDetail, loadInvestigationOptions } from "@/lib/diagnostic-directory/load";
+import { loadDiagnosticDetail, loadDiagnosticPartnerships, loadInvestigationOptions } from "@/lib/diagnostic-directory/load";
 import {
   asNotice, AVAILABILITY, BAD_NOTICES, CREDENTIAL_STATUSES, LISTING_STATUSES, PERFORMED, REGULATORS,
-  type Detail, type DetailBranch, type InvestigationOption,
+  type Detail, type DetailBranch, type InvestigationOption, type Partnership,
 } from "@/lib/diagnostic-directory/model";
 import {
-  addBranchAction, branchToDirectoryAction, closeIncidentAction, openIncidentAction, recordCredentialAction, saveServiceAction,
-  setCredentialStatusAction, setStatusAction, verifyLocationAction,
+  addBranchAction, branchToDirectoryAction, closeIncidentAction, endPartnerAction, openIncidentAction, recordCredentialAction,
+  saveServiceAction, setCredentialStatusAction, setPartnerAction, setStatusAction, verifyLocationAction,
 } from "@/lib/diagnostic-directory/actions";
 import { BranchFields, btn, card, input, lagosDate, Notice, reasonLabel, regulatorLabel } from "../ui";
 
@@ -32,7 +32,7 @@ export default async function DiagnosticProviderPage({ params, searchParams }: {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const notice = asNotice((await searchParams).n);
-  const [loaded, options] = await Promise.all([loadDiagnosticDetail(id), loadInvestigationOptions()]);
+  const [loaded, options, partners] = await Promise.all([loadDiagnosticDetail(id), loadInvestigationOptions(), loadDiagnosticPartnerships(id)]);
   if (!loaded.ok && loaded.denied) redirect("/admin");
   if (!loaded.ok && loaded.missing) notFound();
 
@@ -41,10 +41,10 @@ export default async function DiagnosticProviderPage({ params, searchParams }: {
       <Link href="/admin/ops/diagnostic-directory" className="text-sm text-brand-green hover:underline">{t("dxdir.back", locale)}</Link>
       {notice && <FlashClean />}
       {notice && <Notice notice={notice} bad={BAD_NOTICES.has(notice)} />}
-      {!loaded.ok || !options.ok ? (
+      {!loaded.ok || !options.ok || !partners.ok ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("dxdir.load_error", locale)}</p>
       ) : (
-        <Provider d={loaded.data} tests={options.data} />
+        <Provider d={loaded.data} tests={options.data} partners={partners.data} isAdmin={profile.role === "admin"} />
       )}
     </div>
   );
@@ -96,7 +96,7 @@ function IncidentForm({ listingId, level, targetId }: { listingId: string; level
   );
 }
 
-function Provider({ d, tests }: { d: Detail; tests: InvestigationOption[] }) {
+function Provider({ d, tests, partners, isAdmin }: { d: Detail; tests: InvestigationOption[]; partners: Partnership[]; isAdmin: boolean }) {
   const listed = d.branches.filter((b) => b.branch_listing_id !== null);
   const unlisted = d.branches.filter((b) => b.branch_listing_id === null);
   return (
@@ -114,7 +114,7 @@ function Provider({ d, tests }: { d: Detail; tests: InvestigationOption[] }) {
 
       <section aria-labelledby="dx-branches" className="space-y-3">
         <h2 id="dx-branches" className="font-heading text-xl font-semibold text-charcoal-ink">{t("dxdir.branches", locale)}</h2>
-        {listed.map((b) => <Branch key={b.location_id} d={d} b={b} tests={tests} />)}
+        {listed.map((b) => <Branch key={b.location_id} d={d} b={b} tests={tests} partners={partners} isAdmin={isAdmin} />)}
         {unlisted.map((b) => (
           <div key={b.location_id} className={card}>
             <p className="text-sm font-medium text-charcoal-ink">{b.name} <span className="text-xs text-charcoal-ink/60">{b.address}, {b.state} · {t("dxdir.status.not_in_directory", locale)}</span></p>
@@ -146,7 +146,7 @@ function Provider({ d, tests }: { d: Detail; tests: InvestigationOption[] }) {
   );
 }
 
-function Branch({ d, b, tests }: { d: Detail; b: DetailBranch; tests: InvestigationOption[] }) {
+function Branch({ d, b, tests, partners, isAdmin }: { d: Detail; b: DetailBranch; tests: InvestigationOption[]; partners: Partnership[]; isAdmin: boolean }) {
   const branchId = b.branch_listing_id as string;
   const siblings = d.branches.filter((x) => x.branch_listing_id && x.branch_listing_id !== branchId);
   return (
@@ -179,6 +179,7 @@ function Branch({ d, b, tests }: { d: Detail; b: DetailBranch; tests: Investigat
       </details>
       <StatusForm listingId={d.listing_id} level="branch" targetId={branchId} current={b.directory_status} />
       <IncidentForm listingId={d.listing_id} level="branch" targetId={branchId} />
+      <PartnerPanel listingId={d.listing_id} branchId={branchId} rows={partners.filter((x) => x.branch_listing_id === branchId)} isAdmin={isAdmin} />
 
       <div className="space-y-2">
         <h4 className="text-sm font-semibold text-charcoal-ink">{t("dxdir.services", locale)}</h4>
@@ -236,6 +237,63 @@ function Branch({ d, b, tests }: { d: Detail; b: DetailBranch; tests: Investigat
         </details>
       </div>
     </article>
+  );
+}
+
+/**
+ * Tarragon Preferred Partner (DIR-1): a commercial relationship with one branch. It never makes a branch recommendable;
+ * it only moves an already-eligible branch up when it is close to the nearest one. Only an admin may change it, and a
+ * commission arrangement cannot be recorded without a legal review reference (the database refuses both otherwise).
+ */
+function PartnerPanel({ listingId, branchId, rows, isAdmin }: { listingId: string; branchId: string; rows: Partnership[]; isAdmin: boolean }) {
+  const open = rows.find((r) => r.ended_at === null);
+  return (
+    <div className="rounded-lg border border-charcoal-ink/10 p-3 text-sm">
+      <h4 className="font-semibold text-charcoal-ink">{t("dxdir.partner.title", locale)}</h4>
+      <p className="text-xs text-charcoal-ink/70">{t("dxdir.partner.hint", locale)}</p>
+      {open ? (
+        <p className="mt-1 text-xs text-charcoal-ink">
+          {t(open.in_force ? "dxdir.partner.in_force" : "dxdir.partner.not_yet", locale, {
+            from: lagosDate(open.starts_on), to: open.ends_on ? lagosDate(open.ends_on) : t("dxdir.partner.no_end", locale),
+          })}
+          {open.has_commission ? ` ${t("dxdir.partner.commission", locale, { ref: open.legal_review_reference ?? "-" })}` : ""}
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-charcoal-ink/60">{t("dxdir.partner.none", locale)}</p>
+      )}
+      {!isAdmin ? (
+        <p className="mt-1 text-xs text-charcoal-ink/60">{t("dxdir.partner.admin_only", locale)}</p>
+      ) : open ? (
+        <details>
+          <summary className="cursor-pointer text-xs font-semibold text-brand-green">{t("dxdir.partner.end", locale)}</summary>
+          <form action={endPartnerAction} className="mt-2 space-y-2">
+            <Hidden values={{ listing_id: listingId, partnership_id: open.id }} />
+            <input name="reason" required minLength={10} maxLength={500} placeholder={t("dxdir.f.reason", locale)} className={input} />
+            <button type="submit" className={`${btn} border border-charcoal-ink/20 text-charcoal-ink`}>{t("dxdir.partner.end", locale)}</button>
+          </form>
+        </details>
+      ) : (
+        <details>
+          <summary className="cursor-pointer text-xs font-semibold text-brand-green">{t("dxdir.partner.set", locale)}</summary>
+          <form action={setPartnerAction} className="mt-2 grid gap-2 sm:grid-cols-2">
+            <Hidden values={{ listing_id: listingId, branch_listing_id: branchId }} />
+            <label className="block text-xs text-charcoal-ink">{t("dxdir.partner.starts_on", locale)}<input type="date" name="starts_on" required className={input} /></label>
+            <label className="block text-xs text-charcoal-ink">{t("dxdir.partner.ends_on", locale)}<input type="date" name="ends_on" className={input} /></label>
+            <label className="block text-xs text-charcoal-ink">{t("dxdir.partner.has_commission", locale)}
+              <select name="has_commission" required className={input}>
+                <option value="no">{t("dxdir.partner.commission_no", locale)}</option>
+                <option value="yes">{t("dxdir.partner.commission_yes", locale)}</option>
+              </select>
+            </label>
+            <label className="block text-xs text-charcoal-ink">{t("dxdir.partner.legal_review_reference", locale)}
+              <input name="legal_review_reference" maxLength={200} className={input} />
+            </label>
+            <input name="note" required minLength={10} maxLength={1000} placeholder={t("dxdir.partner.note", locale)} className={`${input} sm:col-span-2`} />
+            <button type="submit" className={`${btn} bg-brand-green text-white sm:w-fit`}>{t("dxdir.partner.set", locale)}</button>
+          </form>
+        </details>
+      )}
+    </div>
   );
 }
 

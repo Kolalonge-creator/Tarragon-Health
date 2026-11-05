@@ -38,18 +38,21 @@ describe("directory.diagnostic_cadence mirrors diagnostic_directory_settings v1"
 });
 
 describe("directory.diagnostic_search mirrors search_diagnostic_services", () => {
-  const sql = migrationSql("_diag_p3_search_diagnostic_services.sql");
-  const signature = /function public\.search_diagnostic_services\(([\s\S]*?)\)\s*returns/.exec(sql)?.[1] ?? "";
-  const config = getProposedConfig<{ radii_km: number[]; default_radius_km: number; page_size: number }>("directory.diagnostic_search").value;
+  const sql = migrationSql("_diag_p4_preferred_partner_band.sql");
+  const signature = /create or replace function public\.search_diagnostic_services\(([\s\S]*?)\)\s*returns/.exec(sql)?.[1] ?? "";
+  const config = getProposedConfig<{ radii_km: number[]; default_radius_km: number; page_size: number; partner_band_km: number }>(
+    "directory.diagnostic_search").value;
 
   it("radius and page size have no default written in SQL", () => {
     expect(signature).toMatch(/p_radius_km\s+numeric\s*,/);
     expect(signature).toMatch(/p_limit\s+integer\s*,/);
+    expect(signature).toMatch(/p_partner_band_km\s+numeric\s*,/);
   });
 
   it("every configured value fits inside what the SQL accepts", () => {
     expect(config.radii_km).toContain(config.default_radius_km);
     for (const r of config.radii_km) expect(r > 0 && r <= 1000).toBe(true);
     expect(config.page_size >= 1 && config.page_size <= 50).toBe(true);
+    expect(config.partner_band_km >= 0 && config.partner_band_km <= 50).toBe(true);
   });
 });

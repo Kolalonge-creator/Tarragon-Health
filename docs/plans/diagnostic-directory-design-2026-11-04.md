@@ -227,6 +227,8 @@ The first coverage target is Lagos and Abuja, for roughly the 30 most-requested 
 
 **P3 as built (2026-11-04):** `search_diagnostic_services` returns two groups, `eligible` and `unconfirmed` (group 3 in §10); the partner band is P4. `list_lab_test_locations` was **not** turned into a wrapper: it feeds the paid lab booking picker, which must only offer contracted branches, while the directory deliberately lists uncontracted ones. Radius choices and page size are versioned config (`directory.diagnostic_search`), passed by the caller. `directory_search` keeps its own haversine; the new search uses `private.distance_km`.
 
+**P4 as built (2026-11-05):** `diagnostic_branch_partnerships` holds the commercial relationship per branch (dated, admin-only, ended rather than edited). A commission partnership cannot be recorded without a legal review reference, which is how the §Known limits legal-review requirement is enforced without a new guard. Search adds the `partner` group (eligible partner within d0 + `partner_band_km`, config v2, 3 km) and `is_partner`. An unconfirmed row is never badged, and a state search without a point has no band. Patient copy for the badge and explainer is in `diagnostic-search-copy.ts`, pending CMO and DPO review.
+
 P1 to P3 are additive, and nothing becomes patient-visible until a branch is listed by a person. `directory_enabled` is already ON, so verification is the gate. No new guard is needed, per G-01.
 
 ## 13. Test plan
