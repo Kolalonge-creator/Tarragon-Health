@@ -53,7 +53,9 @@ function PlaceCard({ place }: { place: NonNullable<Extract<PlaceRead, { ok: true
   return (
     <div className="space-y-1.5">
       <p className="text-xs text-charcoal-ink/60">
-        {t("dxsearch.place.title", locale, { name: place.suggested_by ?? "Your doctor", date: formatPatientDate(place.suggested_at) })}
+        {place.suggested_by
+          ? t("dxsearch.place.title", locale, { name: place.suggested_by, date: formatPatientDate(place.suggested_at) })
+          : t("dxsearch.place.title_team", locale, { date: formatPatientDate(place.suggested_at) })}
       </p>
       <p className="font-semibold text-charcoal-ink">{place.provider_name}: {place.branch_name}</p>
       {place.is_partner && (
