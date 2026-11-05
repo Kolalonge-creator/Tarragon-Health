@@ -33,7 +33,7 @@ export function Avatar({
 }) {
   const sizeClass = AVATAR_SIZE_CLASSES[size];
 
-  if (photoUrl) {
+  if (photoUrl && isSafeImageUrl(photoUrl)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- arbitrary storage URL, not a configured next/image remote pattern
       <img
@@ -52,4 +52,18 @@ export function Avatar({
       {initialsFor(fullName) || "•"}
     </span>
   );
+}
+
+/**
+ * An avatar URL comes from a profile row the person can edit themselves, so only https, blob, an image data URL or a
+ * same-site path is ever put in src; anything else falls back to initials (CodeQL js/xss-through-dom).
+ */
+export function isSafeImageUrl(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  if (url.startsWith("blob:") || url.startsWith("data:image/")) return true;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
 }

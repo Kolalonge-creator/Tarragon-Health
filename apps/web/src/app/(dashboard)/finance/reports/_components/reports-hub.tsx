@@ -57,9 +57,9 @@ export function ReportsHub() {
     return !profile.data.legal_name || !profile.data.rc_number || !profile.data.tin;
   }, [profile.data]);
 
-  const govHref = `/finance/reports/print/government-filings?year=${govYear}`;
-  const invHref = `/finance/reports/print/investor-pack?from=${invFrom}&to=${invTo}&currency=${currency}`;
-  const audHref = `/finance/reports/print/audit-pack?from=${audFrom}&to=${audTo}&currency=${currency}`;
+  const govHref = `/finance/reports/print/government-filings?year=${encodeURIComponent(govYear)}`;
+  const invHref = `/finance/reports/print/investor-pack?${new URLSearchParams({ from: invFrom, to: invTo, currency })}`;
+  const audHref = `/finance/reports/print/audit-pack?${new URLSearchParams({ from: audFrom, to: audTo, currency })}`;
 
   return (
     <div className="space-y-6">

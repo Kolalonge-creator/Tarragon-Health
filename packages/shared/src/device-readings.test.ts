@@ -345,3 +345,14 @@ describe("truncated frames are refused rather than fabricated", () => {
     expect(reading.diastolic).toBe(80);
   });
 });
+
+// Security audit 2026-11-05 (CodeQL js/polynomial-redos): trailing padding is trimmed without a backtracking regex,
+// and a long run of "=" finishes quickly.
+describe("base64ToBytes padding", () => {
+  it("decodes padded input and handles a very long run of padding", () => {
+    expect(Array.from(base64ToBytes("AQI="))).toEqual([1, 2]);
+    const started = Date.now();
+    base64ToBytes("A" + "=".repeat(200_000) + "x");
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
