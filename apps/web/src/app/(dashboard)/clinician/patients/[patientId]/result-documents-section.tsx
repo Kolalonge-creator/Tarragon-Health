@@ -7,6 +7,7 @@ import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { MarkResultReviewed } from "./mark-result-reviewed";
 import { MarkActionCompletedButton } from "./mark-action-completed-button";
 import { MarkResultDocumentSupersedes } from "./mark-result-document-supersedes";
+import { LinkReportToOrder } from "./link-report-to-order";
 import { LabReportExtractionPanel, type ExtractionView } from "./lab-report-extraction-panel";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
 import type { Database } from "@tarragon/shared";
@@ -104,6 +105,29 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
     ]),
   );
 
+  // Request to report: each document's intake row (clinical_documents) names the test request it answers. Read on the
+  // clinician's own session; a document whose intake row is not readable simply shows no link control.
+  const { data: intakeRows } = documents.length
+    ? await supabase
+        .from("clinical_documents")
+        .select("id, routed_id, lab_order_id, lab_order_link_source")
+        .eq("routed_table", "lab_result_documents")
+        .in(
+          "routed_id",
+          documents.map((d) => d.id),
+        )
+    : { data: [] };
+  const intakeByDocument = new Map((intakeRows ?? []).map((row) => [row.routed_id, row]));
+  const linkedOrderIds = Array.from(
+    new Set((intakeRows ?? []).map((row) => row.lab_order_id).filter((id): id is string => !!id)),
+  );
+  const { data: linkedOrderRows } = linkedOrderIds.length
+    ? await supabase.from("lab_orders").select("id, order_number, status").in("id", linkedOrderIds)
+    : { data: [] };
+  const orderById = new Map(
+    (linkedOrderRows ?? []).map((o) => [o.id, { id: o.id, orderNumber: o.order_number, status: o.status }]),
+  );
+
   const { data: patient } = await supabase
     .from("profiles")
     .select("sex, full_name, date_of_birth")
@@ -116,7 +140,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
   const patientAgeYears = ageFromDob(patient?.date_of_birth ?? null);
 
   return (
-    <Card>
+    <Card id="result-documents" className="scroll-mt-24">
       <CardHeader>
         <CardTitle>Result documents</CardTitle>
         <CardDescription>
@@ -170,6 +194,14 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   </a>
                 ) : (
                   <p className="text-xs text-red-600">File could not be loaded.</p>
+                )}
+                {intakeByDocument.get(doc.id) && (
+                  <LinkReportToOrder
+                    clinicalDocumentId={intakeByDocument.get(doc.id)!.id}
+                    patientId={patientId}
+                    linkedOrder={orderById.get(intakeByDocument.get(doc.id)!.lab_order_id ?? "") ?? null}
+                    linkSource={intakeByDocument.get(doc.id)!.lab_order_link_source}
+                  />
                 )}
                 <LabReportExtractionPanel
                   documentId={doc.id}

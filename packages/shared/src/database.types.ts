@@ -12445,6 +12445,10 @@ export type Database = {
           kind_confirmed_at: string | null
           kind_confirmed_by: string | null
           kind_source: string | null
+          lab_order_id: string | null
+          lab_order_link_source: string | null
+          lab_order_linked_at: string | null
+          lab_order_linked_by: string | null
           last_error: string | null
           mime_type: string | null
           organisation_id: string
@@ -12487,6 +12491,10 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id: string
@@ -12529,6 +12537,10 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id?: string
@@ -12566,6 +12578,20 @@ export type Database = {
           {
             foreignKeyName: "clinical_documents_kind_confirmed_by_fkey"
             columns: ["kind_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_lab_order_linked_by_fkey"
+            columns: ["lab_order_linked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -53539,6 +53565,23 @@ export type Database = {
           result_received: boolean;
           latest_result_id: string | null;
         }[];
+      };
+      lab_order_link_candidates: {
+        Args: { p_document: string };
+        Returns: {
+          lab_order_id: string;
+          order_number: string | null;
+          label: string;
+          status: Database["public"]["Enums"]["lab_order_status"];
+          ordered_at: string;
+          test_codes: string[];
+          tests_match: boolean;
+          is_linked: boolean;
+        }[];
+      };
+      link_clinical_document_to_lab_order: {
+        Args: { p_document: string; p_lab_order: string | null };
+        Returns: Json;
       };
       lab_partner_submit_correction: {
         Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Database, Tables } from "@tarragon/shared";
+import type { LinkedReport } from "@/lib/lab-orders/report-link";
 
 /**
  * Track E 8.16: the commission columns are not readable by a patient, clinician or partner (column grant, migration
@@ -496,5 +497,50 @@ export function useSetLabOrderTestStatus() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["lab-order-test-status", variables.labOrderId] });
     },
+  });
+}
+
+/**
+ * Reports linked to this patient's test requests (clinical_documents.lab_order_id, migration 20261105164553). Read on the
+ * caller's own session, so RLS decides what shows: a patient sees only the reports they can see (visible_to_patient), staff
+ * what their organisation may read. Superseded reports are left out.
+ */
+export function useLabOrderReports(patientId: string) {
+  return useQuery({
+    queryKey: ["lab-order-reports", patientId],
+    queryFn: async (): Promise<LinkedReport[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_documents")
+        .select("id, lab_order_id, status, created_at")
+        .eq("patient_id", patientId)
+        .eq("is_superseded", false)
+        .not("lab_order_id", "is", null);
+      if (error) throw error;
+      const reports: LinkedReport[] = [];
+      for (const row of data ?? []) {
+        if (row.lab_order_id) {
+          reports.push({ id: row.id, labOrderId: row.lab_order_id, status: row.status, createdAt: row.created_at });
+        }
+      }
+      return reports;
+    },
+    enabled: !!patientId,
+  });
+}
+
+export type LabOrderLinkCandidate = Database["public"]["Functions"]["lab_order_link_candidates"]["Returns"][number];
+
+/** The patient's requests a report could answer, those whose tests overlap the report's flagged (public.lab_order_link_candidates). */
+export function useLabOrderLinkCandidates(documentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["lab-order-link-candidates", documentId],
+    queryFn: async (): Promise<LabOrderLinkCandidate[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("lab_order_link_candidates", { p_document: documentId as string });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!documentId,
   });
 }

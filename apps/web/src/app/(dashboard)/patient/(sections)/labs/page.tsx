@@ -60,10 +60,14 @@ export default async function PatientLabsPage() {
     {
       id: "documents",
       label: "Documents",
+      // "See the report" on a test request (lab-orders-list.tsx) lands here.
+      anchorIds: ["result-documents"],
       content: (
         <>
           <UnsortedDocuments patientId={subjectId} />
-          <ResultDocuments patientId={subjectId} />
+          <div id="result-documents" className="scroll-mt-24">
+            <ResultDocuments patientId={subjectId} />
+          </div>
           <EcgReportDocuments patientId={subjectId} />
           <ImagingReportDocuments patientId={subjectId} />
         </>
