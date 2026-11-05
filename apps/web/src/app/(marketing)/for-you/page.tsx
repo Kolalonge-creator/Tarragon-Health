@@ -250,7 +250,7 @@ export default function ForYouPage() {
               pricing page
             </Link>{" "}
             shows both. If you are looking after a parent instead, see{" "}
-            <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            <Link href={MARKETING_ROUTES.families} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
             for how Tarragon supports you.

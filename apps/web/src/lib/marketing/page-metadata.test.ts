@@ -41,7 +41,6 @@ const METADATA_ELSEWHERE = [
   "learn/[code]/page.tsx",
   "medication/page.tsx",
   "obesity/page.tsx",
-  "parentcare/page.tsx",
   "prevention/page.tsx",
   "resources/[slug]/page.tsx",
 ].sort();

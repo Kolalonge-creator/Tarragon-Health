@@ -23,14 +23,14 @@ const LENSES: { id: Lens; title: string; body: string; href: string; linkLabel: 
     id: "annual",
     title: "Your yearly health check",
     body: "Once a year, the tests your plan says are due. You download a request form, go to any reputable laboratory and pay the laboratory directly, then upload the report for a doctor to review.",
-    href: MARKETING_ROUTES.annualHealthCheck,
+    href: MARKETING_ROUTES.membership,
     linkLabel: "See how the yearly check works",
   },
   {
     id: "periodic",
     title: "Your Screening Journey",
     body: "A fuller, personal calendar of every screening recommended for your age and sex. Each test follows its own recommended interval, some every year and some every two or three years, whether or not it is part of a bundle.",
-    href: MARKETING_ROUTES.screeningJourney,
+    href: MARKETING_ROUTES.howItWorks,
     linkLabel: "See your screening calendar",
   },
   {

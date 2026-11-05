@@ -80,7 +80,7 @@ export default function MentalWellbeingCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             A check-in is a starting point, not the full picture. Once you have signed up,
             Tarragon&apos;s{" "}
-            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            <Link href={MARKETING_ROUTES.resources} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Health Education
             </Link>{" "}
             provides guidance matched to you, and your care team can arrange a fuller screen,
@@ -97,7 +97,7 @@ export default function MentalWellbeingCheckPage() {
           description="With Membership, you can message a doctor on your care team whenever you are ready."
           primaryHref="/signup"
           primaryLabel="Create your free account"
-          secondaryHref={MARKETING_ROUTES.healthEducation}
+          secondaryHref={MARKETING_ROUTES.resources}
           secondaryLabel="Explore Health Education"
         />
       </Section>

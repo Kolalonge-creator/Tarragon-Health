@@ -85,11 +85,10 @@ describe("Care Circle for family abroad", () => {
     }
   });
 
-  // The homepage got its own, shorter families section in the 2026-11-05
-  // redesign (HomeFamilies in home-sections.tsx, with the same consent and
-  // "paying is not access" points); the full explainer stays on /parentcare.
-  it("is on the parent care page, and the home page has its families section", () => {
-    expect(readFileSync(join(__dirname, "..", "parentcare/page.tsx"), "utf8")).toContain("<CareCircleAbroad");
+  // /parentcare was retired 2026-11-05 (now a redirect to /families); the full
+  // explainer lives on /families, and the homepage has its own shorter section.
+  it("is on the families page, and the home page has its families section", () => {
+    expect(readFileSync(join(__dirname, "..", "families/page.tsx"), "utf8")).toContain("<CareCircleAbroad");
     expect(readFileSync(join(__dirname, "..", "page.tsx"), "utf8")).toContain("<HomeFamilies");
   });
 });

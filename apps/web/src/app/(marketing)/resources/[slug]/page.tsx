@@ -7,6 +7,7 @@ import { DEFAULT_ARTICLE_AUTHOR, RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "
 import { loadResourceArticle, loadResourceArticles } from "@/lib/marketing/resources-data";
 import { absoluteUrl, SITE, SITE_URL } from "@/lib/marketing/site";
 import { resourceFaqJsonLd } from "@/lib/marketing/resource-faq";
+import { articleSearchTitle } from "@/lib/marketing/search-title";
 import { ResourceCarousel } from "../../_components/resource-carousel";
 import { ResourceThumbnail, resourceThumbnailIcon } from "../../_components/resource-thumbnail";
 import { ShareArticleButton } from "../../_components/share-article-button";
@@ -30,7 +31,7 @@ export async function generateMetadata({
   if (!article) return {};
   const url = absoluteUrl(`/resources/${article.slug}`);
   return {
-    title: article.title,
+    title: articleSearchTitle(article.title),
     description: article.description,
     alternates: { canonical: url },
     openGraph: {

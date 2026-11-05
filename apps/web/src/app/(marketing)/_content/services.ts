@@ -34,7 +34,7 @@ export const SERVICE_CARDS: ServiceCard[] = [
   },
   {
     key: "parentcare",
-    href: MARKETING_ROUTES.parentcare,
+    href: MARKETING_ROUTES.families,
     title: "Caring for a parent",
     description: "Follow your parent's health, even when you cannot be with them every day.",
     built: true,
@@ -197,7 +197,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Overdue", value: "", pill: { text: "Nothing", tone: "green" } },
     ],
     statsNote: EXAMPLE_DATA_NOTE,
-    cta: { label: "Caring for a parent", href: MARKETING_ROUTES.parentcare },
+    cta: { label: "Caring for a parent", href: MARKETING_ROUTES.families },
   },
   {
     key: "corporate",

@@ -168,7 +168,7 @@ export default function GiftPage() {
         <FaqAccordion items={faq} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Do you help look after a parent day to day?{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+          <Link href={MARKETING_ROUTES.families} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           is the year-round version of this: they keep their own account and name you as next of kin, so you can follow their care and we call you first if something urgent comes up.

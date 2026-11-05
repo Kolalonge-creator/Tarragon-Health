@@ -374,7 +374,7 @@ export function ScreeningJourney() {
               Book this on Tarragon
             </Link>
             <Link
-              href={MARKETING_ROUTES.annualHealthCheck}
+              href={MARKETING_ROUTES.membership}
               className="inline-flex items-center justify-center rounded-full border border-charcoal-ink/15 px-5 py-2.5 text-sm font-medium text-charcoal-ink transition-colors hover:border-charcoal-ink/30"
             >
               See how the yearly check works

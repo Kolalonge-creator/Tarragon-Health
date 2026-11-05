@@ -6,7 +6,7 @@ import {
   isRoleHomePrefixed,
   pathMatchesRole,
 } from "@/lib/auth/roles";
-import { isAppHost } from "@/lib/marketing/host";
+import { isAppHost, wwwRedirectTarget } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
 import { rateLimit } from "@/lib/rate-limit";
@@ -43,6 +43,16 @@ async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
 export async function proxy(request: NextRequest) {
+  // www.* is never canonical: one permanent hop to the bare host, path and
+  // query kept (website Phase 5). First, so nothing else runs twice.
+  const bareHost = wwwRedirectTarget(
+    request.url,
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+  );
+  if (bareHost) {
+    return NextResponse.redirect(bareHost, 308);
+  }
+
   // Staff areas that have moved to apps/console (S01d). Runs before anything
   // else: it needs no session, and a stale bookmark, email link or stored
   // notification row pointing at an old `app.` staff path should land on the
