@@ -97,18 +97,19 @@ say "2/5 Seeding the catalogue, prices, guards and modules"
 sql <<'SQL'
 set session_replication_role = replica;
 begin;
-update public.catalog_items set active = true
- where code in ('membership_annual', 'membership_annual_no_panel', 'membership_upgrade_plus');
+-- T2-01 (2026-11-04): only the Membership is sold. Membership Plus and the upgrade stay inactive, exactly as in production.
+update public.catalog_items set active = true where code = 'membership_annual_no_panel';
+update public.catalog_items set active = false where code in ('membership_annual', 'membership_upgrade_plus');
 
 -- one open price per item: close a differing open row (same now() so the ranges touch without overlapping), add the wanted one
-with wanted(code, kobo) as (values ('membership_annual', 12900000::bigint), ('membership_annual_no_panel', 8400000), ('membership_upgrade_plus', 4500000)),
+with wanted(code, kobo) as (values ('membership_annual_no_panel', 10000000::bigint)),
      closed as (
        update public.prices p set valid_to = now()
          from public.catalog_items ci join wanted w on w.code = ci.code
         where p.catalog_item_id = ci.id and p.valid_to is null and p.amount_kobo <> w.kobo
         returning p.catalog_item_id)
 insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, valid_from, reason)
-select ci.organisation_id, ci.id, w.kobo, '{}'::jsonb, now(), 'local Paystack test-mode stack (scripts/local-paystack-e2e.sh): mirrors the 2026-10-21 prices'
+select ci.organisation_id, ci.id, w.kobo, '{}'::jsonb, now(), 'local Paystack test-mode stack (scripts/local-paystack-e2e.sh): mirrors the 2026-11-04 Membership price (T2-01)'
   from public.catalog_items ci join wanted w on w.code = ci.code
  where not exists (select 1 from public.prices p where p.catalog_item_id = ci.id and p.valid_to is null
                      and tstzrange(p.valid_from, coalesce(p.valid_to, 'infinity')) @> now())
@@ -117,7 +118,7 @@ select ci.organisation_id, ci.id, w.kobo, '{}'::jsonb, now(), 'local Paystack te
 -- a 10% test discount code so the quoting path can be exercised (a fresh reset has none)
 insert into public.discount_codes (organisation_id, code, kind, percent, item_codes, max_total_uses, max_uses_per_person, valid_from, valid_to, status, note, is_test)
 select '00000000-0000-0000-0000-000000000001', 'LOCALTEST10', 'percent', 10,
-       array['membership_annual', 'membership_annual_no_panel', 'membership_upgrade_plus'], 1000, 100, now(), now() + interval '1 year', 'active',
+       array['membership_annual_no_panel'], 1000, 100, now(), now() + interval '1 year', 'active',
        'local Paystack test-mode stack (scripts/local-paystack-e2e.sh)', true
  where not exists (select 1 from public.discount_codes where code = 'LOCALTEST10');
 commit;

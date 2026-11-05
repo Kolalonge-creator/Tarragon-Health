@@ -225,7 +225,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
       {!beneficiary && membership.isMember && membership.endsAt ? (
-        <MutedText>{ladder && tierNow === "plus" ? tr("shop.tier.you_have_plus", { date: lagos(membership.endsAt) }) : ladder && tierNow === "evergreen" ? tr("shop.tier.you_have_evergreen", { date: lagos(membership.endsAt) }) : tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText>
+        <MutedText>{tierNow === "plus" ? tr("shop.tier.you_have_plus", { date: lagos(membership.endsAt) }) : ladder && tierNow === "evergreen" ? tr("shop.tier.you_have_evergreen", { date: lagos(membership.endsAt) }) : tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText>
       ) : null}
       {ladder && !(membership.isMember && !beneficiary) ? <MutedText>{tr("shop.tier.urgent_same")}</MutedText> : null}
       {!beneficiary && membership.nextStartsAt ? <MutedText>{tr("shop.tier.next_year", { date: lagos(membership.nextStartsAt) })}</MutedText> : null}

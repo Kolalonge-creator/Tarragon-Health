@@ -3822,6 +3822,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md (2026-10-21)",
   },
   {
+    key: "marketing.membership_ladder_public",
+    // Version 3, RETIRED (T2-13 cleanup, 2026-11-04): with Membership Plus retired (T2-01) there is no ladder to show, and no page reads
+    // this key any more (pricing, gift and the homepage show the one Membership whatever it says; the scan in
+    // membership-ladder-retired.test.ts keeps it that way). Kept, switched off, only as history. Do not read it from new code.
+    value: { enabled: false, retired: true },
+    owner: "Founder",
+    status: "confirmed",
+    version: 3,
+    effectiveFrom: "2026-11-04",
+    source: "docs/DECISIONS.md T2-01, T2-13 (2026-11-04)",
+  },
+  {
     key: "membership.lapse",
     // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
     // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
