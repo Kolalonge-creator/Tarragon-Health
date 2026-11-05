@@ -234,7 +234,22 @@ select pg_temp.ck('F', 'F3 the older order path cannot name an unlisted pharmacy
 select pg_temp.ck('H', 'H1 no function executable by a signed-in user returns a column named like a commission', '0',
   (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
-      and exists (select 1 from unnest(coalesce(p.proargnames, '{}')) a where a ~* 'commission')));
+      -- Output columns only (OUT, INOUT, RETURNS TABLE): an admin-gated write that takes a commission yes/no as an INPUT returns nothing to
+      -- the caller (admin_dx_set_partner, directory P4). proargmodes is null when every argument is an input.
+      and exists (select 1 from unnest(coalesce(p.proargnames, '{}'), coalesce(p.proargmodes, '{}')) as a(n, m)
+                  where a.n ~* 'commission' and a.m in ('o', 'b', 't'))));
+-- sabotage of H1: a function that RETURNS a commission column to a signed-in user is still caught; one that only takes it as input is not
+create function public.s54_leak_fn() returns table (commission_rate numeric) language sql as $f$ select 1::numeric $f$;
+create function public.s54_input_fn(p_has_commission boolean) returns boolean language sql as $f$ select p_has_commission $f$;
+grant execute on function public.s54_leak_fn() to authenticated;
+grant execute on function public.s54_input_fn(boolean) to authenticated;
+select pg_temp.ck('H', 'H1b SABOTAGE: a function returning a commission column is caught, an input-only one is not (so H1 discriminates)', 's54_leak_fn',
+  (select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname in ('s54_leak_fn', 's54_input_fn') and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      and exists (select 1 from unnest(coalesce(p.proargnames, '{}'), coalesce(p.proargmodes, '{}')) as a(n, m)
+                  where a.n ~* 'commission' and a.m in ('o', 'b', 't'))));
+drop function public.s54_leak_fn();
+drop function public.s54_input_fn(boolean);
 select pg_temp.ck('H', 'H2 the only pharmacy view a signed-in user can read with a commission column is the admin-gated one (lab, panel and screening views are proved by Track E)', 'pharmacy_medications_admin.commission_flat_kobo,pharmacy_medications_admin.commission_rate,pharmacy_medications_admin.commission_rate_type',
   (select string_agg(c.relname || '.' || a.attname, ',' order by c.relname, a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relkind in ('v', 'm') and c.relname ~ '^pharmacy' and a.attname ~* 'commission' and a.attnum > 0 and has_table_privilege('authenticated', c.oid, 'SELECT')));

@@ -4,6 +4,7 @@ import { circleToolsCopy } from "./care-circle-tools-copy";
 import { familyCircleCopy } from "./family-circle-copy";
 import { circleP4Copy } from "./care-circle-p4-copy";
 import { diagnosticDirectoryCopy } from "./diagnostic-directory-copy";
+import { diagnosticSearchCopy } from "./diagnostic-search-copy";
 import { circleP5Copy } from "./care-circle-p5-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
@@ -5032,6 +5033,8 @@ export const en = {
   ...circleP5Copy,
   // 2026-11-04: diagnostic directory admin screens (staff only, see diagnostic-directory-copy.ts)
   ...diagnosticDirectoryCopy,
+  // 2026-11-05: diagnostic directory search, partner badge and explainer (proposed copy, CMO and DPO review pending: see diagnostic-search-copy.ts)
+  ...diagnosticSearchCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

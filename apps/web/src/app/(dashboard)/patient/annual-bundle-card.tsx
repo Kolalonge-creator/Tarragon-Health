@@ -144,7 +144,7 @@ export function AnnualBundleCard({ patientId }: { patientId: string }) {
               </p>
             )}
             {labs.data && labs.data.length > 0 && (
-              <ul className="space-y-2" role="radiogroup" aria-label="Partner labs">
+              <ul className="space-y-2" role="radiogroup" aria-label="Labs you can book through Tarragon">
                 {labs.data.map((l) => (
                   <li key={l.location_id}>
                     <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-charcoal-ink/10 p-3 text-sm">
