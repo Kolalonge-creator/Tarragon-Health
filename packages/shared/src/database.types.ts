@@ -58935,6 +58935,7 @@ export type Database = {
         Args: { p_content_hash: string; p_report_number: string }
         Returns: Json
       }
+      verify_prescription_by_code: { Args: { p_code: string; p_rx_number: string }; Returns: string }
       verify_prescription_public: {
         Args: { p_token: string }
         Returns: {

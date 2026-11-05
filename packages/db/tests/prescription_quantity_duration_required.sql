@@ -10,6 +10,8 @@
 -- ===========================================================================
 
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 -- The prescribing guard (S37 enforcement) is off by default; this proof is about something else, so switch it on inside the rolled-back test.
 insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'prescribing_enabled', 'switched_on', id, 'cmo', 'proof setup' from public.profiles limit 1;
