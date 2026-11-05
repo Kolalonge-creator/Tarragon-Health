@@ -146,6 +146,7 @@ declare
   v_other uuid := gen_random_uuid();
   v_doc uuid := gen_random_uuid();
   v_coord uuid := gen_random_uuid();
+  v_cmo uuid := gen_random_uuid();
   v_staff uuid;
   o_hba1c uuid; o_hba1c2 uuid; o_fbc_new uuid; o_fbc_old uuid; o_lip1 uuid; o_lip2 uuid; o_diab uuid; o_other uuid; o_cancel uuid;
   o_nocodes uuid; o_wh uuid; o_s27 uuid; o_x uuid; o_y uuid; o_c uuid; o_pat uuid;
@@ -177,6 +178,30 @@ begin
                                      indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_doc, v_org, 'Lorl Doctor', 'senior_medical_officer', true, 'MDCN', 'LORL-001', true, v_admin, v_admin, now())
   returning id into v_staff;
+  -- Steps 12, 13 and 16 file an HbA1c through confirm_lab_report_extraction, whose S27 hand-off depends on the yearly-panel ranges
+  -- being signed: signed (production since 2026-10-30), the value is classified and S27 HOLDS it; unsigned (a fresh replay), it is
+  -- "not classified", raise_abnormal_results_from_filed_upload writes a screening_results row against the order, and the
+  -- pre-existing screening_results_maybe_result_order trigger closes a single-test order while S27 still holds the file. Sign the
+  -- ranges here as a test CMO, inside this rolled-back transaction, the way t2_upload_alert_parity.sql does, so the proof runs the
+  -- production path on every database.
+  if not private.lab_panels_signed() then
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_cmo, 'lorl-cmo@example.invalid', 'x', now(), '{}', '{}');
+    update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Lorl CMO', is_test = true where id = v_cmo;
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+        license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+    values (v_org, v_cmo, 'Lorl CMO', 'MDCN', 'LORL-CMO', true, 'active', now(), v_admin,
+        'chief_medical_officer', 'contracted', 2, true, v_admin, true);
+    perform pg_temp.as_user(v_cmo);
+    set local role authenticated;
+    perform public.sign_lab_panels((select id from public.lab_panel_signoffs where is_active));
+    reset role;
+    perform set_config('request.jwt.claims', null, true);
+  end if;
+  if not private.lab_panels_signed() then
+    raise exception 'SETUP: the yearly-panel ranges could not be signed in this database';
+  end if;
+
   -- the doctor opens the record through the audited path, so the tied staff read/write tests admit them
   perform pg_temp.as_user(v_doc);
   set local role authenticated;
