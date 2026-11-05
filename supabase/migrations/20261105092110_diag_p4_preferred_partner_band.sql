@@ -105,6 +105,15 @@ begin
   end if;
   select organisation_id into v_org from public.diagnostic_branch_listings where id = p_branch_listing_id;
   if not found then raise exception 'branch listing not found' using errcode = '22023'; end if;
+  -- An agreement whose end date has passed no longer blocks a renewal: close it on the record first, attributed.
+  for v_id in
+    update public.diagnostic_branch_partnerships
+       set ended_at = now(), ended_by = auth.uid(), end_reason = 'End date passed; closed when the next agreement was recorded'
+     where branch_listing_id = p_branch_listing_id and ended_at is null and ends_on < private.lagos_today()
+    returning id
+  loop
+    perform private.diagnostic_log('diagnostic_branch_partnerships', v_id, 'partner_ended', null, null, 'End date passed');
+  end loop;
   insert into public.diagnostic_branch_partnerships
     (organisation_id, branch_listing_id, starts_on, ends_on, has_commission, legal_review_reference, note, created_by)
   values (v_org, p_branch_listing_id, p_starts_on, p_ends_on, p_has_commission,
@@ -148,10 +157,14 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
              'id', x.id, 'branch_listing_id', x.branch_listing_id, 'starts_on', x.starts_on, 'ends_on', x.ends_on,
-             'has_commission', x.has_commission, 'legal_review_reference', x.legal_review_reference, 'note', x.note,
+             -- Commercial terms are for admins only; a delegated verifier sees that a partnership exists, not its terms.
+             'has_commission', case when private.is_admin() then x.has_commission end,
+             'legal_review_reference', case when private.is_admin() then x.legal_review_reference end,
+             'note', case when private.is_admin() then x.note end,
              'created_at', x.created_at, 'created_by', (select full_name from public.profiles where id = x.created_by),
              'ended_at', x.ended_at, 'ended_by', (select full_name from public.profiles where id = x.ended_by),
-             'end_reason', x.end_reason, 'in_force', private.diagnostic_branch_is_partner(x.branch_listing_id) and x.ended_at is null)
+             'end_reason', x.end_reason, 'in_force', private.diagnostic_branch_is_partner(x.branch_listing_id) and x.ended_at is null,
+             'lapsed', x.ended_at is null and x.ends_on < private.lagos_today())
            order by x.created_at desc)
       from public.diagnostic_branch_partnerships x
       join public.diagnostic_branch_listings b on b.id = x.branch_listing_id

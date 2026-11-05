@@ -20,7 +20,9 @@
 --   D  band 0: no partner is nearer than d0, so partners keep their badge but none is moved up
 --   E  a state search (no distances) has no band
 --   F  a commission partnership without a legal review reference is refused; with one it is accepted
---   G  one open partnership per branch; an ended one stops ranking at once; one starting tomorrow does not rank today
+--   G  one open partnership per branch; an ended one stops ranking at once; one starting tomorrow does not rank today;
+--      an agreement past its end date does not block a renewal
+--   A4 a delegated verifier sees that partnerships exist but not commission terms or notes
 --   H  a band outside 0..50 is refused
 -- Sabotage x2: (a) without the commission constraint the unreviewed commission partnership is accepted (proves F1);
 --              (b) a partner check that ignores ended_at keeps the ended partner in the band (proves G2).
@@ -141,7 +143,7 @@ $$;
 -- Checks
 -- ---------------------------------------------------------------------------
 do $$
-declare v text; v_state text; v_n int;
+declare v text; v_state text; v_n int; v_m int;
 begin
   -- A: who may act
   perform pg_temp.as_user(pg_temp.id('clinician'));
@@ -233,6 +235,30 @@ begin
   insert into results values ('G2 the ended partner is no longer in the band or badged', v like '%near:eligible,p45:eligible,%' and v not like '%p45:partner%', v);
   insert into results values ('G3 a partnership starting tomorrow does not rank today', v not like '%p45:eligible*%', v);
 
+  -- G5: a lapsed agreement does not block a renewal
+  update public.diagnostic_branch_partnerships set starts_on = current_date - 60, ends_on = current_date - 1
+   where id = pg_temp.id('pship_far');
+  perform pg_temp.as_user(pg_temp.id('admin'));
+  begin
+    perform public.admin_dx_set_partner(pg_temp.id('far'), current_date, null, false, null, 'Renewed agreement after the old one ended');
+    v_state := 'accepted';
+  exception when others then v_state := sqlstate;
+  end;
+  perform pg_temp.as_postgres();
+  insert into results values ('G5 a renewal after the end date is accepted and the lapsed row is closed on the record',
+    v_state = 'accepted' and (select ended_at is not null from public.diagnostic_branch_partnerships where id = pg_temp.id('pship_far')), v_state);
+
+  -- A4: a delegated verifier (not admin) sees that partnerships exist but not their commercial terms
+  insert into public.user_permission_grants (profile_id, permission_key) values (pg_temp.id('clinician'), 'directory.diagnostic.verify');
+  perform pg_temp.as_user(pg_temp.id('clinician'));
+  select count(*) filter (where (e ->> 'has_commission') is not null or (e ->> 'legal_review_reference') is not null or (e ->> 'note') is not null),
+         count(*)
+    into v_n, v_m
+    from jsonb_array_elements(public.admin_dx_partnerships(
+           (select provider_listing_id from public.diagnostic_branch_listings where id = pg_temp.id('mid')))) e;
+  perform pg_temp.as_postgres();
+  insert into results values ('A4 a verifier sees partnerships but no commission terms or notes', v_n = 0 and v_m > 0, v_n || ' of ' || v_m);
+
   -- Sabotage b: a partner check that ignores ended_at keeps the ended partner in the band
   create or replace function private.diagnostic_branch_is_partner(p_branch_listing_id uuid)
   returns boolean language sql stable as $s$
@@ -264,7 +290,7 @@ begin
     if not r.ok then v_fail := v_fail + 1; end if;
   end loop;
   if v_fail > 0 then raise exception '% check(s) failed', v_fail; end if;
-  if (select count(*) from results) < 19 then raise exception 'expected at least 19 checks, ran %', (select count(*) from results); end if;
+  if (select count(*) from results) < 21 then raise exception 'expected at least 21 checks, ran %', (select count(*) from results); end if;
 end;
 $$;
 

@@ -204,6 +204,7 @@ export const diagnosticDirectoryCopy = {
   "dxdir.partner.in_force": "Preferred Partner from {from} to {to}.",
   "dxdir.partner.not_yet": "Preferred Partner agreement recorded, starting {from} (until {to}). Not in force yet.",
   "dxdir.partner.no_end": "no end date",
+  "dxdir.partner.lapsed": "Preferred Partner agreement from {from} ended on {to}. It no longer affects search. Record a renewal below if there is one.",
   "dxdir.partner.commission": "Commission arrangement, legal review: {ref}.",
   "dxdir.partner.admin_only": "Only an admin can change partner status.",
   "dxdir.partner.set": "Make Preferred Partner",

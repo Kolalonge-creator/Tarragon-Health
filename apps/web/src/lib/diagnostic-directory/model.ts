@@ -185,8 +185,9 @@ export const investigationOptionsSchema = z.array(z.object({ id: uuid, display: 
 export type InvestigationOption = z.infer<typeof investigationOptionsSchema>[number];
 
 export const partnershipsSchema = z.array(z.object({
-  id: uuid, branch_listing_id: uuid, starts_on: z.string(), ends_on: nullableString, has_commission: z.boolean(),
-  legal_review_reference: nullableString, note: z.string(), created_at: z.string(), created_by: nullableString,
-  ended_at: nullableString, ended_by: nullableString, end_reason: nullableString, in_force: z.boolean(),
+  // has_commission, legal_review_reference and note are null for a non-admin verifier (commercial terms are admin only).
+  id: uuid, branch_listing_id: uuid, starts_on: z.string(), ends_on: nullableString, has_commission: z.boolean().nullable(),
+  legal_review_reference: nullableString, note: nullableString, created_at: z.string(), created_by: nullableString,
+  ended_at: nullableString, ended_by: nullableString, end_reason: nullableString, in_force: z.boolean(), lapsed: z.boolean(),
 }));
 export type Partnership = z.infer<typeof partnershipsSchema>[number];

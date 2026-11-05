@@ -253,7 +253,7 @@ function PartnerPanel({ listingId, branchId, rows, isAdmin }: { listingId: strin
       <p className="text-xs text-charcoal-ink/70">{t("dxdir.partner.hint", locale)}</p>
       {open ? (
         <p className="mt-1 text-xs text-charcoal-ink">
-          {t(open.in_force ? "dxdir.partner.in_force" : "dxdir.partner.not_yet", locale, {
+          {t(open.in_force ? "dxdir.partner.in_force" : open.lapsed ? "dxdir.partner.lapsed" : "dxdir.partner.not_yet", locale, {
             from: lagosDate(open.starts_on), to: open.ends_on ? lagosDate(open.ends_on) : t("dxdir.partner.no_end", locale),
           })}
           {open.has_commission ? ` ${t("dxdir.partner.commission", locale, { ref: open.legal_review_reference ?? "-" })}` : ""}
@@ -263,7 +263,7 @@ function PartnerPanel({ listingId, branchId, rows, isAdmin }: { listingId: strin
       )}
       {!isAdmin ? (
         <p className="mt-1 text-xs text-charcoal-ink/60">{t("dxdir.partner.admin_only", locale)}</p>
-      ) : open ? (
+      ) : open && !open.lapsed ? (
         <details>
           <summary className="cursor-pointer text-xs font-semibold text-brand-green">{t("dxdir.partner.end", locale)}</summary>
           <form action={endPartnerAction} className="mt-2 space-y-2">
