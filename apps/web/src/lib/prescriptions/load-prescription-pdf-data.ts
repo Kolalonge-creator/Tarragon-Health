@@ -128,20 +128,19 @@ async function recordDownloads(
   bundle: boolean,
   via: "patient" | "clinician" = "patient",
 ): Promise<string | null> {
-  // One row per prescription, written by record_audit_event, which takes the actor and organisation from the session (S2):
-  // the client no longer names either.
-  for (const row of rows) {
-    const { error } = await supabase.rpc("record_audit_event", {
-      p_action: "prescription.pdf_downloaded",
-      p_entity_type: "medications",
-      p_entity_id: row.medicationId,
-      p_subject_patient_id: row.patientId,
-      p_result: "success",
-      p_event: { rx_number: row.rxNumber, version: row.version, channel, bundle, via },
-    });
-    if (error) return error.message;
-  }
-  return null;
+  // One row per prescription, all or none, through record_audit_events (S2): the database stamps the actor (the session) and
+  // the organisation (the patient's), and checks each medication belongs to that patient and the caller may read it.
+  const { error } = await supabase.rpc("record_audit_events", {
+    p_action: "prescription.pdf_downloaded",
+    p_rows: rows.map((row) => ({
+      entity_type: "medications",
+      entity_id: row.medicationId,
+      subject_patient_id: row.patientId,
+      result: "success",
+      event: { rx_number: row.rxNumber, version: row.version, channel, bundle, via },
+    })),
+  });
+  return error ? error.message : null;
 }
 
 export async function loadSinglePrescription(

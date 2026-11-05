@@ -52795,6 +52795,10 @@ export type Database = {
         Args: { p_action: string; p_entity_id?: string; p_entity_type?: string; p_event?: Json; p_result?: string; p_subject_patient_id?: string }
         Returns: string
       }
+      record_audit_events: {
+        Args: { p_action: string; p_rows: Json }
+        Returns: number
+      }
       record_device_rhythm_result: {
         Args: { p_device_label: string; p_device_name?: string; p_external_id: string; p_patient_id?: string; p_recorded_at: string; p_source: string; p_symptoms?: string[] }
         Returns: Json

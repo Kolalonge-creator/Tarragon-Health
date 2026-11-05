@@ -67,16 +67,10 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
     return chain;
   };
   const rpc = async (fn?: string, args?: { p_document_ids?: string[] } & Record<string, unknown>) => {
-    if (fn === "record_audit_event") {
-      audit.push({
-        action: args?.p_action,
-        entity_type: args?.p_entity_type,
-        entity_id: args?.p_entity_id,
-        subject_patient_id: args?.p_subject_patient_id,
-        result: args?.p_result,
-        event: args?.p_event,
-      });
-      return { data: fixture.auditError ? null : "audit-row-id", error: fixture.auditError };
+    if (fn === "record_audit_events") {
+      const rows = (args?.p_rows ?? []) as Record<string, unknown>[];
+      if (!fixture.auditError) for (const row of rows) audit.push({ action: args?.p_action, ...row });
+      return { data: fixture.auditError ? null : rows.length, error: fixture.auditError };
     }
     // The folio comes from the document-scoped function, not the directory view (CMO Q17, OQ-358).
     if (fn === "clinician_folio_for_document") {
