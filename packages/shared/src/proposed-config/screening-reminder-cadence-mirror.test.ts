@@ -37,7 +37,8 @@ describe("screening.reminder_cadence mirrors screening_reminder_configs", () => 
     expect(v.steps[v.steps.length - 1].stage).toBe(v.coordinatorFollowUp.afterStage);
     // windows never overlap backwards: each step starts after the one before
     for (let i = 1; i < v.steps.length; i++) expect(v.steps[i].offsetDays).toBeGreaterThan(v.steps[i - 1].offsetDays);
-    expect(v.defer).not.toBeNull();
+    // founder decision 2026-11-05: 3 moves, up to 90 days ahead
+    expect(v.defer).toMatchObject({ maxPerSchedule: 3, maxDaysAhead: 90 });
   });
 
   it("the migration activates v2 and keeps v1 inactive", () => {

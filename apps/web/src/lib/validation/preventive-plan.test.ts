@@ -8,7 +8,7 @@ const ID = "22222222-2222-4222-8222-222222222222";
 describe("defer a screening test (T2-12)", () => {
   it("reads its limits from the versioned setting, and every reason has a label", () => {
     const r = deferRules();
-    expect(r.maxDaysAhead).toBe(180);
+    expect(r.maxDaysAhead).toBe(90);
     for (const c of r.reasonCodes) expect(DEFER_REASON_LABELS[c]).toBeDefined();
   });
 

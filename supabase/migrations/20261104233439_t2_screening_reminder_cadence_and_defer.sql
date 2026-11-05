@@ -99,7 +99,7 @@ insert into public.screening_reminder_configs (version, is_active, effective_fro
   ],
   "coordinatorFollowUp": {"afterStage": "escalated", "taskType": "screening_result_chase", "membersOnly": true},
   "defer": {
-    "maxDaysAhead": 180,
+    "maxDaysAhead": 90,
     "maxPerSchedule": 3,
     "reasonCodes": ["travelling", "unwell", "cost", "waiting_for_doctor_advice", "booked_for_later", "other"],
     "noteRequiredFor": ["other"],

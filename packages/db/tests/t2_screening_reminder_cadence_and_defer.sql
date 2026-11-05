@@ -133,7 +133,8 @@ begin
   if r not like '22023:reason_required%' then raise exception 'FAIL 5: an unknown reason was accepted: %', r; end if;
   r := pg_temp.as_user(v_pat, format('select public.defer_screening(%L, current_date + 30, %L, null)', (pg_temp.s('d20')).id, 'other'));
   if r not like '22023:note_required%' then raise exception 'FAIL 5: other without a note was accepted: %', r; end if;
-  r := pg_temp.as_user(v_pat, format('select public.defer_screening(%L, current_date + 400, %L, null)', (pg_temp.s('d20')).id, 'cost'));
+  -- founder decision 2026-11-05: at most 90 days ahead (91 is refused; the tied clinician below moves one to exactly 90)
+  r := pg_temp.as_user(v_pat, format('select public.defer_screening(%L, current_date + 91, %L, null)', (pg_temp.s('d20')).id, 'cost'));
   if r not like '22023:new_date_out_of_range%' then raise exception 'FAIL 5: a date too far ahead was accepted: %', r; end if;
   r := pg_temp.as_user(v_stranger, format('select public.defer_screening(%L, current_date + 30, %L, null)', (pg_temp.s('d20')).id, 'cost'));
   if r not like '42501:%' then raise exception 'FAIL 5: a stranger moved someone else''s test: %', r; end if;
