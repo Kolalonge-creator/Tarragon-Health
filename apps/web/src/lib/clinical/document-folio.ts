@@ -18,6 +18,7 @@ export type DocumentFolioKind =
   | "verified_document"
   | "prescription"
   | "lab_request"
+  | "imaging_request"
   | "vaccination_certificate";
 
 export interface DocumentFolio {

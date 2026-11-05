@@ -5,6 +5,7 @@ import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/pr
 import { AnnualBundleCard } from "@/app/(dashboard)/patient/annual-bundle-card";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
+import { ImagingRequestsList } from "@/app/(dashboard)/patient/imaging-requests-list";
 import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { ReleasedLabResults } from "@/app/(dashboard)/patient/released-lab-results";
@@ -28,6 +29,7 @@ export default async function PatientLabsPage() {
           {/* Lab notifications link to /patient/labs with no hash, so the first tab must hold everything a notification
               is about: a released result and the status of an order in progress. */}
           <LabOrdersList patientId={subjectId} />
+          <ImagingRequestsList patientId={subjectId} />
           <ReleasedLabResults patientId={subjectId} locale={uiLanguage} />
           <LabTrendCard patientId={subjectId} locale={uiLanguage} />
           <LabResults patientId={subjectId} />

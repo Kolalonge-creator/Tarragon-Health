@@ -53,7 +53,8 @@ export interface LabRequestData {
 const PAGE_PADDING = 32;
 const HEADER_HEIGHT = 74;
 
-const styles = StyleSheet.create({
+/** Shared with the imaging request (lib/imaging-orders/imaging-request-document.tsx) so both read as the same stationery. */
+export const styles = StyleSheet.create({
   page: {
     fontSize: 10,
     color: PDF_CLINICAL_NAVY,
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
   pageNumber: { fontSize: 7.5, color: "#7a8792" },
 });
 
-function formatDate(value: string | null): string {
+export function formatDate(value: string | null): string {
   if (!value) return "Not recorded";
   return new Date(value).toLocaleDateString("en-GB", {
     day: "numeric",
