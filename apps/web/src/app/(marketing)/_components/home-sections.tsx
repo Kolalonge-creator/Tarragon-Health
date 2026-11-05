@@ -15,6 +15,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Section } from "./section";
+import { PhoneMockup } from "./phone-mockup";
+import { MARKETING_MEDIA } from "../_content/media";
 import { ExamplePhone } from "./home-example-screens";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { PARTNER_LOGOS, SYNLAB_PARTNER_LINE } from "../_content/partners";
@@ -47,7 +49,7 @@ function Heading({ id, children, invert = false }: { id: string; children: React
   return (
     <h2
       id={id}
-      className={`text-balance font-heading text-3xl font-medium leading-tight sm:text-4xl ${invert ? "text-white" : "text-charcoal-ink"}`}
+      className={`text-balance font-heading text-3xl font-semibold leading-tight sm:text-4xl ${invert ? "text-white" : "text-charcoal-ink"}`}
     >
       {children}
     </h2>
@@ -84,14 +86,6 @@ export function HomeAudienceRouter() {
           </li>
         ))}
       </ul>
-      {/* Kept from the old entry chips: where we work belongs near the top of
-          the page, not only in the footer. */}
-      <p className="mx-auto mt-4 max-w-6xl text-[15px] text-mk-muted">
-        Tarragon works anywhere in Nigeria.{" "}
-        <Link href={MARKETING_ROUTES.coverage} className={`inline-block rounded-sm py-1 font-semibold text-brand-green hover:underline ${FOCUS}`}>
-          See where we work
-        </Link>
-      </p>
     </nav>
   );
 }
@@ -106,25 +100,36 @@ const PROBLEMS = [
 ] as const;
 
 export function HomeProblem() {
+  const photo = MARKETING_MEDIA.homepage.problem;
   return (
     <Section labelledBy="home-problem-title">
-      <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
-        <div className="grid content-start gap-4">
-          <Eyebrow>Why Tarragon</Eyebrow>
-          <Heading id="home-problem-title">Your health information should work together.</Heading>
-          <p className="text-lg leading-relaxed text-charcoal-ink/80">
-            Many people manage their health in pieces: a test here, a clinic visit there, and nobody looking at the
-            whole picture over time.
-          </p>
+      <div className="grid items-center gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
+        <Image
+          src={photo.imageSrc ?? ""}
+          alt={photo.imageAlt ?? ""}
+          width={1400}
+          height={1750}
+          sizes="(min-width: 1024px) 460px, 100vw"
+          className="hidden aspect-[4/3] w-full rounded-[28px] object-cover sm:block lg:aspect-[4/5]"
+        />
+        <div className="grid content-start gap-6">
+          <div className="grid gap-4">
+            <Eyebrow>Why Tarragon</Eyebrow>
+            <Heading id="home-problem-title">Your health information should work together.</Heading>
+            <p className="text-lg leading-relaxed text-charcoal-ink/80">
+              Many people manage their health in pieces: a test here, a clinic visit there, and nobody looking at the
+              whole picture over time.
+            </p>
+          </div>
+          <ul className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+            {PROBLEMS.map((p) => (
+              <li key={p.title} className="grid gap-1 border-t border-mk-border pt-4">
+                <span className="font-semibold text-charcoal-ink">{p.title}</span>
+                <span className="text-mk-muted">{p.body}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-          {PROBLEMS.map((p) => (
-            <li key={p.title} className="grid gap-1 border-t border-mk-border pt-4">
-              <span className="font-semibold text-charcoal-ink">{p.title}</span>
-              <span className="text-mk-muted">{p.body}</span>
-            </li>
-          ))}
-        </ul>
       </div>
     </Section>
   );
@@ -171,16 +176,16 @@ export function HomeJourney() {
 
 export function HomeShowcase() {
   const shots = [
-    { screen: "plan" as const, caption: "A plan made for you" },
     { screen: "trend" as const, caption: "Trends a doctor watches with you" },
     { screen: "review" as const, caption: "Plain-English explanations" },
   ];
+  const capture = MARKETING_MEDIA.homepage.solution;
   return (
     <Section labelledBy="home-showcase-title">
       <div className="mb-10 grid max-w-3xl gap-3">
         <Eyebrow>Inside the app</Eyebrow>
         <Heading id="home-showcase-title">See your health over time, not one result at a time.</Heading>
-        <p className="text-lg text-charcoal-ink/80">These are example screens with made-up details. The app shows your own record.</p>
+        <p className="text-lg text-charcoal-ink/80">These screens show a demo patient with made-up details. The app shows your own record.</p>
       </div>
       {/* On a phone the three screens sit side by side in a swipeable row
           (scroll-snap, no script) instead of stacking into three phone
@@ -191,6 +196,11 @@ export function HomeShowcase() {
         aria-label="Example app screens"
         className={`-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 md:mx-0 md:grid md:grid-cols-3 md:items-end md:gap-6 md:overflow-visible md:px-0 md:pb-0 ${FOCUS}`}
       >
+        {/* A real capture of the app (synthetic demo patient) first, then two drawn examples. */}
+        <figure className="grid w-[72%] shrink-0 snap-center justify-items-center gap-3 md:w-auto">
+          <PhoneMockup src={capture.imageSrc ?? ""} alt={capture.imageAlt ?? ""} width={1206} height={1880} frameWidth={250} />
+          <figcaption className="text-center font-medium text-charcoal-ink">Your health, area by area</figcaption>
+        </figure>
         {shots.map(({ screen, caption }) => (
           <figure key={screen} className="grid w-[72%] shrink-0 snap-center justify-items-center gap-3 md:w-auto">
             <ExamplePhone screen={screen} className="w-full max-w-[250px]" />
@@ -412,7 +422,7 @@ export function HomeEmployers({ seatPrice }: { seatPrice: string }) {
         </div>
         <div className="grid gap-3 rounded-3xl border border-white/20 bg-white/[0.07] p-7" data-testid="home-employer-seat-line">
           <p className="text-sm font-semibold uppercase tracking-wider text-sprout-gold">Employer Membership</p>
-          <p className="font-heading text-4xl text-white">
+          <p className="font-heading font-bold text-4xl text-white">
             {seatPrice} <span className="font-sans text-base text-white/80">per person per year</span>
           </p>
           <p className="text-white/85">Visits to your workplace for screening are a separate service, scoped and priced for you.</p>

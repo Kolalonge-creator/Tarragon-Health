@@ -85,7 +85,7 @@ export default async function MembershipPage() {
         primary={{ href: "/signup", label: `Join ${name}` }}
         secondary={{ href: "#compare", label: "Compare plans" }}
       >
-        <p className="font-heading text-3xl text-charcoal-ink" data-testid="membership-price">
+        <p className="font-heading font-bold text-3xl text-charcoal-ink" data-testid="membership-price">
           {`₦${price}`} <span className="font-sans text-base text-mk-muted">a year</span>
         </p>
       </PageHero>

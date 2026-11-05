@@ -50,6 +50,7 @@ export default function CorporatePage() {
   return (
     <>
       <PageHero
+        image={{ src: "/marketing/photos/hero/corporate.jpg", alt: "Colleagues talking together during a break at work", width: 1400, height: 1750 }}
         eyebrow="For employers and organisations"
         title="Build a healthier, better supported team."
         description={`Give your people the same full ${name} anyone can buy: a preventive plan, laboratory results reviewed by a doctor, a monthly online doctor meeting and follow-up all year. You see group figures, never anyone's health.`}

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 /**
@@ -13,6 +14,7 @@ export function PageHero({
   primary,
   secondary,
   children,
+  image,
 }: {
   eyebrow: string;
   title: string;
@@ -21,14 +23,17 @@ export function PageHero({
   secondary?: { href: string; label: string };
   /** Optional extra content under the actions, e.g. a short trust line. */
   children?: React.ReactNode;
+  /** Optional photograph beside the text (the existing Tarragon photo library). Never a real patient, doctor or facility. */
+  image?: { src: string; alt: string; width: number; height: number };
 }) {
   const focus =
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-mk-canvas";
   return (
     <section className="px-4 pb-12 pt-12 sm:px-6 sm:pb-16 sm:pt-20">
-      <div className="mx-auto grid max-w-6xl gap-5">
+      <div className={`mx-auto grid max-w-6xl items-center gap-10 ${image ? "lg:grid-cols-[1.1fr_0.9fr] lg:gap-14" : ""}`}>
+      <div className="grid min-w-0 gap-5">
         <p className="text-sm font-semibold uppercase tracking-wider text-brand-green">{eyebrow}</p>
-        <h1 className="max-w-4xl text-balance font-heading text-[2.3rem] font-medium leading-[1.1] text-charcoal-ink sm:text-5xl">
+        <h1 className="max-w-4xl text-balance font-heading text-[2.3rem] font-bold leading-[1.1] text-charcoal-ink sm:text-5xl">
           {title}
         </h1>
         <p className="max-w-[62ch] text-lg leading-relaxed text-charcoal-ink/80">{description}</p>
@@ -54,6 +59,18 @@ export function PageHero({
         ) : null}
         {children}
       </div>
+      {image ? (
+        <Image
+          src={image.src}
+          alt={image.alt}
+          width={image.width}
+          height={image.height}
+          priority
+          sizes="(min-width: 1024px) 480px, 100vw"
+          className="aspect-[4/3] w-full rounded-[28px] object-cover lg:aspect-[4/5]"
+        />
+      ) : null}
+      </div>
     </section>
   );
 }
@@ -75,7 +92,7 @@ export function BlockHeading({
   return (
     <div className="mb-10 grid max-w-3xl gap-3">
       <p className={`text-sm font-semibold uppercase tracking-wider ${invert ? "text-sprout-gold" : "text-brand-green"}`}>{eyebrow}</p>
-      <h2 id={id} className={`text-balance font-heading text-3xl font-medium leading-tight sm:text-4xl ${invert ? "text-white" : "text-charcoal-ink"}`}>
+      <h2 id={id} className={`text-balance font-heading text-3xl font-semibold leading-tight sm:text-4xl ${invert ? "text-white" : "text-charcoal-ink"}`}>
         {title}
       </h2>
       {description ? <p className={`text-lg ${invert ? "text-white/85" : "text-charcoal-ink/80"}`}>{description}</p> : null}
