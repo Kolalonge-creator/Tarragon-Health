@@ -95,9 +95,9 @@ describe("the output guard", () => {
   });
 
   it("allows a price only if it appears in the approved knowledge, in any thousands format", () => {
-    expect(guardReply("It is 50,000 naira.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(true);
-    expect(guardReply("It is ₦50000 a year.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(true);
-    expect(guardReply("It is ₦50,001 a year.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(false);
+    expect(guardReply("It is 100,000 naira.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(true);
+    expect(guardReply("It is ₦100000 a year.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(true);
+    expect(guardReply("It is ₦100,001 a year.", { knowledge: EVAL_KNOWLEDGE }).ok).toBe(false);
   });
 
   it("blocks a claim to heal or the word the brand voice bans (built from parts so this file is not itself copy-lint noise)", () => {

@@ -5,13 +5,37 @@
   "refund_window_days": 21,
   "currency": "naira",
   "payment_provider": "Paystack",
-  "plan_names": ["Free", "Membership", "Membership Plus"],
+  "plan_names": [
+    "Free",
+    "Membership"
+  ],
+  "membership_price_naira": 100000,
+  "employer_seat_price_naira": 90000,
+  "retired_plan_names": [
+    "Membership Plus"
+  ],
+  "_history": "Before decisions T2-01 and T2-05, two paid plans were sold: Membership and Membership Plus. Plus is retired and no longer sold; a Plus year bought earlier runs to its end date and then renews as the Membership (T2-13). An employer seat is the Membership at the employer price.",
   "renews_automatically": false,
   "removed": {
-    "channels": ["WhatsApp"],
-    "money": ["Health Wallet", "Platform Credit"],
-    "providers": ["Stripe"],
-    "stale_phrases_in_cover_memo_and_runbook": ["WhatsApp is notification-only", "Patients pay by subscription", "Paystack's/Stripe's"]
+    "channels": [
+      "WhatsApp"
+    ],
+    "money": [
+      "Health Wallet",
+      "Platform Credit"
+    ],
+    "providers": [
+      "Stripe"
+    ],
+    "stale_phrases_in_cover_memo_and_runbook": [
+      "WhatsApp is notification-only",
+      "Patients pay by subscription",
+      "Paystack's/Stripe's"
+    ]
   },
-  "founder_inputs_outstanding": ["DPO name", "DPO email", "NDPC registration reference"]
+  "founder_inputs_outstanding": [
+    "DPO name",
+    "DPO email",
+    "NDPC registration reference"
+  ]
 }

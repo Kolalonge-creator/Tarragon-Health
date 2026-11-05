@@ -6,7 +6,7 @@ import type { ReceptionistAnswer, ReceptionistInput } from "./types";
 import { EVAL_KNOWLEDGE } from "./eval/cases";
 
 const CONFIG: ChatConfig = { assistantEnabled: true, prelaunch: true, launchDate: "2026-12-31", modelFast: "claude-haiku-4-5", modelStrong: "claude-sonnet-4-5", dailySpendCapUsd: 5 };
-const FACTS = { membershipPrice: "50,000", paidProductName: "Membership Plus", refundDays: "14", launchDate: "31 December 2026" };
+const FACTS = { membershipPrice: "100,000", paidProductName: "Membership", refundDays: "21", launchDate: "31 December 2026" };
 
 const modelAnswer = (o: Partial<ReceptionistAnswer> = {}): ReceptionistAnswer => ({
   reply: "The app is free to start. You only pay for a doctor's time or a paid service you choose.", intent: "answer", askContact: false,
