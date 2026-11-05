@@ -32,7 +32,7 @@ jest.mock("@/lib/go-live/load", () => ({
 }));
 jest.mock("@/lib/go-live/actions", () => ({ attestConditionAction: async () => undefined, signoffConfigAction: async () => undefined, switchGuardAction: async () => undefined }));
 
-import { GoLivePage } from "./go-live-page";
+import { ConfigCard, GoLivePage, prettyValue } from "./go-live-page";
 
 const html = async (viewer: "admin" | "cmo" | "ops", locale: "en" = "en", extra: Record<string, unknown> = {}) =>
   renderToStaticMarkup(await GoLivePage({ viewer, locale, ...extra }));
@@ -133,5 +133,23 @@ describe("GoLivePage", () => {
     guards = [guard({})];
     const out = await html("ops");
     expect(out).not.toContain("proposed-values");
+  });
+});
+
+// CDE-10: the CMO could not read the narrative rules' paging tiers on the hub because the card cut the value at 400 characters.
+describe("ConfigCard: a long value is never cut off where it is confirmed", () => {
+  const long = JSON.stringify({ terms: Array.from({ length: 80 }, (_, i) => `term-${i}`), paging_tier_by_rule: { ecg: "emergency" } });
+  const row = { key: "documents.narrative_urgent_rules", version: 1, owner: "CMO" as const, valueText: long, valueHash: "h", source: "s", registryStatus: "proposed" as const, status: "awaiting" as const, signoff: null };
+
+  it("shows every entry, open by default for the owner who must confirm it", () => {
+    const out = renderToStaticMarkup(<ConfigCard r={row} viewer="cmo" locale="en" back="hub" />);
+    expect(out).toContain("term-79");
+    expect(out).toContain("paging_tier_by_rule");
+    expect(out).toMatch(/<details[^>]*open=""/);
+  });
+
+  it("lays JSON out one entry per line, and leaves other text as stored", () => {
+    expect(prettyValue('{"a":[1,2]}')).toBe('{\n  "a": [\n    1,\n    2\n  ]\n}');
+    expect(prettyValue("not json")).toBe("not json");
   });
 });

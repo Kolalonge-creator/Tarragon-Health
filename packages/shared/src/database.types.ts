@@ -54842,6 +54842,14 @@ export type Database = {
         Returns: undefined
       }
       can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
+      can_manage_payer_seats: {
+        Args: { p_insurer_id: string }
+        Returns: boolean
+      }
+      can_manage_provider_org_seats: {
+        Args: { p_organisation_id: string }
+        Returns: boolean
+      }
       cancel_appointment: {
         Args: { p_appointment_id: string; p_reason?: string }
         Returns: {

@@ -351,6 +351,18 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | nul
 }
 
 /** One proposed value with its confirm control. Also used by the sign-off hub (back="hub" returns the Chief Medical Officer there). */
+/** How much of a value shows before "show the full value". */
+const VALUE_PREVIEW_CHARS = 400;
+
+/** The value laid out one entry per line when it is JSON, so a reviewer can read every term; otherwise as stored. */
+export function prettyValue(valueText: string): string {
+  try {
+    return JSON.stringify(JSON.parse(valueText), null, 2);
+  } catch {
+    return valueText;
+  }
+}
+
 export function ConfigCard({ r, viewer, locale, back }: { r: ConfigRow; viewer: Viewer; locale: Locale; back?: "hub" }) {
   const mine = viewerOwns(r.owner, viewer);
   const done = r.status === "signed" || r.status === "confirmed_in_registry";
@@ -372,9 +384,21 @@ export function ConfigCard({ r, viewer, locale, back }: { r: ConfigRow; viewer: 
           {t("golive.config.col.owner", locale)}: {r.owner} · {t("golive.config.col.version", locale)} {r.version}
         </span>
       </div>
-      <p className="mt-1 break-words font-mono text-xs text-charcoal-ink/70">
-        {t("golive.config.col.value", locale)}: {r.valueText.length > 400 ? `${r.valueText.slice(0, 400)}...` : r.valueText}
-      </p>
+      {r.valueText.length > VALUE_PREVIEW_CHARS ? (
+        // A long value is never cut off where it is confirmed: the owner opens it in full (open already when it waits for them).
+        <details className="mt-1" open={!done && mine}>
+          <summary className="cursor-pointer break-words font-mono text-xs text-charcoal-ink/70">
+            {t("golive.config.col.value", locale)}: {r.valueText.slice(0, VALUE_PREVIEW_CHARS)}... (show the full value)
+          </summary>
+          <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-charcoal-ink/5 p-3 font-mono text-xs text-charcoal-ink">
+            {prettyValue(r.valueText)}
+          </pre>
+        </details>
+      ) : (
+        <p className="mt-1 break-words font-mono text-xs text-charcoal-ink/70">
+          {t("golive.config.col.value", locale)}: {r.valueText}
+        </p>
+      )}
       <p className={`mt-2 text-sm font-medium ${done ? "text-emerald-800" : r.status === "awaiting" ? "text-charcoal-ink" : "text-amber-900"}`}>{statusText}</p>
       {r.signoff?.note && <p className="text-xs text-charcoal-ink/70">{r.signoff.note}</p>}
       {!done &&

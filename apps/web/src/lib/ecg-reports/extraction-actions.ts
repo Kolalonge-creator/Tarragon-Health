@@ -1,5 +1,6 @@
 "use server";
 
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
@@ -269,18 +270,23 @@ export async function runEcgReportExtraction(
   // Mirrors lib/lab-reports/extraction-actions.ts's own write exactly. Reads
   // only the machine's own printed rhythm statement (ai-summary.ts) — never
   // touches clinician_alerts, never a clinical judgement of the tracing.
-  try {
-    await service
-      .from("ecg_report_documents")
-      .update({
+  // CDE-10: this write also runs the narrative urgent-finding rules (a database trigger). supabase-js RETURNS a failure rather than
+  // throwing, so the error is read and reported: an urgent finding must never be lost without a trace.
+  const summaryWriteFailed = await runBestEffort(
+    async () => {
+      const { error } = await service
+        .from("ecg_report_documents")
+        .update({
         ai_summary_status: deriveEcgAiSummaryStatus(parameters),
         ai_rhythm_statement: extractMachineRhythmStatement(parameters),
         ai_summary_generated_at: new Date().toISOString(),
       })
-      .eq("id", documentId);
-  } catch (error) {
-    console.error("ecg-reports: could not persist AI summary status", error);
-  }
+        .eq("id", documentId);
+      if (error) throw new Error(`ecg_report_documents AI summary write failed: ${error.message}`);
+    },
+    { documentId, step: "ai_summary_write" },
+  );
+  if (summaryWriteFailed) console.error("ecg-reports: could not persist AI summary status", documentId);
 
   // 40.11. Counts and provenance only -- the measured parameters stay in
   // ecg_report_extractions under the patient's own RLS.
