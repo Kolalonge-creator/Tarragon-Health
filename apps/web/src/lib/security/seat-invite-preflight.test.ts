@@ -64,6 +64,26 @@ describe.each(cases)("$name: authority is checked before a login is created", ({
     seatInsert.mockReset();
     createUser.mockReset();
     deleteUser.mockReset();
+    deleteUser.mockResolvedValue({ data: null, error: null });
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("logs, rather than swallows, a failed rollback delete", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    createUser.mockResolvedValue({ data: { user: { id: "new-user" } }, error: null });
+    seatInsert.mockResolvedValue({ error: { message: "refused" } });
+    deleteUser.mockResolvedValue({ data: null, error: { message: "gotrue down" } });
+    const result = await run();
+    expect(result).toEqual({ error: "refused" });
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining("could not delete the login"),
+      "new-user",
+      { message: "gotrue down" },
+    );
   });
 
   it("refuses an unauthorised caller without creating any login", async () => {

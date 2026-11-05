@@ -41,6 +41,7 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
   const { data: allowed, error: allowedError } = await supabase.rpc("can_manage_provider_org_seats", {
     p_organisation_id: input.organisationId,
   });
+  if (allowedError) console.error(`inviteProviderOrgStaffAction: pre-flight check failed`, allowedError);
   if (allowedError || allowed !== true) return { error: "You don't have access to do that" };
 
   const svc = createServiceRoleClient();
@@ -64,7 +65,11 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
   });
   if (seatError) {
     // Never leave a confirmed provider_org_staff login behind when the seat is refused.
-    await svc.auth.admin.deleteUser(created.user.id);
+    const { error: deleteError } = await svc.auth.admin.deleteUser(created.user.id);
+    if (deleteError) {
+      // Loud on purpose: a confirmed privileged-role login now exists with no seat.
+      console.error(`inviteProviderOrgStaffAction: could not delete the login after the seat was refused`, created.user.id, deleteError);
+    }
     return { error: seatError.message };
   }
 

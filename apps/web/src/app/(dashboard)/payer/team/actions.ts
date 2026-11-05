@@ -49,6 +49,7 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
   const { data: allowed, error: allowedError } = await supabase.rpc("can_manage_payer_seats", {
     p_insurer_id: input.insurerId,
   });
+  if (allowedError) console.error(`invitePayerAdminAction: pre-flight check failed`, allowedError);
   if (allowedError || allowed !== true) return { error: "You don't have access to do that" };
 
   const svc = createServiceRoleClient();
@@ -77,7 +78,11 @@ export async function invitePayerAdminAction(_prev: ActionState, formData: FormD
     invited_by: actor.id,
   });
   if (seatError) {
-    await svc.auth.admin.deleteUser(created.user.id);
+    const { error: deleteError } = await svc.auth.admin.deleteUser(created.user.id);
+    if (deleteError) {
+      // Loud on purpose: a confirmed privileged-role login now exists with no seat.
+      console.error(`invitePayerAdminAction: could not delete the login after the seat was refused`, created.user.id, deleteError);
+    }
     return { error: seatError.message };
   }
 
