@@ -739,13 +739,12 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       recentMessages: screenSensitiveResultQuestion(state.incomingMessage) ? [] : state.priorMessages,
       aiAction: "Classified as worth a clinician's review, not urgent",
     });
-    await deps.supabase.from("audit_log").insert({
-      organisation_id: state.organisationId,
-      actor_id: state.profileId,
-      action: "ai_coach.clinician_review_flagged",
-      entity_type: "ai_conversations",
-      entity_id: state.conversationId,
-      event: { message: trigger, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
+    // Written through record_audit_event, which stamps the patient's own id and organisation from the session (S2).
+    await deps.supabase.rpc("record_audit_event", {
+      p_action: "ai_coach.clinician_review_flagged",
+      p_entity_type: "ai_conversations",
+      p_entity_id: state.conversationId,
+      p_event: { message: trigger, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
     });
     return { clinicianAlertId };
   }

@@ -48,7 +48,8 @@ interface Fixture {
 
 /** A chainable stand-in for the query builder: every filter returns itself, awaiting or maybeSingle() resolves the fixture. */
 function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { message: string } | null }) {
-  const audit: unknown[][] = [];
+  // One entry per record_audit_event call, in the shape the database writes (actor and organisation are stamped there).
+  const audit: Record<string, unknown>[] = [];
   const from = (table: string) => {
     const chain: Record<string, unknown> = {};
     const resolve = () => {
@@ -63,15 +64,20 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
       return { data: null, error: null };
     };
     chain.then = (onFulfilled: (value: unknown) => unknown) => Promise.resolve(resolve()).then(onFulfilled);
-    if (table === "audit_log") {
-      chain.insert = async (rows: unknown[]) => {
-        audit.push(rows);
-        return { error: fixture.auditError };
-      };
-    }
     return chain;
   };
-  const rpc = async (fn?: string, args?: { p_document_ids?: string[] }) => {
+  const rpc = async (fn?: string, args?: { p_document_ids?: string[] } & Record<string, unknown>) => {
+    if (fn === "record_audit_event") {
+      audit.push({
+        action: args?.p_action,
+        entity_type: args?.p_entity_type,
+        entity_id: args?.p_entity_id,
+        subject_patient_id: args?.p_subject_patient_id,
+        result: args?.p_result,
+        event: args?.p_event,
+      });
+      return { data: fixture.auditError ? null : "audit-row-id", error: fixture.auditError };
+    }
     // The folio comes from the document-scoped function, not the directory view (CMO Q17, OQ-358).
     if (fn === "clinician_folio_for_document") {
       const staff = fixture.staff as { credential_number?: string | null; credential_type?: string | null; full_name?: string } | null;
@@ -170,21 +176,20 @@ describe("loadLetterhead", () => {
 });
 
 describe("loadSinglePrescription", () => {
-  it("issues and writes one audit row naming the caller, the patient and the Rx number", async () => {
+  it("issues and writes one audit row through record_audit_event naming the patient and the Rx number", async () => {
     const { client, audit } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
     const result = await loadSinglePrescription(client, ACTOR, "11111111-1111-4111-8111-111111111111", "web");
     expect(result.status).toBe("ok");
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toEqual([
+    expect(audit[0]).toEqual(
       expect.objectContaining({
-        actor_id: ACTOR,
         action: "prescription.pdf_downloaded",
         entity_type: "medications",
         subject_patient_id: PATIENT,
         result: "success",
         event: { rx_number: "TRG-RX-2026-000366", version: 1, channel: "web", bundle: false, via: "patient" },
       }),
-    ]);
+    );
   });
 
   it("returns not found when the caller cannot read the row (RLS filters it), with no audit row", async () => {
@@ -235,8 +240,8 @@ describe("loadPrescriptionBundle", () => {
     });
     const result = await loadPrescriptionBundle(client, ACTOR, PATIENT, "web");
     expect(result.status === "ok" && result.prescriptions.map((p) => p.drugName)).toEqual(["Amlodipine", "Metformin"]);
-    expect(audit[0]).toHaveLength(2);
-    expect(audit[0]?.[0]).toMatchObject({ event: { bundle: true } });
+    expect(audit).toHaveLength(2);
+    expect(audit[0]).toMatchObject({ event: { bundle: true } });
   });
 
   it("skips and reports a controlled medicine rather than printing it", async () => {
@@ -274,7 +279,7 @@ describe("loadPrescriptionForClinician", () => {
     const { client, audit } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, ok([med()]));
     const result = await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED);
     expect(result.status).toBe("ok");
-    expect(audit[0]?.[0]).toMatchObject({ actor_id: ACTOR, action: "prescription.pdf_downloaded", event: { via: "clinician", bundle: false } });
+    expect(audit[0]).toMatchObject({ action: "prescription.pdf_downloaded", event: { via: "clinician", bundle: false } });
   });
 
   it("answers not found when the tie gate denies the read, and writes no download audit", async () => {
