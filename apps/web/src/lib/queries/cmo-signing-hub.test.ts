@@ -107,6 +107,7 @@ const readPendingClinicalProposedValues = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-clinical-proposed-values", () => ({
   ...jest.requireActual<object>("@/lib/queries/pending-clinical-proposed-values"),
   readPendingClinicalProposedValues: (...args: unknown[]) => readPendingClinicalProposedValues(...args),
+}));
 const readPendingLabTrendRulesSignoff = jest.fn<(...args: unknown[]) => Promise<Record<string, unknown>>>();
 jest.mock("@/lib/queries/pending-lab-trend-rules-signoff", () => ({
   readPendingLabTrendRulesSignoff: (...args: unknown[]) => readPendingLabTrendRulesSignoff(...args),
