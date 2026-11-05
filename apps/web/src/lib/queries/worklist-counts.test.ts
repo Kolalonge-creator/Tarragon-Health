@@ -99,8 +99,22 @@ describe("worklist counters exclude test patients (INV-13)", () => {
   const NULLABLE_PATIENT_COLUMN: WorklistCountKey[] = ["openSafetyIncidents"];
   // Tables that name the patient column something other than patient_id.
   const PATIENT_COLUMN: Partial<Record<WorklistCountKey, string>> = { vaccinationVerifications: "profile_id" };
+  // Tables whose patient column staff may not read (S22 written questions): they exclude test data through their own stamped
+  // is_test instead. Filtering on the hidden column is refused with a 403, which left the badge and the whole sidebar warning on.
+  const OWN_IS_TEST_FLAG: WorklistCountKey[] = ["asyncConsults"];
 
-  it.each(TABLE_BACKED.filter((k) => !NOT_YET_EXCLUDED.includes(k) && !NULLABLE_PATIENT_COLUMN.includes(k)))(
+  it.each(OWN_IS_TEST_FLAG)("%s excludes test data by its own is_test and never filters the hidden patient column", async (key) => {
+    const filters: Filter[] = [];
+    await COUNTERS[key](recordingClient(filters), ["t1", "t2"]);
+    expect(filters).toContainEqual({ method: "eq", args: ["is_test", false] });
+    expect(filters.map((f) => f.args[0])).not.toContain("patient_id");
+  });
+
+  it.each(
+    TABLE_BACKED.filter(
+      (k) => !NOT_YET_EXCLUDED.includes(k) && !NULLABLE_PATIENT_COLUMN.includes(k) && !OWN_IS_TEST_FLAG.includes(k)
+    )
+  )(
     "%s filters out the supplied test patient ids",
     async (key) => {
       const filters: Filter[] = [];

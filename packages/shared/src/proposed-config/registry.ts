@@ -11502,4 +11502,28 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "CDE-01 draft from ACR BI-RADS 5th ed., NICE NG12, NHS Cervical Screening Programme colposcopy standards and the Bethesda system, ASCCP 2019, RCPath datasets, ESC 2022/2023 guidance, RCR critical-finding guidance (docs/plans/narrative-urgent-finding-rules-draft-2026-11-04.md). CMO decided every row, the 500 ms QTc line and the paging split in chat on 2026-11-04 (CDE-09); confirmation of this value on the sign-off hub is the signature (OQ-CDE-11).",
   },
+  {
+    key: "directory.investigation_search",
+    // Diagnostic directory Phase 1: the lowest similarity score public.search_investigations accepts for a fuzzy (misspelt)
+    // match. Exact names, synonyms and whole-word matches score 0.90 or more and are unaffected. The SQL function has no
+    // default on purpose: every caller passes this value. A mirror test pins the proof's value to this entry.
+    value: { min_score: 0.35 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104225509_diag_p1_investigation_catalogue_and_search.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §7",
+  },
+  {
+    key: "directory.diagnostic_cadence",
+    // Diagnostic directory Phase 2a: how often a branch's services and contact details must be re-confirmed, how far past
+    // that a listing is hidden (stale_multiple, as in S65), and how early credential expiry shows on the admin queue.
+    // Live value is the active row of public.diagnostic_directory_settings; a mirror test pins the seed to this entry.
+    value: { service_confirm_days: 90, contact_confirm_days: 90, stale_multiple: 2, credential_due_soon_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
+  },
 ];
