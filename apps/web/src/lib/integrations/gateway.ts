@@ -226,7 +226,9 @@ export async function runGateway<TBody>(request: Request, opts: GatewayOptions<T
     }
   } catch (error) {
     explicitOutcome = "server_error";
-    result = errorResult(500, error instanceof Error ? error.message : "Internal error");
+    // Never the raw message to a partner (security audit 2026-11-05, L-2): it can name tables and constraints. Logged here instead.
+    console.error("integration gateway: handler failed", error instanceof Error ? error.message : error);
+    result = errorResult(500, "Internal error");
   }
 
   await logRequest(supabase, {

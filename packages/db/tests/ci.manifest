@@ -1889,9 +1889,19 @@ cde10_apply_narrative_urgent_rules.sql
 t2_13_plus_renews_as_membership.sql
 # T2-11 (2026-11-04): with zero partner pharmacies the prescribing master names no pharmacy condition; a real senior doctor signs, the patient reads the rx number, code and QR token, and anon verifies it at /verify-rx; partner collection is still refused (pharmacy_collection_on false, patient list 55000); tier and controlled-medicine rules hold. Sabotage x2: partner readiness replaced by true; the old partner conditions.
 t2_11_prescribing_take_anywhere.sql
+# S3 (2026-11-05): the Zoom host start link is moved off video_consultations into the staff-only video_consultation_host_links (BEFORE trigger parks it, AFTER trigger stores it); the patient reads NULL and sees no side row, staff read it, a replaced or cleared meeting or a cancelled call deletes it, a conflicting insert leaves no orphan and no parked value leaks into a later write, a patient cannot write it. Sabotage: triggers off and CHECK dropped, the patient reads the link.
+video_consultation_host_link_staff_only.sql
 # Security audit H-2 (2026-11-05): in the lab-result, ECG, imaging and referral-outcome buckets a patient can update and delete files they uploaded themselves, but not a file the care team or a lab wrote into their folder (owner_id null), and another patient can touch neither. Sabotage: the old folder-only lab-result policies put back let the patient overwrite and delete the care team's report.
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Test flag follows the profile: marking a real patient as a test account re-stamps their existing rows (an append-only table and a guarded one) without firing row triggers, another patient is untouched, one audit row records the counts, unmarking turns them back, an admin session works and the replication setting is restored afterwards, and no client can call the re-stamp. Sabotage: without the profiles trigger the rows stay real.
+test_flag_follows_profile.sql
+# T2 Phase 3: a printed lab request form carries a token and a code stamped on every insert (client values thrown away, never changed); anon gets proof only (status, reference, date, tests, initials, requester), never a name, date of birth or patient number; unknown, partial and malformed references return nothing; cancelled says cancelled. Sabotage: stamp keeps the client value; full name returned.
+t2_lab_request_form_verification.sql
+# T2-12: screening reminders at 14, 7 and 1 day before due and 7 and 30 days overdue, from a versioned operational setting (history immutable); one step per night, the step that fits now; only in-app, push and email; the last step reaches the stage the coordinator sweep reads; defer with a recorded reason, limits for the patient, a tied clinician may move it again. Sabotage: window upper bound removed; reason check removed.
+t2_screening_reminder_cadence_and_defer.sql
+# T2 Phase 3: baseline assessment for a new Member: Free refused, missing items named, one row and one doctor review task per membership, codes only stored, RLS, coordinator and untied doctor refused, adjusted needs a note. Sabotage: Members-only check removed; coordinator admitted to review.
+t2_preventive_baseline_assessment.sql
 # Security audit M-9 (2026-11-05): an audit_log row written from a user session names that user as actor: a session that names another actor is refused (42501) and writes nothing, a null actor is filled with the session user, server-side writes keep their actor. Sabotage: the old staff branch back lets the forged actor survive.
 audit_log_actor_is_the_session_user.sql

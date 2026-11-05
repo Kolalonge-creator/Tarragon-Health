@@ -7,6 +7,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { addChildDependentSchema } from "@/lib/validation/add-child-dependent";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 
 /**
  * Provisions a child the parent keeps a vaccination card and health record
@@ -46,6 +47,13 @@ export async function addChildDependentAction(
   const parent = await getCurrentProfile();
   if (!parent) return { error: "Not signed in" };
   if (!parent.organisation_id) return { error: "This account has no organisation on file" };
+  // Only a patient's own signed-in account adds a child (security audit 2026-11-05, M-8): this creates a real auth user
+  // through the service role, so a staff account or a dependant's record must never reach it.
+  if (parent.role !== "patient" || parent.is_dependent_account) {
+    return { error: "Only a patient's own account can add a child." };
+  }
+  const limited = await checkAbuseLimit("add_dependant", parent.id);
+  if (!limited.ok) return { error: ABUSE_LIMIT_MESSAGE };
 
   const svc = createServiceRoleClient();
 
@@ -57,7 +65,8 @@ export async function addChildDependentAction(
     user_metadata: { full_name },
   });
   if (createError || !created.user) {
-    return { error: createError?.message ?? "Could not create the child's record" };
+    if (createError) console.error("addChildDependentAction: createUser failed", createError.message);
+    return { error: "Could not create the child's record. Please try again." };
   }
   const childId = created.user.id;
 
@@ -71,7 +80,9 @@ export async function addChildDependentAction(
     p_actor_id: parent.id,
   });
   if (updateError) {
-    return { error: updateError.message };
+    console.error("addChildDependentAction: profile setup failed", updateError.message);
+    await removeHalfMadeChild(svc, childId);
+    return { error: "Could not create the child's record. Please try again." };
   }
 
   const { error: accessError } = await svc.from("profile_access").insert({
@@ -81,7 +92,9 @@ export async function addChildDependentAction(
     granted_by: parent.id,
   });
   if (accessError) {
-    return { error: accessError.message };
+    console.error("addChildDependentAction: access grant failed", accessError.message);
+    await removeHalfMadeChild(svc, childId);
+    return { error: "Could not create the child's record. Please try again." };
   }
 
   // Best-effort: populate the child's vaccination card immediately rather
@@ -95,4 +108,10 @@ export async function addChildDependentAction(
   revalidatePath("/patient/family");
   revalidatePath("/patient");
   return { message: `Added ${full_name} to your family.` };
+}
+
+/** A child record that failed part-way has no parent link, so nobody could ever see or remove it. Delete the login behind it. */
+async function removeHalfMadeChild(svc: ReturnType<typeof createServiceRoleClient>, childId: string): Promise<void> {
+  const { error } = await svc.auth.admin.deleteUser(childId);
+  if (error) console.error("addChildDependentAction: could not remove a half-made child record", childId, error.message);
 }

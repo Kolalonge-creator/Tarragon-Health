@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { hasScope, verifyApiKey } from "@/lib/integrations/api-key";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -128,7 +129,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (insertError.code === "23505") {
       return NextResponse.json({ success: true, deduped: true });
     }
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "integrations/device-readings") }, { status: 500 });
   }
 
   await supabase

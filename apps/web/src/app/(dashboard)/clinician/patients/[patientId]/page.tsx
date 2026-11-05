@@ -70,6 +70,7 @@ import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { ReferToSpecialistForm } from "./refer-to-specialist-form";
 import { HealthCheckReview } from "./health-check-review";
+import { PreventivePlanReviewPanel } from "./preventive-plan-review-panel";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
@@ -429,6 +430,7 @@ export default async function ClinicianPatientPage({
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <SharedSummaries patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <PreventivePlanReviewPanel patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
                 <HealthCheckVideoConsult consult={healthCheck?.video_consult ?? null} />
