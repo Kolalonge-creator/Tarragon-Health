@@ -2,16 +2,12 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
-import { HealthScoreTrendClient } from "./health-score-trend-client";
+import { HealthDomainsCard } from "@/app/(dashboard)/patient/health-domains-card";
 
 /**
- * Full trend view for the Health Score — reached from "See your trend over time" on
- * HealthScoreCard. Same auth/redirect shape as /patient/weight and
- * /patient/heart-age; no entitlement gate, since the Health Score card it's
- * reached from has none either (free-tier-visible). Unlike /patient/heart-age,
- * this route needs no feature-flag gate — the Health Score itself has been fully
- * shipped since v1; Heart Age (a separate, SCORE2-based feature) is what's still
- * pending sign-off.
+ * Your health by area (T2-06, founder 2026-11-04). This route used to show the composite Health Score and its trend; the founder replaced
+ * the composite with per-domain status, trends and outstanding actions until a score is clinically validated. The URL is kept so existing
+ * links still land somewhere useful. The score history stays in patient_risk_scores; it is simply no longer presented.
  */
 export default async function HealthScorePage() {
   const profile = await getCurrentProfile();
@@ -21,12 +17,12 @@ export default async function HealthScorePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Health Score"
+        title="Your health by area"
         icon={SEMANTIC_ICON.preventive}
         backTo={{ href: "/patient", label: "Overview" }}
-        description="How your score has moved over time, and what's feeding it."
+        description="Your results and readings grouped by area, with the range each is compared with and which way it has moved."
       />
-      <HealthScoreTrendClient patientId={profile.id} />
+      <HealthDomainsCard patientId={profile.id} canViewReproductive />
     </div>
   );
 }

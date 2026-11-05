@@ -37,7 +37,6 @@ import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthDomainsCard } from "@/app/(dashboard)/patient/health-domains-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
-import { HealthScoreCard } from "@/components/health-score-card";
 import { HeartAgeCard } from "@/components/heart-age-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
 import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
@@ -290,12 +289,11 @@ export default async function PatientOverviewPage() {
             </div>
           )}
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <HealthScoreCard patientId={subjectId} />
-                <Suspense fallback={<CardSkeleton className="h-32" />}>
-                  <PreventionCompletionCard patientId={subjectId} />
-                </Suspense>
-              </div>
+              {/* T2-06: health status by area replaces the composite Health Score (no number score until one is validated). */}
+              <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
+              <Suspense fallback={<CardSkeleton className="h-32" />}>
+                <PreventionCompletionCard patientId={subjectId} />
+              </Suspense>
 
               <HeartAgeCard patientId={subjectId} />
 
@@ -311,7 +309,6 @@ export default async function PatientOverviewPage() {
               {/* Conditional clinical cards: each self-hides when the patient has no data behind it. */}
               <HealthResetCard patientId={subjectId} />
               <WeeklyPlanCard patientId={subjectId} />
-              <HealthDomainsCard patientId={subjectId} canViewReproductive={!acting} />
               <HealthTrendsCard patientId={subjectId} audience="patient" />
 
               <Suspense fallback={<CardSkeleton className="h-40" />}>

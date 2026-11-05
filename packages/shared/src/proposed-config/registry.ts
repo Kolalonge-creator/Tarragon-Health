@@ -651,8 +651,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // Tarragon Health 2.0, Phase 2 (brief section 5.3): deterministic rules that spot a worsening lab trend, including one that stays
     // inside the normal range. A rule that fires opens a clinician review task only: it never tells the patient anything, never names a
     // diagnosis and never suggests a medicine change. DRAFTED BY AN AGENT 2026-11-04 FOR THE CMO: every threshold below is a starting
-    // point taken from the cited guidance and must be reviewed, changed or rejected by the CMO before anything reads it. No code reads
-    // this entry yet; wiring it in is a separate change after sign-off. Values use the yearly-panel units (lab_panel_versions v4).
+    // point taken from the cited guidance and must be reviewed, changed or rejected by the CMO. Live value is the active signed row of
+    // `lab_trend_rule_sets`.config (version 1 seeded unsigned and inactive); lab-trend-rules-mirror.test.ts fails if the seed and this value
+    // drift. private.run_lab_trend_rules() does nothing until the CMO signs. Values use the yearly-panel units (lab_panel_versions v4).
     value: {
       window_months: 12,
       min_points: 3,
@@ -665,6 +666,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         { analyte: "potassium", unit: "mmol/L", rise_from_first: 0.7, latest_at_least: 5.0, note: "rising potassium in someone not yet out of range" },
       ],
       consecutive_rise_required: true,
+      // the last results of each analyte all outside the range printed with each one (brief 5.3, "persistent abnormalities")
+      persistent_out_of_range: {
+        min_points: 3,
+        analytes: ["hba1c", "fasting_glucose", "creatinine", "ldl_cholesterol", "haemoglobin", "potassium"],
+      },
+      // a finding opens one clinician review alert; its window is read from the ACTIVE escalation_slas row for this pathway and tier
+      review: { alert_level: "clinician_review", sla_pathway: "screening_abnormal_result", sla_tier: "urgent_escalation" },
     },
     owner: "CMO",
     status: "proposed",

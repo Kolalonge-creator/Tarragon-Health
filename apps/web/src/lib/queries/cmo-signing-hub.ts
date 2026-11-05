@@ -32,6 +32,7 @@ import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/l
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingBpTargetSignoff } from "@/lib/queries/pending-bp-target-signoff";
 import { CLINICAL_PROPOSED_ITEM_KEY, readPendingClinicalProposedValues, type PendingClinicalProposedValues } from "@/lib/queries/pending-clinical-proposed-values";
+import { readPendingLabTrendRulesSignoff } from "@/lib/queries/pending-lab-trend-rules-signoff";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
@@ -123,6 +124,8 @@ export const BASELINE_LABS_ITEM_KEY = "baseline_labs_rule";
 export const AI_MONITORING_ITEM_KEY = "ai_monitoring";
 /** D-09: the home (135/85) and clinic (140/90) blood pressure targets. Until signed, home averages are judged against 140/90 and the family "on target" view stays off. */
 export const BP_TARGET_ITEM_KEY = "bp_target_config";
+/** T2 Phase 2: the deterministic lab trend rules. The nightly check raises nothing for anyone until signed. */
+export const LAB_TREND_RULES_ITEM_KEY = "lab_trend_rules";
 export { GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY };
 
 /**
@@ -141,7 +144,7 @@ const CLINICAL_ITEM_KEYS = new Set<string>([
   PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
   GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
   RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies", SCREENING_RULE_SET_ITEM_KEY,
-  BP_TARGET_ITEM_KEY, CLINICAL_PROPOSED_ITEM_KEY,
+  BP_TARGET_ITEM_KEY, CLINICAL_PROPOSED_ITEM_KEY, LAB_TREND_RULES_ITEM_KEY,
 ]);
 export function isClinicalSignoff(key: string): boolean {
   if (key.startsWith(OWED_ITEM_PREFIX)) return true;
@@ -170,7 +173,7 @@ export function isClinicalSignoff(key: string): boolean {
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2, bpTarget, clinicalProposed] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2, bpTarget, clinicalProposed, labTrend] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -209,6 +212,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingStage2Attestation(supabase),
     readPendingBpTargetSignoff(supabase),
     readPendingClinicalProposedValues(supabase).catch((): PendingClinicalProposedValues => ({ rows: [], item: null, failed: true })),
+    readPendingLabTrendRulesSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -676,6 +680,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   }
 
   if (clinicalProposed.item) items.push(clinicalProposed.item);
+  if (labTrend.version !== null) {
+    items.push({
+      key: LAB_TREND_RULES_ITEM_KEY,
+      title: "Lab trend rules: worsening results for a doctor to review",
+      detail: `Lab trend rules version ${labTrend.version}${labTrend.view ? ` (${labTrend.view.rules.length} rising or falling trends over ${labTrend.view.windowMonths} months, and results that stay outside their range)` : ""} are awaiting your sign-off. Until you sign, the nightly check runs but raises nothing for anyone. After you sign, a worsening trend opens one review alert for a doctor; it never names a diagnosis, suggests a medicine or tells the patient.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
 
   const failedSources = [
     ...queue.failedSources,
@@ -712,6 +726,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(stage2.failed ? ["the Stage 2 launch attestation"] : []),
     ...(bpTarget.failed ? ["the blood pressure targets"] : []),
     ...(clinicalProposed.failed ? ["the clinical values confirmed through the registry"] : []),
+    ...(labTrend.failed ? ["the lab trend rules"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

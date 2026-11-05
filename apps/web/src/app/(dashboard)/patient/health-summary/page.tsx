@@ -56,7 +56,7 @@ export default async function HealthSummaryPage() {
         links={[
           { href: "/patient/health-report", label: "Yearly health report" },
           { href: "/patient/progress", label: "Your month" },
-          { href: "/patient/health-score", label: "Health score" },
+          { href: "/patient/health-score", label: "Health by area" },
           { href: "/patient/medicine-report", label: "Doses marked taken" },
         ]}
       />

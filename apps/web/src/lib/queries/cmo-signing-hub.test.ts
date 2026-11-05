@@ -107,6 +107,9 @@ const readPendingClinicalProposedValues = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-clinical-proposed-values", () => ({
   ...jest.requireActual<object>("@/lib/queries/pending-clinical-proposed-values"),
   readPendingClinicalProposedValues: (...args: unknown[]) => readPendingClinicalProposedValues(...args),
+const readPendingLabTrendRulesSignoff = jest.fn<(...args: unknown[]) => Promise<Record<string, unknown>>>();
+jest.mock("@/lib/queries/pending-lab-trend-rules-signoff", () => ({
+  readPendingLabTrendRulesSignoff: (...args: unknown[]) => readPendingLabTrendRulesSignoff(...args),
 }));
 const readBaselineLabsOverrideAttention = jest.fn<(...args: unknown[]) => Promise<{ overdue: number; used30d: number; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-baseline-labs-override-attention", () => ({
@@ -255,6 +258,8 @@ beforeEach(() => {
   readPendingBpTargetSignoff.mockResolvedValue({ version: null, view: null, liveVersion: null, failed: false });
   readPendingClinicalProposedValues.mockReset();
   readPendingClinicalProposedValues.mockResolvedValue({ rows: [], item: null, failed: false });
+  readPendingLabTrendRulesSignoff.mockReset();
+  readPendingLabTrendRulesSignoff.mockResolvedValue({ version: null, view: null, problem: null, slaMinutes: null, liveVersion: null, lastRun: null, failed: false });
   readBaselineLabsOverrideAttention.mockReset();
   readBaselineLabsOverrideAttention.mockResolvedValue({ overdue: 0, used30d: 0, failed: false });
   readPendingSymptomUxSignoff.mockReset();
@@ -430,6 +435,31 @@ describe("readCmoSigningHub: care gap rules (S90)", () => {
     const hub = await hubAll(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the care gap rules");
+  });
+});
+
+describe("readCmoSigningHub: lab trend rules (T2 Phase 2)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one clinical line, awaiting sign-off, under /clinician, for an unsigned version", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingLabTrendRulesSignoff.mockResolvedValue({ version: 1, view: null, problem: null, slaMinutes: 1440, liveVersion: null, lastRun: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === "lab_trend_rules");
+    expect(line?.count).toBe(1);
+    expect(line?.href).toBe("/clinician/clinical-signoff");
+    expect(line?.detail).toMatch(/awaiting your sign-off/);
+    expect(line?.detail).toMatch(/raises nothing for anyone/);
+    expect(hub.operational.find((i) => i.key === "lab_trend_rules")).toBeUndefined();
+    expect(isClinicalSignoff("lab_trend_rules")).toBe(true);
+  });
+  it("adds no line once signed, and names a failed read rather than showing an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingLabTrendRulesSignoff.mockResolvedValue({ version: null, view: null, problem: null, slaMinutes: null, liveVersion: 1, lastRun: null, failed: false });
+    expect((await hubAll(supabase)).items.find((i) => i.key === "lab_trend_rules")).toBeUndefined();
+    readPendingLabTrendRulesSignoff.mockResolvedValue({ version: null, view: null, problem: null, slaMinutes: null, liveVersion: null, lastRun: null, failed: true });
+    const hub = await hubAll(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the lab trend rules");
   });
 });
 
