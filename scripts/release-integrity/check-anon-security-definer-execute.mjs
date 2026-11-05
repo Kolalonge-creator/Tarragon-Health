@@ -79,7 +79,7 @@ const ALLOWLIST = new Set([
   // *_prescription_supply_record_and_repeat_control.sql -- same token, same posture: a pharmacy holding the
   // prescription records a supply, bounded by active status, the clinician-approved repeats and a 10 minute
   // duplicate window; self-declared pharmacy and pharmacist names, no patient data returned.
-  "public.record_prescription_supply_public(p_token text, p_pharmacy_name text, p_pharmacist_name text, p_pharmacist_registration text, p_quantity_supplied text)",
+  "public.record_prescription_supply_public(p_token text, p_pharmacy_name text, p_pharmacist_name text, p_pharmacist_registration text, p_quantity_supplied text, p_supplied_reported_collection boolean)",
   // 20261013181946_s09x_my_health_completion.sql -- the public record-share page (/share/[token]). A holder of the
   // link (and its PIN, if one was set) reads only the sections the patient chose. Revoked from public then granted to
   // anon on purpose; the migration's own self-check asserts both functions are anon-executable and every other new

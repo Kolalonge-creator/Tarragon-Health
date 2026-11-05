@@ -26,7 +26,55 @@ export type ResourceUpsertInput = {
   // specific article. Never auto-filled from the acting admin's own name.
   reviewedByName: string | null;
   reviewedAt: string | null;
+  authorName: string | null;
+  references: { label: string; url: string }[];
+  nextReviewAt: string | null;
+  publishAt: string | null;
 };
+
+/**
+ * The database refuses to publish an article with no recorded clinical review
+ * (errcode 23514, 'clinical_review_required'; website Phase 4). Turn that into
+ * a sentence an editor can act on; any other error keeps its own message.
+ */
+export function resourceSaveErrorMessage(error: unknown): string {
+  const e = error as { code?: string; message?: string } | null;
+  if (e?.message?.includes("clinical_review_required")) {
+    return "This article cannot be published until a clinician has reviewed it. Add the reviewer's name, then publish. You can still save it as a draft.";
+  }
+  return e?.message || "Could not save.";
+}
+
+/**
+ * References typed one per line as "Label | https://link". Lines without a
+ * valid http(s) link are dropped (the article page drops them too).
+ */
+export function parseReferenceLines(text: string): { label: string; url: string }[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      const bar = line.lastIndexOf("|");
+      if (bar === -1) return [];
+      const label = line.slice(0, bar).trim();
+      const url = line.slice(bar + 1).trim();
+      try {
+        const u = new URL(url);
+        return label && (u.protocol === "https:" || u.protocol === "http:") ? [{ label, url: u.toString() }] : [];
+      } catch {
+        return [];
+      }
+    });
+}
+
+export function referencesToLines(raw: unknown): string {
+  if (!Array.isArray(raw)) return "";
+  return raw
+    .map((r) => (r && typeof r === "object" ? `${(r as { label?: string }).label ?? ""} | ${(r as { url?: string }).url ?? ""}` : ""))
+    .filter((l) => l.trim() !== "|")
+    .join("\n");
+}
 
 /** Admin view of the whole library, drafts included (RLS: admins see all). */
 export function useMarketingResources() {
@@ -68,6 +116,10 @@ export function useUpsertMarketingResource() {
         updated_by: user?.id ?? null,
         reviewed_by_name: input.reviewedByName,
         reviewed_at: input.reviewedAt,
+        author_name: input.authorName,
+        source_references: input.references,
+        next_review_at: input.nextReviewAt,
+        publish_at: input.publishAt,
       };
       const { error } = input.id
         ? await supabase.from("marketing_resources").update(row).eq("id", input.id)

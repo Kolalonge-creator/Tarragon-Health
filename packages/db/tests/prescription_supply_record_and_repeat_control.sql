@@ -224,7 +224,7 @@ begin
 
   -- SABOTAGE: remove the permitted-supplies guard from a copy of the function; the exhausted prescription is then supplied again
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where medication_id = v_m1;
-  select replace(pg_get_functiondef('public.record_prescription_supply_public(text,text,text,text,text)'::regprocedure),
+  select replace(pg_get_functiondef('public.record_prescription_supply_public(text,text,text,text,text,boolean)'::regprocedure),
                  'when v_dispensed >= v_permitted then', 'when false then') into v_def;
   if v_def not like '%when false then%' then raise exception 'SABOTAGE not applied'; end if;
   execute v_def;

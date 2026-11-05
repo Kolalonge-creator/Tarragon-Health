@@ -36,7 +36,16 @@ export type ResourceArticle = {
   // sitemap falls back to a fixed date rather than claiming "changed today".
   publishedAt?: string;
   updatedAt?: string;
+  // Website Phase 4 (2026-11-05) provenance. All optional so the static seed
+  // library still type-checks; the page shows each line only when it is set,
+  // except the author, which falls back to the editorial team (founder decision).
+  authorName?: string | null;
+  nextReviewAt?: string | null;
+  references?: { label: string; url: string }[];
 };
+
+/** The byline when no named author is recorded (founder decision, 2026-11-05). */
+export const DEFAULT_ARTICLE_AUTHOR = "Tarragon Health editorial team";
 
 export const RESOURCE_DISCLAIMER =
   "This article is general health information, not medical advice, a diagnosis, or a treatment plan. Always talk to a doctor about your own situation, and if you feel seriously unwell, go to a hospital now.";
