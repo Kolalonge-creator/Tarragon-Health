@@ -14,6 +14,8 @@ import { PasskeysCard } from "@/components/account/passkeys-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
+import { sanitizeRedirect } from "@tarragon/auth/redirect";
+import { readMyMfaRequirement } from "@tarragon/auth/mfa-policy";
 
 // The seeded default consumer org (20260706084837) every self-serve signup
 // lands on until claimed by a real employer/HMO/clinic roster — the same
@@ -40,7 +42,14 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
  * admin-managed (CLAUDE.md's Clinical Tier Ladder rules), and a phone-number
  * change needs its own re-verification flow this page doesn't attempt.
  */
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mfa?: string; redirect?: string }>;
+}) {
+  const { redirect: redirectParam } = await searchParams;
+  // Where the 2FA group requirement (proxy.ts) sent the person from, offered back once the factor is on.
+  const continueTo = sanitizeRedirect(redirectParam);
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
@@ -71,13 +80,19 @@ export default async function AccountPage() {
 
   const supabase = await createClient();
   // The clinician's OWN folio only (OQ-358): the folio function returns it to its owner, never to a colleague.
-  const [ownFolioMap, { data: factors }] = await Promise.all([
+  const [ownFolioMap, { data: factors }, mfaRequirement] = await Promise.all([
     staff ? fetchStaffFolios(supabase, [staff.id]) : Promise.resolve(new Map<string, string | null>()),
     supabase.auth.mfa.listFactors(),
+    readMyMfaRequirement(supabase),
   ]);
   const ownFolio = staff ? (ownFolioMap.get(staff.id) ?? null) : null;
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
+  // Whether an admin has switched on the 2FA requirement for this account's group (/admin/settings/two-factor). An unreadable
+  // answer is shown as required, the same way the proxy treats it, so the page never contradicts where the person was sent.
+  const mfaRequirementUnreadable = mfaRequirement === null;
+  const mfaGroupRequired = mfaRequirement !== false;
+  const mfaRequiredNow = mfaGroupRequired && !verifiedFactorId;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -85,6 +100,29 @@ export default async function AccountPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Profile &amp; settings</h1>
         <p className="text-charcoal-ink/60">Your account details and sign-in settings.</p>
       </div>
+
+      {mfaGroupRequired && verifiedFactorId && continueTo && (
+        <div role="status" className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-charcoal-ink">
+          <p className="font-semibold">Two-factor sign-in is on</p>
+          <Link href={continueTo} className="mt-1 inline-block font-medium text-brand-green underline">
+            Continue to where you were going
+          </Link>
+        </div>
+      )}
+
+      {mfaRequiredNow && (
+        <>
+          <div role="status" className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-charcoal-ink">
+            <p className="font-semibold">Turn on two-factor sign-in to continue</p>
+            <p className="mt-1 text-charcoal-ink/70">
+              {mfaRequirementUnreadable
+                ? "We could not check your sign-in settings just now. Set up two-factor sign-in below, or refresh the page to try again."
+                : "Your account now needs a code from an authenticator app as well as your password. Set it up below. Everything else opens as soon as it is on."}
+            </p>
+          </div>
+          {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} />}
+        </>
+      )}
 
       <Card>
         <CardHeader>
@@ -170,7 +208,7 @@ export default async function AccountPage() {
 
       <ChangePasswordForm />
       <ChangePhoneCard />
-      <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
+      {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} />}
       {isPatient && <PasskeysCard />}
       <SignOutOtherDevicesCard />
     </div>

@@ -53,6 +53,10 @@ export const en = {
   "console.signout_not_you": "Not you? Sign out",
   "console.login.check_credentials": "Check your email and password, then try again.",
   "console.mfa.enter_code": "Enter the 6-digit code from your authenticator app.",
+  "console.mfa_setup.title": "Turn on two-factor sign-in first",
+  "console.mfa_setup.body": "Your account needs a code from an authenticator app as well as a password. Set it up on your account page in the main TarragonHealth app, then sign in here again.",
+  "console.mfa_setup.link": "Open my account page",
+  "console.mfa_setup.no_link": "Sign in to the main TarragonHealth app and open Profile & settings to set it up.",
   "console.shell.staff_area": "Staff console",
   "greeting.hello": "Hello, {name}",
   // S03: sign-up, verification, sign-in, recovery, biometric unlock.

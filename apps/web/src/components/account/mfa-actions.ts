@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { readMyMfaRequirement } from "@tarragon/auth/mfa-policy";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { mfaCodeSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -95,6 +97,8 @@ export async function verifyMfaEnrollment(
     return { error: "That code did not match. Check the app and try again.", field: "code" };
   }
 
+  // Re-render /account so a person held there by the 2FA group requirement sees it lift at once.
+  revalidatePath("/account");
   return { success: true };
 }
 
@@ -111,6 +115,17 @@ export async function turnOffMfa(
   if (!user) return { error: "Your session has expired. Sign in again, then retry." };
 
   const supabase = await createClient();
+  // An admin has required 2FA for this account's group (/admin/settings/two-factor): it cannot be turned off here. An unreadable
+  // answer refuses too: turning a required factor off would hold the account on this page until it sets one up again.
+  const required = await readMyMfaRequirement(supabase);
+  if (required !== false) {
+    return {
+      error:
+        required === null
+          ? "We could not check whether two-factor sign-in is required for your account. Try again in a moment."
+          : "Two-factor sign-in is required for your account, so it cannot be turned off here. If you have a new phone, contact the Tarragon team to reset it.",
+    };
+  }
   const { error } = await supabase.auth.mfa.unenroll({ factorId });
   if (error) {
     return { error: authErrorMessage(error, "mfa_setup") };

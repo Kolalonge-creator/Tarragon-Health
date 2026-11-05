@@ -73,7 +73,7 @@ export function resetMfaRequirementCache(): void {
 type Client = SupabaseClient<Database>;
 
 /** PostgREST "no such function" (the migration is not applied yet) and Postgres "undefined function". */
-function isMissingFunction(error: { code?: string } | null | undefined): boolean {
+export function isMissingFunction(error: { code?: string } | null | undefined): boolean {
   return error?.code === "PGRST202" || error?.code === "42883";
 }
 
@@ -90,6 +90,17 @@ function isMissingFunction(error: { code?: string } | null | undefined): boolean
  *  - the caller's own answer fails: REQUIRED (fail closed). The person lands on Profile & settings, which reads the true state.
  *    The database layer (is_org_staff / is_admin) holds independently of this.
  */
+/**
+ * The caller's own answer for a server page or action: `required` true, false, or null when it could not be read. The
+ * functions not existing yet (code deployed before the migration) reads as not required.
+ */
+export async function readMyMfaRequirement(supabase: Client): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("my_mfa_requirement");
+  if (error) return isMissingFunction(error) ? false : null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.required === true;
+}
+
 export async function isMfaRequiredForCaller(supabase: Client, now: number = Date.now()): Promise<boolean> {
   const cached = anyGroupCache && now - anyGroupCache.at < ANY_GROUP_CACHE_MS ? anyGroupCache.value : null;
   if (cached === false) return false;

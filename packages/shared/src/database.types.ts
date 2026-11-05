@@ -29457,6 +29457,75 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_group_requirements: {
+        Row: {
+          change_note: string | null
+          changed_at: string
+          changed_by: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Update: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Relationships: []
+      }
+      mfa_group_requirement_changes: {
+        Row: {
+          change_note: string
+          changed_at: string
+          changed_by: string
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note: string
+          changed_at?: string
+          changed_by: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Update: {
+          change_note?: string
+          changed_at?: string
+          changed_by?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          requirement_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Relationships: []
+      }
       mental_health_screening_cadences: {
         Row: {
           approved_at: string | null
@@ -52515,6 +52584,50 @@ export type Database = {
       start_annual_bundle: {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
+      }
+      my_mfa_requirement: {
+        Args: Record<PropertyKey, never>
+        Returns: { required: boolean; has_verified_factor: boolean }[]
+      }
+      mfa_any_group_required: { Args: Record<PropertyKey, never>; Returns: boolean }
+      admin_mfa_group_requirements: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string | null
+          changed_by_name: string | null
+          changed_at: string
+          member_count: number
+          enrolled_count: number
+          unenrolled_cmo_count: number
+          unenrolled_admin_count: number
+        }[]
+      }
+      admin_mfa_group_requirement_changes: {
+        Args: { p_limit?: number }
+        Returns: {
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string
+          changed_by_name: string | null
+          changed_at: string
+        }[]
+      }
+      set_mfa_group_requirement: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          p_required: boolean
+          p_change_note: string
+          p_confirm_unenrolled?: boolean
+        }
+        Returns: number
       }
       my_sensitive_request_optin: {
         Args: Record<PropertyKey, never>
