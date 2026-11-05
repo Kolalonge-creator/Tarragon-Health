@@ -8,6 +8,7 @@ import { todayIsoDate } from "@/lib/queries/medications";
 import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
 import { DeclineScreeningForm } from "./decline-screening-form";
+import { DeferScreeningForm } from "./defer-screening-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -186,6 +187,9 @@ export function PreventiveScreeningCalendar({
                       screenTypeName={schedule.screen_type?.name ?? "screening"}
                       alreadyCompleted={schedule.status === "completed"}
                     />
+                    {canDecline && (
+                      <DeferScreeningForm patientId={patientId} scheduleId={schedule.id} dueDate={schedule.due_date} />
+                    )}
                     {canDecline && (
                       <DeclineScreeningForm patientId={patientId} scheduleId={schedule.id} />
                     )}
