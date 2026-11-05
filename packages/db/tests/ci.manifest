@@ -1889,3 +1889,5 @@ t2_11_prescribing_take_anywhere.sql
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Test flag follows the profile: marking a real patient as a test account re-stamps their existing rows (an append-only table and a guarded one) without firing row triggers, another patient is untouched, one audit row records the counts, unmarking turns them back, an admin session works and the replication setting is restored afterwards, and no client can call the re-stamp. Sabotage: without the profiles trigger the rows stay real.
+test_flag_follows_profile.sql
