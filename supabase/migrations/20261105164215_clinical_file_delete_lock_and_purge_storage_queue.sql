@@ -20,11 +20,24 @@
 -- S5. public.purge_test_account (S39d; nightly since 20261103023236) deletes the account's rows but never its files. Five clinical
 -- files from the September purge were left in storage with no row (listed in the PR, not deleted here). A storage object must be
 -- removed through the Storage API, never by deleting a storage.objects row (storage.protect_delete refuses that, and it would leave
--- the bytes on hosted storage), so the purge now QUEUES every object in the purged account's folder (and every object it uploaded
--- itself outside a real patient's folder) into private.storage_deletion_queue, inside the purge's own transaction. A daily Vercel
--- cron (/api/cron/storage-deletion-sweep) reads public.storage_deletions_due(), removes each file with the service role, and marks
--- it with public.mark_storage_deletion_done(); a failure keeps the row due and is retried next run. The due list never offers a
--- path that a record has started pointing at again (belt and braces for the clinical buckets).
+-- the bytes on hosted storage), so the purge now QUEUES the purged account's files into private.storage_deletion_queue, inside the
+-- purge's own transaction. A daily Vercel cron (/api/cron/storage-deletion-sweep) reads public.storage_deletions_due(), removes each
+-- file with the service role, and marks it with public.mark_storage_deletion_done(); a failure keeps the row due and is retried.
+--
+-- WHAT IS QUEUED, deliberately narrow: only objects whose FIRST folder is the purged account's id, and only in an allow-list of
+-- buckets (private.purge_subject_buckets()) whose path layout is '<subject profile id>/...' where the subject's own rows go with the
+-- account. Checked in code, 2026-11-05:
+--   lab-result-documents  '<patient>/...'  patient uploads use the caller's own id and file it for themselves (patient_id = caller);
+--                                            care-team / lab writes use the patient id (lib/lab-results/*, store-file.ts, classify-run.ts)
+--   ecg-reports           '<patient>/...'  same (ecg-reports/actions.ts, api/mobile/ecg-report-upload)
+--   imaging-reports       '<patient>/...'  same (imaging-reports/document-actions.ts)
+--   skin-photos           '<subject>/...'  path is the photo's subject, even when a guardian takes it (skin-photo-actions.ts, S59)
+-- NOT queued, on purpose: anything the account uploaded under someone else's folder, and every bucket whose first folder is the
+-- UPLOADER rather than the subject (child-card-photos '<uploader>/<child>/...', vaccination certificates '<uploader>/<record>-...',
+-- patient-documents, referral outcomes uploaded by a patient session) or an organisation (staff-signatures '<organisation>/...').
+-- Purging a test caregiver or a test admin must never remove a real child's photo or a real doctor's signature, so files outside the
+-- allow-list are LEFT IN PLACE: a leftover test file is harmless, a deleted real one is not. storage_deletions_due applies the same
+-- allow-list again (defence in depth) and never offers a path a record points at.
 --
 -- purge_test_account is redefined from its LIVE body (pg_get_functiondef, 2026-11-05); the only change is the queue call and the
 -- count in the audit event and result.
@@ -90,8 +103,12 @@ begin
   if v_owner is distinct from p_patient::text then return false; end if;   -- a care-team or lab file is never discarded this way
   if private.storage_path_in_record(p_bucket, p_name) then return false; end if;   -- filed: the original stays
 
-  perform private.log_audit('clinical_upload_discarded', 'profile', p_patient,
-    jsonb_build_object('bucket', p_bucket, 'path', p_name, 'reason', 'record_not_written'));
+  -- Written directly (not private.log_audit): under the service role auth.uid() and current_org_id() are null, so the row would carry
+  -- no actor and no organisation. The actor is the patient whose request uploaded the file; the organisation is theirs.
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  select p.organisation_id, p_patient, 'clinical_upload_discarded', 'profile', p_patient,
+         jsonb_build_object('bucket', p_bucket, 'path', p_name, 'reason', 'record_not_written')
+  from public.profiles p where p.id = p_patient;
   return true;
 end $$;
 revoke all on function public.discard_unfiled_clinical_upload(text, text, uuid) from public, anon, authenticated;
@@ -118,8 +135,17 @@ revoke all on private.storage_deletion_queue from public, anon, authenticated;
 comment on table private.storage_deletion_queue is
   'S5: stored files to remove through the Storage API (never by deleting storage.objects rows). Filled by public.purge_test_account; drained daily by /api/cron/storage-deletion-sweep via storage_deletions_due / mark_storage_deletion_done.';
 
--- Every object in the account's own folder, in any bucket, plus every object the account uploaded itself that does not sit in a REAL
--- (non-test) person's folder: a file a test clinician uploaded into a real patient's folder may be part of that patient's record.
+-- The buckets a purge may empty: path layout '<subject profile id>/...' (see the header for how each was checked).
+create or replace function private.purge_subject_buckets()
+returns text[]
+language sql
+immutable
+set search_path = ''
+as $$ select array['lab-result-documents', 'ecg-reports', 'imaging-reports', 'skin-photos']::text[] $$;
+revoke all on function private.purge_subject_buckets() from public, anon, authenticated;
+
+-- Only objects in the account's own folder, only in the allow-listed buckets. Never by owner_id: an admin's upload of a real doctor's
+-- signature ('<organisation>/<uuid>.png') or a caregiver's photo of a real child ('<caregiver>/<child>/...') must survive the purge.
 create or replace function private.queue_storage_deletions_for_profile(p_profile uuid, p_reason text)
 returns integer
 language plpgsql
@@ -132,10 +158,8 @@ begin
   insert into private.storage_deletion_queue (bucket_id, name, reason, source_id)
   select o.bucket_id, o.name, p_reason, p_profile
   from storage.objects o
-  where (storage.foldername(o.name))[1] = p_profile::text
-     or (o.owner_id = p_profile::text
-         and not exists (select 1 from public.profiles p
-                         where p.id::text = (storage.foldername(o.name))[1] and p.id <> p_profile and p.is_test is distinct from true))
+  where o.bucket_id = any (private.purge_subject_buckets())
+    and (storage.foldername(o.name))[1] = p_profile::text
   on conflict (bucket_id, name) do update
     set done_at = null, last_error = null, reason = excluded.reason, source_id = excluded.source_id, queued_at = now()
     where private.storage_deletion_queue.done_at is not null;
@@ -154,6 +178,7 @@ as $$
   select q.id, q.bucket_id, q.name
   from private.storage_deletion_queue q
   where q.done_at is null
+    and q.bucket_id = any (private.purge_subject_buckets())
     and not private.storage_path_in_record(q.bucket_id, q.name)
   order by q.attempts, q.queued_at
   limit greatest(1, least(coalesce(p_limit, 200), 1000))
@@ -255,6 +280,10 @@ begin
     and (coalesce(qual, '') !~ 'storage_path_in_record' or coalesce(with_check, '') !~ 'storage_path_in_record' or coalesce(qual, '') !~ 'owner_id');
   if v_bad is not null then raise exception 'S4: UPDATE policies without the filed-record check: %', v_bad; end if;
 
+  if pg_get_functiondef('private.queue_storage_deletions_for_profile(uuid, text)'::regprocedure) ~ 'owner_id' then
+    raise exception 'S5: the purge queue must never select by owner_id';
+  end if;
+
   if pg_get_functiondef('public.purge_test_account(uuid)'::regprocedure) !~ 'queue_storage_deletions_for_profile' then
     raise exception 'S5: purge_test_account does not queue the account''s files';
   end if;
@@ -265,7 +294,8 @@ begin
      or has_function_privilege('anon', 'public.storage_deletions_due(integer)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.mark_storage_deletion_done(uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.mark_storage_deletion_done(uuid, text)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.queue_storage_deletions_for_profile(uuid, text)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'private.queue_storage_deletions_for_profile(uuid, text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.purge_subject_buckets()', 'EXECUTE') then
     raise exception 'S4/S5: a new function is executable by a signed-in or anonymous caller';
   end if;
 end $$;

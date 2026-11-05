@@ -31,10 +31,16 @@ export async function GET(request: Request): Promise<Response> {
     const { error: rmError } = await service.storage.from(item.bucket_id).remove([item.name]);
     if (rmError) {
       failed += 1;
-      await service.rpc("mark_storage_deletion_done", { p_id: item.id, p_error: rmError.message });
       Sentry.captureException(new Error(`storage deletion sweep: remove failed: ${rmError.message}`), {
         extra: { queueId: item.id, bucket: item.bucket_id, where: "storage-deletion-sweep" },
       });
+      // Recording the error is what makes a stuck file visible on the queue row; a failure to record it is reported too.
+      const { error: recordError } = await service.rpc("mark_storage_deletion_done", { p_id: item.id, p_error: rmError.message });
+      if (recordError) {
+        Sentry.captureException(new Error(`storage deletion sweep: could not record the failure: ${recordError.message}`), {
+          extra: { queueId: item.id, where: "storage-deletion-sweep" },
+        });
+      }
       continue;
     }
     const { error: markError } = await service.rpc("mark_storage_deletion_done", { p_id: item.id });

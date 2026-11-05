@@ -7,11 +7,14 @@
 --      referral-outcome bucket (out of scope) still lets A delete A's own upload, so the harness can see a delete succeed.
 --   B. discard_unfiled_clinical_upload: service role only; true (and audited) for A's own unfiled upload; false for a filed file, a
 --      care-team file, another patient's id, and a bucket outside the three.
---   C. purge_test_account queues every object in the test account's folder and every object it uploaded outside a real person's folder,
---      never a file it uploaded into a real patient's folder; storage_deletions_due lists them for the service role only; done rows leave
---      the list, failed rows stay with the error; a queued path a record points at is never offered.
+--   C. purge_test_account queues only objects in the test account's own folder AND in the allow-listed '<subject>/...' buckets
+--      (lab-result-documents, ecg-reports, imaging-reports, skin-photos). NOT queued: a file it uploaded into a real patient's folder, a
+--      file in an uploader-first bucket ('<test caregiver>/<real child>/...' in child-card-photos), and a test admin's upload of a staff
+--      signature in the organisation's folder. storage_deletions_due lists for the service role only, refuses a bucket outside the
+--      allow-list, never offers a path a record points at; done rows leave the list, failed rows stay with the error.
 --   SABOTAGE: (1) the old owner-only DELETE policy put back lets A delete the filed lab report; (2) purge_test_account without the queue
---   call queues nothing. Both must flip.
+--   call queues nothing; (3) the first-cut queue (own folder in ANY bucket, or anything the account owns outside a real person's folder)
+--   queues the real child's card photo and the real doctor's signature. All three must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -77,7 +80,7 @@ grant execute on function pg_temp.p(text, text) to public;
 grant execute on function pg_temp.f(text) to public;
 
 do $$
-declare v_org uuid; v_a uuid; v_b uuid; v_real uuid; v_t uuid; v_t2 uuid; v_ad uuid;
+declare v_org uuid; v_a uuid; v_b uuid; v_real uuid; v_t uuid; v_t2 uuid; v_t3 uuid; v_ad uuid; v_ad2 uuid; v_child uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_a := pg_temp.mkuser(v_org, 'patient a', 'patient', false);
@@ -85,9 +88,13 @@ begin
   v_real := pg_temp.mkuser(v_org, 'real patient', 'patient', false);
   v_t := pg_temp.mkuser(v_org, 'test patient', 'patient', true);
   v_t2 := pg_temp.mkuser(v_org, 'test patient 2', 'patient', true);
+  v_t3 := pg_temp.mkuser(v_org, 'test caregiver 3', 'patient', true);
   v_ad := pg_temp.mkuser(v_org, 'admin', 'admin', true);
+  v_ad2 := pg_temp.mkuser(v_org, 'test admin 2', 'admin', true);
+  v_child := pg_temp.mkuser(v_org, 'real child', 'patient', false);
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('a', v_a); perform pg_temp.setf('b', v_b); perform pg_temp.setf('real', v_real);
   perform pg_temp.setf('t', v_t); perform pg_temp.setf('t2', v_t2); perform pg_temp.setf('ad', v_ad);
+  perform pg_temp.setf('t3', v_t3); perform pg_temp.setf('ad2', v_ad2); perform pg_temp.setf('child', v_child);
 
   -- A's files: filed + unfiled in each clinical bucket (owner A), a care-team file (owner null), and an own upload in the referral bucket.
   insert into storage.objects (bucket_id, name, owner_id)
@@ -99,13 +106,21 @@ begin
   insert into public.ecg_report_documents (organisation_id, patient_id, file_path, source) values (v_org, v_a, v_a::text || '/filed.pdf', 'patient');
   insert into public.imaging_report_documents (organisation_id, patient_id, file_path, source) values (v_org, v_a, v_a::text || '/filed.pdf', 'patient');
 
-  -- The test account's files: two in its own folder, one it uploaded into a REAL patient's folder, one outside any profile folder.
+  -- The test account's files: three in its own folder in allow-listed buckets; one it uploaded into a REAL patient's folder; one in an
+  -- uploader-first bucket naming a REAL child; one outside any profile folder.
   insert into storage.objects (bucket_id, name, owner_id) values
     ('lab-result-documents', v_t::text || '/t1.pdf', v_t::text),
     ('ecg-reports', v_t::text || '/t2.png', null),
+    ('skin-photos', v_t::text || '/t3.jpg', null),
     ('imaging-reports', v_real::text || '/by-test.jpg', v_t::text),
+    ('child-card-photos', v_t::text || '/' || v_child::text || '/card.jpg', v_t::text),
     ('ecg-reports', 's4s5-misc/' || v_t::text || '.png', v_t::text),
-    ('lab-result-documents', v_t2::text || '/x.pdf', v_t2::text);
+    ('lab-result-documents', v_t2::text || '/x.pdf', v_t2::text),
+    -- a test admin uploads a REAL doctor's signature into the organisation's folder (useSetClinicalStaffSignature)
+    ('staff-signatures', v_org::text || '/s4s5-sig-' || v_ad2::text || '.png', v_ad2::text),
+    -- for sabotage 3: a test caregiver's card photo of the real child, and a signature that caregiver-turned-admin uploaded
+    ('child-card-photos', v_t3::text || '/' || v_child::text || '/card.jpg', v_t3::text),
+    ('staff-signatures', v_org::text || '/s4s5-sig-' || v_t3::text || '.png', v_t3::text);
 end $$;
 
 -- A. patient policies -----------------------------------------------------------------------------------------------------------------------------
@@ -128,8 +143,9 @@ select pg_temp.ck('real', 'B1 a signed-in patient cannot call the discard check'
   pg_temp.as_user(pg_temp.f('a'), format('select public.discard_unfiled_clinical_upload(%L, %L, %L)::text', 'lab-result-documents', pg_temp.p('a', 'unfiled.pdf'), pg_temp.f('a'))));
 select pg_temp.ck('real', 'B2 service role: A''s own unfiled upload may be discarded', 'true',
   pg_temp.as_service(format('select public.discard_unfiled_clinical_upload(%L, %L, %L)::text', 'lab-result-documents', pg_temp.p('a', 'unfiled.pdf'), pg_temp.f('a'))));
-select pg_temp.ck('real', 'B3 the discard is audited', '1',
-  (select count(*)::text from public.audit_log where action = 'clinical_upload_discarded' and entity_id = pg_temp.f('a') and event ->> 'path' = pg_temp.p('a', 'unfiled.pdf')));
+select pg_temp.ck('real', 'B3 the discard is audited with the patient as actor and the patient''s organisation', '1',
+  (select count(*)::text from public.audit_log where action = 'clinical_upload_discarded' and entity_id = pg_temp.f('a')
+     and actor_id = pg_temp.f('a') and organisation_id = pg_temp.f('org') and event ->> 'path' = pg_temp.p('a', 'unfiled.pdf')));
 select pg_temp.ck('real', 'B4 a filed original is never discarded (' || b || ')', 'false',
   pg_temp.as_service(format('select public.discard_unfiled_clinical_upload(%L, %L, %L)::text', b, pg_temp.p('a', 'filed.pdf'), pg_temp.f('a'))))
 from unnest(array['lab-result-documents', 'ecg-reports', 'imaging-reports']) b;
@@ -143,18 +159,25 @@ select pg_temp.ck('real', 'B7 a bucket outside the three is refused', 'false',
 -- C. purge queues the files -------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'C1 an admin purges the test patient and 3 files are queued', '3',
   pg_temp.as_user(pg_temp.f('ad'), format('select (public.purge_test_account(%L)) ->> ''files_queued''', pg_temp.f('t'))));
-select pg_temp.ck('real', 'C2 the queue holds the own-folder files and the outside-any-folder file', 'true',
-  (select (count(*) filter (where name in (pg_temp.p('t', 't1.pdf'), pg_temp.p('t', 't2.png'), 's4s5-misc/' || pg_temp.f('t')::text || '.png')) = 3)::text
+select pg_temp.ck('real', 'C2 the queue holds exactly the three own-folder files in allow-listed buckets', 'true',
+  (select (count(*) = 3 and count(*) filter (where name in (pg_temp.p('t', 't1.pdf'), pg_temp.p('t', 't2.png'), pg_temp.p('t', 't3.jpg'))) = 3)::text
    from private.storage_deletion_queue where source_id = pg_temp.f('t')));
 select pg_temp.ck('real', 'C3 a file the test account put in a REAL patient''s folder is never queued', '0',
   (select count(*)::text from private.storage_deletion_queue where name = pg_temp.p('real', 'by-test.jpg')));
+select pg_temp.ck('real', 'C3b a test caregiver''s ''<caregiver>/<real child>/'' card photo is never queued', '0',
+  (select count(*)::text from private.storage_deletion_queue where bucket_id = 'child-card-photos'));
+select pg_temp.ck('real', 'C3c a file outside any profile folder is never queued', '0',
+  (select count(*)::text from private.storage_deletion_queue where name like 's4s5-misc/%'));
+select pg_temp.ck('real', 'C3d purging a test admin never queues the real doctor''s signature it uploaded into the organisation folder', '0|0',
+  pg_temp.as_user(pg_temp.f('ad'), format('select (public.purge_test_account(%L)) ->> ''files_queued''', pg_temp.f('ad2')))
+  || '|' || (select count(*)::text from private.storage_deletion_queue where bucket_id = 'staff-signatures'));
 select pg_temp.ck('real', 'C4 the purge audit event carries the count', '3',
   (select event ->> 'files_queued' from public.audit_log where action = 'test_account_purge' and entity_id = pg_temp.f('t') order by created_at desc limit 1));
 select pg_temp.ck('real', 'C5 a signed-in caller cannot list the due files', 'ERR 42501',
   pg_temp.as_user(pg_temp.f('a'), 'select count(*)::text from public.storage_deletions_due()'));
 select pg_temp.ck('real', 'C6 the service role lists the 3 due files', '3',
   pg_temp.as_service(format('select count(*)::text from public.storage_deletions_due() where name in (%L, %L, %L)',
-    pg_temp.p('t', 't1.pdf'), pg_temp.p('t', 't2.png'), 's4s5-misc/' || pg_temp.f('t')::text || '.png')));
+    pg_temp.p('t', 't1.pdf'), pg_temp.p('t', 't2.png'), pg_temp.p('t', 't3.jpg'))));
 -- the sweep marks one done and one failed
 do $$
 declare v_done uuid; v_fail uuid;
@@ -175,11 +198,36 @@ insert into private.storage_deletion_queue (bucket_id, name, reason) values ('la
 select pg_temp.ck('real', 'C9 a queued path that a record points at is never offered for removal', 'false',
   (select exists (select 1 from public.storage_deletions_due(1000) where name = pg_temp.p('a', 'filed.pdf')))::text);
 
+insert into private.storage_deletion_queue (bucket_id, name, reason) values
+  ('child-card-photos', pg_temp.p('t3', pg_temp.f('child')::text || '/card.jpg'), 's4s5 fixture'),
+  ('staff-signatures', pg_temp.f('org')::text || '/s4s5-sig-' || pg_temp.f('t3')::text || '.png', 's4s5 fixture');
+select pg_temp.ck('real', 'C10 the due list refuses a queued file outside the allow-listed buckets', '0',
+  (select count(*)::text from public.storage_deletions_due(1000) where bucket_id in ('child-card-photos', 'staff-signatures')));
+delete from private.storage_deletion_queue where reason = 's4s5 fixture' and bucket_id in ('child-card-photos', 'staff-signatures');
+
 -- SABOTAGE -------------------------------------------------------------------------------------------------------------------------------------------------
 create policy "lab result doc patient delete" on storage.objects for delete to authenticated
   using (bucket_id = 'lab-result-documents' and (storage.foldername(name))[1] = (select auth.uid())::text and owner_id = (select auth.uid())::text);
 select pg_temp.ck('sabotaged', 'SABOTAGE 1: with the owner-only DELETE policy back, A deletes the filed lab report', '0/0',
   pg_temp.as_user(pg_temp.f('a'), format('select pg_temp.try_change(%L, %L)', 'lab-result-documents', pg_temp.p('a', 'filed.pdf'))));
+-- 3. the first-cut queue: own folder in ANY bucket, or anything the account owns outside a real person's folder
+create or replace function private.queue_storage_deletions_for_profile(p_profile uuid, p_reason text) returns integer
+language plpgsql security definer set search_path = '' as $f$
+declare v_n integer;
+begin
+  insert into private.storage_deletion_queue (bucket_id, name, reason, source_id)
+  select o.bucket_id, o.name, p_reason, p_profile from storage.objects o
+  where (storage.foldername(o.name))[1] = p_profile::text
+     or (o.owner_id = p_profile::text and not exists (select 1 from public.profiles p
+           where p.id::text = (storage.foldername(o.name))[1] and p.id <> p_profile and p.is_test is distinct from true))
+  on conflict (bucket_id, name) do nothing;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $f$;
+select pg_temp.as_user(pg_temp.f('ad'), format('select (public.purge_test_account(%L)) ->> ''purged''', pg_temp.f('t3')));
+select pg_temp.ck('sabotaged', 'SABOTAGE 3: the first-cut queue queues the real child''s card photo and the real doctor''s signature', '0',
+  (select count(*)::text from private.storage_deletion_queue where source_id = pg_temp.f('t3') and bucket_id in ('child-card-photos', 'staff-signatures')));
+
 do $$
 declare v_def text;
 begin
@@ -199,11 +247,11 @@ begin
     raise exception 'clinical_file_delete_lock_and_purge_storage_queue FAILED: %',
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
-  if (select count(*) from results where phase = 'real') <> 29 then
-    raise exception 'clinical_file_delete_lock_and_purge_storage_queue: expected 29 checks, got %', (select count(*) from results where phase = 'real');
+  if (select count(*) from results where phase = 'real') <> 33 then
+    raise exception 'clinical_file_delete_lock_and_purge_storage_queue: expected 33 checks, got %', (select count(*) from results where phase = 'real');
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase, check_name;
