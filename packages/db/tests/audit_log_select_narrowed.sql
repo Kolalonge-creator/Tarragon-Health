@@ -111,8 +111,8 @@ begin
   exception when others then v_n := 'refused';
   end;
   perform pg_temp.ck('real', 'H4 the row trigger still refuses an update by the owner', 'refused', v_n);
-  -- an authenticated user can still append a row about herself (existing behaviour kept)
-  perform pg_temp.ck('real', 'H5 a user can still insert her own audit row', '1',
+  -- S2 step 2 (20261105135451): a signed-in user can no longer insert directly, even a row about herself (record_audit_event is the route)
+  perform pg_temp.ck('real', 'H5 a user cannot insert an audit row directly, even her own', 'ERR 42501',
     pg_temp.as_user(pg_temp.f('ct'), format('with i as (insert into public.audit_log (organisation_id, actor_id, action, entity_type, event) values (%L, %L, ''aud.proof.ins'', ''x'', ''{"tag":"aud-proof-ins"}'') returning 1) select count(*) from i', pg_temp.f('org'), pg_temp.f('ct'))));
 
   -- no other reader: policies, views, invoker functions

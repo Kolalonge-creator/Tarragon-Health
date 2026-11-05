@@ -46,6 +46,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Security audit 2026-11-05 (Phase 2): a new CRITICAL advisory in any production dependency now blocks the
+      # merge. --prod skips dev tooling (metro's image-size has no patched 1.x, see CLAUDE.md); high and below still
+      # surface through Dependabot. This needs the npm registry, so a registry outage fails it too: re-run the job.
+      - name: Dependency audit (critical blocks)
+        run: pnpm audit --prod --audit-level=critical
+
       # Security audit 2026-11-05 (M-10): third-party actions pinned to a commit SHA, and a permissions block on every workflow.
       - name: Workflow hardening
         run: node scripts/ci/check-workflow-hardening.mjs

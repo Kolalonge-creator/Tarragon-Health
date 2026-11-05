@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateAndStoreQuarterlyReport } from "@/lib/reports/generate-quarterly-report";
 
@@ -26,7 +27,7 @@ const DUE_AFTER_DAYS = 85; // slightly under 90 so a daily cron run never skips 
  */
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(authHeader)) {
     return new Response("Not authorised", { status: 401 });
   }
 

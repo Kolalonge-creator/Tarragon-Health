@@ -8,6 +8,7 @@ import {
   PDF_BRAND_GREEN,
   PDF_CLINICAL_NAVY,
 } from "@/lib/pdf/pdf-brand";
+import { LAB_NOT_CONTRACTED_STATEMENT, formatRequestCode, labRequestVerifyIndexText } from "@/lib/lab-results/request-verification";
 
 registerPdfFonts();
 
@@ -41,6 +42,10 @@ export interface LabRequestData {
    * screening-calendar explanation.
    */
   clinicalIndication: string | null;
+  /** T2 Phase 3: the printed verification code (10 characters, shown as XXXXX-XXXXX). */
+  verificationCode: string;
+  /** Pre-rendered QR image (data URL) pointing at /verify-request/<token>; null prints the form without a QR. */
+  verificationQr: string | null;
 }
 
 /**
@@ -171,6 +176,20 @@ const styles = StyleSheet.create({
   footerLine: { fontSize: 7.5, color: "#7a8792", lineHeight: 1.4 },
   footerBrand: { fontSize: 7.5, color: PDF_BRAND_GREEN, fontWeight: 700 },
   pageNumber: { fontSize: 7.5, color: "#7a8792" },
+
+  verifyBox: {
+    marginTop: 12,
+    padding: 10,
+    borderWidth: 0.75,
+    borderColor: "#dfe3e6",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  verifyQr: { width: 64, height: 64 },
+  verifyText: { flex: 1 },
+  verifyTitle: { fontWeight: 700, marginBottom: 2, color: PDF_CLINICAL_NAVY },
+  verifyCode: { fontSize: 12, fontWeight: 700, letterSpacing: 1, color: PDF_CLINICAL_NAVY, marginBottom: 2 },
 });
 
 function formatDate(value: string | null): string {
@@ -314,10 +333,27 @@ export function LabRequestDocument({ data }: { data: LabRequestData }) {
           <Text style={styles.calloutTitle}>For the patient</Text>
           <Text>
             Take this to any registered laboratory you choose. You pay the laboratory directly, at
-            their price; TarragonHealth does not take a fee or commission on this test. When you
+            their price. TarragonHealth does not charge you for this test. When you
             get the result, upload it in the app and a doctor will read it with you — including if
             everything is normal.
           </Text>
+        </View>
+
+        {/* T2 Phase 3 (brief 6.3): a laboratory can check the form is genuine, with no account. The check shows the
+            date, the tests and the patient's initials only. */}
+        <View style={styles.verifyBox} wrap={false}>
+          {data.verificationQr ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image style={styles.verifyQr} src={data.verificationQr} />
+          ) : null}
+          <View style={styles.verifyText}>
+            <Text style={styles.verifyTitle}>For the laboratory: check this form is genuine</Text>
+            <Text style={styles.verifyCode}>Verification code {formatRequestCode(data.verificationCode)}</Text>
+            <Text style={styles.muted}>
+              Scan the QR code, or go to {labRequestVerifyIndexText()} and type the code. No account is needed.
+            </Text>
+            <Text style={[styles.muted, { marginTop: 3 }]}>{LAB_NOT_CONTRACTED_STATEMENT}</Text>
+          </View>
         </View>
 
         <View style={styles.footer} fixed>

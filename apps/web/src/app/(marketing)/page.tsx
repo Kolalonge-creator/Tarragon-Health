@@ -1,34 +1,33 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { ChannelHero } from "./_components/channel-hero";
-import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
-import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
-import { MarketingVideo } from "./_components/marketing-video";
 import { Section, SectionHeading } from "./_components/section";
-import { StoryPanel } from "./_components/story-panel";
 import { TestimonialsSection } from "./_components/testimonials-section";
 import { DoctorTestimonialsSection } from "./_components/doctor-testimonials-section";
-import { PhoneMockup } from "./_components/phone-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
-import { TrustBand } from "./_components/trust-band";
-import { PartnerLogoStrip } from "./_components/partner-logo-strip";
-import { StepsExplorer } from "./_components/steps-explorer";
 import { FaqAccordion } from "./_components/marketing-faq-accordion";
-import { HomeEntryChips } from "./_components/home-entry-chips";
 import { HomePlanCompare } from "./_components/home-plan-compare";
-import { HomeBusinessDoor } from "./_components/home-business-door";
 import { FoundingMembersStrip } from "./_components/founding-members-strip";
-import { CareCircleAbroad } from "./_components/care-circle-abroad";
 import { TarragonCommunity } from "./_components/tarragon-community";
+import { MarketingVideo } from "./_components/marketing-video";
 import { MARKETING_MEDIA } from "./_content/media";
-import { HOME_HOW_IT_WORKS, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
-import { DEFAULT_HERO } from "./_content/channel-heroes";
+import { HomeHero, HomeHeroFallback } from "./_components/home-hero";
+import {
+  HomeAudienceRouter,
+  HomeClinicalOversight,
+  HomeDiagnosticNetwork,
+  HomeEmployers,
+  HomeFamilies,
+  HomeJourney,
+  HomeProblem,
+  HomeServices,
+  HomeShowcase,
+} from "./_components/home-sections";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { employerSeatLine, employerSeatPriceLabel, LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
+import { faqPageJsonLd } from "@/lib/marketing/faq-json-ld";
+import { employerSeatPriceLabel, LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, paidProductName, membershipAutoRenews, membershipPriceLabel, refundWindowDays, renewalCopy } from "@/lib/marketing/membership";
 
 const HOME_TITLE = "TarragonHealth | Care that stays with you";
 
@@ -48,7 +47,7 @@ export const metadata: Metadata = {
     // enforces MAX_DESCRIPTION = 160 as a hard stop across every marketing
     // page (Google truncates a listing there).
     description:
-      "Free to join. Tarragon watches your blood pressure, blood sugar, medication and screenings between visits, and brings in a doctor when a result needs one.",
+      "Preventive care in Nigeria: a personal health plan, lab results reviewed by a doctor, and follow-up all year. Free to join, with Membership when you want more.",
     path: "/",
   }),
   title: { absolute: HOME_TITLE },
@@ -76,7 +75,7 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
     {
       question: "Do I need a diagnosis to join?",
       answer:
-        "No. Many people join to stay well. You receive a screening and vaccination calendar based on your age and history, and a yearly health check. If you do have a condition, we follow it between your appointments.",
+        "No. Many people join to stay well. Your preventive plan is based on your age, history and family history. If you do have a condition, we follow it between your appointments.",
     },
     {
       question: "What happens if a reading is dangerous?",
@@ -90,223 +89,76 @@ function homeFaq(price: string, refundDays: number, autoRenews: boolean) {
   ];
 }
 
+/**
+ * Homepage, rebuilt 2026-11-05 (website upgrade Phase 1,
+ * docs/plans/website-redesign/00-phase0-plan.md section 4). Thirteen sections,
+ * one idea each, in the plan's order. Prices come from versioned config
+ * (membershipPriceLabel, employerSeatPriceLabel), never typed.
+ */
 export default async function MarketingHomePage() {
-  const { homepage } = MARKETING_MEDIA;
-  const { walkthroughVideo } = homepage;
+  const { walkthroughVideo } = MARKETING_MEDIA.homepage;
   const price = membershipPriceLabel();
   const refundDays = refundWindowDays();
   const autoRenews = await membershipAutoRenews();
   const seatPrice = employerSeatPriceLabel();
   const faq = homeFaq(price, refundDays, autoRenews);
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faq.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
-
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: faqPageJsonLd(faq) }}
       />
 
-      {/* Full-bleed photo hero, rendered outside Section on purpose (see the
-          component's own header comment). Hero copy is channel-gated:
-          `?channel=hmo|employer|diaspora` swaps the headline/CTA for that
-          traffic source (see _content/channel-heroes.ts); everything below
-          the fold is the same page for every visitor. */}
-      <Suspense
-        fallback={
-          <PhotoBannerHero
-            eyebrow={DEFAULT_HERO.eyebrow}
-            title={DEFAULT_HERO.title}
-            description={DEFAULT_HERO.description}
-            primaryHref={DEFAULT_HERO.primaryHref}
-            primaryLabel={DEFAULT_HERO.primaryLabel}
-            secondaryHref={DEFAULT_HERO.secondaryHref}
-            secondaryLabel={DEFAULT_HERO.secondaryLabel}
-            imageSrc={homepage.hero.imageSrc ?? ""}
-            imageAlt={homepage.hero.imageAlt ?? ""}
-            imagePosition={homepage.hero.imageFocus}
-            videoSrc={homepage.hero.videoSrc}
-          />
-        }
-      >
-        <ChannelHero
-          imageSrc={homepage.hero.imageSrc ?? ""}
-          imageAlt={homepage.hero.imageAlt ?? ""}
-          imagePosition={homepage.hero.imageFocus}
-          videoSrc={homepage.hero.videoSrc}
-        />
+      {/* 1. Hero. `?channel=` campaign copy is read on the client so the page
+          stays static; the fallback is the default copy most visitors see. */}
+      <Suspense fallback={<HomeHeroFallback />}>
+        <HomeHero />
       </Suspense>
 
-      {/* 2. Something to do in the first screen-and-a-half. */}
-      <HomeEntryChips />
+      {/* 2. Who it is for. */}
+      <HomeAudienceRouter />
 
-      {/* 3. The four commitments, then the care path they sit on. */}
-      <Section className="py-6 sm:py-8">
-        <div className="grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
-          {PROOF_STATS.map((stat) => (
-            <Card key={stat.label} variant="soft" className="border-0 shadow-none">
-              <CardContent className="p-5">
-                {/* Deliberately NOT AnimatedNumber: that component serves
-                    "0 hrs on a critical result" in the server HTML for
-                    anyone without JavaScript. A count-up flourish is fine
-                    over a headcount; it is not fine over a clinical
-                    commitment a visitor is being asked to trust. */}
-                <p className="font-heading text-3xl font-bold text-brand-green">{stat.value}</p>
-                <p className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
-                  {stat.label}
-                </p>
-                <p className="mt-2 text-sm text-charcoal-ink/65">{stat.detail}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="mt-10">
-          <ContinuityPath />
-        </div>
-      </Section>
+      {/* 3. The problem, 4. the journey, 5. the app. */}
+      <div className="pt-6" />
+      <HomeProblem />
+      <HomeJourney />
+      <HomeShowcase />
 
-      {/* 4. The gap. */}
-      <Section variant="sage">
-        <StoryPanel
-          eyebrow="The gap"
-          title="Between hospital visits, small changes are easy to miss"
-          description="After a diagnosis you usually leave with a prescription and an appointment in three months. In between, your readings can drift, your medication can run out, and a test you were asked to do can be forgotten. Without someone keeping track, problems are often found late."
-          media={homepage.problem}
-        />
-      </Section>
+      {/* 6. Services. */}
+      <HomeServices />
 
-      {/* 5. How it works, with the phone. The old separate "Take Tarragon
-          with you" section is folded into the note under the steps. */}
-      <Section>
-        <SectionHeading
-          eyebrow="How it works"
-          title="Setting up takes a few minutes, then we keep watch"
-          description="You record the readings that are easy for you to take. Each reading is checked against care protocols, you receive a reminder when something is due, and a doctor reviews your case when a result needs it."
-        />
-        <div className="mx-auto grid max-w-5xl items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
-          <StepsExplorer
-            steps={HOME_HOW_IT_WORKS.map(({ title, body }) => ({ title, body }))}
-            tone="green"
-          />
-          <PhoneMockup
-            className="relative mx-auto"
-            src={homepage.solution.imageSrc ?? ""}
-            alt={homepage.solution.imageAlt ?? ""}
-            width={1206}
-            height={1650}
-            showNotch
-          />
+      {/* 7. Membership: Free vs Membership, price from config. */}
+      <Section id="membership" labelledBy="home-membership-title">
+        <div className="mb-10 grid max-w-3xl gap-3">
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-green">Membership</p>
+          <h2 id="home-membership-title" className="text-balance font-heading text-3xl font-medium leading-tight text-charcoal-ink sm:text-4xl">
+            Healthcare that stays with you.
+          </h2>
+          <p className="text-lg text-charcoal-ink/80">
+            Start free. Join {paidProductName()} when you want a doctor working with you all year.
+          </p>
         </div>
-        {/* Truthful about the apps: no store listing is confirmed (see
-            docs/PLAY_STORE_SUBMISSION.md), so the web app is the product and
-            the native apps are "coming". Do not add store badges until a
-            listing is confirmed live. */}
-        <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          Tarragon works in any phone browser. If you add it to your home screen, it opens like an app
-          and gives you the same secure record and access to your care team. Native apps for iPhone
-          and Android are planned.{" "}
-          <Link href={MARKETING_ROUTES.services} className="font-medium text-brand-green hover:underline">
-            See the full walkthrough
+        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
+        <p className="mt-6 text-center">
+          <Link href={MARKETING_ROUTES.membership} className="inline-block py-2 font-semibold text-brand-green hover:underline">
+            See everything Membership includes
           </Link>
         </p>
       </Section>
 
-      {/* 6. What it costs: Free vs Membership, price from config. */}
-      <Section variant="sage">
-        <SectionHeading
-          eyebrow="What it costs"
-          title={`Free to start. ${paidProductName()} when you want a doctor involved.`}
-          description="There are two plans. Everything you can do yourself is free."
-        />
-        <HomePlanCompare price={price} refundDays={refundDays} membershipIncludes={MEMBERSHIP_INCLUDES} autoRenews={autoRenews} />
-        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-charcoal-ink/70" data-testid="home-employer-seat-line">
-          {employerSeatLine(seatPrice)}
-        </p>
-      </Section>
-
-      {/* The founding member offer, under the plans: renders nothing unless it is open (see the component). */}
+      {/* The founding member offer: renders nothing unless it is open. */}
       <FoundingMembersStrip />
 
-      {/* 7. Two ways in, then the three programmes as cards. */}
-      <Section>
-        <SectionHeading
-          eyebrow="Start where you are"
-          title="Two ways to start, one health record"
-          description="Tarragon is for people managing a long-term condition, and equally for people who do not have one and want to stay well."
-        />
-        <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-          <Card
-            asChild
-            className="rounded-2xl border-brand-green/25 hover:border-brand-green/50 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-          >
-            <Link href={MARKETING_ROUTES.prevention} className="group block p-8 focus-visible:outline-none">
-              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I am healthy
-              </p>
-              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Stay well <span aria-hidden>→</span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                A screening and vaccination calendar based on your age and history, plus a yearly
-                health check. You do not need a diagnosis to join.
-              </p>
-            </Link>
-          </Card>
-          <Card
-            asChild
-            className="rounded-2xl hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-          >
-            <Link href={MARKETING_ROUTES.chronicCare} className="group block p-8 focus-visible:outline-none">
-              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-                I am managing a condition
-              </p>
-              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Get regular follow-up <span aria-hidden>→</span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                Your readings are monitored between visits, and a doctor reviews your case when a result needs it.
-              </p>
-            </Link>
-          </Card>
-        </div>
-        <div className="mx-auto mt-6 grid max-w-4xl gap-4 sm:grid-cols-3">
-          {SERVICE_CARDS.filter((card) => ["hypertension", "diabetes", "obesity"].includes(card.key)).map(
-            (service) => (
-              <Card
-                key={service.key}
-                asChild
-                variant="soft"
-                className="border-0 shadow-none hover:shadow-sm focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
-              >
-                <Link href={service.href} className="group block p-6 focus-visible:outline-none">
-                  <h3 className="font-heading text-base font-semibold text-charcoal-ink group-hover:text-brand-green">
-                    {service.title} <span aria-hidden>→</span>
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{service.description}</p>
-                </Link>
-              </Card>
-            )
-          )}
-        </div>
-      </Section>
+      {/* 8. Diagnostic network, with the Synlab partner line (W-06). */}
+      <HomeDiagnosticNetwork />
 
-      {/* 7b. Family abroad: Care Circle, with a labelled illustration of
-          the supporter view. Live features only; see _content/care-circle.ts. */}
-      <CareCircleAbroad variant="sage" />
+      {/* 9. Families, 10. employers, 11. clinical oversight. */}
+      <HomeFamilies />
 
-      {/* 7c. Tarragon Community, the patient support groups (COM-29). */}
-      <TarragonCommunity />
+      {/* Tarragon Community, the patient support groups (COM-29). */}
+      <TarragonCommunity variant="sage" />
 
-      {/* Same rule the product pages follow (see PRODUCT_VIDEOS in
-          _content/media.ts: "empty youtubeId = section not rendered"). */}
+      {/* Rendered only once a YouTube id is set in _content/media.ts. */}
       {walkthroughVideo.youtubeId.trim() ? (
         <Section variant="sage">
           <MarketingVideo
@@ -317,35 +169,18 @@ export default async function MarketingHomePage() {
           />
         </Section>
       ) : null}
+      <HomeEmployers seatPrice={`₦${seatPrice}`} />
+      <HomeClinicalOversight />
 
-      {/* 8. The B2B front door. */}
-      <HomeBusinessDoor />
-
-      {/* 9. Trust, then proof. Partners and testimonials render only real,
-          consented, published entries (see their component headers); until
-          there are any, they leave no gap. */}
-      <Section variant="navy">
-        <SectionHeading
-          eyebrow="Why people trust Tarragon"
-          title="Designed so that we are accountable to you"
-          invert
-          size="large"
-        />
-        <TrustBand />
-      </Section>
-
-      <PartnerLogoStrip />
-
+      {/* 12. Real, consented testimonials only; these render nothing until one is published. */}
       <TestimonialsSection />
-
       <DoctorTestimonialsSection />
 
-      {/* 10. FAQ. */}
-      <Section>
+      <Section variant="sage">
         <SectionHeading eyebrow="Questions" title="Questions before you sign up" />
         <FaqAccordion items={faq} variant="minimal" />
         <p className="mt-6 text-center text-sm">
-          <Link href={MARKETING_ROUTES.faq} className="font-medium text-brand-green hover:underline">
+          <Link href={MARKETING_ROUTES.faq} className="inline-block py-2 font-medium text-brand-green hover:underline">
             More questions and answers
           </Link>
         </p>
@@ -355,12 +190,12 @@ export default async function MarketingHomePage() {
         <EmergencyNotice />
       </Section>
 
-      {/* 11. Closing call to action. */}
+      {/* 13. Closing call to action. */}
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="Care that stays with you."
-          description="Get started today, for yourself or for someone you care for."
+          title="Start taking a more proactive approach to your health."
+          description="Create a free account in a few minutes, for yourself or for someone you care for."
           primaryHref="/signup"
           primaryLabel="Get started"
         />

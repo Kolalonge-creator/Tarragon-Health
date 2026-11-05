@@ -16,6 +16,8 @@ import {
   postSelectVideoVisitAlternateSlot,
   postConsultationJoin,
   postConsultationDialIn,
+  confirmDirectUpload,
+  REFUSED_UPLOAD_MESSAGE,
 } from "./api";
 import { supabase } from "./supabase";
 
@@ -312,5 +314,33 @@ describe("consultation room calls (OQ-158)", () => {
     mockFetch.mockReset();
     mockFetch.mockResolvedValue(jsonResponse(500, {}));
     await expect(postConsultationDialIn("enc-1")).resolves.toEqual({ ok: false, offline: false });
+  });
+});
+
+describe("confirmDirectUpload (security audit M-4/L-4)", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    global.fetch = mockFetch as unknown as typeof fetch;
+    signedIn();
+  });
+
+  it("asks the platform to check the object it just wrote, and reports a refusal", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { checked: true, refused: true }));
+    expect(await confirmDirectUpload("patient-documents", "u1/a.jpg")).toBe(REFUSED_UPLOAD_MESSAGE);
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/upload-check`);
+    expect(JSON.parse(init.body as string)).toEqual({ bucket: "patient-documents", path: "u1/a.jpg" });
+  });
+
+  it("a checked file is not refused", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { checked: true, refused: false }));
+    expect(await confirmDirectUpload("patient-documents", "u1/a.jpg")).toBeNull();
+  });
+
+  it("offline or a server error never blocks: the sweep checks the file later", async () => {
+    mockFetch.mockRejectedValue(new TypeError("Network request failed"));
+    expect(await confirmDirectUpload("patient-documents", "u1/a.jpg")).toBeNull();
+    mockFetch.mockResolvedValue(jsonResponse(500, { error: "x" }));
+    expect(await confirmDirectUpload("patient-documents", "u1/a.jpg")).toBeNull();
   });
 });

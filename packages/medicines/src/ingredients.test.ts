@@ -42,3 +42,14 @@ describe("the database proof runs the same cases", () => {
     for (const c of INGREDIENT_CASES) expect(sql).toContain(`'${c.name}'`);
   });
 });
+
+// Security audit 2026-11-05: the input cap that bounds regex work must never cut a real long combination product short,
+// or an ingredient would silently drop out of the interaction check.
+describe("splitIngredients on a long combination product", () => {
+  it("keeps an ingredient named after the first 300 characters", () => {
+    const many = Array.from({ length: 40 }, (_, i) => `vitaminingredient${i}`).join(" and ");
+    const generic = `${many} and potassium iodide`;
+    expect(generic.length).toBeGreaterThan(300);
+    expect(splitIngredients(generic)).toContain("potassium iodide");
+  });
+});

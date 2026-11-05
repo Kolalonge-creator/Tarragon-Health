@@ -1,7 +1,5 @@
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
-// zod3, not zod — see tools.ts's own comment on why @langchain/core's tool()
-// needs this exact package identity.
-import { z } from "zod3";
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SPECIALIST_TYPE_VALUES, type Database } from "@tarragon/shared";
 import { requestSpecialistReferral } from "./referral-request";

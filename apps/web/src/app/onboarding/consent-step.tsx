@@ -7,6 +7,7 @@ import { acceptConsents } from "./actions";
 import { Button } from "@/components/ui/button";
 import { parseLegalSections } from "@/lib/legal/parse-sections";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { InlineEmphasis } from "@/lib/legal/inline-emphasis";
 
 /** The full text of each consent type is also published publicly, unauthenticated. */
 const PUBLIC_LEGAL_PATH: Record<string, string> = {
@@ -104,7 +105,7 @@ export function ConsentStep({
                     </p>
                     {section.paragraphs.map((p, i) => (
                       <p key={i} className="mt-1 text-sm leading-relaxed text-charcoal-ink/80">
-                        {p}
+                        <InlineEmphasis text={p} />
                       </p>
                     ))}
                   </div>

@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { populateHealthEducationEmbeddings } from "@/lib/ai-coach/knowledge-base";
 import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { embeddingCronSkip } from "@/lib/lifestyle/embedding-cron-gate";
@@ -14,7 +15,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  */
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(authHeader)) {
     return new Response("Not authorised", { status: 401 });
   }
 

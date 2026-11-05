@@ -2,6 +2,8 @@
 
 import type { Json, TablesInsert } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import {
   nutritionLogSchema,
   nutritionConfirmSchema,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/validation/nutrition";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
 import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
@@ -94,6 +97,12 @@ export async function logMealAction(
 
   const { meal_type, description, photo_path } = parsed.data;
 
+  // A photo the browser wrote straight to Storage is used only once the server has checked it (security audit M-4/L-4).
+  // The browser asks for the check before it gets here; this refuses a path that skipped it or was refused.
+  if (photo_path && !(await isClearedForReading(createServiceRoleClient(), MEAL_PHOTO_BUCKET, photo_path))) {
+    return { error: "That photo could not be checked. Take or choose the photo again." };
+  }
+
   let aiEstimate: Json | null = null;
   let aiStatus: "none" | "estimated" | "unavailable" = "none";
 
@@ -102,7 +111,8 @@ export async function logMealAction(
   const catalogue = await fetchFoodCatalogue(ctx.supabase);
 
   if (photo_path) {
-    if (!isMealVisionConfigured()) {
+    // The meal always saves; past the AI limit (security audit 2026-11-05, M-8) only the photo estimate is skipped.
+    if (!isMealVisionConfigured() || !(await checkAbuseLimit("meal_photo_ai", ctx.userId)).ok) {
       aiStatus = "unavailable";
     } else {
       // Patient's own RLS-scoped session may download from their own folder.

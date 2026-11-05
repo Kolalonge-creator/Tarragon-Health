@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -219,7 +220,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (failure) {
     return NextResponse.json(
-      { success: false, error: failure.message, ...counts, cursor: null },
+      { success: false, error: safeErrorMessage(failure, "mobile/health-samples"), ...counts, cursor: null },
       { status: 500 }
     );
   }

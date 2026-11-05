@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
 import { requestDocumentReadingAction } from "@/lib/document-capture/actions";
 import { DOCUMENT_CAPTURE_TYPES, type DocumentCaptureType } from "@/lib/document-capture/suggestions";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
@@ -60,6 +61,12 @@ export function DocumentCapture({
       const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (uploadError) {
         setError(t("passport.documents.upload_failed", locale));
+        return;
+      }
+      // Server check of the bytes and photo location before the record points at it (security audit 2026-11-05, M-4/L-4).
+      const refused = await confirmDirectUpload(BUCKET, path);
+      if (refused) {
+        setError(refused);
         return;
       }
       const { data: row, error: insertError } = await supabase

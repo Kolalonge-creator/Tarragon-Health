@@ -1,4 +1,5 @@
 import "server-only";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
@@ -74,6 +75,10 @@ export async function runDocumentCapture(
 
   let fileBase64: string;
   let mediaType: string;
+  // Read only once the server has checked the file the browser or phone wrote (security audit M-4/L-4).
+  if (!(await isClearedForReading(service, DOCUMENT_BUCKET, doc.file_path))) {
+    return await recordFailure("This file could not be checked, so it was not read. Add the photo again or type the details in by hand.");
+  }
   try {
     const { data: file, error } = await service.storage.from(DOCUMENT_BUCKET).download(doc.file_path);
     if (error || !file) throw error ?? new Error("Not found in storage");

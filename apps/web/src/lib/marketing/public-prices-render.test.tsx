@@ -50,6 +50,7 @@ describe("naira figures a visitor can read", () => {
   describe.each([
     ["pricing", () => import("../../app/(marketing)/pricing/page")],
     ["home", () => import("../../app/(marketing)/page")],
+    ["membership", () => import("../../app/(marketing)/membership/page")],
   ] as const)("%s", (_name, load) => {
     it.each([false, true])("ladder flag %s: only the Membership price and the employer seat price appear", async (flag) => {
       ladderPublic = flag;

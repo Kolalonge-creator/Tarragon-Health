@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { blockedUncheckedPaths } from "@/lib/uploads/cleared-for-reading";
 
 /**
  * Mint short-lived signed URLs for a batch of private-bucket storage paths
@@ -41,7 +42,12 @@ export async function signStoragePaths(
   const map = new Map<string, string | null>();
   if (paths.length === 0) return map;
   const service = createServiceRoleClient();
-  const { data, error } = await service.storage.from(bucket).createSignedUrls(paths, ttlSeconds);
+  // A file a client wrote straight to Storage is handed out only once the server has checked it (security audit M-4/L-4).
+  const blocked = await blockedUncheckedPaths(service, bucket, paths);
+  for (const path of blocked) map.set(path, null);
+  const signable = paths.filter((path) => !blocked.has(path));
+  if (signable.length === 0) return map;
+  const { data, error } = await service.storage.from(bucket).createSignedUrls(signable, ttlSeconds);
   if (error) {
     console.error(
       `Failed to batch-sign ${paths.length} storage URL(s) in bucket "${bucket}"`,

@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
 import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { readDeviceFlags } from "@/lib/devices/flags";
@@ -391,14 +392,11 @@ const AVATAR_EXT_BY_MIME: Record<string, string> = {
 export type UploadAvatarActionState = { error?: string; success?: boolean; avatarUrl?: string };
 
 /**
- * A patient uploads their own profile photo — self-upload only, through their
- * own RLS-scoped session, mirroring uploadResultDocumentAsPatient's shape:
- * the storage 'patient avatar own insert' policy allows writing into the
- * caller's own {auth.uid()}/ folder, so there is nothing to elevate. Unlike
- * lab-result-documents, 'patient-avatars' is a PUBLIC bucket (see
- * 20260826210202_patient_avatar.sql) — the stored URL is the public one, not
- * a path needing a signed URL on every read, same convention as
- * clinical_staff.photo_url.
+ * A patient uploads their own profile photo. The bytes go through prepareUpload (must be a real photo, location removed,
+ * refused if it cannot be cleaned) and are written by the service role to an opaque path in the PUBLIC 'patient-avatars'
+ * bucket (see 20260826210202_patient_avatar.sql): the stored URL is the public one, same convention as
+ * clinical_staff.photo_url, but since 20261105120005_client_upload_checks.sql it no longer carries the patient's id and
+ * a patient cannot write to the bucket directly. The profile row is still updated through the patient's own session.
  */
 export async function uploadPatientAvatar(formData: FormData): Promise<UploadAvatarActionState> {
   const supabase = await createClient();
@@ -415,16 +413,21 @@ export async function uploadPatientAvatar(formData: FormData): Promise<UploadAva
   if (fileError) return { error: fileError };
 
   const ext = AVATAR_EXT_BY_MIME[file.type] ?? "jpg";
-  // The leading folder MUST be the caller's uid: that is exactly what the
-  // storage own-folder policy checks.
-  const path = `${user.id}/${randomUUID()}.${ext}`;
+  // An opaque path that does not carry the patient's id: the public URL reveals nothing about whose photo it is (security
+  // audit 2026-11-05). Written by the server only; patients have no INSERT or UPDATE policy on this public bucket
+  // (migration 20261105120005_client_upload_checks.sql), so nothing unchecked can be put there with a patient's own token.
+  const path = `v/${randomUUID()}.${ext}`;
+  const service = createServiceRoleClient();
 
-  const { error: uploadError } = await supabase.storage
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file, { requireClean: true });
+  if (!prepared.ok) return { error: prepared.error };
+  const { error: uploadError } = await service.storage
     .from(AVATAR_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const publicUrl = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+  const publicUrl = service.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
 
   const { error: updateError } = await supabase
     .from("profiles")
@@ -432,7 +435,7 @@ export async function uploadPatientAvatar(formData: FormData): Promise<UploadAva
     .eq("id", user.id);
   if (updateError) {
     // Roll back the orphaned object so a failed update leaves no stray file.
-    await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+    await service.storage.from(AVATAR_BUCKET).remove([path]);
     return { error: updateError.message };
   }
 

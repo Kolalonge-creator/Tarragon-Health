@@ -27,7 +27,7 @@ export default function CareersPage() {
         description="TarragonHealth is growing beyond one founder. These are the roles we are currently hiring for. Each one is responsible for an important part of the platform from the first day."
         primaryHref="#roles"
         primaryLabel="See open roles"
-        secondaryHref={`${MARKETING_ROUTES.contact}?source=careers`}
+        secondaryHref={`${MARKETING_ROUTES.contact}?source=careers&role=other`}
         secondaryLabel="Get in touch"
         imageSrc={MARKETING_MEDIA.pageHero.careers.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.pageHero.careers.imageAlt ?? ""}
@@ -57,7 +57,10 @@ export default function CareersPage() {
                 {role.scope}
               </p>
               <Link
-                href={`${MARKETING_ROUTES.contact}?source=careers&role=${role.id}`}
+                // The job goes in `source` and the visitor is "other": `role` is who the
+                // enquirer is (patient, family, employer...), and a job id there
+                // was silently replaced by "patient" (live audit, 2026-11-05).
+                href={`${MARKETING_ROUTES.contact}?source=careers:${role.id}&role=other`}
                 className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
               >
                 Get in touch
@@ -75,7 +78,7 @@ export default function CareersPage() {
         <CtaBand
           title="Reach out anyway"
           description="We are a small team and we are building quickly. If you think you can help us support patients between doctor visits, we would like to hear from you."
-          primaryHref={`${MARKETING_ROUTES.contact}?source=careers`}
+          primaryHref={`${MARKETING_ROUTES.contact}?source=careers&role=other`}
           primaryLabel="Get in touch"
           secondaryHref={MARKETING_ROUTES.about}
           secondaryLabel="Meet the team"

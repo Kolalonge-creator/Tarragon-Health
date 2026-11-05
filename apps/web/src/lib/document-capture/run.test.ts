@@ -19,6 +19,9 @@ jest.mock("@/lib/lab-reports/heic", () => ({
   normaliseForVision: async (buf: Buffer, type: string) => ({ buffer: buf, mediaType: type, converted: false }),
 }));
 
+const mockCleared = jest.fn(async (...args: unknown[]) => args.length >= 0);
+jest.mock("@/lib/uploads/cleared-for-reading", () => ({ isClearedForReading: (...a: unknown[]) => mockCleared(...a) }));
+
 import { runDocumentCapture } from "./run";
 import type { DocumentCaptureResult } from "./extract";
 
@@ -56,6 +59,7 @@ const SUGGESTED: DocumentCaptureResult = {
 };
 
 beforeEach(() => {
+  mockCleared.mockReset().mockResolvedValue(true);
   runGovernedAi.mockReset();
   // Behave like the real wrapper on the happy path: run the AI path and hand back its value.
   runGovernedAi.mockImplementation(async (p: { run: () => Promise<{ value: unknown }> }) => ({ value: (await p.run()).value }));
@@ -127,6 +131,16 @@ describe("runDocumentCapture", () => {
     const extract = jest.fn();
     expect((await runDocumentCapture(service, "d1", { extract })).status).toBe("failed");
     expect(extract).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("record_document_suggestion", expect.objectContaining({ p_failed: true }));
+  });
+
+  it("never reads a file the server has not cleared (refused or still waiting): recorded as failed, no model call (security audit M-4/L-4)", async () => {
+    mockCleared.mockResolvedValue(false);
+    const { service, rpc } = makeService();
+    const extract = jest.fn();
+    expect((await runDocumentCapture(service, "d1", { extract })).status).toBe("failed");
+    expect(extract).not.toHaveBeenCalled();
+    expect(mockCleared.mock.calls[0]?.slice(1)).toEqual(["patient-documents", "p1/a.jpg"]);
     expect(rpc).toHaveBeenCalledWith("record_document_suggestion", expect.objectContaining({ p_failed: true }));
   });
 

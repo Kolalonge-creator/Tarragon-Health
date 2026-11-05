@@ -1,3 +1,4 @@
+import { confirmDirectUpload } from "./api";
 import { lifecycleRules } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import { getCardPhotoStore, type CardPhotoStore } from "./card-photo-store";
@@ -127,6 +128,10 @@ export async function sendCardPhoto(
     const exists = /already exists|duplicate/i.test(up.error.message ?? "") || String(up.error.statusCode) === "409";
     if (!exists) return failure({ code: undefined, message: up.error.message, status: Number.isFinite(Number(up.error.statusCode)) ? Number(up.error.statusCode) : undefined });
   }
+  // Server check of the bytes and photo location (security audit 2026-11-05, M-4/L-4). Offline: skipped, the server sweep checks it.
+  // A refused file can never succeed, so it is a refusal the outbox shows as rejected (22023), not a retry.
+  const refused = await confirmDirectUpload("child-card-photos", path);
+  if (refused) return { ok: false, code: "22023", message: refused };
   // The server checks the object is really there before it marks the row uploaded (55000 = not yet: the outbox retries).
   const confirmed = await db().rpc("confirm_child_card_photo_uploaded", { p_child: subjectId, p_client_id: clientId });
   if (confirmed.error) return failure(confirmed.error);

@@ -19,7 +19,7 @@ export function Section({
       ? "bg-soft-sage"
       : variant === "navy"
         ? "bg-clinical-navy text-white"
-        : "bg-white";
+        : "bg-mk-canvas";
 
   return (
     <section id={id} aria-labelledby={labelledBy} className={cn("px-4 py-16 sm:px-6 sm:py-20", bg, className)}>
