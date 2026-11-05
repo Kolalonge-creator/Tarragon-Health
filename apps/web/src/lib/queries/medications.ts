@@ -450,3 +450,21 @@ export function useDisputePrescriptionSupply(patientId: string) {
     },
   });
 }
+
+/**
+ * T2-11: whether a partner pharmacy can take a prescription today (public.partner_pharmacy_collection_available). The take-anywhere PDF
+ * never depends on it; it only decides whether "Choose where to collect" is offered. Fails closed: any error reads as "no partner".
+ */
+export function usePartnerCollectionAvailable(enabled: boolean) {
+  return useQuery({
+    queryKey: ["partner-pharmacy-collection-available"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("partner_pharmacy_collection_available");
+      if (error) return false;
+      return data === true;
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}

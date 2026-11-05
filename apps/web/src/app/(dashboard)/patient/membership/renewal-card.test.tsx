@@ -40,6 +40,18 @@ describe("RenewalCard", () => {
     expect(screen.getByRole("button", { name: "Cancel renewal" })).toBeTruthy();
   });
 
+  it("T2-13: a Plus year on automatic renewal is told it renews as the Membership, at the Membership price", () => {
+    renewal = { data: { ...ON, tier: "plus", renews_as: "membership_annual_no_panel" } };
+    render(<RenewalCard locale="en" />);
+    const text = document.body.textContent!;
+    expect(text).toMatch(/Membership Plus has been retired, so your year renews as the Membership/);
+    expect(text).toMatch(/₦100,000/);
+    cleanup();
+    renewal = { data: { ...ON, tier: "evergreen" } };
+    render(<RenewalCard locale="en" />);
+    expect(document.body.textContent).not.toMatch(/Membership Plus/);
+  });
+
   it("cancelling is one tap, says the year is kept, and hides the button", async () => {
     render(<RenewalCard locale="en" />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Cancel renewal" })));

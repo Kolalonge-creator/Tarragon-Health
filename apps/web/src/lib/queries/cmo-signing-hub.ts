@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import type { ConfigRow } from "@/lib/go-live/model";
 import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
@@ -30,6 +31,7 @@ import { readPendingBaselineLabsRuleSignoff } from "@/lib/queries/pending-baseli
 import { baselineLabsOverrideItem, readBaselineLabsOverrideAttention } from "@/lib/queries/pending-baseline-labs-override-attention";
 import { readPendingAiMonitoringSignoff } from "@/lib/queries/pending-ai-monitoring-signoff";
 import { readPendingBpTargetSignoff } from "@/lib/queries/pending-bp-target-signoff";
+import { CLINICAL_PROPOSED_ITEM_KEY, readPendingClinicalProposedValues, type PendingClinicalProposedValues } from "@/lib/queries/pending-clinical-proposed-values";
 import { readPendingSymptomUxSignoff } from "@/lib/queries/pending-symptom-ux-signoff";
 import { readPendingMentalWellbeingSignoff } from "@/lib/queries/pending-mental-wellbeing-signoff";
 import { MENTAL_WELLBEING_ITEM_KEY } from "@/lib/clinical/mental-wellbeing-signoff-model";
@@ -65,6 +67,8 @@ export type CmoSigningHub = {
    * definitions, wording and UX attestations, the registry values, device lists and the like. Same panels, a separate, collapsed list.
    */
   operational: SignoffQueueItem[];
+  /** CMO-owned patient-harm registry values awaiting confirmation (the narrative urgent-finding rules), for the inline confirm panel. */
+  clinicalProposed: ConfigRow[];
 };
 
 
@@ -137,7 +141,7 @@ const CLINICAL_ITEM_KEYS = new Set<string>([
   PROTOCOL_DRAFTS_ITEM_KEY, CLINICAL_RULES_ITEM_KEY, "ai_governance", COMMUNITY_ITEM_KEY, THRESHOLD_POLICY_ITEM_KEY, RED_OUTREACH_ITEM_KEY,
   GLUCOSE_TRIAGE_ITEM_KEY, VITALS_TRIAGE_ITEM_KEY, FAST_SUGAR_ITEM_KEY, MENTAL_WELLBEING_ITEM_KEY,
   RELIABLE_CHANGE_ITEM_KEY, BASELINE_LABS_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY, "result_release_policies", SCREENING_RULE_SET_ITEM_KEY,
-  BP_TARGET_ITEM_KEY,
+  BP_TARGET_ITEM_KEY, CLINICAL_PROPOSED_ITEM_KEY,
 ]);
 export function isClinicalSignoff(key: string): boolean {
   if (key.startsWith(OWED_ITEM_PREFIX)) return true;
@@ -166,7 +170,7 @@ export function isClinicalSignoff(key: string): boolean {
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2, bpTarget] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, vitals, vitalsTaskType, qualityConfigs, soleCmo, unifiedRed, capacityConfigs, fastSugar, queuePaging, legacyRetire, thresholds, bpDevices, postCheckin, mentalWellbeing, symptomUx, cascadeConfig, careGapConfig, outcomeDefinitions, baselineLabs, baselineOverrides, aiMonitoring, mskProgrammes, owed, screeningRules, stage2, bpTarget, clinicalProposed] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -204,6 +208,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingScreeningRuleSet(supabase),
     readPendingStage2Attestation(supabase),
     readPendingBpTargetSignoff(supabase),
+    readPendingClinicalProposedValues(supabase).catch((): PendingClinicalProposedValues => ({ rows: [], item: null, failed: true })),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -670,6 +675,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (clinicalProposed.item) items.push(clinicalProposed.item);
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -704,6 +711,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(screeningRules.failed ? ["the screening rule set drafts"] : []),
     ...(stage2.failed ? ["the Stage 2 launch attestation"] : []),
     ...(bpTarget.failed ? ["the blood pressure targets"] : []),
+    ...(clinicalProposed.failed ? ["the clinical values confirmed through the registry"] : []),
   ];
   live.sort((a, b) => a.title.localeCompare(b.title));
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
@@ -714,5 +722,5 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
   const lineKeys = new Set([...items, ...live].map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items: clinical, operational, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live };
+  return { items: clinical, operational, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention, live, clinicalProposed: clinicalProposed.rows };
 }

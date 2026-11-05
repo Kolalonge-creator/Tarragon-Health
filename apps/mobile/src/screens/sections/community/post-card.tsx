@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Image, View } from "react-native";
 import type { MessageKey } from "@tarragon/i18n";
 import { API_BASE_URL } from "@/lib/api";
-import { deletePost, editPost, hideAuthor, loadReplies, reactToPost, submitPost } from "@/lib/community/api";
+import { deletePost, editPost, hideAuthor, loadReplies, reactToPost, setSaved, submitPost } from "@/lib/community/api";
 import { fromSubmit, type ComposerEffect } from "@/lib/community/compose";
 import { replyCountKey, withinEditWindow, type FeedPost } from "@/lib/community/model";
 import { imageAspectRatio, imageSource } from "@/lib/community/upload";
@@ -41,6 +41,12 @@ export function PostCard({ post, groupId, maxChars, editWindowMinutes, canPost, 
   const { colors } = useTheme();
   const [supported, setSupported] = useState(post.i_supported);
   const [supportCount, setSupportCount] = useState(post.support_count);
+  const [saved, setSavedState] = useState(post.i_saved === true);
+  const [saving, setSaving] = useState(false);
+  // A reload can reuse this card (same key) with a newer server value; follow it rather than keep the first one.
+  useEffect(() => {
+    setSavedState(post.i_saved === true);
+  }, [post.i_saved]);
   const [note, setNote] = useState<MessageKey | null>(null);
   const [editing, setEditing] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -62,6 +68,21 @@ export function PostCard({ post, groupId, maxChars, editWindowMinutes, canPost, 
     }
     setSupported(result.supported);
     setSupportCount(result.supportCount);
+  }
+
+  /** Save is private to this member (the author is never told). A refusal keeps the old state and says why. */
+  async function toggleSaved() {
+    if (saving) return;
+    setNote(null);
+    setSaving(true);
+    const result = await setSaved(post.id, !saved).catch(() => null);
+    setSaving(false);
+    if (!result || !result.ok) {
+      setNote(result ? result.key : "community.compose.refused.other");
+      return;
+    }
+    setSavedState(result.saved);
+    setNote(result.saved ? "community.saved.done" : "community.saved.undone");
   }
 
   async function fetchReplies() {
@@ -188,6 +209,9 @@ export function PostCard({ post, groupId, maxChars, editWindowMinutes, canPost, 
             expanded={repliesOpen}
             onPress={() => void toggleReplies()}
           />
+        ) : null}
+        {!isReply && post.i_saved !== undefined ? (
+          <TextAction label={copy(saved ? "community.saved.saved" : "community.saved.save")} selected={saved} disabled={saving} onPress={() => void toggleSaved()} />
         ) : null}
         {canEdit && !editing ? <TextAction label={copy("community.post.edit")} onPress={() => setEditing(true)} /> : null}
         {post.is_mine ? (

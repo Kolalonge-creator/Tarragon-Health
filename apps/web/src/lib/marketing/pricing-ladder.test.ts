@@ -39,6 +39,12 @@ describe("the public plan content", () => {
     expect(LAB_TESTS_WHERE).toMatch(/any reputable laboratory/);
   });
 
+  it("lists written questions and signed prescriptions among the Membership inclusions (T2-11)", () => {
+    expect(MEMBERSHIP_INCLUDES).toContain("Written questions to your care team between calls");
+    expect(MEMBERSHIP_INCLUDES).toContain("Prescriptions your care team signs, for you to take to any pharmacy");
+    expect(MEMBERSHIP_INCLUDES.filter((line) => /\u2014|doctor-led/i.test(line))).toEqual([]);
+  });
+
   it("promises no doctor review turnaround time", () => {
     expect(allCopy()).not.toMatch(/within \d+ (?:hours?|days?|working days?) .*review|reviewed within|\b\d+\s*(?:hours?|hrs)\b/i);
   });
