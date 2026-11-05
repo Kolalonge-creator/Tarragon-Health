@@ -17,6 +17,10 @@ export const uploadCheckSchema = z.object({
   path: z.string().min(1).max(1024),
 });
 
+const WAIT_ATTEMPTS = 5;
+const WAIT_MS = 1000;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export type UploadCheckResult = { checked: boolean; refused: boolean } | { error: string };
 
 export async function checkMyUpload(userClient: SupabaseClient<Database>, input: unknown, accessToken?: string): Promise<UploadCheckResult> {
@@ -33,9 +37,16 @@ export async function checkMyUpload(userClient: SupabaseClient<Database>, input:
   if ("error" in result) return { error: "Could not check the file" };
   if (result.outcomes.quarantined > 0) return { checked: true, refused: true };
   if (result.checked === 0) {
-    // Already checked by the sweep (or a retry): report a refusal it made, so the screen never points at a removed file.
-    const { data } = await service.rpc("client_upload_check_outcome", { p_bucket: only.bucket, p_name: only.name, p_owner: only.ownerId });
-    return { checked: false, refused: data === "quarantined" };
+    // Already checked by the sweep (or a retry): report a refusal it made, so the screen never points at a removed file. If the
+    // sweep is checking this very file right now, wait a few seconds for its answer rather than saying "not refused" too early.
+    let status: string | null = null;
+    for (let attempt = 0; attempt < WAIT_ATTEMPTS; attempt++) {
+      const { data } = await service.rpc("client_upload_check_outcome", { p_bucket: only.bucket, p_name: only.name, p_owner: only.ownerId });
+      status = data;
+      if (status !== "checking" && status !== "pending") break;
+      if (attempt < WAIT_ATTEMPTS - 1) await sleep(WAIT_MS);
+    }
+    return { checked: false, refused: status === "quarantined" };
   }
   // A refused file is reported so the screen can say so; nothing else about the check is shared.
   return { checked: true, refused: false };

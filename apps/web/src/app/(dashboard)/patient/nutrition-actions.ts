@@ -2,6 +2,8 @@
 
 import type { Json, TablesInsert } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import {
   nutritionLogSchema,
   nutritionConfirmSchema,
@@ -93,6 +95,12 @@ export async function logMealAction(
   if ("error" in ctx) return { error: ctx.error };
 
   const { meal_type, description, photo_path } = parsed.data;
+
+  // A photo the browser wrote straight to Storage is used only once the server has checked it (security audit M-4/L-4).
+  // The browser asks for the check before it gets here; this refuses a path that skipped it or was refused.
+  if (photo_path && !(await isClearedForReading(createServiceRoleClient(), MEAL_PHOTO_BUCKET, photo_path))) {
+    return { error: "That photo could not be checked. Take or choose the photo again." };
+  }
 
   let aiEstimate: Json | null = null;
   let aiStatus: "none" | "estimated" | "unavailable" = "none";

@@ -61,7 +61,7 @@ import { useAttachVaccinationCertificate, useUploadVaccinationCard } from "@/lib
 import { useUploadCareMessageAttachment } from "@/lib/queries/care-messages";
 import { useSubmitSecondOpinionRequest } from "@/lib/queries/second-opinion";
 import { useSendWrittenQuestion } from "@/lib/queries/written-questions";
-import { uploadClinicalStaffPhoto } from "@/lib/queries/clinical-staff";
+import { uploadClinicalStaffPhoto } from "@/lib/clinical-staff/upload-photo";
 import { createClient } from "@/lib/supabase/client";
 
 function wrapper({ children }: { children: ReactNode }) {

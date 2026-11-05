@@ -55173,6 +55173,10 @@ export type Database = {
         Args: { p_limit?: number; p_bucket?: string; p_name?: string; p_owner?: string }
         Returns: { bucket_id: string; object_name: string; mimetype: string | null; owner_id: string }[]
       }
+      client_upload_check_statuses: {
+        Args: { p_bucket: string; p_names: string[] }
+        Returns: { object_name: string; status: string; owner_id: string }[]
+      }
       client_upload_check_outcome: {
         Args: { p_bucket: string; p_name: string; p_owner: string }
         Returns: string | null

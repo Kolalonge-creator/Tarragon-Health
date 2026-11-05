@@ -10,6 +10,7 @@ import type { Database } from "@tarragon/shared";
 
 const run = jest.fn<(service: unknown, options: unknown) => Promise<unknown>>();
 const outcome = jest.fn<() => Promise<{ data: string | null; error: null }>>();
+jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate", "queueMicrotask"] });
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc: () => outcome() }) }));
 jest.mock("./verify-stored-upload", () => ({ runClientUploadChecks: (s: unknown, o: unknown) => run(s, o) }));
 
@@ -48,5 +49,23 @@ describe("checkMyUpload", () => {
     expect(await checkMyUpload(client("u1"), { bucket: "meal-photos", path: "u1/a.jpg" })).toEqual({ checked: false, refused: true });
     outcome.mockResolvedValue({ data: "clean", error: null });
     expect(await checkMyUpload(client("u1"), { bucket: "meal-photos", path: "u1/a.jpg" })).toEqual({ checked: false, refused: false });
+  });
+
+  it("waits for a sweep that is checking the same file right now, and reports its refusal", async () => {
+    run.mockResolvedValue({ checked: 0, outcomes: none });
+    outcome.mockResolvedValueOnce({ data: "checking", error: null }).mockResolvedValueOnce({ data: "checking", error: null }).mockResolvedValue({ data: "quarantined", error: null });
+    const pending = checkMyUpload(client("u1"), { bucket: "meal-photos", path: "u1/a.jpg" });
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(await pending).toEqual({ checked: false, refused: true });
+    expect(outcome).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives up waiting after a few seconds without blocking the person", async () => {
+    run.mockResolvedValue({ checked: 0, outcomes: none });
+    outcome.mockResolvedValue({ data: "checking", error: null });
+    const pending = checkMyUpload(client("u1"), { bucket: "meal-photos", path: "u1/a.jpg" });
+    await jest.advanceTimersByTimeAsync(10000);
+    expect(await pending).toEqual({ checked: false, refused: false });
+    expect(outcome).toHaveBeenCalledTimes(5);
   });
 });

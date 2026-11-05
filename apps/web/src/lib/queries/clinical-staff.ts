@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
+import { uploadClinicalStaffPhoto } from "@/lib/clinical-staff/upload-photo";
 import { SIGNATURE_BUCKET, signatureObjectPath, validateSignatureFile } from "@/lib/clinical/signature-image";
 import { CLINICAL_STAFF_SELECT_NO_FOLIO } from "@/lib/clinical/staff-columns";
 import { withStaffFolios } from "@/lib/clinical/staff-folio";
@@ -11,25 +11,6 @@ export type ClinicalStaff = Tables<"clinical_staff">;
 export type ClinicalStaffNoFolio = Omit<ClinicalStaff, "credential_number">;
 
 const ALL_STAFF_QUERY_KEY = ["clinical-staff", "all"];
-const CLINICAL_STAFF_PHOTO_BUCKET = "clinical-staff-photos";
-
-/** Uploads to the public clinical-staff-photos bucket and returns the resulting public URL for clinical_staff.photo_url. */
-export async function uploadClinicalStaffPhoto(
-  supabase: ReturnType<typeof createClient>,
-  organisationId: string,
-  file: File
-): Promise<string> {
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${organisationId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage
-    .from(CLINICAL_STAFF_PHOTO_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw error;
-  // Server check of the bytes and photo location before anything points at the file (security audit 2026-11-05, M-4/L-4).
-  const refused = await confirmDirectUpload(CLINICAL_STAFF_PHOTO_BUCKET, path);
-  if (refused) throw new Error(refused);
-  return supabase.storage.from(CLINICAL_STAFF_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
-}
 
 async function getCallerOrganisationId(): Promise<string> {
   const supabase = createClient();

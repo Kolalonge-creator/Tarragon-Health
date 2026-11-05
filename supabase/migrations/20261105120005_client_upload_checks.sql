@@ -16,13 +16,14 @@
 --   3. The app's verifier (apps/web/src/lib/uploads/verify-stored-upload.ts, the same prepareUpload, not a second checker)
 --      claims pending rows, downloads each object, and either leaves it ('clean'), writes the metadata-free copy back
 --      ('cleaned'), or moves a file whose bytes are not what it claims into the private upload-quarantine bucket
---      ('quarantined'). It runs when the client asks right after an upload (/api/uploads/check), every two minutes from
+--      ('quarantined'). It runs when the client asks right after an upload (checkMyUploadAction on the web,
+--      /api/mobile/upload-check on the phone), every two minutes from
 --      pg_cron once the app_base_url and cron_secret Vault secrets exist, and daily from Vercel cron as a backstop.
 --
--- Also: new patient profile photos (public bucket) are written by the server only, at an opaque path that does not carry the
--- patient's id. The own-folder INSERT and UPDATE policies on patient-avatars are dropped, so nobody can put an unchecked file
--- into a public bucket with their own token. Existing photos keep their old URLs (and the own-folder select/delete policies
--- that serve them).
+-- Also: patient profile photos (public bucket) are written by the server only, at an opaque path that does not carry the
+-- patient's id. All four own-folder policies on patient-avatars are dropped, so nobody can put an unchecked file into a public
+-- bucket with their own token. Counted live before writing this (2026-11-05): 0 objects in patient-avatars and 0 profiles
+-- with an avatar_url, so there is no existing photo under a user-id path to move and no conversion step.
 --
 -- Not a malware scan; that is a separate founder decision (deferred 2026-11-05).
 -- Proof: packages/db/tests/client_upload_checks.sql.
@@ -184,6 +185,11 @@ begin
   set status = p_status, checked_at = now(), detail = left(p_detail, 500)
   where bucket_id = p_bucket and object_name = p_name and status = 'checking';
   get diagnostics v_rows = row_count;
+  -- A refused child-card photo never arrives, so its placeholder row (written first by the phone's outbox, still
+  -- 'pending_upload') is removed rather than left saying a photo is on its way. An uploaded row is never touched.
+  if v_rows = 1 and p_status = 'quarantined' and p_bucket = 'child-card-photos' then
+    delete from public.child_card_photos where storage_path = p_name and file_state = 'pending_upload';
+  end if;
   return v_rows = 1;
 end;
 $$;
@@ -210,10 +216,63 @@ $$;
 revoke all on function public.client_upload_check_outcome(text, text, text) from public, anon, authenticated;
 grant execute on function public.client_upload_check_outcome(text, text, text) to service_role;
 
+-- Statuses for a batch of objects in one bucket (only those that have a row; files from before this migration have none).
+-- Server-side readers use it to withhold a file that is still waiting for its check, or was refused (it is checked inline first).
+create or replace function public.client_upload_check_statuses(p_bucket text, p_names text[])
+returns table (object_name text, status text, owner_id text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'client_upload_check_statuses is for the server only' using errcode = '42501';
+  end if;
+  return query
+  select k.object_name, k.status, k.owner_id
+  from private.client_upload_checks k
+  where k.bucket_id = p_bucket and k.object_name = any (p_names);
+end;
+$$;
+
+revoke all on function public.client_upload_check_statuses(text, text[]) from public, anon, authenticated;
+grant execute on function public.client_upload_check_statuses(text, text[]) to service_role;
+
 revoke all on function public.claim_client_upload_checks(integer, text, text, text) from public, anon, authenticated;
 revoke all on function public.finish_client_upload_check(text, text, text, text) from public, anon, authenticated;
 grant execute on function public.claim_client_upload_checks(integer, text, text, text) to service_role;
 grant execute on function public.finish_client_upload_check(text, text, text, text) to service_role;
+
+-- 3b. A child-card photo is confirmed only once the server has cleared it ---------------------------------------------------
+-- Redefined from the live body (pg_get_functiondef, 2026-11-05) with one added gate: before, the confirm step only checked
+-- that the object existed, so a client that skipped the check could mark an unchecked photo 'uploaded' for the care team.
+-- A photo still waiting for its check answers 55000 ("not yet"), which the phone's outbox already treats as retry-later.
+
+create or replace function public.confirm_child_card_photo_uploaded(p_child uuid, p_client_id uuid)
+ returns boolean
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare v_uid uuid := (select auth.uid()); v_path text;
+begin
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  select storage_path into v_path from public.child_card_photos where patient_id = p_child and client_id = p_client_id and uploaded_by = v_uid;
+  if v_path is null then raise exception 'no such photo record' using errcode = 'P0002'; end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'child-card-photos' and o.name = v_path) then
+    raise exception 'the file has not been uploaded yet' using errcode = '55000';
+  end if;
+  if exists (
+    select 1 from private.client_upload_checks k
+    where k.bucket_id = 'child-card-photos' and k.object_name = v_path and k.status not in ('clean', 'cleaned')
+  ) then
+    raise exception 'the photo has not been checked yet' using errcode = '55000';
+  end if;
+  update public.child_card_photos set file_state = 'uploaded' where patient_id = p_child and client_id = p_client_id and file_state <> 'uploaded';
+  return true;
+end $function$;
 
 -- 4. Quarantine bucket (private, no policies: service role only) ------------------------------------------------------------
 
@@ -259,10 +318,20 @@ revoke all on function private.kick_client_upload_checks() from public, anon, au
 
 select cron.schedule('verify-client-uploads', '*/2 * * * *', $$select private.kick_client_upload_checks()$$);
 
+-- 5b. Register the Vercel backstop cron in the owner registry (the vercel.json drift test reads this file) -----------------------
+
+insert into public.automations (name, kind, schedule, source_ref) values
+  ('vercel:verify-client-uploads', 'vercel_cron', '40 4 * * *', '/api/cron/verify-client-uploads')
+on conflict (name) do nothing;
+insert into public.automation_jobs (job_name, schedule, source)
+values ('/api/cron/verify-client-uploads', '40 4 * * *', 'vercel') on conflict (job_name) do nothing;
+
 -- 6. Profile photos: server-only writes ---------------------------------------------------------------------------------------
 
 drop policy if exists "patient avatar own insert" on storage.objects;
 drop policy if exists "patient avatar own update" on storage.objects;
+drop policy if exists "patient avatar own delete" on storage.objects;
+drop policy if exists "patient avatar own select" on storage.objects;
 
 -- 7. Self-check --------------------------------------------------------------------------------------------------------------
 
@@ -273,15 +342,17 @@ begin
   end if;
   if has_function_privilege('anon', 'public.claim_client_upload_checks(integer, text, text, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.claim_client_upload_checks(integer, text, text, text)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.finish_client_upload_check(text, text, text, text)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'public.finish_client_upload_check(text, text, text, text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.client_upload_check_statuses(text, text[])', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.client_upload_check_outcome(text, text, text)', 'EXECUTE') then
     raise exception 'client_upload_checks: claim/finish must be server-only';
   end if;
   if exists (
     select 1 from pg_policies
-    where schemaname = 'storage' and tablename = 'objects' and cmd in ('INSERT', 'UPDATE')
+    where schemaname = 'storage' and tablename = 'objects'
       and coalesce(qual, '') || coalesce(with_check, '') like '%patient-avatars%'
   ) then
-    raise exception 'client_upload_checks: a client can still write to patient-avatars';
+    raise exception 'client_upload_checks: patient-avatars must be server-only (no storage policies)';
   end if;
   if exists (
     select 1 from pg_policies
