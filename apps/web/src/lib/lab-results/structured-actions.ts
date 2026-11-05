@@ -23,6 +23,7 @@ import {
 import { loose } from "@/lib/clinician/loose-client";
 import { removeFile, storeFile, type StoredFile } from "@/lib/lab-results/store-file";
 import { getLabResultsSource } from "@/lib/lab-results/results-source";
+import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
 
@@ -62,7 +63,7 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
   if (file instanceof File && file.size > 0) {
     const { data: patientId } = await supabase.rpc("lab_partner_order_patient", { p_order_id: parsed.data.orderId });
     if (!patientId) return { error: "You do not have access to that." };
-    const s = await storeFile(patientId, file);
+    const s = await storeFile(patientId, file, user.id);
     if ("error" in s) return { error: s.error };
     stored = s;
   }
@@ -89,7 +90,7 @@ export async function addOwnLabResult(_prev: LabActionState, formData: FormData)
   if (!user) return { error: "Please sign in again." };
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a PDF, JPG or PNG." };
-  const s = await storeFile(user.id, file);
+  const s = await storeFile(user.id, file, user.id);
   if ("error" in s) return { error: s.error };
   const supabase = await createClient();
   const { error } = await supabase.rpc("patient_add_lab_result", { p_file: s as unknown as Json });
@@ -107,6 +108,8 @@ export async function getOwnResultFileUrl(resultId: string): Promise<{ url?: str
   const supabase = await createClient();
   const { data: path, error } = await supabase.rpc("lab_result_file_path", { p_result: resultId });
   if (error || !path) return { error: "Not found." };
+  // T2-08: no link to a file held for the malware scan.
+  if (await isPathHeld(createServiceRoleClient(), path)) return { error: HELD_FOR_SCAN_MESSAGE };
   const { data } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).createSignedUrl(path, 60);
   return data?.signedUrl ? { url: data.signedUrl } : { error: "Not found." };
 }
@@ -118,6 +121,7 @@ export async function getReviewFileUrl(resultId: string): Promise<{ url?: string
   const { data, error } = await supabase.rpc("lab_result_for_review", { p_result: resultId, p_reason: "Opening the lab report file for review" });
   const path = (data as { file_path?: string | null } | null)?.file_path;
   if (error || refusalOf(data) || !path) return { error: "Not found." };
+  if (await isPathHeld(createServiceRoleClient(), path)) return { error: HELD_FOR_SCAN_MESSAGE };
   const signed = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).createSignedUrl(path, 60);
   return signed.data?.signedUrl ? { url: signed.data.signedUrl } : { error: "Not found." };
 }
@@ -244,7 +248,7 @@ export async function submitPartnerCorrection(_prev: LabActionState, formData: F
   if (file instanceof File && file.size > 0) {
     const { data: patientId } = await supabase.rpc("lab_partner_order_patient", { p_order_id: parsed.data.orderId });
     if (!patientId) return { error: "You do not have access to that." };
-    const s = await storeFile(patientId, file);
+    const s = await storeFile(patientId, file, user.id);
     if ("error" in s) return { error: s.error };
     stored = s;
   }
@@ -274,7 +278,7 @@ export async function submitTeamResult(patientId: string, labOrderId: string | u
   const user = await getCurrentUser();
   if (!user) return { error: "Please sign in again." };
   if (!/^[0-9a-f-]{36}$/.test(patientId) || (labOrderId !== undefined && !/^[0-9a-f-]{36}$/.test(labOrderId))) return { error: "That patient could not be found." };
-  const stored = await storeFile(patientId, file);
+  const stored = await storeFile(patientId, file, user.id);
   if ("error" in stored) return { error: stored.error };
   const supabase = await createClient();
   const { error } = await supabase.rpc("team_submit_lab_result", {

@@ -10,6 +10,8 @@ const createSignedUrls = jest.fn();
 
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
+    // T2-08 hold check: nothing is held in these fixtures.
+    rpc: async () => ({ data: [], error: null }),
     storage: {
       from: () => ({
         createSignedUrls,

@@ -11,6 +11,7 @@ import { runImagingReportExtraction } from "@/lib/imaging-reports/extraction-act
 import { ECG_REPORT_BUCKET } from "@/lib/ecg-reports/documents";
 import { IMAGING_REPORT_BUCKET } from "@/lib/imaging-reports/documents";
 import { classifyByRules } from "./classify-rules";
+import { isPathHeld } from "@/lib/upload-scan/hold";
 import { STUCK_AFTER_MINUTES } from "./retry";
 import { CLASSIFIER_MODEL_ID, classifyDocument, type ClassifiableKind } from "./classify";
 
@@ -94,6 +95,8 @@ export async function runDocumentClassification(
       .eq("id", documentId)
       .maybeSingle();
     if (!doc || doc.status !== "classifying" || doc.routed_table !== null || !doc.file_path) return { pipeline: null, asked: false };
+    // T2-08: held for the malware scan. Stays 'classifying'; the daily retry rescans it first and then sorts it.
+    if (await isPathHeld(service, doc.file_path)) return { pipeline: null, asked: false };
 
     const kinds = await loadClassifiableKinds(service);
     const rule = classifyByRules(doc.original_filename, doc.patient_note);
@@ -182,6 +185,8 @@ async function routeToReader(service: SupabaseClient<Database>, documentId: stri
     .eq("id", documentId)
     .maybeSingle();
   if (!cd || cd.routed_table !== null || cd.status !== "processing" || !cd.file_path) return;
+  // T2-08: a held file is not copied to a reader; the daily retry routes it once it is clean.
+  if (await isPathHeld(service, cd.file_path)) return;
   const bucket = pipeline === "ecg" ? ECG_REPORT_BUCKET : IMAGING_REPORT_BUCKET;
   const { data: file, error: downloadError } = await service.storage.from(RESULT_DOC_BUCKET).download(cd.file_path);
   if (downloadError || !file) {

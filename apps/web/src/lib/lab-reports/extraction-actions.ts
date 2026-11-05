@@ -6,6 +6,7 @@ import type { Database, Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
+import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 import { extractLabReport, isLabReportExtractionConfigured } from "./extract";
 import { hintsFromConfirmedRows, mergeHints, type TemplateHints } from "./corpus";
 import { isReadableDocumentType, normaliseForVision } from "./heic";
@@ -75,6 +76,10 @@ export async function runLabReportExtraction(
   },
 ): Promise<{ status: "extracted" | "failed"; readyCount: number; message: string }> {
   const { documentId, patientId, organisationId, filePath, mimeType } = params;
+
+  // T2-08: a file held for the malware scan is not read, and nothing is persisted (it is not a reading failure). The daily retry
+  // rescans it and, once clean, the reader runs.
+  if (await isPathHeld(service, filePath)) return { status: "failed", readyCount: 0, message: HELD_FOR_SCAN_MESSAGE };
 
   const fail = async (message: string, errorMessage: string) => {
     try {

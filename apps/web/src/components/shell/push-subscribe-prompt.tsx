@@ -53,9 +53,29 @@ async function subscribeAndStore(): Promise<PushSetupResult> {
     return { ok: false, step: "subscribe", detail: errorDetail(err) };
   }
 
+  const first = await storeSubscription(subscription);
+  if (first.ok || !first.resubscribe) return first.result;
+
+  // The server says this endpoint is dead (the push service rejected it for good, for example a subscription made with an old VAPID
+  // key that this browser does not expose, so the key check above could not catch it). Drop it and subscribe once more.
+  try {
+    await subscription.unsubscribe();
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  } catch (err) {
+    return { ok: false, step: "subscribe", detail: errorDetail(err) };
+  }
+  return (await storeSubscription(subscription)).result;
+}
+
+type StoreOutcome = { ok: true; result: PushSetupResult } | { ok: false; resubscribe: boolean; result: PushSetupResult };
+
+async function storeSubscription(subscription: PushSubscription): Promise<StoreOutcome> {
   const json = subscription.toJSON();
   if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-    return { ok: false, step: "details", detail: "" };
+    return { ok: false, resubscribe: false, result: { ok: false, step: "details", detail: "" } };
   }
 
   try {
@@ -67,11 +87,15 @@ async function subscribeAndStore(): Promise<PushSetupResult> {
         keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
       }),
     });
-    const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-    if (body?.ok) return { ok: true };
-    return { ok: false, step: "save", detail: body?.error ?? `HTTP ${res.status}` };
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; resubscribe?: boolean } | null;
+    if (body?.ok) return { ok: true, result: { ok: true } };
+    return {
+      ok: false,
+      resubscribe: body?.resubscribe === true,
+      result: { ok: false, step: "save", detail: body?.error ?? `HTTP ${res.status}` },
+    };
   } catch (err) {
-    return { ok: false, step: "save", detail: errorDetail(err) };
+    return { ok: false, resubscribe: false, result: { ok: false, step: "save", detail: errorDetail(err) } };
   }
 }
 
