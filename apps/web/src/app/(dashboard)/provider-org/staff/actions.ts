@@ -35,6 +35,14 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   const input = parsed.data;
 
+  // Check authority BEFORE any login is created (security audit 2026-11-05, H-1): the
+  // same question provider_org_members_manage asks. The RLS insert below stays the real gate.
+  const supabase = await createClient();
+  const { data: allowed, error: allowedError } = await supabase.rpc("can_manage_provider_org_seats", {
+    p_organisation_id: input.organisationId,
+  });
+  if (allowedError || allowed !== true) return { error: "You don't have access to do that" };
+
   const svc = createServiceRoleClient();
   const { data: created, error: createError } = await svc.auth.admin.createUser({
     email: input.email,
@@ -47,7 +55,6 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
     return { error: createError?.message ?? "Could not create the login" };
   }
 
-  const supabase = await createClient();
   const { error: seatError } = await supabase.from("provider_org_members").insert({
     organisation_id: input.organisationId,
     profile_id: created.user.id,
@@ -55,7 +62,11 @@ export async function inviteProviderOrgStaffAction(_prev: ActionState, formData:
     job_title: input.jobTitle ?? null,
     invited_by: actor.id,
   });
-  if (seatError) return { error: seatError.message };
+  if (seatError) {
+    // Never leave a confirmed provider_org_staff login behind when the seat is refused.
+    await svc.auth.admin.deleteUser(created.user.id);
+    return { error: seatError.message };
+  }
 
   revalidatePath("/provider-org/staff");
   return { message: `${input.fullName} added.` };
