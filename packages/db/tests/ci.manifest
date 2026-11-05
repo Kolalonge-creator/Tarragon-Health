@@ -1897,3 +1897,5 @@ result_files_patient_may_only_change_own_uploads.sql
 seat_invite_preflight_checks.sql
 # Test flag follows the profile: marking a real patient as a test account re-stamps their existing rows (an append-only table and a guarded one) without firing row triggers, another patient is untouched, one audit row records the counts, unmarking turns them back, an admin session works and the replication setting is restored afterwards, and no client can call the re-stamp. Sabotage: without the profiles trigger the rows stay real.
 test_flag_follows_profile.sql
+# T2-01/T2-09/T2-13 legal v3: terms_of_service and telehealth each have exactly one current version, 2026-11-05-v3, and no current body names Membership Plus, a blood test or moving up; the 2026-10-30-v2 rows stay as superseded history; data_processing stays current at 2026-10-30-v2; a patient who accepted only v2 has outstanding required consents and accepting v3 closes the gap. Sabotage: the v2 terms made current again must trip the Membership Plus check.
+consent_remove_membership_plus_v3.sql
