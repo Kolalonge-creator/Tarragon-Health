@@ -45,7 +45,7 @@ async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
 // contract, function must be named/exported `proxy`).
 //
 // The wrapper adds the REPORT-ONLY nonce script policy (lib/security/csp-nonce.ts) to app-host pages. The nonce goes on the
-// REQUEST header so Next stamps it on the scripts it renders (updateSession forwards the request headers), and on the RESPONSE so
+// REQUEST header (plain name) so Next stamps it on the scripts it renders (updateSession forwards the request headers), and on the RESPONSE so
 // the browser reports what a strict policy would block. The enforced policy from next.config.ts is untouched.
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
@@ -55,7 +55,10 @@ export async function proxy(request: NextRequest) {
     inAppCall: isConsultationCallPath(pathname),
     dev: process.env.NODE_ENV === "development",
   });
-  request.headers.set("content-security-policy-report-only", policy);
+  // The REQUEST header is the plain Content-Security-Policy name, as in Next's own guide: production on Vercel dropped the
+  // report-only name before render (2026-11-05: header live on the response, zero nonced scripts on a dynamic page). A request
+  // header is never enforced by anything; only the response header reaches the browser, and that one stays report-only.
+  request.headers.set("content-security-policy", policy);
   const response = await proxyInner(request);
   response.headers.set("Content-Security-Policy-Report-Only", policy);
   return response;

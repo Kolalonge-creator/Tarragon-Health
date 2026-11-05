@@ -580,7 +580,7 @@ describe("report-only nonce script policy", () => {
     expect(policy).toMatch(/script-src 'nonce-[A-Za-z0-9+/=]{24}' 'strict-dynamic'/);
     expect(policy).toContain("report-uri /api/csp-report");
     // Next reads the nonce from the request header; updateSession forwards it (x-middleware-request-*).
-    expect(res.headers.get("x-middleware-request-content-security-policy-report-only")).toBe(policy);
+    expect(res.headers.get("x-middleware-request-content-security-policy")).toBe(policy);
     // Never the enforcing header: this step only reports.
     expect(res.headers.get("content-security-policy")).toBeNull();
   });
