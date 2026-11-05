@@ -20,10 +20,12 @@
 --  11. "mark reviewed" while the reading still holds unfiled yearly-panel analytes waits;
 --  12. end to end through public.confirm_lab_report_extraction with a CONFIRMED link: the S27 result carries the order, and once
 --      every tied result is released the request is resulted;
---  13. end to end with only a SUGGESTED link (named by the patient at upload): the S27 result carries NO order and the request
---      stays open after release;
+--  13. end to end with only a SUGGESTED link (the patient's own link after upload): the S27 result carries NO order and the
+--      request stays open after release; an order the patient named AT UPLOAD still reaches S27 exactly as before (pre-existing);
 --  14. a held result superseded by a correction: the request stays open until the correction is released, then closes;
---  15. a care coordinator cannot link at all (clinical write only).
+--  15. a care coordinator cannot link at all (clinical write only);
+--  16. a lab_orders trigger that refuses the move to 'resulted' never fails a filing: the filing lands, the completion failure is
+--      audited, and an HbA1c filing still hands its values to S27 under the same refusing trigger.
 --
 -- Sabotage, each inside a sub-block that is rolled back; each makes its check fail:
 --   S1 (6):  the clinician-touched test returns false: the patient relinks a reviewed document;
@@ -33,8 +35,9 @@
 --   S5 (2):  the completion trigger dropped: a confirmed, reviewed report leaves its request open;
 --   S6 (3):  the automatic suggestion counted as confirmed: the request closes;
 --   S7 (8):  the patient-set test_code counted as evidence: the multi-test request closes;
---   S8 (13): raise_abnormal_results_from_filed_upload's old order block restored: a suggested order reaches S27 and the release
---            closes the request.
+--   S8 (13): raise_abnormal_results_from_filed_upload reading ANY link source: a patient suggestion reaches S27 and the release
+--            closes the request;
+--   S9 (16): the completion guard removed: the refusing lab_orders trigger fails the clinician's filing.
 --
 -- Run: supabase db query --linked -f packages/db/tests/lab_order_report_link.sql   (or psql -v ON_ERROR_STOP=1 -f ...)
 
@@ -108,17 +111,20 @@ begin
 end $$;
 
 -- a clinician files the HbA1c read from an uploaded report, end to end
-create or replace function pg_temp.file_extraction(p_org uuid, p_pat uuid, p_lrd uuid, p_doc uuid) returns uuid language plpgsql as $$
+create or replace function pg_temp.file_extraction(p_org uuid, p_pat uuid, p_lrd uuid, p_doc uuid, p_code text default 'hba1c')
+returns uuid language plpgsql as $$
 declare v_e uuid;
 begin
   select id into v_e from public.lab_report_extractions where document_id = p_lrd;
   if v_e is null then
     insert into public.lab_report_extractions (organisation_id, patient_id, document_id, status, rows)
-    values (p_org, p_pat, p_lrd, 'extracted', '[{"code":"hba1c","value":"6.1","unit":"%","status":"ready","confidence":"high"}]'::jsonb)
+    values (p_org, p_pat, p_lrd, 'extracted',
+            jsonb_build_array(jsonb_build_object('code', p_code, 'value', '6.1', 'unit', '%', 'status', 'ready', 'confidence', 'high')))
     returning id into v_e;
   end if;
   perform pg_temp.as_user(p_doc);
-  perform public.confirm_lab_report_extraction(v_e, '[{"code":"hba1c","value":"6.1","unit":"%"}]'::jsonb, private.lagos_today());
+  perform public.confirm_lab_report_extraction(v_e, jsonb_build_array(jsonb_build_object('code', p_code, 'value', '6.1', 'unit', '%')),
+                                               private.lagos_today());
   perform set_config('request.jwt.claims', null, true);
   return v_e;
 end $$;
@@ -143,7 +149,8 @@ declare
   v_staff uuid;
   o_hba1c uuid; o_hba1c2 uuid; o_fbc_new uuid; o_fbc_old uuid; o_lip1 uuid; o_lip2 uuid; o_diab uuid; o_other uuid; o_cancel uuid;
   o_nocodes uuid; o_wh uuid; o_s27 uuid; o_x uuid; o_y uuid; o_c uuid; o_pat uuid;
-  d1 uuid; d2 uuid; d3 uuid; d4 uuid; d5 uuid; d6 uuid; d7 uuid; d8 uuid; d9 uuid; d10 uuid; d11 uuid; d12 uuid; d13 uuid; d14 uuid; dp uuid;
+  d1 uuid; d2 uuid; d3 uuid; d4 uuid; d5 uuid; d6 uuid; d7 uuid; d8 uuid; d9 uuid; d10 uuid; d11 uuid; d12 uuid; d13 uuid; d14 uuid; d15 uuid; d16 uuid; d17 uuid; d18 uuid; dp uuid;
+  o_v uuid; o_v2 uuid; o_h uuid;
   cd public.clinical_documents;
   cd_f3 uuid; cd_a uuid;
   r_wh uuid; r3 uuid; r_a uuid; r_b uuid;
@@ -217,7 +224,7 @@ begin
   perform pg_temp.assert_open(o_fbc_new, '3 (an automatic suggestion closed the request)');
   -- S6: if the suggestion counted as confirmed, the request would close
   begin
-    update public.clinical_documents set lab_order_link_source = 'staff' where id = cd.id;
+    update public.clinical_documents set lab_order_link_source = 'staff', lab_order_linked_by = v_doc where id = cd.id;
     perform pg_temp.assert_open(o_fbc_new, 'S6');
     raise exception 'S6 NOT CAUGHT: a confirmed link on a reviewed single-test report left the request open';
   exception when others then
@@ -445,34 +452,52 @@ begin
   end if;
   perform pg_temp.assert_resulted(o_x, '12 (filed and released)');
 
-  -- 13. end to end, SUGGESTED link only (named by the patient at upload): S27 gets no order; released, the request stays open
-  o_y := pg_temp.order_for(v_org, v_pat, 'single_hba1c', v_staff, interval '380 days');
-  d12 := pg_temp.upload(v_org, v_pat, o_y, '12.pdf', 'hba1c');
+  -- 13. end to end, SUGGESTED link only (the patient's own link after a loose upload): S27 gets no order; released, it stays open
+  d12 := pg_temp.upload(v_org, v_pat, null, '12.pdf', 'hba1c');
+  if (pg_temp.cd_for(d12)).lab_order_id is not null then raise exception 'FAIL 13 setup: the loose HbA1c upload was auto-linked'; end if;
+  perform pg_temp.as_user(v_pat);
+  set local role authenticated;
+  perform public.link_clinical_document_to_lab_order((pg_temp.cd_for(d12)).id, o_hba1c2);
+  reset role;
+  perform set_config('request.jwt.claims', null, true);
   perform pg_temp.file_extraction(v_org, v_pat, d12, v_doc);
-  if exists (select 1 from unnest(private.document_lab_result_ids((pg_temp.cd_for(d12)).id)) x
-              join public.lab_results r on r.id = x where r.lab_order_id is not null) then
-    raise exception 'FAIL 13: a suggested order reached S27';
-  end if;
   if cardinality(private.document_lab_result_ids((pg_temp.cd_for(d12)).id)) = 0 then
     raise exception 'FAIL 13 setup: the filing produced no S27 result to release';
   end if;
+  if exists (select 1 from unnest(private.document_lab_result_ids((pg_temp.cd_for(d12)).id)) x
+              join public.lab_results r on r.id = x where r.lab_order_id is not null) then
+    raise exception 'FAIL 13: a patient suggestion reached S27';
+  end if;
   perform pg_temp.release_tied((pg_temp.cd_for(d12)).id, v_doc);
-  perform pg_temp.review(d12, v_doc);
-  perform pg_temp.assert_open(o_y, '13 (a suggested link closed the request through S27)');
-  -- S8: the old order block restored: the suggested order reaches S27 and its release closes the request
+  perform pg_temp.assert_open(o_hba1c2, '13 (a patient suggestion closed the request through S27)');
+  -- an order the patient named AT UPLOAD still reaches S27, exactly as before this migration (pre-existing, documented limit)
+  o_y := pg_temp.order_for(v_org, v_pat, 'single_hba1c', v_staff, interval '380 days');
+  d13 := pg_temp.upload(v_org, v_pat, o_y, '13.pdf', 'hba1c');
+  perform pg_temp.file_extraction(v_org, v_pat, d13, v_doc);
+  if not exists (select 1 from unnest(private.document_lab_result_ids((pg_temp.cd_for(d13)).id)) x
+                  join public.lab_results r on r.id = x where r.lab_order_id = o_y) then
+    raise exception 'FAIL 13: the order named at upload no longer reaches S27 (today''s behaviour changed)';
+  end if;
+  -- S8: the hand-off reading ANY link source: the patient's suggestion reaches S27 and its release closes the request
   begin
     v_def := pg_get_functiondef('private.raise_abnormal_results_from_filed_upload()'::regprocedure);
-    v_def := regexp_replace(v_def, '  -- request to report \(20261105164553\).*?o\.status not in \(''pending_payment'', ''cancelled''\)\);',
-      '  if d.lab_order_id is not null then v_order := d.lab_order_id; end if;', 's');
+    v_def := replace(v_def, 'cdoc.lab_order_link_source = ' || quote_literal('staff'), 'cdoc.lab_order_link_source is not null');
     execute v_def;
-    d13 := pg_temp.upload(v_org, v_pat, o_y, '13.pdf', 'hba1c');
-    perform pg_temp.file_extraction(v_org, v_pat, d13, v_doc);
-    perform pg_temp.release_tied((pg_temp.cd_for(d13)).id, v_doc);
-    perform pg_temp.assert_open(o_y, 'S8');
+    d14 := pg_temp.upload(v_org, v_pat, null, '13s.pdf', 'hba1c');
+    perform pg_temp.as_user(v_pat);
+    set local role authenticated;
+    perform public.link_clinical_document_to_lab_order((pg_temp.cd_for(d14)).id, o_hba1c2);
+    reset role;
+    perform set_config('request.jwt.claims', null, true);
+    perform pg_temp.file_extraction(v_org, v_pat, d14, v_doc);
+    perform pg_temp.release_tied((pg_temp.cd_for(d14)).id, v_doc);
+    perform pg_temp.assert_open(o_hba1c2, 'S8');
     raise exception 'S8 NOT CAUGHT';
   exception when others then
+    reset role;
     if sqlerrm not like 'FAIL S8%' then raise exception '%', sqlerrm; end if;
   end;
+  perform set_config('request.jwt.claims', null, true);
 
   -- 14. a held result superseded by a correction: open until the correction is released, then closed
   o_c := pg_temp.order_for(v_org, v_pat, 'single_hba1c', v_staff, interval '330 days');
@@ -483,9 +508,9 @@ begin
   select id into cd_a from public.clinical_documents where routed_table = 'lab_result_files'
      and routed_id = (select document_id from public.lab_results where id = r_a);
   perform pg_temp.confirm(v_doc, cd_a, o_c);
-  d14 := pg_temp.upload(v_org, v_pat, o_c, '14.pdf', 'hba1c');
-  perform pg_temp.confirm(v_doc, (pg_temp.cd_for(d14)).id, o_c);
-  perform pg_temp.review(d14, v_doc);
+  d15 := pg_temp.upload(v_org, v_pat, o_c, '14.pdf', 'hba1c');
+  perform pg_temp.confirm(v_doc, (pg_temp.cd_for(d15)).id, o_c);
+  perform pg_temp.review(d15, v_doc);
   perform pg_temp.assert_open(o_c, '14 (held result)');
   v_out := private.submit_lab_result(v_pat, null, null, null,
     jsonb_build_object('file_path', v_pat::text || '/cb.pdf', 'original_filename', 'cb.pdf', 'mime_type', 'application/pdf', 'file_size_bytes', 1000),
@@ -507,6 +532,51 @@ begin
   perform set_config('request.jwt.claims', null, true);
   if not v_failed then raise exception 'FAIL 15: a care coordinator linked a report'; end if;
 
+  -- 16. a lab_orders trigger refusing the move to 'resulted' never fails a filing
+  create function public.zz_proof_boom() returns trigger language plpgsql as $f$
+  begin
+    if new.status = 'resulted' and old.status is distinct from 'resulted' then raise exception 'proof boom'; end if;
+    return new;
+  end $f$;
+  create trigger zzz_proof_boom after update on public.lab_orders for each row execute function public.zz_proof_boom();
+  -- a non-panel reading on a confirmed single-test request: the filing completes the request, which the trigger refuses
+  o_v := pg_temp.order_for(v_org, v_pat, 'single_vitamin_b12', v_staff, interval '20 days');
+  d16 := pg_temp.upload(v_org, v_pat, o_v, '16.pdf', 'vitamin_b12');
+  perform pg_temp.confirm(v_doc, (pg_temp.cd_for(d16)).id, o_v);
+  perform pg_temp.file_extraction(v_org, v_pat, d16, v_doc, 'vitamin_b12');
+  if (select status from public.lab_report_extractions where document_id = d16) <> 'confirmed'
+     or not exists (select 1 from public.lab_analyte_readings where patient_id = v_pat and code = 'vitamin_b12') then
+    raise exception 'FAIL 16: the filing did not land';
+  end if;
+  if not exists (select 1 from public.audit_log where action = 'lab_order.completion_failed' and entity_id = (pg_temp.cd_for(d16)).id) then
+    raise exception 'FAIL 16: the refused completion was not audited';
+  end if;
+  perform pg_temp.assert_open(o_v, '16 (the refusing trigger was bypassed)');
+  -- an HbA1c filing on a confirmed request still hands its values to S27 under the same trigger
+  o_h := pg_temp.order_for(v_org, v_pat, 'single_hba1c', v_staff, interval '360 days');
+  d17 := pg_temp.upload(v_org, v_pat, o_h, '17.pdf', 'hba1c');
+  perform pg_temp.confirm(v_doc, (pg_temp.cd_for(d17)).id, o_h);
+  perform pg_temp.file_extraction(v_org, v_pat, d17, v_doc);
+  if (select status from public.lab_report_extractions where document_id = d17) <> 'confirmed'
+     or cardinality(private.document_lab_result_ids((pg_temp.cd_for(d17)).id)) = 0 then
+    raise exception 'FAIL 16: the HbA1c filing or its S27 hand-off did not land';
+  end if;
+  -- S9: without the guard, the same refusal fails the clinician's filing
+  begin
+    create or replace function private.try_complete_lab_order_from_report(p_document uuid) returns void
+      language plpgsql security definer set search_path to '' as $g$
+      begin perform private.complete_lab_order_from_report(p_document); end $g$;
+    o_v2 := pg_temp.order_for(v_org, v_pat, 'single_vitamin_b12', v_staff, interval '21 days');
+    d18 := pg_temp.upload(v_org, v_pat, o_v2, '18.pdf', 'vitamin_b12');
+    perform pg_temp.confirm(v_doc, (pg_temp.cd_for(d18)).id, o_v2);
+    perform pg_temp.file_extraction(v_org, v_pat, d18, v_doc, 'vitamin_b12');
+    raise exception 'S9 NOT CAUGHT: the filing succeeded without the guard';
+  exception when others then
+    if sqlerrm not like '%proof boom%' then raise exception '%', sqlerrm; end if;
+  end;
+  perform set_config('request.jwt.claims', null, true);
+  drop trigger zzz_proof_boom on public.lab_orders;
+
   -- S5: without the completion trigger, a confirmed, reviewed report leaves its request open
   begin
     drop trigger zz_lab_order_link_after on public.clinical_documents;
@@ -519,7 +589,7 @@ begin
     if sqlerrm not like 'FAIL S5%' then raise exception '%', sqlerrm; end if;
   end;
 
-  raise notice 'ALL CHECKS PASSED (8 sabotages caught)';
+  raise notice 'ALL CHECKS PASSED (9 sabotages caught)';
 end $$;
 
 rollback;
