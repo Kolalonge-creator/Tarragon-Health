@@ -932,6 +932,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
     return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
   }
+  if (n.template === "staff_access_review_due") {
+    // From private.staff_access_review_reminder (security audit 2026-11-05): fixed wording, to admins only.
+    return { text: "The quarterly staff access review is due", href: "/admin/staff-access-review" };
+  }
   if (n.template === "ops_all_clear") {
     return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }

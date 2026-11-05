@@ -1889,3 +1889,5 @@ t2_11_prescribing_take_anywhere.sql
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Security audit Phase 3 (2026-11-05): quarterly staff access review and the admin security overview. Only admins start, decide and complete a review; one open review at a time; remove/change need a note; completion needs every account decided; each step audited; the weekly reminder tells a non-test admin once and stops after a completed review; the overview is admin-only. Sabotage: the note rule removed, and the read policy opened to everyone.
+security_dashboard_and_staff_access_review.sql
