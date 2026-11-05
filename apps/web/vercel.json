@@ -130,6 +130,10 @@
     {
       "path": "/api/cron/clinical-document-retry",
       "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/verify-client-uploads",
+      "schedule": "40 4 * * *"
     }
   ]
 }

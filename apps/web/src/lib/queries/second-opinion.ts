@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
 import type { Tables } from "@tarragon/shared";
 import {
   secondOpinionWorklistSchema,
@@ -146,6 +147,11 @@ export function useSubmitSecondOpinionRequest() {
           .from(SECOND_OPINION_DOCUMENT_BUCKET)
           .upload(path, file, { contentType: file.type, upsert: false });
         if (uploadError) {
+          filesFailed += 1;
+          continue;
+        }
+        // Server check of the bytes and photo location before the request points at it (security audit 2026-11-05, M-4/L-4).
+        if (await confirmDirectUpload(SECOND_OPINION_DOCUMENT_BUCKET, path)) {
           filesFailed += 1;
           continue;
         }

@@ -845,3 +845,20 @@ export async function postDeviceRhythmResult(payload: DeviceRhythmRequest): Prom
   if (!result.ok) return { ok: false, error: result.error, status: result.status, offline: result.error === NETWORK_ERROR_MESSAGE };
   return { ok: true, duplicate: result.data?.duplicate === true, patientCopy: result.data?.patient_copy ?? null, redPath: result.data?.red_path === true };
 }
+
+export const REFUSED_UPLOAD_MESSAGE = "That file is not what it says it is. Choose a PDF or take a photo, then try again.";
+
+/**
+ * After the app writes a file straight to Storage: asks the server to check it now (security audit 2026-11-05, M-4/L-4) —
+ * bytes must match the declared type, photo location is removed. Returns the message to show when the server refused the
+ * file (it has already been moved out of reach), otherwise null. Offline or any failure returns null: the server-side sweep
+ * still checks the file, so the offline outbox never waits on this. See apps/web/src/app/api/mobile/upload-check/route.ts.
+ */
+export async function confirmDirectUpload(bucket: string, path: string): Promise<string | null> {
+  try {
+    const result = await request<{ refused?: boolean }>("/api/mobile/upload-check", "POST", { bucket, path }, false, true, 20_000);
+    return result.ok && result.data?.refused ? REFUSED_UPLOAD_MESSAGE : null;
+  } catch {
+    return null;
+  }
+}

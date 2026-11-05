@@ -1,3 +1,4 @@
+import { confirmDirectUpload } from "./api";
 import { outsideRecordLabel, type OutsideRecordLabel } from "@tarragon/shared";
 import { supabase } from "./supabase";
 
@@ -87,6 +88,8 @@ export async function uploadOutsideRecord(
   const path = `${user.id}/${globalThis.crypto.randomUUID()}.${ext}`;
   const { error: uploadError } = await supabase.storage.from("patient-documents").upload(path, bytes, { contentType: file.mimeType, upsert: false });
   if (uploadError) return { ok: false, reason: "upload" };
+  // Server check of the bytes and photo location before the record points at it (security audit 2026-11-05, M-4/L-4).
+  if (await confirmDirectUpload("patient-documents", path)) return { ok: false, reason: "type" };
   const { error: insertError } = await supabase.from("patient_documents").insert({
     organisation_id: profile.organisation_id,
     patient_id: user.id,

@@ -1889,3 +1889,5 @@ t2_11_prescribing_take_anywhere.sql
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Security audit M-4/L-4 (2026-11-05): a file a signed-in user writes straight to Storage in any of the nine client-upload buckets is queued for the server check (service-role writes and other buckets are not), a replace or move re-queues it, claim/finish/outcome are service-role only with an owner filter, a stale finish after a replace is dropped, and patients can no longer write to the public patient-avatars bucket. Sabotage: dropping the trigger leaves an upload unqueued; the old own-folder avatar insert policy lets the patient write to the public bucket again.
+client_upload_checks.sql
