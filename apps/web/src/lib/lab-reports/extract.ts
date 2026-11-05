@@ -377,7 +377,7 @@ export async function extractLabReport(input: {
         model: input.modelId ?? MODEL_ID,
         maxTokens: 4000,
         // Same claude-*-5-generation workaround as case-briefs/meal-vision:
-        // @langchain/anthropic@0.3.x unconditionally sends these, and this
+        // @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) these, and this
         // model generation rejects them outright.
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
       });

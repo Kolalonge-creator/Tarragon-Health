@@ -9,6 +9,7 @@
     "./supabase/client": "./src/supabase/client.ts",
     "./supabase/middleware": "./src/supabase/middleware.ts",
     "./supabase/service-role": "./src/supabase/service-role.ts",
+    "./supabase/cookie-options": "./src/supabase/cookie-options.ts",
     "./current-profile": "./src/current-profile.ts",
     "./roles": "./src/roles.ts",
     "./console-areas": "./src/console-areas.ts",
@@ -25,7 +26,8 @@
     "./recovery": "./src/recovery.ts",
     "./breached-password": "./src/breached-password.ts",
     "./password-check": "./src/password-check.ts",
-    "./auth-error-key": "./src/auth-error-key.ts"
+    "./auth-error-key": "./src/auth-error-key.ts",
+    "./mfa-policy": "./src/mfa-policy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

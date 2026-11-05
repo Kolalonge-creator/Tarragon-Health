@@ -13,7 +13,7 @@ import {
   staffImagingReportUploadSchema,
   validateImagingReportDocFile,
 } from "@/lib/validation/imaging-report-documents";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 type DocumentSource = Database["public"]["Enums"]["imaging_report_document_source"];
@@ -111,6 +111,9 @@ export async function uploadImagingReportForPatient(
 
   const service = createServiceRoleClient();
   const ext = EXT_BY_MIME[file.type] ?? "bin";
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: patientId, uploadedBy: user.id });
+  if (!screened.ok) return { error: screened.error };
   const path = `${patientId}/${randomUUID()}.${ext}`;
 
   // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
@@ -132,7 +135,7 @@ export async function uploadImagingReportForPatient(
       mime_type: file.type,
       file_size_bytes: file.size,
       // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
-      content_sha256: await fileSha256(file),
+      content_sha256: screened.sha256,
       source,
       uploaded_by: user.id,
       note: note ?? null,
@@ -214,6 +217,9 @@ export async function uploadImagingReportAsPatient(
   }
 
   const ext = EXT_BY_MIME[file.type] ?? "bin";
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) return { error: screened.error };
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
   // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
@@ -235,7 +241,7 @@ export async function uploadImagingReportAsPatient(
       mime_type: file.type,
       file_size_bytes: file.size,
       // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
-      content_sha256: await fileSha256(file),
+      content_sha256: screened.sha256,
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,

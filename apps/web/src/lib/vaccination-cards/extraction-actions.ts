@@ -1,5 +1,6 @@
 "use server";
 
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
@@ -100,6 +101,13 @@ export async function runVaccinationCardExtraction(
 
   let fileBase64: string;
   let visionMediaType: string;
+  // Read only once the server has checked the file the browser wrote (security audit M-4/L-4).
+  if (!(await isClearedForReading(service, CERTIFICATE_BUCKET, row.source_path))) {
+    return fail(
+      "This file could not be checked, so it was not read. Upload the card again or enter the doses by hand.",
+      "Upload check not cleared (refused, or still waiting for the server check)."
+    );
+  }
   try {
     const { data: file, error } = await service.storage
       .from(CERTIFICATE_BUCKET)

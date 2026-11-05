@@ -7,6 +7,7 @@ import type { Database, Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { ECG_REPORT_BUCKET } from "./documents";
+import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
@@ -76,6 +77,9 @@ export async function runEcgReportExtraction(
   },
 ): Promise<{ status: "extracted" | "failed"; readyCount: number; message: string }> {
   const { documentId, patientId, organisationId, filePath, mimeType } = params;
+
+  // T2-08: a file held for the malware scan is not read and nothing is persisted; the retry reads it once it is clean.
+  if (await isPathHeld(service, filePath)) return { status: "failed", readyCount: 0, message: HELD_FOR_SCAN_MESSAGE };
 
   // The model actually sent: the governed model once governance allows the call, so every stored row and audit
   // record names the same model the request used.

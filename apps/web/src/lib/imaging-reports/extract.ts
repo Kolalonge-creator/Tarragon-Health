@@ -133,7 +133,7 @@ export async function extractImagingReport(input: {
         model: input.modelId ?? MODEL_ID,
         maxTokens: 2000,
         // Same claude-*-5-generation workaround as lab-reports/ecg-reports
-        // extract.ts: @langchain/anthropic@0.3.x unconditionally sends these,
+        // extract.ts: @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) these,
         // and this model generation rejects them outright.
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
       });

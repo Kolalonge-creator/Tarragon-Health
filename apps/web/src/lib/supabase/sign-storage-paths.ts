@@ -1,5 +1,10 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { blockedUncheckedPaths } from "@/lib/uploads/cleared-for-reading";
+import { heldPaths } from "@/lib/upload-scan/hold";
+
+/** Buckets whose files go through the clinical document intake, and so through the T2-08 malware scan. */
+export const SCANNED_UPLOAD_BUCKETS: ReadonlySet<string> = new Set(["lab-result-documents", "lab-results", "ecg-reports", "imaging-reports"]);
 
 /**
  * Mint short-lived signed URLs for a batch of private-bucket storage paths
@@ -41,10 +46,18 @@ export async function signStoragePaths(
   const map = new Map<string, string | null>();
   if (paths.length === 0) return map;
   const service = createServiceRoleClient();
-  const { data, error } = await service.storage.from(bucket).createSignedUrls(paths, ttlSeconds);
+  // A file a client wrote straight to Storage is handed out only once the server has checked it (security audit M-4/L-4).
+  const blocked = await blockedUncheckedPaths(service, bucket, paths);
+  // T2-08: a file held for the malware scan (pending_scan or infected) gets no link. Its entry is null, the same "file could not
+  // be loaded" state a caller already handles, so every document list withholds it without its own check.
+  const held = SCANNED_UPLOAD_BUCKETS.has(bucket) ? await heldPaths(service, paths) : new Set<string>();
+  for (const p of paths) if (blocked.has(p) || held.has(p)) map.set(p, null);
+  const toSign = paths.filter((p) => !blocked.has(p) && !held.has(p));
+  if (toSign.length === 0) return map;
+  const { data, error } = await service.storage.from(bucket).createSignedUrls(toSign, ttlSeconds);
   if (error) {
     console.error(
-      `Failed to batch-sign ${paths.length} storage URL(s) in bucket "${bucket}"`,
+      `Failed to batch-sign ${toSign.length} storage URL(s) in bucket "${bucket}"`,
       error,
     );
   }

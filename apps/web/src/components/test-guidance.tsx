@@ -71,8 +71,7 @@ export function TestGuidanceDetail({
                 About {price} at a major private laboratory.
               </span>{" "}
               Smaller laboratories are often cheaper for the same test, so it is worth asking two.
-              You pay the laboratory directly, at their price. Tarragon adds nothing and takes no
-              cut.
+              You pay the laboratory directly, at their price. Tarragon adds nothing to it.
             </>
           ) : (
             <>
@@ -142,8 +141,8 @@ export function TestGuidanceIntro() {
   return (
     <p className="text-sm leading-relaxed text-charcoal-ink/70">
       Working out which tests you need and writing the request is free, and always will be. You take
-      that request to whichever laboratory you choose and pay them directly, at their price — we add
-      nothing and take no cut. Upload the result when it comes back and a doctor can read it with
+      that request to whichever laboratory you choose and pay them directly, at their price. We add
+      nothing to it. Upload the result when it comes back and a doctor can read it with
       you.
     </p>
   );

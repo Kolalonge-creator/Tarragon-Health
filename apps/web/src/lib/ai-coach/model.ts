@@ -25,6 +25,9 @@ export function buildAnthropicModel(opts: { maxTokens?: number } = {}): ChatAnth
     // is deprecated") — invocationKwargs is spread last in this package's
     // request-building code, so setting them to `undefined` here overrides
     // the class defaults and omits the keys from the request entirely.
+    // @langchain/anthropic@1.x no longer sends them by default (checked
+    // 2026-11-05 against the captured request body); the override stays as a
+    // guard in case a later release brings the defaults back.
     invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
   });
 }

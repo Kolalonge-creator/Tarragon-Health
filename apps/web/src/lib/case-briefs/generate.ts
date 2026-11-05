@@ -151,7 +151,7 @@ export async function generateCaseBrief(
           model: modelId,
           maxTokens: 400,
           // Same claude-*-5-generation workaround as lib/ai-coach/graph.ts's
-          // buildModel() -- @langchain/anthropic@0.3.x unconditionally sends
+          // buildModel() -- @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard)
           // temperature/top_p/top_k, which this model generation rejects
           // outright.
           invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },

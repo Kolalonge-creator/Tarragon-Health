@@ -14,14 +14,14 @@ import { cn } from "@/lib/utils";
  * employers are now first-class items in the bar itself, and on a phone the
  * strip plus the bar took about a quarter of the first screen.
  *
- * Phase 2 (2026-11-05) added the How it works and Membership pages. Phase 3
- * adds the Families page and repoints the item marked below.
+ * Phase 2 (2026-11-05) added the How it works and Membership pages, Phase 3
+ * the Families page.
  */
 export const NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [
   { href: MARKETING_ROUTES.howItWorks, label: "How it works" },
   { href: MARKETING_ROUTES.services, label: "Services" },
   { href: MARKETING_ROUTES.membership, label: "Membership" },
-  { href: MARKETING_ROUTES.gift, label: "For families" }, // Phase 3: /families
+  { href: MARKETING_ROUTES.families, label: "For families" },
   { href: MARKETING_ROUTES.corporate, label: "For employers" },
   { href: MARKETING_ROUTES.resources, label: "Resources" },
   { href: MARKETING_ROUTES.about, label: "About" },

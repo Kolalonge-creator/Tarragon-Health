@@ -113,7 +113,7 @@ export const PRICING_LABELS: Record<
   "YOU PAY THE LAB": {
     title: "You pay the laboratory",
     description:
-      "We work out what is needed and write the request. You take it to whichever laboratory or pharmacy you choose and pay them directly, at their price. Tarragon adds nothing and takes no cut. Contact the laboratory for current pricing. Laboratory tests are not included in the Membership.",
+      "We work out what is needed and write the request. You take it to whichever laboratory or pharmacy you choose and pay them directly, at their price. Tarragon adds nothing to it. Contact the laboratory for current pricing. Laboratory tests are not included in the Membership.",
     className: "bg-clinical-navy/10 text-clinical-navy",
   },
   "FREE ELSEWHERE": {
@@ -145,7 +145,7 @@ export const pricingPromises = (autoRenews: boolean): string[] => [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
   "There are two plans: Free and Membership. Membership is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
   renewalCopy(autoRenews, 0).promise,
-  "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
+  "We do not sell laboratory tests and add nothing to what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
   "Membership prices are reviewed once a year at most, and we will tell you at least 30 days before any change. A year you have already paid for is honoured until it ends.",
   NAIRA_ONLY_STATEMENT,
 ];
@@ -337,7 +337,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "You take the request to the provider you choose",
-    body: "Any laboratory, pharmacy or provider, and you pay them directly, at their price. Tarragon sets no price on it and takes no cut.",
+    body: "Any laboratory, pharmacy or provider, and you pay them directly, at their price. Tarragon sets no price on it and adds nothing to it.",
   },
   {
     title: "You upload the report to the app",

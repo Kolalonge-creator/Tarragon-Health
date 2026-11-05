@@ -1,3 +1,4 @@
+import { confirmDirectUpload } from "../api";
 import { CONFIDENCE_LEVELS, DOCUMENT_CAPTURE_TYPES, decisionsForRpc, summariseDecisions, type DocumentCaptureType, type FieldDecision, type SuggestedField } from "@tarragon/shared";
 import { supabase } from "../supabase";
 import { postDocumentReading } from "../api";
@@ -125,6 +126,9 @@ export async function saveDocument(input: SaveDocumentInput): Promise<SaveDocume
     const exists = /already exists|duplicate/i.test(detail.message ?? "") || String(detail.statusCode) === "409";
     if (!exists) return { ok: false, reason: isOffline({ message: detail.message }) ? "offline" : "failed" };
   }
+  // Server check of the bytes and photo location before the record points at it (security audit 2026-11-05, M-4/L-4).
+  // Offline: skipped, the server sweep checks it later.
+  if (await confirmDirectUpload(DOCUMENT_BUCKET, path)) return { ok: false, reason: "bad_type" };
 
   const { error } = await supabase.from("patient_documents").insert({
     id: input.attemptId,

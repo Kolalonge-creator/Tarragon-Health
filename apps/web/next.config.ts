@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { withSentryConfig } from "@sentry/nextjs";
+import { MARKETING_REDIRECTS } from "./src/lib/marketing/redirects";
 
 // Derived from NEXT_PUBLIC_SUPABASE_URL rather than hardcoded, so a local
 // dev/staging Supabase project (or a future project migration) doesn't
@@ -185,6 +186,14 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  // Marketing site URL changes (website upgrade, plan section 3.3). Permanent
+  // (308/301) so search engines move the old page's standing to the new one.
+  // Phase 3 (2026-11-05): /hmo folds into the Employers & Organisations page
+  // (founder decision W-05). The full redirect map lands in Phase 5; the
+  // map itself is in src/lib/marketing/redirects.ts, where a test checks it.
+  async redirects() {
+    return MARKETING_REDIRECTS.map((r) => ({ ...r, permanent: true }));
+  },
   // Apple Pay domain verification for Paystack. The file lives at
   // public/.well-known/apple-developer-merchantid-domain-association and has
   // no file extension, so Next's static handler sets no Content-Type at all
@@ -231,6 +240,15 @@ const nextConfig: NextConfig = {
           },
           { key: "Content-Security-Policy", value: cspDirectives },
         ],
+      },
+      {
+        // Security audit 2026-11-05 (L-6): every signed-in area, and every page opened by a token in its link (emergency card,
+        // shared records, verification links), is never kept by a browser, proxy or CDN, so a shared or public computer cannot show
+        // the last person's health pages from cache. Declared after the catch-all and before the stricter per-page rules below,
+        // which set the same header and so still win on their own paths.
+        source:
+          "/(patient|clinician|admin|account|analytics|credentialing|dashboard|doctor|finance|lab-liaison|lab-partner|payer|pharmacist|provider-org|reader|rota|onboarding|circle|emergency|share|claim|d|verify-report|verify-rx)/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
       },
       {
         // S36i: the speak-up screens show private words and who wrote them (spec INV-07). Never cached by a browser, a proxy or

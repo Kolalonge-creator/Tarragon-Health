@@ -6,6 +6,8 @@ export const MARKETING_ROUTES = {
   howItWorks: "/how-it-works",
   membership: "/membership",
   clinicalApproach: "/clinical-approach",
+  families: "/families",
+  clinicians: "/clinicians",
   chronicCare: "/chronic-care",
   careCoordination: "/care-coordination",
   whoItsFor: "/who-its-for",
@@ -41,6 +43,9 @@ export const MARKETING_ROUTES = {
   careers: "/careers",
   faq: "/faq",
   corporate: "/corporate",
+  // No page any more (/hmo 301-redirects to /corporate#insurers, W-05). Kept so
+  // /hmo still counts as a public marketing path: the app host bounces it to the
+  // root domain, where the redirect in lib/marketing/redirects.ts runs.
   hmo: "/hmo",
   resources: "/resources",
   impact: "/impact",
@@ -62,6 +67,8 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "howItWorks",
   "membership",
   "clinicalApproach",
+  "families",
+  "clinicians",
   // In the nav and footer but missing from the sitemap until 2026-11-05 (live audit).
   "monitoring",
   "resultInterpretation",
@@ -96,7 +103,7 @@ export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "careers",
   "faq",
   "corporate",
-  "hmo",
+  // "hmo" removed 2026-11-05: /hmo now 301-redirects to /corporate#insurers (W-05).
   "resources",
   "impact",
   "contact",

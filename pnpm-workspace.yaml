@@ -66,7 +66,7 @@ overrides:
   "handlebars@^4": "4.7.10"
   "@grpc/grpc-js@^1": "1.13.6"
   "source-map-js@^1": "1.2.2"
-  # zod 4.x: @langchain/core (AI coach, production) resolved its own 4.4.3; memory-exhaustion advisory fixed at 4.6.6.
+  # zod 4.x: memory-exhaustion advisory fixed at 4.6.6. @langchain/core 1.x accepts zod ^4, so the old 3.x copy is gone.
   "zod@^4": "4.6.7"
   # 2026-08-29 security audit (pnpm audit --prod: 24 findings, 17 high/7
   # moderate, 0 critical). Each entry fixes one or more real advisories;
@@ -78,14 +78,12 @@ overrides:
   postcss: ">=8.5.23" # GHSA-qx2v-qp2m-jg93, GHSA-6g55-p6wh-862q, GHSA-fxqj-rqcc-2cmp, GHSA-r28c-9q8g-f849 (CSS-stringify XSS + arbitrary .map/file read via sourceMappingURL)
   # langsmith arrives transitively via @langchain/core (apps/web's real AI
   # workflow stack — LangGraph.js/Claude API — not build tooling).
-  # @langchain/core@0.3.80 (the latest 0.3.x; langchain never shipped a
-  # 0.4-0.9 line, only jumped straight to a 1.x major that would need its
-  # own migration pass, out of scope here) only ever declared langsmith
-  # "^0.3.67". Pinned to the exact minimum patched version, not an open
-  # floor, because langsmith ships a breaking major between nearly every one
-  # of these advisories and we want a version we've actually verified
-  # (full build + jest), not whatever is newest on a given day.
-  langsmith: "0.6.0" # GHSA-v34v-rq6j-cj6p, GHSA-fw9q-39r9-c252, GHSA-rr7j-v2q5-chgv, GHSA-3644-q5cj-c5c7
+  # 2026-11-05: @langchain/core moved to 1.x (so it stops pinning its own
+  # zod 3.25.76 copy, which pnpm audit flags high with no patched 3.x), and
+  # core 1.x declares langsmith ">=0.11.0 <1.0.0". Still pinned exact, not an
+  # open floor, because langsmith ships breaking changes often; 0.11.5 is
+  # newer than every advisory below and was verified with a full build + jest.
+  langsmith: "0.11.5" # GHSA-v34v-rq6j-cj6p, GHSA-fw9q-39r9-c252, GHSA-rr7j-v2q5-chgv, GHSA-3644-q5cj-c5c7
   # uuid: pinned exact for the same reason as langsmith (frequent majors).
   # The handful of exports every consumer here actually uses (v1/v4,
   # parse/stringify/validate) have been stable across all of these majors.

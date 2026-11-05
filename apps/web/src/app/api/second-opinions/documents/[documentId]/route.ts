@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import { SECOND_OPINION_DOCUMENT_BUCKET, secondOpinionReadSchema } from "@/lib/validation/second-opinion";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ docu
     .maybeSingle();
   if (!row) return new Response("Not found", { status: 404, headers: NO_STORE });
 
+  // Handed out only once the server has checked the file (security audit M-4/L-4).
+  if (!(await isClearedForReading(service, SECOND_OPINION_DOCUMENT_BUCKET, row.storage_path))) {
+    return new Response("This file is still being checked or was refused", { status: 409, headers: NO_STORE });
+  }
   const { data: signed } = await service.storage.from(SECOND_OPINION_DOCUMENT_BUCKET).createSignedUrl(row.storage_path, 60);
   if (!signed?.signedUrl) return new Response("Could not open file", { status: 500, headers: NO_STORE });
 

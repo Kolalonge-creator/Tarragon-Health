@@ -185,7 +185,7 @@ async function generateResultExplanation(
           model: modelId,
           maxTokens: 300,
           // Same claude-*-5-generation workaround as case-briefs/generate.ts --
-          // @langchain/anthropic@0.3.x unconditionally sends temperature/top_p/
+          // @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) temperature/top_p/
           // top_k, which this model generation rejects outright.
           invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
         });

@@ -116,7 +116,7 @@ export async function generateDraftReply(
           maxTokens: 300,
           // Same claude-*-5-generation workaround as lib/case-briefs/generate.ts
           // and lib/ai-coach/graph.ts's buildAnthropicModel() -- @langchain/
-          // anthropic@0.3.x unconditionally sends temperature/top_p/top_k,
+          // anthropic@0.3.x always sent (1.x does not; kept as a guard) temperature/top_p/top_k,
           // which this model generation rejects outright.
           invocationKwargs: {
             temperature: undefined,

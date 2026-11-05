@@ -138,7 +138,7 @@ export default async function PreventionPage() {
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
-          price on any test and take no commission. Contact the laboratory for current pricing. Your{" "}
+          price on any test and add nothing to it. Contact the laboratory for current pricing. Your{" "}
           <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             yearly health check
           </Link>{" "}

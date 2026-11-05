@@ -4,9 +4,9 @@ import { randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { LAB_RESULT_BUCKET, LAB_RESULT_EXT, validateLabResultFile } from "@/lib/lab-results/structured";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { validateResultDocFile } from "@/lib/validation/lab-result-documents";
+import { screenUpload } from "@/lib/upload-scan/screen";
 
 /**
  * Storage for S27 lab result files, shared by the care-team, partner, patient and care-coordinator upload actions. Deliberately NOT a
@@ -20,11 +20,14 @@ import { validateResultDocFile } from "@/lib/validation/lab-result-documents";
 export type StoredFile = { file_path: string; original_filename: string; mime_type: string; file_size_bytes: number; content_sha256: string };
 
 /** Stores the file in the private bucket under the patient's folder. Only the server ever reads or signs it. */
-export async function storeFile(patientId: string, file: File): Promise<StoredFile | { error: string }> {
+export async function storeFile(patientId: string, file: File, uploadedBy?: string | null): Promise<StoredFile | { error: string }> {
   const bad = validateLabResultFile(file);
   if (bad) return { error: bad };
   const signatureError = await verifyResultDocSignature(file);
   if (signatureError) return { error: signatureError };
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId, uploadedBy: uploadedBy ?? null });
+  if (!screened.ok) return { error: screened.error };
   const path = `${patientId}/${randomUUID()}.${LAB_RESULT_EXT[file.type] ?? "bin"}`;
   // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
   const prepared = await prepareUpload(file);
@@ -36,7 +39,7 @@ export async function storeFile(patientId: string, file: File): Promise<StoredFi
     original_filename: file.name.slice(0, 200),
     mime_type: file.type,
     file_size_bytes: file.size,
-    content_sha256: await fileSha256(file),
+    content_sha256: screened.sha256,
   };
 }
 
@@ -49,11 +52,13 @@ export async function removeFile(path: string): Promise<void> {
  * report, or the record of results typed in by hand (CDE-02). Same checks as a patient's own upload: declared type, size and the
  * file's own first bytes.
  */
-export async function storeResultDocument(patientId: string, file: File): Promise<StoredFile | { error: string }> {
+export async function storeResultDocument(patientId: string, file: File, uploadedBy?: string | null): Promise<StoredFile | { error: string }> {
   const bad = validateResultDocFile(file);
   if (bad) return { error: bad };
   const signatureError = await verifyResultDocSignature(file);
   if (signatureError) return { error: signatureError };
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId, uploadedBy: uploadedBy ?? null });
+  if (!screened.ok) return { error: screened.error };
   const ext = RESULT_DOC_EXT[file.type] ?? "bin";
   const path = `${patientId}/${randomUUID()}.${ext}`;
   // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
@@ -66,7 +71,7 @@ export async function storeResultDocument(patientId: string, file: File): Promis
     original_filename: file.name.slice(0, 200),
     mime_type: file.type,
     file_size_bytes: file.size,
-    content_sha256: await fileSha256(file),
+    content_sha256: screened.sha256,
   };
 }
 

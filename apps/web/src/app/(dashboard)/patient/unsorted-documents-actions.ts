@@ -10,7 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 import { runDocumentClassification, startReader } from "@/lib/clinical-documents/classify-run";
 
@@ -54,7 +54,10 @@ export async function uploadUnsortedDocument(formData: FormData): Promise<Unsort
   if (!note.success) return { ok: false, error: note.error.issues[0]?.message ?? "Check the note." };
 
   const supabase = await createClient();
-  const contentSha256 = await fileSha256(file);
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) return { ok: false, error: screened.error };
+  const contentSha256 = screened.sha256;
   // The leading folder must be the caller's own id: the bucket's own-folder policy checks it, and so does the database function.
   const path = `${user.id}/${randomUUID()}.${EXT_BY_MIME[file.type] ?? "bin"}`;
   // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).

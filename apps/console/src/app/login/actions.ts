@@ -7,6 +7,7 @@ import { firstIssue } from "@tarragon/auth/first-issue";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@tarragon/auth/rate-limit";
 import { authErrorMessage } from "@tarragon/auth/auth-error-message";
 import { recordLoginDevice } from "@tarragon/auth/record-login-device";
+import { loginGateTarget } from "@tarragon/auth/mfa-policy";
 import { t } from "@tarragon/i18n";
 import { canSignInToConsole, resolveConsoleDestination } from "@/lib/console-sign-in";
 
@@ -64,7 +65,15 @@ export async function signInToConsole(
   // Best-effort new-device notification; never blocks a real sign-in.
   await recordLoginDevice(supabase);
 
-  // If this account has a verified second factor, proxy.ts catches the aal1
-  // session on the very next request and sends it to the challenge page.
-  redirect(resolveConsoleDestination(profile.role, formData.get("redirectTo")?.toString()));
+  // proxy.ts never sees this redirect: Next renders a Server Action's redirect
+  // target inside the same response. So the two 2FA gates are applied here: an
+  // account with a factor goes to the challenge first, and an account whose
+  // group requires 2FA and has none goes to the set-up page.
+  const destination = resolveConsoleDestination(profile.role, formData.get("redirectTo")?.toString());
+  redirect(
+    await loginGateTarget(supabase, destination, {
+      challengePath: "/login/mfa-challenge",
+      setupPath: () => "/login/mfa-setup",
+    }),
+  );
 }

@@ -24,7 +24,11 @@ jest.mock("./roles", () => ({
   getRoleHomePath: jest.fn().mockReturnValue("/patient"),
 }));
 
+const aal = jest.fn().mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
+const rpcStub = jest.fn().mockResolvedValue({ data: [], error: null });
 const supabaseStub = {
+  auth: { mfa: { getAuthenticatorAssuranceLevel: () => aal() } },
+  rpc: (...a: unknown[]) => rpcStub(...a),
   from: jest.fn().mockReturnValue({
     select: jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
@@ -36,7 +40,8 @@ const supabaseStub = {
 } as any;
 
 import { redirect } from "next/navigation";
-import { redirectAfterLogin } from "./redirect-after-login";
+import { gateLoginDestination, redirectAfterLogin } from "./redirect-after-login";
+import { resetMfaRequirementCache } from "@tarragon/auth/mfa-policy";
 
 describe("redirectAfterLogin", () => {
   beforeEach(() => {
@@ -81,5 +86,42 @@ describe("redirectAfterLogin", () => {
     await expect(
       redirectAfterLogin(supabaseStub, "user-123", fd.get("redirectTo"))
     ).rejects.toThrow("NEXT_REDIRECT:/patient/labs");
+  });
+});
+
+describe("gateLoginDestination (a Server Action redirect never passes through proxy.ts)", () => {
+  beforeEach(() => {
+    resetMfaRequirementCache();
+    aal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
+    rpcStub.mockReset();
+    rpcStub.mockResolvedValue({ data: [], error: null });
+  });
+
+  it("keeps the destination for an account with no factor while no group is on (today)", async () => {
+    expect(await gateLoginDestination(supabaseStub, "/patient")).toBe("/patient");
+  });
+
+  it("sends an account with a factor to the challenge first, keeping the destination", async () => {
+    aal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal2" } });
+    expect(await gateLoginDestination(supabaseStub, "/clinician?tab=1")).toBe("/login/mfa-challenge?redirect=%2Fclinician%3Ftab%3D1");
+  });
+
+  it("sends a required account with no factor to set-up, keeping the destination", async () => {
+    rpcStub.mockImplementation(async (fn: string) =>
+      fn === "mfa_required_roles"
+        ? { data: ["admin", "care_coordinator", "clinician", "ngo_admin", "patient"], error: null }
+        : { data: [{ required: true, has_verified_factor: false }], error: null },
+    );
+    expect(await gateLoginDestination(supabaseStub, "/clinician")).toBe("/account?mfa=required&redirect=%2Fclinician");
+  });
+
+  it("lets an AAL2 session through", async () => {
+    aal.mockResolvedValue({ data: { currentLevel: "aal2", nextLevel: "aal2" } });
+    expect(await gateLoginDestination(supabaseStub, "/clinician")).toBe("/clinician");
+  });
+
+  it("keeps the destination if the level cannot be read (the proxy gates the next request)", async () => {
+    aal.mockRejectedValue(new Error("boom"));
+    expect(await gateLoginDestination(supabaseStub, "/patient")).toBe("/patient");
   });
 });

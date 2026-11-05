@@ -760,6 +760,79 @@ export type Database = {
           },
         ]
       }
+      upload_scan_verdicts: {
+        Row: {
+          channel: string
+          content_sha256: string
+          created_at: string
+          db_version: string | null
+          engine_version: string | null
+          id: string
+          is_test: boolean
+          mime_type: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          signature: string | null
+          size_bytes: number | null
+          uploaded_by: string | null
+          verdict: string
+        }
+        Insert: {
+          channel: string
+          content_sha256: string
+          created_at?: string
+          db_version?: string | null
+          engine_version?: string | null
+          id?: string
+          is_test?: boolean
+          mime_type?: string | null
+          organisation_id?: string | null
+          patient_id?: string | null
+          signature?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          verdict: string
+        }
+        Update: {
+          channel?: string
+          content_sha256?: string
+          created_at?: string
+          db_version?: string | null
+          engine_version?: string | null
+          id?: string
+          is_test?: boolean
+          mime_type?: string | null
+          organisation_id?: string | null
+          patient_id?: string | null
+          signature?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_scan_verdicts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_scan_verdicts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_scan_verdicts_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_plans: {
         Row: {
           audio_clip_ids: string[]
@@ -12453,6 +12526,11 @@ export type Database = {
           patient_note: string | null
           routed_id: string | null
           routed_table: string | null
+          scan_attempts: number
+          scan_checked_at: string | null
+          scan_next_attempt_at: string | null
+          scan_signature: string | null
+          scan_status: string
           source_facility_id: string | null
           source_facility_name: string | null
           status: string
@@ -12495,6 +12573,11 @@ export type Database = {
           patient_note?: string | null
           routed_id?: string | null
           routed_table?: string | null
+          scan_attempts?: number
+          scan_checked_at?: string | null
+          scan_next_attempt_at?: string | null
+          scan_signature?: string | null
+          scan_status?: string
           source_facility_id?: string | null
           source_facility_name?: string | null
           status: string
@@ -12537,6 +12620,11 @@ export type Database = {
           patient_note?: string | null
           routed_id?: string | null
           routed_table?: string | null
+          scan_attempts?: number
+          scan_checked_at?: string | null
+          scan_next_attempt_at?: string | null
+          scan_signature?: string | null
+          scan_status?: string
           source_facility_id?: string | null
           source_facility_name?: string | null
           status?: string
@@ -29469,6 +29557,105 @@ export type Database = {
           is_active?: boolean
           notes?: string | null
           rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      mfa_factor_resets: {
+        Row: {
+          factors_removed: number
+          id: string
+          reason: string
+          reset_at: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Insert: {
+          factors_removed: number
+          id?: string
+          reason: string
+          reset_at?: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Update: {
+          factors_removed?: number
+          id?: string
+          reason?: string
+          reset_at?: string
+          reset_by?: string
+          sessions_ended?: number
+          target_profile_id?: string
+        }
+        Relationships: []
+      }
+      mfa_group_requirements: {
+        Row: {
+          change_note: string | null
+          changed_at: string
+          changed_by: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Update: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Relationships: []
+      }
+      mfa_group_requirement_changes: {
+        Row: {
+          change_note: string
+          changed_at: string
+          changed_by: string
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note: string
+          changed_at?: string
+          changed_by: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Update: {
+          change_note?: string
+          changed_at?: string
+          changed_by?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          requirement_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
           version?: number
         }
         Relationships: []
@@ -52724,6 +52911,17 @@ export type Database = {
       }
     }
     Functions: {
+      apply_upload_scan_verdict: {
+        Args: {
+          p_db_version: string
+          p_document: string
+          p_engine_version: string
+          p_error: string
+          p_signature: string
+          p_verdict: string
+        }
+        Returns: string
+      }
       care_operations_summary: {
         Args: { p_lookback_days?: number; p_target_hours?: number }
         Returns: Json
@@ -52753,9 +52951,92 @@ export type Database = {
         Args: never
         Returns: { display_name: string; state: string }[]
       }
+      record_upload_scan: {
+        Args: {
+          p_db_version: string
+          p_engine_version: string
+          p_mime_type: string
+          p_patient: string
+          p_sha256: string
+          p_signature: string
+          p_size_bytes: number
+          p_uploaded_by: string
+          p_verdict: string
+        }
+        Returns: undefined
+      }
       start_annual_bundle: {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
+      }
+      admin_reset_mfa_factors: { Args: { p_profile: string; p_reason: string }; Returns: Json }
+      admin_mfa_enrolled_accounts: {
+        Args: { p_search?: string | null }
+        Returns: {
+          profile_id: string
+          full_name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          verified_factors: number
+          last_reset_at: string | null
+        }[]
+      }
+      admin_mfa_factor_resets: {
+        Args: { p_limit?: number }
+        Returns: {
+          target_name: string | null
+          reset_by_name: string | null
+          reason: string
+          factors_removed: number
+          sessions_ended: number
+          reset_at: string
+        }[]
+      }
+      my_mfa_requirement: {
+        Args: Record<PropertyKey, never>
+        Returns: { required: boolean; has_verified_factor: boolean }[]
+      }
+      mfa_required_roles: { Args: Record<PropertyKey, never>; Returns: Database["public"]["Enums"]["user_role"][] }
+      admin_mfa_group_requirements: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string | null
+          changed_by_name: string | null
+          changed_at: string
+          member_count: number
+          enrolled_count: number
+          unenrolled_cmo_count: number
+          unenrolled_admin_count: number
+        }[]
+      }
+      admin_mfa_group_requirement_changes: {
+        Args: { p_limit?: number }
+        Returns: {
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string
+          changed_by_name: string | null
+          changed_at: string
+        }[]
+      }
+      set_mfa_group_requirement: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          p_required: boolean
+          p_change_note: string
+          p_seen_unenrolled?: number | null
+          p_seen_unenrolled_cmo?: number | null
+          p_seen_unenrolled_admin?: number | null
+        }
+        Returns: number
       }
       my_sensitive_request_optin: {
         Args: Record<PropertyKey, never>
@@ -52867,6 +53148,23 @@ export type Database = {
       complete_lowcarb_medicine_review: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
       lowcarb_programme_for_patient: { Args: { p_patient: string }; Returns: Json }
       my_lowcarb_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      upload_scan_backlog_check: { Args: never; Returns: number }
+      upload_scan_due: {
+        Args: { p_include_unscanned?: boolean; p_limit?: number }
+        Returns: {
+          bucket: string
+          document_id: string
+          file_path: string
+          mime_type: string
+          organisation_id: string
+          patient_id: string
+          routed_id: string
+          routed_table: string
+          scan_attempts: number
+          scan_status: string
+        }[]
+      }
+      upload_scan_held_paths: { Args: { p_paths: string[] }; Returns: string[] }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
@@ -53145,6 +53443,9 @@ export type Database = {
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_bp_target_config: { Args: { p_version: number }; Returns: undefined };
       bp_target_config_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_lab_trend_rules: { Args: { p_version: number }; Returns: undefined };
+      lab_trend_rules_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_health_status: { Args: { p_patient?: string }; Returns: Json };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
       clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };
@@ -55379,6 +55680,22 @@ export type Database = {
       claim_lab_result_consult_credit: {
         Args: { p_lab_order_id: string; p_patient_id: string }
         Returns: string
+      }
+      claim_client_upload_checks: {
+        Args: { p_limit?: number; p_bucket?: string; p_name?: string; p_owner?: string }
+        Returns: { bucket_id: string; object_name: string; mimetype: string | null; owner_id: string }[]
+      }
+      client_upload_check_statuses: {
+        Args: { p_bucket: string; p_names: string[] }
+        Returns: { object_name: string; status: string; owner_id: string }[]
+      }
+      client_upload_check_outcome: {
+        Args: { p_bucket: string; p_name: string; p_owner: string }
+        Returns: string | null
+      }
+      finish_client_upload_check: {
+        Args: { p_bucket: string; p_name: string; p_status: string; p_detail?: string }
+        Returns: boolean
       }
       clear_vitals_validation_flag: {
         Args: { p_reading_id: string }

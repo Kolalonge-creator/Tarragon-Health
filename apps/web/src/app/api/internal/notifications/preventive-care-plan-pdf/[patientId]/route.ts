@@ -1,3 +1,4 @@
+import { isSameSecret } from "@/lib/cron-auth";
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generatePreventiveCarePlanPdf } from "@/lib/preventive-care/generate-preventive-care-plan-pdf";
@@ -23,7 +24,7 @@ export async function GET(
 ): Promise<Response> {
   const expected = process.env.NOTIFICATIONS_SERVICE_KEY;
   const provided = request.headers.get("x-service-key");
-  if (!expected || !provided || provided !== expected) {
+  if (!isSameSecret(provided, expected)) {
     return new Response(null, { status: 401 });
   }
 

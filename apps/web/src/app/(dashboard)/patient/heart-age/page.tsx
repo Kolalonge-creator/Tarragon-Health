@@ -36,7 +36,7 @@ export default async function HeartAgePage() {
           description="An estimate of how your heart's risk compares with your actual age."
         />
         <p className="rounded-2xl border border-charcoal-ink/10 bg-white p-5 text-sm text-charcoal-ink/70 dark:border-night-ink/15 dark:bg-night-card dark:text-night-ink/70">
-          Heart age is not switched on for your account yet. Your Health Score on the Overview covers the same everyday numbers in
+          Heart age is not switched on for your account yet. Your health by area on the Overview shows the same everyday numbers in
           the meantime.
         </p>
       </div>

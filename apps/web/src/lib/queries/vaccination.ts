@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
 import type { Tables } from "@tarragon/shared";
 import type {
   LogVaccinationInput,
@@ -193,6 +194,9 @@ export function useAttachVaccinationCertificate() {
         .from(CERTIFICATE_BUCKET)
         .upload(path, input.file, { upsert: true, contentType: input.file.type });
       if (uploadError) throw uploadError;
+      // Server check of the bytes and photo location before anything points at the file (security audit 2026-11-05, M-4/L-4).
+      const refused = await confirmDirectUpload(CERTIFICATE_BUCKET, path);
+      if (refused) throw new Error(refused);
 
       const { error: updateError } = await supabase
         .from("vaccination_records")
@@ -320,6 +324,9 @@ export function useUploadVaccinationCard() {
         .from(CERTIFICATE_BUCKET)
         .upload(path, input.file, { contentType: input.file.type });
       if (uploadError) throw uploadError;
+      // Server check of the bytes and photo location before anything points at the file (security audit 2026-11-05, M-4/L-4).
+      const refused = await confirmDirectUpload(CERTIFICATE_BUCKET, path);
+      if (refused) throw new Error(refused);
 
       const { data, error } = await supabase
         .from("vaccination_card_extractions")
