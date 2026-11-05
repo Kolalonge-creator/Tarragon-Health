@@ -58,3 +58,43 @@ export async function setTwoFactorRequirementAction(
         : "Two-factor sign-in is now optional for this group again.",
   };
 }
+
+export type ResetFactorsState = { error?: string; message?: string } | undefined;
+
+const resetSchema = z.object({
+  profileId: z.uuid("Choose an account."),
+  reason: z
+    .string()
+    .trim()
+    .min(20, "Write a reason of at least 20 characters (for example, how you confirmed it is really them).")
+    .max(2000),
+});
+
+/**
+ * Thin wrapper over public.admin_reset_mfa_factors (migration 20261105110919): admin only, never your own account, a reason of at
+ * least 20 characters, and the resetting admin's own session must be AAL2 to reset another admin or the CMO. In one transaction it
+ * removes every factor the account has, signs it out on every device, tells the owner, and records the reset. Runs on the
+ * admin's own session, never the service-role client (which has no auth.uid(), so the admin check could never pass).
+ */
+export async function resetMfaFactorsAction(_prev: ResetFactorsState, formData: FormData): Promise<ResetFactorsState> {
+  const parsed = resetSchema.safeParse({ profileId: formData.get("profileId"), reason: formData.get("reason") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_reset_mfa_factors", {
+    p_profile: parsed.data.profileId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    return { error: error.message || "The reset did not go through. Nothing was changed." };
+  }
+
+  const sessions =
+    data && typeof data === "object" && !Array.isArray(data) && typeof data.sessions_ended === "number" ? data.sessions_ended : 0;
+  revalidatePath("/admin/settings/two-factor");
+  return {
+    message: `Two-factor sign-in was reset and the person was signed out on ${sessions} device${sessions === 1 ? "" : "s"}. They have been told, and set up a new authenticator at their next sign-in.`,
+  };
+}

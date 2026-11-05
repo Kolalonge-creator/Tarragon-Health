@@ -29457,6 +29457,36 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_factor_resets: {
+        Row: {
+          factors_removed: number
+          id: string
+          reason: string
+          reset_at: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Insert: {
+          factors_removed: number
+          id?: string
+          reason: string
+          reset_at?: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Update: {
+          factors_removed?: number
+          id?: string
+          reason?: string
+          reset_at?: string
+          reset_by?: string
+          sessions_ended?: number
+          target_profile_id?: string
+        }
+        Relationships: []
+      }
       mfa_group_requirements: {
         Row: {
           change_note: string | null
@@ -52584,6 +52614,29 @@ export type Database = {
       start_annual_bundle: {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
+      }
+      admin_reset_mfa_factors: { Args: { p_profile: string; p_reason: string }; Returns: Json }
+      admin_mfa_enrolled_accounts: {
+        Args: { p_search?: string | null }
+        Returns: {
+          profile_id: string
+          full_name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          verified_factors: number
+          last_reset_at: string | null
+        }[]
+      }
+      admin_mfa_factor_resets: {
+        Args: { p_limit?: number }
+        Returns: {
+          target_name: string | null
+          reset_by_name: string | null
+          reason: string
+          factors_removed: number
+          sessions_ended: number
+          reset_at: string
+        }[]
       }
       my_mfa_requirement: {
         Args: Record<PropertyKey, never>

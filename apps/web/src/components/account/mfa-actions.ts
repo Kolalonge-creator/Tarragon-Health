@@ -123,7 +123,7 @@ export async function turnOffMfa(
       error:
         required === null
           ? "We could not check whether two-factor sign-in is required for your account. Try again in a moment."
-          : "Two-factor sign-in is required for your account, so it cannot be turned off here. If you have a new phone, contact the Tarragon team to reset it.",
+          : "Two-factor sign-in is required for your account, so it cannot be turned off here. If you have a new phone, ask an admin to reset it.",
     };
   }
   const { error } = await supabase.auth.mfa.unenroll({ factorId });

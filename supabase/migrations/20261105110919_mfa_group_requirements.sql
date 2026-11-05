@@ -31,6 +31,8 @@
 --   * Turning a group ON while any account in it has no verified factor needs an explicit confirmation flag, and the refusal
 --     names how many, and whether the Chief Medical Officer or an admin is among them.
 --   * Turning a group OFF is never refused to an admin (beyond the change note).
+--   * A member who loses their phone: an admin resets their factors at /admin/settings/two-factor
+--     (public.admin_reset_mfa_factors, below), which also signs them out everywhere and tells them.
 --   * Recovery if every admin loses their authenticator: run, as the database owner,
 --     update public.mfa_group_requirements set required = false, version = version + 1, change_note = '<why>' where ...;
 --     (no RLS policy lets an app session write this table, so that is the break-glass path).
@@ -462,6 +464,160 @@ grant execute on function public.admin_mfa_group_requirement_changes(integer) to
 grant execute on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, boolean) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- Reset a lost authenticator: an admin removes another account's two-factor factors so the person can set up a new phone.
+--
+-- Without this, an account whose group requires 2FA and whose phone is lost cannot sign in at all, and turning its own factor off
+-- is refused (Profile & settings). The reset, in one transaction:
+--   * removes every factor the account has (auth.mfa_factors; its challenges and recovery-code sets cascade),
+--   * ends every session the account has on every device (auth.sessions), so a stolen phone that was still signed in is cut off,
+--     the same as a backup-code recovery does (complete_backup_code_recovery),
+--   * tells the owner in the app and, to a verified address, by email (private.recovery_notice, security.mfa_reset_by_admin),
+--   * records who, whom, when and why (mfa_factor_resets, append-only, and audit_log).
+-- Guards: admin only; never your own account (use Profile & settings); a reason of at least 20 characters; the account must have
+-- a factor to reset; resetting an admin or the Chief Medical Officer needs the resetting admin's own session to be AAL2, so a
+-- password alone can never strip 2FA from another high-access account.
+-- ---------------------------------------------------------------------------
+create table public.mfa_factor_resets (
+  id uuid primary key default gen_random_uuid(),
+  target_profile_id uuid not null references public.profiles(id) on delete restrict,
+  reset_by uuid not null references public.profiles(id) on delete restrict,
+  reason text not null check (length(btrim(reason)) >= 20),
+  factors_removed integer not null check (factors_removed >= 1),
+  sessions_ended integer not null check (sessions_ended >= 0),
+  reset_at timestamptz not null default now(),
+  constraint mfa_factor_resets_not_self check (target_profile_id <> reset_by)
+);
+
+comment on table public.mfa_factor_resets is
+  'Append-only record of every two-factor reset an admin made for another account: who, whom, when, why, how many factors and sessions. Written only by public.admin_reset_mfa_factors. Platform-wide (no organisation_id), like mfa_group_requirements.';
+
+alter table public.mfa_factor_resets enable row level security;
+create policy mfa_factor_resets_admin_read on public.mfa_factor_resets
+  for select to authenticated using ((select private.is_admin()));
+revoke all on public.mfa_factor_resets from anon, public;
+revoke insert, update, delete, truncate, references, trigger on public.mfa_factor_resets from authenticated;
+grant select on public.mfa_factor_resets to authenticated;
+
+create or replace function public.admin_reset_mfa_factors(p_profile uuid, p_reason text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path to ''
+as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_reason text := btrim(coalesce(p_reason, ''));
+  v_target public.profiles%rowtype;
+  v_high_access boolean;
+  v_factors integer;
+  v_sessions integer;
+begin
+  if v_uid is null or not private.is_admin() then
+    raise exception 'Only an admin can reset another account''s two-factor sign-in.' using errcode = '42501';
+  end if;
+  if p_profile is null then
+    raise exception 'Choose an account.' using errcode = '22023';
+  end if;
+  if p_profile = v_uid then
+    raise exception 'You cannot reset your own two-factor sign-in here. Use Profile & settings.' using errcode = '42501';
+  end if;
+  if length(v_reason) < 20 then
+    raise exception 'Write a reason of at least 20 characters (for example, how you confirmed it is really them).' using errcode = '22023';
+  end if;
+
+  select * into v_target from public.profiles where id = p_profile for update;
+  if not found then
+    raise exception 'There is no such account.' using errcode = 'P0002';
+  end if;
+
+  v_high_access := v_target.role = 'admin'
+    or exists (select 1 from public.clinical_staff cs where cs.profile_id = p_profile and cs.doctor_tier = 'chief_medical_officer');
+  if v_high_access and coalesce((select auth.jwt()) ->> 'aal', 'aal1') <> 'aal2' then
+    raise exception 'Resetting an admin or the Chief Medical Officer needs your own two-factor sign-in. Turn it on in Profile & settings, sign in with it, then try again.'
+      using errcode = '42501';
+  end if;
+
+  with gone as (delete from auth.mfa_factors where user_id = p_profile returning 1)
+  select count(*) into v_factors from gone;
+  if v_factors = 0 then
+    raise exception 'This account has no authenticator to reset.' using errcode = 'P0002';
+  end if;
+  with gone as (delete from auth.sessions where user_id = p_profile returning 1)
+  select count(*) into v_sessions from gone;
+
+  insert into public.mfa_factor_resets (target_profile_id, reset_by, reason, factors_removed, sessions_ended)
+  values (p_profile, v_uid, v_reason, v_factors, v_sessions);
+
+  perform private.recovery_notice(p_profile, 'security.mfa_reset_by_admin',
+    'An admin reset the two-factor sign-in on your Tarragon Health account and signed you out on every device. Sign in again and set up your authenticator app in Profile & settings. If you did not ask for this, contact the Tarragon team right away.');
+  perform private.recovery_audit(v_target.organisation_id, v_uid, 'account.mfa_reset_by_admin', 'mfa_factor_resets', null, null, 'success',
+    jsonb_build_object('target_profile_id', p_profile, 'factors_removed', v_factors, 'sessions_ended', v_sessions));
+
+  return jsonb_build_object('factors_removed', v_factors, 'sessions_ended', v_sessions);
+end;
+$$;
+
+-- Accounts that have an authenticator (verified or a set-up in progress), for the reset list. Admin only; empty otherwise.
+create or replace function public.admin_mfa_enrolled_accounts(p_search text default null)
+returns table (
+  profile_id uuid,
+  full_name text,
+  role public.user_role,
+  doctor_tier public.doctor_tier,
+  verified_factors bigint,
+  last_reset_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path to ''
+as $$
+  select p.id, p.full_name, p.role,
+         (select cs.doctor_tier from public.clinical_staff cs where cs.profile_id = p.id order by cs.active desc limit 1),
+         count(f.id) filter (where f.status = 'verified'),
+         (select max(r.reset_at) from public.mfa_factor_resets r where r.target_profile_id = p.id)
+    from public.profiles p
+    join auth.mfa_factors f on f.user_id = p.id
+   where private.is_admin()
+     and (nullif(btrim(coalesce(p_search, '')), '') is null
+          or p.full_name ilike '%' || replace(replace(replace(btrim(p_search), '\', '\\'), '%', '\%'), '_', '\_') || '%')
+   group by p.id
+   order by p.full_name nulls last
+   limit 200;
+$$;
+
+create or replace function public.admin_mfa_factor_resets(p_limit integer default 50)
+returns table (
+  target_name text,
+  reset_by_name text,
+  reason text,
+  factors_removed integer,
+  sessions_ended integer,
+  reset_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path to ''
+as $$
+  select t.full_name, b.full_name, r.reason, r.factors_removed, r.sessions_ended, r.reset_at
+    from public.mfa_factor_resets r
+    left join public.profiles t on t.id = r.target_profile_id
+    left join public.profiles b on b.id = r.reset_by
+   where private.is_admin()
+   order by r.reset_at desc
+   limit least(greatest(coalesce(p_limit, 50), 1), 200);
+$$;
+
+revoke all on function public.admin_reset_mfa_factors(uuid, text) from public, anon;
+revoke all on function public.admin_mfa_enrolled_accounts(text) from public, anon;
+revoke all on function public.admin_mfa_factor_resets(integer) from public, anon;
+grant execute on function public.admin_reset_mfa_factors(uuid, text) to authenticated;
+grant execute on function public.admin_mfa_enrolled_accounts(text) to authenticated;
+grant execute on function public.admin_mfa_factor_resets(integer) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Self-check: every group exists and is off; anon can execute none of the new functions; is_org_staff and is_admin carry the
 -- new clause.
 -- ---------------------------------------------------------------------------
@@ -486,12 +642,17 @@ begin
      or has_function_privilege('anon', 'public.admin_mfa_group_requirements()', 'EXECUTE')
      or has_function_privilege('anon', 'public.admin_mfa_group_requirement_changes(integer)', 'EXECUTE')
      or has_function_privilege('anon', 'private.mfa_requirement_met()', 'EXECUTE')
-     or has_function_privilege('anon', 'private.mfa_required_for(uuid)', 'EXECUTE') then
+     or has_function_privilege('anon', 'private.mfa_required_for(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.admin_reset_mfa_factors(uuid, text)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.admin_mfa_enrolled_accounts(text)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.admin_mfa_factor_resets(integer)', 'EXECUTE') then
     raise exception 'anon can execute a 2FA requirement function';
   end if;
   if has_table_privilege('anon', 'public.mfa_group_requirements', 'SELECT')
      or has_table_privilege('authenticated', 'public.mfa_group_requirements', 'UPDATE')
-     or has_table_privilege('authenticated', 'public.mfa_group_requirement_changes', 'INSERT') then
+     or has_table_privilege('authenticated', 'public.mfa_group_requirement_changes', 'INSERT')
+     or has_table_privilege('anon', 'public.mfa_factor_resets', 'SELECT')
+     or has_table_privilege('authenticated', 'public.mfa_factor_resets', 'INSERT') then
     raise exception 'mfa_group_requirements tables carry a grant they must not';
   end if;
   if position('mfa_requirement_met' in pg_get_functiondef('private.is_org_staff(uuid)'::regprocedure)) = 0

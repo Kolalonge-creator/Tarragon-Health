@@ -75,8 +75,7 @@ export function TwoFactorManager({
       </p>
       <p className="text-sm text-charcoal-ink/70">
         The phone app cannot set up or ask for the code yet. While a group is required, its members can use only the
-        website (the app keeps its emergency features). Nobody can reset a lost authenticator from this console yet: that
-        needs the Supabase dashboard (Authentication, the user, remove the factor).
+        website (the app keeps its emergency features). Somebody who loses their phone can be reset below.
       </p>
 
       {groups.map((g) => {

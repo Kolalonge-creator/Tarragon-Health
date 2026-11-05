@@ -14,10 +14,15 @@
 --   5. Lock-out guards: an admin at AAL1 cannot switch on the admin group (they are in it); an admin at AAL2 can; then an AAL1
 --      admin is no longer is_admin and holds no capability through has_permission; turning a group OFF needs no confirmation.
 --   6. The admin page function: right member and enrolled counts, unenrolled CMO counted, empty for a non-admin.
+--   8. Resetting a lost authenticator: a doctor, anon and the admin themselves are refused; a short reason is refused; an account
+--      with no factor is refused; an AAL1 admin cannot reset another admin or the CMO; an AAL1 admin resets a doctor, removing the
+--      factor and every session, writing the reset row, an in-app notice and an audit_log row; an AAL2 admin resets the CMO; the
+--      enrolled list and the reset history are admin-only; nobody inserts a reset row directly.
 --   7. SABOTAGE, each MUST flip: (a) mfa_requirement_met always true (the AAL1 doctor reads the row again); (b) the "caller in
 --      group must be AAL2" guard removed (an AAL1 admin can switch on the admin group); (c) the unenrolled-confirmation guard
 --      removed (switching on succeeds without confirmation); (d) mfa_required_for ignoring the tier (a senior medical officer is
---      held by the CMO-tier group).
+--      held by the CMO-tier group); (e) the reset's high-access guard removed (an AAL1 admin resets another admin); (f) the
+--      reset's admin check removed (a doctor resets a coordinator).
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures. Sabotaged rows print as PASS (caught) when the check flipped.
 -- ===========================================================================
 begin;
@@ -213,6 +218,53 @@ select pg_temp.rec('6 page', 'non-admin sees nothing', '0', pg_temp.as_val(pg_te
 update public.mfa_group_requirements set required = false;
 
 -- ---------------------------------------------------------------------------
+-- 8. Resetting a lost authenticator (public.admin_reset_mfa_factors). Every group is off here.
+-- ---------------------------------------------------------------------------
+insert into auth.sessions (id, user_id, created_at, updated_at) values (gen_random_uuid(), pg_temp.f('smo'), now(), now());
+select pg_temp.rec('8 reset', 'doctor refused', 'ERR:42501', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('cmo'))));
+select pg_temp.rec('8 reset', 'anon refused', 'ERR:42501', pg_temp.as_val(null, 'anon', null,
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('smo'))));
+select pg_temp.rec('8 reset', 'own account refused', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('admin'))));
+select pg_temp.rec('8 reset', 'short reason refused', 'ERR:22023', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'lost phone')$q$, pg_temp.f('smo'))));
+select pg_temp.rec('8 reset', 'account with no factor refused', 'ERR:P0002', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('coord'))));
+select pg_temp.rec('8 reset', 'AAL1 admin cannot reset another admin', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('admin'))));
+select pg_temp.rec('8 reset', 'AAL1 admin cannot reset the CMO', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('cmo'))));
+select pg_temp.rec('8 reset', 'AAL1 admin resets a doctor: 1 factor, 1 session', '{"sessions_ended": 1, "factors_removed": 1}',
+  pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')::text$q$, pg_temp.f('smo'))));
+select pg_temp.rec('8 reset', 'doctor has no factor and no session left', '0',
+  (select ((select count(*) from auth.mfa_factors where user_id = pg_temp.f('smo')) + (select count(*) from auth.sessions where user_id = pg_temp.f('smo')))::text));
+select pg_temp.rec('8 reset', 'one reset row with reason and author', '1',
+  (select count(*)::text from public.mfa_factor_resets where target_profile_id = pg_temp.f('smo') and reset_by = pg_temp.f('admin2')
+     and reason = 'Lost phone, identity checked by video call'));
+select pg_temp.rec('8 reset', 'the doctor is told in the app', '1',
+  (select count(*)::text from public.notifications where recipient_id = pg_temp.f('smo') and template = 'security.mfa_reset_by_admin' and channel = 'in_app'));
+select pg_temp.rec('8 reset', 'audit_log row', '1',
+  (select count(*)::text from public.audit_log where actor_id = pg_temp.f('admin2') and action = 'account.mfa_reset_by_admin'));
+select pg_temp.rec('8 reset', 'a second reset finds nothing', 'ERR:P0002', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Lost phone, identity checked by video call')$q$, pg_temp.f('smo'))));
+select pg_temp.rec('8 reset', 'AAL2 admin resets the CMO (an unverified factor counts)', 'true', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
+  format($q$select (public.admin_reset_mfa_factors(%L, 'New phone, confirmed in person at the office') ->> 'factors_removed')::int = 1$q$, pg_temp.f('cmo'))));
+select pg_temp.rec('8 reset', 'enrolled list: admin listed, coordinator not', 'true,false', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
+  format($q$select (bool_or(profile_id = %L))::text || ',' || coalesce(bool_or(profile_id = %L), false)::text from public.admin_mfa_enrolled_accounts(null)$q$,
+         pg_temp.f('admin'), pg_temp.f('coord'))));
+select pg_temp.rec('8 reset', 'enrolled list empty for a doctor', '0', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
+  'select count(*) from public.admin_mfa_enrolled_accounts(null)'));
+select pg_temp.rec('8 reset', 'reset history: admin sees both', 'true', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
+  'select (count(*) >= 2)::text from public.admin_mfa_factor_resets(50)'));
+select pg_temp.rec('8 reset', 'reset history empty for a doctor', '0', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
+  'select count(*) from public.admin_mfa_factor_resets(50)'));
+select pg_temp.rec('8 reset', 'admin cannot insert a reset row directly', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
+  format($q$insert into public.mfa_factor_resets (target_profile_id, reset_by, reason, factors_removed, sessions_ended) values (%L, %L, 'Forged row, should never be allowed', 1, 0) returning 1$q$,
+         pg_temp.f('smo'), pg_temp.f('admin'))));
+
+-- ---------------------------------------------------------------------------
 -- 7. Sabotage.
 -- ---------------------------------------------------------------------------
 update public.mfa_group_requirements set required = true where role = 'clinician' and doctor_tier is null;
@@ -264,6 +316,31 @@ begin
 end $$;
 select pg_temp.rec('7 sabotage', '(d) restored: senior medical officer not held', 'true',
   pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format('select private.is_org_staff(%L)', pg_temp.f('org'))));
+
+
+-- (e) the high-access guard removed: an AAL1 admin strips another admin's factor. (f) the admin check removed: a doctor resets.
+update public.mfa_group_requirements set required = false;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values (gen_random_uuid(), pg_temp.f('coord'), 'proof-f', 'totp', 'verified', now(), now(), 'x');
+do $$
+declare v_def text := pg_get_functiondef('public.admin_reset_mfa_factors(uuid, text)'::regprocedure);
+declare v_e text; v_f text;
+begin
+  v_e := replace(v_def, 'if v_high_access and coalesce', 'if false and v_high_access and coalesce');
+  v_f := replace(v_def, 'if v_uid is null or not private.is_admin() then', 'if v_uid is null then');
+  if v_e = v_def or v_f = v_def then raise exception 'sabotage (e)/(f) patch did not apply'; end if;
+  execute v_e;
+  perform pg_temp.rec('7 sabotage', '(e) caught: AAL1 admin resets another admin', 'true', pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1',
+    format($q$select (public.admin_reset_mfa_factors(%L, 'Sabotage: should have needed AAL2') ->> 'factors_removed')::int >= 1$q$, pg_temp.f('admin'))));
+  execute v_f;
+  perform pg_temp.rec('7 sabotage', '(f) caught: a doctor resets a coordinator', 'true', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
+    format($q$select (public.admin_reset_mfa_factors(%L, 'Sabotage: should have needed an admin') ->> 'factors_removed')::int >= 1$q$, pg_temp.f('coord'))));
+  execute v_def;
+end $$;
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values (gen_random_uuid(), pg_temp.f('coord'), 'proof-f2', 'totp', 'verified', now(), now(), 'x');
+select pg_temp.rec('7 sabotage', '(f) restored: a doctor is refused again', 'ERR:42501', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
+  format($q$select public.admin_reset_mfa_factors(%L, 'Sabotage: should have needed an admin')$q$, pg_temp.f('coord'))));
 
 -- ---------------------------------------------------------------------------
 -- Verdict. A sabotage row passes when it shows the hole the guard closes (the check flipped).

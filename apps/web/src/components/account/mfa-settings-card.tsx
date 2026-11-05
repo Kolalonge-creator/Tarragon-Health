@@ -43,8 +43,8 @@ function MfaEnabledView({ factorId, required }: { factorId: string; required: bo
       <CardContent>
         {required ? (
           <p className="text-sm text-charcoal-ink/70">
-            Two-factor sign-in is required for your account, so it stays on. If you have a new phone, contact the Tarragon team
-            to reset it.
+            Two-factor sign-in is required for your account, so it stays on. If you have a new phone, ask an admin to reset
+            it.
           </p>
         ) : (
           <form action={formAction} className="space-y-3">

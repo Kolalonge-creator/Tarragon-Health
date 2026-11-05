@@ -68,3 +68,32 @@ describe("setTwoFactorRequirementAction", () => {
     expect(r).toEqual({ error: message });
   });
 });
+
+describe("resetMfaFactorsAction", () => {
+  // Imported here so the describe above keeps its own import line untouched.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { resetMfaFactorsAction } = require("./actions") as typeof import("./actions");
+  const PROFILE = "11111111-1111-4111-8111-111111111111";
+  const REASON = "Lost phone, identity checked by video call";
+
+  beforeEach(() => rpc.mockReset());
+
+  it("calls the database reset on the admin's own session and reports the devices signed out", async () => {
+    rpc.mockResolvedValue({ data: { factors_removed: 1, sessions_ended: 2 }, error: null });
+    const r = await resetMfaFactorsAction(undefined, form({ profileId: PROFILE, reason: REASON }));
+    expect(rpc).toHaveBeenCalledWith("admin_reset_mfa_factors", { p_profile: PROFILE, p_reason: REASON });
+    expect(r?.message).toContain("2 devices");
+  });
+
+  it("refuses a short reason or a malformed account id before calling the database", async () => {
+    expect((await resetMfaFactorsAction(undefined, form({ profileId: PROFILE, reason: "lost phone" })))?.error).toContain("20 characters");
+    expect((await resetMfaFactorsAction(undefined, form({ profileId: "not-a-uuid", reason: REASON })))?.error).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("shows the database's refusal (the AAL2 guard for an admin or the CMO) as written", async () => {
+    const message = "Resetting an admin or the Chief Medical Officer needs your own two-factor sign-in. Turn it on in Profile & settings, sign in with it, then try again.";
+    rpc.mockResolvedValue({ data: null, error: { message } });
+    expect(await resetMfaFactorsAction(undefined, form({ profileId: PROFILE, reason: REASON }))).toEqual({ error: message });
+  });
+});
