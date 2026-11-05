@@ -1,3 +1,4 @@
+import { sessionCookieOptions } from "@tarragon/auth/supabase/cookie-options";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -125,7 +126,8 @@ type NotificationPreferencesDatabase = {
 function createNotificationPreferencesClient() {
   return createBrowserClient<NotificationPreferencesDatabase>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookieOptions: sessionCookieOptions() }
   );
 }
 
