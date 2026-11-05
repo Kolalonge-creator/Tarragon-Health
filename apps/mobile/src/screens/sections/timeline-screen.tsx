@@ -4,7 +4,7 @@ import {
   loadPatientTimeline,
   humaniseSummary,
   trustTierLabel,
-  TIMELINE_EVENT_STYLE,
+  timelineEventStyleFor,
   type TimelineEvent,
   type TimelineEventType,
 } from "@/lib/timeline";
@@ -131,7 +131,7 @@ export function TimelineScreen({ patientId, acting = false, onNavigate }: Timeli
         <>
           <GroupedList>
             {events.map((event) => {
-              const style = TIMELINE_EVENT_STYLE[event.event_type];
+              const style = timelineEventStyleFor(event);
               const section = acting && (event.event_type === "symptom_logged" || event.event_type === "document_uploaded") ? undefined : EVENT_LINK_SECTION[event.event_type];
               const subtitleParts = [
                 event.summary ? humaniseSummary(event.summary) : null,

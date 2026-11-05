@@ -115,6 +115,16 @@ export const TIMELINE_EVENT_STYLE: Record<TimelineEventType, { dot: string; labe
   procedure_recorded: { dot: "#12324B", label: "Procedure" },
 };
 
+// A finished video consultation is written as 'encounter_documented' from video_consultations
+// (20261105164409_consultation_completion_chain.sql). It is not a clinical note; the signed note is a separate row.
+// Same override as apps/web/src/components/patient-timeline.tsx's eventStyleFor.
+export function timelineEventStyleFor(event: { event_type: TimelineEventType; source_table: string }): { dot: string; label: string } {
+  if (event.event_type === "encounter_documented" && event.source_table === "video_consultations") {
+    return { dot: "#12324B", label: "Consultation" };
+  }
+  return TIMELINE_EVENT_STYLE[event.event_type];
+}
+
 // Who stands behind an item (S43, spec 2.1). The database derives the tier (patient_timeline.trust_tier); this only says it in words.
 // An unknown tier says nothing rather than guessing.
 const TRUST_TIERS = ["lab_pushed", "clinician", "device", "patient", "ocr_unconfirmed", "ocr_confirmed", "imported", "system"] as const;

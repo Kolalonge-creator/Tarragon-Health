@@ -87,6 +87,7 @@ const ERROR_WORDS: Record<string, string> = {
   queue_outcome_result_not_released: "That result has not been released to the patient yet.",
   queue_outcome_change: "The signed or rejected change for this task could not be found under your name.",
   queue_outcome_note_missing: "Sign your note for this review first.",
+  queue_outcome_reason_needed: "Please give a short reason (10 characters or more) for closing this without a signed note.",
   queue_outcome_consult: "The written question has not been answered yet.",
   queue_outcome_page: "The page for this case has not been acknowledged yet.",
   written_question_attest_no_diagnosis: "Please confirm that you have not made a diagnosis.",
