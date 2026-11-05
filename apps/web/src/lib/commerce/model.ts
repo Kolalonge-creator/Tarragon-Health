@@ -119,6 +119,9 @@ const renewalSchema = z.object({
   cancelled_at: z.string().nullable().optional(),
   amount_kobo: kobo.nullable().optional(),
   card: z.object({ brand: z.string().nullable(), last4: z.string().nullable(), exp_month: z.string().nullable(), exp_year: z.string().nullable() }).nullable().optional(),
+  // T2-13: a Membership Plus year renews as the Membership (renews_as is the Membership item code for a Plus year)
+  tier: z.enum(["evergreen", "plus"]).nullable().optional(),
+  renews_as: z.string().nullable().optional(),
 });
 export type RenewalState = z.infer<typeof renewalSchema>;
 export function parseRenewal(data: unknown): RenewalState | null {

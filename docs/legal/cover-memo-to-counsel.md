@@ -5,11 +5,20 @@
 **Date:** 27 October 2026 (v4, a refresh of the 31 July 2026 v3 memo. The sections on staffing, channels, money and the open-items list are rewritten to match the live platform. DRAFT for counsel: anything in square brackets is an open item and no legal fact below has been confirmed by counsel)
 **Re:** Review requested — data protection, telehealth, consumer terms, and fintech/CBN posture ahead of public launch
 
+## Update, 4 November 2026 (founder decisions T2-01, T2-05, T2-13)
+
+This note is added to the v4 memo rather than rewriting it, so counsel can see what changed after 27 October 2026.
+
+- **One paid plan.** Membership Plus is retired and no longer sold. There is one annual Membership at ₦100,000. Until this date the memo described two plans, Membership and Membership Plus; that wording below has been updated and this note records the change.
+- **Existing Plus years.** A Membership Plus year bought earlier keeps its benefits to its end date. When it comes up for renewal it renews as the ₦100,000 Membership, with a clear notice first. Nothing is charged without the member's own action; automatic renewal remains switched off, and if it is ever switched on it may only charge the Membership price, and only after that notice.
+- **Employers.** An employer buys the same Membership for each employee at ₦90,000 per person per year. There is no separate employer plan, and the employer never receives an employee's individual results.
+- **Sponsorship.** One person may buy the Membership for another (for example, a child abroad for a parent in Lagos). The person receiving it accepts it themselves, and paying for it gives the sponsor no access to their health records.
+
 ## What changed since v3 (31 July 2026)
 
 - **WhatsApp has been removed entirely** (founder decision, 30 September 2026). No WhatsApp channel, webhook, template or inbox exists. The channels are the app (in-app inbox), push, email and voice; SMS is used only for phone verification codes.
 - **There is no wallet and no stored balance.** The Health Wallet and the later Platform Credit were removed. Patients pay per item at checkout through Paystack, or use a Care Voucher a sponsor has bought for them. Question 1 of v3 (CBN licence for the wallet) is withdrawn and replaced by a narrower question about Care Vouchers.
-- **There is no subscription.** The app is free. A Member pays once for a year of Membership or Membership Plus. Membership does not renew by itself. [Auto-renewal code exists but is switched off and cannot apply to gifts or sponsored years; the public wording says there is no subscription.]
+- **There is no subscription.** The app is free. A Member pays once for a year of Membership, ₦100,000 (see the 4 November 2026 note below). Membership does not renew by itself. [Auto-renewal code exists but is switched off and cannot apply to gifts or sponsored years; the public wording says there is no subscription.]
 - **Naira only.** Paystack in naira is the only live payment provider. Stripe and the foreign-currency price book are removed.
 - **Refund:** 21 days from purchase, full price, then no refund except where we fail to deliver or the law requires it [counsel to confirm against the FCCPC; see Question 7].
 - **Doctor ladder:** one doctor tier plus a Chief Medical Officer, replacing the five-tier ladder described in v3. There is no independent Chief Medical Officer; the founder holds that role [verify with counsel whether this is acceptable for governance sign-off and indemnity].
@@ -65,7 +74,7 @@ Response-time commitments are pathway-specific rather than one flat table, refle
 
 ## Money: pay per item, a one-off yearly Membership, no stored balance
 
-The app is free. People pay for a doctor's time and for the yearly Membership, in naira, through Paystack; we do not see or store card details. A Member buys **Membership** or **Membership Plus** (the difference is whether the yearly blood panel is included and collected for them). It is a one-off payment for a year; it does not renew automatically and is not a subscription. Someone else (a family member, a sponsor abroad, an employer) may pay for a person's access by buying a **Care Voucher** or a Membership year for them. A voucher is for that person's account alone, is never redeemable for cash, and is not a stored balance we hold for anyone. We hold no wallet, no balance and no float, and we have not sought a Central Bank of Nigeria licence because we no longer hold customer funds [counsel to confirm that a Care Voucher, which is prepaid for a named service, does not itself need one; see Question 1].
+The app is free. People pay for a doctor's time and for the yearly Membership, in naira, through Paystack; we do not see or store card details. A Member buys the **Membership**, ₦100,000 for a year (Membership Plus, which also included a yearly blood panel, is retired; see the 4 November 2026 note). Laboratory tests are paid to the laboratory directly. It is a one-off payment for a year; it does not renew automatically and is not a subscription. Someone else (a family member, a sponsor abroad, an employer) may pay for a person's access by buying a **Care Voucher** or a Membership year for them. A voucher is for that person's account alone, is never redeemable for cash, and is not a stored balance we hold for anyone. We hold no wallet, no balance and no float, and we have not sought a Central Bank of Nigeria licence because we no longer hold customer funds [counsel to confirm that a Care Voucher, which is prepaid for a named service, does not itself need one; see Question 1].
 
 ## Where your data is stored, and international transfer
 
