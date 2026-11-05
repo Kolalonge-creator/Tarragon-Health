@@ -12,3 +12,13 @@ describe("marketing redirects", () => {
     expect(existsSync(join(MARKETING, source.replace(/^\//, ""), "page.tsx"))).toBe(false);
   });
 });
+
+describe("retired route keys", () => {
+  it("every retired key has a redirect and is not in the sitemap list", async () => {
+    const { MARKETING_ROUTES, MARKETING_ROUTES_BUILT, RETIRED_ROUTE_KEYS } = await import("./routes");
+    for (const key of RETIRED_ROUTE_KEYS) {
+      expect(MARKETING_REDIRECTS.some((r) => r.source === MARKETING_ROUTES[key])).toBe(true);
+      expect(MARKETING_ROUTES_BUILT).not.toContain(key);
+    }
+  });
+});

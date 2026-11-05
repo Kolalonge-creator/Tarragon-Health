@@ -60,6 +60,24 @@ export const MARKETING_ROUTES = {
 
 export type MarketingRouteKey = keyof typeof MARKETING_ROUTES;
 
+/**
+ * Keys that no longer have a page: each URL is a permanent redirect
+ * (lib/marketing/redirects.ts). They stay in MARKETING_ROUTES only so the URL
+ * still counts as a public marketing path (the app host bounces it to the
+ * root domain, where the redirect runs). Never link to these, and skip them
+ * when building anything from the route table.
+ */
+export const RETIRED_ROUTE_KEYS: ReadonlyArray<MarketingRouteKey> = [
+  "hmo",
+  "parentcare",
+  "annualHealthCheck",
+  "advancedDiagnostics",
+  "whoItsFor",
+  "screeningJourney",
+  "healthEducation",
+  "careCoordination",
+];
+
 /** Routes built in the current scaffold pass (update as pages ship). */
 export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "home",

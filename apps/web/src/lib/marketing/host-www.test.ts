@@ -15,6 +15,12 @@ describe("www redirect target", () => {
     expect(wwwRedirectTarget("https://tarragonhealth.ng/", "tarragonhealth.ng")).toBeNull();
   });
 
+  it("never redirects to a host that is not Tarragon's own", () => {
+    expect(wwwRedirectTarget("https://tarragonhealth.ng/", "www.attacker.example")).toBeNull();
+    expect(wwwRedirectTarget("https://www.attacker.example/x")).toBeNull();
+    expect(wwwRedirectTarget("https://tarragonhealth.ng/", "www.tarragonhealth.ng.attacker.example")).toBeNull();
+  });
+
   it("leaves the bare host and the app host alone", () => {
     expect(wwwRedirectTarget("https://tarragonhealth.ng/")).toBeNull();
     expect(wwwRedirectTarget("https://app.tarragonhealth.ng/patient")).toBeNull();
