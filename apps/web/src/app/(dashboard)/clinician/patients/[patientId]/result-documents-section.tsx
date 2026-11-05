@@ -7,6 +7,7 @@ import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { MarkResultReviewed } from "./mark-result-reviewed";
 import { MarkActionCompletedButton } from "./mark-action-completed-button";
 import { MarkResultDocumentSupersedes } from "./mark-result-document-supersedes";
+import { LinkReportToOrder } from "./link-report-to-order";
 import { LabReportExtractionPanel, type ExtractionView } from "./lab-report-extraction-panel";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
 import type { Database } from "@tarragon/shared";
@@ -29,6 +30,14 @@ const ACK_STATUS_BADGE: Record<AckStatus, { label: string; variant: "grey" | "bl
   action_required: { label: "Action required", variant: "amber" },
   action_completed: { label: "Action completed", variant: "green" },
 };
+
+type LinkedOrderView = { id: string; orderNumber: string | null; status: string };
+
+/** A linked request the clinician cannot read still shows as linked (number unknown), never as "Not linked". */
+function linkedOrderFor(orderId: string | null, orderById: Map<string, LinkedOrderView>): LinkedOrderView | null {
+  if (!orderId) return null;
+  return orderById.get(orderId) ?? { id: orderId, orderNumber: null, status: "unknown" };
+}
 
 function formatDate(value: string): string {
   return formatPatientDate(value);
@@ -104,6 +113,33 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
     ]),
   );
 
+  // Request to report: each document's intake row (clinical_documents) names the test request it answers. Read on the
+  // clinician's own session. A failed read is shown as a failed read, never as "Not linked".
+  const { data: intakeRows, error: intakeError } = documents.length
+    ? await supabase
+        .from("clinical_documents")
+        .select("id, routed_id, lab_order_id, lab_order_link_source")
+        .eq("routed_table", "lab_result_documents")
+        .in(
+          "routed_id",
+          documents.map((d) => d.id),
+        )
+    : { data: [], error: null };
+  const intakeByDocument = new Map((intakeRows ?? []).map((row) => [row.routed_id, row]));
+  const linkedOrderIds = Array.from(
+    new Set((intakeRows ?? []).map((row) => row.lab_order_id).filter((id): id is string => !!id)),
+  );
+  const { data: linkedOrderRows, error: linkedOrderError } = linkedOrderIds.length
+    ? await supabase.from("lab_orders").select("id, order_number, status").in("id", linkedOrderIds)
+    : { data: [], error: null };
+  if (intakeError || linkedOrderError) {
+    console.error("result-documents-section: could not read the test request links", intakeError ?? linkedOrderError);
+  }
+  const linkReadFailed = Boolean(intakeError || linkedOrderError);
+  const orderById = new Map(
+    (linkedOrderRows ?? []).map((o) => [o.id, { id: o.id, orderNumber: o.order_number, status: o.status }]),
+  );
+
   const { data: patient } = await supabase
     .from("profiles")
     .select("sex, full_name, date_of_birth")
@@ -116,7 +152,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
   const patientAgeYears = ageFromDob(patient?.date_of_birth ?? null);
 
   return (
-    <Card>
+    <Card id="result-documents" className="scroll-mt-24">
       <CardHeader>
         <CardTitle>Result documents</CardTitle>
         <CardDescription>
@@ -170,6 +206,18 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   </a>
                 ) : (
                   <p className="text-xs text-red-600">File could not be loaded.</p>
+                )}
+                {linkReadFailed ? (
+                  <p className="text-xs text-red-600">
+                    Could not load which test request this report answers. Reload the page to try again.
+                  </p>
+                ) : intakeByDocument.get(doc.id) && (
+                  <LinkReportToOrder
+                    clinicalDocumentId={intakeByDocument.get(doc.id)!.id}
+                    patientId={patientId}
+                    linkedOrder={linkedOrderFor(intakeByDocument.get(doc.id)!.lab_order_id, orderById)}
+                    linkSource={intakeByDocument.get(doc.id)!.lab_order_link_source}
+                  />
                 )}
                 <LabReportExtractionPanel
                   documentId={doc.id}

@@ -26,6 +26,7 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { LabOrderRequestsSection } from "./lab-order-requests-section";
 import { UnsortedDocumentsSection } from "./unsorted-documents-section";
 import { RecordsSection } from "./records-section";
 import { PatientReportedValuesSection } from "./patient-reported-values-section";
@@ -421,6 +422,7 @@ export default async function ClinicianPatientPage({
               <>
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
+                <LabOrderRequestsSection patientId={patient.id} />
                 <ResultDocumentsSection patientId={patient.id} />
                 <UnsortedDocumentsSection patientId={patient.id} />
                 <PatientReportedValuesSection patientId={patient.id} />

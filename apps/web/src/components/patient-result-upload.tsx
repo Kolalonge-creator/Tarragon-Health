@@ -29,6 +29,8 @@ import {
   RESULT_DOCUMENT_TEST_TYPE_OPTIONS,
 } from "@/lib/labs/test-code-labels";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
+import { usePatientLabOrders } from "@/lib/queries/lab-orders";
+import { REPORT_EXPECTED_STATUSES } from "@/lib/lab-orders/report-link";
 
 function formatPrice(amountMinor: number, currency: string): string {
   const symbol = CURRENCY_SYMBOL[currency as Currency] ?? currency;
@@ -169,13 +171,19 @@ export function PatientResultUpload({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const needsTestType = !testCode;
+  // Request to report: a loose upload (no labOrderId) may still answer one of the patient's open test requests. Offered,
+  // never required; left empty, the database's own matcher links it only when exactly one open request fits.
+  const [chosenOrderId, setChosenOrderId] = useState("");
+  const { data: patientOrders } = usePatientLabOrders(!labOrderId && patientId ? patientId : "");
+  const openOrders = (patientOrders ?? []).filter((order) => REPORT_EXPECTED_STATUSES.includes(order.status));
 
   const upload = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("Attach the result first.");
       const formData = new FormData();
       formData.set("file", file);
-      if (labOrderId) formData.set("lab_order_id", labOrderId);
+      const effectiveOrderId = labOrderId ?? (chosenOrderId || undefined);
+      if (effectiveOrderId) formData.set("lab_order_id", effectiveOrderId);
       if (screeningCompletionId) formData.set("screening_completion_id", screeningCompletionId);
       if (note.trim()) formData.set("note", note.trim());
       const effectiveTestCode =
@@ -190,6 +198,7 @@ export function PatientResultUpload({
       setFile(null);
       setNote("");
       setTestType("");
+      setChosenOrderId("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
       onUploaded?.();
@@ -271,6 +280,25 @@ export function PatientResultUpload({
               Helps your care team read it correctly and group it with related
               results.
             </p>
+          </div>
+        )}
+        {!labOrderId && openOrders.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor={`${fieldId}-order`} className="text-xs">
+              Is this the result of one of your test requests? (optional)
+            </Label>
+            <Select
+              id={`${fieldId}-order`}
+              value={chosenOrderId}
+              onChange={(event) => setChosenOrderId(event.target.value)}
+            >
+              <option value="">No, or I am not sure</option>
+              {openOrders.map((order) => (
+                <option key={order.id} value={order.id}>
+                  {(order.panel_bundle?.name ?? "Lab test") + (order.order_number ? ` (${order.order_number})` : "")}
+                </option>
+              ))}
+            </Select>
           </div>
         )}
         <Input
