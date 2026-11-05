@@ -79,6 +79,12 @@ create trigger lab_orders_zzz_stamp_request_verification
 
 create unique index if not exists lab_orders_request_verification_token_key on public.lab_orders (request_verification_token);
 create unique index if not exists lab_orders_request_verification_code_key on public.lab_orders (request_verification_code);
+-- Defaults that already satisfy the shape checks, for a path that inserts with user triggers disabled (bulk loads, the OQ-39
+-- seeding proof). On every normal insert the trigger replaces both with fresh values from the stronger generator.
+alter table public.lab_orders alter column request_verification_token
+  set default (replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''));
+alter table public.lab_orders alter column request_verification_code
+  set default translate(upper(substr(md5(gen_random_uuid()::text), 1, 10)), '01', '89');
 alter table public.lab_orders alter column request_verification_token set not null;
 alter table public.lab_orders alter column request_verification_code set not null;
 alter table public.lab_orders add constraint lab_orders_request_verification_token_shape check (request_verification_token ~ '^[0-9a-f]{64}$');
