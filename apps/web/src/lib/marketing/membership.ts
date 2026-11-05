@@ -63,6 +63,8 @@ export const MEMBERSHIP_INCLUDES = [
   "Upload your laboratory report: a doctor reviews it, and it goes into your health record",
   "Your health record and trends over time, all in one place",
   "One online meeting with a doctor from your care team each month, and you can buy an extra meeting if you need one",
+  "Written questions to your care team between calls",
+  "Prescriptions your care team signs, for you to take to any pharmacy",
   "Reminders when a test, a check or a reading is due",
   "Care Circle: someone you trust can follow your care, with your consent",
 ] as const;

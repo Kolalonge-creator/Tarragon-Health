@@ -1932,6 +1932,8 @@ export const en = {
   "catalog.membership_annual_no_panel.incl.1": "One online meeting with a doctor from your care team every month. You can buy an extra meeting if you need one.",
   "catalog.membership_annual_no_panel.incl.2": "A personal preventive plan and test schedule, with lab request forms you can download and take to any reputable laboratory",
   "catalog.membership_annual_no_panel.incl.3": "Upload your lab reports: a doctor reviews them, and they are kept in your health record with your trends",
+  "catalog.membership_annual_no_panel.incl.4": "Written questions to your care team between calls",
+  "catalog.membership_annual_no_panel.incl.5": "Prescriptions your care team signs, for you to take to any pharmacy",
   "catalog.bp_care_pack_3m.name": "Blood pressure care pack, 3 months",
   "catalog.bp_care_pack_3m.description": "Three months of support from a care team lead who looks after your blood pressure. Medicines are not included.",
   "catalog.bp_care_pack_3m.incl.1": "A named care team lead who owns your plan",
