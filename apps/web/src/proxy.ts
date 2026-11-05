@@ -255,6 +255,8 @@ export async function proxy(request: NextRequest) {
   ) {
     const setupUrl = new URL(MFA_SETUP_PATH, request.url);
     setupUrl.searchParams.set("mfa", "required");
+    // Keep the destination, query included (a signed document link is useless without it, OQ-336). /account sanitises it.
+    setupUrl.searchParams.set("redirect", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(setupUrl);
   }
 

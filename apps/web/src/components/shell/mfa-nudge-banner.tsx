@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { UserRole } from "@tarragon/shared";
+import { staffMfaRequiredFor } from "@tarragon/auth/mfa-policy";
 import { createClient } from "@/lib/supabase/client";
 import { APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
 
   React.useEffect(() => {
     if (!role || !MFA_NUDGE_ROLES.has(role)) return;
+    // Where two-step sign-in is enforced (SEC-01) the account page says so plainly; a dismissible nudge would contradict it.
+    if (staffMfaRequiredFor(role)) return;
 
     let cancelled = false;
 

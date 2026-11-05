@@ -1,4 +1,4 @@
-import { isLocalSupabase, isMfaEnrolmentExemptPath, staffMustEnrolMfa } from "./mfa-policy";
+import { isLocalSupabase, isMfaEnrolmentExemptPath, isStaffRole, staffMfaRequiredFor, staffMustEnrolMfa } from "./mfa-policy";
 
 const PROD = "https://koiplnmbgnqnbywhpjlf.supabase.co";
 
@@ -53,5 +53,15 @@ describe("local Supabase stack exception", () => {
     expect(isLocalSupabase(undefined)).toBe(false);
     expect(isLocalSupabase("not a url")).toBe(false);
     expect(staffMustEnrolMfa("clinician", "aal1", undefined)).toBe(true);
+  });
+});
+
+describe("staffMfaRequiredFor", () => {
+  it("is true for staff in a deployed app, false for patients and on a local stack", () => {
+    expect(isStaffRole("clinician")).toBe(true);
+    expect(isStaffRole("patient")).toBe(false);
+    expect(staffMfaRequiredFor("clinician", PROD)).toBe(true);
+    expect(staffMfaRequiredFor("patient", PROD)).toBe(false);
+    expect(staffMfaRequiredFor("clinician", "http://127.0.0.1:54321")).toBe(false);
   });
 });

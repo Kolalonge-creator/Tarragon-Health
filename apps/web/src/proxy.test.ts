@@ -380,6 +380,7 @@ describe("staff two-step sign-in is required (SEC-01)", () => {
     const loc = new URL((await proxy(request("/clinician/worklist"))).headers.get("location")!);
     expect(loc.pathname).toBe("/account");
     expect(loc.searchParams.get("mfa")).toBe("required");
+    expect(loc.searchParams.get("redirect")).toBe("/clinician/worklist");
   });
 
   it("applies to admin, finance and partner roles too, and to a prefetch", async () => {

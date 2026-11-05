@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { mfaCodeSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -95,6 +96,8 @@ export async function verifyMfaEnrollment(
     return { error: "That code did not match. Check the app and try again.", field: "code" };
   }
 
+  // Re-render /account so a staff member held there by the enrolment gate (SEC-01) sees it lift at once.
+  revalidatePath("/account");
   return { success: true };
 }
 

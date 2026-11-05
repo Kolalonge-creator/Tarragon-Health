@@ -166,6 +166,11 @@ describe("staff two-step sign-in is required (SEC-01)", () => {
     expect(location(await proxy(request("/ngo")))!.pathname).toBe("/login/mfa-setup");
   });
 
+  it("serves the challenge page to an enrolled account mid sign-in (no redirect loop)", async () => {
+    stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal1", nextLevel: "aal2" } });
+    expect(location(await proxy(request("/login/mfa-challenge")))).toBeNull();
+  });
+
   it("sends an enrolled account away from the set-up page to its home", async () => {
     stubSession({ user: { id: "u1" }, profile: { role: "ngo_admin" }, aal: { currentLevel: "aal2", nextLevel: "aal2" } });
     expect(location(await proxy(request("/login/mfa-setup")))!.pathname).toBe("/ngo");

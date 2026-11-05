@@ -71,7 +71,9 @@ export async function proxy(request: NextRequest) {
 
   // SEC-01: every staff account needs a verified authenticator factor. One without is held on the set-up page (it sets the
   // factor up on the main app's /account), and can still sign out from it.
-  if (staffMustEnrolMfa(profile.role, mfaNextLevel)) {
+  // The challenge page is exempt: the level is not read on that path, and a staff member there HAS a factor (the page itself
+  // sends anyone without a pending step-up back to /login).
+  if (pathname !== "/login/mfa-challenge" && staffMustEnrolMfa(profile.role, mfaNextLevel)) {
     return pathname === "/login/mfa-setup" ? response : NextResponse.redirect(new URL("/login/mfa-setup", request.url));
   }
   if (pathname === "/login/mfa-setup") return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));

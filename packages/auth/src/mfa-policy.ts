@@ -17,7 +17,20 @@ export function staffMustEnrolMfa(
   supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
 ): boolean {
   if (isLocalSupabase(supabaseUrl)) return false;
-  return role !== "patient" && nextLevel !== "aal2";
+  return isStaffRole(role) && nextLevel !== "aal2";
+}
+
+/** Every role except `patient` (supporters are patient accounts). */
+export function isStaffRole(role: UserRole): boolean {
+  return role !== "patient";
+}
+
+/** Whether the gate applies to this role in this deployment (staff, and not a local Supabase stack). */
+export function staffMfaRequiredFor(
+  role: UserRole,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+  return isStaffRole(role) && !isLocalSupabase(supabaseUrl);
 }
 
 /**

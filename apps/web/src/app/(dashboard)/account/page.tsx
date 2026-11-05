@@ -14,7 +14,8 @@ import { PasskeysCard } from "@/components/account/passkeys-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
-import { staffMustEnrolMfa } from "@tarragon/auth/mfa-policy";
+import { staffMfaRequiredFor } from "@tarragon/auth/mfa-policy";
+import { sanitizeRedirect } from "@tarragon/auth/redirect";
 
 // The seeded default consumer org (20260706084837) every self-serve signup
 // lands on until claimed by a real employer/HMO/clinic roster — the same
@@ -41,7 +42,14 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
  * admin-managed (CLAUDE.md's Clinical Tier Ladder rules), and a phone-number
  * change needs its own re-verification flow this page doesn't attempt.
  */
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mfa?: string; redirect?: string }>;
+}) {
+  const { redirect: redirectParam } = await searchParams;
+  // Where the staff enrolment gate (apps/web/src/proxy.ts) sent the person from, offered back once the factor is on.
+  const continueTo = sanitizeRedirect(redirectParam);
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
@@ -80,7 +88,8 @@ export default async function AccountPage() {
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
   // SEC-01: a staff account cannot open anything else until it has a verified factor (apps/web/src/proxy.ts sends it here).
-  const mfaRequired = staffMustEnrolMfa(profile.role, verifiedFactorId ? "aal2" : "aal1");
+  const mfaGated = staffMfaRequiredFor(profile.role);
+  const mfaRequired = mfaGated && !verifiedFactorId;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -88,6 +97,15 @@ export default async function AccountPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Profile &amp; settings</h1>
         <p className="text-charcoal-ink/60">Your account details and sign-in settings.</p>
       </div>
+
+      {mfaGated && verifiedFactorId && continueTo && (
+        <div role="status" className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm text-charcoal-ink">
+          <p className="font-semibold">Two-step sign-in is on</p>
+          <Link href={continueTo} className="mt-1 inline-block font-medium text-brand-green underline">
+            Continue to where you were going
+          </Link>
+        </div>
+      )}
 
       {mfaRequired && (
         <>
