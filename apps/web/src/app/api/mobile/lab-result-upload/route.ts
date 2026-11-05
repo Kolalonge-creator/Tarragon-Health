@@ -1,3 +1,4 @@
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -157,9 +158,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // checks exactly this, same as the web patient-upload path.
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return NextResponse.json({ error: prepared.error }, { status: 400 });
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) {
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {

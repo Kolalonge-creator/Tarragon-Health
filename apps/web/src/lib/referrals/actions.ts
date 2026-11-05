@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { ROUTINE_CHART_READ_REASON } from "@/lib/clinical/audited-chart";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
@@ -83,9 +84,12 @@ export async function uploadReferralOutcomeDocumentAsPatient(
   // own-folder policy checks.
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(REFERRAL_OUTCOME_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const service = createServiceRoleClient();
@@ -148,9 +152,12 @@ export async function uploadReferralOutcomeDocumentForPatient(
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${referral.patient_id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await service.storage
     .from(REFERRAL_OUTCOME_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   // Runs on the caller's own session (not service-role) so

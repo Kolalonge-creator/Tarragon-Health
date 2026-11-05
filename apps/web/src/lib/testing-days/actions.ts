@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -288,7 +289,10 @@ export async function recordEcg(_prev: TestingActionState, formData: FormData): 
 
   const path = `${parsed.data.bookingId}/${randomUUID()}.${ECG_EXT[file.type] ?? "bin"}`;
   const store = createServiceRoleClient().storage.from(ECG_BUCKET);
-  const { error: upError } = await store.upload(path, file, { contentType: file.type, upsert: false });
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file, { allowXml: true });
+  if (!prepared.ok) return { error: prepared.error };
+  const { error: upError } = await store.upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (upError) return { error: "The file could not be stored. Please try again." };
 
   const { error } = await supabase.rpc("record_poc_ecg", {

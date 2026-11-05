@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
@@ -295,9 +296,12 @@ export async function uploadResultDocumentAsPatient(
   // storage own-folder policy checks.
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) {
     // A claimed credit must not be stranded by a storage failure — release
     // it back to payment_confirmed so the patient can retry without paying
@@ -430,9 +434,12 @@ export async function replaceResultDocumentAsPatient(
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   // Supersede, never edit: one SECURITY DEFINER function inserts the new document, links both ways, keeps the old row and its file,

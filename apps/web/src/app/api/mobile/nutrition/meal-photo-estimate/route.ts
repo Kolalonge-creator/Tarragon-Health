@@ -1,3 +1,4 @@
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { Json, TablesInsert } from "@tarragon/shared";
@@ -104,9 +105,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Leading folder MUST be the caller's uid — the storage own-folder policy
   // checks exactly this, same as every other mobile photo-upload route.
   const path = `${user.id}/${randomUUID()}.${ext}`;
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return NextResponse.json({ error: prepared.error }, { status: 400 });
   const { error: uploadError } = await supabase.storage
     .from(MEAL_PHOTO_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
@@ -118,7 +122,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   const catalogue = await fetchFoodCatalogue(supabase);
 
   if (isMealVisionConfigured()) {
-    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    // The cleaned bytes, the same ones stored: the model never needs where the photo was taken.
+    const base64 = Buffer.from(prepared.upload.body).toString("base64");
     const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
 
     // AI-008, same governed call the web server action makes — see
@@ -132,7 +137,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       run: async () => {
         const result = await analyzeMealPhoto({
           imageBase64: base64,
-          mediaType: file.type,
+          mediaType: prepared.upload.contentType,
           description,
           catalogue,
         });
