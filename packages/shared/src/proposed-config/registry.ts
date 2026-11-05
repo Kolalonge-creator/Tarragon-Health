@@ -11501,4 +11501,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
   },
+  {
+    key: "directory.diagnostic_search",
+    // Diagnostic directory Phase 3: the radius choices offered when searching for a branch that does a test (straight-line
+    // km, shown as "about N km"), the radius used when the person has not picked one, and how many branches one page shows.
+    // public.search_diagnostic_services has no default for either: every caller passes them from here.
+    value: { radii_km: [5, 10, 20, 50], default_radius_km: 10, page_size: 20 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104234848_diag_p3_search_diagnostic_services.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §9",
+  },
 ];

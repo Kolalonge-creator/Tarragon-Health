@@ -58186,6 +58186,43 @@ export type Database = {
         }
         Returns: undefined
       }
+      search_diagnostic_services: {
+        Args: {
+          p_concept_id: string
+          p_include_unconfirmed: boolean
+          p_lat: number
+          p_lga: string
+          p_limit: number
+          p_lng: number
+          p_offset?: number
+          p_radius_km: number
+          p_state: string
+        }
+        Returns: {
+          address: string
+          appointment_required: boolean
+          availability: string
+          branch_listing_id: string
+          branch_name: string
+          credentials_on_file: string[]
+          distance_km: number
+          kind: string
+          last_confirmed_at: string
+          latitude: number
+          lga: string
+          longitude: number
+          neighbourhood: string
+          performed_elsewhere: boolean
+          phone: string
+          preparation_note: string
+          provider_name: string
+          result_group: string
+          service_id: string
+          state: string
+          total_count: number
+          town: string
+        }[]
+      }
       search_health_education_content_text: {
         Args: {
           filter_condition?: Database["public"]["Enums"]["care_plan_condition"]

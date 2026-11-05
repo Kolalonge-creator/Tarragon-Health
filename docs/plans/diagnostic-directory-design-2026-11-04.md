@@ -225,6 +225,8 @@ The first coverage target is Lagos and Abuja, for roughly the 30 most-requested 
 | P6 | Patient search page and branch profile. Replace the "Contracted lab branches" and "Partner labs" copy. | Browser check |
 | P7 | Data collection: Lagos and Abuja first, then more states and provider claiming. | Coverage metrics, not row counts |
 
+**P3 as built (2026-11-04):** `search_diagnostic_services` returns two groups, `eligible` and `unconfirmed` (group 3 in §10); the partner band is P4. `list_lab_test_locations` was **not** turned into a wrapper: it feeds the paid lab booking picker, which must only offer contracted branches, while the directory deliberately lists uncontracted ones. Radius choices and page size are versioned config (`directory.diagnostic_search`), passed by the caller. `directory_search` keeps its own haversine; the new search uses `private.distance_km`.
+
 P1 to P3 are additive, and nothing becomes patient-visible until a branch is listed by a person. `directory_enabled` is already ON, so verification is the gate. No new guard is needed, per G-01.
 
 ## 13. Test plan
