@@ -58,7 +58,9 @@ export interface ScannerClient {
 }
 
 function joinUrl(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl.charCodeAt(end - 1) === 47 /* "/" */) end -= 1;
+  return `${baseUrl.slice(0, end)}${path}`;
 }
 
 async function toBody(bytes: Uint8Array | ArrayBuffer | Blob): Promise<ArrayBuffer> {
