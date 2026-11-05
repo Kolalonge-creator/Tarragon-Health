@@ -1,8 +1,10 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { LabRequestDocument, type LabRequestData } from "@/lib/lab-results/lab-request-document";
 import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { labRequestVerifyUrl } from "@/lib/lab-results/request-verification";
 
 /** D5: screens that are sensitive for ACCESS (other people) though not flagged sensitive in the catalogue. Mirrors private.screen_code_access_sensitive. */
 export const ACCESS_SENSITIVE_EXTRA_CODES = ["antenatal_booking", "pcos_panel"] as const;
@@ -46,7 +48,7 @@ export async function generateLabRequestPdf(
   const { data: order } = await supabase
     .from("lab_orders")
     .select(
-      "id, order_number, ordered_at, patient_id, ordered_by, origin, clinical_indication, panel_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
+      "id, order_number, ordered_at, patient_id, ordered_by, origin, clinical_indication, panel_code, request_verification_token, request_verification_code, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, description, test_codes)",
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -139,6 +141,16 @@ export async function generateLabRequestPdf(
     }
   }
 
+  // T2 Phase 3: the QR carries the 64-hex token; a form whose QR cannot be drawn still prints the typed code.
+  let verificationQr: string | null = null;
+  if (order.request_verification_token) {
+    try {
+      verificationQr = await QRCode.toDataURL(labRequestVerifyUrl(order.request_verification_token), { errorCorrectionLevel: "M", margin: 1, width: 240 });
+    } catch {
+      verificationQr = null;
+    }
+  }
+
   const data: LabRequestData = {
     patientName: patient.full_name ?? "Patient",
     patientNumber: patient.patient_number,
@@ -153,6 +165,8 @@ export async function generateLabRequestPdf(
     requestedByCredentialType,
     requestedByCredentialNumber,
     clinicalIndication: order.clinical_indication,
+    verificationCode: order.request_verification_code,
+    verificationQr,
   };
 
   const buffer = await renderToBuffer(LabRequestDocument({ data }));
