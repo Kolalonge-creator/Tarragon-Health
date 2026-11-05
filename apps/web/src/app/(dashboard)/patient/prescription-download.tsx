@@ -14,7 +14,7 @@ import { formatPatientDate } from "@/lib/format-date";
  * The "not a controlled medicine" line is the founder's wording (2026-10-01): TarragonHealth does not
  * prescribe controlled medicines, and patients should be told.
  *
- * T2-11 (2026-11-04): the PDF is the main path and needs no partner pharmacy. "Choose where to collect" is an optional extra and is
+ * T2-11 (2026-11-04): the PDF is the main path and needs no partner pharmacy. The collect link is an optional extra and is
  * offered only when a partner pharmacy can actually take the prescription (public.partner_pharmacy_collection_available), so the
  * screen never implies Tarragon has a contracted pharmacy when it does not.
  */
