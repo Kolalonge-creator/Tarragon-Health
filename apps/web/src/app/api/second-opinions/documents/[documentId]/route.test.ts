@@ -1,3 +1,5 @@
+const mockCleared = jest.fn(async (...args: unknown[]) => args.length >= 0);
+jest.mock("@/lib/uploads/cleared-for-reading", () => ({ isClearedForReading: (...a: unknown[]) => mockCleared(...a) }));
 const order: string[] = [];
 const rpc = jest.fn();
 const createSignedUrl = jest.fn();
@@ -43,6 +45,7 @@ const call = (documentId: string, r: string | null) =>
   });
 
 beforeEach(() => {
+  mockCleared.mockReset().mockResolvedValue(true);
   order.length = 0;
   rpc.mockReset();
   createSignedUrl.mockReset().mockResolvedValue({ data: { signedUrl: "https://signed.example/file" } });
@@ -77,4 +80,13 @@ it("rejects malformed ids before any database call", async () => {
   expect((await call("not-a-uuid", request)).status).toBe(404);
   expect((await call(doc, null)).status).toBe(404);
   expect(rpc).not.toHaveBeenCalled();
+});
+
+it("withholds a file the server has not cleared (still being checked, or refused): no signed URL (security audit M-4/L-4)", async () => {
+  rpc.mockResolvedValue({ data: read([doc]), error: null });
+  mockCleared.mockResolvedValue(false);
+  const res = await call(doc, request);
+  expect(res.status).toBe(409);
+  expect(createSignedUrl).not.toHaveBeenCalled();
+  expect(mockCleared.mock.calls[0]?.slice(1)).toEqual(["second-opinion-documents", "p/q/r.pdf"]);
 });

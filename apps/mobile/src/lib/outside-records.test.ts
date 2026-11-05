@@ -6,6 +6,8 @@ import { loadOutsideRecords, uploadOutsideRecord, OUTSIDE_RECORD_MAX_BYTES } fro
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn(), auth: { getUser: jest.fn() }, storage: { from: jest.fn() } } }));
+const mockConfirm = jest.fn();
+jest.mock("./api", () => ({ confirmDirectUpload: (...a: unknown[]) => mockConfirm(...a) }));
 const mockFrom = supabase.from as unknown as jest.Mock;
 const getUser = supabase.auth.getUser as unknown as jest.Mock;
 const storageFrom = supabase.storage.from as unknown as jest.Mock;
@@ -20,6 +22,8 @@ beforeEach(() => {
   mockFrom.mockReset();
   getUser.mockReset();
   storageFrom.mockReset();
+  mockConfirm.mockReset();
+  mockConfirm.mockResolvedValue(null);
 });
 
 describe("loadOutsideRecords", () => {
@@ -84,5 +88,18 @@ describe("uploadOutsideRecord", () => {
     expect(row).not.toHaveProperty("verification_status");
     expect(row).not.toHaveProperty("reviewed_by");
     expect(row).not.toHaveProperty("reviewed_at");
+  });
+
+  it("asks the server to check the stored file, and a refused file gets no record (security audit M-4/L-4)", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+    const upload = jest.fn().mockResolvedValue({ error: null });
+    storageFrom.mockReturnValue({ upload, remove: jest.fn() });
+    const insert = jest.fn().mockResolvedValue({ error: null });
+    mockFrom.mockImplementation((name: string) => (name === "profiles" ? builder({ data: { organisation_id: "org1" } }) : { insert }));
+    global.fetch = jest.fn().mockResolvedValue({ arrayBuffer: async () => new ArrayBuffer(10) }) as unknown as typeof fetch;
+    mockConfirm.mockResolvedValue("That file is not what it says it is.");
+    expect(await uploadOutsideRecord(photo, "other")).toEqual({ ok: false, reason: "type" });
+    expect(mockConfirm).toHaveBeenCalledWith("patient-documents", upload.mock.calls[0][0]);
+    expect(insert).not.toHaveBeenCalled();
   });
 });

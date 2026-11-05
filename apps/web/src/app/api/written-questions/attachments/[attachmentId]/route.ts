@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 import {
   WRITTEN_QUESTION_PHOTO_READ_REASON,
   attachmentParamsSchema,
@@ -49,6 +50,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ atta
     .maybeSingle();
   if (!row) return new Response("Not found", { status: 404, headers: NO_STORE });
 
+  // Handed out only once the server has checked the file (security audit M-4/L-4).
+  if (!(await isClearedForReading(service, BUCKET, row.storage_path))) {
+    return new Response("This file is still being checked or was refused", { status: 409, headers: NO_STORE });
+  }
   const { data: signed } = await service.storage.from(BUCKET).createSignedUrl(row.storage_path, 60);
   if (!signed?.signedUrl) return new Response("Could not open file", { status: 500, headers: NO_STORE });
 

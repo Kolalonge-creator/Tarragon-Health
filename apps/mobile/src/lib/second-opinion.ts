@@ -1,3 +1,4 @@
+import { confirmDirectUpload } from "./api";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
@@ -176,6 +177,11 @@ export async function submitSecondOpinionWithMaterial(input: {
         .from("second-opinion-documents")
         .upload(path, bytes, { contentType: photo.mimeType, upsert: false });
       if (uploadError) {
+        filesFailed += 1;
+        continue;
+      }
+      // Server check of the bytes and photo location before the request points at it (security audit 2026-11-05, M-4/L-4).
+      if (await confirmDirectUpload("second-opinion-documents", path)) {
         filesFailed += 1;
         continue;
       }

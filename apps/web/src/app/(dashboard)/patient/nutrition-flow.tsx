@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { uploadMealPhoto } from "@/lib/nutrition/upload-meal-photo";
 import { logMealAction, confirmMealAction, getBudgetAlternativeAction } from "./nutrition-actions";
 import type { BudgetAlternativeState } from "./nutrition-actions";
 import { NutritionSupportCard } from "./nutrition-support-card";
@@ -41,7 +42,6 @@ import { cn } from "@/lib/utils";
 import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
-const MEAL_PHOTO_BUCKET = "meal-photos";
 const ENTRIES_KEY = "nutrition-entries";
 
 interface MealEstimateShape {
@@ -150,13 +150,8 @@ function LogMealSection({
       if (!user) throw new Error("Not signed in");
 
       if (file) {
-        const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from(MEAL_PHOTO_BUCKET)
-          .upload(path, file, { contentType: file.type, upsert: false });
-        if (uploadError) throw uploadError;
-        formData.set("photo_path", path);
+        // Uploaded straight to Storage, then checked by the server before the meal points at it (security audit M-4/L-4).
+        formData.set("photo_path", await uploadMealPhoto(supabase, user.id, file));
       }
 
       const res = await logMealAction(undefined, formData);

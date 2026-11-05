@@ -11,6 +11,8 @@
 
 const createSignedUrls = jest.fn();
 
+// The upload-check read gate (security audit M-4/L-4) is covered in lib/supabase/sign-storage-paths.upload-check.test.ts.
+jest.mock("@/lib/uploads/cleared-for-reading", () => ({ blockedUncheckedPaths: async () => new Set<string>() }));
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     storage: {
