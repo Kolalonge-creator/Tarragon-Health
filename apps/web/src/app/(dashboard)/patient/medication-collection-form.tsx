@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { todayIsoDate, type Medication } from "@/lib/queries/medications";
+import { todayIsoDate, useConfirmPrescriptionCollected, type Medication } from "@/lib/queries/medications";
+import { CONFIRM_OUTCOME_MESSAGE, type ConfirmOutcome } from "@/lib/prescriptions/patient-supply";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,14 @@ import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-e
  * pharmacy_order_dispenses_insert already admits patient_id = auth.uid(), so no
  * server action or elevated client is needed. pharmacy_order_id stays null,
  * which is exactly what the 20260803132008 migration made possible.
+ *
+ * T2-11c (2026-11-05): for a signed prescription the same button records a PATIENT-REPORTED SUPPLY through
+ * public.confirm_prescription_collected instead. It counts against the prescription, so the QR check shows it used and a second pharmacy
+ * cannot fill it, and it is labelled as reported by the patient everywhere. The patient can undo it for a short window (prescription-download).
  */
+export function isSignedPrescription(medication: Pick<Medication, "source" | "rx_number" | "superseded_at" | "is_active">): boolean {
+  return medication.source === "clinician" && !!medication.rx_number && !medication.superseded_at && medication.is_active;
+}
 export function MedicationCollectionForm({
   medication,
   patientId,
@@ -34,7 +42,11 @@ export function MedicationCollectionForm({
   const [open, setOpen] = useState(false);
   const [collectedOn, setCollectedOn] = useState(todayIsoDate());
   const [pharmacyName, setPharmacyName] = useState("");
+  const [pharmacyTown, setPharmacyTown] = useState("");
   const [done, setDone] = useState(false);
+  const [outcome, setOutcome] = useState<ConfirmOutcome | null>(null);
+  const signed = isSignedPrescription(medication);
+  const confirm = useConfirmPrescriptionCollected(patientId);
   const errorId = fieldErrorId(`medication-collection-${medication.id}`);
 
   const logCollection = useMutation({
@@ -60,7 +72,31 @@ export function MedicationCollectionForm({
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (signed) {
+      confirm.mutate(
+        { medicationId: medication.id, collectedOn, pharmacyName, pharmacyTown },
+        {
+          onSuccess: (result) => {
+            setOutcome(result);
+            if (CONFIRM_OUTCOME_MESSAGE[result].ok) setOpen(false);
+          },
+        }
+      );
+      return;
+    }
     logCollection.mutate();
+  }
+
+  const pending = signed ? confirm.isPending : logCollection.isPending;
+  const failed = signed ? confirm.isError : logCollection.isError;
+  const outcomeMessage = outcome ? CONFIRM_OUTCOME_MESSAGE[outcome] : null;
+
+  if (signed && outcomeMessage?.ok && !open) {
+    return (
+      <p role="status" className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
+        {outcomeMessage.text}
+      </p>
+    );
   }
 
   if (done) {
@@ -74,7 +110,7 @@ export function MedicationCollectionForm({
   if (!open) {
     return (
       <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        I picked this up
+        {signed ? "I've got this medicine" : "I picked this up"}
       </Button>
     );
   }
@@ -82,7 +118,9 @@ export function MedicationCollectionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-        You may buy this medicine wherever is convenient for you. Telling us when you collected it keeps your refill reminders accurate.
+        {signed
+          ? "If the pharmacy did not record this supply, tell us here. It will be marked on your prescription as collected, as reported by you, so it cannot be filled again elsewhere."
+          : "You may buy this medicine wherever is convenient for you. Telling us when you collected it keeps your refill reminders accurate."}
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
@@ -109,20 +147,38 @@ export function MedicationCollectionForm({
             maxLength={120}
             value={pharmacyName}
             onChange={(event) => setPharmacyName(event.target.value)}
-            {...fieldErrorProps(errorId, logCollection.isError)}
+            {...fieldErrorProps(errorId, failed)}
           />
         </div>
+        {signed && (
+          <div className="space-y-1">
+            <Label htmlFor={`pharmacy_town_${medication.id}`} className="text-xs">
+              Town (optional)
+            </Label>
+            <Input
+              id={`pharmacy_town_${medication.id}`}
+              className="w-40"
+              placeholder="For example, Ikeja"
+              maxLength={80}
+              value={pharmacyTown}
+              onChange={(event) => setPharmacyTown(event.target.value)}
+            />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" disabled={!collectedOn || logCollection.isPending}>
-          {logCollection.isPending ? "Saving…" : "Save"}
+        <Button type="submit" size="sm" disabled={!collectedOn || pending}>
+          {pending ? "Saving…" : signed ? "Confirm I have it" : "Save"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancel
         </Button>
         <FormError
           id={errorId}
-          message={logCollection.isError && "Could not save that. Please try again."}
+          message={
+            (failed && "Could not save that. Please try again.") ||
+            (outcomeMessage && !outcomeMessage.ok && outcomeMessage.text)
+          }
           className="text-xs"
         />
       </div>

@@ -32,6 +32,7 @@ import { pullChangesThrottled, readLocalMedications, readLocalRecords } from "./
 import { supabase } from "./supabase";
 import { API_BASE_URL } from "./api";
 import type { Json, Tables } from "@tarragon/shared";
+import { getProposedConfig } from "@tarragon/shared";
 
 /**
  * Shared result shape for the native read-path lib functions (overview.ts
@@ -871,7 +872,16 @@ export async function requestMedicationRepeat(patientId: string, medicationId: s
 
 export type MedicationCollectionItem = Pick<
   Tables<"pharmacy_order_dispenses">,
-  "id" | "medication_id" | "dispensed_on" | "pharmacy_name"
+  | "id"
+  | "medication_id"
+  | "dispensed_on"
+  | "pharmacy_name"
+  | "source"
+  | "recorded_via"
+  | "created_at"
+  | "pharmacy_town"
+  | "withdrawn_at"
+  | "matched_dispense_id"
 >;
 
 /** All of the patient's own collection records that reference a medication —
@@ -880,7 +890,7 @@ export async function loadMedicationCollections(patientId: string): Promise<Quer
   try {
     const { data, error } = await supabase
       .from("pharmacy_order_dispenses")
-      .select("id, medication_id, dispensed_on, pharmacy_name")
+      .select("id, medication_id, dispensed_on, pharmacy_name, source, recorded_via, created_at, pharmacy_town, withdrawn_at, matched_dispense_id")
       .eq("patient_id", patientId)
       .not("medication_id", "is", null)
       .order("dispensed_on", { ascending: false });
@@ -911,6 +921,79 @@ export async function logMedicationCollection(
     source: "patient",
   });
   return error ? { error: error.message } : {};
+}
+
+// --- T2-11c: the patient confirms they collected a signed prescription ----------
+//
+// Mirrors apps/web/src/lib/prescriptions/patient-supply.ts (duplicated, not imported, as elsewhere in this file). The rules live in
+// public.confirm_prescription_collected / public.undo_prescription_collected: the confirmation counts as a supply, so the QR check shows
+// it used and labelled as reported by the patient, and the patient can undo it for a short time (prescription_supply_config).
+
+export const PATIENT_CONFIRMATION = "patient_confirmation";
+/** Mirrors prescription_supply_config through the proposed-config registry (never a literal). */
+export const UNDO_WINDOW_HOURS = (getProposedConfig("prescriptions.patient_supply_windows").value as { patient_undo_hours: number })
+  .patient_undo_hours;
+
+export function isSignedPrescription(m: { source: string; rx_number?: string | null; superseded_at?: string | null }): boolean {
+  return m.source === "clinician" && !!m.rx_number && !m.superseded_at;
+}
+
+export function canUndoCollection(c: MedicationCollectionItem, now: Date = new Date()): boolean {
+  if (c.recorded_via !== PATIENT_CONFIRMATION || c.withdrawn_at || c.matched_dispense_id) return false;
+  const age = now.getTime() - new Date(c.created_at).getTime();
+  return age >= 0 && age < UNDO_WINDOW_HOURS * 60 * 60 * 1000;
+}
+
+export const CONFIRM_COLLECTED_MESSAGE: Record<string, { ok: boolean; text: string }> = {
+  recorded: {
+    ok: true,
+    text: `Thank you. This supply is now marked as collected on your prescription, so another pharmacy cannot fill it again. You can undo this for ${UNDO_WINDOW_HOURS} hours if you tapped it by mistake.`,
+  },
+  matched_pharmacy_record: { ok: true, text: "Thank you. The pharmacy had already recorded this supply, so we have noted that you received it." },
+  already_recorded: { ok: true, text: "This supply is already recorded on your prescription. Nothing more is needed." },
+  duplicate: { ok: false, text: "You confirmed this a few minutes ago, so it was not recorded again." },
+  no_supply_available: { ok: false, text: "Every supply on this prescription is already recorded. If that looks wrong, message your care team in the app." },
+  not_active: { ok: false, text: "This prescription has been replaced, stopped or has expired, so a collection cannot be recorded on it." },
+  invalid: { ok: false, text: "Check the date: it cannot be in the future or before the prescription was signed." },
+  not_found: { ok: false, text: "We could not find this prescription on your account." },
+};
+
+export const UNDO_COLLECTED_MESSAGE: Record<string, string> = {
+  undone: "Taken back. This supply is available on your prescription again.",
+  window_passed: `This can only be undone within ${UNDO_WINDOW_HOURS} hours. If it is wrong, message your care team in the app.`,
+  confirmed_by_pharmacy: "A pharmacy has since recorded this supply, so it cannot be undone here. If it is wrong, message your care team in the app.",
+  not_found: "This could not be undone. It may already have been taken back.",
+};
+
+export async function confirmPrescriptionCollected(
+  medicationId: string,
+  collectedOn: string,
+  pharmacyName: string,
+  pharmacyTown: string
+): Promise<{ outcome?: string; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc("confirm_prescription_collected", {
+      p_medication_id: medicationId,
+      p_collected_on: collectedOn,
+      ...(pharmacyName.trim() ? { p_pharmacy_name: pharmacyName.trim() } : {}),
+      ...(pharmacyTown.trim() ? { p_pharmacy_town: pharmacyTown.trim() } : {}),
+    });
+    if (error) return { error: error.message };
+    const outcome = (Array.isArray(data) ? data[0] : data)?.outcome;
+    return typeof outcome === "string" && outcome in CONFIRM_COLLECTED_MESSAGE ? { outcome } : { error: "Unexpected response" };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function undoPrescriptionCollected(dispenseId: string): Promise<{ outcome?: string; error?: string }> {
+  try {
+    const { data, error } = await supabase.rpc("undo_prescription_collected", { p_dispense_id: dispenseId });
+    if (error) return { error: error.message };
+    return typeof data === "string" && data in UNDO_COLLECTED_MESSAGE ? { outcome: data } : { error: "Unexpected response" };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 // --- Check my pack -----------------------------------------------------------

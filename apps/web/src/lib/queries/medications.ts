@@ -6,6 +6,7 @@ import type { Json, Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
 import type { SafetyResubmit } from "@/lib/prescriptions/parse-safety-error";
+import { isConfirmOutcome, isUndoOutcome, type ConfirmOutcome, type UndoOutcome } from "@/lib/prescriptions/patient-supply";
 
 /** What the signer answered after a signing safety stop (S24): the allergy-list confirmation and the reason for going ahead. */
 export type SafetyAnswers = SafetyResubmit;
@@ -444,6 +445,54 @@ export function useDisputePrescriptionSupply(patientId: string) {
       });
       if (error) throw error;
       if (data !== true) throw new Error("This supply could not be disputed. It may already have been.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });
+    },
+  });
+}
+
+/**
+ * T2-11c: the patient says they collected their own signed prescription (public.confirm_prescription_collected). The outcome is
+ * returned, not thrown, so the screen can say what happened; only a transport or permission error throws.
+ */
+export function useConfirmPrescriptionCollected(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      medicationId: string;
+      collectedOn: string;
+      pharmacyName?: string;
+      pharmacyTown?: string;
+    }): Promise<ConfirmOutcome> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("confirm_prescription_collected", {
+        p_medication_id: input.medicationId,
+        p_collected_on: input.collectedOn,
+        ...(input.pharmacyName?.trim() ? { p_pharmacy_name: input.pharmacyName.trim() } : {}),
+        ...(input.pharmacyTown?.trim() ? { p_pharmacy_town: input.pharmacyTown.trim() } : {}),
+      });
+      if (error) throw error;
+      const outcome = (Array.isArray(data) ? data[0] : data)?.outcome;
+      if (!isConfirmOutcome(outcome)) throw new Error("Unexpected response");
+      return outcome;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });
+    },
+  });
+}
+
+/** T2-11c: the patient takes back their own confirmation within 24 hours (public.undo_prescription_collected). */
+export function useUndoPrescriptionCollected(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ dispenseId }: { dispenseId: string }): Promise<UndoOutcome> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("undo_prescription_collected", { p_dispense_id: dispenseId });
+      if (error) throw error;
+      if (!isUndoOutcome(data)) throw new Error("Unexpected response");
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: medicationCollectionsKey(patientId) });

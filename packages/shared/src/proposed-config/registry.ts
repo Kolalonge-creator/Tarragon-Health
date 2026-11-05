@@ -11675,4 +11675,23 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "Founder decision T2-12, 2026-11-04 (docs/DECISIONS.md); brief section 6.4; supabase/migrations/*_t2_screening_reminder_cadence_and_defer.sql",
   },
+  {
+    key: "prescriptions.patient_supply_windows",
+    // T2-11c (founder decision 2026-11-05, T2-14 in docs/DECISIONS.md): a patient can say they collected their own signed prescription,
+    // and it counts as a supply. Live values are the active row of `prescription_supply_config` (an operational setting under G-01:
+    // versioned, audited, no signature); this entry mirrors the seed and a test fails if they drift. patient_undo_hours: how long the
+    // patient can take back their own confirmation. report_match_days: how long a patient report blocks a second fill and can be
+    // confirmed by the pharmacy that supplied it, and how far apart a patient confirmation and a pharmacy record may be to be the same
+    // supply. patient_duplicate_minutes: a second tap within this is a duplicate. All PROPOSED.
+    value: {
+      patient_undo_hours: 24,
+      report_match_days: 7,
+      patient_duplicate_minutes: 10,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "Founder decision T2-14, 2026-11-05 (docs/DECISIONS.md); supabase/migrations/*_t2_11c_patient_confirms_supply.sql",
+  },
 ];

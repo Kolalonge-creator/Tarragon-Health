@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useDisputePrescriptionSupply, usePartnerCollectionAvailable } from "@/lib/queries/medications";
+import { useDisputePrescriptionSupply, usePartnerCollectionAvailable, useUndoPrescriptionCollected } from "@/lib/queries/medications";
 import { formatPatientDate } from "@/lib/format-date";
+import {
+  UNDO_OUTCOME_MESSAGE,
+  canUndoConfirmation,
+  describeForPatient,
+  isPatientConfirmation,
+  type UndoOutcome,
+} from "@/lib/prescriptions/patient-supply";
 
 /**
  * The patient's side of a clinician prescription: the identifiers a pharmacist asks for, and the PDF to take
@@ -26,6 +33,50 @@ export interface RecordedSupply {
   pharmacist_registration: string | null;
   pharmacist_registration_verified: boolean;
   disputed_at: string | null;
+  /** T2-11c: a patient's own "I've got this medicine" row is source 'patient', recorded_via 'patient_confirmation'. */
+  source?: "patient" | "pharmacy";
+  recorded_via?: string;
+  created_at?: string;
+  pharmacy_town?: string | null;
+  withdrawn_at?: string | null;
+  matched_dispense_id?: string | null;
+}
+
+/** T2-11c: the patient's own confirmation, labelled as theirs, with an undo for a short window. */
+function PatientConfirmationLine({ supply, patientId }: { supply: RecordedSupply; patientId: string }) {
+  const undo = useUndoPrescriptionCollected(patientId);
+  const [result, setResult] = useState<UndoOutcome | null>(null);
+  const row = {
+    source: "patient" as const,
+    recorded_via: supply.recorded_via ?? "",
+    dispensed_on: supply.dispensed_on,
+    created_at: supply.created_at ?? supply.dispensed_on,
+    pharmacy_name: supply.pharmacy_name,
+    pharmacy_town: supply.pharmacy_town ?? null,
+    withdrawn_at: supply.withdrawn_at ?? null,
+    matched_dispense_id: supply.matched_dispense_id ?? null,
+  };
+  return (
+    <li className="space-y-1">
+      <span>{describeForPatient(row)}</span>
+      {canUndoConfirmation(row) && result !== "undone" && (
+        <button
+          type="button"
+          disabled={undo.isPending}
+          onClick={() => undo.mutate({ dispenseId: supply.id }, { onSuccess: (outcome) => setResult(outcome) })}
+          className="ml-2 underline text-charcoal-ink/60 dark:text-night-ink/60"
+        >
+          {undo.isPending ? "Undoing…" : "Undo, I tapped this by mistake"}
+        </button>
+      )}
+      {result && (
+        <span role="status" className="block">
+          {UNDO_OUTCOME_MESSAGE[result]}
+        </span>
+      )}
+      {undo.isError && <span className="block text-red-600">That could not be undone just now. Please try again.</span>}
+    </li>
+  );
 }
 
 function SupplyLine({ supply, patientId }: { supply: RecordedSupply; patientId: string }) {
@@ -86,7 +137,7 @@ export function PrescriptionDownload({
   rxNumber: string | null;
   verificationCode: string | null;
   expiresAt: string | null;
-  /** Supplies a pharmacy has recorded against this prescription (source 'pharmacy'), newest first. */
+  /** Supplies a pharmacy has recorded (source 'pharmacy') and the patient's own confirmations (T2-11c), newest first. */
   supplies: RecordedSupply[];
   patientId: string;
   /** The signed prescription row, when there is one: lets the patient choose a verified pharmacy to collect from (S28). */
@@ -116,9 +167,13 @@ export function PrescriptionDownload({
       </div>
       {supplies.length > 0 && (
         <ul className="space-y-1.5 text-charcoal-ink/70 dark:text-night-ink/70">
-          {supplies.map((supply) => (
-            <SupplyLine key={supply.id} supply={supply} patientId={patientId} />
-          ))}
+          {supplies.map((supply) =>
+            supply.recorded_via && isPatientConfirmation({ recorded_via: supply.recorded_via }) ? (
+              <PatientConfirmationLine key={supply.id} supply={supply} patientId={patientId} />
+            ) : (
+              <SupplyLine key={supply.id} supply={supply} patientId={patientId} />
+            ),
+          )}
         </ul>
       )}
       {expired ? (

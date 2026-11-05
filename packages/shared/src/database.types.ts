@@ -36573,6 +36573,12 @@ export type Database = {
           pharmacist_name: string | null
           pharmacist_registration: string | null
           pharmacy_name: string | null
+          pharmacy_town: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdraw_reason: string | null
+          matched_dispense_id: string | null
+          matched_at: string | null
           pharmacy_order_id: string | null
           quantity: string | null
           quantity_prescribed: string | null
@@ -36606,6 +36612,12 @@ export type Database = {
           pharmacist_name?: string | null
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
+          pharmacy_town?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdraw_reason?: string | null
+          matched_dispense_id?: string | null
+          matched_at?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
@@ -36639,6 +36651,12 @@ export type Database = {
           pharmacist_name?: string | null
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
+          pharmacy_town?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdraw_reason?: string | null
+          matched_dispense_id?: string | null
+          matched_at?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
@@ -59283,6 +59301,10 @@ export type Database = {
           signed_at: string
           status: string
           version: number
+          self_reported_supplies: number
+          last_self_report_on: string
+          last_self_report_pharmacy: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       verify_lab_request_public: {
@@ -59306,6 +59328,25 @@ export type Database = {
       submit_my_preventive_baseline: { Args: never; Returns: Json }
       clinician_preventive_baseline: { Args: { p_patient: string }; Returns: Json }
       review_preventive_plan: { Args: { p_baseline: string; p_decision: string; p_note?: string }; Returns: string }
+      confirm_prescription_collected: {
+        Args: {
+          p_medication_id: string
+          p_collected_on?: string
+          p_pharmacy_name?: string
+          p_pharmacy_town?: string
+          p_quantity?: string
+        }
+        Returns: {
+          outcome: string
+          dispense_id: string
+          supplies_dispensed: number
+          supplies_permitted: number
+        }[]
+      }
+      undo_prescription_collected: {
+        Args: { p_dispense_id: string; p_reason?: string }
+        Returns: string
+      }
       desk_record_prescription_supply: {
         Args: {
           p_rx_number: string
@@ -59313,6 +59354,7 @@ export type Database = {
           p_pharmacy_name: string
           p_pharmacist_name: string
           p_pharmacist_registration: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string
@@ -59343,6 +59385,10 @@ export type Database = {
           supplies_permitted: number
           supply_available: boolean
           version: number
+          self_reported_supplies: number
+          last_self_report_on: string
+          last_self_report_pharmacy: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       dispute_prescription_supply: {
@@ -59356,6 +59402,7 @@ export type Database = {
           p_pharmacist_name: string
           p_pharmacist_registration?: string
           p_quantity_supplied?: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string
