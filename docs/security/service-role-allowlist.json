@@ -815,6 +815,10 @@
       "category": "app server code (baselined 2026-10-27; owner to justify)"
     },
     {
+      "file": "packages/auth/src/record-failed-sign-in.ts",
+      "category": "security audit 2026-11-05 (H-7): writes auth.sign_in_failed to audit_log for a failed web sign-in. There is no session yet, and a public RPC would let anyone forge failures; the row holds only a keyed hash of the identifier."
+    },
+    {
       "file": "packages/auth/src/supabase/service-role.ts",
       "category": "the factory itself"
     },
@@ -901,6 +905,18 @@
     {
       "file": "supabase/functions/zoom-webhook/index.ts",
       "category": "edge function (runs with no user session)"
+    },
+    {
+      "file": "apps/web/src/app/(dashboard)/patient/nutrition-actions.ts",
+      "category": "Security audit M-4/L-4 (2026-11-05): service-role client calls only public.client_upload_check_statuses (and, through the verifier, claim/finish for that one object) to confirm the meal photo the patient's own browser wrote has passed the server upload check before the meal points at it. Reads no patient data; the patient's own session still does every write."
+    },
+    {
+      "file": "apps/web/src/app/api/cron/verify-client-uploads/route.ts",
+      "category": "cron route, CRON_SECRET bearer check before any work (security audit M-4/L-4, 2026-11-05). Claims queued client-direct uploads, downloads each object, runs prepareUpload, writes back a metadata-free copy or moves a mismatch to the private upload-quarantine bucket, and records the outcome via service-role-only RPCs."
+    },
+    {
+      "file": "apps/web/src/lib/uploads/check-my-upload.ts",
+      "category": "Security audit M-4/L-4 (2026-11-05): 'check the file I just uploaded'. The caller is proven from their own session first; the service role then checks only the object that caller wrote (claim_client_upload_checks matches owner_id to the session user) and reports only refused or not."
     }
   ],
   "wrappers": [

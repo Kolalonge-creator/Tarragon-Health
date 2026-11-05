@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isClearedForReading } from "@/lib/uploads/cleared-for-reading";
 
 export const CARE_MESSAGE_ATTACHMENT_BUCKET = "care-message-attachments";
 
@@ -18,6 +19,8 @@ export const CARE_MESSAGE_ATTACHMENT_BUCKET = "care-message-attachments";
  */
 export async function signCareMessageAttachmentPath(path: string): Promise<string | null> {
   const service = createServiceRoleClient();
+  // Handed out only once the server has checked the file (security audit M-4/L-4); the caller shows "could not be loaded".
+  if (!(await isClearedForReading(service, CARE_MESSAGE_ATTACHMENT_BUCKET, path))) return null;
   const { data } = await service.storage
     .from(CARE_MESSAGE_ATTACHMENT_BUCKET)
     .createSignedUrl(path, 300);

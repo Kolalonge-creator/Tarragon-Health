@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { confirmDirectUpload } from "../api";
 import { WRITTEN_QUESTION_BUCKET } from "./api";
 import { finalRefusalKey, isFinalPhotoRefusal, mapWrittenQuestionError } from "./errors";
 import type { QueueRemote } from "./queue";
@@ -42,6 +43,9 @@ export const supabaseQueueRemote: QueueRemote = {
   },
   async register(consultId, path, byteCount) {
     try {
+      // Server check of the bytes and photo location before the question points at it (security audit 2026-11-05, M-4/L-4).
+      // A refused photo is dropped, the question still goes. Offline: skipped, the server sweep checks the file later.
+      if (await confirmDirectUpload(WRITTEN_QUESTION_BUCKET, path)) return { ok: false, dropPhoto: true };
       const { error } = await supabase.rpc("attach_written_question_photo", {
         p_consult: consultId,
         p_path: path,

@@ -28,7 +28,7 @@ import {
 export async function AiGovernancePanel() {
   const supabase = await createClient();
 
-  const [versionsRes, casesRes, guardrailsRes, sourcesRes, runReviews] = await Promise.all([
+  const [versionsRes, undeployedRes, casesRes, guardrailsRes, sourcesRes, runReviews] = await Promise.all([
     supabase
       .from("ai_system_versions")
       // Same column list the admin console's page.tsx queries
@@ -39,6 +39,15 @@ export async function AiGovernancePanel() {
       .is("approved_at", null)
       .is("retired_at", null)
       .order("created_at", { ascending: false }),
+    // Approved but never marked deployed. For a clinically meaningful or high-risk system approve_ai_system_version lets only an
+    // active Clinical Director record the deployment, and a CMO login cannot open the admin console, so the button lives here too.
+    supabase
+      .from("ai_system_versions")
+      .select(`${AI_SYSTEM_VERSION_COLUMNS}, ai_systems(name, system_code, is_enabled)`)
+      .not("approved_at", "is", null)
+      .is("deployed_at", null)
+      .is("retired_at", null)
+      .order("approved_at", { ascending: false }),
     supabase
       .from("ai_evaluation_cases")
       .select(AI_EVALUATION_CASE_COLUMNS)
@@ -61,13 +70,18 @@ export async function AiGovernancePanel() {
     readPendingAiEvaluationRunReviews(supabase),
   ]);
 
-  if (versionsRes.error || casesRes.error || guardrailsRes.error || sourcesRes.error || runReviews.failed) {
+  if (versionsRes.error || undeployedRes.error || casesRes.error || guardrailsRes.error || sourcesRes.error || runReviews.failed) {
     return <LoadFailure>AI governance sign-off items could not be loaded.</LoadFailure>;
   }
 
   const versions = (versionsRes.data ?? []) as unknown as (AiSystemVersionRow & {
     ai_systems: { name: string; system_code: string } | null;
   })[];
+  const undeployed = runningUndeployedVersions(
+    (undeployedRes.data ?? []) as unknown as (AiSystemVersionRow & {
+      ai_systems: { name: string; system_code: string; is_enabled: boolean } | null;
+    })[],
+  );
   const cases = (casesRes.data ?? []) as unknown as AiClinicalAccuracyCaseRow[];
 
   const guardrailsBySystem = new Map<string, { name: string; items: AiApprovalItem[] }>();
@@ -133,6 +147,29 @@ export async function AiGovernancePanel() {
         )}
       </section>
 
+      {undeployed.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Running AI versions not yet marked deployed</h2>
+          <p className="max-w-3xl text-sm text-charcoal-ink/70">
+            These approved versions are switched on. Marking one deployed only records the date it went live; it changes nothing the
+            system does. For a clinically meaningful system only you can record it; for the others an admin can too.
+          </p>
+          <div className="space-y-4">
+            {undeployed.map((v) => (
+              <div key={v.id} className="space-y-1">
+                <p className="text-sm font-medium text-charcoal-ink/80">
+                  {v.ai_systems?.name ?? v.ai_system_id}
+                  {v.ai_systems?.system_code && (
+                    <span className="font-mono text-xs text-charcoal-ink/50"> · {v.ai_systems.system_code}</span>
+                  )}
+                </p>
+                <AiSystemVersionCard version={v} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">AI guardrails awaiting your approval</h2>
         <p className="max-w-3xl text-sm text-charcoal-ink/70">
@@ -194,4 +231,11 @@ export async function AiGovernancePanel() {
       <ClinicalAccuracyReviewSection cases={cases} />
     </div>
   );
+}
+
+/** Approved, not retired, never marked deployed, and switched on: the versions actually running with no deployment date recorded. */
+export function runningUndeployedVersions<
+  T extends { approved_at: string | null; deployed_at: string | null; retired_at: string | null; ai_systems: { is_enabled: boolean } | null },
+>(rows: readonly T[]): T[] {
+  return rows.filter((v) => v.approved_at !== null && v.deployed_at === null && v.retired_at === null && v.ai_systems?.is_enabled === true);
 }

@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { rpcParsed, rpcVoid } from "@/lib/credentialing/rpc";
@@ -15,7 +16,7 @@ const DueSchema = z.array(z.object({ document_id: z.string().uuid(), storage_pat
 
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronAuthorised(authHeader)) {
     return new Response("Not authorised", { status: 401 });
   }
 

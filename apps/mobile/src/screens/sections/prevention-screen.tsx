@@ -522,7 +522,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
               The screening worth doing at your age, what to ask a laboratory for, and roughly what
               it costs. Working out which tests you need and writing the request is free, and always
               will be. You take that request to whichever laboratory you choose and pay them
-              directly, at their price. We add nothing and take no cut. Upload the result when it
+              directly, at their price. We add nothing to it. Upload the result when it
               comes back and a doctor can read it with you.
             </MutedText>
 
@@ -542,7 +542,7 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
                         About ₦{koboToNaira(bundle.indicative_price_kobo).toLocaleString("en-NG")} at a
                         major private laboratory. Smaller laboratories are often cheaper for the same
                         test, so it is worth asking two. You pay the laboratory directly, at their
-                        price. Tarragon adds nothing and takes no cut.
+                        price. Tarragon adds nothing to it.
                       </AppText>
                     ) : (
                       <AppText variant="body">

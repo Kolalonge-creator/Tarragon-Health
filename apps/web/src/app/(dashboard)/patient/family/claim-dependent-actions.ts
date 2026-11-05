@@ -67,12 +67,18 @@ export async function claimDependentAccountAction(
 
   const { data: grant } = await supabase
     .from("profile_access")
-    .select("id")
+    .select("id, permission_level, granted_by")
     .eq("profile_id", dependent_id)
     .eq("grantee_user_id", parent.id)
     .in("permission_level", ["manage", "view"])
     .maybeSingle();
-  if (!grant) return { error: "You don't have access to this record" };
+  // A 'view' grant only counts when it is the guardian's own original grant (they created the dependant record, so
+  // granted_by is themselves) that the 18th-birthday job stepped down from 'manage'. Any other view-level relative must
+  // never be able to point this person's login at their own phone (security audit 2026-11-05, M-1).
+  const isOriginalGuardian = grant?.granted_by === parent.id;
+  if (!grant || (grant.permission_level !== "manage" && !isOriginalGuardian)) {
+    return { error: "You don't have access to this record" };
+  }
 
   const { data: dependent } = await supabase
     .from("profiles")

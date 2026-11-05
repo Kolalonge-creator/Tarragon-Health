@@ -1,15 +1,6 @@
 import "server-only";
 import { tool, type StructuredToolInterface } from "@langchain/core/tools";
-// @langchain/core@0.3.x's tool() depends on zod@^3.25 internally, and its
-// overload generics only resolve cleanly against that exact package identity
-// -- the app's own zod (package.json's "zod": "^4.4.3") produces a
-// structurally similar but not type-identical ZodObject, which sends
-// tool()'s overload resolution to "Type instantiation is excessively deep"
-// or a hard `unknown` inference failure. "zod3" is an aliased dependency
-// (apps/web/package.json: "zod3": "npm:zod@^3.25.32") pinned to the same
-// zod major LangChain itself resolves at runtime -- use it for every tool
-// schema in this file; do not swap this back to the bare "zod" import.
-import { z } from "zod3";
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAiExcludedAnalyte, type Database } from "@tarragon/shared";
 import { loadKnowledgeSources } from "./knowledge-sources";

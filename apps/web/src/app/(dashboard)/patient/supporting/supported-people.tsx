@@ -1107,7 +1107,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                     bundleCode,
                   });
                   setBundleCode("");
-                  return "Requested. They can take it to any laboratory they like and pay there; we take nothing on it.";
+                  return "Requested. They can take it to any laboratory they like and pay there; Tarragon does not charge for the test.";
                 })
               }
             >

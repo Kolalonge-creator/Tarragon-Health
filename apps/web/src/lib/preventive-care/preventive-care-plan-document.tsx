@@ -414,7 +414,7 @@ export function PreventiveCarePlanDocument({
           <Text style={styles.calloutTitle}>For the patient</Text>
           <Text>
             {hasAnyDue
-              ? "You can get any of the tests above done at any registered laboratory or clinic you choose. You pay them directly, at their price; TarragonHealth does not take a fee or commission. When you get a result, upload it in the app and a doctor will read it with you."
+              ? "You can get any of the tests above done at any registered laboratory or clinic you choose. You pay them directly, at their price. TarragonHealth does not charge you for the tests. When you get a result, upload it in the app and a doctor will read it with you."
               : "This is your current preventive care schedule. TarragonHealth will remind you as the next screening or vaccine comes due — there is nothing outstanding right now."}
           </Text>
         </View>

@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDirectUpload } from "@/lib/uploads/confirm-direct-upload";
 import { generateDraftReplyAction } from "@/lib/care-messages/actions";
 import { compareThreads } from "@/lib/worklist/message-triage";
 import type { Tables, Enums } from "@tarragon/shared";
@@ -448,6 +449,9 @@ export function useUploadCareMessageAttachment() {
         .from("care-message-attachments")
         .upload(path, input.file, { contentType: input.file.type });
       if (uploadError) throw uploadError;
+      // Server check of the bytes and photo location before anything points at the file (security audit 2026-11-05, M-4/L-4).
+      const refused = await confirmDirectUpload("care-message-attachments", path);
+      if (refused) throw new Error(refused);
 
       const { error } = await supabase.from("care_message_attachments").insert({
         organisation_id: message.organisation_id,

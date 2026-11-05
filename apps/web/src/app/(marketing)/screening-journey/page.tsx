@@ -22,7 +22,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "Take your request to any provider",
-    body: "We tell you which screening to have and why, and we write a request that you can take to any laboratory or clinic. You pay the provider directly, and we take no commission.",
+    body: "We tell you which screening to have and why, and we write a request that you can take to any laboratory or clinic. You pay the provider directly, at its price.",
   },
   {
     title: "Usually a single visit",
