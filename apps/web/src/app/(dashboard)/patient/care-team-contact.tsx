@@ -3,7 +3,8 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { MessagesFlow } from "./messages-flow";
 
 /**
- * Gated under 'doctor_checkin' (see RequiresEntitlement usage in page.tsx).
+ * Shown on every plan (MSG-1): support topics are open to everyone, and only clinical and medicine
+ * conversations need Membership, which the database enforces in start_care_thread.
  *
  * Two-way patient<->care-team conversation happens exclusively in-app, via
  * care_messages (see messages-flow.tsx); a notification may say a reply is
@@ -20,8 +21,8 @@ export function CareTeamContact({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Your care team checks in with you on the schedule your plan sets out, and you can
-          message them here, in the app, any time you have a question. A real person on the
+          Message us here, in the app, about appointments, labs, payments or the app itself. Members
+          can also ask their care team about their health and their medicines. A real person on the
           team replies, and every message stays on your record.
         </p>
         <MessagesFlow patientId={patientId} />

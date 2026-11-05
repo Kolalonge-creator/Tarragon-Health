@@ -13,6 +13,9 @@ const facts = JSON.parse(read("facts.json")) as {
   refund_window_days: number;
   currency: string;
   plan_names: string[];
+  retired_plan_names: string[];
+  membership_price_naira: number;
+  employer_seat_price_naira: number;
   removed: { channels: string[]; money: string[]; providers: string[]; stale_phrases_in_cover_memo_and_runbook: string[] };
   founder_inputs_outstanding: string[];
 };
@@ -25,8 +28,17 @@ describe("legal facts file", () => {
     expect(facts.refund_window_days).toBe(v.window_days);
   });
 
-  it("the plan names are the catalogue's display names", () => {
-    expect(facts.plan_names).toEqual(["Free", "Membership", "Membership Plus"]);
+  it("the plan names are the catalogue's display names (T2-01: Membership Plus is retired, not sold)", () => {
+    expect(facts.plan_names).toEqual(["Free", "Membership"]);
+    expect(facts.retired_plan_names).toEqual(["Membership Plus"]);
+  });
+
+  it("the Membership and employer seat prices are the ones the platform sells (T2-01, T2-05)", () => {
+    const prices = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number; organisation_member_kobo: number };
+    const ladder = getProposedConfig("commerce.membership_ladder").value as { plus_sold: boolean };
+    expect(facts.membership_price_naira * 100).toBe(prices.individual_kobo);
+    expect(facts.employer_seat_price_naira * 100).toBe(prices.organisation_member_kobo);
+    expect(ladder.plus_sold).toBe(false);
   });
 });
 
@@ -35,7 +47,11 @@ describe("the refreshed legal drafts agree with the facts file", () => {
     const memo = read("cover-memo-to-counsel.md");
     expect(memo).toContain(`${facts.refund_window_days} days`);
     expect(memo.toLowerCase()).toContain(facts.currency);
-    expect(memo).toContain("Membership Plus");
+    // Plus is named only as retired, in the dated 4 November 2026 note (T2-13), never as something on sale.
+    for (const line of memo.split("\n").filter((l) => l.includes("Membership Plus"))) expect(line).toMatch(/retired|Until this date|bought earlier/);
+    expect(memo).toContain(`₦${facts.membership_price_naira.toLocaleString("en-NG")}`);
+    expect(memo).toContain(`₦${facts.employer_seat_price_naira.toLocaleString("en-NG")}`);
+    expect(memo).toContain("Update, 4 November 2026");
   });
 
   it("the Terms (Schedule C) state the same refund window", () => {
