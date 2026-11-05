@@ -31,6 +31,14 @@ const ACK_STATUS_BADGE: Record<AckStatus, { label: string; variant: "grey" | "bl
   action_completed: { label: "Action completed", variant: "green" },
 };
 
+type LinkedOrderView = { id: string; orderNumber: string | null; status: string };
+
+/** A linked request the clinician cannot read still shows as linked (number unknown), never as "Not linked". */
+function linkedOrderFor(orderId: string | null, orderById: Map<string, LinkedOrderView>): LinkedOrderView | null {
+  if (!orderId) return null;
+  return orderById.get(orderId) ?? { id: orderId, orderNumber: null, status: "unknown" };
+}
+
 function formatDate(value: string): string {
   return formatPatientDate(value);
 }
@@ -106,8 +114,8 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
   );
 
   // Request to report: each document's intake row (clinical_documents) names the test request it answers. Read on the
-  // clinician's own session; a document whose intake row is not readable simply shows no link control.
-  const { data: intakeRows } = documents.length
+  // clinician's own session. A failed read is shown as a failed read, never as "Not linked".
+  const { data: intakeRows, error: intakeError } = documents.length
     ? await supabase
         .from("clinical_documents")
         .select("id, routed_id, lab_order_id, lab_order_link_source")
@@ -116,14 +124,18 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
           "routed_id",
           documents.map((d) => d.id),
         )
-    : { data: [] };
+    : { data: [], error: null };
   const intakeByDocument = new Map((intakeRows ?? []).map((row) => [row.routed_id, row]));
   const linkedOrderIds = Array.from(
     new Set((intakeRows ?? []).map((row) => row.lab_order_id).filter((id): id is string => !!id)),
   );
-  const { data: linkedOrderRows } = linkedOrderIds.length
+  const { data: linkedOrderRows, error: linkedOrderError } = linkedOrderIds.length
     ? await supabase.from("lab_orders").select("id, order_number, status").in("id", linkedOrderIds)
-    : { data: [] };
+    : { data: [], error: null };
+  if (intakeError || linkedOrderError) {
+    console.error("result-documents-section: could not read the test request links", intakeError ?? linkedOrderError);
+  }
+  const linkReadFailed = Boolean(intakeError || linkedOrderError);
   const orderById = new Map(
     (linkedOrderRows ?? []).map((o) => [o.id, { id: o.id, orderNumber: o.order_number, status: o.status }]),
   );
@@ -195,11 +207,15 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 ) : (
                   <p className="text-xs text-red-600">File could not be loaded.</p>
                 )}
-                {intakeByDocument.get(doc.id) && (
+                {linkReadFailed ? (
+                  <p className="text-xs text-red-600">
+                    Could not load which test request this report answers. Reload the page to try again.
+                  </p>
+                ) : intakeByDocument.get(doc.id) && (
                   <LinkReportToOrder
                     clinicalDocumentId={intakeByDocument.get(doc.id)!.id}
                     patientId={patientId}
-                    linkedOrder={orderById.get(intakeByDocument.get(doc.id)!.lab_order_id ?? "") ?? null}
+                    linkedOrder={linkedOrderFor(intakeByDocument.get(doc.id)!.lab_order_id, orderById)}
                     linkSource={intakeByDocument.get(doc.id)!.lab_order_link_source}
                   />
                 )}

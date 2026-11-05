@@ -68,6 +68,15 @@ export function linkErrorMessage(error: { code?: string; message?: string } | nu
   if (message.includes("lab_order_link_not_this_patient")) {
     return "That test request belongs to someone else.";
   }
+  if (message.includes("lab_order_link_tests_do_not_match")) {
+    return "This report does not show any test from that request, or is dated outside it. Your care team can link it if it belongs there.";
+  }
+  if (message.includes("lab_order_link_already_filed")) {
+    return "Your care team has already checked this report, so only they can change which request it answers.";
+  }
+  if (message.includes("lab_order_link_set_by_care_team")) {
+    return "Your care team linked this report, so only they can change it.";
+  }
   if (error?.code === "42501") return "You cannot change this report.";
   if (error?.code === "28000") return "Sign in again to continue.";
   return "Could not save that. Try again.";

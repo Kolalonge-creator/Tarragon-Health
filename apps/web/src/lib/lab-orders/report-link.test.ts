@@ -65,6 +65,19 @@ describe("linkErrorMessage", () => {
   it("names another patient's request", () => {
     expect(linkErrorMessage({ code: "42501", message: "lab_order_link_not_this_patient" })).toMatch(/someone else/);
   });
+  it("explains each patient-side refusal in plain words, with no em dash", () => {
+    const cases = [
+      ["22023", "lab_order_link_tests_do_not_match", /does not show any test/],
+      ["42501", "lab_order_link_already_filed", /already checked this report/],
+      ["42501", "lab_order_link_set_by_care_team", /care team linked this report/],
+    ] as const;
+    for (const [code, message, expected] of cases) {
+      const text = linkErrorMessage({ code, message });
+      expect(text).toMatch(expected);
+      expect(text).not.toMatch(/—/);
+      expect(text.toLowerCase()).not.toContain("your doctor");
+    }
+  });
   it("refuses a document the caller cannot change", () => {
     expect(linkErrorMessage({ code: "42501", message: "clinical document not found" })).toBe("You cannot change this report.");
   });

@@ -12455,6 +12455,7 @@ export type Database = {
           original_filename: string | null
           patient_id: string
           patient_note: string | null
+          resulted_lab_order_id: string | null
           routed_id: string | null
           routed_table: string | null
           source_facility_id: string | null
@@ -12501,6 +12502,7 @@ export type Database = {
           original_filename?: string | null
           patient_id: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12547,6 +12549,7 @@ export type Database = {
           original_filename?: string | null
           patient_id?: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           source_facility_id?: string | null
@@ -12608,6 +12611,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_resulted_lab_order_id_fkey"
+            columns: ["resulted_lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
             referencedColumns: ["id"]
           },
           {
