@@ -3,8 +3,18 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { todayIsoDate, useConfirmPrescriptionCollected, type Medication } from "@/lib/queries/medications";
-import { CONFIRM_OUTCOME_MESSAGE, type ConfirmOutcome } from "@/lib/prescriptions/patient-supply";
+import {
+  todayIsoDate,
+  useConfirmPrescriptionCollected,
+  useUndoPrescriptionCollected,
+  type Medication,
+} from "@/lib/queries/medications";
+import {
+  CONFIRM_OUTCOME_MESSAGE,
+  UNDO_OUTCOME_MESSAGE,
+  type ConfirmOutcome,
+  type UndoOutcome,
+} from "@/lib/prescriptions/patient-supply";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +55,10 @@ export function MedicationCollectionForm({
   const [pharmacyTown, setPharmacyTown] = useState("");
   const [done, setDone] = useState(false);
   const [outcome, setOutcome] = useState<ConfirmOutcome | null>(null);
+  // T2-11d: the row just recorded, so whoever recorded it (the patient, or a caregiver who cannot read the patient's supply list) can undo it
+  const [recordedId, setRecordedId] = useState<string | null>(null);
+  const [undoResult, setUndoResult] = useState<UndoOutcome | null>(null);
+  const undo = useUndoPrescriptionCollected(patientId);
   const signed = isSignedPrescription(medication);
   const confirm = useConfirmPrescriptionCollected(patientId);
   const errorId = fieldErrorId(`medication-collection-${medication.id}`);
@@ -77,8 +91,10 @@ export function MedicationCollectionForm({
         { medicationId: medication.id, collectedOn, pharmacyName, pharmacyTown },
         {
           onSuccess: (result) => {
-            setOutcome(result);
-            if (CONFIRM_OUTCOME_MESSAGE[result].ok) setOpen(false);
+            setOutcome(result.outcome);
+            setRecordedId(result.dispenseId);
+            setUndoResult(null);
+            if (CONFIRM_OUTCOME_MESSAGE[result.outcome].ok) setOpen(false);
           },
         }
       );
@@ -93,9 +109,22 @@ export function MedicationCollectionForm({
 
   if (signed && outcomeMessage?.ok && !open) {
     return (
-      <p role="status" className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
-        {outcomeMessage.text}
-      </p>
+      <div className="space-y-1">
+        <p role="status" className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
+          {undoResult ? UNDO_OUTCOME_MESSAGE[undoResult] : outcomeMessage.text}
+        </p>
+        {recordedId && undoResult !== "undone" && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={undo.isPending}
+            onClick={() => undo.mutate({ dispenseId: recordedId }, { onSuccess: (r) => setUndoResult(r) })}
+          >
+            {undo.isPending ? "Undoing…" : "Undo, this was a mistake"}
+          </Button>
+        )}
+      </div>
     );
   }
 

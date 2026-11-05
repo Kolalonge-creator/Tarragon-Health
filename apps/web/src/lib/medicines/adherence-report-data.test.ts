@@ -39,6 +39,17 @@ describe("adherence report data", () => {
     expect(week).toMatchObject(WEEK_EXPECTED);
   });
 
+  it("T2-11d: a prescription that starts on collection is counted from its first collection", () => {
+    const start = "2026-10-20T00:00:00+01:00";
+    const [m] = toAdherenceMedicines([{ ...meds[0]!, medication_schedule_starts: [{ starts_at: start }] }], logs);
+    expect(m!.activeFromMs).toBe(Date.parse(start));
+    const [single] = toAdherenceMedicines([{ ...meds[0]!, medication_schedule_starts: { starts_at: start } }], logs);
+    expect(single!.activeFromMs).toBe(Date.parse(start));
+    const [none] = toAdherenceMedicines([{ ...meds[0]!, medication_schedule_starts: [] }], logs);
+    const [plain] = toAdherenceMedicines([meds[0]!], logs);
+    expect(none!.activeFromMs).toBe(plain!.activeFromMs);
+  });
+
   function client(opts: { cfg?: unknown; medsErr?: boolean; pages?: unknown[][] }) {
     const pages = [...(opts.pages ?? [logs])];
     const logQuery = {

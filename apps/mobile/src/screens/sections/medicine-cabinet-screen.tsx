@@ -78,6 +78,7 @@ import {
   CONFIRM_COLLECTED_MESSAGE,
   UNDO_COLLECTED_MESSAGE,
   PATIENT_CONFIRMATION,
+  collectionReporterLabel,
   NAFDAC_MAS,
   requestMedicationRepeat,
   respondToCheckin,
@@ -427,6 +428,8 @@ function MedicationCard({
   const [pharmacyTown, setPharmacyTown] = useState("");
   const [collectNotice, setCollectNotice] = useState<string | null>(null);
   const [undoPending, setUndoPending] = useState(false);
+  // T2-11d: the row just recorded, so a caregiver (who cannot read the patient's supply list) can still undo their own mistake
+  const [recordedId, setRecordedId] = useState<string | null>(null);
   const signed = isSignedPrescription(medication);
 
   const [requestPending, setRequestPending] = useState(false);
@@ -450,7 +453,7 @@ function MedicationCard({
     setCollectNotice(null);
     if (signed) {
       // T2-11c: a signed prescription records a patient-reported supply that counts against it.
-      const confirmed = await confirmPrescriptionCollected(medication.id, collectedOn, pharmacyName, pharmacyTown);
+      const confirmed = await confirmPrescriptionCollected(medication.id, collectedOn, pharmacyName, pharmacyTown, patientId);
       setCollectPending(false);
       if (confirmed.error || !confirmed.outcome) {
         setCollectError(confirmed.error ?? "Could not save that. Please try again.");
@@ -462,6 +465,7 @@ function MedicationCard({
         return;
       }
       setCollectNotice(message.text);
+      setRecordedId(confirmed.dispenseId ?? null);
       setCollectOpen(false);
       setPharmacyName("");
       setPharmacyTown("");
@@ -543,16 +547,20 @@ function MedicationCard({
           {formatDate(latestCollection.dispensed_on)}
           {latestCollection.pharmacy_name ? ` · ${latestCollection.pharmacy_name}` : ""}
           {latestCollection.pharmacy_town ? `, ${latestCollection.pharmacy_town}` : ""}
+          {collectionReporterLabel(latestCollection) ? ` · ${collectionReporterLabel(latestCollection)}` : ""}
         </MutedText>
       ) : null}
-      {latestCollection && canUndoCollection(latestCollection) ? (
+      {(latestCollection && canUndoCollection(latestCollection)) || recordedId ? (
         <SmallGhostButton
           title={undoPending ? "Undoing…" : "Undo, I tapped this by mistake"}
           disabled={undoPending}
           onPress={async () => {
             setUndoPending(true);
-            const undone = await undoPrescriptionCollected(latestCollection.id);
+            const target = recordedId ?? latestCollection?.id;
+            if (!target) return;
+            const undone = await undoPrescriptionCollected(target);
             setUndoPending(false);
+            setRecordedId(null);
             setCollectNotice(undone.outcome ? (UNDO_COLLECTED_MESSAGE[undone.outcome] ?? null) : null);
             if (undone.error) setCollectError("That could not be undone just now. Please try again.");
             await onChanged();

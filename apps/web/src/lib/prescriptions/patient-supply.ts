@@ -19,6 +19,21 @@ export interface SupplyRecordLike {
   withdrawn_at?: string | null;
   matched_dispense_id?: string | null;
   disputed_at?: string | null;
+  /** T2-11d: who recorded it, for whom, and (for a caregiver) how they relate to the patient. */
+  patient_id?: string | null;
+  recorded_by?: string | null;
+  reported_by_relationship?: string | null;
+}
+
+/** True when a caregiver, not the patient, recorded the confirmation. */
+export function reportedByCaregiver(row: Pick<SupplyRecordLike, "patient_id" | "recorded_by" | "reported_by_relationship">): boolean {
+  if (row.reported_by_relationship) return true;
+  return !!row.recorded_by && !!row.patient_id && row.recorded_by !== row.patient_id;
+}
+
+function relationshipText(row: Pick<SupplyRecordLike, "reported_by_relationship">): string {
+  const r = row.reported_by_relationship?.trim();
+  return r ? r.toLowerCase() : "caregiver";
 }
 
 export const PATIENT_CONFIRMATION = "patient_confirmation";
@@ -63,15 +78,19 @@ export function describeForCareTeam(row: SupplyRecordLike): string {
   if (!isPatientConfirmation(row)) {
     return `${formatDay(row.dispensed_on)}${row.pharmacy_name ? ` · ${row.pharmacy_name}` : ""}`;
   }
-  const base = `Patient says they collected it on ${formatDay(row.dispensed_on)}${where(row)}`;
-  if (row.withdrawn_at) return `${base} (taken back by the patient)`;
+  const base = reportedByCaregiver(row)
+    ? `The patient's ${relationshipText(row)} says it was collected on ${formatDay(row.dispensed_on)}${where(row)}`
+    : `Patient says they collected it on ${formatDay(row.dispensed_on)}${where(row)}`;
+  if (row.withdrawn_at) return `${base} (taken back)`;
   if (row.matched_dispense_id) return `${base} (since recorded by the pharmacy)`;
   return base;
 }
 
 /** The patient's own wording for their confirmation. */
 export function describeForPatient(row: SupplyRecordLike): string {
-  const base = `You told us you collected this on ${formatDay(row.dispensed_on)}${where(row)}`;
+  const base = reportedByCaregiver(row)
+    ? `Your ${relationshipText(row)} told us this was collected on ${formatDay(row.dispensed_on)}${where(row)}`
+    : `You told us you collected this on ${formatDay(row.dispensed_on)}${where(row)}`;
   if (row.withdrawn_at) return `${base}. You took this back.`;
   if (row.matched_dispense_id) return `${base}. The pharmacy has since recorded it too.`;
   return `${base}.`;
@@ -134,7 +153,7 @@ export function describePatientReportForPharmacist(proof: {
   if (!proof.self_reported_supplies || proof.self_reported_supplies < 1) return null;
   const when = proof.last_self_report_on ? ` on ${formatDay(proof.last_self_report_on)}` : "";
   const where = proof.last_self_report_pharmacy?.trim() ? ` at ${proof.last_self_report_pharmacy.trim()}` : "";
-  const head = `Collected, as reported by the patient${when}${where}. No pharmacy recorded this supply.`;
+  const head = `Collected, as reported by the patient or their caregiver${when}${where}. No pharmacy recorded this supply.`;
   return proof.self_report_awaiting_pharmacy
     ? `${head} Only the pharmacy that supplied it may record it below, by ticking "We supplied this". Anyone else: do not dispense.`
     : head;

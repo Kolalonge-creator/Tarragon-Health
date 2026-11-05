@@ -6,6 +6,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const confirmMutate = jest.fn();
+const undoMutate = jest.fn();
 const insert = jest.fn().mockResolvedValue({ error: null });
 
 jest.mock("@/lib/supabase/client", () => ({
@@ -25,6 +26,7 @@ jest.mock("@tanstack/react-query", () => ({
 jest.mock("@/lib/queries/medications", () => ({
   todayIsoDate: () => "2026-11-05",
   useConfirmPrescriptionCollected: () => ({ mutate: confirmMutate, isPending: false, isError: false }),
+  useUndoPrescriptionCollected: () => ({ mutate: undoMutate, isPending: false, isError: false }),
 }));
 
 import { MedicationCollectionForm, isSignedPrescription } from "./medication-collection-form";
@@ -54,7 +56,7 @@ describe("MedicationCollectionForm (T2-11c)", () => {
   });
 
   it("records a signed prescription through confirm_prescription_collected and says so plainly", async () => {
-    confirmMutate.mockImplementation((_input, { onSuccess }) => onSuccess("recorded"));
+    confirmMutate.mockImplementation((_input, { onSuccess }) => onSuccess({ outcome: "recorded", dispenseId: "d1" }));
     render(<MedicationCollectionForm medication={SIGNED} patientId="p1" />);
     fireEvent.click(screen.getByRole("button", { name: "I've got this medicine" }));
     expect(screen.getByText(/as reported by you/)).toBeTruthy();
@@ -67,10 +69,13 @@ describe("MedicationCollectionForm (T2-11c)", () => {
     );
     expect(insert).not.toHaveBeenCalled();
     expect((await screen.findByRole("status")).textContent).toMatch(/undo this for 24 hours/);
+    // T2-11d: whoever recorded it (a caregiver cannot read the supply list) can undo the row just recorded
+    fireEvent.click(screen.getByRole("button", { name: "Undo, this was a mistake" }));
+    expect(undoMutate).toHaveBeenCalledWith({ dispenseId: "d1" }, expect.any(Object));
   });
 
   it("shows a refusal from the database without closing the form", () => {
-    confirmMutate.mockImplementation((_input, { onSuccess }) => onSuccess("no_supply_available"));
+    confirmMutate.mockImplementation((_input, { onSuccess }) => onSuccess({ outcome: "no_supply_available", dispenseId: null }));
     render(<MedicationCollectionForm medication={SIGNED} patientId="p1" />);
     fireEvent.click(screen.getByRole("button", { name: "I've got this medicine" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm I have it" }));

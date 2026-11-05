@@ -38,6 +38,8 @@ interface MedRow {
   schedule_spec: unknown;
   created_at: string | null;
   schedule_effective_from: string | null;
+  /** T2-11d: when a prescription that starts on collection was first collected (one row or none). */
+  medication_schedule_starts?: { starts_at: string } | { starts_at: string }[] | null;
 }
 interface LogRow {
   medication_id: string | null;
@@ -72,8 +74,10 @@ export function toAdherenceMedicines(meds: readonly MedRow[], logs: readonly Log
       }));
     const created = m.created_at ? Date.parse(m.created_at) : 0;
     const edited = m.schedule_effective_from ? Date.parse(m.schedule_effective_from) : 0;
+    const startRow = Array.isArray(m.medication_schedule_starts) ? m.medication_schedule_starts[0] : m.medication_schedule_starts;
+    const collected = startRow?.starts_at ? Date.parse(startRow.starts_at) : 0;
     const logMap: ReadonlyMap<string, readonly DoseLog[]> = groupLogsBySlot(mine);
-    return { id: m.id, spec, logs: logMap, activeFromMs: Math.max(Number.isFinite(created) ? created : 0, Number.isFinite(edited) ? edited : 0) };
+    return { id: m.id, spec, logs: logMap, activeFromMs: Math.max(Number.isFinite(created) ? created : 0, Number.isFinite(edited) ? edited : 0, Number.isFinite(collected) ? collected : 0) };
   });
 }
 
@@ -125,7 +129,7 @@ export async function loadAdherenceReport(
       .maybeSingle(),
     supabase
       .from("medications")
-      .select("id, schedule_times, schedule_spec, created_at, schedule_effective_from")
+      .select("id, schedule_times, schedule_spec, created_at, schedule_effective_from, medication_schedule_starts(starts_at)")
       .eq("patient_id", patientId)
       .eq("is_active", true)
       .is("superseded_at", null),

@@ -8,6 +8,7 @@ import { t } from "@tarragon/i18n";
 import {
   activeFromMs,
   buildTodaysDoseChecklist,
+  collectionReporterLabel,
   loadSupplies,
   loadWeeklyAdherence,
   logDose,
@@ -142,6 +143,16 @@ describe("today's list with structured schedules", () => {
     expect(buildTodaysDoseChecklist([edited], [], NOW).map((i) => i.time)).toEqual(["20:00"]);
     expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", schedule_effective_from: null })).toBe(Date.parse("2026-09-01T00:00:00Z"));
     expect(activeFromMs({})).toBe(0);
+  });
+
+  it("T2-11d: a prescription that starts on collection owes nothing from before it was collected", () => {
+    const collected = { ...daily, created_at: "2026-09-01T00:00:00Z", schedule_effective_from: "2026-09-01T00:00:00Z", medication_schedule_starts: { starts_at: "2026-10-05T09:30:00Z" } };
+    expect(buildTodaysDoseChecklist([collected], [], NOW).map((i) => i.time)).toEqual(["20:00"]);
+    expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", medication_schedule_starts: [{ starts_at: "2026-09-03T00:00:00Z" }] })).toBe(Date.parse("2026-09-03T00:00:00Z"));
+    expect(activeFromMs({ created_at: "2026-09-01T00:00:00Z", medication_schedule_starts: [] })).toBe(Date.parse("2026-09-01T00:00:00Z"));
+    expect(collectionReporterLabel({ patient_id: "p", recorded_by: "c", reported_by_relationship: "Daughter" })).toBe("Reported by your daughter");
+    expect(collectionReporterLabel({ patient_id: "p", recorded_by: "c", reported_by_relationship: null })).toBe("Reported by your caregiver");
+    expect(collectionReporterLabel({ patient_id: "p", recorded_by: "p", reported_by_relationship: null })).toBeNull();
   });
 
   it("carries the slot's own date so a screen left open past midnight logs the right day", () => {
