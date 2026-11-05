@@ -2,6 +2,8 @@
 -- while their guards are off, open for test accounts and when the guard is on, and the cases that are not "sales" stay open. Own fixtures;
 -- BEGIN/ROLLBACK; ends with a sabotage step.
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 do $$
 declare

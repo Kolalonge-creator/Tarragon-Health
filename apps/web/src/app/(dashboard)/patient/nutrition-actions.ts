@@ -15,6 +15,7 @@ import {
 } from "@/lib/validation/nutrition";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
+import { checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
 import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
@@ -102,7 +103,8 @@ export async function logMealAction(
   const catalogue = await fetchFoodCatalogue(ctx.supabase);
 
   if (photo_path) {
-    if (!isMealVisionConfigured()) {
+    // The meal always saves; past the AI limit (security audit 2026-11-05, M-8) only the photo estimate is skipped.
+    if (!isMealVisionConfigured() || !(await checkAbuseLimit("meal_photo_ai", ctx.userId)).ok) {
       aiStatus = "unavailable";
     } else {
       // Patient's own RLS-scoped session may download from their own folder.

@@ -41,6 +41,23 @@ describe("generateLabRequestPdf for the annual bundle", () => {
     expect(data.testNames).toEqual(["HbA1c", "Creatinine", "Hepatitis B antibody (only if the doctor asks)"]);
   });
 
+  it("T2 Phase 3: prints the verification code and a QR that points at the public check, never the token as text", async () => {
+    const token = "a".repeat(64);
+    const r = await generateLabRequestPdf(
+      client({
+        lab_orders: { data: { ...order, request_verification_token: token, request_verification_code: "ABCDE23456" } },
+        profiles: { data: patient },
+        lab_panel_versions: { data: { analytes } },
+      }),
+      "o1",
+    );
+    expect(r.ok).toBe(true);
+    const data = (renderToBuffer.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
+    expect(data.verificationCode).toBe("ABCDE23456");
+    expect(String(data.verificationQr)).toMatch(/^data:image\/png;base64,/);
+    expect(JSON.stringify(data)).not.toContain(token);
+  });
+
   it("fails instead of printing an empty request when the panel version cannot be read", async () => {
     const r = await generateLabRequestPdf(client({ lab_orders: { data: order }, profiles: { data: patient }, lab_panel_versions: { data: null, error: { message: "boom" } } }), "o1");
     expect(r).toEqual({ ok: false, error: "panel_unavailable" });

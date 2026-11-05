@@ -57,25 +57,36 @@ export function useConsultationPrepBundle(consultationId: string) {
   });
 }
 
-/** The full video_consultations row, including host_start_url — staff-only
- * by RLS (video_consultations_select admits patient_id = self OR org
- * staff; a patient query never selects this column, see
- * lib/queries/consult-slots.ts). Powers the clinician consultation screen. */
+/** The full video_consultations row for the clinician consultation screen,
+ * with host_start_url filled from video_consultation_host_links. The host
+ * link never lives on video_consultations itself (a trigger moves it, and the
+ * column is always NULL) because that table is readable by the patient; the
+ * side table is readable by org staff only (migration
+ * 20261105102455_video_consultation_host_link_staff_only). */
 export function useVideoConsultationDetail(consultationId: string) {
   return useQuery({
     queryKey: consultationVideoKeys.detail(consultationId),
     enabled: Boolean(consultationId),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("video_consultations")
-        .select("*")
-        .eq("id", consultationId)
-        .maybeSingle();
-      if (error) throw error;
-      return data as VideoConsultation | null;
-    },
+    queryFn: () => fetchVideoConsultationDetail(createClient(), consultationId),
   });
+}
+
+export async function fetchVideoConsultationDetail(
+  supabase: ReturnType<typeof createClient>,
+  consultationId: string,
+): Promise<VideoConsultation | null> {
+  const [consultation, hostLink] = await Promise.all([
+    supabase.from("video_consultations").select("*").eq("id", consultationId).maybeSingle(),
+    supabase
+      .from("video_consultation_host_links")
+      .select("host_start_url")
+      .eq("video_consultation_id", consultationId)
+      .maybeSingle(),
+  ]);
+  if (consultation.error) throw consultation.error;
+  if (hostLink.error) throw hostLink.error;
+  if (!consultation.data) return null;
+  return { ...consultation.data, host_start_url: hostLink.data?.host_start_url ?? null };
 }
 
 /** The Appointment Engine row this consultation was booked through, if any

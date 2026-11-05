@@ -25300,6 +25300,8 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          request_verification_code: string
+          request_verification_token: string
           resulted_at: string | null
           sample_collected_at: string | null
           scheduled_date: string | null
@@ -25357,6 +25359,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          request_verification_code?: string
+          request_verification_token?: string
           resulted_at?: string | null
           sample_collected_at?: string | null
           scheduled_date?: string | null
@@ -25414,6 +25418,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          request_verification_code?: string
+          request_verification_token?: string
           resulted_at?: string | null
           sample_collected_at?: string | null
           scheduled_date?: string | null
@@ -42694,6 +42700,11 @@ export type Database = {
           created_at: string
           declined_at: string | null
           declined_reason: string | null
+          defer_count: number
+          deferred_at: string | null
+          deferred_by: string | null
+          deferred_note: string | null
+          deferred_reason_code: string | null
           due_date: string
           id: string
           is_recall: boolean
@@ -42701,8 +42712,10 @@ export type Database = {
           not_applicable_at: string | null
           not_applicable_reason: string | null
           organisation_id: string
+          original_due_date: string | null
           patient_id: string
           recall_reason: string | null
+          reminder_last_offset: number | null
           reminder_sent_at: string | null
           reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id: string | null
@@ -42715,6 +42728,11 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
+          defer_count?: number
+          deferred_at?: string | null
+          deferred_by?: string | null
+          deferred_note?: string | null
+          deferred_reason_code?: string | null
           due_date: string
           id?: string
           is_recall?: boolean
@@ -42722,8 +42740,10 @@ export type Database = {
           not_applicable_at?: string | null
           not_applicable_reason?: string | null
           organisation_id: string
+          original_due_date?: string | null
           patient_id: string
           recall_reason?: string | null
+          reminder_last_offset?: number | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id?: string | null
@@ -42736,6 +42756,11 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
+          defer_count?: number
+          deferred_at?: string | null
+          deferred_by?: string | null
+          deferred_note?: string | null
+          deferred_reason_code?: string | null
           due_date?: string
           id?: string
           is_recall?: boolean
@@ -42743,8 +42768,10 @@ export type Database = {
           not_applicable_at?: string | null
           not_applicable_reason?: string | null
           organisation_id?: string
+          original_due_date?: string | null
           patient_id?: string
           recall_reason?: string | null
+          reminder_last_offset?: number | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id?: string | null
@@ -42850,6 +42877,146 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      screening_reminder_configs: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          change_note: string
+          created_at: string
+          decided_by: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          change_note: string
+          created_at?: string
+          decided_by: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          change_note?: string
+          created_at?: string
+          decided_by?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_reminder_configs_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_baselines: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          items: Json
+          membership_id: string | null
+          organisation_id: string
+          patient_id: string
+          plan_snapshot: Json
+          review_note: string | null
+          review_task_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduler_result: Json | null
+          state: string
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          items: Json
+          membership_id?: string | null
+          organisation_id: string
+          patient_id: string
+          plan_snapshot?: Json
+          review_note?: string | null
+          review_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduler_result?: Json | null
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          items?: Json
+          membership_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          plan_snapshot?: Json
+          review_note?: string | null
+          review_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduler_result?: Json | null
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_baselines_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "patient_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_review_task_id_fkey"
+            columns: ["review_task_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       risk_instrument_versions: {
         Row: {
@@ -48100,6 +48267,42 @@ export type Database = {
           },
         ]
       }
+      video_consultation_host_links: {
+        Row: {
+          host_start_url: string
+          organisation_id: string
+          updated_at: string
+          video_consultation_id: string
+        }
+        Insert: {
+          host_start_url: string
+          organisation_id: string
+          updated_at?: string
+          video_consultation_id: string
+        }
+        Update: {
+          host_start_url?: string
+          organisation_id?: string
+          updated_at?: string
+          video_consultation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_consultation_host_links_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultation_host_links_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: true
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_consultations: {
         Row: {
           annual_review_id: string | null
@@ -52828,6 +53031,14 @@ export type Database = {
       recommended_devices: {
         Args: never
         Returns: { authorised_distributor: string; category: Database["public"]["Enums"]["device_catalog_category"]; description: string; device_name: string; display_order: number; id: string; nafdac_number: string; pairing_path: Database["public"]["Enums"]["device_catalog_pairing_path"]; validated_source_url: string; validation_basis: string; vendor_name: string }[]
+      }
+      record_audit_event: {
+        Args: { p_action: string; p_entity_id?: string; p_entity_type?: string; p_event?: Json; p_result?: string; p_subject_patient_id?: string }
+        Returns: string
+      }
+      record_audit_events: {
+        Args: { p_action: string; p_rows: Json }
+        Returns: number
       }
       record_device_rhythm_result: {
         Args: { p_device_label: string; p_device_name?: string; p_external_id: string; p_patient_id?: string; p_recorded_at: string; p_source: string; p_symptoms?: string[] }
@@ -58771,6 +58982,7 @@ export type Database = {
         Args: { p_content_hash: string; p_report_number: string }
         Returns: Json
       }
+      verify_prescription_by_code: { Args: { p_code: string; p_rx_number: string }; Returns: string }
       verify_prescription_public: {
         Args: { p_token: string }
         Returns: {
@@ -58795,6 +59007,27 @@ export type Database = {
           version: number
         }[]
       }
+      verify_lab_request_public: {
+        Args: { p_ref: string }
+        Returns: {
+          issued_on: string
+          order_number: string
+          patient_initials: string
+          requested_by: string
+          requester_registration: string
+          status: string
+          tests: string[]
+        }[]
+      }
+      defer_screening: {
+        Args: { p_new_due: string; p_note?: string; p_reason_code: string; p_schedule: string }
+        Returns: string
+      }
+      activate_screening_reminder_config: { Args: { p_note: string; p_version: number }; Returns: string }
+      my_preventive_baseline: { Args: never; Returns: Json }
+      submit_my_preventive_baseline: { Args: never; Returns: Json }
+      clinician_preventive_baseline: { Args: { p_patient: string }; Returns: Json }
+      review_preventive_plan: { Args: { p_baseline: string; p_decision: string; p_note?: string }; Returns: string }
       desk_record_prescription_supply: {
         Args: {
           p_rx_number: string

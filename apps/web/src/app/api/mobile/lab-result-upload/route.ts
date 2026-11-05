@@ -1,5 +1,8 @@
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
@@ -59,6 +62,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       { error: "Invalid or expired session" },
       { status: 401 },
     );
+  }
+  // Security audit 2026-11-05 (M-8): bounded per user so a script cannot run up storage and AI costs.
+  const limited = await checkAbuseLimit("upload", user.id);
+  if (!limited.ok) {
+    return NextResponse.json({ error: ABUSE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
   let formData: FormData;
@@ -157,9 +165,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // checks exactly this, same as the web patient-upload path.
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return NextResponse.json({ error: prepared.error }, { status: 400 });
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) {
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
@@ -167,7 +178,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         p_document_id: null as unknown as string,
       });
     }
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(uploadError, "mobile/lab-result-upload") }, { status: 500 });
   }
 
   const { data: inserted, error: insertError } = await supabase
@@ -202,7 +213,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
     }
     return NextResponse.json(
-      { error: insertError?.message ?? "Could not save that upload." },
+      { error: safeErrorMessage(insertError, "mobile/lab-result-upload", "Could not save that upload.") },
       { status: 500 },
     );
   }

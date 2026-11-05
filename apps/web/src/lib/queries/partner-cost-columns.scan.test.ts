@@ -33,6 +33,20 @@ const ALLOWED = [
 
 const GUARDED_TABLES = ["lab_orders", "pharmacy_orders", "lab_order_refunds", "pharmacy_order_refunds"];
 
+/**
+ * T2 Phase 3: the request form's QR token and typed code are bearer credentials for the public "is this form genuine" check.
+ * The database lets a signed-in reader of the row select them, but no shared column list may carry them (every staff and partner
+ * list would ship them); only the request PDF builder names them.
+ */
+const BEARER_COLUMNS = ["request_verification_token", "request_verification_code"];
+const BEARER_RE = new RegExp(BEARER_COLUMNS.join("|"));
+const BEARER_ALLOWED = [
+  "database.types.ts",
+  `${sep}lab-results${sep}generate-lab-request-pdf.ts`,
+  `${sep}lab-results${sep}generate-lab-request-pdf.test.ts`,
+  "partner-cost-columns.scan.test.ts",
+];
+
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[] = [];
   try {
@@ -181,10 +195,17 @@ describe("8.16 partner cost and refund margin columns stay off the patient, care
     for (const [table, file, name] of pairs) {
       const keys = rowKeys(table);
       expect(keys.length).toBeGreaterThan(30);
-      const expected = keys.filter((k) => !WITHHELD.includes(k)).sort();
+      const expected = keys.filter((k) => !WITHHELD.includes(k) && !BEARER_COLUMNS.includes(k)).sort();
       const actual = constCols(file, name).sort();
       expect({ file, cols: actual }).toEqual({ file, cols: expected });
       expect(actual.some((c) => WITHHELD.includes(c))).toBe(false);
+      expect(actual.some((c) => BEARER_COLUMNS.includes(c))).toBe(false);
     }
+  });
+
+  it("the request form's verification token and code are named only by the request PDF builder", () => {
+    const bad = files.filter((f) => !BEARER_ALLOWED.some((a) => f.endsWith(a)) && BEARER_RE.test(readFileSync(f, "utf8")));
+    expect(bad.map((f) => relative(REPO, f))).toEqual([]);
+    expect(BEARER_RE.test(readFileSync(join(REPO, "apps/web/src/lib/lab-results/generate-lab-request-pdf.ts"), "utf8"))).toBe(true);
   });
 });

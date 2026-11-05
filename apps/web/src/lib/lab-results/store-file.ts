@@ -1,3 +1,4 @@
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import "server-only";
 import { randomUUID } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -25,7 +26,10 @@ export async function storeFile(patientId: string, file: File): Promise<StoredFi
   const signatureError = await verifyResultDocSignature(file);
   if (signatureError) return { error: signatureError };
   const path = `${patientId}/${randomUUID()}.${LAB_RESULT_EXT[file.type] ?? "bin"}`;
-  const { error } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
+  const { error } = await createServiceRoleClient().storage.from(LAB_RESULT_BUCKET).upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (error) return { error: "The file could not be stored. Please try again." };
   return {
     file_path: path,
@@ -52,7 +56,10 @@ export async function storeResultDocument(patientId: string, file: File): Promis
   if (signatureError) return { error: signatureError };
   const ext = RESULT_DOC_EXT[file.type] ?? "bin";
   const path = `${patientId}/${randomUUID()}.${ext}`;
-  const { error } = await createServiceRoleClient().storage.from(RESULT_DOC_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
+  const { error } = await createServiceRoleClient().storage.from(RESULT_DOC_BUCKET).upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (error) return { error: "The file could not be stored. Please try again." };
   return {
     file_path: path,

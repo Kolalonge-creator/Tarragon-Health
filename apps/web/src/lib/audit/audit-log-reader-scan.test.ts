@@ -112,3 +112,50 @@ describe("audit_log: no new direct reader outside the allow list", () => {
     expect(reads(`await svc.from("audit_log").insert({ action: "x" });`)).toBe(0);
   });
 });
+
+/**
+ * S2 (2026-11-05): a session-client insert into audit_log must not come back. The direct INSERT policy is now self-only and
+ * step 2 removes it; a signed-in caller writes through record_audit_event / record_audit_events, which stamp the actor and
+ * organisation in the database. An insert is fine only when its receiver is a service-role client (named svc, service*,
+ * serviceRole*, admin*, or createServiceRoleClient()).
+ */
+const SERVICE_RECEIVER = /(?:^|[^\w$])(?:svc|service\w*|serviceRole\w*|admin\w*|createServiceRoleClient\(\s*\))\s*$/i;
+
+function receiverIsServiceRole(text: string, startOfFrom: number): boolean {
+  const before = text.slice(Math.max(0, startOfFrom - 120), startOfFrom).replace(/\s+$/, "");
+  return SERVICE_RECEIVER.test(before);
+}
+
+function findSessionInserts(text: string): number[] {
+  const offsets: number[] = [];
+  for (const m of text.matchAll(FROM_AUDIT)) {
+    const start = m.index ?? 0;
+    if (!isReader(text, start + m[0].length) && !receiverIsServiceRole(text, start)) offsets.push(start);
+  }
+  return offsets;
+}
+
+describe("audit_log: no direct insert from a signed-in session (S2)", () => {
+  it("every direct insert uses a service-role client", () => {
+    const offenders: string[] = [];
+    for (const dir of SCAN_DIRS) {
+      // Edge functions build their client from the service-role key (no user session exists there), so they are out of scope.
+      if (dir.startsWith("supabase/functions")) continue;
+      for (const full of sourceFiles(join(REPO_ROOT, dir))) {
+        const text = readFileSync(full, "utf8");
+        for (const start of findSessionInserts(text)) {
+          offenders.push(`${relative(REPO_ROOT, full)}:${text.slice(0, start).split("\n").length}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the scan can see a violation (sabotage check)", () => {
+    expect(findSessionInserts(`await supabase.from("audit_log").insert({ action: "x" });`)).toHaveLength(1);
+    expect(findSessionInserts(`await deps.supabase\n  .from("audit_log")\n  .insert({ action: "x" });`)).toHaveLength(1);
+    expect(findSessionInserts(`await svc.from("audit_log").insert({ action: "x" });`)).toHaveLength(0);
+    expect(findSessionInserts(`await createServiceRoleClient()\n    .from("audit_log")\n    .insert({ a: 1 });`)).toHaveLength(0);
+    expect(findSessionInserts(`await serviceRoleSupabase.from("audit_log").insert({ a: 1 });`)).toHaveLength(0);
+  });
+});

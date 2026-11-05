@@ -123,24 +123,23 @@ async function loadFolios(
 
 async function recordDownloads(
   supabase: Client,
-  actorId: string,
   rows: { organisationId: string; patientId: string; medicationId: string; rxNumber: string; version: number }[],
   channel: "web" | "mobile",
   bundle: boolean,
   via: "patient" | "clinician" = "patient",
 ): Promise<string | null> {
-  const { error } = await supabase.from("audit_log").insert(
-    rows.map((row) => ({
-      organisation_id: row.organisationId,
-      actor_id: actorId,
-      action: "prescription.pdf_downloaded",
+  // One row per prescription, all or none, through record_audit_events (S2): the database stamps the actor (the session) and
+  // the organisation (the patient's), and checks each medication belongs to that patient and the caller may read it.
+  const { error } = await supabase.rpc("record_audit_events", {
+    p_action: "prescription.pdf_downloaded",
+    p_rows: rows.map((row) => ({
       entity_type: "medications",
       entity_id: row.medicationId,
       subject_patient_id: row.patientId,
       result: "success",
       event: { rx_number: row.rxNumber, version: row.version, channel, bundle, via },
     })),
-  );
+  });
   return error ? error.message : null;
 }
 
@@ -173,7 +172,6 @@ export async function loadSinglePrescription(
 
   const auditError = await recordDownloads(
     supabase,
-    actorId,
     [{ organisationId: medication.organisation_id, patientId: medication.patient_id, medicationId: medication.id, rxNumber: built.data.rxNumber, version: built.data.version }],
     channel,
     false,
@@ -235,7 +233,6 @@ export async function loadPrescriptionBundle(
   const byId = new Map(rows.map((row) => [row.id, row]));
   const auditError = await recordDownloads(
     supabase,
-    actorId,
     included.map((rx) => {
       const row = byId.get(rx.medicationId)!;
       return { organisationId: row.organisation_id, patientId: row.patient_id, medicationId: rx.medicationId, rxNumber: rx.rxNumber, version: rx.version };
@@ -293,7 +290,6 @@ export async function loadPrescriptionForClinician(
 
   const auditError = await recordDownloads(
     supabase,
-    actorId,
     [{ organisationId: medication.organisation_id, patientId, medicationId: medication.id, rxNumber: built.data.rxNumber, version: built.data.version }],
     "web",
     false,
