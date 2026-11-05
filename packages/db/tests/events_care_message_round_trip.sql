@@ -74,6 +74,11 @@ begin
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id)
   values (v_org, v_pat, v_doc);
 
+  -- MSG-1 (2026-11-04): only a Member may open a clinical thread, so both sending patients are Members.
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, granted_by, grant_reason, is_test)
+  values (v_org, v_pat, 'granted', 'active', v_admin, 'EV5 proof: a Member sends a clinical question', true),
+         (v_org, v_pat2, 'granted', 'active', v_admin, 'EV5 proof: a Member sends a clinical question', true);
+
   insert into fx values ('org', v_org), ('doc', v_doc), ('pat', v_pat), ('pat2', v_pat2), ('odoc', v_odoc), ('admin', v_admin);
 end $$;
 

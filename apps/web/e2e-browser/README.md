@@ -91,10 +91,11 @@ PAYSTACK_SECRET_KEY=sk_test_... scripts/local-paystack-e2e.sh   # refuses sk_liv
 ```
 
 It reads the stack's URL and keys from `supabase status -o env`, then seeds what a fresh
-reset lacks (none of it is sellable otherwise): the three membership `catalog_items`
-switched active with one open `prices` row each (129,000 / 84,000 / 45,000 naira, the
-2026-10-21 prices, `valid_from = now()` because of the tstzrange exclusion), a 10% test
-discount code `LOCALTEST10` (a fresh reset has none), the
+reset lacks (none of it is sellable otherwise): the Membership `catalog_items` row
+(`membership_annual_no_panel`) switched active with one open `prices` row at 100,000 naira
+(decision T2-01, 2026-11-04; `valid_from = now()` because of the tstzrange exclusion),
+Membership Plus and the upgrade left inactive because they are retired and never sold, a
+10% test discount code `LOCALTEST10` on the Membership only (a fresh reset has none), the
 `checkout_enabled` and `membership_billing_enabled` guards and the `v5_checkout` and
 `membership_two_member_tiers` modules switched on with their attribution columns filled
 (the guard triggers are skipped with `session_replication_role = replica`; the attribution
@@ -116,7 +117,7 @@ URL, and curl one-liners for `process-events` (assigns the lead clinician; a que
 trigger) and `order-reconcile` (closes a declined attempt and releases a single-use code).
 
 Then by hand: sign in at `http://localhost:3100/login`, open `/patient/membership`, apply
-`LOCALTEST10` to check quoting (84,000 becomes 75,600), pay, choose the **Success** radio on
+`LOCALTEST10` to check quoting (100,000 becomes 90,000), pay, choose the **Success** radio on
 Paystack's hosted test page (no card number needed), and land on "Payment received". The
 return page calls `order-verify` locally; Paystack's webhook never reaches a laptop, so
 the verify path is what marks the order paid. Check `orders.state = 'paid'` and an

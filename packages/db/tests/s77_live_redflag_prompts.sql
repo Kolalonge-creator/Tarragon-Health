@@ -129,8 +129,8 @@ insert into results values ('real', 'G-01: an admin opens the feature without it
   pg_temp.sql_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('live_redflag_prompts_enabled', true, 'G-01 proof: a feature opens without conditions')$q$) || '|' ||
   pg_temp.sql_as(pg_temp.f('admin'), $q$select public.set_go_live_guard('live_redflag_prompts_enabled', false, 'G-01 proof: held again so the closed checks below still hold')$q$) || '|' ||
   (select is_on::text from public.go_live_guards where key = 'live_redflag_prompts_enabled'));
-insert into results values ('real', 'the older S28c guard conditions are unchanged (prescribing still has its pharmacy conditions)', 'true',
-  (select (jsonb_array_length(private.go_live_conditions('prescribing_enabled', null)) >= 6)::text));
+insert into results values ('real', 'the prescribing guard still answers with its own conditions (T2-11: three, no partner pharmacy)', 'true',
+  (select (jsonb_array_length(private.go_live_conditions('prescribing_enabled', null)) = 3)::text));
 
 -- 1a. guard OFF, real patient: refused. The test pair passes while the guard is off.
 insert into results values ('real', 'guard off, real patient: refused (P0001)', 'ERR:P0001',
