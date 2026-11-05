@@ -1,6 +1,11 @@
 /** @jest-environment node */
 import { describe, expect, it } from "@jest/globals";
-import { draftNarrativeRules, matchNarrativeRules, pagingTierFor } from "./narrative-rules";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { getProposedConfig } from "@tarragon/shared";
+import { hashConfigValue } from "@/lib/go-live/model";
+import cases from "./narrative-rules.cases.json";
+import { draftNarrativeRules, matchNarrativeRules, pagingTierFor, type NarrativeFields } from "./narrative-rules";
 
 describe("draft narrative urgent-finding rules (CDE-01, unsigned)", () => {
   it("is a PROPOSED rule set owned by the CMO", () => {
@@ -83,5 +88,39 @@ describe("paging tier per rule (CMO decision 2026-11-04, CDE-09)", () => {
     expect(pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "carcinoma" }), typo)).toBe("emergency");
     const missing = { ...base, paging_tier_by_rule: {} } as unknown as typeof base;
     expect(pagingTierFor(matchNarrativeRules({ pathologyDiagnosis: "carcinoma" }), missing)).toBe("emergency");
+  });
+});
+
+// CDE-10: the rules act in the database (private.match_narrative_rules). These keep the three copies identical: the registry value the
+// CMO confirmed, the copy the migration loads, and the shared cases both matchers are checked against.
+const repo = join(__dirname, "../../../../..");
+const migration = (): string => {
+  const dir = join(repo, "supabase/migrations");
+  const file = readdirSync(dir).find((f) => f.endsWith("_cde10_apply_narrative_urgent_rules.sql"));
+  if (!file) throw new Error("cde10 migration not found");
+  return readFileSync(join(dir, file), "utf8");
+};
+
+describe("narrative rules in the database (CDE-10)", () => {
+  it("passes every shared case with the app matcher", () => {
+    for (const c of cases as Array<{ name: string; fields: NarrativeFields; expected: unknown }>) {
+      expect({ name: c.name, got: matchNarrativeRules(c.fields, draftNarrativeRules()) }).toEqual({ name: c.name, got: c.expected });
+    }
+  });
+
+  it("loads exactly the registry value, with the fingerprint the CMO confirmed", () => {
+    const sql = migration();
+    const m = /values \(1, '(.+)'::jsonb, '([0-9a-f]{64})'\);/.exec(sql);
+    expect(m).not.toBeNull();
+    const value = getProposedConfig("documents.narrative_urgent_rules").value;
+    expect(JSON.parse(m![1]!.replace(/''/g, "'"))).toEqual(value);
+    expect(m![2]).toBe(hashConfigValue(value));
+  });
+
+  it("runs the same cases in the database proof", () => {
+    const proof = readFileSync(join(repo, "packages/db/tests/cde10_apply_narrative_urgent_rules.sql"), "utf8");
+    const m = /-- CASES-BEGIN\n\s*v_cases jsonb := '(.+)'::jsonb;\n\s*-- CASES-END/.exec(proof);
+    expect(m).not.toBeNull();
+    expect(JSON.parse(m![1]!.replace(/''/g, "'"))).toEqual(cases);
   });
 });
