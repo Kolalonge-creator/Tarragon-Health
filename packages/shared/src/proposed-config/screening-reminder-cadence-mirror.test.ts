@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "./index";
+import type { ConfigValue } from "./registry";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
@@ -21,7 +22,7 @@ function seeded(version: 1 | 2): unknown {
 }
 
 type Step = { code: string; offsetDays: number; untilDays: number | null; stage: string; push: boolean };
-type Cadence = { steps: Step[]; coordinatorFollowUp: { afterStage: string }; defer: unknown };
+type Cadence = { steps: Step[]; coordinatorFollowUp: { afterStage: string }; defer: ConfigValue };
 
 describe("screening.reminder_cadence mirrors screening_reminder_configs", () => {
   it("v1 is the seeded history row and v2 the active one, value for value", () => {
