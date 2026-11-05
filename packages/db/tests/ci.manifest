@@ -1883,3 +1883,7 @@ cde10_apply_narrative_urgent_rules.sql
 t2_13_plus_renews_as_membership.sql
 # T2-11 (2026-11-04): with zero partner pharmacies the prescribing master names no pharmacy condition; a real senior doctor signs, the patient reads the rx number, code and QR token, and anon verifies it at /verify-rx; partner collection is still refused (pharmacy_collection_on false, patient list 55000); tier and controlled-medicine rules hold. Sabotage x2: partner readiness replaced by true; the old partner conditions.
 t2_11_prescribing_take_anywhere.sql
+# Security audit H-2 (2026-11-05): in the lab-result, ECG, imaging and referral-outcome buckets a patient can update and delete files they uploaded themselves, but not a file the care team or a lab wrote into their folder (owner_id null), and another patient can touch neither. Sabotage: the old folder-only lab-result policies put back let the patient overwrite and delete the care team's report.
+result_files_patient_may_only_change_own_uploads.sql
+# Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
+seat_invite_preflight_checks.sql
