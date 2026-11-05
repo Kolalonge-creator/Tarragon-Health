@@ -58,7 +58,7 @@ function Heading({ id, children, invert = false }: { id: string; children: React
 
 const AUDIENCES = [
   { href: MARKETING_ROUTES.membership, title: "For me", detail: "A free account, or Membership", Icon: UserRound },
-  { href: MARKETING_ROUTES.gift, title: "For a parent or relative", detail: "Support someone in Nigeria from anywhere", Icon: HeartHandshake },
+  { href: MARKETING_ROUTES.families, title: "For a parent or relative", detail: "Support someone in Nigeria from anywhere", Icon: HeartHandshake },
   { href: MARKETING_ROUTES.corporate, title: "For my employees", detail: "Membership for your whole team", Icon: BriefcaseBusiness },
 ] as const;
 
@@ -236,7 +236,7 @@ const SERVICES = [
   {
     title: "Family support",
     items: ["Care Circle, with your consent", "Pay for a relative's Membership", "You control what is shared"],
-    href: MARKETING_ROUTES.gift,
+    href: MARKETING_ROUTES.families,
     cta: "Explore family support",
     Icon: Users,
   },
@@ -360,7 +360,7 @@ export function HomeFamilies() {
           </ul>
           <p className="mt-2">
             <Link
-              href={MARKETING_ROUTES.gift}
+              href={MARKETING_ROUTES.families}
               className={`inline-flex h-12 items-center justify-center rounded-full bg-brand-green px-6 font-semibold text-white hover:bg-brand-green/90 ${FOCUS}`}
             >
               Support a family member

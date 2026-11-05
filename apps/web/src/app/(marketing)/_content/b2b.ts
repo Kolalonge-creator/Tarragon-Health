@@ -23,7 +23,7 @@ export type B2bPartnerOffer = {
 };
 
 export type B2bPageContent = {
-  slug: "corporate" | "hmo";
+  slug: "corporate";
   headline: string;
   campaignLine: string;
   intro: string;
@@ -46,7 +46,10 @@ export type B2bPageContent = {
   partnerOffer?: B2bPartnerOffer;
 };
 
-export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
+// The HMO page was folded into /corporate#insurers on 2026-11-05 (W-05) and its
+// content deleted with it: it typed a 24/12-hour follow-up promise that lives in
+// the signed escalation_slas, and carried example member figures.
+export const B2B_PAGES: Record<"corporate", B2bPageContent> = {
   corporate: {
     slug: "corporate",
     headline: "Help your workforce detect and manage chronic disease risk.",
@@ -101,64 +104,11 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       points: [
         "Your organisation funds a fixed, agreed number of people, and each person's own care stays private and confidential",
         "Tarragon provides the clinical review, referral to a doctor and follow-up, using the same pathway as for any Tarragon patient",
-        "You receive aggregate programme reporting only (activations, completed follow-up and outcome measures), and never an individual's result or diagnosis",
+        "Any programme reporting is agreed with you before the programme starts, and it is only ever counts for the group, never an individual's result or diagnosis",
         "This can work alongside a grant you already hold, a subcontracted programme or a direct partnership, whichever suits your funding",
       ],
       ctaLabel: "Discuss a funded programme",
       ctaRole: "ngo",
     },
   },
-  hmo: {
-    slug: "hmo",
-    headline: "Monitor member risk, follow up on missed care, and generate outcome evidence.",
-    campaignLine: "Follow up on missed care, monitor risk and show the outcomes.",
-    pullQuote: "We do not only manage chronic disease. We detect it earlier, and we can show the evidence.",
-    intro:
-      "Members receive the same clinical monitoring, reminders and doctor referral as any Tarragon patient. You receive population-level risk data, tracking of missed care and outcome reporting designed for renewal discussions.",
-    hero: {
-      imageSrc: "/marketing/photos/hero/hmo.jpg",
-      imageAlt: "Two business partners shaking hands in an office lobby",
-      imageFocus: "center 24%",
-    },
-    included: [
-      "Population risk stratification, updated as members are monitored",
-      "Missed care followed up until it is completed, not only flagged",
-      "Doctor follow-up within 24 hours on an abnormal screening result, and within 12 hours if it is critical",
-      "Outcome reporting designed for renewal discussions",
-      "The same clinical referral pathway as every TarragonHealth patient",
-    ],
-    exampleTitle: "What member reporting looks like",
-    exampleNote: EXAMPLE_DATA_NOTE,
-    exampleStats: [
-      { label: "Members monitored", value: "4,820" },
-      { label: "Missed care completed (90 days)", value: "", pill: { text: "+31%", tone: "green" } },
-      { label: "Abnormal results caught early", value: "146" },
-      { label: "Claims impact", value: "Included in your report" },
-    ],
-    howItWorks: [
-      {
-        title: "Onboard your members",
-        body: "Members are monitored in the same way as any Tarragon patient: vital signs, medication and preventive screening, all on one record.",
-      },
-      {
-        title: "Follow up and detect risk early",
-        body: "Missed care is followed up until it is completed, and abnormal results prompt immediate doctor follow-up rather than being left open.",
-      },
-      {
-        title: "Report on outcomes",
-        body: "Population risk and outcome data are prepared for your team as evidence you can bring to renewal discussions, not only a claims log.",
-      },
-    ],
-    ctaLabel: "Talk to TarragonHealth",
-    metadata: pageMetadata({
-      title: "HMO Support",
-      description:
-        "Monitor member risk, follow up on missed care and generate outcome evidence: chronic disease and preventive care for HMO members.",
-      path: MARKETING_ROUTES.hmo,
-    }),
-  },
 };
-
-export function getB2bPage(slug: string): B2bPageContent | undefined {
-  return slug === "corporate" || slug === "hmo" ? B2B_PAGES[slug] : undefined;
-}
