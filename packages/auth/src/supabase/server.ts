@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@tarragon/shared";
+import { sessionCookieOptions } from "./cookie-options";
 
 /**
  * Server Supabase client — for Server Components, Server Actions, and Route
@@ -20,6 +21,7 @@ export const createClient = cache(async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: sessionCookieOptions(),
       cookies: {
         getAll() {
           return cookieStore.getAll();

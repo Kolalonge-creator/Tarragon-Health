@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@tarragon/shared";
+import { sessionCookieOptions } from "./cookie-options";
 
 /**
  * Refreshes the Supabase session cookie for the current request/response
@@ -18,6 +19,7 @@ export async function updateSession(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: sessionCookieOptions(),
       cookies: {
         getAll() {
           return request.cookies.getAll();
