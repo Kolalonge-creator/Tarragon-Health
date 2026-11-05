@@ -71,7 +71,7 @@ export default async function MembershipPage() {
     {
       question: "How do the doctor meetings work?",
       answer:
-        "You book your monthly online video meeting in the app, choosing from the times available. Your doctor can see your record and recent results during the call. Between calls you can send written questions to your care team.",
+        "You book your monthly online video meeting in the app, choosing from the times available. The doctor can see your record and recent results during the call. Between calls you can send written questions to your care team.",
     },
     ...planFaq(refundDays, autoRenews),
   ];

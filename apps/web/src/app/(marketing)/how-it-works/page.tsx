@@ -72,7 +72,7 @@ function steps(member: string): Step[] {
     },
     {
       title: "Watch your health over time",
-      body: "Every reading and result builds one record, so you and your doctor can see trends, not just single numbers.",
+      body: "Every reading and result builds one record, so you and your care team can see trends, not just single numbers.",
       plan: "Every plan",
     },
   ];
