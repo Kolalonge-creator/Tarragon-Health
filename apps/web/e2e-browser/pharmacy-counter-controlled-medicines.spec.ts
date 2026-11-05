@@ -132,6 +132,12 @@ test.describe("pharmacy counter: controlled medicines (OQ-276)", () => {
       insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
         select 'prescribing_enabled', 'switched_on', p.id, 'admin', 'OQ-276 browser e2e', '[]'::jsonb from public.profiles p order by p.created_at limit 1;
       update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles order by created_at limit 1), change_note = 'OQ-276 browser e2e' where key = 'prescribing_enabled';
+      -- T2-11: partner collection also needs the collection rules confirmed and the pharmacy notification sender attested
+      insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)
+        select 'pharmacy.collection_rules', coalesce((select version from public.pharmacy_config where is_active), (select max(version) from public.pharmacy_config)),
+               repeat('0', 64), 'Founder', 'confirmed', '[e2e-test] OQ-276 browser e2e', (select id from public.profiles order by created_at limit 1);
+      insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+        values ('prescribing_enabled', 'notification_sender_deployed', true, '[e2e-test] OQ-276 browser e2e', (select id from public.profiles order by created_at limit 1));
       commit;`);
 
     controlledRx = await signedPrescription("Tramadol 50mg");
